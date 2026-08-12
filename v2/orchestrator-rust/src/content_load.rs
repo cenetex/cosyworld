@@ -723,6 +723,8 @@ pub(super) struct SeedActorContent {
     #[serde(default)]
     pub(super) ambient_autonomy: Option<bool>,
     #[serde(default)]
+    pub(super) roaming: Option<bool>,
+    #[serde(default)]
     pub(super) location_id: Option<u64>,
     #[serde(default)]
     pub(super) stats: Option<SeedStatBlockContent>,

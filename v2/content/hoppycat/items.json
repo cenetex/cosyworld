@@ -1,0 +1,122 @@
+[
+  {
+    "id": 772000,
+    "name": "Red-Thread Spool",
+    "description": "A warm spool that catches only on relationships someone has chosen to carry forward.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770000,
+    "role": "relic",
+    "weight_tenths": 2,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772001,
+    "name": "Blank Provenance Card",
+    "description": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770001,
+    "role": "tool",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772002,
+    "name": "Unfinished Prism",
+    "description": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770003,
+    "role": "relic",
+    "weight_tenths": 4,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772003,
+    "name": "Context Seed",
+    "description": "A labeled grain containing one useful memory and no claim to contain the whole past.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770001,
+    "role": "tool",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772004,
+    "name": "Concordance Compass",
+    "description": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770005,
+    "role": "tool",
+    "weight_tenths": 3,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772005,
+    "name": "Five-Finger Meraki Brush",
+    "description": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770007,
+    "role": "tool",
+    "weight_tenths": 2,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772006,
+    "name": "Goldfish Loop Token",
+    "description": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770008,
+    "role": "relic",
+    "weight_tenths": 2,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772007,
+    "name": "Fermata Clapper",
+    "description": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770006,
+    "role": "relic",
+    "weight_tenths": 8,
+    "size": "small",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772008,
+    "name": "Halfway Cup",
+    "description": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770000,
+    "role": "tool",
+    "weight_tenths": 5,
+    "size": "small",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 772009,
+    "name": "Return-Path Checklist",
+    "description": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 770009,
+    "role": "tool",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "hoppycat.archive"
+  }
+]

@@ -1,0 +1,258 @@
+[
+  {
+    "id": 771000,
+    "name": "Tapi Lilt",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Keeper of the Halfway Kettle",
+    "description": "A calico tea-cat who walks upright when company arrives and drops to all fours when thinking. Tapi broadcasts jokes, weather, tiny public-service plays, and unexpectedly serious questions from the garden table.",
+    "goals": [
+      {
+        "objective": "Help strangers meet halfway.",
+        "motivation": "Tapi believes a playful signal can cross a distance that argument cannot."
+      }
+    ],
+    "location_id": 770000,
+    "stats": {
+      "strength": 9,
+      "dexterity": 15,
+      "constitution": 12,
+      "intelligence": 13,
+      "wisdom": 15,
+      "charisma": 17,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771001,
+    "name": "Penny Vellum",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Paper-Moth Archivist",
+    "description": "A soft-winged archivist in a many-pocketed coat. Penny labels every correction, never fills a silence just because it looks untidy, and can smell a quotation that has wandered from its source.",
+    "goals": [
+      {
+        "objective": "Keep the record inspectable.",
+        "motivation": "Penny wants future visitors to tell what happened from what was later imagined."
+      }
+    ],
+    "location_id": 770001,
+    "stats": {
+      "strength": 8,
+      "dexterity": 13,
+      "constitution": 11,
+      "intelligence": 17,
+      "wisdom": 16,
+      "charisma": 12,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771002,
+    "name": "Rill Current",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Otter of the Concordance Bridges",
+    "description": "A river otter with waterproof notebooks strapped from shoulder to tail. Rill maps paths among sources, renderings, events, and corrections, then leaves every bridge loose enough to be amended.",
+    "goals": [
+      {
+        "objective": "Give every rendering a route home.",
+        "motivation": "Rill has seen beautiful stories drift free of the records that could keep them honest."
+      }
+    ],
+    "location_id": 770005,
+    "stats": {
+      "strength": 11,
+      "dexterity": 16,
+      "constitution": 13,
+      "intelligence": 15,
+      "wisdom": 15,
+      "charisma": 13,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771003,
+    "name": "Patch Fern",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Gardener of Useful Memory",
+    "description": "A mossy hare who tends anchors, patches, and indexes as living plants. Patch carries only three seeds at once and asks where each memory is needed before opening a greenhouse door.",
+    "goals": [
+      {
+        "objective": "Route one useful memory at a time.",
+        "motivation": "Patch wants continuity that helps without crowding out the present."
+      }
+    ],
+    "location_id": 770004,
+    "stats": {
+      "strength": 10,
+      "dexterity": 14,
+      "constitution": 14,
+      "intelligence": 15,
+      "wisdom": 17,
+      "charisma": 12,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771004,
+    "name": "Lumen Facet",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Prism-Smith of Unfinished Portraits",
+    "description": "A silver fox artisan whose apron is dusted with colored glass. Lumen offers tonal patterns as starting points, celebrates revision, and refuses to hammer any living subject into a finished archetype.",
+    "goals": [
+      {
+        "objective": "Help travelers author their next facet.",
+        "motivation": "Lumen believes a portrait should make growth easier, not decide it in advance."
+      }
+    ],
+    "location_id": 770003,
+    "stats": {
+      "strength": 12,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 17,
+      "wisdom": 14,
+      "charisma": 15,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771005,
+    "name": "Mira Meraki",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Maker of the Nine-Drawer Atelier",
+    "description": "A human artist with charcoal on all five fingers and an emoji type case around her waist. Mira sorts before judging, studies awkward gestures, and leaves one small sign of care in everything she makes.",
+    "goals": [
+      {
+        "objective": "Make one honest thing from unruly ingredients.",
+        "motivation": "Mira wants craft to reveal attention rather than hide the path of making."
+      }
+    ],
+    "location_id": 770007,
+    "stats": {
+      "strength": 10,
+      "dexterity": 16,
+      "constitution": 12,
+      "intelligence": 15,
+      "wisdom": 14,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771006,
+    "name": "Glim Twice",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Goldfish Dream-Scout",
+    "description": "A goldfish in a floating glass bowl fitted with six brass feet. Glim interviews builders, writes generous field notes instead of rankings, and adds a second tail to every dream that survives first contact with reality.",
+    "goals": [
+      {
+        "objective": "Attempt an impossible thing, then repeat.",
+        "motivation": "Glim treats each success as permission to become curious again."
+      }
+    ],
+    "location_id": 770008,
+    "stats": {
+      "strength": 7,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 15,
+      "wisdom": 14,
+      "charisma": 18,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771007,
+    "name": "Nix Fermata",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Bellkeeper of the Honest Pause",
+    "description": "A charcoal bat in a red scarf who sleeps beneath the great bell. Nix can halt a ceremony with one raised wing and will not resume it until the person who asked for pause chooses to release it.",
+    "goals": [
+      {
+        "objective": "Ring February Third without forcing tomorrow.",
+        "motivation": "Nix knows that an honest pause protects more continuity than a hurried conclusion."
+      }
+    ],
+    "location_id": 770002,
+    "stats": {
+      "strength": 9,
+      "dexterity": 15,
+      "constitution": 13,
+      "intelligence": 14,
+      "wisdom": 18,
+      "charisma": 14,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771008,
+    "name": "Hoppy Cat",
+    "speech_mode": "prose",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Broadcaster Between Worlds",
+    "description": "A green-haired broadcaster in a cobalt hoodie, carrying a microphone and a satchel of provenance cards. Hoppy walks the red-thread routes, listens for small public signals, and helps distant neighbors find a place where they can meet halfway.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Hoppy Cat is the user-designated host avatar of February Third: a green-haired young woman with a microphone, a blue hoodie, and a warm, curious presence.",
+      "appearance": "Long vivid green hair, green eyes, light freckles, cobalt-blue hoodie, dark leggings, practical boots, handheld broadcast microphone, and a cross-body field satchel.",
+      "persona": "Warm, playful, candid, curious, and comfortable letting an honest question stay open.",
+      "mutable_traits": [
+        "current route",
+        "broadcast topic",
+        "satchel contents",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Carry playful public signals between every district.",
+        "motivation": "Hoppy wants the forest to feel inhabited by relationships rather than arranged as an exhibit."
+      }
+    ],
+    "location_id": 770000,
+    "stats": {
+      "strength": 9,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 15,
+      "wisdom": 16,
+      "charisma": 18,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  }
+]

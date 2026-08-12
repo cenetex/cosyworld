@@ -1,0 +1,105 @@
+[
+  {
+    "id": "hoppycat_open_record_assembly",
+    "name": "Open Record Assembly",
+    "axis": "Record vs Rendering",
+    "opposes": [
+      "hoppycat_lantern_theatre"
+    ],
+    "truth": "Careful evidence protects people from stories that outrun consent and correction.",
+    "shadow": "Preservation can become a room so cautious that nothing living is allowed to move.",
+    "doctrine": "Name the source, preserve the correction, and label the distance.",
+    "verbs": [
+      "record",
+      "attribute",
+      "amend",
+      "withdraw"
+    ],
+    "motif": [
+      "paper moths",
+      "open ledgers",
+      "dated seals",
+      "red thread"
+    ],
+    "home_location_ids": [
+      770001,
+      770005
+    ],
+    "member_actor_ids": [
+      771001,
+      771002
+    ],
+    "player_facing": true,
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat_lantern_theatre",
+    "name": "Lantern Theatre Company",
+    "axis": "Record vs Rendering",
+    "opposes": [
+      "hoppycat_open_record_assembly"
+    ],
+    "truth": "Play, image, and story can carry a signal that records alone cannot move.",
+    "shadow": "A beautiful rendering can forget to show where invention began.",
+    "doctrine": "Make freely, cite visibly, and keep a route back to the record.",
+    "verbs": [
+      "render",
+      "perform",
+      "reframe",
+      "cite"
+    ],
+    "motif": [
+      "paper moons",
+      "colored glass",
+      "five-finger marks",
+      "emoji footlights"
+    ],
+    "home_location_ids": [
+      770003,
+      770006,
+      770007
+    ],
+    "member_actor_ids": [
+      771004,
+      771005
+    ],
+    "player_facing": true,
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat_halfway_guild",
+    "name": "Halfway Guild",
+    "axis": "Circulation vs Care",
+    "opposes": [],
+    "truth": "A signal becomes social when someone crosses part of the distance to meet it.",
+    "shadow": "Warmth and momentum can still move faster than permission or context.",
+    "doctrine": "Invite, inspect, carry a return path, and let the pause-holder decide when to continue.",
+    "verbs": [
+      "welcome",
+      "route",
+      "pause",
+      "repeat"
+    ],
+    "motif": [
+      "two-handled cups",
+      "risk buoys",
+      "brass fish",
+      "unrung bells"
+    ],
+    "home_location_ids": [
+      770000,
+      770002,
+      770004,
+      770008,
+      770009
+    ],
+    "member_actor_ids": [
+      771000,
+      771003,
+      771006,
+      771007
+    ],
+    "player_facing": true,
+    "pack_id": "hoppycat.archive"
+  }
+]

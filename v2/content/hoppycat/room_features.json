@@ -1,0 +1,190 @@
+[
+  {
+    "location_id": 770000,
+    "key": "halfway-table",
+    "name": "Halfway Table",
+    "aliases": [
+      "table",
+      "tea table",
+      "empty cup"
+    ],
+    "look": "A round table adjusts itself until every guest can meet the others at eye level. One cup always waits empty.",
+    "search": "Beneath the table, a red thread connects a source card, a theatre ticket, and a note reading: carry only what can still answer back.",
+    "uses": [
+      {
+        "item_id": 772008,
+        "text": "The two handles bring the Halfway Cup level between two seats. Tapi sets the completed footnote beside the tea where every guest can reach it."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770001,
+    "key": "open-record-ledger",
+    "name": "Open Record Ledger",
+    "aliases": [
+      "ledger",
+      "record",
+      "corrections"
+    ],
+    "look": "The ledger shows source entries, later renderings, corrections, and withdrawals in different inks.",
+    "search": "A pale erased line remains readable beside its correction. The page does not hide that the record changed.",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770002,
+    "key": "red-thread-wheel",
+    "name": "Red-Thread Wheel",
+    "aliases": [
+      "wheel",
+      "thread",
+      "bell mechanism"
+    ],
+    "look": "Thousands of chosen continuities enter the wheel, but several loose ends keep the February Third bell from turning.",
+    "search": "Five sockets are marked RECORD, CONTEXT, FACET, RETURN, and PAUSE. No socket is labeled CERTAINTY.",
+    "uses": [
+      {
+        "item_id": 772007,
+        "text": "The Fermata Clapper settles into the PAUSE socket. The bell mechanism stops until Nix receives a clear signal to continue."
+      },
+      {
+        "item_id": 772000,
+        "text": "The Red-Thread Spool binds the completed sockets to the wheel. The mechanism turns once and leaves every knot visible."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770003,
+    "key": "unfinished-portrait",
+    "name": "Unfinished Prism Portrait",
+    "aliases": [
+      "portrait",
+      "prism",
+      "easel"
+    ],
+    "look": "An easel holds a portrait made of movable glass facets. Blank space waits without apology around the subject.",
+    "search": "The frame is engraved: a starting pattern is not a verdict. The final facet has deliberately been left unfastened.",
+    "uses": [
+      {
+        "item_id": 772002,
+        "text": "The subject places the Unfinished Prism in the frame. A new color crosses the portrait while the movable facet remains within reach."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770004,
+    "key": "empty-memory-bed",
+    "name": "Empty Memory Bed",
+    "aliases": [
+      "bed",
+      "patch bed",
+      "garden bed"
+    ],
+    "look": "A small garden bed sits between the always-open anchor room and a locked library greenhouse.",
+    "search": "Its label requests one relevant memory, a reason for planting it here, and a route for later amendment.",
+    "uses": [
+      {
+        "item_id": 772003,
+        "text": "The labeled grain enters the prepared bed. Patch records its purpose and leaves the amendment gate unlatched."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770005,
+    "key": "source-current",
+    "name": "Source Current",
+    "aliases": [
+      "current",
+      "tide pool",
+      "source pool"
+    ],
+    "look": "Three currents flow side by side: custody, event evidence, and interpretation. They touch without merging.",
+    "search": "A card can be completed here by observing which current carried each part of the thing being described.",
+    "uses": [
+      {
+        "item_id": 772001,
+        "text": "The Blank Provenance Card fills one field beside each current. Unresolved fields remain marked instead of borrowing an answer."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770006,
+    "key": "settled-stage",
+    "name": "Settled-Light Stage",
+    "aliases": [
+      "stage",
+      "footlights",
+      "play"
+    ],
+    "look": "Paper scenery glows under gentle lamps. A blank hook in the playbill waits for the route back to source.",
+    "search": "The scenery is openly theatrical; the unresolved question is whether the audience can still find the record afterward.",
+    "uses": [
+      {
+        "item_id": 772004,
+        "text": "The Concordance Compass separates into three needles above the stage. Rill copies their routes into the blank playbill hook."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770007,
+    "key": "nine-drawer-workbench",
+    "name": "Nine-Drawer Workbench",
+    "aliases": [
+      "workbench",
+      "drawers",
+      "gesture wall"
+    ],
+    "look": "Nine drawers hold fragments of subject, style, texture, quality, and useful weirdness. The work surface bears five charcoal fingerprints.",
+    "search": "A half-finished hand study improves when its awkward gesture is preserved instead of polished into a stock pose.",
+    "uses": [
+      {
+        "item_id": 772005,
+        "text": "The Five-Finger Meraki Brush pulls one ingredient from each chosen drawer into a rough first image. Five distinct marks remain along its edge."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770008,
+    "key": "impossible-dream-bowl",
+    "name": "Impossible Dream Bowl",
+    "aliases": [
+      "bowl",
+      "dream",
+      "repeat ring"
+    ],
+    "look": "Paper dreams circle the bowl. Completed ones sprout a second tail and rejoin the current instead of entering a trophy case.",
+    "search": "One bright slip asks for a thing small enough to attempt today and strange enough to matter tomorrow.",
+    "uses": [
+      {
+        "item_id": 772006,
+        "text": "The Goldfish Loop Token passes around the bright dream slip. A second paper tail unfolds with space for the next attempt."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "location_id": 770009,
+    "key": "launch-rail",
+    "name": "Return-Path Launch Rail",
+    "aliases": [
+      "rail",
+      "launch",
+      "risk buoys"
+    ],
+    "look": "A brass rail points beyond the forest, flanked by risk buoys and a thick rope leading home.",
+    "search": "A vessel cannot leave until its checklist names consent, likely harm, source, correction channel, and return path.",
+    "uses": [
+      {
+        "item_id": 772009,
+        "text": "The Return-Path Checklist clips to the vessel after every field is answered. The rail releases while the home rope remains attached."
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  }
+]

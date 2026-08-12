@@ -13,7 +13,7 @@ stack. The live V2 orchestrator runs in the `cosyworld-lonelyforest` Fly app.
 - ACM certificate for `lonelyforest.com`, `www.lonelyforest.com`,
   `lonelyforestlibrary.com`, and `www.lonelyforestlibrary.com`.
 - Route 53 alias records for both domains.
-- Route 53 CNAME records that send the `0`, `7`, `89`, and `lantern`
+- Route 53 CNAME records that send the `0`, `7`, `89`, `lantern`, and `hoppycat`
   worldpack hosts to the shared `cosyworld-lonelyforest` Fly app, plus optional
   delegated Fly certificate validation.
 - S3 private bucket plus CloudFront distribution for the archive site in

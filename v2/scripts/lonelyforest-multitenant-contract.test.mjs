@@ -74,7 +74,10 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
       );
     }
   }
-  assert.deepEqual(tenants.filter((tenant) => tenant.required).map((tenant) => tenant.slug), ["root", "7", "89", "lantern"]);
+  assert.deepEqual(
+    tenants.filter((tenant) => tenant.required).map((tenant) => tenant.slug),
+    ["root", "7", "89", "lantern", "hoppycat"],
+  );
   assert.deepEqual(tenants.filter((tenant) => !tenant.required).map((tenant) => tenant.slug), ["0"]);
   assert.match(supervisor, /optional tenant \$slug registry is absent/);
   assert.match(nginx, /return 503 '\{"ok":false,"error":"Elysium is not installed in this release"\}'/);
@@ -197,6 +200,33 @@ test("Lonely Forest deploy gate proves every configured tenant before image repl
   assert.ok(results.every((result) => result.ok));
 });
 
+test("a new tenant can bootstrap only while its live identity is absent", async () => {
+  const hashes = await candidateHashes();
+  const unavailableHoppycat = async (url) => {
+    const host = new URL(url).host;
+    if (host === "hoppycat.lonelyforest.com") throw new Error("not installed");
+    return new Response(JSON.stringify({ worldpack: { bundle_hash: hashes.get(host) } }), { status: 200 });
+  };
+  const results = await verifyLonelyForestTenants({
+    fetchImpl: unavailableHoppycat,
+    freshEmptyTenants: new Set(["hoppycat"]),
+    log: () => {},
+  });
+  assert.equal(results.find((result) => result.tenant.slug === "hoppycat")?.status, "fresh_install");
+
+  await assert.rejects(
+    verifyLonelyForestTenants({
+      fetchImpl: async (url) => {
+        const host = new URL(url).host;
+        return new Response(JSON.stringify({ worldpack: { bundle_hash: hashes.get(host) } }), { status: 200 });
+      },
+      freshEmptyTenants: new Set(["hoppycat"]),
+      log: () => {},
+    }),
+    /fresh install for hoppycat was supplied but live \/meta was available/,
+  );
+});
+
 test("Lantern-style tenant mismatch blocks the release before Fly deployment", async () => {
   const hashes = await candidateHashes();
   const mismatch = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -265,7 +295,7 @@ test("required-tenant health monitor fails the Machine after startup grace when 
     const fakeCurl = resolve(binDir, "curl");
     const tenantConfig = resolve(deploymentRoot, "tenants.tsv");
     await mkdir(binDir);
-    await writeFile(fakeCurl, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$FAKE_CURL_LOG\"\ncase \"$*\" in *:3180*) exit 1 ;; *) exit 0 ;; esac\n");
+    await writeFile(fakeCurl, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$FAKE_CURL_LOG\"\ncase \"$*\" in *:3177*) exit 1 ;; *) exit 0 ;; esac\n");
     await chmod(fakeCurl, 0o755);
     const result = await new Promise((resolveResult, reject) => {
       const child = spawn(
@@ -283,9 +313,9 @@ test("required-tenant health monitor fails the Machine after startup grace when 
       child.once("close", (code) => resolveResult({ code, output }));
     });
     assert.equal(result.code, 1, result.output);
-    assert.match(result.output, /required tenant lantern failed private \/health/);
+    assert.match(result.output, /required tenant hoppycat failed private \/health/);
     const requests = await readFile(curlLog, "utf8");
-    for (const port of ["3100", "3107", "3189", "3180"]) {
+    for (const port of ["3100", "3107", "3189", "3180", "3177"]) {
       assert.match(requests, new RegExp(`127\\.0\\.0\\.1:${port}/health`));
     }
     assert.doesNotMatch(requests, /127\.0\.0\.1:3101\/health/);

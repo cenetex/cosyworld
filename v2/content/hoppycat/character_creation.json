@@ -1,0 +1,127 @@
+[
+  {
+    "pack_id": "hoppycat.archive",
+    "pack_version": "0.3.0",
+    "profiles": [
+      {
+        "schema_version": 2,
+        "id": "hoppycat-february-third",
+        "name": "A Traveler of February Third",
+        "description": "Choose an original storybook avatar for a world of careful memory, playful signals, and self-authored change. Form and origin shape portrait and story; calling grants the starting skill.",
+        "entry_location_id": 770000,
+        "prompt": "Who wakes at the Halfway Tea Garden on another February Second?",
+        "class_prompt": "How will you help the world reach its next honest day?",
+        "default_choice_id": "route-keeper",
+        "class_recommendations": [
+          {
+            "offer_kind": "search",
+            "class_id": "route-keeper",
+            "explanation": "You followed evidence before choosing a conclusion, the same attentive practice a Route Keeper brings to the world."
+          },
+          {
+            "offer_kind": "help",
+            "class_id": "meraki-maker",
+            "explanation": "You helped someone without taking over their work, the same care a Meraki Maker leaves in every collaboration."
+          },
+          {
+            "offer_kind": "work",
+            "class_id": "red-thread-tender",
+            "explanation": "You stayed with a shared task until it changed, the same steadiness a Red-Thread Tender brings to the belfry."
+          }
+        ],
+        "default_species_id": "tea-cat",
+        "default_origin_id": "repeat-day",
+        "species": [
+          {
+            "id": "tea-cat",
+            "label": "Tea Cat",
+            "detail": "playful, observant, and willing to meet halfway",
+            "title": "Tea Cat",
+            "description": "An upright storybook cat with expressive paws, a practical satchel, and a cup sized for sharing.",
+            "visual_prompt": "original anthropomorphic tea cat traveler, expressive paws, layered cozy clothes, shared cup, storybook fantasy",
+            "campaign_rule": "Story and portrait only: Tea Cat does not change available actions, ability checks, or modifiers."
+          },
+          {
+            "id": "human",
+            "label": "Human",
+            "detail": "adaptable, handmade, and still becoming",
+            "title": "Human",
+            "description": "A human traveler with ink-marked hands, layered forest clothes, and a face the repeating day has not finished writing.",
+            "visual_prompt": "human traveler, ink-marked hands, layered cozy forest clothing, original storybook fantasy",
+            "campaign_rule": "Story and portrait only: Human does not change available actions, ability checks, or modifiers."
+          },
+          {
+            "id": "bowlfish",
+            "label": "Bowlfish",
+            "detail": "bright, curious, and carried by a clever little world",
+            "title": "Bowlfish",
+            "description": "A goldfish traveler inside a floating glass bowl with brass feet, ribbon pockets, and room for impossible plans.",
+            "visual_prompt": "original goldfish traveler in floating glass bowl with tiny brass legs, ribbon pockets, cozy whimsical fantasy",
+            "campaign_rule": "Story and portrait only: Bowlfish does not change available actions, ability checks, or modifiers."
+          }
+        ],
+        "origins": [
+          {
+            "id": "repeat-day",
+            "label": "The Repeating Day",
+            "detail": "you remember one thing yesterday keeps forgetting",
+            "title": "the Repeating Day",
+            "description": "They woke with one stubborn memory intact and followed it to the garden before dawn could reset it.",
+            "visual_prompt": "red calendar thread, frost at dawn, one glowing keepsake",
+            "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
+          },
+          {
+            "id": "great-blob-sea",
+            "label": "The Great Blob Sea",
+            "detail": "you washed ashore with a source card and no fixed interpretation",
+            "title": "the Great Blob Sea",
+            "description": "They learned to separate what the tide carried from the story they told about finding it.",
+            "visual_prompt": "luminous tide pools, waterproof source cards, sea-glass details",
+            "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
+          },
+          {
+            "id": "unfinished-portrait",
+            "label": "An Unfinished Portrait",
+            "detail": "you stepped out before the last facet could be decided for you",
+            "title": "an Unfinished Portrait",
+            "description": "They left the easel with blank space still visible and the brush safely in their own hand.",
+            "visual_prompt": "unfinished prism portrait, visible sketch lines, self-held brush",
+            "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
+          }
+        ],
+        "choices": [
+          {
+            "id": "route-keeper",
+            "label": "Route Keeper",
+            "detail": "trace sources, corrections, and safe paths home",
+            "calling": "I keep the path visible without deciding the destination for anyone else.",
+            "title": "Route Keeper",
+            "description": "An attentive traveler carrying a concordance compass, waterproof labels, and maps with room for amendment.",
+            "starting_skill_id": "listening",
+            "campaign_use": "Starts with Listening rank 1: +1 on Wisdom checks, useful when you notice, study, or compare evidence."
+          },
+          {
+            "id": "meraki-maker",
+            "label": "Meraki Maker",
+            "detail": "make with care and leave the seams honest",
+            "calling": "I place a little of my care in the work and leave space for yours.",
+            "title": "Meraki Maker",
+            "description": "A collaborative artist carrying a five-finger brush, odd prompt cards, and mending thread for imperfect drafts.",
+            "starting_skill_id": "kindness",
+            "campaign_use": "Starts with Kindness rank 1: +1 on Charisma checks, useful when you help, reassure, or invite collaboration."
+          },
+          {
+            "id": "red-thread-tender",
+            "label": "Red-Thread Tender",
+            "detail": "hold continuity through change without forcing the bell",
+            "calling": "I carry what was chosen, mark what changed, and honor the honest pause.",
+            "title": "Red-Thread Tender",
+            "description": "A steady belfry traveler with a warm thread spool, a small bell, and pockets full of dated knots.",
+            "starting_skill_id": "steadiness",
+            "campaign_use": "Starts with Steadiness rank 1: +1 on Constitution checks, useful when you endure repetition or keep careful work moving."
+          }
+        ]
+      }
+    ]
+  }
+]

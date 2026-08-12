@@ -11,6 +11,7 @@ processes; each worldpack has its own SQLite journal directory on that volume.
 | `7.lonelyforest.com` | Bethlehem (`700`) | Bethlehem, `3107` | `/data/worldpacks/7/events.sqlite` |
 | `89.lonelyforest.com` | Project 89, Threshold Interface (`8900`) | Project 89, `3189` | `/data/worldpacks/89/events.sqlite` |
 | `lantern.lonelyforest.com` | Lantern Keeper, Wayside Lantern Inn (`800`) | Lantern Keeper, `3180` | `/data/worldpacks/lantern/events.sqlite` |
+| `hoppycat.lonelyforest.com` | Hoppycat: February Third, Halfway Tea Garden (`770000`) | Hoppycat, `3177` | `/data/worldpacks/hoppycat/events.sqlite` |
 
 The orchestrator remains one authoritative world per process and is not allowed
 to select a journal from an untrusted `Host` or `X-Forwarded-Host` header.
@@ -87,7 +88,14 @@ names the tenant, live hash, candidate hash, and remediation. This proves both
 forward deploys and rollbacks: an older image cannot normally declare a
 snapshot hash created by a newer image.
 
-Required tenants are `root`, `7`, `89`, and `lantern`. Their supervisor exits
+A brand-new isolated tenant has no live `/meta` yet. Its first manual deployment
+may select that tenant in the workflow's `lonelyforest_fresh_empty_tenant`
+input. The workflow first proves the tenant's complete volume directory is
+absent or empty, then permits exactly that missing live identity to seed. The
+option fails if `/meta` is already live and must be left at `none` for every
+later deployment.
+
+Required tenants are `root`, `7`, `89`, `lantern`, and `hoppycat`. Their supervisor exits
 the Machine immediately when a child exits, and the required-tenant health
 monitor probes every required process's private `/health` after a 45-second
 startup grace, then every five seconds. A hung or unready tenant therefore
@@ -171,7 +179,7 @@ command output.
 4. Restore the selected Lonely Forest SQLite journal and generated assets to
    the new volume before making the app writable to public traffic.
 5. Add Fly certificates for `lonelyforest.com`, `www.lonelyforest.com`, `0`,
-   `7`, `89`, and `lantern`. Populate `fly_dns_validation_id` and
+   `7`, `89`, `lantern`, and `hoppycat`. Populate `fly_dns_validation_id` and
    `worldpack_fly_hosts` with any delegated validation IDs before traffic
    moves.
 6. Put the Fly IPv4 and IPv6 addresses in

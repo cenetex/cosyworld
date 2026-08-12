@@ -20,6 +20,14 @@ on:
         required: false
         default: ""
         type: string
+      lonelyforest_fresh_empty_tenant:
+        description: One-time empty tenant bootstrap; fails if its volume directory contains any data
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - hoppycat
       primary_recovery_capture:
         description: Reviewed committed capture path, only when the primary app's live /meta is unavailable
         required: false
@@ -179,13 +187,22 @@ jobs:
 
       - name: Guard every Lonely Forest tenant worldpack bundle compatibility
         run: |
-          if [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
+          if [ "$COSYWORLD_LONELYFOREST_FRESH_EMPTY_TENANT" != "none" ]; then
+            if [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
+              echo "::error::A recovery capture and fresh tenant bootstrap cannot be requested together"
+              exit 1
+            fi
+            flyctl ssh console -a cosyworld-lonelyforest -C 'test ! -e /data/worldpacks/hoppycat || test -z "$(find /data/worldpacks/hoppycat -mindepth 1 -print -quit)"'
+            node v2/scripts/check-lonelyforest-worldpacks.mjs --fresh-empty-tenant hoppycat
+          elif [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
             node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
           else
             node v2/scripts/check-lonelyforest-worldpacks.mjs
           fi
         env:
           COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE: ${{ inputs.lonelyforest_recovery_capture }}
+          COSYWORLD_LONELYFOREST_FRESH_EMPTY_TENANT: ${{ inputs.lonelyforest_fresh_empty_tenant || 'none' }}
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Validate Lonely Forest multitenant contract
         run: npm run v2:lonelyforest:contract
