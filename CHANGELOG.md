@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.13 — 2026-08-12
+
+- Declare the live official-world bundle replay-compatible with the Emmaus
+  presentation update, preserving its journal and checkpoint across deployment.
+
 ## 1.0.12 — 2026-08-12
 
 - Keep an active journey's exact next Travel card in one hand slot while every
