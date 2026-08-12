@@ -8977,6 +8977,8 @@ async function main() {
         action_offers: [...nonScoutOffers, scoutOffer],
         exits: [],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 1,
@@ -8990,32 +8992,67 @@ async function main() {
       const searching = searchingActions.find((action) => String(action.focusKey || "").startsWith("journey-search:"));
       const travellingActions = buildActions({
         ...base,
-        action_offers: [...nonScoutOffers, moveOffer(100001, "Foxglove Turn")],
+        action_offers: [...nonScoutOffers, moveOffer(100001, "Cedar Hollow")],
         exits: [{
           destination_location_id: 100001,
-          destination_location_name: "Foxglove Turn",
+          destination_location_name: "Cedar Hollow",
           direction: "east",
           distance: 1,
           accessible: true,
           locked: false,
         }],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 1,
           total_steps: 3,
           steps_remaining: 2,
+          on_pathway: true,
           explorer: true,
+          previous_location_id: 2,
+          previous_location_name: "Rain-Soft Garden",
           next_location_id: 100001,
-          next_location_name: "Foxglove Turn",
+          next_location_name: "Cedar Hollow",
         },
       });
       const travelling = travellingActions.find((action) => action.focusKey === "exit:100001");
+      const backtrackingActions = buildActions({
+        ...base,
+        action_offers: [...nonScoutOffers, moveOffer(2, "Rain-Soft Garden")],
+        exits: [{
+          destination_location_id: 2,
+          destination_location_name: "Rain-Soft Garden",
+          direction: "west",
+          distance: 1,
+          accessible: true,
+          locked: false,
+        }],
+        journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
+          destination_location_id: 3,
+          destination_name: "Moonlit Trail",
+          current_step: 1,
+          total_steps: 3,
+          steps_remaining: 2,
+          on_pathway: true,
+          explorer: true,
+          previous_location_id: 2,
+          previous_location_name: "Rain-Soft Garden",
+          next_location_id: 100001,
+          next_location_name: "Cedar Hollow",
+        },
+      });
+      const backtracking = backtrackingActions.find((action) => action.focusKey === "exit:2");
       const finalSearchActions = buildActions({
         ...base,
         action_offers: [...nonScoutOffers, scoutOffer],
         exits: [],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 2,
@@ -9039,6 +9076,8 @@ async function main() {
           locked: false,
         }],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 2,
@@ -9055,13 +9094,15 @@ async function main() {
         action_offers: [...nonScoutOffers, scoutOffer],
         exits: [{
           destination_location_id: 100001,
-          destination_location_name: "Foxglove Turn",
+          destination_location_name: "Cedar Hollow",
           direction: "east",
           distance: 1,
           accessible: false,
           locked: false,
         }],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 1,
@@ -9069,7 +9110,7 @@ async function main() {
           steps_remaining: 2,
           explorer: true,
           next_location_id: 100001,
-          next_location_name: "Foxglove Turn",
+          next_location_name: "Cedar Hollow",
         },
       });
       const missingWithoutScoutOfferActions = buildActions({
@@ -9077,6 +9118,8 @@ async function main() {
         action_offers: nonScoutOffers,
         exits: [],
         journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
           destination_location_id: 3,
           destination_name: "Moonlit Trail",
           current_step: 1,
@@ -9084,7 +9127,7 @@ async function main() {
           steps_remaining: 2,
           explorer: true,
           next_location_id: 100001,
-          next_location_name: "Foxglove Turn",
+          next_location_name: "Cedar Hollow",
         },
       });
       const searchOffers = ["hearth", "bookshelf", "window seat", "tea tray"].map((target, index) => ({
@@ -9116,6 +9159,26 @@ async function main() {
           command: inspect.selectedTarget?.().command,
         };
       });
+      const pathwayFixture = {
+        ...base,
+        journey: {
+          origin_location_id: 700,
+          origin_name: "Bethlehem",
+          destination_location_id: 712,
+          destination_name: "Jerusalem",
+          current_step: 1,
+          total_steps: 2,
+          steps_remaining: 1,
+          on_pathway: true,
+          explorer: true,
+          previous_location_id: 700,
+          previous_location_name: "Bethlehem",
+          next_location_id: 712,
+          next_location_name: "Jerusalem",
+        },
+      };
+      const pathwayStage = document.createElement("div");
+      pathwayStage.innerHTML = pathwayStageHtml(pathwayFixture);
       return {
         searchingActionCount: searchingActions.length,
         travellingActionCount: travellingActions.length,
@@ -9141,12 +9204,22 @@ async function main() {
           detail: searching?.detail,
           effect: searching?.effect,
           command: searching?.command,
+          direction: searching?.pathwayDirection,
         },
         travelling: {
           label: travelling?.label,
           detail: travelling?.detail,
           effect: travelling?.effect,
           command: travelling?.command,
+          accessibleLabel: travelling?.accessibleLabel,
+          direction: travelling?.pathwayDirection,
+        },
+        backtracking: {
+          label: backtracking?.label,
+          detail: backtracking?.detail,
+          effect: backtracking?.effect,
+          accessibleLabel: backtracking?.accessibleLabel,
+          direction: backtracking?.pathwayDirection,
         },
         finalSearch: {
           label: finalSearch?.label,
@@ -9165,6 +9238,7 @@ async function main() {
           choiceCount: inspect?.choices?.length || 0,
           targets: inspectTargets,
         },
+        pathwayStage: pathwayStage.textContent.replace(/\s+/g, " ").trim(),
       };
     });
     assert(
@@ -9181,14 +9255,34 @@ async function main() {
       result.searching.label === "scout"
         && /toward Moonlit Trail/i.test(result.searching.detail)
         && /hidden next stretch toward Moonlit Trail is revealed/i.test(result.searching.effect)
+        && result.searching.direction?.side === "forward"
+        && result.searching.direction?.endpointName === "Moonlit Trail"
         && result.searchingActionCount > 1,
       `an unrevealed adjacent segment should offer Scout without moving: ${JSON.stringify(result)}`,
     );
     assert(
       result.travelling.label === "travel"
-        && result.travelling.command === "go Foxglove Turn"
+        && result.travelling.detail === "toward Moonlit Trail"
+        && result.travelling.accessibleLabel === "Travel toward Moonlit Trail"
+        && result.travelling.direction?.side === "forward"
+        && result.travelling.direction?.endpointName === "Moonlit Trail"
         && result.travellingActionCount > 1,
-      `a revealed adjacent interior segment should offer its certified Travel card: ${JSON.stringify(result)}`,
+      `a revealed adjacent interior segment should present endpoint direction instead of its waypoint name: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.backtracking.label === "travel"
+        && result.backtracking.detail === "toward Rain-Soft Garden"
+        && result.backtracking.accessibleLabel === "Travel toward Rain-Soft Garden"
+        && result.backtracking.direction?.side === "back"
+        && result.backtracking.direction?.endpointName === "Rain-Soft Garden",
+      `reverse travel should point toward the pathway's origin instead of naming an interior waypoint: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.pathwayStage.includes("Bethlehem — Jerusalem")
+        && result.pathwayStage.includes("stretch 1 of 2")
+        && result.pathwayStage.includes("to Bethlehem")
+        && result.pathwayStage.includes("to Jerusalem"),
+      `an intermediate waypoint should render the avatar's pathway position and both endpoint directions: ${JSON.stringify(result)}`,
     );
     assert(
       result.scoutAfterFound === false,
@@ -10422,10 +10516,18 @@ async function main() {
           `Scout should reveal ${nextName} as an adjacent exit`,
         );
       } else {
+        const journeyEndpointName = String(current.journey.destination_name || "").toLowerCase();
+        const labelsJourneyEndpoint = Boolean(
+          journeyEndpointName && primary.includes(`toward ${journeyEndpointName}`),
+        );
         assert(
           ["travel", "flee"].includes(focusedJourneyStep.intention)
-            && (primary.includes(nextName.toLowerCase()) || primary.includes("choose a path")),
-          `a revealed segment should offer ordinary Travel to ${nextName}: ${JSON.stringify(focusedJourneyStep)}`,
+            && (
+              primary.includes(nextName.toLowerCase())
+              || labelsJourneyEndpoint
+              || primary.includes("choose a path")
+            ),
+          `a revealed segment should offer Travel toward ${current.journey.destination_name || nextName} or to ${nextName}: ${JSON.stringify(focusedJourneyStep)}`,
         );
         const travelResult = await confirmRouteTo(nextName, `travel to ${nextName}`, focusJourneyStep);
         if (travelResult?.replan) {

@@ -116,12 +116,17 @@ impl EventView {
 
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct JourneyView {
+    pub(super) origin_location_id: u64,
+    pub(super) origin_name: String,
     pub(super) destination_location_id: u64,
     pub(super) destination_name: String,
     pub(super) current_step: usize,
     pub(super) total_steps: usize,
     pub(super) steps_remaining: usize,
+    pub(super) on_pathway: bool,
     pub(super) explorer: bool,
+    pub(super) previous_location_id: Option<u64>,
+    pub(super) previous_location_name: Option<String>,
     pub(super) next_location_id: Option<u64>,
     pub(super) next_location_name: Option<String>,
 }
@@ -2101,14 +2106,26 @@ impl RuntimeWorld {
         let journey = self.journey_at_actor_location(actor_id)?;
         let total_steps = journey.path.len().saturating_sub(1);
         let current_location_id = journey.path.get(journey.current_step).copied();
+        let previous_location_id = journey
+            .current_step
+            .checked_sub(1)
+            .and_then(|index| journey.path.get(index))
+            .copied();
         let next_location_id = journey.path.get(journey.current_step + 1).copied();
         Some(JourneyView {
+            origin_location_id: journey.origin_location_id,
+            origin_name: self
+                .location_name(journey.origin_location_id)
+                .unwrap_or_else(|| "the way back".to_string()),
             destination_location_id: journey.destination_location_id,
             destination_name: journey.destination_name.clone(),
             current_step: journey.current_step,
             total_steps,
             steps_remaining: total_steps.saturating_sub(journey.current_step),
+            on_pathway: journey.current_step > 0 && journey.current_step < total_steps,
             explorer: journey.explorer,
+            previous_location_id,
+            previous_location_name: previous_location_id.and_then(|id| self.location_name(id)),
             next_location_id,
             next_location_name: next_location_id.and_then(|id| {
                 if id >= GENERATED_PATHWAY_LOCATION_ID_BASE {

@@ -249,4 +249,6 @@
 # by construction, the same reason SetJobStatus was reverted from #731. Also
 # fixes the write-set helper, which validated declared keys against a seeded
 # snapshot and so rejected correct declarations naming a normally-empty field.
-67860
+# 67860 -> 67858: move pathway-name novelty validation behind the AI gateway's
+# focused helper while adding the occupied distinctive-word check.
+67858
