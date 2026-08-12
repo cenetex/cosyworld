@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.12 — 2026-08-12
+
+- Keep an active journey's exact next Travel card in one hand slot while every
+  other eligible action rotates fairly through the remaining slot.
+
 ## 1.0.11 — 2026-08-12
 
 - Record semantic instruments as subjective, replay-safe memory lenses and

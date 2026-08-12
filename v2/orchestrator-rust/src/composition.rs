@@ -2331,6 +2331,58 @@ pub(super) fn compose_action_hand_at(
     }
 }
 
+fn pin_action_hand_offer(
+    hand: &mut ActionHandView,
+    offers: &[RankedActionOffer],
+    draw_count: usize,
+    pinned_offer: &RankedActionOffer,
+    excluded_offer_ids: &BTreeSet<String>,
+) {
+    let companion_capacity = usize::from(hand.capacity).saturating_sub(1);
+    let mut companion_candidates = offers
+        .iter()
+        .filter(|candidate| {
+            candidate.ranked_hand_eligible
+                && action_offer_is_reachable(candidate)
+                && !excluded_offer_ids.contains(&candidate.offer_id)
+        })
+        .collect::<Vec<_>>();
+    companion_candidates.sort_by(|left, right| {
+        left.provider
+            .priority
+            .cmp(&right.provider.priority)
+            .then_with(|| left.rank.cmp(&right.rank))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    let mut seen_groups = BTreeSet::new();
+    companion_candidates.retain(|candidate| seen_groups.insert(action_offer_hand_group(candidate)));
+    let companion_count = companion_candidates.len();
+    let companions = if companion_count == 0 || companion_capacity == 0 {
+        Vec::new()
+    } else {
+        let start = draw_count.saturating_mul(companion_capacity) % companion_count;
+        (0..companion_capacity.min(companion_count))
+            .map(|offset| companion_candidates[(start + offset) % companion_count])
+            .collect::<Vec<_>>()
+    };
+    hand.entries = std::iter::once(ActionHandEntryView {
+        offer_id: pinned_offer.offer_id.clone(),
+        kind: pinned_offer.kind.clone(),
+        intention: pinned_offer.intention.clone(),
+        provider: pinned_offer.provider.clone(),
+    })
+    .chain(companions.into_iter().map(|companion| ActionHandEntryView {
+        offer_id: companion.offer_id.clone(),
+        kind: companion.kind.clone(),
+        intention: companion.intention.clone(),
+        provider: companion.provider.clone(),
+    }))
+    .collect();
+    let guided_deck_size = companion_count.saturating_add(1);
+    hand.deck_size = u16::try_from(guided_deck_size).unwrap_or(u16::MAX);
+    hand.draw_available = companion_count > companion_capacity;
+}
+
 impl RuntimeWorld {
     pub(super) fn current_action_hand_offers<'a>(
         &self,
@@ -2374,57 +2426,29 @@ impl RuntimeWorld {
             .unwrap_or_default();
         let mut hand = compose_action_hand_at(offers, draw_count);
         if let Some(actor_id) = actor_id {
-            let (advancing_offer_id, advancing_offer_ids) =
-                self.first_tale_advancing_offer_selection(actor_id, offers);
-            if let Some(advancing_offer_id) = advancing_offer_id.as_ref() {
-                if let Some(offer) = offers
-                    .iter()
-                    .find(|offer| offer.offer_id == *advancing_offer_id)
+            if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
+                let journey_offer_ids = BTreeSet::from([journey_offer.offer_id.clone()]);
+                pin_action_hand_offer(
+                    &mut hand,
+                    offers,
+                    draw_count,
+                    journey_offer,
+                    &journey_offer_ids,
+                );
+            } else {
+                let (advancing_offer_id, advancing_offer_ids) =
+                    self.first_tale_advancing_offer_selection(actor_id, offers);
+                if let Some(offer) = advancing_offer_id
+                    .as_ref()
+                    .and_then(|offer_id| offers.iter().find(|offer| offer.offer_id == *offer_id))
                 {
-                    let companion_capacity = usize::from(hand.capacity).saturating_sub(1);
-                    let mut companion_candidates = offers
-                        .iter()
-                        .filter(|candidate| {
-                            candidate.ranked_hand_eligible
-                                && action_offer_is_reachable(candidate)
-                                && !advancing_offer_ids.contains(&candidate.offer_id)
-                        })
-                        .collect::<Vec<_>>();
-                    companion_candidates.sort_by(|left, right| {
-                        left.provider
-                            .priority
-                            .cmp(&right.provider.priority)
-                            .then_with(|| left.rank.cmp(&right.rank))
-                            .then_with(|| left.id.cmp(&right.id))
-                    });
-                    let mut seen_groups = BTreeSet::new();
-                    companion_candidates
-                        .retain(|candidate| seen_groups.insert(action_offer_hand_group(candidate)));
-                    let companion_count = companion_candidates.len();
-                    let companions = if companion_count == 0 || companion_capacity == 0 {
-                        Vec::new()
-                    } else {
-                        let start = draw_count.saturating_mul(companion_capacity) % companion_count;
-                        (0..companion_capacity.min(companion_count))
-                            .map(|offset| companion_candidates[(start + offset) % companion_count])
-                            .collect::<Vec<_>>()
-                    };
-                    hand.entries = std::iter::once(ActionHandEntryView {
-                        offer_id: offer.offer_id.clone(),
-                        kind: offer.kind.clone(),
-                        intention: offer.intention.clone(),
-                        provider: offer.provider.clone(),
-                    })
-                    .chain(companions.into_iter().map(|companion| ActionHandEntryView {
-                        offer_id: companion.offer_id.clone(),
-                        kind: companion.kind.clone(),
-                        intention: companion.intention.clone(),
-                        provider: companion.provider.clone(),
-                    }))
-                    .collect();
-                    let guided_deck_size = companion_count.saturating_add(1);
-                    hand.deck_size = u16::try_from(guided_deck_size).unwrap_or(u16::MAX);
-                    hand.draw_available = guided_deck_size > usize::from(hand.capacity);
+                    pin_action_hand_offer(
+                        &mut hand,
+                        offers,
+                        draw_count,
+                        offer,
+                        &advancing_offer_ids,
+                    );
                 }
             }
         }
