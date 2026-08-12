@@ -28,6 +28,12 @@ do not define V2 behavior.
   accepted party and travel model: explicit social membership and consent,
   shared undertakings, walking/vehicle/delve Formations, detachments, honest
   progress, and vehicles that remain independent world objects.
+- **[ADR 0010: Semantic Instruments Shape Recall](decisions/0010-semantic-instruments-shape-memory.md)** —
+  embedding and rerank devices change whose memory surfaces and in what order,
+  never what happened; one canonical history, subjective access.
+- **[ADR 0011: Reflective Work Runs in Batch](decisions/0011-reflective-work-runs-in-batch.md)** —
+  consolidation, identity, journals, and objectives run off the tick because a
+  world that advances only on committed play pays nothing for latency.
 - **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
   instructions for the illustrated guide to scenes, discovery, frontier
   forays, thresholds, tables, and strict AI refereeing.
