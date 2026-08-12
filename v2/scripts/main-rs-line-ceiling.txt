@@ -255,4 +255,6 @@
 # actor_presence.rs; primary_action delegates the lifecycle boundary there.
 # 67765 -> 67763: move pathway-name novelty validation behind the AI gateway's
 # focused helper while adding the occupied distinctive-word check.
-67763
+# 67763 -> 67709: move process lifecycle composition into startup.rs, leaving
+# main as a thin async entry point without changing boot or shutdown order.
+67709
