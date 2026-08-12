@@ -124,9 +124,10 @@ async function assertAvatarNameModeration() {
   }).then((result) => result.json());
   assert(response.ok && response.actor, `avatar name moderation probe failed to create avatar: ${JSON.stringify(response)}`);
   assert(
-    response.actor.name === "Newcomer"
+    response.actor.name !== "Newcomer"
+      && /^[A-Za-z0-9][A-Za-z0-9 '\-]{0,27}$/.test(response.actor.name)
       && !/\b(?:Traveler|Traveller|Actor) \d+\b/i.test(response.actor.name),
-    `unsafe avatar name should fall back without exposing a runtime id: ${JSON.stringify(response.actor)}`,
+    `unsafe avatar name should fall back to a generated identity without exposing a runtime id: ${JSON.stringify(response.actor)}`,
   );
   const created = (response.events || []).find((event) => event.type === "actor.created");
   assert(created?.actor_name === response.actor.name, `created event should use sanitized avatar name: ${JSON.stringify(created)}`);

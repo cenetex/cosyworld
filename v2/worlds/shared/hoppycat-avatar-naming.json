@@ -1,0 +1,36 @@
+{
+  "strategy": "culture-grammar/1",
+  "default_culture": "teagarden",
+  "cultures": [
+    {
+      "id": "teagarden",
+      "style_prompt": "Use a nimble personal name followed by a warm tea-garden byname. It should sound like a particular neighbour, not a generic newcomer or a pile of cute objects.",
+      "selectors": { "species_ids": ["tea-cat"] },
+      "forms": [{ "pattern": "{given} {byname}", "weight": 1 }],
+      "pools": {
+        "given": ["Aki", "Beni", "Chai", "Doro", "Emi", "Fumi", "Hana", "Iro", "Jun", "Kiri", "Momo", "Nori", "Rin", "Sumi", "Tama", "Yuzu"],
+        "byname": ["Ambercup", "Bellsteam", "Cloudsip", "Dawnspoon", "Fernkettle", "Gentlebrew", "Goldleaf", "Kindpour", "Mosssaucer", "Rainwhisker", "Softstep", "Stillwater", "Sunsteam", "Tealeaf", "Warmcup", "Willowsteam"]
+      }
+    },
+    {
+      "id": "daykeepers",
+      "style_prompt": "Use a clear human given name with a reflective tide, light, or memory byname. Keep it compact, lived-in, and sincere.",
+      "selectors": { "species_ids": ["human"] },
+      "forms": [{ "pattern": "{given} {byname}", "weight": 1 }],
+      "pools": {
+        "given": ["Anwen", "Cora", "Eli", "Fia", "Iona", "Jory", "Lina", "Mara", "Nessa", "Oren", "Rhea", "Sela", "Tavi", "Vale", "Wren", "Zia"],
+        "byname": ["Afterrain", "Brighttide", "Dawnward", "Evenlight", "Fairmemory", "Firstbell", "Glasswater", "Goodmorrow", "Kindred", "Longlight", "Moonturn", "Prismwatch", "Rainkeeper", "Softtide", "Tomorrow", "Warmwitness"]
+      }
+    },
+    {
+      "id": "bowlwater",
+      "style_prompt": "Use a small bright name with a water, glass, bubble, or current byname. It should feel observant and social rather than ornamental.",
+      "selectors": { "species_ids": ["bowlfish"] },
+      "forms": [{ "pattern": "{given} {byname}", "weight": 1 }],
+      "pools": {
+        "given": ["Aru", "Bibi", "Ciel", "Dew", "Ebb", "Fenn", "Glim", "Lumi", "Mino", "Nami", "Olo", "Pip", "Rill", "Sola", "Tide", "Vivi"],
+        "byname": ["Blueglass", "Bubbleturn", "Clearcurrent", "Dewcircle", "Driftlight", "Glassfin", "Goldripple", "Kindcurrent", "Moonbubble", "Prismfin", "Rainring", "Softwater", "Stillglint", "Sunripple", "Tidewatch", "Warmwave"]
+      }
+    }
+  ]
+}

@@ -12,7 +12,8 @@ use crate::{
     community_art::{community_art_generation_key, DownloadedReplicateImage},
     is_safe_image_content_type,
     media_evolution::{
-        FrozenCommunityArtEvolutionJob, EVOLUTION_CANARY_MODEL_REVISION, EVOLUTION_CANARY_RECIPE,
+        FrozenCommunityArtEvolutionJob, EVOLUTION_EXECUTION_MODEL_REVISION,
+        EVOLUTION_EXECUTION_PROFILE, EVOLUTION_EXECUTION_RECIPE,
     },
     seed_pack_id_for_actor, seed_pack_id_for_item, seed_pack_id_for_location,
 };
@@ -1162,7 +1163,7 @@ pub(super) fn prepare_replicate_evolution_art(
         &controls,
         MediaJobRequest {
             job_key: job.job_key.clone(),
-            profile: job.profile.clone(),
+            profile: EVOLUTION_EXECUTION_PROFILE.to_string(),
             operation: MediaOperation::SingleReference,
             intent: MediaIntent::Evolution,
             prompt: job.prompt()?,
@@ -1173,13 +1174,13 @@ pub(super) fn prepare_replicate_evolution_art(
             seed: None,
         },
     )?;
-    if resolved.recipe_id != EVOLUTION_CANARY_RECIPE
-        || resolved.model_revision != EVOLUTION_CANARY_MODEL_REVISION
+    if resolved.recipe_id != EVOLUTION_EXECUTION_RECIPE
+        || resolved.model_revision != EVOLUTION_EXECUTION_MODEL_REVISION
         || resolved.references.len() != 1
         || resolved.references[0].slot != MediaReferenceSlot::PriorLevel
     {
         return Err(
-            "evolution canary did not resolve to the pinned FLUX.2 single-reference contract"
+            "evolution did not resolve to the pinned FLUX Kontext LoRA single-reference contract"
                 .to_string(),
         );
     }
@@ -1310,23 +1311,33 @@ fn replicate_prediction_request(
         input
             .entry("num_outputs".to_string())
             .or_insert_with(|| serde_json::Value::Number(1.into()));
-        if let Some(lora_url) = config.lora_url.as_deref() {
-            input.insert(
-                config.lora_input_key.clone(),
-                serde_json::Value::String(lora_url.to_string()),
-            );
-            if let Some(scale) = serde_json::Number::from_f64(config.lora_scale) {
-                input.insert(
-                    config.lora_scale_input_key.clone(),
-                    serde_json::Value::Number(scale),
-                );
-            }
+    }
+    if let (Some(lora), Some(lora_url)) = (resolved.lora.as_ref(), config.lora_url.as_deref()) {
+        let weights_input = if legacy_flux1 {
+            &config.lora_input_key
+        } else {
+            &lora.weights_input
+        };
+        let scale_input = if legacy_flux1 {
+            &config.lora_scale_input_key
+        } else {
+            &lora.scale_input
+        };
+        input.insert(
+            weights_input.clone(),
+            serde_json::Value::String(lora_url.to_string()),
+        );
+        if let Some(scale) = serde_json::Number::from_f64(config.lora_scale) {
+            input.insert(scale_input.clone(), serde_json::Value::Number(scale));
         }
     }
 
     let model = replicate_invocation_model(config, resolved);
     let version = if legacy_flux1 {
-        config.version.clone()
+        config.version.clone().or_else(|| {
+            (config.model == format!("{}/{}", resolved.model_owner, resolved.model_name))
+                .then(|| resolved.model_revision.clone())
+        })
     } else {
         Some(resolved.model_revision.clone())
     };
@@ -1661,6 +1672,23 @@ mod tests {
         assert_eq!(flux2.dimensions.maximum, 1440);
         assert_eq!(flux2.dimensions.multiple, 32);
         assert_eq!(flux2.seed_behavior, "optional");
+        let evolution = &registry.recipes[EVOLUTION_EXECUTION_RECIPE];
+        assert_eq!(evolution.model.name, "flux-kontext-dev-lora");
+        assert_eq!(evolution.model.revision, EVOLUTION_EXECUTION_MODEL_REVISION);
+        assert_eq!(evolution.references.minimum, 1);
+        assert_eq!(evolution.references.maximum, 1);
+        assert_eq!(evolution.references.input_shape, "single_url");
+        assert_eq!(
+            evolution.references.input_field.as_deref(),
+            Some("input_image")
+        );
+        assert_eq!(
+            evolution
+                .lora
+                .as_ref()
+                .map(|lora| lora.scale_input.as_str()),
+            Some("lora_strength")
+        );
     }
 
     #[test]
@@ -2171,5 +2199,39 @@ mod tests {
             "black-forest-labs/flux-2-dev",
             "usage metadata names the pinned recipe model"
         );
+
+        let evolution = registry
+            .resolve(
+                &MediaRecipeRuntimeControls::default(),
+                MediaJobRequest {
+                    job_key: "actor:5000:level:2:evolution".to_string(),
+                    profile: EVOLUTION_EXECUTION_PROFILE.to_string(),
+                    operation: MediaOperation::SingleReference,
+                    intent: MediaIntent::Evolution,
+                    prompt: "Edit only the approved prior image.".to_string(),
+                    references: vec![reference(MediaReferenceSlot::PriorLevel, "prior")],
+                    aspect_ratio: "4:5".to_string(),
+                    output_format: "png".to_string(),
+                    mask_url: None,
+                    seed: None,
+                },
+            )
+            .expect("Kontext LoRA evolution resolves");
+        let evolution_request =
+            replicate_prediction_request(&art_config(), &evolution, serde_json::Map::new())
+                .expect("Kontext LoRA request builds");
+        assert_eq!(
+            evolution_request.body["version"],
+            EVOLUTION_EXECUTION_MODEL_REVISION
+        );
+        assert_eq!(
+            evolution_request.body["input"]["input_image"],
+            "https://assets.example/prior.png"
+        );
+        assert_eq!(
+            evolution_request.body["input"]["lora_weights"],
+            "owner/style-lora"
+        );
+        assert_eq!(evolution_request.body["input"]["lora_strength"], 0.85);
     }
 }

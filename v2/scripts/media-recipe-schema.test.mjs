@@ -45,6 +45,29 @@ test("shared registry pins FLUX.2 reference limits and accepts a compatible pack
     validatePackMediaProfiles(manifest(referenceSelection), "fixture/pack.json", registry));
 });
 
+test("community art evolution pins one prior image and the LoRA-capable Kontext model", () => {
+  const registry = indexMediaRecipeRegistry();
+  const profile = registry.profiles.get("cosyworld.community-art.evolution-lora/1");
+  const recipe = registry.recipes.get("replicate.flux-kontext-dev-lora.evolution");
+
+  assert.equal(profile.default_recipe, recipe.id);
+  assert.equal(recipe.model.name, "flux-kontext-dev-lora");
+  assert.equal(
+    recipe.model.revision,
+    "50c10b8f14af90fda0a4bf3bbfdda263ddb0f2b3e32e4735dcc6ee7156d7ed6f",
+  );
+  assert.equal(recipe.references.minimum, 1);
+  assert.equal(recipe.references.maximum, 1);
+  assert.equal(recipe.references.input_shape, "single_url");
+  assert.equal(recipe.references.input_field, "input_image");
+  assert.deepEqual(recipe.references.supported_slots, ["prior_level"]);
+  assert.deepEqual(recipe.lora, {
+    weights_input: "lora_weights",
+    scale_input: "lora_strength",
+  });
+  assert.equal(recipe.fallback_recipe, null);
+});
+
 test("Project 89 profiles pin the full-strength FLUX.1 base and FLUX.2 refinement", () => {
   const registry = indexMediaRecipeRegistry();
   const base = registry.recipes.get("replicate.ratimics-project89.v95f3d0eb");

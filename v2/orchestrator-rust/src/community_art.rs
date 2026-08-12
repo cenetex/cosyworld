@@ -27,8 +27,7 @@ use crate::media_recipes::media_verdict::{
 };
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
-    canonical_community_media_asset_bytes, commit_journal_record, evolution_rollout_route,
-    evolution_runtime_observation, execute_prepared_replicate_art,
+    canonical_community_media_asset_bytes, commit_journal_record, execute_prepared_replicate_art,
     freeze_approved_community_media_reference, immutable_media_asset_bytes,
     is_safe_image_content_type, now_millis, prepare_replicate_art, prepare_replicate_evolution_art,
     reconcile_community_media_asset_status, record_ai_usage_for_provider,
@@ -38,7 +37,7 @@ use crate::{
     GeneratedPolicyBinding, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
     MediaAssetProvenance, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
     ReplicateAvatarArtConfig, RuntimeWorld, WorldEntityRef, CW_ACTION_NONE, CW_OK,
-    EVOLUTION_CANARY_MODEL_REVISION,
+    EVOLUTION_EXECUTION_MODEL_REVISION, EVOLUTION_EXECUTION_RECIPE,
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
@@ -1210,11 +1209,13 @@ pub(super) fn prepare_community_art_generation(
         remove_community_art_candidate(generated_asset_dir, plan)
             .map_err(CommunityArtGenerationError::Storage)?;
     }
-    let evolution_route = match plan.evolution_job.as_ref() {
-        Some(job) => evolution_runtime_observation(&job.evaluation_profile)
-            .and_then(|observation| evolution_rollout_route(job, observation.as_ref()))
-            .map_err(CommunityArtGenerationError::Preflight)?,
-        None => EvolutionRolloutRoute::Incumbent,
+    // A frozen evolution job always carries an approved prior-level parent.
+    // Running the base generator here silently starts over, so evolution is a
+    // hard reference-preserving route rather than a probabilistic canary.
+    let evolution_route = if plan.evolution_job.is_some() {
+        EvolutionRolloutRoute::Canary
+    } else {
+        EvolutionRolloutRoute::Incumbent
     };
     let candidate = match load_route_compatible_community_art_candidate(
         generated_asset_dir,
@@ -1651,12 +1652,12 @@ fn community_art_asset_provenance(
             .unwrap_or_else(|| plan.generation_profile_version.to_string()),
         provider: "replicate".to_string(),
         model: if evolution_canary {
-            "black-forest-labs/flux-2-dev".to_string()
+            "black-forest-labs/flux-kontext-dev-lora".to_string()
         } else {
             config.model.clone()
         },
         model_version: if evolution_canary {
-            EVOLUTION_CANARY_MODEL_REVISION.to_string()
+            EVOLUTION_EXECUTION_MODEL_REVISION.to_string()
         } else {
             config
                 .version
@@ -1667,11 +1668,21 @@ fn community_art_asset_provenance(
             "cosyworld.community-art.generation-profile/{}/{}",
             plan.generation_profile_version,
             if evolution_canary {
-                "flux2-canary"
+                "kontext-lora-evolution"
             } else {
                 "incumbent"
             }
         ),
+        recipe_id: Some(if evolution_canary {
+            EVOLUTION_EXECUTION_RECIPE.to_string()
+        } else {
+            "replicate.flux1-dev-lora.base".to_string()
+        }),
+        lora_weights: config.lora_url.clone(),
+        lora_scale: config
+            .lora_url
+            .as_ref()
+            .map(|_| config.lora_scale.to_string()),
         seed: None,
         prediction_id,
         source_event_seq: None,
@@ -1766,6 +1777,14 @@ fn legacy_community_art_asset_provenance(
             "cosyworld.community-art.generation-profile/{}",
             generation.generation_profile_version
         ),
+        recipe_id: Some("replicate.flux1-dev-lora.base".to_string()),
+        lora_weights: config.and_then(|config| config.lora_url.clone()),
+        lora_scale: config.and_then(|config| {
+            config
+                .lora_url
+                .as_ref()
+                .map(|_| config.lora_scale.to_string())
+        }),
         seed: None,
         prediction_id: generation.last_prediction_id.clone(),
         source_event_seq: generation.status_event_seq,

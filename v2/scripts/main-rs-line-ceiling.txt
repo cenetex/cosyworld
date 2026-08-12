@@ -249,4 +249,6 @@
 # by construction, the same reason SetJobStatus was reverted from #731. Also
 # fixes the write-set helper, which validated declared keys against a seeded
 # snapshot and so rejected correct declarations naming a normally-empty field.
-67860
+# 67860 -> 67779: move avatar creation flavor and asynchronous AI identity
+# refinement behind avatar_identity.rs while adding keyed model-pool retries.
+67779

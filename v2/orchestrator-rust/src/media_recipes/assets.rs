@@ -98,6 +98,12 @@ pub(crate) struct MediaAssetProvenance {
     pub(crate) model: String,
     pub(crate) model_version: String,
     pub(crate) prompt_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) recipe_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) lora_weights: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) lora_scale: Option<String>,
     pub(crate) seed: Option<u64>,
     pub(crate) prediction_id: Option<String>,
     pub(crate) source_event_seq: Option<u64>,
@@ -1536,11 +1542,27 @@ fn immutable_asset_id(
         })
         .collect::<Vec<_>>()
         .join("\u{1f}");
+    // Preserve legacy asset IDs when recipe provenance is absent. New records
+    // append the exact recipe and LoRA binding, making two otherwise identical
+    // outputs from different style paths distinct and auditable.
+    let recipe_identity = input
+        .provenance
+        .recipe_id
+        .as_ref()
+        .map(|recipe_id| {
+            format!(
+                "\0{}\0{}\0{}",
+                recipe_id,
+                input.provenance.lora_weights.as_deref().unwrap_or(""),
+                input.provenance.lora_scale.as_deref().unwrap_or("")
+            )
+        })
+        .unwrap_or_default();
     let identity = format!(
         concat!(
             "{}\0{}\0{}\0{}\0{}\0{:?}",
             "\0{}\0{}\0{}\0{}\0{}\0{}\0{}",
-            "\0{}\0{}\0{}\0{}\0{}\0{}"
+            "\0{}\0{}\0{}\0{}\0{}\0{}{}"
         ),
         input.subject_kind.as_str(),
         input.subject_id,
@@ -1563,7 +1585,8 @@ fn immutable_asset_id(
         input.provenance.prediction_id.as_deref().unwrap_or(""),
         input.provenance.source_event_seq.unwrap_or(0),
         input.provenance.history_through_seq,
-        lineage
+        lineage,
+        recipe_identity
     );
     format!("media-{}", sha256_hex(identity.as_bytes()))
 }
@@ -1731,6 +1754,7 @@ mod tests {
             prediction_id: Some(format!("prediction-{event}")),
             source_event_seq: Some(event),
             history_through_seq: event.saturating_sub(1),
+            ..MediaAssetProvenance::default()
         }
     }
 

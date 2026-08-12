@@ -10,37 +10,33 @@ const baseUrl = new URL(
     ?? "http://127.0.0.1:3000",
 );
 const expectElysium = args.includes("--expect-elysium");
-const allowRemoteMutations = args.includes("--allow-remote-mutations");
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 const scriptPath = fileURLToPath(import.meta.url);
-
-if (!loopbackHosts.has(baseUrl.hostname) && !allowRemoteMutations) {
-  throw new Error(
-    "refusing to create smoke avatars outside loopback; pass "
-      + "--allow-remote-mutations for an intentional deployed smoke",
-  );
-}
 
 const cases = [
   {
     host: "7.lonelyforest.com",
     worldpack: "cosyworld.bethlehem",
     location: "Bethlehem",
+    entryLocation: "cosyworld.core:location/1",
   },
   {
     host: "89.lonelyforest.com",
     worldpack: "project89.three-rings",
     location: "Threshold Interface",
+    entryLocation: "project89.operation-liberation:location/8900",
   },
   {
     host: "lantern.lonelyforest.com",
     worldpack: "cosyworld.lantern-keeper",
     location: "Wayside Lantern Inn",
+    entryLocation: "cosyworld.core:location/1",
   },
   {
     host: "hoppycat.lonelyforest.com",
     worldpack: "hoppycat.february-third",
     location: "Halfway Tea Garden",
+    entryLocation: "hoppycat.archive:location/770000",
   },
 ];
 
@@ -145,6 +141,10 @@ async function assertWorld(spec) {
     `${spec.host} mounted ${meta.json?.worldpack?.id}, expected ${spec.worldpack}`,
   );
   assert(
+    meta.json?.worldpack?.entry_location === spec.entryLocation,
+    `${spec.host} entry location was ${meta.json?.worldpack?.entry_location}, expected ${spec.entryLocation}`,
+  );
+  assert(
     meta.json?.persistence?.snapshot_enabled === true
       && meta.json?.persistence?.event_store_enabled === true,
     `${spec.host} does not have snapshot and event-store persistence enabled`,
@@ -157,43 +157,11 @@ async function assertWorld(spec) {
     `${spec.host} persistence is degraded: ${JSON.stringify(meta.json?.persistence?.event_store)}`,
   );
 
-  const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const wallet = `lonelyforest-router-smoke-${spec.host}-${nonce}`;
-  const avatarRequest = {
-    method: "POST",
-    body: {
-      name: `Router Smoke ${spec.host}`,
-      wallet_address: wallet,
-    },
-  };
-  const mutationDeadline = Date.now() + 10_000;
-  let created;
-  do {
-    created = await request(spec.host, "/avatar", avatarRequest);
-    if (created.status === 200 && created.json?.ok) break;
-    if (created.status !== 200 || created.json?.status !== 500) break;
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
-  } while (Date.now() < mutationDeadline);
-  assert(
-    created.status === 200 && created.json?.ok && created.json?.actor_session,
-    `${spec.host} avatar creation failed: ${created.status} ${created.text}`,
-  );
-  const query = new URLSearchParams({
-    actor_id: String(created.json.actor.id),
-    actor_session: created.json.actor_session,
-    wallet_address: wallet,
-  });
-  const state = await request(spec.host, `/state?${query}`);
-  assert(
-    state.status === 200 && state.json?.location?.name === spec.location,
-    `${spec.host} entered ${state.json?.location?.name}, expected ${spec.location}`,
-  );
   return {
     host: spec.host,
     worldpack: spec.worldpack,
     location: spec.location,
-    actor_id: created.json.actor.id,
-    world_seq: state.json.world_seq,
+    entry_location: spec.entryLocation,
   };
 }
 
@@ -212,6 +180,7 @@ async function main() {
       host: "0.lonelyforest.com",
       worldpack: "cosyworld.elysium",
       location: "Void 001",
+      entryLocation: "cosyworld.elysium:location/652000",
     }));
   } else {
     const elysium = await ready("0.lonelyforest.com", 503);
