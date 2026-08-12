@@ -4590,6 +4590,7 @@ async function main() {
       const previousState = state;
       const previousActorId = actorId;
       const previousTransition = defeatTransition;
+      const previousActorSessionTerminal = actorSessionTerminal;
       const previousStoredTransition = sessionStorage.getItem(defeatTransitionStorageKey);
       try {
         actorId = 5000;
@@ -4612,6 +4613,15 @@ async function main() {
           target_actor_name: "Lantern Stitch",
         });
         const knockoutHtml = defeatTransitionHtml();
+        state = {
+          ...state,
+          actors: state.actors.map((actor) => actor.id === 5000
+            ? { ...actor, status: "knocked_out" }
+            : actor),
+          primary_action: { kind: "await_rescue", disabled: true, options: [] },
+          action_offers: [],
+        };
+        const knockoutActions = buildActions(state);
         clearDefeatTransition();
         const deathCaptured = captureDefeatTransition({
           seq: 100,
@@ -4627,11 +4637,13 @@ async function main() {
           primary_action: { kind: "create_avatar", options: [] },
           character_creation: [],
         };
+        actorSessionTerminal = true;
         const restart = buildActions(state)[0];
         return {
           captured,
           deathCaptured,
           knockoutHtml,
+          knockoutActionCount: knockoutActions.length,
           deathHtml,
           restartLabel: restart?.label || "",
           restartDetail: restart?.detail || "",
@@ -4641,6 +4653,7 @@ async function main() {
       } finally {
         state = previousState;
         actorId = previousActorId;
+        actorSessionTerminal = previousActorSessionTerminal;
         defeatTransition = previousTransition;
         if (previousStoredTransition === null) sessionStorage.removeItem(defeatTransitionStorageKey);
         else sessionStorage.setItem(defeatTransitionStorageKey, previousStoredTransition);
@@ -4649,9 +4662,10 @@ async function main() {
     assert(result.captured, `the player's knockout should capture an explicit defeat transition: ${JSON.stringify(result)}`);
     assert(/Lantern Stitch was knocked out by Moonlit Echo/i.test(result.knockoutHtml), `the knockout scene should name the outcome and both combatants without declaring the tale ended: ${JSON.stringify(result)}`);
     assert(!/this tale has ended/i.test(result.knockoutHtml) && /body is still where it fell/i.test(result.knockoutHtml), `a knockout is recoverable; the scene must not claim permanent loss: ${JSON.stringify(result)}`);
+    assert(result.knockoutActionCount === 0, `a knocked-out avatar should remain attached in observer mode without a replacement action: ${JSON.stringify(result)}`);
     assert(result.deathCaptured, `the player's death should capture an explicit defeat transition: ${JSON.stringify(result)}`);
     assert(/this tale has ended/i.test(result.deathHtml) && /This avatar is gone/i.test(result.deathHtml), `the death scene keeps the ended-tale copy: ${JSON.stringify(result)}`);
-    assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
+    assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `an authoritative death should expose a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
   }
 
   async function assertAvatarRailOwnsCombatTracker() {

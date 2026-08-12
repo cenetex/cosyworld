@@ -489,7 +489,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         return "The room needs a breath. Try again in a moment.".to_string();
     }
     if status == 403 {
-        return "Your avatar slipped out of reach. Begin again or reconnect your account."
+        return "Reconnect your account to restore this same avatar; the world will not replace it."
             .to_string();
     }
     if status >= 500 {

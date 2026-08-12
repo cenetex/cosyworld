@@ -251,4 +251,6 @@
 # snapshot and so rejected correct declarations naming a normally-empty field.
 # 67860 -> 67779: move avatar creation flavor and asynchronous AI identity
 # refinement behind avatar_identity.rs while adding keyed model-pool retries.
-67779
+# 67779 -> 67765: avatar session recovery and its tests live in
+# actor_presence.rs; primary_action delegates the lifecycle boundary there.
+67765
