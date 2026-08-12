@@ -700,7 +700,9 @@ function runContributionSchemaMutationTests() {
 
 runContributionSchemaMutationTests();
 
-const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
+const engineVersion = fs
+  .readFileSync(path.resolve(v2Root, "content-engine-version.txt"), "utf8")
+  .trim();
 const world = readJson(path.join(worldDir, "world.json"));
 const avatarNaming = loadAvatarNaming(world, worldDir);
 const firstTale = loadFirstTale(world, worldDir);

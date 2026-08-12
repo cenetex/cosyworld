@@ -44,9 +44,9 @@ const reportText = args.includes("--report");
 const reportJson = args.includes("--report-json");
 const contentRootArg = args.find((arg) => !arg.startsWith("--"));
 const contentRoot = path.resolve(contentRootArg ?? path.join(scriptDir, "../content/official"));
-const engineVersion = JSON.parse(
-  fs.readFileSync(path.resolve(scriptDir, "../../package.json"), "utf8"),
-).version;
+const engineVersion = fs
+  .readFileSync(path.resolve(scriptDir, "../content-engine-version.txt"), "utf8")
+  .trim();
 
 const expectedFiles = {
   actors: "actors.json",

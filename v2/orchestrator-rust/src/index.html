@@ -4746,6 +4746,9 @@
         justify-content: center;
         font-size: 0;
       }
+      .brand[aria-expanded="true"]::before {
+        content: none;
+      }
       .location-pill {
         max-width: 100%;
         justify-self: stretch;
@@ -5656,7 +5659,7 @@
       refreshInFlight = refresh()
         .catch((error) => {
           if (!recoveryRefreshAttemptId) {
-            setError(String(error.message || error));
+            setError(refreshExceptionMessage(error));
           } else if (refreshAttemptId >= recoveryRefreshAttemptId) {
             setTransientStatus(
               "refresh",
@@ -8399,7 +8402,13 @@
     function actionFailureMessage(path, result = {}) {
       const status = Number(result.status || 0);
       const conflict = (result.events || []).find((event) => event?.type === "action.conflict");
-      if (conflict?.content) return String(conflict.content);
+      if (conflict?.content) {
+        const content = String(conflict.content);
+        if (/stale .* version|observed \d+, current \d+|refresh before retrying/i.test(content)) {
+          return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
+        }
+        return cleanStatusText(content);
+      }
       const modelFailure = (result.events || []).find((event) => (
         event?.type === "model_interaction.failed"
       ));
@@ -8446,6 +8455,26 @@
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       return "The room did not catch that. Look around and try another choice.";
+    }
+
+    function isNetworkError(error) {
+      const message = String(error?.message || error || "");
+      return error?.name === "TypeError"
+        && /failed to fetch|networkerror|network request failed|load failed/i.test(message);
+    }
+
+    function actionExceptionMessage(error) {
+      if (isNetworkError(error)) {
+        return "Connection lost. Check the refreshed world before trying again; your action may already have landed.";
+      }
+      return String(error?.message || error || "That choice could not be sent. Check what is here before trying again.");
+    }
+
+    function refreshExceptionMessage(error) {
+      if (isNetworkError(error)) {
+        return "The world could not be reached. Check your connection; reconnecting will restore the latest safe state.";
+      }
+      return String(error?.message || error || "The world could not be refreshed. Reload to try again.");
     }
 
     function canonicalCommandEnvelope() {
@@ -12109,19 +12138,19 @@
 
     function libraryPackCountSummary(counts) {
       const entries = [
-        ["locations", "places"],
-        ["actors", "avatars"],
-        ["items", "items"],
-        ["cards", "items"],
-        ["external_cards", "catalog items"],
-        ["character_creation", "character paths"],
-        ["rules", "rules references"],
-        ["assets", "art assets"],
+        ["locations", "place", "places"],
+        ["actors", "avatar", "avatars"],
+        ["items", "item", "items"],
+        ["cards", "card", "cards"],
+        ["external_cards", "catalog item", "catalog items"],
+        ["character_creation", "character path", "character paths"],
+        ["rules", "rules reference", "rules references"],
+        ["assets", "art asset", "art assets"],
       ];
       const visible = entries
-        .map(([key, label]) => [Number(counts[key] || 0), label])
+        .map(([key, singular, plural]) => [Number(counts[key] || 0), singular, plural])
         .filter(([count]) => count > 0)
-        .map(([count, label]) => `${count} ${label}`);
+        .map(([count, singular, plural]) => `${count} ${count === 1 ? singular : plural}`);
       return visible.length ? visible.join(" · ") : "metadata-only world pack";
     }
 
@@ -15549,7 +15578,7 @@
       } catch (error) {
         cancelPendingChat(pendingChat);
         cancelPendingModelInteraction(pendingInteraction);
-        setError(String(error.message || error));
+        setError(actionExceptionMessage(error));
       } finally {
         clearTimeout(actionSlowTimer);
         actionSlowTimer = null;
@@ -16508,7 +16537,7 @@
         await Promise.all([pingPresence(), refresh()]);
         connectStream();
       } catch (error) {
-        setError(String(error.message || error));
+        setError(refreshExceptionMessage(error));
       }
     })();
   </script>

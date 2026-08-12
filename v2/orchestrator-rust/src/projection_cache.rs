@@ -24,7 +24,8 @@ pub(super) struct ProjectionRead {
 pub(super) struct MetaResponse {
     pub(super) ok: bool,
     pub(super) service: &'static str,
-    pub(super) version: &'static str,
+    #[serde(flatten)]
+    pub(super) versions: MetaVersions,
     pub(super) build_profile: &'static str,
     pub(super) deployment: MetaDeployment,
     pub(super) projection: MetaProjection,
@@ -36,6 +37,21 @@ pub(super) struct MetaResponse {
     pub(super) combat: MetaCombat,
     pub(super) worldpack: MetaWorldpack,
     pub(super) world: MetaWorldCounters,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub(super) struct MetaVersions {
+    version: &'static str,
+    content_engine_version: &'static str,
+}
+
+impl MetaVersions {
+    pub(super) fn current() -> Self {
+        Self {
+            version: env!("CARGO_PKG_VERSION"),
+            content_engine_version: content_engine_version(),
+        }
+    }
 }
 
 #[derive(Debug, serde::Serialize)]

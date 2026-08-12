@@ -774,6 +774,10 @@ pub(super) fn configured_content_registry() -> Result<&'static ContentRegistry, 
         .map_err(Clone::clone)
 }
 
+pub(super) fn content_engine_version() -> &'static str {
+    include_str!("../../content-engine-version.txt").trim()
+}
+
 pub(super) fn content_registry() -> &'static ContentRegistry {
     configured_content_registry().expect("configured CosyWorld content registry must load")
 }
@@ -804,7 +808,7 @@ fn load_configured_registry() -> Result<ContentRegistry, String> {
         .unwrap_or_else(|_| configured_content_root().join("official/registry.json"));
     let value = fs::read_to_string(&path)
         .map_err(|error| format!("content registry {}: {error}", path.display()))?;
-    let registry = ContentRegistry::from_json(&value, env!("CARGO_PKG_VERSION"))
+    let registry = ContentRegistry::from_json(&value, content_engine_version())
         .map_err(|error| format!("content registry {}: {error}", path.display()))?;
     let Some(configured_entry) = std::env::var("COSYWORLD_ENTRY_LOCATION_ID")
         .ok()
@@ -1438,7 +1442,7 @@ mod tests {
         let path = configured_content_root().join("official/registry.json");
         let registry = ContentRegistry::from_json(
             &fs::read_to_string(path).expect("compiled registry reads"),
-            env!("CARGO_PKG_VERSION"),
+            content_engine_version(),
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 49);
@@ -1519,7 +1523,7 @@ mod tests {
                     .expect("clock is an object")
                     .remove("on_fill");
             });
-            let error = ContentRegistry::from_json(&missing.to_string(), env!("CARGO_PKG_VERSION"))
+            let error = ContentRegistry::from_json(&missing.to_string(), content_engine_version())
                 .expect_err("missing direct fill consequence is rejected");
             assert!(error.contains("must directly declare"), "{error}");
 
@@ -1530,9 +1534,8 @@ mod tests {
                     .expect("on_fill is an array")
                     .retain(|effect| effect["op"] == "set_tag");
             });
-            let error =
-                ContentRegistry::from_json(&tag_only.to_string(), env!("CARGO_PKG_VERSION"))
-                    .expect_err("tag-only fill consequence is rejected");
+            let error = ContentRegistry::from_json(&tag_only.to_string(), content_engine_version())
+                .expect_err("tag-only fill consequence is rejected");
             assert!(error.contains("cannot be tag-only"), "{error}");
 
             let mut wrong_status = original.clone();
@@ -1555,7 +1558,7 @@ mod tests {
                 "failed"
             };
             let error =
-                ContentRegistry::from_json(&wrong_status.to_string(), env!("CARGO_PKG_VERSION"))
+                ContentRegistry::from_json(&wrong_status.to_string(), content_engine_version())
                     .expect_err("wrong status consequence is rejected");
             assert!(error.contains(&format!(":{expected_status}")), "{error}");
         }
@@ -1579,7 +1582,7 @@ mod tests {
             .as_object_mut()
             .expect("effect is an object")
             .remove("reason");
-        let error = ContentRegistry::from_json(&unjustified.to_string(), env!("CARGO_PKG_VERSION"))
+        let error = ContentRegistry::from_json(&unjustified.to_string(), content_engine_version())
             .expect_err("unjustified effect is rejected");
         assert!(error.contains("effect without a reason"), "{error}");
 
@@ -1600,7 +1603,7 @@ mod tests {
                 }],
                 "pack_id": "cosyworld.campaign.the-lantern-keeper"
             }));
-        let error = ContentRegistry::from_json(&duplicate.to_string(), env!("CARGO_PKG_VERSION"))
+        let error = ContentRegistry::from_json(&duplicate.to_string(), content_engine_version())
             .expect_err("duplicate fill source is rejected");
         assert!(
             error.contains("sole authoritative consequence source"),
@@ -1617,7 +1620,7 @@ mod tests {
         value["resources"]["items"][0]["external_card_id"] =
             serde_json::json!("wallet-copy-of-world-item");
 
-        let error = ContentRegistry::from_json(&value.to_string(), env!("CARGO_PKG_VERSION"))
+        let error = ContentRegistry::from_json(&value.to_string(), content_engine_version())
             .expect_err("world entities must reject wallet identity fields");
 
         assert!(
@@ -1642,7 +1645,7 @@ mod tests {
             .expect("card bindings are an array")
             .push(duplicate);
 
-        let error = ContentRegistry::from_json(&value.to_string(), env!("CARGO_PKG_VERSION"))
+        let error = ContentRegistry::from_json(&value.to_string(), content_engine_version())
             .expect_err("one wallet card cannot describe two entities");
 
         assert!(
@@ -1657,7 +1660,7 @@ mod tests {
         let core = ContentRegistry::from_json(
             &fs::read_to_string(content_root.join("core-only/registry.json"))
                 .expect("Core-only registry reads"),
-            env!("CARGO_PKG_VERSION"),
+            content_engine_version(),
         )
         .expect("Core-only registry mounts");
         assert_eq!(core.content().manifest.packs.len(), 3);
@@ -1673,7 +1676,7 @@ mod tests {
         let services = ContentRegistry::from_json(
             &fs::read_to_string(content_root.join("services-only/registry.json"))
                 .expect("services-only registry reads"),
-            env!("CARGO_PKG_VERSION"),
+            content_engine_version(),
         )
         .expect("services-only registry mounts");
         assert_eq!(services.content().manifest.packs.len(), 3);
@@ -1690,7 +1693,7 @@ mod tests {
         let registry = ContentRegistry::from_json(
             &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
                 .expect("Elysium registry reads"),
-            env!("CARGO_PKG_VERSION"),
+            content_engine_version(),
         )
         .expect("Elysium registry mounts");
         let track = registry
@@ -1709,7 +1712,7 @@ mod tests {
         let path = configured_content_root().join("official/registry.json");
         let registry = ContentRegistry::from_json(
             &fs::read_to_string(path).expect("official registry reads"),
-            env!("CARGO_PKG_VERSION"),
+            content_engine_version(),
         )
         .expect("official registry mounts");
 
