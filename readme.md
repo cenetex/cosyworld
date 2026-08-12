@@ -8,6 +8,9 @@ CosyWorld V2 is the canonical product. The older Node service still exists in
 this repository as a companion for legacy integrations and experiments, but new
 gameplay work should target `v2/`.
 
+The stable product release is **CosyWorld 1.0**. See the
+[`CHANGELOG`](CHANGELOG.md) for its supported product surface and upgrade notes.
+
 ## Start Here
 
 Run the current browser game:

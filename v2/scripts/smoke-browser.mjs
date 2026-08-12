@@ -7,6 +7,10 @@ import { fileURLToPath } from "node:url";
 import { spentPreparationTagBelongsToJob } from "./smoke-project-tags.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const contentEngineVersion = (await readFile(
+  resolve(__dirname, "../content-engine-version.txt"),
+  "utf8",
+)).trim();
 const defaultUrl = "http://127.0.0.1:3102/?reset=1";
 const targetUrl = process.env.COSYWORLD_SMOKE_URL || defaultUrl;
 const runLivingWorldStress = ["1", "true", "yes"].includes(
@@ -161,6 +165,7 @@ async function assertRuntimeMeta() {
   assert(meta.ok === true, `runtime meta should be ok: ${JSON.stringify(meta)}`);
   assert(meta.service === "cosyworld-orchestrator", `runtime meta should name the service: ${JSON.stringify(meta)}`);
   assert(typeof meta.version === "string" && meta.version.length > 0, `runtime meta should expose package version: ${JSON.stringify(meta)}`);
+  assert(meta.content_engine_version === contentEngineVersion, `runtime meta should expose the independent content-engine contract: ${JSON.stringify(meta)}`);
   assert(["debug", "release"].includes(meta.build_profile), `runtime meta should expose build profile: ${JSON.stringify(meta)}`);
   assert(meta.deployment?.profile === "local", `runtime meta should expose local deploy profile for MVP smoke: ${JSON.stringify(meta.deployment)}`);
   assert(meta.deployment?.production === false, `runtime meta should expose non-production MVP smoke profile: ${JSON.stringify(meta.deployment)}`);
@@ -5816,6 +5821,7 @@ async function main() {
             }],
           }],
         };
+        actorId = 5000;
         const rollEvent = {
           type: "ability_check.rolled",
           actor_id: 5000,
@@ -6405,6 +6411,15 @@ async function main() {
         hurry: actionFailureMessage("/actions/search", { status: 429 }),
         reply: actionFailureMessage("/actions/chat", { status: 502 }),
         fallback: actionFailureMessage("/actions/work", { status: 500 }),
+        offline: actionExceptionMessage(new TypeError("Failed to fetch")),
+        refreshOffline: refreshExceptionMessage(new TypeError("Failed to fetch")),
+        staleConflict: actionFailureMessage("/actions/timeout", {
+          status: 409,
+          events: [{
+            type: "action.conflict",
+            content: "Stale location version: observed 9, current 10. Refresh before retrying.",
+          }],
+        }),
       },
       command: {
         reconnect: commandFailureMessage({ status: 403 }),
@@ -6427,8 +6442,17 @@ async function main() {
     assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
     assert(result.action.restNotNeeded === "You are already steady enough to keep going.", `Rest rules rejection should say why it is unavailable: ${JSON.stringify(result)}`);
     assert(result.action.changed === "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.", `stale cards should explain the refreshed choice and atomic outcome naturally: ${JSON.stringify(result)}`);
+    assert(result.action.staleConflict === result.action.changed, `stale-version conflicts should not leak mechanical revision diagnostics: ${JSON.stringify(result)}`);
     assert(result.command.changed === "That choice changed while you were deciding. Nothing else happened; look again.", `stale typed commands should explain the atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);
+    assert(
+      result.action.offline === "Connection lost. Check the refreshed world before trying again; your action may already have landed.",
+      `network failures should explain retry safety without leaking browser diagnostics: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.action.refreshOffline === "The world could not be reached. Check your connection; reconnecting will restore the latest safe state.",
+      `refresh failures should stay player-facing and explain recovery: ${JSON.stringify(result)}`,
+    );
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
     assert(
       result.asyncChatFailure === "The conversation slipped away before it could begin. Try talking again.",
@@ -12348,6 +12372,8 @@ async function main() {
       iconCount: document.querySelectorAll(".menu-nav .ui-icon").length,
       decorativeIcons: [...document.querySelectorAll(".menu-nav .ui-icon")]
         .every((icon) => icon.getAttribute("aria-hidden") === "true"),
+      brandClientWidth: document.querySelector("#brand")?.clientWidth || 0,
+      brandScrollWidth: document.querySelector("#brand")?.scrollWidth || 0,
     }));
     assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
       { id: "deck", label: "deck" },
@@ -12359,6 +12385,7 @@ async function main() {
     ]), `${label}: Menu should separate deck, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
+    assert(menuDeck.brandScrollWidth <= menuDeck.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menuDeck)}`);
     assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /carried weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /spell deck/i.test(menuDeck.copy) && /exhausted \/ discard/i.test(menuDeck.copy), `${label}: Deck should explain weight, loadout, charms, spells, and exhausted cards: ${JSON.stringify(menuDeck)}`);
     await page.locator('[data-menu-section="world"]').click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
@@ -12373,10 +12400,19 @@ async function main() {
       featured: document.querySelector(".library-grid.featured") !== null,
       packIconCount: document.querySelectorAll(".library-pack-name .ui-icon").length,
       supportingDisclosure: document.querySelector(".library-system-packs") !== null,
+      packCountSummaries: [...document.querySelectorAll(".library-pack-counts")]
+        .map((node) => node.textContent.replace(/\s+/g, " ").trim()),
     }));
     assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
     assert(library.heading === "Worlds" && /ordinary places are public and need no wallet/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
     assert(library.featured && library.packIconCount > 0 && library.supportingDisclosure, `${label}: library should separate playable worlds from supporting packs: ${JSON.stringify(library)}`);
+    assert(
+      library.packCountSummaries.some((summary) => /\d+ items · \d+ cards/.test(summary))
+        && library.packCountSummaries.some((summary) => /1 character path/.test(summary))
+        && library.packCountSummaries.some((summary) => /1 art asset/.test(summary))
+        && library.packCountSummaries.every((summary) => !/\d+ items · \d+ items|1 character paths|1 art assets/.test(summary)),
+      `${label}: library resource summaries should distinguish carried items from cards: ${JSON.stringify(library.packCountSummaries)}`,
+    );
 
     await page.locator('[data-menu-section="settings"]').click();
     await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "orbs & settings");
@@ -13540,6 +13576,10 @@ async function main() {
     );
     steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
     await assertActionBarCapped("guest account inventory", 0);
+    await page.waitForFunction(() => (
+      document.querySelector(".account-panel")?.innerText
+        ?.includes("I listen for odd jobs nobody else wants.")
+    ), undefined, { timeout: 5_000 });
     const guestSheetText = await page.locator(".account-panel").innerText();
     assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
     assert(/\blevel\s+1\b/i.test(guestSheetText) && !/\bclassless\b/i.test(guestSheetText), `the account sheet should show level 1 without a class label before class selection: ${guestSheetText}`);
@@ -13566,7 +13606,7 @@ async function main() {
     assert(
       /\bI (?:like|prefer|want|dislike|avoid|hope|enjoy|am|notice|wonder|feel)\b/i.test(guestAvatarBlurb)
         && !guestAvatarBlurb.includes(guestAvatarName)
-        && !/\bmy\b|imaginary|invisible|companion|familiar|sidekick|\bpet\b|\bI (?:carry|keep|have|hold|wear|own|brought|travel with)\b|follows me|beside me/i.test(guestAvatarBlurb),
+        && !/\bmy\b|imaginary|invisible|companion|\bfamiliar\b|sidekick|\bpet\b|\bI (?:carry|keep|have|hold|wear|own|brought|travel with)\b|follows me|beside me/i.test(guestAvatarBlurb),
       `generated avatar blurb should be ${guestAvatarName}'s grounded first-person desires and preferences: ${guestAvatarBlurb}`,
     );
     assert(

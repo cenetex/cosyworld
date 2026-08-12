@@ -21566,7 +21566,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     Json(MetaResponse {
         ok: true,
         service: "cosyworld-orchestrator",
-        version: env!("CARGO_PKG_VERSION"),
+        versions: MetaVersions::current(),
         build_profile: if cfg!(debug_assertions) {
             "debug"
         } else {

@@ -47,7 +47,23 @@ The Terraform state remains stored in:
 
 ## Cutting a Release
 
-Use the next version tag, replacing `vX.Y.Z` with the release tag being cut:
+The package and Rust crate versions must already match the final release version.
+`v2/content-engine-version.txt` is a separate compatibility contract; change it
+only when pack engine compatibility actually changes.
+For a major or otherwise high-risk release, deploy an immutable release candidate
+from the exact commit first:
+
+```sh
+git tag vX.Y.Z-rc.1
+git push origin vX.Y.Z-rc.1
+```
+
+Wait for the production gate, both deploy jobs, live `/meta` checks, and the
+candidate GitHub release to succeed. Observe the candidate in production before
+promoting that same commit. Do not rebuild or amend it between candidate and
+promotion.
+
+Promote the observed commit with the final version tag:
 
 ```sh
 git tag vX.Y.Z
@@ -55,6 +71,21 @@ git push origin vX.Y.Z
 ```
 
 The workflow deploys both Fly apps, then creates GitHub release notes.
+
+## Upgrade and recovery
+
+Keep the existing SQLite and generated-asset volumes attached during an upgrade.
+The runtime restores the latest accepted checkpoint, replays the retained journal
+suffix, and refuses incompatible world-pack or generated-descendant state rather
+than silently replacing it. A normal release must report zero checkpoint
+rejections in `/meta` after deployment.
+
+Recovery captures are compatibility evidence for an exact live bundle and
+tenant, not generic seed data. Use a capture only through the guarded workflow
+input documented in [`deployment/07-deployment.md`](deployment/07-deployment.md),
+and verify the resulting bundle hash and journal cursor before cutting the next
+tag. Prefer a forward fix over rolling an active persistent world back across a
+schema or world-pack boundary.
 
 ## Lonely Forest operations
 
