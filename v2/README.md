@@ -406,8 +406,9 @@ and sends only one. Provider discovery never grants eligibility by itself,
 mutable aliases require concrete returned-model attribution, and production
 operator-registry inference fails closed unless the selected declaration
 explicitly prohibits retention and training. Pack-bound exact interactions are
-separate: their inputs contain only server-authored world and catalog facts, so
-both ZDR and non-ZDR endpoints are eligible while profile metadata preserves
+separate: their inputs contain only server-authored world, catalog, and visible
+room-message facts, so both ZDR and non-ZDR endpoints are eligible while profile
+metadata preserves
 the truthful policy. A ZDR profile adds the provider privacy constraint; a
 non-ZDR profile does not pretend otherwise. See
 [`docs/ai-capability-registry.md`](docs/ai-capability-registry.md) for the
@@ -424,6 +425,12 @@ Transcription remains dormant because there is no microphone, upload, or
 player-authored speech surface; asynchronous video, mixed audio/music, and
 vector-only SVG output await dedicated safe adapters. Players choose only a
 certified actor and target—there is no arbitrary speech or prompt input.
+`Find resonance` freezes the latest visible room message as its query and up to
+eight earlier visible room messages as its corpus, then publishes the three
+closest earlier messages without exposing vectors. `Rank echoes` gives the
+same frozen corpus to the exact rerank model. Both actions remain unavailable
+until at least four earlier messages exist, so the three published results are
+selected rather than merely echoing the entire corpus.
 
 Server-side generative world content is separately controlled and defaults to
 off. Enable only reviewed features, or run them in shadow mode to validate and
