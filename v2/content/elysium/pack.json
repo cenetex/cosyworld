@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.elysium",
   "name": "Elysium",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "kind": "world",
   "description": "A scoutable Fibonacci-Wythoff rhizome of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
   "license": "MIT",
@@ -12,7 +12,7 @@
     {
       "id": "cosyworld.elysium/world",
       "kind": "world",
-      "version": "0.2.1"
+      "version": "0.2.2"
     }
   ],
   "dependencies": [
@@ -52,6 +52,33 @@
     "room_sheets": "room_sheets.json"
   },
   "extensions": {
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "cosyworld.elysium/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://cosyworld.elysium/generated/v1",
+      "generated_descendants": {
+        "owner": "source_route",
+        "composition": "active_bundle",
+        "subject_kinds": [
+          "route",
+          "waypoint",
+          "place",
+          "location_card"
+        ],
+        "on_upgrade": "require_declared_migration",
+        "on_unmount": "freeze_with_owner"
+      },
+      "migrations": [
+        {
+          "from_policy_id": "cosyworld.compatibility.host-generation/1",
+          "from_migration_version": 0,
+          "from_pack_version": "0.2.0",
+          "mode": "preserve_descendants"
+        }
+      ],
+      "cross_pack_routes": []
+    },
     "x-cosyworld-ai-cast": {
       "schema_version": 1,
       "provider": "openrouter",

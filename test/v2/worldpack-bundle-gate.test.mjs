@@ -37,9 +37,10 @@ const OLDER_HASH = digest("older-declared-bundle");
 const LANTERN_ACTIVE_HASH = "sha256:7d3b33f743bd50699fe013321e23cfe6b11476b4f457e41ee8525a10e7d72d72";
 const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
-const ELYSIUM_ACTIVE_HASH = "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099";
-const ELYSIUM_PREVIOUS_ACTIVE_HASH = "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee";
-const ELYSIUM_PERSISTED_HASH = "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf";
+const ELYSIUM_ACTIVE_HASH = "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c";
+const ELYSIUM_FAILED_CANDIDATE_HASH = "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099";
+const ELYSIUM_PRODUCTION_HASH = "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee";
+const ELYSIUM_OLDER_PERSISTED_HASH = "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf";
 
 function registry(overrides = {}) {
   return {
@@ -297,12 +298,13 @@ describe("worldpack deploy gate CLI", () => {
     const registry = JSON.parse(await readFile(elysiumRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
     expect(candidate.bundleHash).toBe(ELYSIUM_ACTIVE_HASH);
-    expect(candidate.replayCompatible).toContain(ELYSIUM_PREVIOUS_ACTIVE_HASH);
-    expect(candidate.replayCompatible).toContain(ELYSIUM_PERSISTED_HASH);
+    expect(candidate.replayCompatible).toContain(ELYSIUM_PRODUCTION_HASH);
+    expect(candidate.replayCompatible).toContain(ELYSIUM_OLDER_PERSISTED_HASH);
+    expect(candidate.replayCompatible).not.toContain(ELYSIUM_FAILED_CANDIDATE_HASH);
     expect(evaluateWorldpackGate({
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,
-      liveHash: ELYSIUM_PERSISTED_HASH,
+      liveHash: ELYSIUM_PRODUCTION_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 });
