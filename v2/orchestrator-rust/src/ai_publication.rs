@@ -64,6 +64,7 @@ pub(crate) enum PublicationCheckCode {
     VoiceObjectAgency,
     VoiceFallbackIdentity,
     VoiceSignpostOpening,
+    VoiceQuestionMonoculture,
 }
 
 impl PublicationCheckCode {
@@ -84,6 +85,7 @@ impl PublicationCheckCode {
             Self::VoiceObjectAgency => "voice_object_agency",
             Self::VoiceFallbackIdentity => "voice_fallback_identity",
             Self::VoiceSignpostOpening => "voice_signpost_opening",
+            Self::VoiceQuestionMonoculture => "voice_question_monoculture",
         }
     }
 }
@@ -682,11 +684,52 @@ fn evaluate_checks(
                 || !has_non_signpost_anchor(context)
                 || !starts_with_signpost_anchor(text, &context.signpost_openers),
         ),
+        (
+            PublicationCheckCode::VoiceQuestionMonoculture,
+            context.mode != SpeechMode::Prose || !question_shape_is_overused(text, context),
+        ),
     ];
     checks
         .into_iter()
         .map(|(code, passed)| PublicationCheck { code, passed })
         .collect()
+}
+
+fn question_shape_is_overused(value: &str, context: &SpeechGateContext) -> bool {
+    let words = normalized_words(value);
+    let generic_unspoken_question = value.contains('?')
+        && words.iter().any(|word| {
+            matches!(
+                word.as_str(),
+                "question" | "truth" | "secret" | "topic" | "something"
+            )
+        })
+        && words
+            .iter()
+            .any(|word| matches!(word.as_str(), "everyone" | "everybody" | "people"))
+        && words.iter().any(|word| {
+            matches!(
+                word.as_str(),
+                "avoid" | "avoids" | "avoiding" | "skipped" | "unasked" | "unsaid" | "stepping"
+            )
+        });
+    if generic_unspoken_question {
+        return true;
+    }
+    if !value.trim_end().ends_with('?') {
+        return false;
+    }
+
+    context
+        .recent_lines
+        .iter()
+        .rev()
+        .filter(|recent| attributed_recent_line(recent, context).is_none())
+        .map(|recent| spoken_words_of(recent, context).trim_end())
+        .take(2)
+        .filter(|spoken| spoken.ends_with('?'))
+        .count()
+        >= 2
 }
 
 fn starts_with_signpost_anchor(value: &str, anchors: &[String]) -> bool {
@@ -1818,6 +1861,42 @@ mod tests {
             ),
             PublicationCheckCode::VoiceRepeatedNgram
         );
+    }
+
+    #[test]
+    fn generic_unspoken_question_trope_is_rejected() {
+        assert_check_failed(
+            "Which teapot truth is everyone stepping around?",
+            completion("Which teapot truth is everyone stepping around?"),
+            context(&["teapot".to_string()], &[]),
+            PublicationCheckCode::VoiceQuestionMonoculture,
+        );
+    }
+
+    #[test]
+    fn a_third_consecutive_question_from_one_resident_is_rejected() {
+        let recent = vec![
+            "Rati: Is the kettle warm?".to_string(),
+            "Rati: Shall we pour the tea?".to_string(),
+        ];
+        assert_check_failed(
+            "Does the teapot prefer rain today?",
+            completion("Does the teapot prefer rain today?"),
+            context(&["teapot".to_string()], &recent),
+            PublicationCheckCode::VoiceQuestionMonoculture,
+        );
+    }
+
+    #[test]
+    fn a_grounded_question_after_statements_remains_available() {
+        let recent = vec![
+            "Rati: The kettle is warm.".to_string(),
+            "Rati: Rain suits this tea.".to_string(),
+        ];
+        assert!(!question_shape_is_overused(
+            "Does the teapot need another minute?",
+            &context(&["teapot".to_string()], &recent),
+        ));
     }
 
     #[test]

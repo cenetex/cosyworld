@@ -389,7 +389,7 @@ impl AvatarContextSpine {
             })
         {
             prompt = prompt.user(
-                format!("OPEN THREAD · {goal}"),
+                format!("STORY PRESSURE · {goal}"),
                 PromptSegmentKind::UniqueEvidence,
                 68,
                 false,

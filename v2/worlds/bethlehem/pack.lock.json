@@ -8,7 +8,8 @@
     "cosyworld.rules-profile-srd5",
     "cosyworld.core",
     "cosyworld.the-holy-land",
-    "cosyworld.composition.core-holy-land"
+    "cosyworld.composition.core-holy-land",
+    "cosyworld.lonely-forest.characters"
   ],
   "packs": [
     {
@@ -224,6 +225,50 @@
         "source_name": "CosyWorld official composition",
         "source_url": "https://github.com/cenetex/cosyworld"
       }
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "version": "1.1.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff",
+      "dependencies": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core"
+      ],
+      "capabilities": [
+        {
+          "id": "cosyworld.lonely-forest.characters/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Cenetex Lonely Forest character art",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
     }
   ],
   "license_records": [
@@ -308,6 +353,19 @@
       "provenance": {
         "author": "Cenetex",
         "source_name": "CosyWorld official composition",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "notices": []
+    },
+    {
+      "pack_id": "cosyworld.lonely-forest.characters",
+      "name": "Lonely Forest Character Art",
+      "version": "1.1.1",
+      "license_identifier": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Cenetex Lonely Forest character art",
         "source_url": "https://github.com/cenetex/cosyworld"
       },
       "notices": []

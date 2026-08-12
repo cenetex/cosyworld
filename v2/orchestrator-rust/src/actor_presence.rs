@@ -1,5 +1,164 @@
 use super::*;
 
+#[derive(Debug, Deserialize)]
+pub(super) struct RenewAvatarSessionRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    wallet_session: Option<String>,
+    #[serde(default)]
+    rotate: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct RenewAvatarSessionResponse {
+    ok: bool,
+    status: u32,
+    actor: Option<ActorView>,
+    actor_session: Option<String>,
+    actor_session_expires_at_unix: Option<u64>,
+    renewed: bool,
+}
+
+fn actor_session_record(
+    actor_sessions: &StdMutex<ActorSessions>,
+    actor_id: u64,
+    session_token: &str,
+) -> Option<ActorSession> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let now = Instant::now();
+    let Ok(mut sessions) = actor_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    sessions
+        .sessions
+        .get(token)
+        .filter(|session| session.actor_id == actor_id)
+        .cloned()
+}
+
+fn retire_actor_session(state: &AppState, session_token: &str) -> io::Result<()> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return Ok(());
+    }
+    if let Some(path) = state.event_store_path.as_deref() {
+        init_event_store(path)?;
+        let conn = open_event_store(path)?;
+        conn.execute(
+            "DELETE FROM actor_sessions WHERE session_token = ?1",
+            params![token],
+        )
+        .map_err(sqlite_error)?;
+    }
+    if let Ok(mut sessions) = state.actor_sessions.lock() {
+        sessions.sessions.remove(token);
+    }
+    Ok(())
+}
+
+pub(super) async fn renew_avatar_session(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<RenewAvatarSessionRequest>,
+) -> Json<RenewAvatarSessionResponse> {
+    let rejected = |status| {
+        Json(RenewAvatarSessionResponse {
+            ok: false,
+            status,
+            actor: None,
+            actor_session: None,
+            actor_session_expires_at_unix: None,
+            renewed: false,
+        })
+    };
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "avatar-session-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return rejected(RATE_LIMITED_STATUS);
+    }
+    if let Some(token) = payload.actor_session.as_deref() {
+        if let Err(error) = refresh_actor_session_from_store(&state, token) {
+            warn!(
+                "failed to load CosyWorld actor session for renewal: {}",
+                error
+            );
+        }
+    }
+
+    let existing_session = payload.actor_session.as_deref().and_then(|token| {
+        (actor_for_session(&state.actor_sessions, token) == Some(payload.actor_id))
+            .then(|| actor_session_record(&state.actor_sessions, payload.actor_id, token))
+            .flatten()
+            .map(|session| (token.to_string(), session))
+    });
+    let wallet_authorized = payload
+        .wallet_session
+        .as_deref()
+        .and_then(|token| wallet_for_session(&state.wallet_sessions, token))
+        .and_then(|wallet| linked_actor_for_wallet(&state, &wallet))
+        == Some(payload.actor_id);
+    if existing_session.is_none() && !wallet_authorized {
+        return rejected(403);
+    }
+    if actor_is_suspended(&state, payload.actor_id) {
+        return rejected(403);
+    }
+
+    let actor = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .actor_by_id(payload.actor_id)
+            .filter(|actor| runtime.client_actor_can_observe(actor.id))
+            .map(|actor| runtime.actor_view(actor))
+    };
+    let Some(actor) = actor else {
+        // A terminal or missing actor cannot be resurrected by credential
+        // renewal. Character creation is a separate, authoritative choice.
+        return rejected(409);
+    };
+
+    let replaced_session = if payload.rotate {
+        existing_session.as_ref().map(|(token, _)| token.clone())
+    } else {
+        None
+    };
+    let (actor_session, actor_session_record, renewed) =
+        if let Some((token, session)) = existing_session.filter(|_| !payload.rotate) {
+            (token, session, false)
+        } else {
+            let (token, session) = issue_actor_session(&state, payload.actor_id);
+            (token, session, true)
+        };
+    if let Some(replaced_session) = replaced_session {
+        if let Err(error) = retire_actor_session(&state, &replaced_session) {
+            warn!(
+                "failed to retire rotated CosyWorld actor session for {}: {}",
+                payload.actor_id, error
+            );
+            return rejected(500);
+        }
+    }
+    record_daily_visit(&state, payload.actor_id);
+    Json(RenewAvatarSessionResponse {
+        ok: true,
+        status: CW_OK,
+        actor: Some(actor),
+        actor_session: Some(actor_session),
+        actor_session_expires_at_unix: Some(actor_session_record.expires_at_unix),
+        renewed,
+    })
+}
+
 impl RuntimeWorld {
     pub(super) fn actor_is_present(actor: CwActor) -> bool {
         matches!(actor.kind, CW_ACTOR_HUMAN | CW_ACTOR_NPC)
@@ -19,6 +178,27 @@ impl RuntimeWorld {
         self.actor_by_id(actor_id)
             .is_some_and(Self::actor_is_present)
             && self.actor_control_mode(actor_id).is_direct_input()
+    }
+
+    pub(super) fn avatar_lifecycle_primary_action(&self, actor_id: u64) -> Option<PrimaryAction> {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return Some(create_avatar_primary_action());
+        };
+
+        // Knockout changes the body, not its canonical identity. Keep the
+        // player attached to the same observable actor and deal no mutation
+        // while another participant can still rescue it. Only an
+        // authoritative terminal state opens character creation.
+        if Self::actor_is_present(actor) && !Self::actor_can_act(actor) {
+            return Some(PrimaryAction {
+                kind: "await_rescue".to_string(),
+                label: "Await Rescue".to_string(),
+                command: "observe".to_string(),
+                disabled: true,
+                options: Vec::new(),
+            });
+        }
+        (!Self::actor_can_act(actor)).then(create_avatar_primary_action)
     }
 
     pub(super) fn actor_visible_in_projection(
@@ -71,6 +251,16 @@ impl RuntimeWorld {
         Self::actor_can_act(actor)
             && combat_turn_view(self, actor.id, actor.location_id)
                 .is_some_and(|turn| turn.current_actor_id == Some(actor.id))
+    }
+}
+
+fn create_avatar_primary_action() -> PrimaryAction {
+    PrimaryAction {
+        kind: "create_avatar".to_string(),
+        label: "Create Avatar".to_string(),
+        command: "create avatar".to_string(),
+        disabled: false,
+        options: Vec::new(),
     }
 }
 
@@ -141,6 +331,22 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn insert_actor_presence_wallet_session(state: &AppState, token: &str, wallet_address: &str) {
+        state
+            .wallet_sessions
+            .lock()
+            .expect("wallet sessions")
+            .sessions
+            .insert(
+                token.to_string(),
+                WalletSession {
+                    wallet_address: wallet_address.to_string(),
+                    linked_wallet_addresses: Vec::new(),
+                    expires_at: Instant::now() + Duration::from_secs(3600),
+                },
+            );
+    }
 
     fn command_request(actor_id: u64, command: &str) -> CommandRequest {
         CommandRequest {
@@ -262,7 +468,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn knocked_out_avatar_is_offered_a_new_beginning_and_no_unplayable_hand() {
+    async fn knocked_out_avatar_keeps_its_identity_and_receives_no_unplayable_hand() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -279,11 +485,8 @@ mod tests {
             .expect("the avatar exists");
         actor.status = CW_ACTOR_KNOCKED_OUT;
 
-        // The body stays in the world (see the presence contract below), but
-        // the player holding it has no legal move: every ordinary offer fails
-        // `actor_can_act` at submission. Until rescue or recovery exists, the
-        // projection must deal the one honest exit — the release path that
-        // lets the player begin again while the body persists.
+        // The body and its canonical identity stay in the world, but the
+        // player holding it has no legal mutation until rescue or recovery.
         let downed = runtime.state_response_with_presence(
             Some(5000),
             &AccessContext::default(),
@@ -291,18 +494,15 @@ mod tests {
             false,
         );
         assert_eq!(
-            downed.primary_action.kind, "create_avatar",
-            "a knocked-out avatar must be offered a new beginning, not ordinary play",
+            downed.primary_action.kind, "await_rescue",
+            "a knocked-out avatar must remain attached in observer mode",
         );
         assert!(
-            !downed.primary_action.disabled,
-            "the new beginning must be reachable",
+            downed.primary_action.disabled,
+            "observer mode cannot mutate the downed actor",
         );
         assert!(
-            downed
-                .action_offers
-                .iter()
-                .all(|offer| offer.kind == "create_avatar"),
+            downed.action_offers.is_empty(),
             "a knocked-out avatar must not be dealt offers it cannot submit: {:?}",
             downed
                 .action_offers
@@ -387,10 +587,11 @@ mod tests {
             .items
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
-        // The fallen avatar's own projection deals the release path, not an
-        // unplayable hand: present and observable does not mean playable.
-        assert_eq!(observer_view.primary_action.kind, "create_avatar");
-        assert!(!observer_view.primary_action.disabled);
+        // Present and observable does not mean playable, and it does not mean
+        // the player may replace this still-living identity.
+        assert_eq!(observer_view.primary_action.kind, "await_rescue");
+        assert!(observer_view.primary_action.disabled);
+        assert!(observer_view.action_offers.is_empty());
 
         let who = runtime
             .resolve_command_with_presence(
@@ -447,6 +648,140 @@ mod tests {
                     && item.holder_actor_id == 5001
                     && item.location_id == 0
             }));
+    }
+
+    #[tokio::test]
+    async fn avatar_session_recovery_rotates_only_for_the_same_observable_actor() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Fallen Door Walker",
+        );
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("linked avatar")
+            .status = CW_ACTOR_KNOCKED_OUT;
+        let actor_count = runtime.world.actor_count;
+        let state = test_app_state(runtime, None);
+        let wallet_address = "wallet-shared-by-every-door";
+        let wallet_session = "wallet-session-shared-by-every-door";
+        insert_actor_presence_wallet_session(&state, wallet_session, wallet_address);
+        link_wallet_actor(&state, wallet_address, 5000);
+
+        let recovered = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5000,
+                actor_session: Some("expired-door-session".to_string()),
+                wallet_session: Some(wallet_session.to_string()),
+                rotate: false,
+            }),
+        )
+        .await
+        .0;
+        assert!(recovered.ok, "{recovered:?}");
+        assert!(recovered.renewed);
+        assert_eq!(
+            recovered
+                .actor
+                .as_ref()
+                .map(|actor| (actor.id, actor.status.as_str())),
+            Some((5000, "knocked_out"))
+        );
+        let recovered_token = recovered
+            .actor_session
+            .clone()
+            .expect("recovery issues a replacement credential");
+
+        let checked = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5000,
+                actor_session: Some(recovered_token.clone()),
+                wallet_session: None,
+                rotate: false,
+            }),
+        )
+        .await
+        .0;
+        assert!(checked.ok, "{checked:?}");
+        assert!(!checked.renewed);
+        assert_eq!(
+            checked.actor_session.as_deref(),
+            Some(recovered_token.as_str())
+        );
+
+        let (parallel_token, _) = issue_actor_session(&state, 5000);
+        let rotated = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5000,
+                actor_session: Some(recovered_token.clone()),
+                wallet_session: None,
+                rotate: true,
+            }),
+        )
+        .await
+        .0;
+        assert!(rotated.ok, "{rotated:?}");
+        assert!(rotated.renewed);
+        let rotated_token = rotated
+            .actor_session
+            .clone()
+            .expect("rotation issues a fresh credential");
+        assert_ne!(rotated_token, recovered_token);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &recovered_token),
+            None,
+            "the replaced credential must not keep presence alive",
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &parallel_token),
+            Some(5000),
+            "rotation must preserve other legitimate door sessions",
+        );
+
+        let wrong_actor = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5001,
+                actor_session: Some(rotated_token.clone()),
+                wallet_session: None,
+                rotate: true,
+            }),
+        )
+        .await
+        .0;
+        assert!(!wrong_actor.ok, "{wrong_actor:?}");
+        assert_eq!(wrong_actor.status, 403);
+
+        state.inner.lock().await.world.actors[..actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("linked avatar")
+            .status = CW_ACTOR_DEAD;
+        let terminal = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5000,
+                actor_session: Some(rotated_token),
+                wallet_session: None,
+                rotate: true,
+            }),
+        )
+        .await
+        .0;
+        assert!(!terminal.ok, "{terminal:?}");
+        assert_eq!(terminal.status, 409);
+        assert_eq!(state.inner.lock().await.world.actor_count, actor_count);
     }
 
     #[tokio::test]

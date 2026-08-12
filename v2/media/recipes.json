@@ -48,6 +48,23 @@
       "maximum_references": 4
     },
     {
+      "id": "cosyworld.community-art.evolution-lora/1",
+      "default_recipe": "replicate.flux-kontext-dev-lora.evolution",
+      "allowed_recipes": [
+        "replicate.flux-kontext-dev-lora.evolution"
+      ],
+      "operations": [
+        "single_reference"
+      ],
+      "intents": [
+        "evolution_card_art"
+      ],
+      "reference_slots": [
+        "prior_level"
+      ],
+      "maximum_references": 1
+    },
+    {
       "id": "project89.world-art.base/1",
       "default_recipe": "replicate.ratimics-project89.v95f3d0eb",
       "allowed_recipes": [
@@ -334,6 +351,92 @@
       "lora": null,
       "output": {
         "normalization": "first_url",
+        "stable_storage": "required"
+      },
+      "fallback_recipe": null
+    },
+    {
+      "id": "replicate.flux-kontext-dev-lora.evolution",
+      "profile": "cosyworld.community-art.evolution-lora/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "black-forest-labs",
+        "name": "flux-kontext-dev-lora",
+        "revision": "50c10b8f14af90fda0a4bf3bbfdda263ddb0f2b3e32e4735dcc6ee7156d7ed6f",
+        "revision_source": "https://replicate.com/black-forest-labs/flux-kontext-dev-lora/versions/50c10b8f14af90fda0a4bf3bbfdda263ddb0f2b3e32e4735dcc6ee7156d7ed6f/api",
+        "invocation": "pinned_version"
+      },
+      "state": "enabled",
+      "operations": [
+        "single_reference"
+      ],
+      "intents": [
+        "evolution_card_art"
+      ],
+      "references": {
+        "minimum": 1,
+        "maximum": 1,
+        "input_shape": "single_url",
+        "input_field": "input_image",
+        "ordering": "caller",
+        "prompt_semantics": "indexed_image_1",
+        "supported_slots": [
+          "prior_level"
+        ]
+      },
+      "input_formats": [
+        "jpeg",
+        "png",
+        "gif",
+        "webp"
+      ],
+      "aspect_ratios": [
+        "match_input_image",
+        "1:1",
+        "16:9",
+        "3:2",
+        "2:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "3:4",
+        "4:3"
+      ],
+      "dimensions": {
+        "minimum": 256,
+        "maximum": 2048,
+        "multiple": 16
+      },
+      "output_formats": [
+        "png",
+        "jpg",
+        "webp"
+      ],
+      "supports_masks": false,
+      "seed_behavior": "optional",
+      "timeout_seconds": 90,
+      "cost_class": "reference_image",
+      "concurrency": 1,
+      "retry": {
+        "maximum_attempts": 2,
+        "transient_only": true
+      },
+      "prompt_template_version": "community-evolution-lora/1",
+      "required_prompt_prefix": null,
+      "provider_defaults": {
+        "go_fast": true,
+        "guidance": 2.5,
+        "megapixels": "1",
+        "output_quality": 100,
+        "num_inference_steps": 30,
+        "disable_safety_checker": false
+      },
+      "lora": {
+        "weights_input": "lora_weights",
+        "scale_input": "lora_strength"
+      },
+      "output": {
+        "normalization": "single_url",
         "stable_storage": "required"
       },
       "fallback_recipe": null

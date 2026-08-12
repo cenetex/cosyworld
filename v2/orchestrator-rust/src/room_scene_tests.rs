@@ -89,6 +89,7 @@ fn approve_reference(
             prediction_id: Some(prediction.clone()),
             source_event_seq: Some(event_seq),
             history_through_seq: event_seq,
+            ..MediaAssetProvenance::default()
         },
     )
     .expect("register reference");

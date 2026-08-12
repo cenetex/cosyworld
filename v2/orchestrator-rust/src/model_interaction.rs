@@ -10,12 +10,15 @@ const MODEL_INTERACTION_SPEECH_FEATURE: &str = "model_interaction_speech";
 const MODEL_INTERACTION_SPEECH_TEXT_FEATURE: &str = "model_interaction_speech_text";
 const MODEL_INTERACTION_BATCH_TALK_FEATURE: &str = "model_interaction_batch_talk";
 const MODEL_INTERACTION_IMAGE_CONTEXT_VERSION: &str = "authoritative-scene-v1";
-const MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION: &str = "authoritative-model-neighbors-v1";
+const MODEL_INTERACTION_LEGACY_SEMANTIC_CONTEXT_VERSION: &str = "authoritative-model-neighbors-v1";
+const MODEL_INTERACTION_MESSAGE_SEMANTIC_CONTEXT_VERSION: &str =
+    "authoritative-room-message-resonance-v1";
 const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-v2";
 const MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION: &str = "authoritative-world-speech-text-v1";
 const MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION: &str = "authoritative-world-echo-v1";
 const MODEL_INTERACTION_SEMANTIC_CANDIDATES: usize = 8;
 const MODEL_INTERACTION_SEMANTIC_RESULTS: usize = 3;
+const MODEL_INTERACTION_SEMANTIC_MIN_CANDIDATES: usize = MODEL_INTERACTION_SEMANTIC_RESULTS + 1;
 const MODEL_INTERACTION_MAX_PARTS: usize = 8;
 const MODEL_INTERACTION_MAX_SUMMARY_CHARS: usize = 280;
 pub(super) const MODEL_INTERACTION_BATCH_PENDING: &str = "model_interaction_batch_pending";
@@ -149,8 +152,22 @@ impl ModelInteractionProfile {
 #[serde(deny_unknown_fields)]
 struct ModelInteractionCandidate {
     actor_id: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    event_seq: Option<u64>,
     label: String,
     descriptor: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ModelInteractionSemanticContext {
+    #[default]
+    LegacyModelNeighbors,
+    RoomMessages,
+}
+
+fn semantic_context_is_legacy(value: &ModelInteractionSemanticContext) -> bool {
+    *value == ModelInteractionSemanticContext::LegacyModelNeighbors
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -173,6 +190,10 @@ pub(super) struct ModelInteractionPlan {
     target_descriptor: String,
     #[serde(default)]
     semantic_candidates: Vec<ModelInteractionCandidate>,
+    #[serde(default, skip_serializing_if = "semantic_context_is_legacy")]
+    semantic_context: ModelInteractionSemanticContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    semantic_query_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -503,10 +524,10 @@ impl RuntimeWorld {
                 format!("asks {name}'s exact image model to illustrate the current scene")
             }
             ModelInteractionProfile::Embeddings => format!(
-                "asks {name}'s exact embedding model to find resonant neighboring model profiles"
+                "asks {name}'s exact embedding model to find earlier room messages that resonate with the latest line"
             ),
             ModelInteractionProfile::Rerank => {
-                format!("asks {name}'s exact rerank model to rank neighboring model echoes")
+                format!("asks {name}'s exact rerank model to rank earlier room messages against the latest line")
             }
             ModelInteractionProfile::Speech => {
                 format!("asks {name}'s exact voice model to speak from authoritative world context")
@@ -540,14 +561,27 @@ impl RuntimeWorld {
         let location_name = self
             .location_name(actor.location_id)
             .unwrap_or_else(|| "Unknown Location".to_string());
-        let (target_descriptor, semantic_candidates) = if matches!(
-            profile,
-            ModelInteractionProfile::Embeddings | ModelInteractionProfile::Rerank
-        ) {
-            self.authoritative_semantic_context(target_actor_id)?
-        } else {
-            (String::new(), Vec::new())
-        };
+        let (target_descriptor, semantic_candidates, semantic_context, semantic_query_event_seq) =
+            if matches!(
+                profile,
+                ModelInteractionProfile::Embeddings | ModelInteractionProfile::Rerank
+            ) {
+                let (query_event_seq, query, candidates) =
+                    self.authoritative_room_message_context(actor.location_id)?;
+                (
+                    query,
+                    candidates,
+                    ModelInteractionSemanticContext::RoomMessages,
+                    Some(query_event_seq),
+                )
+            } else {
+                (
+                    String::new(),
+                    Vec::new(),
+                    ModelInteractionSemanticContext::LegacyModelNeighbors,
+                    None,
+                )
+            };
         let exact_voice = if profile == ModelInteractionProfile::Speech {
             Some(exact_speech_voice(target_actor_id)?.to_string())
         } else {
@@ -568,62 +602,49 @@ impl RuntimeWorld {
             exact_voice,
             target_descriptor,
             semantic_candidates,
+            semantic_context,
+            semantic_query_event_seq,
         })
     }
 
-    fn authoritative_semantic_context(
+    fn authoritative_room_message_context(
         &self,
-        target_actor_id: u64,
-    ) -> Option<(String, Vec<ModelInteractionCandidate>)> {
-        let bindings = &active_content().actor_model_bindings;
-        let target_index = bindings
+        location_id: u64,
+    ) -> Option<(u64, String, Vec<ModelInteractionCandidate>)> {
+        let lines = self.recent_room_lines.get(&location_id)?;
+        let query = lines.last()?;
+        let query_descriptor = compact_whitespace(query.content.as_deref()?);
+        if query.seq == 0 || query_descriptor.is_empty() {
+            return None;
+        }
+        let mut candidates = lines
             .iter()
-            .position(|binding| binding.actor_id == target_actor_id)?;
-        let target = &bindings[target_index];
-        let target_location_id = self.actor_by_id(target_actor_id)?.location_id;
-        let adjacent_locations = self.world.exits[..self.world.exit_count]
-            .iter()
-            .filter_map(|exit| {
-                if exit.from_location_id == target_location_id {
-                    Some(exit.to_location_id)
-                } else if exit.to_location_id == target_location_id {
-                    Some(exit.from_location_id)
-                } else {
-                    None
-                }
-            })
-            .collect::<BTreeSet<_>>();
-        let mut candidates = bindings
-            .iter()
-            .enumerate()
-            .filter(|(_, binding)| binding.actor_id != target_actor_id)
-            .collect::<Vec<_>>();
-        candidates.sort_by_key(|(index, binding)| {
-            let location = self
-                .actor_by_id(binding.actor_id)
-                .map(|actor| actor.location_id);
-            let topology_rank = match location {
-                Some(location_id) if adjacent_locations.contains(&location_id) => 0,
-                Some(location_id) if location_id == target_location_id => 1,
-                _ => 2,
-            };
-            (
-                topology_rank,
-                index.abs_diff(target_index),
-                binding.actor_id,
-                binding.requested_model_id.as_str(),
-            )
-        });
-        let candidates = candidates
-            .into_iter()
+            .rev()
+            .skip(1)
             .take(MODEL_INTERACTION_SEMANTIC_CANDIDATES)
-            .map(|(_, binding)| ModelInteractionCandidate {
-                actor_id: binding.actor_id,
-                label: compact_whitespace(&binding.display_name),
-                descriptor: authoritative_model_descriptor(binding),
+            .filter_map(|event| {
+                let descriptor = compact_whitespace(event.content.as_deref()?);
+                (event.seq > 0 && !descriptor.is_empty()).then(|| ModelInteractionCandidate {
+                    actor_id: event.actor_id.unwrap_or_default(),
+                    event_seq: Some(event.seq),
+                    label: bounded_authoritative_speech(
+                        &format!(
+                            "{}: {}",
+                            event.actor_name.as_deref().unwrap_or("Someone"),
+                            descriptor
+                        ),
+                        280,
+                    ),
+                    descriptor,
+                })
             })
             .collect::<Vec<_>>();
-        (candidates.len() >= 4).then(|| (authoritative_model_descriptor(target), candidates))
+        candidates.reverse();
+        (candidates.len() >= MODEL_INTERACTION_SEMANTIC_MIN_CANDIDATES).then_some((
+            query.seq,
+            query_descriptor,
+            candidates,
+        ))
     }
 
     pub(super) fn apply_model_interaction_projection(
@@ -840,25 +861,6 @@ fn binding_supports_direct_audio_reply(binding: &SeedActorModelBinding) -> bool 
             .output_modalities
             .iter()
             .any(|value| value == "audio")
-}
-
-fn authoritative_model_descriptor(binding: &SeedActorModelBinding) -> String {
-    format!(
-        "Model: {name}. Exact id: {model}. Inputs: {inputs}. Outputs: {outputs}. Context tokens: {context}. Supported parameters: {parameters}.",
-        name = compact_whitespace(&binding.display_name),
-        model = compact_whitespace(&binding.requested_model_id),
-        inputs = binding.input_modalities.join(", "),
-        outputs = binding.output_modalities.join(", "),
-        context = binding
-            .context_length
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "not declared".to_string()),
-        parameters = if binding.supported_parameters.is_empty() {
-            "none declared".to_string()
-        } else {
-            binding.supported_parameters.join(", ")
-        },
-    )
 }
 
 pub(super) async fn model_interaction(
@@ -2389,7 +2391,7 @@ async fn execute_embedding_model_interaction(
         binding,
         EmbeddingRequest {
             feature: MODEL_INTERACTION_EMBEDDING_FEATURE,
-            prompt_version: MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION,
+            prompt_version: semantic_context_version(&job.plan),
             inputs: &inputs,
             timeout: Duration::from_secs(45),
             max_attempts: 2,
@@ -2460,7 +2462,7 @@ async fn execute_rerank_model_interaction(
         binding,
         RerankRequest {
             feature: MODEL_INTERACTION_RERANK_FEATURE,
-            prompt_version: MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION,
+            prompt_version: semantic_context_version(&job.plan),
             query: &job.plan.target_descriptor,
             documents: &documents,
             timeout: Duration::from_secs(45),
@@ -2479,12 +2481,23 @@ async fn execute_rerank_model_interaction(
         );
         ModelInteractionAttemptError::from_gateway(error)
     })?;
-    let ranked = reranked
+    let mut ranked = reranked
         .scores
         .iter()
-        .take(MODEL_INTERACTION_SEMANTIC_RESULTS)
         .map(|score| (score.index, score.relevance_score))
         .collect::<Vec<_>>();
+    ranked.sort_by(|left, right| {
+        right.1.total_cmp(&left.1).then_with(|| {
+            match (
+                job.plan.semantic_candidates[left.0].event_seq,
+                job.plan.semantic_candidates[right.0].event_seq,
+            ) {
+                (Some(left_seq), Some(right_seq)) => left_seq.cmp(&right_seq),
+                _ => left.0.cmp(&right.0),
+            }
+        })
+    });
+    ranked.truncate(MODEL_INTERACTION_SEMANTIC_RESULTS);
     let publication = semantic_publication(
         &job.plan,
         interaction_id,
@@ -2894,21 +2907,55 @@ async fn generate_tts_transcript(
     ))
 }
 
+fn semantic_context_version(plan: &ModelInteractionPlan) -> &'static str {
+    match plan.semantic_context {
+        ModelInteractionSemanticContext::LegacyModelNeighbors => {
+            MODEL_INTERACTION_LEGACY_SEMANTIC_CONTEXT_VERSION
+        }
+        ModelInteractionSemanticContext::RoomMessages => {
+            MODEL_INTERACTION_MESSAGE_SEMANTIC_CONTEXT_VERSION
+        }
+    }
+}
+
 fn validate_semantic_plan(plan: &ModelInteractionPlan) -> Result<(), String> {
-    if plan.target_descriptor.trim().is_empty()
-        || !(4..=MODEL_INTERACTION_SEMANTIC_CANDIDATES).contains(&plan.semantic_candidates.len())
+    if !(MODEL_INTERACTION_SEMANTIC_MIN_CANDIDATES..=MODEL_INTERACTION_SEMANTIC_CANDIDATES)
+        .contains(&plan.semantic_candidates.len())
     {
         return Err("semantic model interaction context is incomplete".to_string());
     }
-    let mut actor_ids = BTreeSet::new();
+    validate_bounded_text(&plan.target_descriptor, 8_000, "semantic interaction query")?;
+    let mut candidate_ids = BTreeSet::new();
     for candidate in &plan.semantic_candidates {
-        if !actor_ids.insert(candidate.actor_id)
-            || candidate.actor_id == plan.target_actor_id
-            || candidate.descriptor.trim().is_empty()
-        {
+        let valid_identity = match plan.semantic_context {
+            ModelInteractionSemanticContext::LegacyModelNeighbors => {
+                candidate.actor_id > 0
+                    && candidate.actor_id != plan.target_actor_id
+                    && candidate_ids.insert(candidate.actor_id)
+            }
+            ModelInteractionSemanticContext::RoomMessages => {
+                let Some(event_seq) = candidate.event_seq else {
+                    return Err("semantic message candidate has no event sequence".to_string());
+                };
+                event_seq > 0
+                    && Some(event_seq) != plan.semantic_query_event_seq
+                    && candidate_ids.insert(event_seq)
+            }
+        };
+        if !valid_identity {
             return Err("semantic model interaction candidates are invalid".to_string());
         }
         validate_bounded_text(&candidate.label, 280, "semantic candidate label")?;
+        validate_bounded_text(
+            &candidate.descriptor,
+            8_000,
+            "semantic candidate descriptor",
+        )?;
+    }
+    if plan.semantic_context == ModelInteractionSemanticContext::RoomMessages
+        && plan.semantic_query_event_seq.is_none_or(|seq| seq == 0)
+    {
+        return Err("semantic message query has no event sequence".to_string());
     }
     Ok(())
 }
@@ -2927,10 +2974,12 @@ fn rank_embedding_candidates(
         .map(|(index, vector)| cosine_similarity(query, vector).map(|score| (index, score)))
         .collect::<Result<Vec<_>, _>>()?;
     ranked.sort_by(|left, right| {
-        right
-            .1
-            .total_cmp(&left.1)
-            .then_with(|| left.0.cmp(&right.0))
+        right.1.total_cmp(&left.1).then_with(|| {
+            match (candidates[left.0].event_seq, candidates[right.0].event_seq) {
+                (Some(left_seq), Some(right_seq)) => left_seq.cmp(&right_seq),
+                _ => left.0.cmp(&right.0),
+            }
+        })
     });
     ranked.truncate(MODEL_INTERACTION_SEMANTIC_RESULTS);
     Ok(ranked)
@@ -2977,9 +3026,19 @@ fn semantic_publication(
     if ranked.len() != MODEL_INTERACTION_SEMANTIC_RESULTS {
         return Err("semantic model interaction did not produce three matches".to_string());
     }
-    let relation = match source {
-        "embeddings" => "resonates with this neighboring model descriptor",
-        "rerank" => "was ranked as a neighboring model echo",
+    let relation = match (plan.semantic_context, source) {
+        (ModelInteractionSemanticContext::RoomMessages, "embeddings") => {
+            "resonates with the latest room message"
+        }
+        (ModelInteractionSemanticContext::RoomMessages, "rerank") => {
+            "was ranked against the latest room message"
+        }
+        (ModelInteractionSemanticContext::LegacyModelNeighbors, "embeddings") => {
+            "resonates with this neighboring model descriptor"
+        }
+        (ModelInteractionSemanticContext::LegacyModelNeighbors, "rerank") => {
+            "was ranked as a neighboring model echo"
+        }
         _ => return Err("semantic model interaction source is invalid".to_string()),
     };
     let output_parts = ranked
@@ -2989,22 +3048,45 @@ fn semantic_publication(
                 .semantic_candidates
                 .get(index)
                 .ok_or_else(|| "semantic result referenced an unknown candidate".to_string())?;
+            let (entity_kind, entity_id) = match plan.semantic_context {
+                ModelInteractionSemanticContext::RoomMessages => (
+                    "message",
+                    candidate
+                        .event_seq
+                        .ok_or_else(|| {
+                            "semantic result referenced a message without an event sequence"
+                                .to_string()
+                        })?
+                        .to_string(),
+                ),
+                ModelInteractionSemanticContext::LegacyModelNeighbors => {
+                    ("actor_model", candidate.actor_id.to_string())
+                }
+            };
             Ok(ModelInteractionOutputPart::SemanticMatch {
                 source: source.to_string(),
-                entity_kind: "actor_model".to_string(),
-                entity_id: candidate.actor_id.to_string(),
+                entity_kind: entity_kind.to_string(),
+                entity_id,
                 label: candidate.label.clone(),
                 relation: relation.to_string(),
                 score_band: semantic_score_band(score).to_string(),
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
-    let summary = match source {
-        "embeddings" => format!(
+    let summary = match (plan.semantic_context, source) {
+        (ModelInteractionSemanticContext::RoomMessages, "embeddings") => format!(
+            "{} found three earlier messages that resonate with the latest room line.",
+            compact_whitespace(&plan.target_name)
+        ),
+        (ModelInteractionSemanticContext::RoomMessages, "rerank") => format!(
+            "{} ranked three earlier room messages against the latest line.",
+            compact_whitespace(&plan.target_name)
+        ),
+        (ModelInteractionSemanticContext::LegacyModelNeighbors, "embeddings") => format!(
             "{} found three resonant neighboring model profiles.",
             compact_whitespace(&plan.target_name)
         ),
-        "rerank" => format!(
+        (ModelInteractionSemanticContext::LegacyModelNeighbors, "rerank") => format!(
             "{} ranked three neighboring model echoes.",
             compact_whitespace(&plan.target_name)
         ),
@@ -3139,7 +3221,7 @@ fn model_interaction_id(job: &ModelInteractionJob) -> String {
     hasher.update(match job.plan.profile {
         ModelInteractionProfile::Image => MODEL_INTERACTION_IMAGE_CONTEXT_VERSION.as_bytes(),
         ModelInteractionProfile::Embeddings | ModelInteractionProfile::Rerank => {
-            MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION.as_bytes()
+            semantic_context_version(&job.plan).as_bytes()
         }
         ModelInteractionProfile::Speech => MODEL_INTERACTION_SPEECH_CONTEXT_VERSION.as_bytes(),
         ModelInteractionProfile::BatchTalk => {
@@ -3501,6 +3583,63 @@ mod tests {
     }
 
     #[test]
+    fn semantic_context_freezes_latest_room_line_and_bounded_earlier_messages() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.recent_room_lines.remove(&COSY_COTTAGE_LOCATION_ID);
+        let first_seq = 800_000;
+        for index in 0..4_u64 {
+            runtime.push_projected_event(EventView {
+                seq: first_seq + index,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_id: Some(5000 + index % 2),
+                actor_name: Some(format!("Speaker {index}")),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some(format!("Room line {index}")),
+                ..EventView::default()
+            });
+        }
+        assert!(runtime
+            .authoritative_room_message_context(COSY_COTTAGE_LOCATION_ID)
+            .is_none());
+
+        for index in 4..10_u64 {
+            runtime.push_projected_event(EventView {
+                seq: first_seq + index,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_id: Some(5000 + index % 2),
+                actor_name: Some(format!("Speaker {index}")),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some(format!("Room line {index}")),
+                ..EventView::default()
+            });
+        }
+
+        let (query_event_seq, query, candidates) = runtime
+            .authoritative_room_message_context(COSY_COTTAGE_LOCATION_ID)
+            .expect("bounded room-message semantic context");
+        assert_eq!(query_event_seq, first_seq + 9);
+        assert_eq!(query, "Room line 9");
+        assert_eq!(candidates.len(), MODEL_INTERACTION_SEMANTIC_CANDIDATES);
+        assert_eq!(
+            candidates
+                .iter()
+                .map(|candidate| candidate.event_seq)
+                .collect::<Vec<_>>(),
+            (1..=8)
+                .map(|index| Some(first_seq + index))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(candidates[0].actor_id, 5001);
+        assert_eq!(candidates[0].label, "Speaker 1: Room line 1");
+        assert_eq!(candidates[0].descriptor, "Room line 1");
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.event_seq != Some(query_event_seq)));
+    }
+
+    #[test]
     fn batch_text_bindings_offer_delayed_echoes_instead_of_talk() {
         let bindings = elysium_bindings();
         let batch = bindings
@@ -3559,6 +3698,8 @@ mod tests {
             exact_voice: Some(voice.to_string()),
             target_descriptor: String::new(),
             semantic_candidates: Vec::new(),
+            semantic_context: ModelInteractionSemanticContext::LegacyModelNeighbors,
+            semantic_query_event_seq: None,
         };
         assert!(validate_frozen_route_against_binding(
             binding,
@@ -3646,6 +3787,8 @@ mod tests {
             exact_voice: Some("tara".to_string()),
             target_descriptor: String::new(),
             semantic_candidates: Vec::new(),
+            semantic_context: ModelInteractionSemanticContext::LegacyModelNeighbors,
+            semantic_query_event_seq: None,
         };
         let first = authoritative_speech_text(&plan);
         assert_eq!(first, authoritative_speech_text(&plan));
@@ -3692,8 +3835,9 @@ mod tests {
         let candidates = (0..4)
             .map(|index| ModelInteractionCandidate {
                 actor_id: 100 + index,
-                label: format!("Neighbor {index}"),
-                descriptor: format!("Authoritative descriptor {index}"),
+                event_seq: Some(200 + index),
+                label: format!("Speaker: Room message {index}"),
+                descriptor: format!("Room message {index}"),
             })
             .collect::<Vec<_>>();
         let vectors = vec![
@@ -3711,6 +3855,74 @@ mod tests {
         assert_eq!(semantic_score_band(ranked[0].1), "high");
         assert_eq!(semantic_score_band(ranked[1].1), "moderate");
         assert!(cosine_similarity(&[0.0, 0.0], &[1.0, 0.0]).is_err());
+    }
+
+    #[test]
+    fn semantic_publication_references_messages_without_exposing_vectors() {
+        let binding = elysium_bindings()
+            .into_iter()
+            .find(|binding| {
+                supported_profile_for_binding(binding) == Some(ModelInteractionProfile::Embeddings)
+            })
+            .expect("ready embedding binding");
+        let attribution = PinnedModelSelection::from_actor_embedding_binding(
+            &binding,
+            DataPolicyMode::Development,
+        )
+        .expect("pinned embedding model")
+        .attribute_response(None)
+        .expect("exact embedding attribution");
+        let candidates = (0..4_u64)
+            .map(|index| ModelInteractionCandidate {
+                actor_id: 5000 + index,
+                event_seq: Some(700 + index),
+                label: format!("Speaker {index}: Earlier line {index}"),
+                descriptor: format!("Earlier line {index}"),
+            })
+            .collect::<Vec<_>>();
+        let plan = ModelInteractionPlan {
+            actor_id: 5000,
+            target_actor_id: binding.actor_id,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            target_name: binding.display_name,
+            location_name: "The Cosy Cottage".to_string(),
+            location_description: "A frozen authoritative room.".to_string(),
+            profile: ModelInteractionProfile::Embeddings,
+            requested_model_id: binding.requested_model_id,
+            canonical_slug: binding.canonical_slug,
+            exact_voice: None,
+            target_descriptor: "The latest room line".to_string(),
+            semantic_candidates: candidates,
+            semantic_context: ModelInteractionSemanticContext::RoomMessages,
+            semantic_query_event_seq: Some(704),
+        };
+        validate_semantic_plan(&plan).expect("valid frozen room-message plan");
+        let publication = semantic_publication(
+            &plan,
+            &"a".repeat(64),
+            "embeddings",
+            vec![(2, 0.9), (0, 0.7), (3, 0.5)],
+            &attribution,
+            semantic_context_version(&plan),
+            &"b".repeat(64),
+        )
+        .expect("message resonance publication");
+        let value = serde_json::to_value(publication).expect("publication JSON");
+        assert_eq!(
+            value["prompt_version"],
+            MODEL_INTERACTION_MESSAGE_SEMANTIC_CONTEXT_VERSION
+        );
+        assert_eq!(value["output_parts"][0]["entity_kind"], "message");
+        assert_eq!(value["output_parts"][0]["entity_id"], "702");
+        assert_eq!(
+            value["output_parts"][0]["relation"],
+            "resonates with the latest room message"
+        );
+        assert!(value["summary"]
+            .as_str()
+            .is_some_and(|summary| summary.contains("three earlier messages")));
+        assert!(value["output_parts"][0].get("vector").is_none());
+        assert!(value["output_parts"][0].get("embedding").is_none());
     }
 
     #[test]
@@ -3784,6 +3996,8 @@ mod tests {
                 exact_voice: None,
                 target_descriptor: String::new(),
                 semantic_candidates: Vec::new(),
+                semantic_context: ModelInteractionSemanticContext::LegacyModelNeighbors,
+                semantic_query_event_seq: None,
             },
             player_openrouter: true,
             queue_event_id: None,
@@ -3962,6 +4176,8 @@ mod tests {
                 exact_voice: None,
                 target_descriptor: String::new(),
                 semantic_candidates: Vec::new(),
+                semantic_context: ModelInteractionSemanticContext::LegacyModelNeighbors,
+                semantic_query_event_seq: None,
             },
             player_openrouter: false,
             queue_event_id: Some(77),

@@ -8,6 +8,10 @@ pub(super) const EVOLUTION_INCUMBENT_RECIPE: &str = "replicate.flux1-dev-lora.ba
 pub(super) const EVOLUTION_CANARY_RECIPE: &str = "replicate.flux2-dev.references";
 pub(super) const EVOLUTION_CANARY_MODEL_REVISION: &str =
     "7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050";
+pub(super) const EVOLUTION_EXECUTION_PROFILE: &str = "cosyworld.community-art.evolution-lora/1";
+pub(super) const EVOLUTION_EXECUTION_RECIPE: &str = "replicate.flux-kontext-dev-lora.evolution";
+pub(super) const EVOLUTION_EXECUTION_MODEL_REVISION: &str =
+    "50c10b8f14af90fda0a4bf3bbfdda263ddb0f2b3e32e4735dcc6ee7156d7ed6f";
 
 const EMBEDDED_EVOLUTION_CANARY: &str = include_str!("../../media/evolution-canary.json");
 const MAX_STABLE_TRAITS: usize = 16;
@@ -208,15 +212,21 @@ impl FrozenCommunityArtEvolutionJob {
             target_revision,
             crop: aspect_ratio.to_string(),
             aspect_ratio: aspect_ratio.to_string(),
-            profile: EVOLUTION_REFERENCE_PROFILE.to_string(),
-            recipe_id: EVOLUTION_CANARY_RECIPE.to_string(),
-            model_revision: EVOLUTION_CANARY_MODEL_REVISION.to_string(),
+            profile: EVOLUTION_EXECUTION_PROFILE.to_string(),
+            recipe_id: EVOLUTION_EXECUTION_RECIPE.to_string(),
+            model_revision: EVOLUTION_EXECUTION_MODEL_REVISION.to_string(),
         };
         job.validate()?;
         Ok(job)
     }
 
     pub(super) fn validate(&self) -> Result<(), String> {
+        let route_is_current = self.profile == EVOLUTION_EXECUTION_PROFILE
+            && self.recipe_id == EVOLUTION_EXECUTION_RECIPE
+            && self.model_revision == EVOLUTION_EXECUTION_MODEL_REVISION;
+        let route_is_legacy = self.profile == EVOLUTION_REFERENCE_PROFILE
+            && self.recipe_id == EVOLUTION_CANARY_RECIPE
+            && self.model_revision == EVOLUTION_CANARY_MODEL_REVISION;
         if self.schema_version != EVOLUTION_JOB_SCHEMA_VERSION
             || !matches!(self.subject_kind.as_str(), "actor" | "item" | "location")
             || self.subject_id == 0
@@ -235,9 +245,7 @@ impl FrozenCommunityArtEvolutionJob {
             || !crate::is_safe_image_content_type(&self.prior_mime_type)
             || self.history_from_seq != self.prior_history_through_seq.saturating_add(1)
             || self.history_through_seq < self.prior_history_through_seq
-            || self.profile != EVOLUTION_REFERENCE_PROFILE
-            || self.recipe_id != EVOLUTION_CANARY_RECIPE
-            || self.model_revision != EVOLUTION_CANARY_MODEL_REVISION
+            || !(route_is_current || route_is_legacy)
             || self.aspect_ratio != self.crop
         {
             return Err("invalid frozen community-art evolution job".to_string());
@@ -263,7 +271,7 @@ impl FrozenCommunityArtEvolutionJob {
             self.requested_changes.join("; ")
         };
         Ok(crate::compact_whitespace(&format!(
-            "Evolve image 1 only. It is the approved prior-level image whose identity and composition are authoritative. Subject identity: {}. Persisted visual description: {}. Stable traits that must remain recognizable and unchanged: {}. Depict only this committed public history delta: {}. Target level {}, revision {}, crop {}. Do not infer game mechanics, unlisted possessions, relationships, locations, or off-snapshot facts. Negative constraints: {}.",
+            "Edit only the supplied approved prior-level image. Its identity and composition are authoritative. Subject identity: {}. Persisted visual description: {}. Stable traits that must remain recognizable and unchanged: {}. Depict only this committed public history delta: {}. Target level {}, revision {}, crop {}. Do not infer game mechanics, unlisted possessions, relationships, locations, or off-snapshot facts. Negative constraints: {}.",
             self.persisted_identity,
             self.persisted_visual_description,
             self.stable_traits.join("; "),
@@ -599,7 +607,10 @@ mod tests {
             .requested_changes
             .iter()
             .any(|change| change.contains("blue hat")));
-        assert!(frozen.prompt().unwrap().contains("Evolve image 1 only"));
+        assert!(frozen
+            .prompt()
+            .unwrap()
+            .contains("Edit only the supplied approved prior-level image"));
         assert!(frozen.prompt().unwrap().contains("green scarf"));
         assert!(!frozen.prompt().unwrap().contains("game statistics:"));
         assert!(frozen

@@ -460,7 +460,7 @@ impl RuntimeWorld {
                 primary_action.disabled = offer.disabled;
             }
             primary_action.command = offer.command.clone();
-        } else {
+        } else if !primary_action.disabled {
             primary_action = PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
@@ -500,13 +500,18 @@ impl RuntimeWorld {
                 "no_active_avatar",
             )];
         };
-        // A present avatar that cannot act (knocked out) has no legal move, so
-        // the hand deals only the release path. Dealing rest, exploration, or
-        // room offers alongside it would hand the player cards that every
-        // submission rejects.
+        // Knockout preserves the canonical actor but permits observation only.
+        // Terminal actors may begin again; downed actors receive no mutation
+        // offer while another participant can still rescue them.
         if self
             .actor_by_id(actor_id)
-            .is_some_and(|actor| !Self::actor_can_act(actor))
+            .is_some_and(|actor| Self::actor_is_present(actor) && !Self::actor_can_act(actor))
+        {
+            return Vec::new();
+        }
+        if self
+            .actor_by_id(actor_id)
+            .is_some_and(|actor| !Self::actor_is_present(actor) && !Self::actor_can_act(actor))
         {
             return vec![self.ranked_offer_from_parts(
                 "create_avatar",

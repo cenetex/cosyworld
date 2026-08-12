@@ -124,9 +124,10 @@ async function assertAvatarNameModeration() {
   }).then((result) => result.json());
   assert(response.ok && response.actor, `avatar name moderation probe failed to create avatar: ${JSON.stringify(response)}`);
   assert(
-    response.actor.name === "Newcomer"
+    response.actor.name !== "Newcomer"
+      && /^[A-Za-z0-9][A-Za-z0-9 '\-]{0,27}$/.test(response.actor.name)
       && !/\b(?:Traveler|Traveller|Actor) \d+\b/i.test(response.actor.name),
-    `unsafe avatar name should fall back without exposing a runtime id: ${JSON.stringify(response.actor)}`,
+    `unsafe avatar name should fall back to a generated identity without exposing a runtime id: ${JSON.stringify(response.actor)}`,
   );
   const created = (response.events || []).find((event) => event.type === "actor.created");
   assert(created?.actor_name === response.actor.name, `created event should use sanitized avatar name: ${JSON.stringify(created)}`);
@@ -2794,18 +2795,18 @@ async function main() {
           schema_version: 1,
           interaction_id: "a".repeat(64),
           profile,
-          summary: profile === "rerank" ? "Echo ranked three neighboring model echoes." : "Echo found three resonant neighboring model profiles.",
+          summary: profile === "rerank" ? "Echo ranked three earlier room messages against the latest line." : "Echo found three earlier messages that resonate with the latest room line.",
           output_parts: [{
             modality: "semantic_match",
             source,
-            entity_kind: "actor_model",
+            entity_kind: "message",
             entity_id: "1002",
-            label: "Neighboring Exact Model",
-            relation: source === "rerank" ? "was ranked as a neighboring model echo" : "resonates with this neighboring model descriptor",
+            label: "Moss Lantern: The rain sounds like seeds waking.",
+            relation: source === "rerank" ? "was ranked against the latest room message" : "resonates with the latest room message",
             score_band: "high",
           }],
           attribution: { provider: "openrouter", model: "exact-model" },
-          prompt_version: "grounded-semantic-v1",
+          prompt_version: "authoritative-room-message-resonance-v1",
           context_hash: "b".repeat(64),
         }),
       });
@@ -2984,11 +2985,11 @@ async function main() {
       && /pfp/.test(result.mobileImageLayout?.gridTemplateAreas || ""), `mobile visual model output should use the transcript width with its caption beneath the image: ${JSON.stringify(result.mobileImageLayout)}`);
     assert(result.image?.summary.includes("exact image model") && result.image?.busyLabel === "illustrating", `image confirmation and pending copy should remain visual: ${JSON.stringify(result.image)}`);
     assert(result.embeddings?.label === "find resonance" && result.embeddings?.title === "find resonance with Echo", `embedding interaction should render Find resonance: ${JSON.stringify(result.embeddings)}`);
-    assert(result.embeddings?.detail.endsWith("three neighboring model resonances") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.embeddings)}`);
-    assert(/authoritative model descriptor/i.test(result.embeddings?.summary || "") && !/current scene|this place/i.test(result.embeddings?.summary || ""), `embedding confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.embeddings)}`);
+    assert(result.embeddings?.detail.endsWith("three resonant earlier messages") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use message-resonance, non-visual copy: ${JSON.stringify(result.embeddings)}`);
+    assert(/latest visible room message/i.test(result.embeddings?.summary || "") && /up to eight earlier room messages/i.test(result.embeddings?.summary || "") && !/model descriptor|current scene|this place/i.test(result.embeddings?.summary || ""), `embedding confirmation must describe bounded room-message resonance: ${JSON.stringify(result.embeddings)}`);
     assert(result.rerank?.label === "rank echoes" && result.rerank?.title === "rank echoes with Echo", `rerank interaction should render Rank echoes: ${JSON.stringify(result.rerank)}`);
-    assert(result.rerank?.detail.endsWith("three ranked model echoes") && result.rerank?.busyLabel === "ranking echoes", `rerank interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.rerank)}`);
-    assert(/authoritative descriptor/i.test(result.rerank?.summary || "") && !/current scene|this place/i.test(result.rerank?.summary || ""), `rerank confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.rerank)}`);
+    assert(result.rerank?.detail.endsWith("three ranked earlier messages") && result.rerank?.busyLabel === "ranking echoes", `rerank interaction should use message-ranking, non-visual copy: ${JSON.stringify(result.rerank)}`);
+    assert(/up to eight earlier visible room messages/i.test(result.rerank?.summary || "") && /latest visible room message/i.test(result.rerank?.summary || "") && !/model descriptor|current scene|this place/i.test(result.rerank?.summary || ""), `rerank confirmation must describe bounded room-message ranking: ${JSON.stringify(result.rerank)}`);
     assert(result.speech?.label === "speak" && result.speech?.title === "speak with Echo", `speech interaction should render Speak: ${JSON.stringify(result.speech)}`);
     assert(result.speech?.detail.endsWith("one server-authored spoken line") && result.speech?.busyLabel === "speaking", `speech interaction should promise exactly one authored audio result: ${JSON.stringify(result.speech)}`);
     assert(/exact speech model and voice/i.test(result.speech?.summary || "")
@@ -3005,11 +3006,11 @@ async function main() {
     assert(result.explicitUnknown?.label === "interact", `an explicit unknown intention must not be inferred as Image from its generic label: ${JSON.stringify(result.explicitUnknown)}`);
     assert(result.legacyFallback?.label === "find resonance", `label fallback should apply only when the offer intention is absent: ${JSON.stringify(result.legacyFallback)}`);
     assert(/illustrating the current scene/i.test(result.imagePendingText), `image pending output should stay visual: ${result.imagePending}`);
-    assert(/finding resonant model profiles/i.test(result.embeddingsPendingText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsPendingText), `embedding pending output should stay model-semantic: ${result.embeddingsPending}`);
+    assert(/finding resonant earlier messages/i.test(result.embeddingsPendingText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.embeddingsPendingText), `embedding pending output should stay message-semantic: ${result.embeddingsPending}`);
     assert(/trying the ranking route again/i.test(result.rerankPendingText) && !/image|visual|illustrat/i.test(result.rerankPendingText), `rerank pending output should stay semantic: ${result.rerankPending}`);
     assert(/synthesizing the line with the exact voice/i.test(result.speechPendingText) && !/typing|player-authored|prompt/i.test(result.speechPendingText), `speech pending output should stay exact-voice and server-authored: ${result.speechPending}`);
-    assert(/model resonances found/i.test(result.embeddingsResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsResultText), `embedding result should stay model-semantic: ${result.embeddingsResult}`);
-    assert(/model echoes ranked/i.test(result.rerankResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.rerankResultText), `rerank result should stay model-semantic: ${result.rerankResult}`);
+    assert(/message resonances found/i.test(result.embeddingsResultText) && /Moss Lantern/.test(result.embeddingsResultText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.embeddingsResultText), `embedding result should stay message-semantic: ${result.embeddingsResult}`);
+    assert(/room echoes ranked/i.test(result.rerankResultText) && /Moss Lantern/.test(result.rerankResultText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.rerankResultText), `rerank result should stay message-semantic: ${result.rerankResult}`);
     assert(/spoken line/i.test(result.speechResult) && /<audio controls/.test(result.speechResult)
       && /From The Cosy Cottage, Echo offers this place a voice\./.test(result.speechResult), `speech output should render one audio player and its transcript: ${result.speechResult}`);
     assert(result.speechMetadata?.parts?.[0]?.durationMs === null, `speech duration must be optional rather than fabricated: ${JSON.stringify(result.speechMetadata)}`);
@@ -4589,6 +4590,7 @@ async function main() {
       const previousState = state;
       const previousActorId = actorId;
       const previousTransition = defeatTransition;
+      const previousActorSessionTerminal = actorSessionTerminal;
       const previousStoredTransition = sessionStorage.getItem(defeatTransitionStorageKey);
       try {
         actorId = 5000;
@@ -4611,6 +4613,15 @@ async function main() {
           target_actor_name: "Lantern Stitch",
         });
         const knockoutHtml = defeatTransitionHtml();
+        state = {
+          ...state,
+          actors: state.actors.map((actor) => actor.id === 5000
+            ? { ...actor, status: "knocked_out" }
+            : actor),
+          primary_action: { kind: "await_rescue", disabled: true, options: [] },
+          action_offers: [],
+        };
+        const knockoutActions = buildActions(state);
         clearDefeatTransition();
         const deathCaptured = captureDefeatTransition({
           seq: 100,
@@ -4626,11 +4637,13 @@ async function main() {
           primary_action: { kind: "create_avatar", options: [] },
           character_creation: [],
         };
+        actorSessionTerminal = true;
         const restart = buildActions(state)[0];
         return {
           captured,
           deathCaptured,
           knockoutHtml,
+          knockoutActionCount: knockoutActions.length,
           deathHtml,
           restartLabel: restart?.label || "",
           restartDetail: restart?.detail || "",
@@ -4640,6 +4653,7 @@ async function main() {
       } finally {
         state = previousState;
         actorId = previousActorId;
+        actorSessionTerminal = previousActorSessionTerminal;
         defeatTransition = previousTransition;
         if (previousStoredTransition === null) sessionStorage.removeItem(defeatTransitionStorageKey);
         else sessionStorage.setItem(defeatTransitionStorageKey, previousStoredTransition);
@@ -4648,9 +4662,10 @@ async function main() {
     assert(result.captured, `the player's knockout should capture an explicit defeat transition: ${JSON.stringify(result)}`);
     assert(/Lantern Stitch was knocked out by Moonlit Echo/i.test(result.knockoutHtml), `the knockout scene should name the outcome and both combatants without declaring the tale ended: ${JSON.stringify(result)}`);
     assert(!/this tale has ended/i.test(result.knockoutHtml) && /body is still where it fell/i.test(result.knockoutHtml), `a knockout is recoverable; the scene must not claim permanent loss: ${JSON.stringify(result)}`);
+    assert(result.knockoutActionCount === 0, `a knocked-out avatar should remain attached in observer mode without a replacement action: ${JSON.stringify(result)}`);
     assert(result.deathCaptured, `the player's death should capture an explicit defeat transition: ${JSON.stringify(result)}`);
     assert(/this tale has ended/i.test(result.deathHtml) && /This avatar is gone/i.test(result.deathHtml), `the death scene keeps the ended-tale copy: ${JSON.stringify(result)}`);
-    assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
+    assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `an authoritative death should expose a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
   }
 
   async function assertAvatarRailOwnsCombatTracker() {
@@ -11406,45 +11421,37 @@ async function main() {
       const currentActorId = Number(actorId || 0);
       const locationId = Number(state?.location?.id || 0);
       const items = state?.items || [];
+      const target = items.find((item) => item.name === name) || null;
       return {
         locationId,
-        targetHeld: items.some((item) => (
-          item.name === name && Number(item.holder_actor_id || 0) === currentActorId
-        )),
-        exchangeItemName: items.find((item) => (
-          item.name !== name
-            && Number(item.holder_actor_id || 0) === 0
-            && Number(item.location_id || 0) === locationId
-        ))?.name || "",
+        targetItemId: Number(target?.id || 0),
+        targetHeld: Number(target?.holder_actor_id || 0) === currentActorId,
       };
     }, itemName);
     assert(placement.targetHeld, `${itemName} should be in hand before placing it`);
-    if (placement.exchangeItemName) {
-      await takeItem(placement.exchangeItemName);
-    } else {
-      const result = await clickDealtActionMatching(
-        `drop ${itemName}`,
-        ["drop", itemName.toLowerCase()],
-      );
-      assert(
-        result?.ok === true && String(result.output || "").includes(`drop ${itemName}`),
-        `dropping ${itemName} should place it in the current room: ${JSON.stringify(result)}`,
-      );
-    }
-    steps.push({ label: `place ${itemName}`, location: await currentLocation() });
+    const result = await clickDealtActionMatching(
+      `give ${itemName}`,
+      ["give", itemName.toLowerCase()],
+    );
+    const transferReceipt = (result?.events || []).find((event) => (
+      event.type === "item.given"
+        && Number(event.item_id || 0) === placement.targetItemId
+        && Number(event.target_actor_id || 0) > 0
+    ));
+    assert(
+      result?.ok === true && transferReceipt,
+      `giving ${itemName} should place it with a resident: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label: `place ${itemName}`,
+      location: await currentLocation(),
+      holder: transferReceipt.target_actor_name || `actor:${transferReceipt.target_actor_id}`,
+    });
     await page.evaluate(() => refresh());
-    await page.waitForFunction(
-      ({ name, locationId, currentActorId }) => (state?.items || []).some((item) => {
-        if (item.name !== name) return false;
-        const holderActorId = Number(item.holder_actor_id || 0);
-        return holderActorId !== currentActorId
-          && (holderActorId > 0 || Number(item.location_id || 0) === locationId);
-      }),
-      {
-        name: itemName,
-        locationId: placement.locationId,
-        currentActorId: await page.evaluate(() => Number(actorId || 0)),
-      },
+    const settledPlacement = await worldItemPlacement(itemName, placement.targetItemId);
+    assert(
+      settledPlacement && settledPlacement.kind !== "player",
+      `${itemName} should leave the player's hand after its item.given receipt: ${JSON.stringify(settledPlacement)}`,
     );
   }
 
