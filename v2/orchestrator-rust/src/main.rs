@@ -56556,10 +56556,10 @@ mod tests {
 
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
-        assert_eq!(content.actors.len(), 56);
+        assert_eq!(content.actors.len(), 65);
         assert!(content.access_gates.is_empty());
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 28);
+        assert_eq!(content.items.len(), 34);
         let satchel = content
             .items
             .iter()
@@ -56612,7 +56612,7 @@ mod tests {
             1
         );
         assert_eq!(content.fronts.len(), 7);
-        assert_eq!(content.cards.len(), 120);
+        assert_eq!(content.cards.len(), 135);
         assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 9);
@@ -57485,7 +57485,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 56);
+        assert_eq!(placed_seed_actors.len(), 65);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -58028,8 +58028,6 @@ mod tests {
                 .set_number
                 .as_deref()
                 .is_some_and(|value| value.starts_with("FB-")));
-            let expected_image_url = format!("/assets/cards/{card_id}.png");
-            assert_eq!(card.image_url.as_deref(), Some(expected_image_url.as_str()));
             assert!(card
                 .chain_image_uri
                 .as_deref()
@@ -58097,17 +58095,17 @@ mod tests {
     }
 
     #[test]
-    fn optional_external_asset_provider_redirects_to_declared_fallback() {
+    fn ruby_high_world_art_is_served_locally() {
         let spec = external_card_spec("location-science-lab").expect("science lab card exists");
         let response = serve_public_asset_path(&spec.image_url);
 
-        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response
                 .headers()
-                .get(header::LOCATION)
+                .get(header::CONTENT_TYPE)
                 .and_then(|value| value.to_str().ok()),
-            Some(spec.chain_image_uri.as_str())
+            Some("image/webp")
         );
     }
 

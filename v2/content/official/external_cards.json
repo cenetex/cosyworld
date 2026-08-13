@@ -10,7 +10,7 @@
     "set_number": "FB-001",
     "profile_id": "lyra-color-coded-spare",
     "subject": "Homeroom",
-    "image_url": "/assets/cards/lyra.png",
+    "image_url": "/assets/ruby-high/world/avatars/lyra.webp",
     "chain_image_uri": "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP",
     "pack_id": "ruby-high.first-bell"
   },
@@ -25,7 +25,7 @@
     "set_number": "FB-002",
     "profile_id": "sami-side-door-whatever",
     "subject": "Homeroom",
-    "image_url": "/assets/cards/sami.png",
+    "image_url": "/assets/ruby-high/world/avatars/sami.webp",
     "chain_image_uri": "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3",
     "pack_id": "ruby-high.first-bell"
   },
@@ -40,7 +40,7 @@
     "set_number": "FB-003",
     "profile_id": "ravi-field-trip-fact-slip",
     "subject": "Field Trip",
-    "image_url": "/assets/cards/ravi.png",
+    "image_url": "/assets/ruby-high/world/avatars/ravi.webp",
     "chain_image_uri": "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK",
     "pack_id": "ruby-high.first-bell"
   },
@@ -55,7 +55,7 @@
     "set_number": "FB-004",
     "profile_id": "indra-quiet-perfect-exit",
     "subject": "Strategy",
-    "image_url": "/assets/cards/indra.png",
+    "image_url": "/assets/ruby-high/world/avatars/indra.webp",
     "chain_image_uri": "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy",
     "pack_id": "ruby-high.first-bell"
   },
@@ -70,7 +70,7 @@
     "set_number": "FB-005",
     "profile_id": "mika-locker-room-shortcut",
     "subject": "Social",
-    "image_url": "/assets/cards/mika.png",
+    "image_url": "/assets/ruby-high/world/avatars/mika.webp",
     "chain_image_uri": "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5",
     "pack_id": "ruby-high.first-bell"
   },
@@ -85,7 +85,7 @@
     "set_number": "FB-006",
     "profile_id": "noor-deadpan-detour",
     "subject": "Literature",
-    "image_url": "/assets/cards/noor.png",
+    "image_url": "/assets/ruby-high/world/avatars/noor.webp",
     "chain_image_uri": "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH",
     "pack_id": "ruby-high.first-bell"
   },
@@ -100,7 +100,7 @@
     "set_number": "FB-007",
     "profile_id": "ruby-homeroom-card",
     "subject": "Homeroom",
-    "image_url": "/assets/cards/ruby.png",
+    "image_url": "/assets/ruby-high/world/avatars/ruby.webp",
     "chain_image_uri": "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB",
     "pack_id": "ruby-high.first-bell"
   },
@@ -115,7 +115,7 @@
     "set_number": "FB-008",
     "profile_id": "sally-lab-sink-shortcut",
     "subject": "Science",
-    "image_url": "/assets/cards/sally-science.png",
+    "image_url": "/assets/ruby-high/world/avatars/sally-science.webp",
     "chain_image_uri": "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX",
     "pack_id": "ruby-high.first-bell"
   },
@@ -130,7 +130,7 @@
     "set_number": "FB-009",
     "profile_id": "professor-edward-library-corridor",
     "subject": "Literature",
-    "image_url": "/assets/cards/professor-edward.png",
+    "image_url": "/assets/ruby-high/world/avatars/professor-edward.webp",
     "chain_image_uri": "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe",
     "pack_id": "ruby-high.first-bell"
   },
@@ -145,7 +145,7 @@
     "set_number": "FB-010",
     "profile_id": "eliza-systems-lab-override",
     "subject": "Systems",
-    "image_url": "/assets/cards/eliza.png",
+    "image_url": "/assets/ruby-high/world/avatars/eliza.webp",
     "chain_image_uri": "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL",
     "pack_id": "ruby-high.first-bell"
   },
@@ -160,7 +160,7 @@
     "set_number": "FB-011",
     "profile_id": "rati-signal-studies-pass",
     "subject": "Signal Studies",
-    "image_url": "/assets/cards/rati.png",
+    "image_url": "/assets/ruby-high/world/avatars/rati.webp",
     "chain_image_uri": "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX",
     "pack_id": "ruby-high.first-bell"
   },
@@ -175,7 +175,7 @@
     "set_number": "FB-012",
     "profile_id": "captain-null-page-10-shadow",
     "subject": "First Bell",
-    "image_url": "/assets/cards/captain-null.png",
+    "image_url": "/assets/ruby-high/world/avatars/captain-null.webp",
     "chain_image_uri": "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv",
     "pack_id": "ruby-high.first-bell"
   },
@@ -190,7 +190,7 @@
     "set_number": "FB-013",
     "profile_id": "item-hall-pass",
     "subject": "Administration",
-    "image_url": "/assets/cards/item-hall-pass.png",
+    "image_url": "/assets/ruby-high/world/items/item-hall-pass.webp",
     "chain_image_uri": "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q",
     "pack_id": "ruby-high.first-bell"
   },
@@ -205,7 +205,7 @@
     "set_number": "FB-014",
     "profile_id": "item-flashcards",
     "subject": "Study",
-    "image_url": "/assets/cards/item-flashcards.png",
+    "image_url": "/assets/ruby-high/world/items/item-flashcards.webp",
     "chain_image_uri": "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ",
     "pack_id": "ruby-high.first-bell"
   },
@@ -220,7 +220,7 @@
     "set_number": "FB-015",
     "profile_id": "item-library-card",
     "subject": "Library",
-    "image_url": "/assets/cards/item-library-card.png",
+    "image_url": "/assets/ruby-high/world/items/item-library-card.webp",
     "chain_image_uri": "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU",
     "pack_id": "ruby-high.first-bell"
   },
@@ -235,7 +235,7 @@
     "set_number": "FB-016",
     "profile_id": "item-lab-flask",
     "subject": "Science",
-    "image_url": "/assets/cards/item-lab-flask.png",
+    "image_url": "/assets/ruby-high/world/items/item-lab-flask.webp",
     "chain_image_uri": "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr",
     "pack_id": "ruby-high.first-bell"
   },
@@ -250,7 +250,7 @@
     "set_number": "FB-017",
     "profile_id": "item-lunch-tray",
     "subject": "Cafeteria",
-    "image_url": "/assets/cards/item-lunch-tray.png",
+    "image_url": "/assets/ruby-high/world/items/item-lunch-tray.webp",
     "chain_image_uri": "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV",
     "pack_id": "ruby-high.first-bell"
   },
@@ -265,7 +265,7 @@
     "set_number": "FB-018",
     "profile_id": "item-notebook",
     "subject": "Homeroom",
-    "image_url": "/assets/cards/item-notebook.png",
+    "image_url": "/assets/ruby-high/world/items/item-notebook.webp",
     "chain_image_uri": "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS",
     "pack_id": "ruby-high.first-bell"
   },
@@ -280,7 +280,7 @@
     "set_number": "FB-019",
     "profile_id": "location-homeroom",
     "subject": "Homeroom",
-    "image_url": "/assets/cards/location-homeroom.png",
+    "image_url": "/assets/ruby-high/world/locations/location-homeroom.webp",
     "chain_image_uri": "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ",
     "pack_id": "ruby-high.first-bell"
   },
@@ -295,7 +295,7 @@
     "set_number": "FB-020",
     "profile_id": "location-science-lab",
     "subject": "Science",
-    "image_url": "/assets/cards/location-science-lab.png",
+    "image_url": "/assets/ruby-high/world/locations/location-science-lab.webp",
     "chain_image_uri": "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu",
     "pack_id": "ruby-high.first-bell"
   },
@@ -310,7 +310,7 @@
     "set_number": "FB-021",
     "profile_id": "location-library",
     "subject": "Literature",
-    "image_url": "/assets/cards/location-library.png",
+    "image_url": "/assets/ruby-high/world/locations/location-library.webp",
     "chain_image_uri": "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR",
     "pack_id": "ruby-high.first-bell"
   },
@@ -325,7 +325,7 @@
     "set_number": "FB-022",
     "profile_id": "location-cafeteria",
     "subject": "Cafeteria",
-    "image_url": "/assets/cards/location-cafeteria.png",
+    "image_url": "/assets/ruby-high/world/locations/location-cafeteria.webp",
     "chain_image_uri": "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen",
     "pack_id": "ruby-high.first-bell"
   },
@@ -340,7 +340,7 @@
     "set_number": "FB-023",
     "profile_id": "location-greenhouse",
     "subject": "Science",
-    "image_url": "/assets/cards/location-greenhouse.png",
+    "image_url": "/assets/ruby-high/world/locations/location-greenhouse.webp",
     "chain_image_uri": "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8",
     "pack_id": "ruby-high.first-bell"
   },
@@ -355,7 +355,7 @@
     "set_number": "FB-024",
     "profile_id": "location-courtyard",
     "subject": "Campus",
-    "image_url": "/assets/cards/location-courtyard.png",
+    "image_url": "/assets/ruby-high/world/locations/location-courtyard.webp",
     "chain_image_uri": "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G",
     "pack_id": "ruby-high.first-bell"
   }
