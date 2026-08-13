@@ -30,7 +30,9 @@ describe("Ruby High: First Bell peer pack", () => {
       .toEqual(["study", "test", "revise", "attend"]);
     expect(rubyOnly.resources.locations).toHaveLength(6);
     expect(rubyOnly.resources.room_sheets).toHaveLength(6);
-    expect(rubyOnly.resources.cards).toHaveLength(6);
+    expect(rubyOnly.resources.actors).toHaveLength(9);
+    expect(rubyOnly.resources.items).toHaveLength(6);
+    expect(rubyOnly.resources.cards).toHaveLength(21);
     expect(rubyOnly.resources.exits).toHaveLength(16);
     expect(rubyOnly.resources.exits.every((exit) =>
       rubyOnly.resources.locations.some((location) => location.id === exit.from_location_id)
@@ -38,6 +40,60 @@ describe("Ruby High: First Bell peer pack", () => {
       .toBe(true);
     expect(rubyOnly.resources.actor_facets).toEqual([]);
     expect(rubyOnly.resources.card_bindings).toEqual([]);
+  });
+
+  it("populates the school with autonomous residents and borderless world art", () => {
+    const residentNames = [
+      "Lyra",
+      "Sami",
+      "Ravi",
+      "Indra",
+      "Mika",
+      "Noor",
+      "Ruby",
+      "Sally Science",
+      "Professor Edward",
+    ];
+    expect(rubyOnly.resources.actors.map((actor) => actor.name)).toEqual(residentNames);
+    expect(rubyOnly.resources.actors.every((actor) =>
+      actor.pack_id === "ruby-high.first-bell"
+      && actor.ambient_autonomy === true
+      && actor.roaming === true))
+      .toBe(true);
+    expect(rubyOnly.resources.factions.find((faction) => faction.id === "ruby_high")?.member_actor_ids)
+      .toEqual(rubyOnly.resources.actors.map((actor) => actor.id));
+
+    const schoolCards = rubyOnly.resources.cards.filter((card) =>
+      ["actor", "item", "location"].includes(card.subject_kind));
+    expect(schoolCards).toHaveLength(21);
+    for (const card of schoolCards) {
+      const external = rubyOnly.external_cards.find((candidate) =>
+        candidate.card_id === card.external_card_id);
+      expect(external?.image_url).toMatch(/^\/assets\/ruby-high\/world\/(avatars|items|locations)\/.+\.webp$/);
+      expect(external?.image_url).not.toContain("/cards/");
+    }
+
+    const worldArtMount = rubyOnly.assets.find((asset) =>
+      asset.pack_id === "ruby-high.first-bell" && asset.mount === "world-art");
+    expect(worldArtMount).toEqual(expect.objectContaining({
+      public_prefix: "/assets/ruby-high/world",
+      optional: false,
+    }));
+    const worldArtRoot = path.join(
+      repoRoot,
+      "v2/content",
+      worldArtMount.root,
+      worldArtMount.directory,
+    );
+    for (const external of rubyOnly.external_cards.filter((card) =>
+      card.image_url?.startsWith("/assets/ruby-high/world/"))) {
+      const relativePath = external.image_url.replace("/assets/ruby-high/world/", "");
+      expect(fs.existsSync(path.join(worldArtRoot, relativePath)), relativePath).toBe(true);
+    }
+    expect(rubyOnly.external_cards).toHaveLength(24);
+    expect(rubyOnly.external_cards.every((card) =>
+      card.image_url?.startsWith("/assets/ruby-high/world/")))
+      .toBe(true);
   });
 
   it("declares Core as optional while composition owns paths and Ruby owns facets", () => {
