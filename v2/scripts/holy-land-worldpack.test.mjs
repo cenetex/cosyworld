@@ -154,7 +154,8 @@ test("Bethlehem accepts every declared production replay epoch", () => {
   // interpretation remain stable across this boundary.
   // Tenant 7 persisted the second and third hashes before later content-pack
   // compiler releases. The fourth is the provider-less bundle replaced by the
-  // Lonely Forest art mount; all use the same canonical IDs and state meaning.
+  // Lonely Forest art mount. The fifth predates the Emmaus presentation update;
+  // all use the same canonical IDs and state meaning.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [
@@ -162,6 +163,7 @@ test("Bethlehem accepts every declared production replay epoch", () => {
     "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3",
     "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8",
     "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
+    "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
   ]);
 });
 
