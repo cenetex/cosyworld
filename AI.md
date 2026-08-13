@@ -40,7 +40,11 @@ Relevant implementation points:
 
 - `v2/orchestrator-rust/src/main.rs` already supports OpenAI-compatible text generation through `AiConfig`.
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
-- OpenRouter defaults to `https://openrouter.ai/api/v1` and `x-ai/grok-4.5`.
+- OpenRouter defaults to `https://openrouter.ai/api/v1`, with
+  `mistralai/mistral-nemo` for avatar voice and `openai/gpt-5.6-sol` for
+  metacognitive `intent_json` and `world_content` work. Set
+  `OPENROUTER_METACOGNITIVE_MODEL` to override the latter in development;
+  production pins both lanes through the reviewed capability registry.
 - `POST /actions/create-bond` is projected as `Chat` only when advancement and an eligible nearby resident are available. The legacy `/actions/chat` endpoint delegates to the same advancement-backed behavior.
 - There is no player-authored speech endpoint or command. `Chat` and contextual heartbeats derive dialogue only from server-authored actions and world state.
 - Successful card commits atomically enqueue a delayed, durable room heartbeat. One pending/running heartbeat per room coalesces later cards.

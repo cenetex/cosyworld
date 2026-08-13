@@ -31,8 +31,10 @@ use std::{
 };
 use tokio::time::{sleep, Instant};
 
-pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
+pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "mistralai/mistral-nemo";
+pub(crate) const DEFAULT_OPENROUTER_METACOGNITIVE_MODEL: &str = "openai/gpt-5.6-sol";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
+pub(crate) const OPENROUTER_METACOGNITIVE_MODEL_ENV: &str = "OPENROUTER_METACOGNITIVE_MODEL";
 pub(crate) const OPENROUTER_FREE_MODEL: &str = "openrouter/free";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
@@ -372,8 +374,30 @@ impl AiConfig {
             .or_else(|| reasoning_effort.clone());
         let capability_models =
             parse_capability_models(std::env::var(AI_CAPABILITY_MODELS_ENV).ok().as_deref())?;
+        // Development does not require an operator registry, but it still
+        // preserves the production capability boundary: cheap character voice
+        // is not silently promoted into intent planning or world generation.
+        let runtime_registry = if registry.is_some() {
+            registry.clone()
+        } else if using_openrouter {
+            Some(Arc::new(
+                CapabilityRegistrySnapshot::legacy_split(
+                    "legacy-openrouter-split-v1",
+                    ai_provider_name_for_base_url(&base_url),
+                    &model,
+                    &std::env::var(OPENROUTER_METACOGNITIVE_MODEL_ENV)
+                        .ok()
+                        .map(|value| value.trim().to_string())
+                        .filter(|value| !value.is_empty())
+                        .unwrap_or_else(|| DEFAULT_OPENROUTER_METACOGNITIVE_MODEL.to_string()),
+                )
+                .map_err(|error| format!("{AI_REGISTRY_ENV} legacy fallback: {error}"))?,
+            ))
+        } else {
+            None
+        };
         let fallback_registry;
-        let effective_registry = if let Some(snapshot) = registry.as_deref() {
+        let effective_registry = if let Some(snapshot) = runtime_registry.as_deref() {
             snapshot
         } else {
             fallback_registry = CapabilityRegistrySnapshot::legacy(
@@ -403,7 +427,7 @@ impl AiConfig {
             vision_model,
             reasoning_effort,
             vision_reasoning_effort,
-            registry,
+            registry: runtime_registry,
             capability_models,
             data_policy_mode,
             voice_routing,

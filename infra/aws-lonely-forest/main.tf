@@ -659,7 +659,62 @@ locals {
     var.openrouter_api_key_secret_arn != "" ? [
       { name = "COSYWORLD_AI_PROVIDER", value = "openrouter" },
       { name = "OPENROUTER_CHAT_MODEL", value = var.openrouter_chat_model },
+      { name = "OPENROUTER_METACOGNITIVE_MODEL", value = var.openrouter_metacognitive_model },
       { name = "OPENROUTER_REASONING_EFFORT", value = var.openrouter_reasoning_effort },
+      { name = "COSYWORLD_AI_CAPABILITY_MODELS_JSON", value = jsonencode({
+        voice         = var.openrouter_chat_model
+        intent_json   = var.openrouter_metacognitive_model
+        world_content = var.openrouter_metacognitive_model
+      }) },
+      { name = "COSYWORLD_AI_REGISTRY_JSON", value = jsonencode({
+        schema_version   = 1
+        snapshot_version = "cosyworld-aws-2026-08-13a"
+        declared = [
+          {
+            requested_model_id = var.openrouter_chat_model
+            provider           = "openrouter"
+            concrete_model     = { model_id = var.openrouter_chat_model }
+            input_modalities   = ["text"]
+            output_modalities  = ["text"]
+            supported_parameters = {
+              structured_output = true
+              json_mode         = true
+              tools             = true
+              seed              = true
+              stop              = true
+            }
+            data_policy  = { retention = "none", training = "prohibited" }
+            capabilities = ["voice"]
+            prompt_adapter = {
+              id      = "openai-chat"
+              version = "1"
+            }
+            sampling = { hard_output_cap = 2048 }
+          },
+          {
+            requested_model_id = var.openrouter_metacognitive_model
+            provider           = "openrouter"
+            concrete_model     = { model_id = var.openrouter_metacognitive_model }
+            input_modalities   = ["text"]
+            output_modalities  = ["text"]
+            supported_parameters = {
+              structured_output = true
+              json_mode         = true
+              tools             = true
+              seed              = true
+              stop              = true
+            }
+            data_policy  = { retention = "none", training = "prohibited" }
+            capabilities = ["intent_json", "world_content"]
+            prompt_adapter = {
+              id      = "openai-chat"
+              version = "1"
+            }
+            sampling = { hard_output_cap = 2048 }
+          }
+        ]
+        discovered = []
+      }) },
     ] : [],
   )
 

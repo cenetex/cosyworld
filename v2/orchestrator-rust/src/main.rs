@@ -66118,9 +66118,9 @@ mod tests {
     }
 
     #[test]
-    fn default_chat_model_is_gpt_5_6_luna() {
-        assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "openai/gpt-5.6-luna");
-        assert_eq!(DEFAULT_OPENAI_CHAT_MODEL, "openai/gpt-5.6-luna");
+    fn default_models_split_cheap_voice_from_metacognition() {
+        assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "mistralai/mistral-nemo");
+        assert_eq!(DEFAULT_OPENROUTER_METACOGNITIVE_MODEL, "openai/gpt-5.6-sol");
     }
 
     #[tokio::test]
