@@ -1737,8 +1737,8 @@ async function main() {
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);
-    assert(travel?.title === "travel to rain-soft garden", `Travel confirmation should name the destination plainly: ${JSON.stringify(result)}`);
-    assert(travel?.summary === "Travel to Rain-Soft Garden.", `Travel confirmation should describe the story beat: ${JSON.stringify(result)}`);
+    assert(travel?.title === "Rain-Soft Garden", `Travel confirmation should use the destination as its heading: ${JSON.stringify(result)}`);
+    assert(travel?.summary === "From The Cosy Cottage.", `Travel confirmation should add origin context without repeating the destination: ${JSON.stringify(result)}`);
     assert(travel?.rows?.some((row) => row[1] === "you arrive in Rain-Soft Garden"), `Travel confirmation should explain where the player ends up: ${JSON.stringify(result)}`);
   }
 
@@ -3545,15 +3545,16 @@ async function main() {
         const confirmButton = document.querySelector("#action-modal-confirm");
         const cancelButton = document.querySelector("#action-modal [data-action-close]");
         const modal = {
+          eyebrow: document.querySelector("#action-modal-eyebrow")?.textContent?.trim() || "",
           title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
           summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
           confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
           cancel: cancelButton?.textContent?.trim() || "",
           cancelClass: cancelButton?.classList.contains("action-cancel") || false,
-          cancelAfterConfirm: Boolean(
+          cancelBeforeConfirm: Boolean(
             confirmButton
               && cancelButton
-              && (confirmButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING),
+              && (cancelButton.compareDocumentPosition(confirmButton) & Node.DOCUMENT_POSITION_FOLLOWING),
           ),
           confirmStyle: confirmButton ? {
             color: getComputedStyle(confirmButton).color,
@@ -3672,17 +3673,18 @@ async function main() {
         && result.selectedPreview.objectFit === "cover",
       `selecting a Travel destination should preview that Location card: ${JSON.stringify(result)}`,
     );
-    assert(result.modal.title === "choose where to travel", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
-    assert(result.modal.summary === "Choose where to travel.", `grouped Travel should explain the gesture plainly: ${JSON.stringify(result)}`);
+    assert(result.modal.eyebrow === "Travel", `grouped Travel should identify the action without repeating it in the heading: ${JSON.stringify(result)}`);
+    assert(result.modal.title === "Choose a destination", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
+    assert(result.modal.summary === "From Bethlehem.", `grouped Travel should add useful origin context: ${JSON.stringify(result)}`);
     assert(result.modal.confirm === "travel", `grouped Travel should keep the core Travel confirmation: ${JSON.stringify(result)}`);
     assert(
-      result.modal.cancel === "cancel"
+      result.modal.cancel === "stay here"
         && result.modal.cancelClass
-        && result.modal.cancelAfterConfirm
-        && result.modal.cancelStyle?.width === result.modal.confirmStyle?.width
+        && result.modal.cancelBeforeConfirm
+        && result.modal.cancelStyle?.width !== result.modal.confirmStyle?.width
         && result.modal.cancelStyle?.color !== result.modal.confirmStyle?.color
         && result.modal.cancelStyle?.background !== result.modal.confirmStyle?.background,
-      `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
+      `Travel modals should place a quiet Stay here choice beside the primary action: ${JSON.stringify(result)}`,
     );
     assert(result.modal.rows.length === 0, `Travel confirmation should stay to one sentence plus the destination choices: ${JSON.stringify(result)}`);
     assert(
@@ -12558,7 +12560,7 @@ async function main() {
         .length,
     }));
     assert(modal.backgroundInert && modal.activeInside && modal.heading === "H2" && modal.exposedBackgroundControls === 0, `${label}: action dialog should isolate focus and expose a heading: ${JSON.stringify(modal)}`);
-    await page.locator("#action-modal [data-action-close]").focus();
+    await page.locator("#action-modal-confirm").focus();
     await page.keyboard.press("Tab");
     assert(await page.evaluate(() => {
       const modal = document.querySelector("#action-modal");
@@ -12567,7 +12569,7 @@ async function main() {
       return document.activeElement === first;
     }), `${label}: Tab should wrap from the last dialog control to the first`);
     await page.keyboard.press("Shift+Tab");
-    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal [data-action-close]")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
+    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal-confirm")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#action-modal")?.hidden === true && !document.querySelector(".shell")?.hasAttribute("inert"));
     await page.waitForFunction(() => document.activeElement?.id === "primary");

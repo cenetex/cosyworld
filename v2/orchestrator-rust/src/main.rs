@@ -44047,7 +44047,7 @@ mod tests {
         assert!(INDEX_HTML.contains("!candidate.nextStretchRevealed"));
         assert!(!INDEX_HTML.contains("function mergeDuplicateSearchCards"));
         assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
-        assert!(INDEX_HTML.contains("Reveal the first adjacent stretch toward"));
+        assert!(INDEX_HTML.contains("Reveal the first adjacent stretch without moving."));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
         assert!(INDEX_HTML.contains("const thumb = action.pathwayDirection"));
@@ -44143,7 +44143,7 @@ mod tests {
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));
-        assert!(INDEX_HTML.contains("Travel to ${firstExit.destination_location_name}."));
+        assert!(INDEX_HTML.contains("From ${view.location.name}"));
         assert!(INDEX_HTML.contains("catch your breath"));
         assert!(!INDEX_HTML.contains("reply hook"));
         assert!(!INDEX_HTML.contains("authors a line"));
