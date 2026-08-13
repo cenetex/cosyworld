@@ -1,4 +1,5 @@
 use super::*;
+use serde::ser::SerializeStruct;
 
 #[derive(Debug, Serialize)]
 pub(super) struct AccountView {
@@ -30,7 +31,8 @@ pub(super) struct CardTransactionView {
     pub(super) source_event_seq: Option<u64>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub(super) struct CardView {
     pub(super) pack_id: Option<String>,
     pub(super) card_id: String,
@@ -51,13 +53,40 @@ pub(super) struct CardView {
     pub(super) terrain: Vec<String>,
     pub(super) image_url: Option<String>,
     pub(super) chain_image_uri: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) generation_policy: Option<GeneratedPolicyBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) community_art: Option<CommunityArtView>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+impl Serialize for CardView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("CardView", 12)?;
+        out.serialize_field("card_id", &self.card_id)?;
+        out.serialize_field("display_name", &self.display_name)?;
+        out.serialize_field("role", &self.role)?;
+        out.serialize_field("rarity", &self.rarity)?;
+        out.serialize_field("title", &self.title)?;
+        out.serialize_field("blurb", &self.blurb)?;
+        out.serialize_field("level", &self.level)?;
+        out.serialize_field("aspect", &self.aspect)?;
+        if let Some(value) = &self.biome {
+            out.serialize_field("biome", value)?;
+        }
+        out.serialize_field("terrain", &self.terrain)?;
+        if let Some(value) = &self.image_url {
+            out.serialize_field("image_url", value)?;
+        }
+        if let Some(value) = &self.community_art {
+            out.serialize_field("community_art", value)?;
+        }
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub(super) struct CommunityArtView {
     pub(super) level: u8,
     pub(super) required_orbs: i32,
@@ -69,6 +98,25 @@ pub(super) struct CommunityArtView {
     pub(super) provider_attempts: u8,
     pub(super) max_provider_attempts: u8,
     pub(super) retryable_without_orbs: bool,
+}
+
+impl Serialize for CommunityArtView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("CommunityArtView", 9)?;
+        out.serialize_field("level", &self.level)?;
+        out.serialize_field("required_orbs", &self.required_orbs)?;
+        out.serialize_field("funded_orbs", &self.funded_orbs)?;
+        out.serialize_field("remaining_orbs", &self.remaining_orbs)?;
+        out.serialize_field("viewer_contributed", &self.viewer_contributed)?;
+        out.serialize_field("status", &self.status)?;
+        out.serialize_field("provider_attempts", &self.provider_attempts)?;
+        out.serialize_field("max_provider_attempts", &self.max_provider_attempts)?;
+        out.serialize_field("retryable_without_orbs", &self.retryable_without_orbs)?;
+        out.end()
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

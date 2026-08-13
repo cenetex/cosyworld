@@ -1,4 +1,5 @@
 use super::*;
+use serde::ser::SerializeStruct;
 
 pub(super) const DISCOVERY_PIPELINE_SCHEMA_VERSION: u8 = 1;
 pub(super) const DISCOVERY_PROCEDURE_VERSION: &str = "discovery-procedure-v2";
@@ -85,7 +86,7 @@ pub(super) struct DiscoveryOfferView {
     pub(super) resolution: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct DiscoverySceneNoticeView {
     schema_version: u8,
     slot_id: String,
@@ -96,6 +97,29 @@ pub(super) struct DiscoverySceneNoticeView {
     phase: String,
     tells: Vec<DiscoveryTell>,
     resolution: String,
+}
+
+impl Serialize for DiscoverySceneNoticeView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct PublicTell<'a> {
+            text: &'a str,
+        }
+
+        let tells = self
+            .tells
+            .iter()
+            .map(|tell| PublicTell {
+                text: tell.text.as_str(),
+            })
+            .collect::<Vec<_>>();
+        let mut out = serializer.serialize_struct("DiscoverySceneNoticeView", 1)?;
+        out.serialize_field("tells", &tells)?;
+        out.end()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -1,9 +1,14 @@
 # Changelog
 
-## 1.0.23 — 2026-08-13
+## 1.0.24 — 2026-08-13
 
 - Double the deterministic kernel's actor capacity so one world can absorb all
   authored residents and the existing live populations with growth headroom.
+
+## 1.0.23 — 2026-08-12
+
+- Restrict the browser state projection to an explicit public allowlist, load
+  room history separately, and validate action details on the server.
 
 ## 1.0.22 — 2026-08-12
 

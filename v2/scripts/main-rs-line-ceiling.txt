@@ -259,4 +259,4 @@
 # main as a thin async entry point without changing boot or shutdown order.
 # 67709 -> 67675: move canonical entity-version conflict coverage beside the
 # canonical identity seam while adding typed stale-observation responses.
-67647
+67588

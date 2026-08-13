@@ -23,9 +23,9 @@ use serde::{Deserialize, Serialize};
 use crate::kernel::{KernelOutcome, KernelPort};
 use crate::types::{Action, ActionKind, KernelEvent, KernelStatus};
 
-pub const CW_KERNEL_VERSION: u32 = 14;
+pub const CW_KERNEL_VERSION: u32 = 15;
 
-pub const CW_MAX_ACTORS: usize = 1024;
+pub const CW_MAX_ACTORS: usize = 2048;
 pub const CW_MAX_ITEMS: usize = 1024;
 pub const CW_MAX_LOCATIONS: usize = 2048;
 pub const CW_MAX_EXITS: usize = 4096;

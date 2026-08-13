@@ -2823,7 +2823,8 @@ struct CharacterIdentityView {
     level: u8,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 struct RoomMemoryView {
     location_id: u64,
     summary: String,
@@ -2960,7 +2961,7 @@ struct ActionOption {
     command: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 struct RankedActionOffer {
     id: String,
     offer_id: String,
@@ -2975,11 +2976,8 @@ struct RankedActionOffer {
     composition_trace: ActionCompositionTraceView,
     composition_id: String,
     state_revision: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
     route: Option<RouteOfferBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     threshold_method: Option<ThresholdMethodOfferView>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     discovery: Option<DiscoveryOfferView>,
 
     category: String,
@@ -3001,7 +2999,6 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
-    #[serde(skip)]
     ranked_hand_eligible: bool,
 }
 
@@ -3039,7 +3036,8 @@ struct ActionProviderView {
     priority: u8,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 struct ActionHandView {
     schema_version: u8,
     capacity: u8,
@@ -3050,7 +3048,8 @@ struct ActionHandView {
     entries: Vec<ActionHandEntryView>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 struct ActionHandPassView {
     offer_id: String,
     label: String,
@@ -3059,7 +3058,7 @@ struct ActionHandPassView {
     scene_key: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 struct ActionHandEntryView {
     offer_id: String,
     kind: String,
@@ -3084,7 +3083,7 @@ struct ActionProjectView {
     claim_key: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 struct ActionTargetView {
     kind: String,
     id: Option<u64>,
@@ -3095,66 +3094,6 @@ struct ActionTargetView {
 struct ActionCostView {
     orbs: i32,
     reason: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct EventView {
-    #[serde(default = "official_world_id")]
-    world_id: String,
-    #[serde(default = "official_world_epoch")]
-    world_epoch: u64,
-    seq: u64,
-    #[serde(rename = "type")]
-    type_name: String,
-    success: bool,
-    reason: u16,
-    actor_id: Option<u64>,
-    actor_name: Option<String>,
-    target_actor_id: Option<u64>,
-    target_actor_name: Option<String>,
-    location_id: Option<u64>,
-    location_name: Option<String>,
-    destination_location_id: Option<u64>,
-    destination_location_name: Option<String>,
-    content_id: Option<u64>,
-    content: Option<String>,
-    item_id: Option<u64>,
-    item_name: Option<String>,
-    target_item_id: Option<u64>,
-    target_item_name: Option<String>,
-    raw_roll: Option<i16>,
-    modifier: Option<i16>,
-    total: Option<i16>,
-    dc: Option<i16>,
-    damage: Option<i16>,
-    current_hp: Option<i16>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    combat_method: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    ability: Option<String>,
-    clock_id: Option<String>,
-    clock_scope: Option<String>,
-    clock_scope_id: Option<u64>,
-    clock_kind: Option<String>,
-    clock_label: Option<String>,
-    clock_filled: Option<u8>,
-    clock_segments: Option<u8>,
-    clock_delta: Option<i16>,
-    tag_id: Option<String>,
-    tag_scope: Option<String>,
-    tag_scope_id: Option<u64>,
-    tag_kind: Option<String>,
-    tag_label: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    caused_by_event_seq: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    source_world_tick: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    observed_through_seq: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    source_location_id: Option<u64>,
-    #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
-    content_context: ContentReferenceContext,
 }
 
 fn content_reference_context_is_empty(context: &ContentReferenceContext) -> bool {
@@ -3292,7 +3231,9 @@ struct ActionOfferSubmissionRequest {
     kind: String,
     rules_action: Option<String>,
     operation: Option<String>,
+    #[serde(default)]
     rules_profile: String,
+    #[serde(default)]
     state_revision: u64,
     #[serde(default)]
     route: Option<RouteOfferBinding>,

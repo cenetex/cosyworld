@@ -21,6 +21,27 @@ fn submission_for_offer(
     }
 }
 
+fn compact_submission_for_offer(
+    offer: &RankedActionOffer,
+    path: &str,
+    payload: serde_json::Value,
+) -> ActionOfferSubmissionRequest {
+    ActionOfferSubmissionRequest {
+        path: path.to_string(),
+        offer_id: offer.offer_id.clone(),
+        composition_id: offer.composition_id.clone(),
+        kind: offer.kind.clone(),
+        rules_action: None,
+        operation: None,
+        rules_profile: String::new(),
+        state_revision: 0,
+        route: None,
+        target: None,
+        cost: None,
+        payload,
+    }
+}
+
 fn live_command_request(actor_id: u64, actor_session: &str, offer_id: String) -> CommandRequest {
     CommandRequest {
         actor_id,
@@ -328,7 +349,7 @@ async fn live_story_button_hand_lifecycle() {
     let pickup = submit_action_offer(
         ConnectInfo("127.0.0.1:44274".parse().expect("client address")),
         State(state.clone()),
-        Json(submission_for_offer(
+        Json(compact_submission_for_offer(
             &pickup_offer,
             "/actions/pick-up",
             serde_json::json!({
@@ -2027,24 +2048,166 @@ async fn legacy_pass_endpoint_refuses_an_uncertified_request() {
 
 #[test]
 fn public_state_keeps_the_action_hand_bounded() {
-    let runtime = RuntimeWorld::seeded();
-    let state = serde_json::to_value(
-        runtime.state_response(Some(RATI_ACTOR_ID), &AccessContext::default()),
-    )
-    .expect("serialize public state");
-    assert!(
-        state.get("rules_context").is_some(),
-        "rules_context remains part of the public state contract"
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Public State Tester",
     );
-    for hidden in ["factions", "card_transactions", "inspector"] {
+    let encoded =
+        serde_json::to_vec(&runtime.state_response(Some(5000), &AccessContext::default()))
+            .expect("serialize public state");
+    assert!(
+        encoded.len() < 32 * 1024,
+        "the seeded browser state grew past its 32 KiB contract: {} bytes",
+        encoded.len()
+    );
+    let state: serde_json::Value = serde_json::from_slice(&encoded).expect("decode public state");
+    for hidden in [
+        "account",
+        "rules_context",
+        "goals",
+        "chat_bond_claimed_target_ids",
+        "factions",
+        "card_transactions",
+        "inspector",
+    ] {
         assert!(state.get(hidden).is_none(), "{hidden} must remain internal");
     }
+    assert!(
+        state["command_context"]["actor_ref"].is_string(),
+        "the browser gets only the opaque concurrency context it must submit"
+    );
+    assert!(
+        state.get("recent_events").is_none(),
+        "bounded event history belongs to /events, not the current-state payload"
+    );
     assert!(state["action_offers"]
         .as_array()
         .is_some_and(|offers| offers.len() <= 2));
     assert!(state["action_hand"]["entries"]
         .as_array()
         .is_some_and(|entries| entries.len() <= 2));
+    assert!(state["journal_beats"]
+        .as_array()
+        .is_some_and(|beats| beats.len() <= 60));
+
+    let location = state["location"].as_object().expect("public location");
+    for hidden in [
+        "canonical_ref",
+        "entity_version",
+        "pack_id",
+        "persona",
+        "memory",
+        "factions",
+    ] {
+        assert!(location.get(hidden).is_none(), "location.{hidden} leaked");
+    }
+    for actor in state["actors"].as_array().expect("public actors") {
+        for hidden in [
+            "canonical_ref",
+            "entity_version",
+            "pack_id",
+            "speech_mode",
+            "factions",
+            "bloodied",
+        ] {
+            assert!(actor.get(hidden).is_none(), "actor.{hidden} leaked");
+        }
+        assert_eq!(
+            actor["stats"]
+                .as_object()
+                .expect("public actor stats")
+                .keys()
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from(["hp_base".to_string(), "level".to_string()]),
+            "actor stats must contain only values rendered by the client"
+        );
+    }
+    for item in state["items"].as_array().expect("public items") {
+        for hidden in [
+            "canonical_ref",
+            "entity_version",
+            "pack_id",
+            "mechanics",
+            "provenance",
+        ] {
+            assert!(item.get(hidden).is_none(), "item.{hidden} leaked");
+        }
+    }
+    for offer in state["action_offers"].as_array().expect("public offers") {
+        for hidden in [
+            "rules_action",
+            "operation",
+            "rules_profile",
+            "resolver",
+            "pack_provenance",
+            "composition_trace",
+            "state_revision",
+            "route",
+            "category",
+            "zone",
+            "source",
+            "claim_key",
+            "reason",
+        ] {
+            assert!(offer.get(hidden).is_none(), "offer.{hidden} leaked");
+        }
+        assert!(
+            offer["provider"].get("label").is_none(),
+            "offer.provider.label leaked"
+        );
+        assert!(
+            offer["provider"]["reason"]
+                .as_str()
+                .is_some_and(|reason| !reason.is_empty()),
+            "the browser-rendered provider reason must remain public"
+        );
+        if let Some(source) = offer.get("source_collectible") {
+            for hidden in ["pack_id", "pack_version", "card_id", "provider_id"] {
+                assert!(source.get(hidden).is_none(), "offer source.{hidden} leaked");
+            }
+        }
+    }
+    assert!(
+        state["safety"].get("blocked_actor_ids").is_none(),
+        "duplicated safety internals must not be sent"
+    );
+    for group in ["actors", "items", "locations"] {
+        for card in state["cards"][group]
+            .as_object()
+            .expect("public card group")
+            .values()
+        {
+            for hidden in [
+                "pack_id",
+                "source",
+                "asset_status",
+                "profile_id",
+                "subject",
+                "chain_image_uri",
+                "generation_policy",
+            ] {
+                assert!(card.get(hidden).is_none(), "card.{hidden} leaked");
+            }
+        }
+    }
+
+    let sparse_event = serde_json::to_value(EventView {
+        seq: 1,
+        type_name: "world.bootstrapped".to_string(),
+        success: true,
+        ..EventView::default()
+    })
+    .expect("serialize sparse public event");
+    for absent in ["actor_id", "content", "clock_id", "tag_id"] {
+        assert!(
+            sparse_event.get(absent).is_none(),
+            "absent event field {absent} must not be serialized as null"
+        );
+    }
 }
 
 #[tokio::test]

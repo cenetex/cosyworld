@@ -150,11 +150,16 @@ fn submitted_stable_offer_payload_matches(
 }
 
 fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Option<&str> {
-    let prefix = format!(
-        "{}:{}:",
-        submission.rules_profile, submission.state_revision
-    );
-    submission.offer_id.strip_prefix(&prefix)
+    let mut parts = submission.offer_id.splitn(3, ':');
+    parts.next()?;
+    parts.next()?.parse::<u64>().ok()?;
+    parts.next()
+}
+
+fn submitted_offer_state_revision(submission: &ActionOfferSubmissionRequest) -> Option<u64> {
+    let mut parts = submission.offer_id.splitn(3, ':');
+    parts.next()?;
+    parts.next()?.parse().ok()
 }
 
 fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
@@ -176,15 +181,18 @@ fn offer_composition_matches_at_submitted_revision(
     offer: &RankedActionOffer,
     submission: &ActionOfferSubmissionRequest,
 ) -> bool {
-    if offer.state_revision <= submission.state_revision {
+    let Some(submitted_revision) = submitted_offer_state_revision(submission) else {
+        return false;
+    };
+    if offer.state_revision <= submitted_revision {
         return false;
     }
     // Unrelated world events advance every offer envelope. Rebind only that
     // volatile revision so the certificate still detects real scene changes.
     let mut trace = offer.composition_trace.clone();
-    trace.state_revision = submission.state_revision;
+    trace.state_revision = submitted_revision;
     if let Some(rules_context) = trace.rules_context.as_mut() {
-        rules_context.state_revision = submission.state_revision;
+        rules_context.state_revision = submitted_revision;
     }
     trace.certificate() == submission.composition_id
 }
@@ -276,16 +284,26 @@ impl RuntimeWorld {
             && (exact_offer.is_none() || offer.composition_id != submission.composition_id)
         {
             Err("the scene composition changed; refresh and choose a current action")
-        } else if offer.kind != submission.kind
-            || offer.rules_action != submission.rules_action
-            || offer.operation != submission.operation
-            || offer.rules_profile != submission.rules_profile
-            || (offer.state_revision != submission.state_revision && !revision_rebound)
-            || offer.route != submission.route
-            || offer.target != submission.target
-            || offer.cost != submission.cost
-            || offer.disabled
+        } else if offer.kind != submission.kind || offer.disabled {
+            Err("offer identity, rules binding, target, cost, or availability was changed")
+        } else if (!submission.rules_profile.is_empty()
+            || submission.state_revision != 0
+            || submission.rules_action.is_some()
+            || submission.operation.is_some()
+            || submission.route.is_some()
+            || submission.target.is_some()
+            || submission.cost.is_some())
+            && (offer.rules_action != submission.rules_action
+                || offer.operation != submission.operation
+                || offer.rules_profile != submission.rules_profile
+                || (offer.state_revision != submission.state_revision && !revision_rebound)
+                || offer.route != submission.route
+                || offer.target != submission.target
+                || offer.cost != submission.cost)
         {
+            // Older clients echoed this expanded identity. Accept it only when
+            // every field still matches, while current clients submit the
+            // opaque offer/composition certificates and action payload alone.
             Err("offer identity, rules binding, target, cost, or availability was changed")
         } else if offer.target.as_ref().is_some_and(|target| {
             target.id.is_some_and(|expected| {
