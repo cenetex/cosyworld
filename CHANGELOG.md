@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.20 — 2026-08-12
+## 1.0.21 — 2026-08-12
 
 - Redesign Travel confirmation around the destination and route context, with
   compact neutral and primary actions instead of repetitive copy and controls.
