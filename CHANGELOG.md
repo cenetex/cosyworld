@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.16 — 2026-08-12
+
+- Restore Hoppycat startup by aligning authored job-strategy provenance with
+  its current pack, and require every shipped registry to pass runtime loading.
+
 ## 1.0.15 — 2026-08-12
 
 - Simplify single-destination Travel cards to their concise route label while
