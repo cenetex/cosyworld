@@ -41130,7 +41130,7 @@ mod tests {
 
     #[test]
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
-        assert_eq!(CW_MAX_ACTORS, 1024);
+        assert_eq!(CW_MAX_ACTORS, 2048);
         assert_eq!(CW_MAX_ITEMS, 1024);
         assert_eq!(CW_MAX_LOCATIONS, 2048);
         assert_eq!(CW_MAX_EXITS, 4096);
@@ -41147,11 +41147,11 @@ mod tests {
         let restored = snapshot
             .into_runtime()
             .expect("vector-backed legacy snapshot rehydrates");
-
         // Snapshots persist active entries as vectors, not the fixed-array
         // cw_world memory layout. Rehydration therefore upgrades an older
         // layout safely into the currently compiled kernel ABI.
         assert_eq!(restored.world.version, CW_KERNEL_VERSION);
+        assert!(restored.world.actor_count <= CW_MAX_ACTORS);
         assert!(restored.world.location_count <= CW_MAX_LOCATIONS);
         assert!(restored.world.exit_count <= CW_MAX_EXITS);
     }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.23 — 2026-08-13
+
+- Double the deterministic kernel's actor capacity so one world can absorb all
+  authored residents and the existing live populations with growth headroom.
+
 ## 1.0.22 — 2026-08-12
 
 - Move pending human gift consent into the recipient's action hand, mark the
