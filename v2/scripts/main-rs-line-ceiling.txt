@@ -259,4 +259,8 @@
 # main as a thin async entry point without changing boot or shutdown order.
 # 67709 -> 67675: move canonical entity-version conflict coverage beside the
 # canonical identity seam while adding typed stale-observation responses.
-67586
+# 67586 -> 66712: move unified belief types, keys, writes, pruning, decay,
+# lookup/resolution, search reinforcement, and legacy migration into
+# residents/memory.rs. Room observation, disproved-memory cleanup, movement
+# observation, gossip, and belief projection remain for the sequential #324.
+66712
