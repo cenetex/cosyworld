@@ -16,6 +16,14 @@ player is waiting on — consolidation, identity refinement, journals, and
 objectives — runs in batch off the tick, per
 [ADR 0011](docs/decisions/0011-reflective-work-runs-in-batch.md).
 
+Durable generated resident voice profiles follow the same batch boundary.
+[ADR 0014](docs/decisions/0014-resident-voice-profile-refresh.md) admits an
+initial profile after durable identity refinement and refreshes only after a
+committed avatar evolution, with exact replay-safe identities and hard
+resident/world attempt ceilings. Authored voices remain permanent unless their
+owning pack explicitly opts into a versioned drift policy; rejection always
+keeps the prior profile or authored fallback.
+
 `Chat` is the player-facing friendship action. It appears only when the avatar
 has banked advancement and a nearby resident is eligible for a new Bond; playing
 it spends one advancement point, creates that friendship, and passes the room
