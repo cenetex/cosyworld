@@ -246,9 +246,14 @@ impl RuntimeWorld {
         };
         match stage {
             FirstTaleStage::Notice => {
-                offer.intention == "notice"
-                    && offer.target.as_ref().and_then(|target| target.id)
-                        == Some(first_tale.lead_location_id)
+                offer.kind == NOTICE_ACTOR_OFFER_KIND
+                    && offer.target.as_ref().is_some_and(|target| {
+                        target.kind == "actor"
+                            && target
+                                .id
+                                .and_then(|target_actor_id| self.actor_by_id(target_actor_id))
+                                .is_some_and(|target| target.location_id == actor.location_id)
+                    })
             }
             FirstTaleStage::ReturnToLead => route_toward(first_tale.lead_location_id),
             FirstTaleStage::FollowLead | FirstTaleStage::ReturnToDestination => {
@@ -265,7 +270,7 @@ impl RuntimeWorld {
                             && project.progress_clock_id == first_tale.progress_clock_id
                     }))
                     || (shared_question_complete
-                        && offer.intention == "notice"
+                        && offer.intention == "inspect"
                         && offer.target.as_ref().and_then(|target| target.id)
                             == Some(first_tale.destination_location_id))
             }
@@ -724,7 +729,7 @@ mod tests {
         let (offers, hand, view) = first_tale_action_state(&runtime, actor_id);
         assert_eq!(view.phase, "contribute");
         let fallback = advancing_offer(&offers, &hand, &view);
-        assert_eq!(fallback.intention, "notice");
+        assert_eq!(fallback.intention, "inspect");
         assert_eq!(
             fallback.target.as_ref().and_then(|target| target.id),
             Some(RAIN_SOFT_GARDEN_LOCATION_ID)

@@ -17,6 +17,17 @@ pub(super) fn economy_disclosure_claim_key(viewer_actor_id: u64, target_actor_id
     format!("economy_disclosed:{viewer_actor_id}:{target_actor_id}")
 }
 
+pub(super) fn notice_actor_fact_claim_key(
+    viewer_actor_id: u64,
+    target_actor_id: u64,
+    item_id: u64,
+    held_since_tick: u64,
+) -> String {
+    format!(
+        "notice_actor:v1:{viewer_actor_id}:{target_actor_id}:carried_item:{item_id}:{held_since_tick}"
+    )
+}
+
 pub(super) fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
     format!("listen_attempt:{actor_id}:{location_id}")
 }

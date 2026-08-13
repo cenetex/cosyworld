@@ -422,7 +422,7 @@ mod tests {
             .legal_action_candidates(Some(5000), &AccessContext::default())
             .1
             .into_iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("the cottage exposes Notice");
         runtime.pack_mount_state = PackMountState(serde_json::json!({
             "schema_version": 1,

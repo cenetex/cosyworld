@@ -488,6 +488,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
             ConcurrencyPolicy::TargetSerialized
         }
         CommandDispatch::PickUp { .. }
+        | CommandDispatch::NoticeActor { .. }
         | CommandDispatch::OpenThreshold { .. }
         | CommandDispatch::Drop { .. }
         | CommandDispatch::UseItem { .. }
@@ -1333,6 +1334,7 @@ pub(super) fn command_actor_turn_rejection(
         CommandDispatch::Defend => "defend",
         CommandDispatch::Flee { .. } => "flee",
         CommandDispatch::OpenThreshold { .. } => "open",
+        CommandDispatch::NoticeActor { .. } => NOTICE_ACTOR_OFFER_KIND,
         CommandDispatch::Check => "check",
         CommandDispatch::Study => "study",
         CommandDispatch::Discover { procedure, .. } => match procedure.as_str() {

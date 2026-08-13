@@ -1290,22 +1290,32 @@ async function main() {
     }, needles);
   }
 
-  async function zeroOrbActionLabels(listenRewardClaimable) {
-    return page.evaluate((claimable) => {
+  async function zeroOrbActionLabels(factAvailable) {
+    return page.evaluate((available) => {
       const previousState = state;
       const previousActorId = actorId;
       const fakeState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
           kind: "chat",
-          options: [{ kind: "chat" }, { kind: "check" }],
+          options: [{ kind: "chat" }],
+        },
+        action_offers: available ? [{
+          offer_id: "core:1:notice-rati",
+          kind: "notice_actor",
+          command: "notice Rati",
+          target: { kind: "actor", id: 1001, label: "Rati" },
+          provider: { kind: "actor", id: "actor:1001", priority: 40 },
+        }] : [],
+        action_hand: {
+          entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
         },
         economy: {
           orbs: 0,
           can_chat_with_orbs: false,
-          listen_cost_orbs: claimable ? 0 : 1,
-          listen_reward_claimable: claimable,
-          listen_attempted_here: !claimable,
+          listen_cost_orbs: available ? 0 : 1,
+          listen_reward_claimable: available,
+          listen_attempted_here: !available,
           openrouter_connected: false,
         },
         actors: [
@@ -1339,7 +1349,7 @@ async function main() {
         state = previousState;
         actorId = previousActorId;
       }
-    }, listenRewardClaimable);
+    }, factAvailable);
   }
 
   async function assertFreeActionsIgnoreOrbBalance() {
@@ -1349,8 +1359,8 @@ async function main() {
     assert(!claimableLabels.includes("connect ai"), `free actions should not offer Connect AI as a command: ${JSON.stringify(claimableActions)}`);
     const exhaustedActions = await zeroOrbActionLabels(false);
     const exhaustedLabels = exhaustedActions.map((action) => action.label);
-    assert(!exhaustedLabels.includes("notice"), `a claimed first clue should become repeat Notice: ${JSON.stringify(exhaustedActions)}`);
-    assert(exhaustedActions.some((action) => action.label === "notice again" && action.detail === "free"), `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice"), `Notice should disappear when no certified fact remains: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice again"), `ambient repeat Notice must not be reconstructed from stale economy fields: ${JSON.stringify(exhaustedActions)}`);
     const travelActions = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -1538,11 +1548,11 @@ async function main() {
           shape: "location",
         });
         renderButton("secondary", {
-          label: "listen",
-          detail: "Homeroom",
-          command: "listen",
-          card: cardForLocation(11),
-          shape: "location",
+          label: "notice",
+          detail: "Rati",
+          command: "notice Rati",
+          card: cardForActor(1001),
+          shape: "avatar",
         });
         const labels = [...document.querySelectorAll("footer.prompt .cmd-label")]
           .map((node) => {
@@ -1594,9 +1604,9 @@ async function main() {
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
     const travelLabel = result.labels.find((entry) => entry.text === "go" || entry.text === "travel");
     assert(travelLabel, `travel should remain a visible route action label: ${JSON.stringify(result)}`);
-    const listenLabel = result.labels.find((entry) => entry.text === "listen");
-    assert(listenLabel, `listen should remain a visible action label: ${JSON.stringify(result)}`);
-    for (const label of [travelLabel, listenLabel]) {
+    const noticeLabel = result.labels.find((entry) => entry.text === "notice");
+    assert(noticeLabel, `actor Notice should remain a visible action label: ${JSON.stringify(result)}`);
+    for (const label of [travelLabel, noticeLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
     }
   }
@@ -1608,13 +1618,9 @@ async function main() {
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
-          kind: "check",
-          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "move" }],
         },
-        action_offers: [{
-          kind: "check",
-          risk: "repeat listening on the frontier can leave you tired",
-        }],
         economy: {
           orbs: 0,
           can_chat_with_orbs: true,
@@ -1631,10 +1637,20 @@ async function main() {
         cards: { actors: {}, items: {}, locations: {} },
         access: {},
       };
-      const actionsFor = (attempted, economyPatch = {}) => {
+      const actionsFor = (available, economyPatch = {}) => {
         const fakeState = {
           ...baseState,
-          economy: { ...baseState.economy, listen_attempted_here: attempted, ...economyPatch },
+          action_offers: available ? [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }] : [],
+          action_hand: {
+            entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
+          },
+          economy: { ...baseState.economy, listen_attempted_here: !available, ...economyPatch },
         };
         state = fakeState;
         actorId = 5000;
@@ -1651,30 +1667,20 @@ async function main() {
       };
       try {
         return {
-          fresh: actionsFor(false),
-          repeat: actionsFor(true),
-          stalePaidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
+          fresh: actionsFor(true),
+          exhausted: actionsFor(false),
+          staleLegacy: actionsFor(false, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
         };
       } finally {
         state = previousState;
         actorId = previousActorId;
       }
     });
-    assert(result.fresh[0]?.label === "notice", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
-    assert(result.repeat[0]?.label !== "notice again", `repeat Notice should not stay the default action: ${JSON.stringify(result)}`);
-    assert(result.repeat.some((action) => action.label === "chat"), `free Chat should remain available beside repeat Notice when the server exposes an eligible resident: ${JSON.stringify(result)}`);
-    const repeatIndex = result.repeat.findIndex((action) => action.label === "notice again");
-    assert(repeatIndex > 0 && result.repeat[repeatIndex]?.detail === "free", `free repeat Notice should remain available without hijacking the primary action: ${JSON.stringify(result)}`);
-    const stalePaidRepeat = result.stalePaidRepeat.find((action) => action.label === "notice again");
-    assert(stalePaidRepeat?.detail === "free" && stalePaidRepeat?.compactLabel === "notice again", `repeat Notice should stay free even when stale state reports a legacy cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.title === "notice once more", `repeat confirmation should keep the Notice verb: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.summary === "Notice another ambient lead. The room may have nothing new yet.", `repeat confirmation should explain its uncertain outcome without an Orb charge: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.rows?.some((row) => row[0] === "Costs"), `repeat Notice should never display an Orb cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "What may happen" && row[1] === "the room may share another clue"), `repeat confirmation should describe its possible reward plainly: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "Watch for" && row[1] === "listening again may tire you"), `repeat confirmation should preserve its gentle fatigue warning: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.confirm === "notice again", `repeat confirmation button should match the card: ${JSON.stringify(result)}`);
-    assert(!JSON.stringify(stalePaidRepeat).includes("to listen again"), `repeat listen should not repeat its own verb: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.detail.includes("/"), `repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
+    const freshNotice = result.fresh.find((action) => action.label === "notice");
+    assert(freshNotice?.detail === "Rati" && freshNotice?.command === "notice Rati", `certified actor Notice should name its exact target: ${JSON.stringify(result)}`);
+    assert(result.exhausted.some((action) => action.label === "chat"), `free Chat should remain when no Notice fact is eligible: ${JSON.stringify(result)}`);
+    assert(!result.exhausted.some((action) => action.label === "notice" || action.label === "notice again"), `Notice should disappear after its certified fact is exhausted: ${JSON.stringify(result)}`);
+    assert(!result.staleLegacy.some((action) => action.label === "notice" || action.label === "notice again"), `stale legacy cost and attempt fields must not recreate Notice: ${JSON.stringify(result)}`);
   }
 
   async function assertCalmRoomSearchDoesNotHijackPrimary() {
@@ -1858,7 +1864,7 @@ async function main() {
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
     assert(chatIndex >= 0, `optional feature fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
-    assert(listenAgainIndex > travelIndex && result[listenAgainIndex]?.detail === "free", `repeat Notice should remain available without outranking concrete travel: ${JSON.stringify(result)}`);
+    assert(listenAgainIndex === -1, `ambient repeat Notice must stay absent from the feature surface: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
       assert(result[useIndex]?.command === "use Story Button on Scarf Basket", `feature use should remain focusable when the server exposes it: ${JSON.stringify(result)}`);
@@ -4497,7 +4503,7 @@ async function main() {
     });
     assert(result.direct.chips === 1 && result.direct.requests === 1 && result.direct.trades === 1, `a disclosed direct-player item should become one icon with exact consent actions: ${JSON.stringify(result)}`);
     assert(result.inference.chips === 1 && result.inference.requests === 0 && result.inference.steals === 1, `an inference-held item must not expose the invalid direct-player request route: ${JSON.stringify(result)}`);
-    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 1, `unknown holdings must stay hidden behind Notice: ${JSON.stringify(result)}`);
+    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 0, `unknown holdings must stay hidden without an inspector Notice shortcut: ${JSON.stringify(result)}`);
     assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
     assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
     assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
