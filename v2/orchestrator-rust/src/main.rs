@@ -25179,13 +25179,22 @@ fn canonical_command_error(
     status: u32,
     output: impl Into<String>,
 ) -> Json<CommandResponse> {
+    canonical_command_error_with_kind(command, status, output, None)
+}
+
+fn canonical_command_error_with_kind(
+    command: &str,
+    status: u32,
+    output: impl Into<String>,
+    error_kind: Option<CommandErrorKind>,
+) -> Json<CommandResponse> {
     Json(CommandResponse {
         ok: false,
         status,
         command: normalize_command_text(command),
         verb: String::new(),
         output: Some(output.into()),
-        error_kind: None,
+        error_kind,
         action: None,
         receipt: None,
         events: Vec::new(),
@@ -25492,12 +25501,13 @@ async fn command_with_forwarding(
         if let Some(observed) = envelope.observed.actor_version {
             let current = runtime.entity_version(&envelope.actor_ref);
             if observed != current {
-                return canonical_command_error(
+                return canonical_command_error_with_kind(
                     &payload.command,
                     409,
                     format!(
                         "Stale actor version: observed {observed}, current {current}. Refresh before retrying."
                     ),
+                    Some(CommandErrorKind::StaleActorVersion),
                 );
             }
         }
@@ -25508,12 +25518,13 @@ async fn command_with_forwarding(
                 .map(|canonical_ref| runtime.entity_version(canonical_ref))
                 .unwrap_or_default();
             if observed != current {
-                return canonical_command_error(
+                return canonical_command_error_with_kind(
                     &payload.command,
                     409,
                     format!(
                         "Stale location version: observed {observed}, current {current}. Refresh before retrying."
                     ),
+                    Some(CommandErrorKind::StaleLocationVersion),
                 );
             }
         }
@@ -25524,12 +25535,13 @@ async fn command_with_forwarding(
                 .get(canonical_ref)
                 .copied();
             if current != Some(*observed) {
-                return canonical_command_error(
+                return canonical_command_error_with_kind(
                     &payload.command,
                     409,
                     format!(
                         "Stale or unknown entity version for {canonical_ref}. Refresh before retrying."
                     ),
+                    Some(CommandErrorKind::StaleEntityVersion),
                 );
             }
         }
@@ -40331,55 +40343,6 @@ mod tests {
         assert!(restored.command_receipts.len() <= COMMAND_RECEIPT_CACHE_MAX_ENTRIES);
     }
 
-    #[tokio::test]
-    async fn stale_canonical_entity_versions_fail_closed() {
-        let actor_id = 5000;
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            actor_id,
-            COSY_COTTAGE_LOCATION_ID,
-            "Versioned Neighbour",
-        );
-        let state = test_app_state(runtime, None);
-        let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
-        let first_request = {
-            let mut runtime = state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_id,
-                &actor_session,
-                "test:advance-version",
-                "search",
-            )
-        };
-        let mut stale_request = first_request.clone();
-        stale_request
-            .envelope
-            .as_mut()
-            .expect("canonical envelope")
-            .intent_id = "test:stale-version".to_string();
-        let client = ConnectInfo("127.0.0.1:45130".parse().expect("client address"));
-
-        let first = command(client, State(state.clone()), Json(first_request))
-            .await
-            .0;
-        assert!(first.ok, "{first:?}");
-        let event_count_after_first = state.inner.lock().await.event_log.len();
-        let stale = command(client, State(state.clone()), Json(stale_request))
-            .await
-            .0;
-
-        assert!(!stale.ok);
-        assert_eq!(stale.status, 409);
-        assert!(stale
-            .output
-            .as_deref()
-            .is_some_and(|output| output.contains("Stale actor version")));
-        let runtime = state.inner.lock().await;
-        assert_eq!(runtime.event_log.len(), event_count_after_first);
-    }
-
     fn discover_seed_exit_for_test(
         runtime: &mut RuntimeWorld,
         from_location_id: u64,
@@ -43881,6 +43844,9 @@ mod tests {
         assert!(INDEX_HTML.contains("if (recovery.ok && recovery.renewed)"));
         assert!(INDEX_HTML.contains("await Promise.all([pingPresence(), refresh()])"));
         assert!(INDEX_HTML.contains("async function postResult(path, payload)"));
+        assert!(INDEX_HTML.contains("function isStaleCommandObservation(result = {})"));
+        assert!(INDEX_HTML.contains("function equivalentCommandOffer(previousOffer)"));
+        assert!(INDEX_HTML.contains("if (isStaleCommandObservation(result))"));
         assert!(INDEX_HTML.contains("const submit = () => postResult(\"/commands\""));
         assert!(INDEX_HTML.contains("await postResult(\"/presence/ping\""));
         assert!(!INDEX_HTML.contains("await post(\"/commands\""));

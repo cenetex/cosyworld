@@ -253,3 +253,137 @@ fn run_durable_entity_version_rehydration() {
     );
     let _ = fs::remove_file(path);
 }
+
+fn canonical_version_test_offer_request(
+    runtime: &mut RuntimeWorld,
+    actor_id: u64,
+    actor_session: &str,
+    intent_id: &str,
+) -> CommandRequest {
+    let actor = runtime
+        .actor_by_id(actor_id)
+        .expect("canonical version test actor");
+    let actor_ref = runtime
+        .canonical_ref("actor", actor_id)
+        .expect("canonical version test actor ref")
+        .to_string();
+    let location_ref = runtime
+        .canonical_ref("location", actor.location_id)
+        .expect("canonical version test location ref")
+        .to_string();
+    let offer_id = runtime
+        .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+            offer.kind == "search"
+        })
+        .expect("search rotates into the canonical version test hand")
+        .offer_id;
+    CommandRequest {
+        actor_id,
+        actor_session: Some(actor_session.to_string()),
+        command: "offer identity selects the action".to_string(),
+        offer_id: Some(offer_id),
+        wallet_session: None,
+        envelope: Some(CanonicalCommandEnvelope {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            intent_id: intent_id.to_string(),
+            actor_ref: actor_ref.clone(),
+            observed: CanonicalObservedVersions {
+                actor_version: Some(runtime.entity_version(&actor_ref)),
+                location_version: Some(runtime.entity_version(&location_ref)),
+                entities: BTreeMap::new(),
+            },
+            last_world_seq: runtime.world.next_event_seq.saturating_sub(1),
+        }),
+    }
+}
+
+#[tokio::test]
+async fn stale_canonical_entity_versions_fail_closed_with_typed_errors() {
+    let actor_id = 5000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Versioned Neighbour",
+    );
+    let state = test_app_state(runtime, None);
+    let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
+    let first_request = {
+        let mut runtime = state.inner.lock().await;
+        canonical_version_test_offer_request(
+            &mut runtime,
+            actor_id,
+            &actor_session,
+            "test:advance-version",
+        )
+    };
+    let mut stale_request = first_request.clone();
+    stale_request
+        .envelope
+        .as_mut()
+        .expect("canonical envelope")
+        .intent_id = "test:stale-version".to_string();
+    let client = ConnectInfo("127.0.0.1:45130".parse().expect("client address"));
+
+    let first = command(client, State(state.clone()), Json(first_request))
+        .await
+        .0;
+    assert!(first.ok, "{first:?}");
+    let event_count_after_first = state.inner.lock().await.event_log.len();
+    let stale = command(client, State(state.clone()), Json(stale_request.clone()))
+        .await
+        .0;
+    assert_eq!(stale.error_kind, Some(CommandErrorKind::StaleActorVersion));
+
+    let mut stale_location_request = stale_request.clone();
+    {
+        let runtime = state.inner.lock().await;
+        let actor = runtime.actor_by_id(actor_id).expect("versioned actor");
+        let actor_ref = runtime.canonical_ref("actor", actor_id).unwrap();
+        let location_ref = runtime
+            .canonical_ref("location", actor.location_id)
+            .unwrap();
+        let envelope = stale_location_request.envelope.as_mut().unwrap();
+        envelope.intent_id = "test:stale-location-version".to_string();
+        envelope.observed.actor_version = Some(runtime.entity_version(actor_ref));
+        envelope.observed.location_version =
+            Some(runtime.entity_version(location_ref).saturating_add(1));
+    }
+    let stale_location = command(client, State(state.clone()), Json(stale_location_request))
+        .await
+        .0;
+    assert_eq!(
+        stale_location.error_kind,
+        Some(CommandErrorKind::StaleLocationVersion)
+    );
+
+    let mut stale_entity_request = stale_request;
+    {
+        let runtime = state.inner.lock().await;
+        let actor = runtime.actor_by_id(actor_id).expect("versioned actor");
+        let actor_ref = runtime.canonical_ref("actor", actor_id).unwrap();
+        let location_ref = runtime
+            .canonical_ref("location", actor.location_id)
+            .unwrap();
+        let envelope = stale_entity_request.envelope.as_mut().unwrap();
+        envelope.intent_id = "test:stale-entity-version".to_string();
+        envelope.observed.actor_version = Some(runtime.entity_version(actor_ref));
+        envelope.observed.location_version = Some(runtime.entity_version(location_ref));
+        envelope.observed.entities.insert(
+            actor_ref.to_string(),
+            runtime.entity_version(actor_ref).saturating_add(1),
+        );
+    }
+    let stale_entity = command(client, State(state.clone()), Json(stale_entity_request))
+        .await
+        .0;
+    assert_eq!(
+        stale_entity.error_kind,
+        Some(CommandErrorKind::StaleEntityVersion)
+    );
+    assert_eq!(
+        state.inner.lock().await.event_log.len(),
+        event_count_after_first
+    );
+}

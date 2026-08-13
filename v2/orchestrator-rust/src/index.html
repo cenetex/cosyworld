@@ -8963,6 +8963,9 @@
     }
 
     function commandFailureMessage(result = {}) {
+      if (isStaleCommandObservation(result)) {
+        return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
+      }
       const output = String(result.output || "").trim();
       if (output) return output;
       const status = Number(result.status || 0);
@@ -8971,6 +8974,17 @@
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       return "The room did not catch that. Look around and try another choice.";
+    }
+
+    function isStaleCommandObservation(result = {}) {
+      if (Number(result.status || 0) !== 409) return false;
+      if ([
+        "stale_actor_version",
+        "stale_location_version",
+        "stale_entity_version",
+      ].includes(String(result.error_kind || ""))) return true;
+      return /stale (?:actor|location) version|stale or unknown entity version|refresh before retrying/i
+        .test(String(result.output || ""));
     }
 
     function isNetworkError(error) {
@@ -9010,6 +9024,47 @@
       };
     }
 
+    function commandOfferRetryFingerprint(offer = {}) {
+      return JSON.stringify({
+        kind: String(offer.kind || ""),
+        command: String(offer.command || "").trim(),
+        operation: String(offer.operation || ""),
+        rules_action: String(offer.rules_action || ""),
+        rules_profile: String(offer.rules_profile || ""),
+        target: offer.target ? {
+          kind: String(offer.target.kind || ""),
+          id: String(offer.target.id || ""),
+        } : null,
+        provider: offer.provider ? {
+          kind: String(offer.provider.kind || ""),
+          id: String(offer.provider.id || ""),
+        } : null,
+        project: offer.project ? {
+          id: String(offer.project.id || ""),
+          strategy_id: String(offer.project.strategy_id || ""),
+        } : null,
+        threshold_method: offer.threshold_method ? {
+          descriptor_id: String(offer.threshold_method.descriptor_id || ""),
+          method_id: String(offer.threshold_method.method_id || ""),
+        } : null,
+        cost: offer.cost || null,
+        effect: String(offer.effect || ""),
+        risk: String(offer.risk || ""),
+      });
+    }
+
+    function equivalentCommandOffer(previousOffer) {
+      const fingerprint = commandOfferRetryFingerprint(previousOffer);
+      const handOfferIds = new Set((state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.offer_id || ""))
+        .filter(Boolean));
+      const matches = (state?.action_offers || []).filter((offer) => (
+        handOfferIds.has(String(offer?.offer_id || ""))
+          && commandOfferRetryFingerprint(offer) === fingerprint
+      ));
+      return matches.length === 1 ? matches[0] : null;
+    }
+
     async function runCommandText(commandText, exactOffer = null) {
       const command = String(commandText || "").trim();
       if (!command) return;
@@ -9025,11 +9080,12 @@
         return null;
       }
       const beforeOrbs = economyOrbCount();
-      const envelope = canonicalCommandEnvelope();
+      let envelope = canonicalCommandEnvelope();
+      let submittedOffer = exactOffer;
       const submit = () => postResult("/commands", withAccess({
           actor_id: actorId,
           command,
-          ...(exactOffer?.offer_id ? { offer_id: exactOffer.offer_id } : {}),
+          ...(submittedOffer?.offer_id ? { offer_id: submittedOffer.offer_id } : {}),
           envelope,
         }));
       let result = await submit();
@@ -9037,12 +9093,28 @@
         const recovery = await renewActorSession();
         if (recovery.ok && recovery.renewed) result = await submit();
       }
+      if (isStaleCommandObservation(result)) {
+        await refresh();
+        const refreshedOffer = exactOffer ? equivalentCommandOffer(exactOffer) : null;
+        if (!exactOffer || refreshedOffer) {
+          submittedOffer = refreshedOffer;
+          envelope = canonicalCommandEnvelope();
+          result = await submit();
+          if (Number(result.status || 0) === 403) {
+            const recovery = await renewActorSession();
+            if (recovery.ok && recovery.renewed) result = await submit();
+          }
+        }
+      }
       const resultEvents = result.events || [];
       pushEvents(resultEvents);
-      if (result.output) pushCommandOutput(result.command || command, result.output, result.ok, resultEvents);
+      const visibleOutput = !result.ok && isStaleCommandObservation(result)
+        ? commandFailureMessage(result)
+        : result.output;
+      if (visibleOutput) pushCommandOutput(result.command || command, visibleOutput, result.ok, resultEvents);
       if (!result.ok) {
         const message = commandFailureMessage(result);
-        if (!result.output) pushCommandOutput(result.command || command, message, false, resultEvents);
+        if (!visibleOutput) pushCommandOutput(result.command || command, message, false, resultEvents);
         setError(message);
       }
       if (result.ok && clearFirstTaleAfterAction) {
