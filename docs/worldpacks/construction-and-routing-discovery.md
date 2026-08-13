@@ -86,6 +86,15 @@ authorize a legal founding proposal; Connection and Settlement may remain
 separate projects or archetype prerequisites without being universal gates on
 originating that proposal.
 
+Generated-place establishment is durable within the current canonical world,
+as decided by [ADR 0013](../decisions/0013-generated-places-are-world-scoped.md).
+Restart, snapshot recovery, journal replay, pack remount, and repeat visits do
+not un-establish it. A deliberate world renewal starts a new world and does not
+restore the prior generated subgraph. Generic player copy therefore says
+**establish this place** and explains the current-world boundary; it does not
+promise an unqualified “lasting fixture.” Pack-authored ritual vocabulary under
+#471 must preserve that same lifecycle.
+
 Generated-place Connection jobs freeze one exact, movable item represented at
 the connected source when the job is created. Their public question names that
 item and source. Completion requires the same item identity, the recorded

@@ -39,7 +39,7 @@ swapped instantly.
 
 | Term | Meaning |
 | --- | --- |
-| **Cairn / Anchor** | Durable navigation fixture that permits a founding proposal at its location. It is not a building slot or a rest entitlement. |
+| **Cairn / Anchor** | Navigation fixture that remains durable for the life of the current canonical world and permits a founding proposal at its location. It is not a building slot, cross-world restoration promise, or rest entitlement. |
 | **Unsettled** | A cairned location with no completed identity building. It has no numbered development level or class. |
 | **Location class** | The class family derived from the completed identity building. Initial families are Pathway, Hearth, Garden, and Shrine. |
 | **Building archetype** | A pack-authored structure or durable civic work with class affinities, slot kind, prerequisites, and installed capabilities. |
