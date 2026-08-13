@@ -124,7 +124,10 @@ impl Serialize for RankedActionOffer {
         out.serialize_field("kind", &self.kind)?;
         out.serialize_field("intention", &self.intention)?;
         if let Some(source) = &self.source_collectible {
-            out.serialize_field("source_collectible", source)?;
+            out.serialize_field(
+                "source_collectible",
+                &PublicActionSourceCollectibleView(source),
+            )?;
         }
         if let Some(method) = &self.threshold_method {
             out.serialize_field("threshold_method", &PublicThresholdMethodView(method))?;
@@ -202,14 +205,16 @@ impl Serialize for PublicDiscoveryOfferView<'_> {
     }
 }
 
-impl Serialize for ActionSourceCollectibleView {
+struct PublicActionSourceCollectibleView<'a>(&'a ActionSourceCollectibleView);
+
+impl Serialize for PublicActionSourceCollectibleView<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let mut out = serializer.serialize_struct("ActionSourceCollectibleView", 2)?;
-        out.serialize_field("kind", &self.kind)?;
-        out.serialize_field("instance_id", &self.instance_id)?;
+        out.serialize_field("kind", &self.0.kind)?;
+        out.serialize_field("instance_id", &self.0.instance_id)?;
         out.end()
     }
 }
@@ -2576,6 +2581,7 @@ impl Serialize for BondView {
 pub(super) struct InspectorView {
     pub(super) location_id: u64,
     pub(super) practice: Option<ActorPracticeView>,
+    pub(super) first_tale_question: Option<String>,
     pub(super) room: RoomInspectorView,
     pub(super) suggested_action: Option<ActionInspectorView>,
     pub(super) actions: Vec<ActionInspectorView>,
@@ -5004,6 +5010,9 @@ impl RuntimeWorld {
         InspectorView {
             location_id,
             practice: actor_id.and_then(|id| self.actor_practice_view(id)),
+            first_tale_question: actor_id
+                .and_then(|id| self.first_tale_view(id))
+                .map(|first_tale| first_tale.question),
             room: RoomInspectorView {
                 name: self
                     .location_name(location_id)

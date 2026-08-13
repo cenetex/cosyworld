@@ -2161,6 +2161,11 @@ fn public_state_keeps_the_action_hand_bounded() {
                 "offer.provider.{hidden} leaked"
             );
         }
+        if let Some(source) = offer.get("source_collectible") {
+            for hidden in ["pack_id", "pack_version", "card_id", "provider_id"] {
+                assert!(source.get(hidden).is_none(), "offer source.{hidden} leaked");
+            }
+        }
     }
     assert!(
         state["safety"].get("blocked_actor_ids").is_none(),

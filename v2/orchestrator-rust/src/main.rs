@@ -3002,7 +3002,7 @@ struct RankedActionOffer {
     ranked_hand_eligible: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 struct ActionSourceCollectibleView {
     kind: String,
     instance_id: u64,
