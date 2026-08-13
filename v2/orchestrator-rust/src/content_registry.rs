@@ -1127,6 +1127,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_shipped_registry_passes_runtime_startup_validation() {
+        let content_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../content");
+        let mut registries = fs::read_dir(&content_root)
+            .expect("shipped content directory")
+            .filter_map(Result::ok)
+            .map(|entry| entry.path().join("registry.json"))
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        registries.sort();
+        assert!(
+            !registries.is_empty(),
+            "no shipped content registries found"
+        );
+
+        for path in registries {
+            let value = fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()));
+            ContentRegistry::from_json(&value, content_engine_version()).unwrap_or_else(|error| {
+                panic!(
+                    "shipped registry {} failed runtime validation: {error}",
+                    path.display()
+                )
+            });
+        }
+    }
+
+    #[test]
     fn holy_land_disciples_have_distinct_planner_only_search_motivations() {
         let disciples = active_content()
             .actors

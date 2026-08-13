@@ -303,12 +303,14 @@ describe("Content Pack Manifest v1", () => {
       const worldPath = path.join(worldDir, "world.json");
       const corePackPath = path.join(contentRoot, "core/pack.json");
       const rulesPackPath = path.join(contentRoot, "rules-profile-commons/pack.json");
+      const jobsPath = path.join(contentRoot, "core/jobs.json");
       const profilesPath = path.join(contentRoot, "rules-profile-commons/profiles.json");
       const actionsPath = path.join(contentRoot, "rules-profile-commons/actions.json");
       const conformancePath = path.join(contentRoot, "rules-profile-commons/conformance.json");
       const world = JSON.parse(fs.readFileSync(worldPath, "utf8"));
       const corePack = JSON.parse(fs.readFileSync(corePackPath, "utf8"));
       const rulesPack = JSON.parse(fs.readFileSync(rulesPackPath, "utf8"));
+      const jobs = JSON.parse(fs.readFileSync(jobsPath, "utf8"));
       const profiles = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
       const actions = JSON.parse(fs.readFileSync(actionsPath, "utf8"))
         .filter((action) => action.id !== "srd5.2.1:dash");
@@ -330,9 +332,16 @@ describe("Content Pack Manifest v1", () => {
       rulesPack.capabilities[0].id = `${fixtureProvider}/rules`;
       rulesPack.rules_profile = fixtureProfile;
       profiles[0].id = fixtureProfile;
+      for (const job of jobs) {
+        for (const strategy of job.contribution_strategies ?? []) {
+          strategy.rules_profile = fixtureProfile;
+          strategy.rules_pack_id = fixtureProvider;
+        }
+      }
       writeJson(worldPath, world);
       writeJson(corePackPath, corePack);
       writeJson(rulesPackPath, rulesPack);
+      writeJson(jobsPath, jobs);
       writeJson(profilesPath, profiles);
       writeJson(actionsPath, actions);
       writeJson(conformancePath, conformance);

@@ -13,6 +13,7 @@ const compiledRoot = path.resolve(scriptDir, "../content/hoppycat");
 const deployedBundleHashes = [
   "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
   "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
+  "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
 ];
 
 function readJson(fileName) {
@@ -23,7 +24,7 @@ function readJsonFrom(root, fileName) {
   return JSON.parse(fs.readFileSync(path.join(root, fileName), "utf8"));
 }
 
-test("Hoppycat accepts replay from deployed bundles before locked item art", () => {
+test("Hoppycat accepts replay from every deployed predecessor", () => {
   // #764 added avatar identity and naming metadata, and #767 locks local art
   // for all item cards. Neither changes resource identities, topology, rules,
   // or the meaning of persisted gameplay state.

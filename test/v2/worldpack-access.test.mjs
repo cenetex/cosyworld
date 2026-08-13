@@ -96,6 +96,20 @@ describe("worldpack progression access validation", () => {
     );
   });
 
+  it("rejects stale job contribution provenance before runtime startup", () => {
+    const root = worldpackFixture();
+    const jobs = JSON.parse(fs.readFileSync(path.join(root, "jobs.json"), "utf8"));
+    jobs[0].contribution_strategies[0].pack_version = "0.0.0";
+    writeJson(root, "jobs.json", jobs);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `job ${jobs[0].id} strategy ${jobs[0].contribution_strategies[0].id} has stale pack or rules provenance`,
+    );
+  });
+
   it("rejects an unsupported authored delivery matcher", () => {
     const root = worldpackFixture();
     const jobs = JSON.parse(fs.readFileSync(path.join(root, "jobs.json"), "utf8"));

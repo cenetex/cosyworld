@@ -2360,6 +2360,14 @@ for (const job of jobs) {
       fail(`job ${job.id} strategy ${strategy.id} has unroutable action_kind ${strategy.action_kind}`);
       continue;
     }
+    const ownerPack = packs.find((candidate) => candidate.id === strategy.pack_id);
+    const rulesPack = packs.find((candidate) => candidate.id === strategy.rules_pack_id);
+    if (strategy.pack_id !== job.pack_id
+        || ownerPack?.version !== strategy.pack_version
+        || strategy.rules_profile !== manifest.rules_profile
+        || rulesPack?.version !== strategy.rules_pack_version) {
+      fail(`job ${job.id} strategy ${strategy.id} has stale pack or rules provenance`);
+    }
     const resolutionKind = strategy.resolution?.kind;
     if (["work", "help"].includes(strategy.action_kind) && resolutionKind !== "certain") {
       fail(`job ${job.id} strategy ${strategy.id} must use certain resolution`);
