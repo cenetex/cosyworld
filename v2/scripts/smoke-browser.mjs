@@ -12009,10 +12009,10 @@ async function main() {
   async function assertFirstBellCatalogAssetsAvailable() {
     const assets = await page.evaluate(async () => {
       const urls = [
-        "/assets/cards/lyra.png",
-        "/assets/cards/rati.png",
-        "/assets/cards/item-lab-flask.png",
-        "/assets/cards/location-library.png",
+        "/assets/ruby-high/world/avatars/lyra.webp",
+        "/assets/ruby-high/world/avatars/rati.webp",
+        "/assets/ruby-high/world/items/item-lab-flask.webp",
+        "/assets/ruby-high/world/locations/location-library.webp",
       ];
       const statuses = [];
       for (const url of urls) {
@@ -12021,7 +12021,7 @@ async function main() {
       }
       return statuses;
     });
-    assert(assets.every((status) => status.ok && status.contentType.includes("image/png")), `First Bell card asset fetch failed: ${JSON.stringify(assets)}`);
+    assert(assets.every((status) => status.ok && status.contentType.includes("image/webp")), `First Bell world art fetch failed: ${JSON.stringify(assets)}`);
   }
 
   async function assertHolyLandCatalogAssetsAvailable() {
