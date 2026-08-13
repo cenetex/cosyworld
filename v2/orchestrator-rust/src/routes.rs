@@ -30,6 +30,7 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
         "/actions/give-item" => kind == "give_item",
         "/actions/trade-item" => kind == "trade_item",
+        "/actions/accept-transfer-offer" => kind == ACCEPT_TRANSFER_OFFER_KIND,
         "/actions/theft" => kind == "theft",
         "/actions/craft" => kind == "craft",
         "/actions/attack" => kind == "attack",

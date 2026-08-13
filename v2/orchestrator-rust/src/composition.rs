@@ -130,6 +130,13 @@ fn submitted_stable_offer_payload_matches(
                 && submitted_payload_u64(payload, "target_actor_id") == target_actor_id.parse().ok()
                 && submitted_payload_u64(payload, "target_item_id") == target_item_id.parse().ok()
         }
+        ACCEPT_TRANSFER_OFFER_KIND => {
+            let Some(offer_id) = offer.id.strip_prefix("accept_transfer:") else {
+                return false;
+            };
+            payload.get("offer_id").and_then(serde_json::Value::as_str) == Some(offer_id)
+                && payload.get("decision").and_then(serde_json::Value::as_str) == Some("accept")
+        }
         "use_item"
             if submission.path == "/actions/use-item" && offer.id.starts_with("use_item:") =>
         {
@@ -159,6 +166,7 @@ fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
             | "attack"
             | "defend"
             | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
             | "create_bond"
             | "resolve_bond"
     )
@@ -714,6 +722,7 @@ impl RuntimeWorld {
         offers = self.expand_job_contribution_offers(actor_id, offers);
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
+        offers.extend(self.pending_transfer_acceptance_offers(actor_id));
         offers = self.expand_route_action_offers(actor_id, access, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
         offers.extend(self.discovery_action_offers(actor_id));
@@ -2209,6 +2218,7 @@ pub(super) fn action_offer_requires_target(kind: &str) -> bool {
             | "use_item"
             | "use_feature"
             | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
             | "trade_item"
             | "search"
             | "study"
@@ -2426,7 +2436,14 @@ impl RuntimeWorld {
             .unwrap_or_default();
         let mut hand = compose_action_hand_at(offers, draw_count);
         if let Some(actor_id) = actor_id {
-            if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
+            if let Some(accept_offer) = offers
+                .iter()
+                .filter(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
+                .min_by(|left, right| left.id.cmp(&right.id))
+            {
+                let pinned_ids = BTreeSet::from([accept_offer.offer_id.clone()]);
+                pin_action_hand_offer(&mut hand, offers, draw_count, accept_offer, &pinned_ids);
+            } else if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
                 let journey_offer_ids = BTreeSet::from([journey_offer.offer_id.clone()]);
                 pin_action_hand_offer(
                     &mut hand,
@@ -2519,6 +2536,7 @@ impl RuntimeWorld {
 
 pub(super) fn action_offer_rank(kind: &str) -> u16 {
     match kind {
+        ACCEPT_TRANSFER_OFFER_KIND => 0,
         "give_item" => 10,
         "open" => 18,
         "use_item" | "use_feature" => 20,
@@ -2595,6 +2613,7 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
         DISCOVERY_SCOUT_OFFER_KIND => "scout",
         "move" => "travel",
         "model_interaction" => "illustrate",
+        ACCEPT_TRANSFER_OFFER_KIND => "accept",
         "open" => "open",
         "work" | "help" => "contribute",
         _ => kind,
@@ -2627,6 +2646,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         "prepare" => "Prepare",
         "pick_up" => "Take",
         "drop_item" => "Drop",
+        ACCEPT_TRANSFER_OFFER_KIND => "Accept",
         _ => "Act",
     }
 }
@@ -2676,7 +2696,13 @@ pub(super) fn action_offer_category(kind: &str) -> &'static str {
         "create_avatar" => "system",
         "move" | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
-        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
+        "pick_up"
+        | "drop_item"
+        | "use_item"
+        | "use_feature"
+        | "give_item"
+        | ACCEPT_TRANSFER_OFFER_KIND
+        | "trade_item"
         | "open" => "inventory",
         "craft" => "craft",
         "chat" | "model_interaction" | "help" | "create_bond" | "resolve_bond" => "social",

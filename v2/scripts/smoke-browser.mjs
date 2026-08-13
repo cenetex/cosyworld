@@ -4487,6 +4487,116 @@ async function main() {
     assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
   }
 
+  async function assertHumanGiftHandoffUsesRecipientHandAndAvatarRail() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      try {
+        const gift = {
+          id: "gift-5000-5001-2005",
+          kind: "gift",
+          offered_by_actor_id: 5000,
+          offered_by_actor_name: "Giver",
+          offered_to_actor_id: 5001,
+          offered_to_actor_name: "Receiver",
+          offered_item_id: 2005,
+          offered_item_name: "Story Button",
+        };
+        const certificate = {
+          offer_id: "core:17:accept_transfer:gift-5000-5001-2005",
+          id: "accept_transfer:gift-5000-5001-2005",
+          kind: "accept_transfer",
+          claim_key: gift.id,
+          rank: 0,
+          verb: "Accept",
+          label: "Accept Story Button from Giver",
+          effect: "Story Button passes from Giver to you",
+          target: { kind: "actor", id: 5000, label: "Giver" },
+          provider: { kind: "pending_gift", id: `transfer:${gift.id}`, label: "Story Button" },
+        };
+        const baseState = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          actors: [
+            { id: 5000, name: "Giver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+            { id: 5001, name: "Receiver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+          ],
+          items: [{ id: 2005, name: "Story Button", holder_actor_id: 5000 }],
+          exits: [],
+          room_features: [],
+          cards: { actors: {}, items: {}, locations: {} },
+          economy: {},
+          ledger: {},
+          primary_action: { options: [] },
+          action_offers: [],
+          action_hand: { entries: [] },
+          safety: { incoming_offers: [], outgoing_offers: [], gift_auto_accepts: [] },
+        };
+
+        actorId = 5001;
+        state = {
+          ...baseState,
+          action_offers: [certificate],
+          action_hand: { entries: [{ offer_id: certificate.offer_id, kind: certificate.kind }] },
+          safety: { ...baseState.safety, incoming_offers: [gift] },
+        };
+        actions = buildActions(state);
+        const accept = actions.find((candidate) => candidate.focusKey === `accept-transfer:${gift.id}`);
+        const receiverRail = document.createElement("div");
+        receiverRail.innerHTML = roomAvatarRailHtml(state);
+        const giverFrame = [...receiverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Giver.")
+        ));
+
+        actorId = 5000;
+        state = {
+          ...baseState,
+          safety: { ...baseState.safety, outgoing_offers: [gift] },
+        };
+        const giverRail = document.createElement("div");
+        giverRail.innerHTML = roomAvatarRailHtml(state);
+        const receiverFrame = [...giverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Receiver.")
+        ));
+
+        return {
+          accept: accept ? {
+            label: accept.label,
+            detail: accept.detail,
+            command: accept.command,
+            focusKeys: accept.focusKeys,
+          } : null,
+          receiverSeesGiverMarker: Boolean(giverFrame?.querySelector(".room-avatar-transfer-marker")),
+          receiverGiverLabel: giverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+          giverSeesReceiverMarker: Boolean(receiverFrame?.querySelector(".room-avatar-transfer-marker")),
+          giverReceiverLabel: receiverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+      }
+    });
+    assert(
+      result.accept?.label === "accept"
+        && result.accept.detail === "Story Button from Giver"
+        && result.accept.command === "accept Story Button from Giver"
+        && result.accept.focusKeys.includes("actor:5000")
+        && result.accept.focusKeys.includes("item:2005"),
+      `a pending human gift should become the recipient's exact Accept card: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.receiverSeesGiverMarker
+        && result.receiverGiverLabel.includes("gift from Giver waiting for your answer"),
+      `the recipient should see the pending-gift marker on the giver: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.giverSeesReceiverMarker
+        && result.giverReceiverLabel.includes("gift offered to Receiver"),
+      `the giver should see the pending-gift marker on the recipient: ${JSON.stringify(result)}`,
+    );
+  }
+
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
     const result = await page.evaluate(() => {
       const previousState = state;
@@ -14285,6 +14395,7 @@ async function main() {
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
   await assertAvatarItemsUseDisclosureAndExactActions();
+  await assertHumanGiftHandoffUsesRecipientHandAndAvatarRail();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
   await assertCharmSlotExpansionIsDemandDriven();
   await assertBondSurfacesAsCompactRelationshipAction();

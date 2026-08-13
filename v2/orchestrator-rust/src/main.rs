@@ -233,6 +233,7 @@ use tokio_stream::{
 };
 use topology::*;
 use tracing::{error, info, warn};
+use transfers::{private_actor_event, transfer_offer_created_response};
 use turns::*;
 use uses::*;
 pub(crate) use util::*;
@@ -1469,6 +1470,7 @@ impl ActorControlMode {
 }
 
 const TRANSFER_OFFER_TTL_TICKS: u64 = 24;
+const ACCEPT_TRANSFER_OFFER_KIND: &str = "accept_transfer";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -5125,6 +5127,7 @@ fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
     let canonical_kind = match kind {
         "travel" => "move",
         "model_interaction" => "chat",
+        ACCEPT_TRANSFER_OFFER_KIND => "give_item",
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
         FOCUSED_NOTICE_OFFER_KIND => "check",
         DISCOVERY_STUDY_OFFER_KIND => "study",
@@ -9514,6 +9517,9 @@ impl RuntimeWorld {
             self.bump_entity_versions_for_events(&events);
         }
         self.touch_threshold_access_after_projection(record, status);
+        // A pending direct-avatar transfer belongs to the shared room. The
+        // movement that separates either participant is its cancellation.
+        self.expire_transfer_offers();
         self.refresh_canonical_events(&mut events);
         (status, events)
     }
@@ -13622,75 +13628,6 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         for viewer_id in viewer_ids {
             self.record_economy_disclosure(viewer_id, speaker.id);
-        }
-    }
-
-    fn transfer_offer_status(&self, offer: &TransferOfferState) -> TransferOfferStatus {
-        if offer.status == TransferOfferStatus::Pending && self.world.tick >= offer.expires_tick {
-            TransferOfferStatus::Expired
-        } else {
-            offer.status
-        }
-    }
-
-    fn expire_transfer_offers(&mut self) {
-        let tick = self.world.tick;
-        for offer in self.transfer_offers.values_mut() {
-            if offer.status == TransferOfferStatus::Pending && tick >= offer.expires_tick {
-                offer.status = TransferOfferStatus::Expired;
-            }
-        }
-    }
-
-    fn matching_pending_transfer_offer(
-        &self,
-        kind: TransferOfferKind,
-        offered_by_actor_id: u64,
-        offered_to_actor_id: u64,
-        offered_item_id: u64,
-        requested_item_id: Option<u64>,
-    ) -> Option<&TransferOfferState> {
-        self.transfer_offers.values().find(|offer| {
-            self.transfer_offer_status(offer) == TransferOfferStatus::Pending
-                && offer.kind == kind
-                && offer.offered_by_actor_id == offered_by_actor_id
-                && offer.offered_to_actor_id == offered_to_actor_id
-                && offer.offered_item_id == offered_item_id
-                && offer.requested_item_id == requested_item_id
-        })
-    }
-
-    fn new_transfer_offer(
-        &self,
-        kind: TransferOfferKind,
-        offered_by_actor_id: u64,
-        offered_to_actor_id: u64,
-        offered_item_id: u64,
-        requested_item_id: Option<u64>,
-    ) -> TransferOfferState {
-        let kind_label = match kind {
-            TransferOfferKind::Gift => "gift",
-            TransferOfferKind::Trade => "trade",
-        };
-        TransferOfferState {
-            id: format!(
-                "{kind_label}-{}-{}-{}-{}-{}-{}",
-                offered_by_actor_id,
-                offered_to_actor_id,
-                offered_item_id,
-                requested_item_id.unwrap_or_default(),
-                self.world.next_event_seq,
-                self.next_seed
-            ),
-            kind,
-            offered_by_actor_id,
-            offered_to_actor_id,
-            offered_item_id,
-            requested_item_id,
-            created_tick: self.world.tick,
-            expires_tick: self.world.tick.saturating_add(TRANSFER_OFFER_TTL_TICKS),
-            status: TransferOfferStatus::Pending,
-            resolved_by_actor_id: None,
         }
     }
 
@@ -23365,6 +23302,13 @@ async fn submit_action_offer(
             )
             .await
         }
+        "/actions/accept-transfer-offer" => {
+            let payload = parsed!(TransferOfferActionRequest);
+            if payload.decision != "accept" {
+                return invalid_offer_submission();
+            }
+            resolve_transfer_offer(ConnectInfo(client_addr), State(state), Json(payload)).await
+        }
         "/actions/theft" => {
             theft(
                 ConnectInfo(client_addr),
@@ -29833,60 +29777,6 @@ async fn use_item(
     .await
 }
 
-fn private_actor_event(
-    type_name: &str,
-    actor_id: u64,
-    target_actor_id: Option<u64>,
-    content: String,
-) -> EventView {
-    EventView {
-        type_name: type_name.to_string(),
-        actor_id: Some(actor_id),
-        target_actor_id,
-        content: Some(content),
-        ..EventView::default()
-    }
-}
-
-fn transfer_offer_created_response(
-    runtime: &RuntimeWorld,
-    offer: &TransferOfferState,
-    actor_id: u64,
-) -> ActionResponse {
-    let target_name = runtime
-        .actor_name(offer.offered_to_actor_id)
-        .unwrap_or_else(|| format!("Avatar {}", offer.offered_to_actor_id));
-    let item_name = runtime
-        .item_name(offer.offered_item_id)
-        .unwrap_or_else(|| format!("Item {}", offer.offered_item_id));
-    let content = match offer.kind {
-        TransferOfferKind::Gift => format!(
-            "Gift offer {} sent privately to {target_name} for {item_name}.",
-            offer.id
-        ),
-        TransferOfferKind::Trade => {
-            let requested_name = offer
-                .requested_item_id
-                .and_then(|id| runtime.item_name(id))
-                .unwrap_or_else(|| "their item".to_string());
-            format!(
-                "Trade offer {} sent privately to {target_name}: {item_name} for {requested_name}.",
-                offer.id
-            )
-        }
-    };
-    ActionResponse {
-        ok: true,
-        status: CW_OK,
-        events: vec![private_actor_event(
-            "transfer.offer_created",
-            actor_id,
-            Some(offer.offered_to_actor_id),
-            content,
-        )],
-    }
-}
-
 async fn give_item(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -29912,6 +29802,31 @@ async fn give_item(
             return client_actor_rejected_response();
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
+        let direct_target = runtime
+            .actor_control_mode(target_actor_id)
+            .is_direct_input();
+        if direct_target {
+            if let Some(existing) = runtime
+                .matching_pending_transfer_offer(
+                    TransferOfferKind::Gift,
+                    payload.actor_id,
+                    target_actor_id,
+                    payload.item_id,
+                    None,
+                )
+                .filter(|_| {
+                    runtime
+                        .actor_gift_is_legal(payload.actor_id, target_actor_id, payload.item_id)
+                        .is_ok()
+                })
+            {
+                return Json(transfer_offer_created_response(
+                    &runtime,
+                    existing,
+                    payload.actor_id,
+                ));
+            }
+        }
         let planned_action = match runtime.plan_transfer_choice_action(
             payload.actor_id,
             "give_item",
@@ -29922,10 +29837,7 @@ async fn give_item(
             Ok(action) => action,
             Err(reason) => return action_offer_rejected(reason),
         };
-        if runtime
-            .actor_control_mode(target_actor_id)
-            .is_direct_input()
-        {
+        if direct_target {
             if let Some(policy) = runtime
                 .gift_auto_accept_policy(target_actor_id, payload.actor_id, payload.item_id)
                 .cloned()
@@ -29955,19 +29867,6 @@ async fn give_item(
                     status,
                     events,
                 });
-            }
-            if let Some(existing) = runtime.matching_pending_transfer_offer(
-                TransferOfferKind::Gift,
-                payload.actor_id,
-                target_actor_id,
-                payload.item_id,
-                None,
-            ) {
-                return Json(transfer_offer_created_response(
-                    &runtime,
-                    existing,
-                    payload.actor_id,
-                ));
             }
             let offer = runtime.new_transfer_offer(
                 TransferOfferKind::Gift,
@@ -37232,6 +37131,7 @@ mod tests {
             .events
             .iter()
             .any(|event| event.type_name == "transfer.offer_created"));
+        assert!(offered.events.iter().all(|event| event.success));
         let offer_id = {
             let runtime = state.inner.lock().await;
             assert_eq!(
@@ -37241,7 +37141,71 @@ mod tests {
                     .holder_actor_id,
                 5000
             );
-            runtime.transfer_offers.keys().next().unwrap().clone()
+            let offer_id = runtime.transfer_offers.keys().next().unwrap().clone();
+            let giver_view = runtime.state_response(Some(5000), &AccessContext::default());
+            assert!(giver_view
+                .safety
+                .outgoing_offers
+                .iter()
+                .any(|offer| { offer.id == offer_id && offer.offered_to_actor_id == 5001 }));
+            assert!(!giver_view.action_offers.iter().any(|offer| {
+                offer.kind == "give_item"
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(5001)
+                    && offer.provider.id == format!("item:{STORY_BUTTON_ITEM_ID}")
+            }));
+            let receiver_view = runtime.state_response(Some(5001), &AccessContext::default());
+            assert!(receiver_view
+                .safety
+                .incoming_offers
+                .iter()
+                .any(|offer| { offer.id == offer_id && offer.offered_by_actor_id == 5000 }));
+            assert_eq!(
+                receiver_view
+                    .action_hand
+                    .entries
+                    .first()
+                    .map(|entry| entry.kind.as_str()),
+                Some(ACCEPT_TRANSFER_OFFER_KIND),
+                "the pending gift decision is pinned into the recipient's hand"
+            );
+            assert!(receiver_view.action_offers.iter().any(|offer| {
+                offer.kind == ACCEPT_TRANSFER_OFFER_KIND
+                    && offer.claim_key.as_deref() == Some(offer_id.as_str())
+            }));
+            let accept_offer = receiver_view
+                .action_offers
+                .iter()
+                .find(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
+                .expect("the recipient receives an exact acceptance offer");
+            assert!(routes::action_path_accepts_kind(
+                "/actions/accept-transfer-offer",
+                ACCEPT_TRANSFER_OFFER_KIND
+            ));
+            runtime
+                .validate_action_offer_submission(
+                    5001,
+                    &AccessContext::default(),
+                    &ActionOfferSubmissionRequest {
+                        path: "/actions/accept-transfer-offer".to_string(),
+                        offer_id: accept_offer.offer_id.clone(),
+                        composition_id: accept_offer.composition_id.clone(),
+                        kind: accept_offer.kind.clone(),
+                        rules_action: accept_offer.rules_action.clone(),
+                        operation: accept_offer.operation.clone(),
+                        rules_profile: accept_offer.rules_profile.clone(),
+                        state_revision: accept_offer.state_revision,
+                        route: accept_offer.route.clone(),
+                        target: accept_offer.target.clone(),
+                        cost: accept_offer.cost.clone(),
+                        payload: serde_json::json!({
+                            "actor_id": 5001,
+                            "offer_id": offer_id,
+                            "decision": "accept",
+                        }),
+                    },
+                )
+                .expect("the pinned acceptance card validates through the certified action route");
+            offer_id
         };
 
         let accepted = resolve_transfer_offer(
@@ -37274,6 +37238,12 @@ mod tests {
                 runtime.transfer_offers[&offer_id].status,
                 TransferOfferStatus::Accepted
             );
+            let receiver_view = runtime.state_response(Some(5001), &AccessContext::default());
+            assert!(receiver_view
+                .action_hand
+                .entries
+                .iter()
+                .all(|entry| entry.kind != ACCEPT_TRANSFER_OFFER_KIND));
         }
 
         let retry = resolve_transfer_offer(
@@ -37950,7 +37920,7 @@ mod tests {
     }
 
     #[test]
-    fn avatar_inspector_exposes_notice_transfer_and_safety_controls() {
+    fn avatar_inspector_and_hand_expose_room_bound_transfer_consent() {
         for contract in [
             "data-avatar-notice=",
             "Nothing known yet.",
@@ -37961,9 +37931,11 @@ mod tests {
             "data-avatar-safety=",
             "data-avatar-report=",
             "data-avatar-gift-request=",
-            "data-transfer-offer-decision=\"accept\"",
-            "data-transfer-offer-decision=\"decline\"",
-            "data-transfer-offer-decision=\"withdraw\"",
+            "room-avatar-transfer-marker",
+            "Choose Accept from your hand, or leave the room.",
+            "Waiting while you share this room.",
+            "options.has(\"accept_transfer\")",
+            "/actions/accept-transfer-offer",
             "/actions/transfer-offer",
             "/actions/actor-safety",
             "function eventIsMuted",

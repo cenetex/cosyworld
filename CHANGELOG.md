@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.22 — 2026-08-12
+
+- Move pending human gift consent into the recipient's action hand, mark the
+  corresponding room avatars, and cancel the offer when either player leaves.
+
 ## 1.0.21 — 2026-08-12
 
 - Redesign Travel confirmation around the destination and route context, with
