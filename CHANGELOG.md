@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.19 — 2026-08-12
+
+- Keep one illustrated journey tracker and fold its way, party, and next-step
+  context into a restrained route header instead of repeating a second panel.
+
 ## 1.0.18 — 2026-08-12
 
 - Lock Rati's authored portrait into Core and Ruby High cards, recompiling every

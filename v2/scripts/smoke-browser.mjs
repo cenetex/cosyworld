@@ -9282,17 +9282,10 @@ async function main() {
       actions = travellingActions;
       render();
       renderLog();
-      const journeyProgress = document.querySelector("#journey-progress");
       const journeyPresentation = {
-        hidden: document.querySelector("#journey-strip")?.hidden,
-        destination: document.querySelector("#journey-destination")?.textContent || "",
-        way: document.querySelector("#journey-way")?.textContent || "",
-        remaining: document.querySelector("#journey-remaining")?.textContent || "",
-        next: document.querySelector("#journey-next")?.textContent || "",
-        party: document.querySelector("#journey-party-label")?.textContent || "",
-        progress: journeyProgress?.getAttribute("aria-valuenow") || "",
-        progressMax: journeyProgress?.getAttribute("aria-valuemax") || "",
-        progressWidth: journeyProgress?.style.getPropertyValue("--journey-progress") || "",
+        duplicateTrackerCount: document.querySelectorAll("#journey-strip").length,
+        pathwayMeta: document.querySelector("#pathway-stage-meta")?.textContent || "",
+        pathwayLabel: document.querySelector("#pathway-stage")?.getAttribute("aria-label") || "",
         chatLabel: document.querySelector("#log")?.getAttribute("aria-label") || "",
         chatHeading: document.querySelector(".party-channel-heading")?.textContent || "",
       };
@@ -9424,18 +9417,12 @@ async function main() {
       `the final adjacent Move should arrive at the destination: ${JSON.stringify(result)}`,
     );
     assert(
-      result.journeyPresentation.hidden === false
-        && result.journeyPresentation.destination === "Emmaus"
-        && result.journeyPresentation.way === "Road to Emmaus"
-        && result.journeyPresentation.remaining === "2 stretches to go"
-        && result.journeyPresentation.next === "Next: press on to Figshade Bend"
-        && result.journeyPresentation.party === "2 travellers together"
-        && result.journeyPresentation.progress === "2"
-        && result.journeyPresentation.progressMax === "4"
-        && result.journeyPresentation.progressWidth === "50%"
+      result.journeyPresentation.duplicateTrackerCount === 0
+        && result.journeyPresentation.pathwayMeta === "Road to Emmaus · 2 travellers · next Figshade Bend"
+        && /On Road to Emmaus, from the way back to Emmaus\. Stretch 2 of 4\. 2 travellers\. next Figshade Bend\./i.test(result.journeyPresentation.pathwayLabel)
         && result.journeyPresentation.chatLabel === "Travelling party chat"
         && /Travelling party/i.test(result.journeyPresentation.chatHeading),
-      `an active journey should turn the room into a named way, progress bar, and travelling-party chat: ${JSON.stringify(result)}`,
+      `an active journey should keep one illustrated tracker with compact way, party, next-step, and chat context: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
