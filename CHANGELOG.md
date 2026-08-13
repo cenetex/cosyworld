@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.15 — 2026-08-12
+
+- Simplify single-destination Travel cards to their concise route label while
+  preserving full context for confirmation, execution, and accessibility.
+
 ## 1.0.14 — 2026-08-12
 
 - Declare tenant 7's live Bethlehem bundle replay-compatible with the Emmaus

@@ -3600,6 +3600,16 @@ async function main() {
         state = singleState;
         actions = buildActions(singleState);
         const single = actions.find((action) => action.label === "travel") || null;
+        renderButton("primary", single);
+        const singleButton = document.querySelector("#primary");
+        const singleCard = {
+          text: singleButton?.innerText?.trim().replace(/\s+/g, " ") || "",
+          label: singleButton?.querySelector(".cmd-label")?.textContent?.trim() || "",
+          detail: singleButton?.querySelector(".detail")?.textContent?.trim() || "",
+          provider: singleButton?.querySelector(".provider-call")?.textContent?.trim() || "",
+          story: singleButton?.querySelector(".story-call")?.textContent?.trim() || "",
+          aria: singleButton?.getAttribute("aria-label") || "",
+        };
         return {
           count: routes.length,
           detail: route?.detail || "",
@@ -3613,6 +3623,7 @@ async function main() {
           busy,
           modal,
           selectedPreview,
+          singleCard,
           single: single ? {
             accessibleLabel: single.accessibleLabel,
             detail: single.detail,
@@ -3688,6 +3699,15 @@ async function main() {
     assert(
       result.single?.accessibleLabel === "Travel to Rain-Silver Crossing via Route from Bethlehem to Jerusalem",
       `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.singleCard?.text === "Route to Jerusalem"
+        && result.singleCard?.label === "Route to Jerusalem"
+        && !result.singleCard?.detail
+        && !result.singleCard?.provider
+        && !result.singleCard?.story
+        && result.singleCard?.aria === "Travel via Route to Jerusalem",
+      `a single Travel card should show only its concise destination: ${JSON.stringify(result)}`,
     );
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
@@ -14334,6 +14354,7 @@ async function main() {
       const reason = handProviderReason(action);
       return {
         label: action?.label || "",
+        destinationOnlyCardLabel: action?.destinationOnlyCardLabel || "",
         offerKinds: action?.offerKinds || [],
         reason,
         providerCopy: button.querySelector(".provider-call")?.textContent.trim() || "",
@@ -14354,8 +14375,9 @@ async function main() {
         || action.aria.includes("next tale beat")
       )
         && action.reason
-        && action.providerCopy.includes(action.reason)
-        && action.aria.includes(action.reason)
+        && (action.destinationOnlyCardLabel
+          ? !action.providerCopy && !action.aria.includes(action.reason)
+          : action.providerCopy.includes(action.reason) && action.aria.includes(action.reason))
     ))
       && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,

@@ -7679,6 +7679,13 @@
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeLabel = String(firstExit.route_label || "").trim();
+          const conciseRouteLabel = routeLabel.replace(
+            /^(.*?)\s+from\s+.+\s+to\s+(.+)$/i,
+            "$1 to $2",
+          );
+          const destinationOnlyCardLabel = onePath && !searchingPathway && !fleeing
+            ? (conciseRouteLabel || firstPathwayDirection?.endpointName || firstExit.destination_location_name)
+            : "";
           const routeTargetLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeAccessibleLabel = firstPathwayDirection
             ? `${routeVerb} toward ${firstPathwayDirection.endpointName}`
@@ -7696,6 +7703,10 @@
             ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
             pathwayDirection: firstPathwayDirection,
             label: routeVerb.toLowerCase(),
+            destinationOnlyCardLabel,
+            destinationOnlyCardAriaLabel: destinationOnlyCardLabel
+              ? `${routeVerb}${routeLabel ? " via " : " to "}${destinationOnlyCardLabel}`
+              : "",
             detail: onePath
               ? (firstPathwayDirection
                 ? `toward ${firstPathwayDirection.endpointName}`
@@ -16059,12 +16070,13 @@
         ? (typeof action.busyDetail === "function" ? action.busyDetail() : action.busyDetail)
         : "";
       const detail = friendlyActionText(pendingDetail || action.detail);
+      const destinationOnlyCardLabel = String(action.destinationOnlyCardLabel || "").trim();
       button.setAttribute(
         "aria-label",
         [
-          action.accessibleLabel || action.label,
-          detail,
-          handProviderReason(action),
+          action.destinationOnlyCardAriaLabel || action.accessibleLabel || action.label,
+          destinationOnlyCardLabel ? "" : detail,
+          destinationOnlyCardLabel ? "" : handProviderReason(action),
           storyGuideLabel,
           count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
@@ -16082,12 +16094,16 @@
         ? `<span class="thumb pathway-direction-thumb" aria-hidden="true">${directionArrow}</span>`
         : thumbnailHtml(action, false, "action-mini-card");
       button.classList.add("has-copy");
-      const labelText = compactActionLabel(action) || String(action.command || "action").toLowerCase();
-      const detailHtml = detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "";
-      const storyHtml = storyGuide
+      const labelText = destinationOnlyCardLabel
+        || compactActionLabel(action)
+        || String(action.command || "action").toLowerCase();
+      const detailHtml = detail && !destinationOnlyCardLabel
+        ? `<span class="detail">${escapeHtml(detail)}</span>`
+        : "";
+      const storyHtml = storyGuide && !destinationOnlyCardLabel
         ? `<span class="story-call">✦ ${escapeHtml(storyGuideLabel)}</span>`
         : "";
-      const providerReason = handProviderReason(action);
+      const providerReason = destinationOnlyCardLabel ? "" : handProviderReason(action);
       const providerHtml = providerReason
         ? `<span class="provider-call">↳ ${escapeHtml(providerReason)}</span>`
         : "";
