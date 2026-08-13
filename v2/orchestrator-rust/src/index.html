@@ -73,6 +73,8 @@
       --rarity-ultra-rare-rgb: 198, 92, 255;
       --rarity-mythic: #ffd36a;
       --rarity-mythic-rgb: 255, 211, 106;
+      --avatar-pfp-background-size: 138%;
+      --avatar-pfp-background-position: center top;
       --safe-bot: env(safe-area-inset-bottom, 0px);
     }
     * { box-sizing: border-box; }
@@ -1044,8 +1046,8 @@
     }
     .room-avatar-pfp {
       padding: 0;
-      background-size: 138%;
-      background-position: center top;
+      background-size: var(--avatar-pfp-background-size);
+      background-position: var(--avatar-pfp-background-position);
       cursor: zoom-in;
       pointer-events: auto;
     }
@@ -1635,8 +1637,8 @@
       background:
         linear-gradient(135deg, rgba(216, 247, 220, 0.14), rgba(139, 183, 255, 0.12)),
         rgba(13, 20, 15, 0.92);
-      background-size: cover;
-      background-position: center;
+      background-size: var(--avatar-pfp-background-size);
+      background-position: var(--avatar-pfp-background-position);
       color: var(--text);
       display: inline-flex;
       align-items: center;
