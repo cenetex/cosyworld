@@ -226,9 +226,10 @@ impl Serialize for PublicActionProviderView<'_> {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ActionProviderView", 3)?;
+        let mut out = serializer.serialize_struct("ActionProviderView", 4)?;
         out.serialize_field("kind", &self.0.kind)?;
         out.serialize_field("id", &self.0.id)?;
+        out.serialize_field("reason", &self.0.reason)?;
         out.serialize_field("priority", &self.0.priority)?;
         out.end()
     }

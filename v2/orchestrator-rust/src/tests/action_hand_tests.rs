@@ -2155,12 +2155,16 @@ fn public_state_keeps_the_action_hand_bounded() {
         ] {
             assert!(offer.get(hidden).is_none(), "offer.{hidden} leaked");
         }
-        for hidden in ["label", "reason"] {
-            assert!(
-                offer["provider"].get(hidden).is_none(),
-                "offer.provider.{hidden} leaked"
-            );
-        }
+        assert!(
+            offer["provider"].get("label").is_none(),
+            "offer.provider.label leaked"
+        );
+        assert!(
+            offer["provider"]["reason"]
+                .as_str()
+                .is_some_and(|reason| !reason.is_empty()),
+            "the browser-rendered provider reason must remain public"
+        );
         if let Some(source) = offer.get("source_collectible") {
             for hidden in ["pack_id", "pack_version", "card_id", "provider_id"] {
                 assert!(source.get(hidden).is_none(), "offer source.{hidden} leaked");
