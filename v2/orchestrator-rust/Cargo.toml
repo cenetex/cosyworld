@@ -28,3 +28,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 webauthn-rs = { version = "0.5.5", features = ["conditional-ui"] }
 zstd = "0.13"
+
+[dev-dependencies]
+hex = "0.4"

@@ -320,6 +320,7 @@ dependencies = [
  "cc",
  "cosyworld-ai-model",
  "ed25519-dalek",
+ "hex",
  "image",
  "qrcode",
  "rand 0.8.6",

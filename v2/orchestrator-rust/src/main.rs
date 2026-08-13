@@ -25,6 +25,7 @@ mod beliefs_tests;
 mod canonical_identity_tests;
 mod canonical_journal;
 mod canonical_world;
+mod raticross;
 mod card_policy_objective;
 mod cards;
 mod chat_action;
