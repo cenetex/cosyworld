@@ -40,6 +40,9 @@ pub(crate) enum CommandErrorKind {
     StaleOffer,
     UnknownOffer,
     DisabledOffer,
+    StaleActorVersion,
+    StaleLocationVersion,
+    StaleEntityVersion,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

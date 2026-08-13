@@ -257,4 +257,6 @@
 # focused helper while adding the occupied distinctive-word check.
 # 67763 -> 67709: move process lifecycle composition into startup.rs, leaving
 # main as a thin async entry point without changing boot or shutdown order.
-67709
+# 67709 -> 67675: move canonical entity-version conflict coverage beside the
+# canonical identity seam while adding typed stale-observation responses.
+67675

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.17 — 2026-08-12
+
+- Recover once from stale command observations when the refreshed hand still
+  contains the same certified choice, while preserving fail-closed concurrency.
+
 ## 1.0.16 — 2026-08-12
 
 - Restore Hoppycat startup by aligning authored job-strategy provenance with
