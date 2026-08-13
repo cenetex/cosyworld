@@ -1,9 +1,11 @@
 # ADR 0010: semantic instruments shape recall, not history
 
-- Status: Accepted
-- Date: 2026-08-12
+- Status: Accepted design; implementation blocked on #725, which is
+  authoritative wherever the two disagree
+- Date: 2026-08-12 (revised 2026-08-13)
 - Decision owners: CosyWorld maintainers
-- Related: ADR 0003, ADR 0007, `authoritative-room-message-resonance-v1`
+- Related: ADR 0003, ADR 0007, #693, #725, #728,
+  `authoritative-room-message-resonance-v1`
 
 ## Context
 
@@ -50,15 +52,23 @@ path.
 
 | Surface | Permitted |
 | --- | --- |
-| Candidate set (which memories are eligible) | Yes |
-| Ranking function over candidates | Yes |
+| Ordering of facts the holder can already reach | Yes |
 | Result count | Yes |
 | Recorded salience of an atom | Yes, as derived projection state |
+| Which facts the holder can reach at all | **No** |
+| Visibility class or confidence of a fact | **No** |
 | Committed events, entity versions, world sequence | **No** |
 | Whether an action is legal or an offer is dealt | **No** |
 | Clocks, dice, possession, access, currency | **No** |
 
 An instrument is a lens over the record. It is never evidence.
+
+An earlier revision of this decision permitted an instrument to choose its own
+candidate set. That was wrong. #725 makes visibility class an authoritative
+property of a fact and requires that AI output cannot create, select, alter, or
+increase the confidence or visibility of one. Choosing eligibility is choosing
+visibility, so the instrument ranks strictly within what the holder already
+holds and never decides what that is.
 
 ### Why the model may differ per holder
 
@@ -70,6 +80,33 @@ authored.
 
 This is the intended mechanic. Instruments are chosen for their metric, not their
 strength, and a coarse instrument is not a worse one.
+
+### Reach is structural, not a checked rule
+
+An instrument must not be trusted to respect visibility. It must be unable to
+violate it.
+
+`leos-c`, the holographic kernel in this codebase's sibling repositories, stores
+pairs as a single superposed trace and recovers them by key:
+
+```
+M      = normalize( sum_i bind(k_i, v_i) )
+v_hat_j = unbind(M, k_j)
+```
+
+With flat-spectrum keys, bind and unbind are near-perfect inverses, and without
+the key a query returns noise rather than a value. Deriving a fact's key from its
+holder and visibility class therefore makes reach a precondition of decoding
+instead of a rule someone must remember to enforce. An instrument's candidate set
+is exactly what its keys can unbind, which is why one resident's compass surfaces
+different memories than another's: it holds different keys, not merely a
+different metric.
+
+That store is lossy by construction — fidelity falls as `1/sqrt(N)` in the number
+of stored pairs — so it is an index and never a record. The journal remains the
+one history. A degraded trace costs recall quality, never a fact, and rebuilds
+from the journal exactly as a snapshot does. This is what makes the phrase "a
+lens over the record" load-bearing rather than decorative.
 
 ### Determinism
 
@@ -102,6 +139,33 @@ following without new machinery.
   carries that resident's associations, so inheriting a lens is inheriting a
   sense of what mattered.
 
+### What an instrument ranks over
+
+This decision does not define the fact it ranks. #725 does, and the schema it
+specifies — stable fact id, holder, authored or committed source, source actor on
+transfer, visibility class, bounded confidence, claim key, and replay-reproducible
+provenance — is the contract an instrument reads and never writes.
+
+That contract has a working precedent. `shared/cargo_receipt.h` in the Signal
+repository solves the same problem for cargo: a destination that only sees goods
+arrive has no proof of what produced them, so the goods carry a signed receipt
+chain instead. Each link binds subject, author, recipient, originating event, and
+the hash of the prior link; verification checks every signature, checks every
+prior-hash, and requires the chain to bottom out at a committed origin event. Its
+stated goal is the property a fact needs most — the origin is "verifiable in
+isolation … no need to read foreign logs at validate time."
+
+Retyped from cargo to knowledge, that is rumour transfer: the author is the
+resident who told you, the chain length is the `hops` already recorded on
+beliefs, the cap is a bound on how far a rumour may travel, and a failed
+verification refuses the transfer rather than degrading it. It makes "Rati told
+me, and Rati was wrong" checkable without trusting Rati or reading her state,
+which is what #728 asks for.
+
+An instrument therefore ranks facts that already carry their own provenance. It
+never supplies provenance, never repairs a broken chain, and never raises
+confidence because a result ranked highly.
+
 ## Consequences
 
 Recall becomes a scarce, transferable, characterful capability rather than a
@@ -122,10 +186,16 @@ mutation.
 ## Non-goals
 
 - Per-resident private histories, forked worlds, or any second source of truth.
+- Defining the fact schema. #725 owns it; this decision consumes it.
+- Storing authoritative state in a holographic trace. The trace is a lossy index
+  rebuilt from the journal, never a record.
+- Shipping before #725. An instrument ranking pre-contract memory would commit
+  rankings over records #725 has bound itself not to reinterpret, which is a
+  migration debt the contract exists to avoid.
 - Instruments that gate legality, alter offers, or influence the card policy
   ranker. Ranking memory and ranking actions stay separate.
 - Calling a model during replay, or any retrieval whose result is recomputed
   rather than read from the journal.
 - Retiring room-message resonance. Ranking the live transcript and ranking
-  durable memory are complementary; this decision adds the second candidate set
-  rather than replacing the first.
+  durable memory are complementary; this decision adds the second rather than
+  replacing the first.
