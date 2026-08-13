@@ -262,8 +262,14 @@ variable "openrouter_api_key_secret_arn" {
 
 variable "openrouter_chat_model" {
   type        = string
-  default     = "openai/gpt-5.6-luna"
-  description = "OPENROUTER_CHAT_MODEL to use when openrouter_api_key_secret_arn is set."
+  default     = "mistralai/mistral-nemo"
+  description = "OPENROUTER_CHAT_MODEL to use for resident avatar voice when openrouter_api_key_secret_arn is set."
+}
+
+variable "openrouter_metacognitive_model" {
+  type        = string
+  default     = "openai/gpt-5.6-sol"
+  description = "Higher-power OpenRouter model pinned to resident intent planning and world-content generation."
 }
 
 variable "openrouter_reasoning_effort" {

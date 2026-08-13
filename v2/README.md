@@ -353,8 +353,12 @@ COSYWORLD_AI_API_KEY=... COSYWORLD_AI_MODEL=openai/gpt-5.6-luna cargo run
 OpenRouter works too:
 
 ```sh
-OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=openai/gpt-5.6-luna cargo run
+OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=mistralai/mistral-nemo cargo run
 ```
+
+OpenRouter development defaults keep avatar voice on the small Mistral Nemo
+route while `intent_json` and `world_content` use `openai/gpt-5.6-sol`.
+Override the higher-power lane with `OPENROUTER_METACOGNITIVE_MODEL`.
 
 OpenRouter readiness begins with an immediate bounded `/key` probe and is
 reported without balances or secrets at `/meta.ai.readiness`. HTTP 401/402
