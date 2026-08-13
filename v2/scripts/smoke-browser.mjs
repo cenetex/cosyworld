@@ -105,8 +105,10 @@ async function assertSignedWalletSession() {
     .then((response) => response.json());
   const world = await fetch(`${baseUrl}/world?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
-  assert(state.account?.linked_wallet_address === signedSmokeWalletAddress, "signed wallet link did not round-trip");
+  assert(state.account === undefined, "ordinary state must not expose account identity");
+  assert(!JSON.stringify(state).includes(signedSmokeWalletAddress), "ordinary state echoed a wallet identity");
   assert(state.access === undefined, `ordinary state must not expose wallet access: ${JSON.stringify(state.access)}`);
+  assert(state.recent_events === undefined, "ordinary state must not duplicate the /events history feed");
   assert((world.locations || []).every((location) => location.public && location.accessible), `wallet linking must not gate world locations: ${JSON.stringify(world.locations)}`);
   assert(!JSON.stringify(state).match(/owned_card_ids|owned_box_ids|unopened_pack_ids|materialization_receipts/), `ordinary state must omit retired ownership projections: ${JSON.stringify(state.account)}`);
   return {
@@ -2378,11 +2380,26 @@ async function main() {
         }))),
         `two same-kind current offers must remain two distinct exact cards: ${JSON.stringify(family)}`,
       );
+      for (const submission of family.submissions) {
+        for (const internal of [
+          "rules_action",
+          "operation",
+          "rules_profile",
+          "state_revision",
+          "route",
+          "target",
+          "cost",
+        ]) {
+          assert(
+            !Object.hasOwn(submission.payload, internal),
+            `browser submission must not echo internal offer field ${internal}: ${JSON.stringify(submission)}`,
+          );
+        }
+      }
       assert(
         JSON.stringify(family.submissions.map((submission) => ({
           path: submission.path,
           offerId: submission.payload.offer_id,
-          target: submission.payload.target,
           payload: {
             actor_id: submission.payload.payload.actor_id,
             ...(submission.payload.payload.item_id !== undefined ? { item_id: submission.payload.payload.item_id } : {}),
@@ -2395,7 +2412,6 @@ async function main() {
         }))) === JSON.stringify(expected.map((entry) => ({
           path: entry.path,
           offerId: entry.offerId,
-          target: entry.target,
           payload: entry.payload,
         }))),
         `each exact card must submit its own certificate and payload target tuple: ${JSON.stringify(family)}`,
@@ -7775,10 +7791,10 @@ async function main() {
         ]);
         const afterReplayReset = logEvents.map((event) => ({ seq: event.seq, content: event.content }));
         const detectsServerTimelineRewind = transcriptTimelineRewound({
-          recent_events: [message(83, 5000, "Moss Stitch", "rebuilt history")],
+          room_event_seq: 83,
         }, 92);
         const acceptsForwardTimeline = !transcriptTimelineRewound({
-          recent_events: [message(93, 5000, "Moss Stitch", "new history")],
+          room_event_seq: 93,
         }, 92);
         const oldRoomLine = message(300, 5000, "Moss Stitch", "old room history");
         const newRoomLine = {

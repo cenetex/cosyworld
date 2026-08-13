@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.21 — 2026-08-12
+
+- Restrict the browser state projection to an explicit public allowlist, load
+  room history separately, and validate action details on the server.
+
 ## 1.0.20 — 2026-08-12
 
 - Clarify that semantic instruments rank only facts a holder can already reach,
