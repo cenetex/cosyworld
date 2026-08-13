@@ -105,8 +105,10 @@ async function assertSignedWalletSession() {
     .then((response) => response.json());
   const world = await fetch(`${baseUrl}/world?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
-  assert(state.account?.linked_wallet_address === signedSmokeWalletAddress, "signed wallet link did not round-trip");
+  assert(state.account === undefined, "ordinary state must not expose account identity");
+  assert(!JSON.stringify(state).includes(signedSmokeWalletAddress), "ordinary state echoed a wallet identity");
   assert(state.access === undefined, `ordinary state must not expose wallet access: ${JSON.stringify(state.access)}`);
+  assert(state.recent_events === undefined, "ordinary state must not duplicate the /events history feed");
   assert((world.locations || []).every((location) => location.public && location.accessible), `wallet linking must not gate world locations: ${JSON.stringify(world.locations)}`);
   assert(!JSON.stringify(state).match(/owned_card_ids|owned_box_ids|unopened_pack_ids|materialization_receipts/), `ordinary state must omit retired ownership projections: ${JSON.stringify(state.account)}`);
   return {
@@ -2378,11 +2380,26 @@ async function main() {
         }))),
         `two same-kind current offers must remain two distinct exact cards: ${JSON.stringify(family)}`,
       );
+      for (const submission of family.submissions) {
+        for (const internal of [
+          "rules_action",
+          "operation",
+          "rules_profile",
+          "state_revision",
+          "route",
+          "target",
+          "cost",
+        ]) {
+          assert(
+            !Object.hasOwn(submission.payload, internal),
+            `browser submission must not echo internal offer field ${internal}: ${JSON.stringify(submission)}`,
+          );
+        }
+      }
       assert(
         JSON.stringify(family.submissions.map((submission) => ({
           path: submission.path,
           offerId: submission.payload.offer_id,
-          target: submission.payload.target,
           payload: {
             actor_id: submission.payload.payload.actor_id,
             ...(submission.payload.payload.item_id !== undefined ? { item_id: submission.payload.payload.item_id } : {}),
@@ -2395,7 +2412,6 @@ async function main() {
         }))) === JSON.stringify(expected.map((entry) => ({
           path: entry.path,
           offerId: entry.offerId,
-          target: entry.target,
           payload: entry.payload,
         }))),
         `each exact card must submit its own certificate and payload target tuple: ${JSON.stringify(family)}`,
@@ -7887,10 +7903,10 @@ async function main() {
         ]);
         const afterReplayReset = logEvents.map((event) => ({ seq: event.seq, content: event.content }));
         const detectsServerTimelineRewind = transcriptTimelineRewound({
-          recent_events: [message(83, 5000, "Moss Stitch", "rebuilt history")],
+          room_event_seq: 83,
         }, 92);
         const acceptsForwardTimeline = !transcriptTimelineRewound({
-          recent_events: [message(93, 5000, "Moss Stitch", "new history")],
+          room_event_seq: 93,
         }, 92);
         const oldRoomLine = message(300, 5000, "Moss Stitch", "old room history");
         const newRoomLine = {
@@ -9603,7 +9619,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let candidates = [];
     for (let draw = 0; draw < Math.min(attempts, deckSize); draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9647,7 +9663,7 @@ async function main() {
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9832,7 +9848,7 @@ async function main() {
     ));
     if (!inspectIsLegal) return null;
 
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     const drawLimit = deckSize;
     let lastHand = [];
     for (let draw = 0; draw < drawLimit; draw += 1) {
@@ -9981,7 +9997,7 @@ async function main() {
       };
     }, needle);
     let last = null;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     for (let attempt = 1; attempt <= deckSize; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
@@ -10385,7 +10401,7 @@ async function main() {
     let lastHand = [];
     let lastScene = {};
     let staleAttempts = 0;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 8)));
+    const deckSize = await fetchInspectableDeckSize();
     for (let draw = 0; draw < deckSize;) {
       await page.waitForFunction(() => (
         actionBusy === false
@@ -10544,6 +10560,29 @@ async function main() {
     });
   }
 
+  async function fetchInspectableDeckSize() {
+    const result = await page.evaluate(async () => {
+      const actorId = localStorage.getItem("cosyworld.actorId");
+      const actorSession = localStorage.getItem("cosyworld.actorSession");
+      const params = new URLSearchParams({
+        actor_id: actorId,
+        actor_session: actorSession,
+      });
+      const response = await fetch(`/inspect?${params}`);
+      const inspection = await response.json();
+      return {
+        ok: response.ok,
+        status: response.status,
+        deckSize: (inspection.actions || []).length,
+      };
+    });
+    assert(
+      result.ok && result.deckSize > 0,
+      `inspector should expose the bounded developer action deck: ${JSON.stringify(result)}`,
+    );
+    return result.deckSize;
+  }
+
   async function reconcileActionHand() {
     await page.waitForFunction(() => (
       actionBusy === false && refreshInFlight === null
@@ -10696,9 +10735,7 @@ async function main() {
         await page.evaluate(() => refresh());
         continue;
       }
-      const journeyDeckSize = await page.evaluate(() => (
-        Math.max(1, Number(state?.action_hand?.deck_size || 1))
-      ));
+      const journeyDeckSize = await fetchInspectableDeckSize();
       for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
         await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
         focusedJourneyStep = await focusJourneyStep();
@@ -11188,8 +11225,8 @@ async function main() {
           return { kind: "loose", location: location.name };
         }
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).some((heldId) => (
-            Number(heldId) === Number(expectedId)
+          (actor.economy?.held_items || []).some((heldItem) => (
+            Number(heldItem.item_id) === Number(expectedId)
           ))
         ));
         if (holder) {
@@ -11383,7 +11420,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       result = await page.evaluate((residentName) => {
@@ -11467,7 +11504,9 @@ async function main() {
       const world = await fetch(`/world?${params}`).then((worldResponse) => worldResponse.json());
       const target = (world.locations || []).flatMap((location) => location.actors || [])
         .find((actor) => Number(actor.id || 0) === Number(targetActorId));
-      return (target?.economy?.held_item_ids || []).some((heldId) => Number(heldId) === Number(itemId));
+      return (target?.economy?.held_items || []).some((heldItem) => (
+        Number(heldItem.item_id) === Number(itemId)
+      ));
     }, submission);
     if (!transferVerified) {
       steps.push({
@@ -11667,10 +11706,16 @@ async function main() {
       holder: transferReceipt.target_actor_name || `actor:${transferReceipt.target_actor_id}`,
     });
     await page.evaluate(() => refresh());
-    const settledPlacement = await worldItemPlacement(itemName, placement.targetItemId);
+    const stillHeldByPlayer = await page.evaluate(({ expectedName, expectedId }) => {
+      const currentActorId = Number(actorId || 0);
+      const projected = (state?.items || []).find((item) => (
+        Number(item.id || 0) === Number(expectedId) || item.name === expectedName
+      ));
+      return Number(projected?.holder_actor_id || 0) === currentActorId;
+    }, { expectedName: itemName, expectedId: placement.targetItemId });
     assert(
-      settledPlacement && settledPlacement.kind !== "player",
-      `${itemName} should leave the player's hand after its item.given receipt: ${JSON.stringify(settledPlacement)}`,
+      !stillHeldByPlayer,
+      `${itemName} should leave the player's public inventory after its item.given receipt`,
     );
   }
 
@@ -11702,7 +11747,9 @@ async function main() {
             for (const item of expected) {
               if (
                 resident.kind === "npc"
-                && (resident.economy?.held_item_ids || []).includes(item.itemId)
+                && (resident.economy?.held_items || []).some((heldItem) => (
+                  Number(heldItem.item_id) === Number(item.itemId)
+                ))
               ) {
                 const claim = { ...item, actualResidentName: resident.name, location: location.name };
                 if (resident.name === item.residentName) held.push(claim);
@@ -11835,7 +11882,9 @@ async function main() {
             (location.actors || []).some((resident) => (
               expected.some((item) => (
                 resident.name === item.residentName
-                  && (resident.economy?.held_item_ids || []).includes(Number(item.itemId))
+                  && (resident.economy?.held_items || []).some((heldItem) => (
+                    Number(heldItem.item_id) === Number(item.itemId)
+                  ))
               ))
             ))
           ));
@@ -12154,10 +12203,9 @@ async function main() {
         await queueRefresh();
         while (refreshInFlight) await refreshInFlight;
         const target = actorForId(targetActorId);
-        const reporter = actorForId(actorId);
         return {
           targetName: target?.name || "",
-          reporterVersion: Number(reporter?.entity_version || 0),
+          reporterVersion: Number(state?.command_context?.actor_version || 0),
         };
       }, nearbyActor.id);
       assert(
@@ -12289,7 +12337,7 @@ async function main() {
       assert(firstTaleStart.primary.toLowerCase().startsWith("notice"), `second player should enter through a welcoming Notice: ${JSON.stringify(firstTaleStart)}`);
       await playOtherPrimary("second-player Notice", () => (
         state?.first_tale?.phase === "follow_lead"
-        && state?.first_tale?.public_trace_created === false
+        && state?.first_tale?.trace_event_seq == null
         && actionBusy === false
         && document.querySelector("#action-modal")?.hidden === true
       ));
@@ -14594,7 +14642,6 @@ async function main() {
     return {
       phase: continuation.phase || "",
       destinationLocationId: Number(continuation.destination_location_id || 0),
-      jobId: String(continuation.job_id || ""),
       instruction: String(continuation.instruction || ""),
       advancingOfferId: String(continuation.advancing_offer_id || ""),
       guideActionKey: String(guide?.actionKey || ""),
@@ -14605,7 +14652,6 @@ async function main() {
   assert(
     lanternHandoff.phase === "travel"
       && lanternHandoff.destinationLocationId === 800
-      && lanternHandoff.jobId === "lantern-keeper:rekindle-the-beacon"
       && /Wayside Lantern Inn/i.test(lanternHandoff.instruction)
       && lanternHandoff.advancingOfferId
       && lanternHandoff.handOfferIds.includes(lanternHandoff.advancingOfferId)
@@ -14775,7 +14821,7 @@ async function main() {
         const loose = (location.items || []).find((item) => item.name === "Hearthstone Tag");
         if (loose) return { location: location.name, holder: "" };
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).includes(2006)
+          (actor.economy?.held_items || []).some((heldItem) => Number(heldItem.item_id) === 2006)
         ));
         if (holder) return { location: location.name, holder: holder.name };
       }
@@ -14846,7 +14892,7 @@ async function main() {
           && document.querySelector("#action-modal")?.hidden === true
       ), null, { timeout: 35_000 });
       const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-      const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+      const deckSize = await fetchInspectableDeckSize();
       let lastHand = [];
       let combatResets = 0;
       for (let draw = 0; draw < deckSize; draw += 1) {
@@ -15193,9 +15239,7 @@ async function main() {
           }
         }
         if (!featureUseCommitted) {
-          const primerDeckSize = await page.evaluate(() => (
-            Math.max(1, Number(state?.action_hand?.deck_size || 1))
-          ));
+          const primerDeckSize = await fetchInspectableDeckSize();
           for (let draw = 1; draw <= primerDeckSize && !featureUseCommitted; draw += 1) {
             const beforePass = await moonlitProjectStatus();
             featureUseCommitted = beforePass.completed
@@ -15607,7 +15651,7 @@ async function main() {
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).includes(2004)
+          (actor.economy?.held_items || []).some((heldItem) => Number(heldItem.item_id) === 2004)
         ));
         if (holder) return { name: holder.name, location: location.name };
       }
@@ -15755,7 +15799,9 @@ async function main() {
         for (const item of expectedItems) {
           if (
             resident.name === item.resident
-              && (resident.economy?.held_item_ids || []).includes(item.itemId)
+              && (resident.economy?.held_items || []).some((heldItem) => (
+                Number(heldItem.item_id) === Number(item.itemId)
+              ))
           ) {
             residentItemState.push({
               type: "item.held",

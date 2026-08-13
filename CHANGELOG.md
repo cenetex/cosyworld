@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.23 — 2026-08-12
+
+- Restrict the browser state projection to an explicit public allowlist, load
+  room history separately, and validate action details on the server.
+
 ## 1.0.22 — 2026-08-12
 
 - Move pending human gift consent into the recipient's action hand, mark the
