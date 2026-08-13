@@ -223,15 +223,15 @@ ownership configuration for the default/core composition. A configured
 linked-avatar adapter uses its protected feed and bearer independently from
 ordinary play. SQLite event storage, moderation, process identity, and disabled
 dev shortcuts remain production requirements. Kernel capacities are compiled
-(1024 actors, 1024 items, 2048 locations, 4096 exits) and exposed with live
+(2048 actors, 1024 items, 2048 locations, 4096 exits) and exposed with live
 counters on `/meta`; approaching them is a sharding conversation, not a hot
-patch. Locations and exits are sized so a single world can mount every authored
-pack at once — that union currently seeds 555 locations and 1151 exits — with
-room for generated pathway descendants. Actors and items are not: the same
-union seeds 565 actors and 540 items, which leaves under half of each cap for
-live play. Track live-item growth against authored faucet bounds and
-content-ratio validation; raise a capacity or retention decision before the
-item counter approaches its compiled cap.
+patch. Actors, locations, and exits are sized so a single world can mount every
+authored pack at once — that union currently seeds 589 actors, 580 locations,
+and 1269 exits — with at least another seed's worth of room for generated
+residents and pathway descendants. Items remain at 1024; the same union seeds
+565, leaving 459 slots for live play. Track live-item growth against authored
+faucet bounds and content-ratio validation; raise a capacity or retention
+decision before the item counter approaches its compiled cap.
 
 Scale model: one shard per process, isolated stores, route players to their shard at a layer above. Revisit only when a single world's concurrency actually demands it.
 

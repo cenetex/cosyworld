@@ -9,15 +9,15 @@ extern "C" {
 #endif
 
 /* Version 9 is reserved by #411 for project-push ABI state. */
-/* Version 14 widens the location and exit arrays; sizeof(cw_world) changed. */
-#define CW_KERNEL_VERSION 14u
+/* Version 15 widens the actor array; sizeof(cw_world) changed. */
+#define CW_KERNEL_VERSION 15u
 
 /* Capacities are compiled into cw_world as fixed arrays, so raising one is an
- * ABI change that must be mirrored in the Rust bindings. Locations and exits
- * are sized for a single world that mounts every authored pack at once: the
- * current union is 555 locations and 1151 exits, and generated pathway
- * descendants grow both at runtime. */
-#define CW_MAX_ACTORS 1024u
+ * ABI change that must be mirrored in the Rust bindings. Actors, locations,
+ * and exits are sized for a single world that mounts every authored pack at
+ * once: the current union is 589 actors, 580 locations, and 1269 exits, and
+ * generated residents and pathway descendants grow them at runtime. */
+#define CW_MAX_ACTORS 2048u
 #define CW_MAX_ITEMS 1024u
 #define CW_MAX_LOCATIONS 2048u
 #define CW_MAX_EXITS 4096u
