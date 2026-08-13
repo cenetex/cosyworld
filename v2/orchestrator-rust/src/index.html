@@ -881,6 +881,25 @@
       place-items: center;
       isolation: isolate;
     }
+    .room-avatar-transfer-marker {
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      z-index: 5;
+      width: 19px;
+      height: 19px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--terminal);
+      border-radius: 999px;
+      background: var(--amber);
+      color: #231b09;
+      pointer-events: none;
+    }
+    .room-avatar-transfer-marker .ui-icon {
+      width: 11px;
+      height: 11px;
+    }
     .combat-health-ring {
       --combat-hp-angle: 0deg;
       position: absolute;
@@ -6499,7 +6518,10 @@
       }
 
       const turn = view.turn || {};
-      const options = new Set((view.primary_action?.options || []).map((option) => option.kind));
+      const options = new Set([
+        ...(view.primary_action?.options || []).map((option) => option.kind),
+        ...(view.action_hand?.entries || []).map((entry) => entry.kind),
+      ]);
       const economy = view.economy || {};
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
@@ -7070,6 +7092,40 @@
             card: cardForItem(item.id) || cardForActor(target.id), shape: "item", requestedGift: Boolean(target.economy?.request?.item_id === item.id),
             effect: offer.effect || `${actorLabel(target)} keeps ${item.name}.`, modalSummary: `Pass ${item.name} to ${actorLabel(target)}.`,
             run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: target.id }),
+          });
+        }
+      }
+      if (options.has("accept_transfer")) {
+        for (const offer of exactOfferVariants("accept_transfer")) {
+          if (!offer) continue;
+          const transfer = (view.safety?.incoming_offers || []).find((candidate) => (
+            String(candidate.id || "") === String(offer.claim_key || "")
+          ));
+          if (!transfer) continue;
+          const giver = actorTargets.find((actor) => (
+            Number(actor.id) === Number(transfer.offered_by_actor_id)
+          ));
+          const item = itemForId(Number(transfer.offered_item_id));
+          const giverName = giver ? actorLabel(giver) : (transfer.offered_by_actor_name || "another avatar");
+          const itemName = item?.name || transfer.offered_item_name || "the offered item";
+          built.push({
+            ...semanticAction(offer, "accept"),
+            label: "accept",
+            detail: `${itemName} from ${giverName}`,
+            command: `accept ${itemName} from ${giverName}`,
+            focusKey: `accept-transfer:${transfer.id}`,
+            focusKeys: [`actor:${transfer.offered_by_actor_id}`, `item:${transfer.offered_item_id}`],
+            card: cardForItem(transfer.offered_item_id) || cardForActor(transfer.offered_by_actor_id),
+            shape: "item",
+            priority: Number(offer.rank || 0),
+            modalTitle: `accept ${itemName}`,
+            modalSummary: `${giverName} is offering this to you while you share the room.`,
+            effect: offer.effect || `${itemName} passes from ${giverName} to you`,
+            run: () => action("/actions/accept-transfer-offer", {
+              actor_id: actorId,
+              offer_id: transfer.id,
+              decision: "accept",
+            }),
           });
         }
       }
@@ -8539,6 +8595,7 @@
         "/actions/drop": ["drop_item"],
         "/actions/give-item": ["give_item"],
         "/actions/trade-item": ["trade_item"],
+        "/actions/accept-transfer-offer": ["accept_transfer"],
         "/actions/theft": ["theft"],
         "/actions/craft": ["craft"],
         "/actions/attack": ["attack"],
@@ -8578,6 +8635,7 @@
       "/actions/use-item",
       "/actions/give-item",
       "/actions/trade-item",
+      "/actions/accept-transfer-offer",
       "/actions/theft",
       "/actions/craft",
       "/actions/attack",
@@ -9430,8 +9488,9 @@
           changed = true;
           continue;
         }
-        if (!event || eventIsMuted(event) || seenSeq.has(event.seq)) continue;
-        seenSeq.add(event.seq);
+        const authoritativeSeq = Number(event?.seq || 0);
+        if (!event || eventIsMuted(event) || (authoritativeSeq > 0 && seenSeq.has(authoritativeSeq))) continue;
+        if (authoritativeSeq > 0) seenSeq.add(authoritativeSeq);
         if (resolvePendingChat(event)) {
           changed = true;
           chatProgressChanged = true;
@@ -11151,8 +11210,24 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
+        const incomingGiftCount = (view.safety?.incoming_offers || []).filter((offer) => (
+          offer.kind === "gift" && Number(offer.offered_by_actor_id) === Number(actor.id)
+        )).length;
+        const outgoingGiftCount = (view.safety?.outgoing_offers || []).filter((offer) => (
+          offer.kind === "gift" && Number(offer.offered_to_actor_id) === Number(actor.id)
+        )).length;
+        const pendingGiftCount = incomingGiftCount + outgoingGiftCount;
+        const pendingGiftLabel = incomingGiftCount
+          ? `${incomingGiftCount} gift${incomingGiftCount === 1 ? "" : "s"} from ${actorLabel(actor)} waiting for your answer`
+          : outgoingGiftCount
+            ? `${outgoingGiftCount} gift${outgoingGiftCount === 1 ? "" : "s"} offered to ${actorLabel(actor)}`
+            : "";
         const ring = expeditionRingPresentation(actor, stateRevision);
-        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
+        const giftMarker = pendingGiftCount
+          ? `<span class="room-avatar-transfer-marker" aria-hidden="true">${iconSvg("gift")}</span>`
+          : "";
+        const accessibleLabel = [label, pendingGiftLabel].filter(Boolean).join(". ");
+        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}${pendingGiftCount ? " pending-transfer" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(accessibleLabel)}" aria-label="Open ${escapeAttr(accessibleLabel)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}${giftMarker}</span>`;
       }).join("");
     }
 
@@ -14563,10 +14638,16 @@
       const offerHtml = [
         ...incoming.map((offer) => {
           const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          if (offer.kind === "gift") {
+            return `<div class="avatar-offer"><strong>gift waiting</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<small>Choose Accept from your hand, or leave the room.</small></div>`;
+          }
           return `<div class="avatar-offer"><strong>incoming ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="accept" data-transfer-offer-id="${escapeAttr(offer.id)}">accept</button><button class="account-button" type="button" data-transfer-offer-decision="decline" data-transfer-offer-id="${escapeAttr(offer.id)}">decline</button></div></div>`;
         }),
         ...outgoing.map((offer) => {
           const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          if (offer.kind === "gift") {
+            return `<div class="avatar-offer"><strong>gift offered</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<small>Waiting while you share this room.</small></div>`;
+          }
           return `<div class="avatar-offer"><strong>pending ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="withdraw" data-transfer-offer-id="${escapeAttr(offer.id)}">withdraw</button></div></div>`;
         }),
       ].join("");
