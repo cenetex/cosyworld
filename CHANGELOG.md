@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.14 — 2026-08-12
+
+- Declare tenant 7's live Bethlehem bundle replay-compatible with the Emmaus
+  presentation update, preserving its journal and checkpoint across deployment.
+
 ## 1.0.13 — 2026-08-12
 
 - Declare the live official-world bundle replay-compatible with the Emmaus
