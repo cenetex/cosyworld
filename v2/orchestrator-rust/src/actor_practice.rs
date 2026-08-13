@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const DEED_SCHEMA_VERSION: u32 = 1;
@@ -117,19 +117,34 @@ impl Default for ActorPracticeState {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub(crate) struct ActorPracticeView {
     pub schema_version: u32,
     pub actor_id: u64,
     pub epithet: String,
     pub known_for: String,
     pub primary: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub secondary: Option<String>,
     pub evidence: Vec<PracticeEvidenceView>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+impl Serialize for ActorPracticeView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("ActorPracticeView", 4)?;
+        out.serialize_field("epithet", &self.epithet)?;
+        out.serialize_field("known_for", &self.known_for)?;
+        out.serialize_field("primary", &self.primary)?;
+        out.serialize_field("evidence", &self.evidence)?;
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub(crate) struct PracticeEvidenceView {
     pub category: String,
     pub description: String,
@@ -137,6 +152,19 @@ pub(crate) struct PracticeEvidenceView {
     pub target_kind: String,
     pub target_id: String,
     pub location_id: Option<u64>,
+}
+
+impl Serialize for PracticeEvidenceView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("PracticeEvidenceView", 3)?;
+        out.serialize_field("category", &self.category)?;
+        out.serialize_field("target_kind", &self.target_kind)?;
+        out.serialize_field("target_id", &self.target_id)?;
+        out.end()
+    }
 }
 
 pub(crate) fn project_practice(

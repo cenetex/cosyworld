@@ -1,4 +1,5 @@
 use super::*;
+use serde::ser::SerializeStruct;
 use sha2::{Digest, Sha256};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -60,7 +61,8 @@ pub(super) struct SeedSpatialConstraint {
     pub(super) label: String,
 }
 
-#[derive(Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Debug)]
 pub(super) struct SpatialSceneView {
     pub(super) schema_version: u8,
     pub(super) id: String,
@@ -77,13 +79,30 @@ pub(super) struct SpatialSceneView {
     pub(super) viewer: Option<SpatialViewerView>,
 }
 
-#[derive(Debug, Serialize)]
+impl Serialize for SpatialSceneView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("SpatialSceneView", 8)?;
+        out.serialize_field("schema_version", &self.schema_version)?;
+        out.serialize_field("projection", &self.projection)?;
+        out.serialize_field("sites", &self.sites)?;
+        out.serialize_field("links", &self.links)?;
+        out.serialize_field("tokens", &self.tokens)?;
+        out.serialize_field("portals", &self.portals)?;
+        out.serialize_field("constraints", &self.constraints)?;
+        out.serialize_field("viewer", &self.viewer)?;
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
 pub(super) struct SpatialTokenView {
     pub(super) ref_id: String,
     pub(super) kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) actor_id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) feature_key: Option<String>,
     pub(super) label: String,
     pub(super) site_id: String,
@@ -92,7 +111,24 @@ pub(super) struct SpatialTokenView {
     pub(super) offer_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+impl Serialize for SpatialTokenView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("SpatialTokenView", 6)?;
+        out.serialize_field("ref_id", &self.ref_id)?;
+        out.serialize_field("kind", &self.kind)?;
+        out.serialize_field("label", &self.label)?;
+        out.serialize_field("site_id", &self.site_id)?;
+        out.serialize_field("hostile", &self.hostile)?;
+        out.serialize_field("offer_ids", &self.offer_ids)?;
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
 pub(super) struct SpatialPortalView {
     pub(super) ref_id: String,
     pub(super) destination_location_id: u64,
@@ -105,7 +141,24 @@ pub(super) struct SpatialPortalView {
     pub(super) offer_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+impl Serialize for SpatialPortalView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("SpatialPortalView", 6)?;
+        out.serialize_field("ref_id", &self.ref_id)?;
+        out.serialize_field("label", &self.label)?;
+        out.serialize_field("direction", &self.direction)?;
+        out.serialize_field("site_id", &self.site_id)?;
+        out.serialize_field("blocked", &self.blocked)?;
+        out.serialize_field("offer_ids", &self.offer_ids)?;
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
 pub(super) struct SpatialConstraintView {
     pub(super) id: String,
     pub(super) kind: String,
@@ -115,11 +168,38 @@ pub(super) struct SpatialConstraintView {
     pub(super) active: bool,
 }
 
-#[derive(Debug, Serialize)]
+impl Serialize for SpatialConstraintView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("SpatialConstraintView", 4)?;
+        out.serialize_field("subject_ref", &self.subject_ref)?;
+        out.serialize_field("object_ref", &self.object_ref)?;
+        out.serialize_field("label", &self.label)?;
+        out.serialize_field("active", &self.active)?;
+        out.end()
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
 pub(super) struct SpatialViewerView {
     pub(super) actor_id: u64,
     pub(super) site_id: String,
     pub(super) placement: &'static str,
+}
+
+impl Serialize for SpatialViewerView {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut out = serializer.serialize_struct("SpatialViewerView", 2)?;
+        out.serialize_field("actor_id", &self.actor_id)?;
+        out.serialize_field("site_id", &self.site_id)?;
+        out.end()
+    }
 }
 
 pub(super) fn validate_seed_spatial_scenes(content: &SeedContent) -> Result<(), String> {

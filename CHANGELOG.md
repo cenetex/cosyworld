@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.24 — 2026-08-13
+
+- Populate Ruby High with autonomous students and teachers, usable school
+  items, and local borderless presentation art for every First Bell card.
+
+## 1.0.23 — 2026-08-12
+
+- Restrict the browser state projection to an explicit public allowlist, load
+  room history separately, and validate action details on the server.
+
 ## 1.0.22 — 2026-08-12
 
 - Move pending human gift consent into the recipient's action hand, mark the

@@ -392,6 +392,42 @@ function stateUrl(baseUrl, actorId, actorSession) {
   return `${baseUrl}/state?${query}`;
 }
 
+function inspectUrl(baseUrl, actorId, actorSession) {
+  const query = new URLSearchParams({
+    actor_id: String(actorId),
+    actor_session: actorSession,
+  });
+  return `${baseUrl}/inspect?${query}`;
+}
+
+async function fetchInspectableState(baseUrl, actorId, actorSession) {
+  const [state, inspection] = await Promise.all([
+    fetchJson(stateUrl(baseUrl, actorId, actorSession)),
+    fetchJson(inspectUrl(baseUrl, actorId, actorSession)),
+  ]);
+  const internalActions = new Map(
+    (inspection.actions || []).map((action) => [action.offer_id, action]),
+  );
+  return {
+    ...state,
+    action_offers: (state.action_offers || []).map((offer) => ({
+      ...(internalActions.get(offer.offer_id) || {}),
+      ...offer,
+    })),
+    action_hand: {
+      ...(state.action_hand || {}),
+      deck_size: (inspection.actions || []).length,
+    },
+    __inspection: inspection,
+  };
+}
+
+function inspectedRulesContext(state) {
+  return (state?.__inspection?.actions || [])
+    .map((action) => action.composition_trace?.rules_context)
+    .find((context) => context !== undefined) ?? null;
+}
+
 async function fetchAllActorEvents(baseUrl, actorId, actorSession) {
   const events = [];
   let after = 0;
@@ -428,11 +464,10 @@ function readDurableWorldEvents(eventDbPath) {
 }
 
 function offerEnvelope(state, actorId, offerId) {
-  const actor = state.actors?.find((candidate) => candidate.id === actorId) ?? {};
   return {
     world_id: state.world_id ?? "world://cosyworld/official",
     intent_id: `smoke:offer:${actorId}:${createHash("sha256").update(offerId).digest("hex")}`,
-    actor_ref: actor.canonical_ref ?? "",
+    actor_ref: state.command_context?.actor_ref ?? "",
     observed: {},
     last_world_seq: Number(state.world_seq ?? 0),
   };
@@ -450,7 +485,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   const maxWriteAuthorityRefreshes = 12;
   let writeAuthorityRefreshes = 0;
   while (true) {
-    state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
     offer = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
     if (offer) break;
     if (maxPassAttempts === 0) {
@@ -533,7 +568,7 @@ async function command(baseUrl, actorId, actorSession, value) {
 }
 
 async function passCurrentHand(baseUrl, actorId, actorSession) {
-  const state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const state = await fetchInspectableState(baseUrl, actorId, actorSession);
   const passOffer = state.action_hand?.pass;
   assert(passOffer?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
   const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
@@ -580,24 +615,22 @@ function assertLanternSuggestions(state, label) {
   const question = state.shared_questions?.find((candidate) =>
     candidate.id === "lantern-keeper:rekindle-the-beacon");
   assert(question, `${label} lost the Lantern Keeper shared question`);
-  if (question.resolution !== "active") {
-    assert(
-      question.suggested_actions?.length === 0,
-      `${label} retained suggestions after resolution: ${JSON.stringify(question.suggested_actions)}`,
-    );
-    return;
-  }
+  if (question.presentation_state !== "active") return;
+  const suggestions = state.action_offers || [];
   assert(
-    question.suggested_actions?.length === 2
-      && question.suggested_actions.every((suggestion) =>
+    suggestions.length === 2
+      && suggestions.every((suggestion) =>
         suggestion.offer_id
-          && suggestion.state_revision === state.world_seq
-          && suggestion.label
-          && suggestion.target_label
-          && suggestion.source
-          && suggestion.likely_effect?.includes("current progress is")
-          && suggestion.likely_effect?.includes("danger is")),
-    `${label} did not expose exactly two accessible truthful suggestions: ${JSON.stringify(question.suggested_actions)}`,
+          && suggestion.accessible_label
+          && (suggestion.target?.label || suggestion.project?.label || state.location?.name)
+          && suggestion.provider?.id
+          && suggestion.effect)
+      && Number.isFinite(Number(question.filled))
+      && Number.isFinite(Number(question.danger_filled)),
+    `${label} did not expose exactly two accessible truthful suggestions: ${JSON.stringify({
+      suggestions,
+      question,
+    })}`,
   );
 }
 
@@ -644,7 +677,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper Cottage Notice did not bank its first useful lead: ${JSON.stringify(listened)}`,
   );
 
-  let taleState = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  let taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     taleState.first_tale?.phase === "follow_lead"
       && taleState.first_tale?.required_location_id === 2,
@@ -653,7 +686,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   for (let step = 0; step < 4 && taleState.first_tale?.phase !== "contribute"; step += 1) {
     const offer = firstTaleAdvancingOffer(taleState, `lantern Garden step ${step + 1}`);
     await command(baseUrl, actorId, actorSession, offer.command);
-    taleState = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   }
   assert(
     taleState.location?.id === 2 && taleState.first_tale?.phase === "contribute",
@@ -666,7 +699,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     if (result.events?.some((event) => event.type === "job.contribution.resolved")) {
       firstContribution = result;
     } else {
-      taleState = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+      taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
     }
   }
   const contributionEvent = firstContribution?.events?.find((event) =>
@@ -679,12 +712,11 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
       && traceEvents[0].caused_by_event_seq === contributionEvent.seq,
     `Lantern Keeper first contribution did not emit one explicit replay-safe public trace: ${JSON.stringify(firstContribution)}`,
   );
-  taleState = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     taleState.first_tale?.phase === "complete"
       && taleState.first_tale?.continuation?.destination_location_id === 800
       && taleState.first_tale?.continuation?.target_actor_id === 8301
-      && taleState.first_tale?.continuation?.job_id === "lantern-keeper:rekindle-the-beacon"
       && taleState.first_tale?.continuation?.phase === "travel",
     `Lantern Keeper completion did not expose its structured Lantern continuation: ${JSON.stringify(taleState.first_tale)}`,
   );
@@ -714,7 +746,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     duplicate.ok === false && duplicate.status === 409,
     `Lantern Keeper allowed Class selection to be replayed: ${JSON.stringify(duplicate)}`,
   );
-  const classed = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const classed = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     classed.character_identity?.level === 1
       && classed.character_identity?.class_id === "lantern-warden"
@@ -725,7 +757,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   for (let step = 0; step < 8 && taleState.location?.id !== 800; step += 1) {
     const offer = firstTaleAdvancingOffer(taleState, `lantern continuation step ${step + 1}`);
     await command(baseUrl, actorId, actorSession, offer.command);
-    taleState = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   }
   assert(
     taleState.location?.id === 800
@@ -761,7 +793,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper could not equip its public camp-shelter tool: ${JSON.stringify(equippedCampKit)}`,
   );
 
-  const readyForMara = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const readyForMara = await fetchInspectableState(baseUrl, actorId, actorSession);
   traceLantern("lantern ready for Mara", readyForMara);
   const maraOffer = firstTaleAdvancingOffer(readyForMara, "lantern Mara continuation");
   assert(
@@ -776,7 +808,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
         event.type === "relationship.beat" && event.content?.includes("empty key hook")),
     `Lantern Keeper did not commit Mara's corrected authored relationship beat: ${JSON.stringify(metMara)}`,
   );
-  const acceptedMara = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const acceptedMara = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     acceptedMara.first_tale?.continuation?.phase === "accepted"
       && acceptedMara.first_tale?.continuation?.target_actor_id === 8301
@@ -791,7 +823,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper did not reveal the route to Mothwood exactly once: ${JSON.stringify(scouted)}`,
   );
   await command(baseUrl, actorId, actorSession, "go Mothwood Path");
-  const mothwood = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const mothwood = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     mothwood.location?.id === 801 && mothwood.location?.name === "Mothwood Path",
     `Lantern Keeper did not reach Mothwood through legal travel: ${JSON.stringify(lanternJourneySummary(mothwood))}`,
@@ -815,7 +847,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   await command(baseUrl, actorId, actorSession, "scout Saint Orra's Ruin");
   await command(baseUrl, actorId, actorSession, "go Saint Orra's Ruin");
-  const saintOrra = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const saintOrra = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     saintOrra.location?.id === 802
       && saintOrra.items?.some((item) => item.id === 8401 && item.name === "Keeper's Brass Key")
@@ -851,7 +883,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   await command(baseUrl, actorId, actorSession, "scout Flooded Barrow");
   await command(baseUrl, actorId, actorSession, "go Flooded Barrow");
-  const barrow = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const barrow = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     barrow.location?.id === 803
       && barrow.location?.name === "Flooded Barrow"
@@ -875,7 +907,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
           && event.total === 1).length === 1,
     `Lantern Keeper did not resolve the Barrow through its authored Dawn Oil choice: ${JSON.stringify(litOil)}`,
   );
-  const barrowResolved = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const barrowResolved = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     !barrowResolved.combat
       && !barrowResolved.action_offers?.some((offer) => offer.kind === "attack"),
@@ -885,7 +917,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
 
   await command(baseUrl, actorId, actorSession, "scout Lantern Tower");
   await command(baseUrl, actorId, actorSession, "go Lantern Tower");
-  const tower = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const tower = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
     tower.location?.id === 804
       && tower.location?.name === "Lantern Tower"
@@ -912,7 +944,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
       `Lantern Keeper could not fit ${itemName} into the Great Lantern Lens: ${JSON.stringify(assembled)}`,
     );
   }
-  let towerReady = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  let towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   if (towerReady.tags?.some((tag) => tag.tag_label === "tired" || tag.label === "tired")) {
     await dealOffer(
       baseUrl,
@@ -927,7 +959,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
         event.type === "tag.cleared" && event.tag_label === "tired"),
       `Lantern Keeper could not recover before the finale authority check: ${JSON.stringify(recovered)}`,
     );
-    towerReady = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   }
   const initialWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
     offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the finale Work card");
@@ -976,7 +1008,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
       event.type === "tag.applied" && event.tag_label === "tired"),
     `Lantern Keeper repeat frontier action did not create a meaningful Rest choice: ${JSON.stringify(repeatedListen)}`,
   );
-  const tiredAtTower = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const tiredAtTower = await fetchInspectableState(baseUrl, actorId, actorSession);
   await dealOffer(baseUrl, actorId, actorSession, (offer) => offer.kind === "rest", "the Rest card");
   const rested = await command(baseUrl, actorId, actorSession, "rest");
   assert(
@@ -988,7 +1020,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
           && event.clock_filled === dangerBeforeMeaningfulRest + 1),
     `Lantern Keeper Rest did not trade recovery for authored danger: ${JSON.stringify(rested)}`,
   );
-  towerReady = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   const freshWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
     offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the refreshed finale Work card");
   towerReady = freshWorkDeal.state;
@@ -1038,15 +1070,14 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper accepted a conflicting finale retry: ${JSON.stringify(conflictingRetry)}`,
   );
 
-  const completedAtTower = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const completedAtTower = await fetchInspectableState(baseUrl, actorId, actorSession);
   const completedQuestion = completedAtTower.shared_questions?.find((question) =>
     question.id === "lantern-keeper:rekindle-the-beacon");
   assert(
     completedQuestion?.presentation_state === "completed_memory"
-      && completedQuestion?.resolution === "completed"
       && completedQuestion?.filled === 6
       && completedQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1
-      && completedQuestion?.completion_memory?.includes("Mothwood beacon")
+      && completedQuestion?.situation?.includes("Mothwood beacon")
       && completedAtTower.tags?.some((tag) => tag.id === "room:804:beacon_rekindled")
       && completedAtTower.economy?.orbs === beforeFinaleOrbs + 2
       && !completedAtTower.action_offers?.some((offer) => matchesContributionKind(offer.kind)),
@@ -1073,12 +1104,11 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper did not pay off Mara's authored relationship exactly once: ${JSON.stringify(trustedMara)}`,
   );
   await command(baseUrl, actorId, actorSession, "go Mothwood Path");
-  const completed = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const completed = await fetchInspectableState(baseUrl, actorId, actorSession);
   const afterTravelQuestion = completed.shared_questions?.find((question) =>
     question.id === "lantern-keeper:rekindle-the-beacon");
   assert(
     afterTravelQuestion?.presentation_state === "completed_memory"
-      && afterTravelQuestion?.resolution === "completed"
       && afterTravelQuestion?.filled === 6
       && afterTravelQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1,
     `Lantern Keeper's post-finale travel reset completion before restart: ${JSON.stringify(lanternJourneySummary(completed))}`,
@@ -1090,7 +1120,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
       orbs: completed.economy?.orbs,
       progress: 6,
       danger: dangerBeforeMeaningfulRest + 1,
-      dangerSituation: completedQuestion.danger_situation,
+      completionSituation: completedQuestion.situation,
       finalePayload,
       finaleResponse: finale,
     },
@@ -1179,10 +1209,9 @@ function assertLanternGoldenReplay(state, events, expected) {
   );
   assert(
     question?.presentation_state === "completed_memory"
-      && question?.resolution === "completed"
       && question?.filled === expected.progress
       && question?.danger_filled === expected.danger
-      && question?.danger_situation === expected.dangerSituation
+      && question?.situation === expected.completionSituation
       && state.economy?.orbs === expected.orbs
       && events.filter((event) =>
         event.type === "job.contribution.resolved"
@@ -1203,8 +1232,7 @@ function assertLanternGoldenReplay(state, events, expected) {
     beacon: eventText.includes("beacon"),
     road: eventText.includes("road"),
     unresolvedFront: state.fronts?.some((front) =>
-      front.id === "lantern-keeper:hollow-light"
-        && front.presentation_state === "persisted"
+      front.presentation_state === "persisted"
         && front.outcome_statement?.includes("remains unresolved")),
   };
   assert(
@@ -1244,18 +1272,19 @@ function assertMountedComposition(meta, spec, addedActorCount = 0, addedLocation
 
 function assertScene(state, spec, { requireOffer = true } = {}) {
   assert(state.location?.name === spec.location, JSON.stringify(state.location));
+  const rulesContext = inspectedRulesContext(state);
   if (spec.selectedBy) {
     assert(
-      state.rules_context?.location_pack_id === spec.locationPack
-        && state.rules_context?.selected_by_pack_id === spec.selectedBy
-        && state.rules_context?.capability_id === spec.capability,
-      `${spec.label} selected the wrong rules context: ${JSON.stringify(state.rules_context)}`,
+      rulesContext?.location_pack_id === spec.locationPack
+        && rulesContext?.selected_by_pack_id === spec.selectedBy
+        && rulesContext?.capability_id === spec.capability,
+      `${spec.label} selected the wrong rules context: ${JSON.stringify(rulesContext)}`,
     );
   } else {
     assert(
-      state.rules_context == null,
+      rulesContext == null,
       `${spec.label} unexpectedly selected a pack-local rules context: ${
-        JSON.stringify(state.rules_context)
+        JSON.stringify(rulesContext)
       }`,
     );
   }
@@ -1282,8 +1311,10 @@ function assertScene(state, spec, { requireOffer = true } = {}) {
   }
   if (spec.firstTaleQuestionIncludes) {
     assert(
-      state.first_tale?.question?.includes(spec.firstTaleQuestionIncludes),
-      `${spec.label} exposed the wrong first-tale question: ${JSON.stringify(state.first_tale)}`,
+      state.__inspection?.first_tale_question?.includes(spec.firstTaleQuestionIncludes),
+      `${spec.label} exposed the wrong first-tale question: ${JSON.stringify(
+        state.__inspection?.first_tale_question,
+      )}`,
     );
   }
 }
@@ -1331,7 +1362,7 @@ async function runWorldLoop(spec) {
     let finalLocationName = spec.location;
     let finalLocationPack = spec.locationPack;
     let goldenJourney = null;
-    let initial = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    let initial = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     assertScene(initial, spec, { requireOffer: false });
     if (spec.offerVerb) {
       const dealt = await dealOffer(
@@ -1352,7 +1383,8 @@ async function runWorldLoop(spec) {
         initial,
       );
       finalLocationName = goldenJourney.state.location?.name || finalLocationName;
-      finalLocationPack = goldenJourney.state.rules_context?.location_pack_id || finalLocationPack;
+      finalLocationPack = inspectedRulesContext(goldenJourney.state)?.location_pack_id
+        || finalLocationPack;
     }
     if (spec.localSeedActorCount !== undefined) {
       const localSeedActors = initial.actors?.filter((actor) => actor.id !== actorId) ?? [];
@@ -1398,7 +1430,7 @@ async function runWorldLoop(spec) {
           `scout ${spec.scoutDestination}`,
         );
         discoveryEventCount += scouted.events?.filter(routeDiscoveryEvent).length ?? 0;
-        discovered = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        discovered = await fetchInspectableState(first.baseUrl, actorId, actorSession);
         if (!discovered.action_offers?.some((offer) =>
           offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)) break;
       }
@@ -1448,16 +1480,15 @@ async function runWorldLoop(spec) {
           actorSession,
           `go ${revealedMoveTarget}`,
         );
-        const atWaypoint = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        const atWaypoint = await fetchInspectableState(first.baseUrl, actorId, actorSession);
         const activeConnection = atWaypoint.shared_questions?.find((question) =>
           question.question?.includes(spec.connectionItem)
             && question.question.includes(spec.location));
         assert(
-          activeConnection?.resolution === "active"
+          ["active", "quiet"].includes(activeConnection?.presentation_state)
             && activeConnection.filled === 0
-            && activeConnection.strategies?.some((strategy) =>
-              strategy.label?.includes(spec.connectionItem)
-                && strategy.availability_reason?.includes(spec.connectionItem)),
+            && activeConnection.situation?.includes(spec.connectionItem)
+            && activeConnection.situation.includes(spec.location),
           `${spec.label} did not expose its exact physical Connection: ${JSON.stringify(atWaypoint.shared_questions)}`,
         );
 
@@ -1472,19 +1503,18 @@ async function runWorldLoop(spec) {
             && dropped.events?.filter((event) => event.type === "world.logistics.completed").length === 1,
           `${spec.label} exact Connection did not commit one causal completion: ${JSON.stringify(dropped)}`,
         );
-        const connected = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        const connected = await fetchInspectableState(first.baseUrl, actorId, actorSession);
         const completedConnection = connected.shared_questions?.find((question) =>
           question.id === activeConnection.id);
         assert(
-          completedConnection?.resolution === "completed"
-            && completedConnection.presentation_state === "completed_memory"
+          completedConnection?.presentation_state === "completed_memory"
             && completedConnection.filled === completedConnection.segments
-            && completedConnection.completion_memory?.includes(spec.connectionItem)
-            && completedConnection.completion_memory.includes(spec.location),
+            && completedConnection.situation?.includes(spec.connectionItem)
+            && completedConnection.situation.includes(spec.location),
           `${spec.label} exact Connection was not visible as completed history: ${JSON.stringify(completedConnection)}`,
         );
         finalLocationName = connected.location?.name || finalLocationName;
-        finalLocationPack = connected.rules_context?.location_pack_id || finalLocationPack;
+        finalLocationPack = inspectedRulesContext(connected)?.location_pack_id || finalLocationPack;
         exactConnection = {
           jobId: activeConnection.id,
           itemName: spec.connectionItem,
@@ -1510,7 +1540,7 @@ async function runWorldLoop(spec) {
       replayMarkerSeq > 0,
       `${spec.label} Think produced no actor-owned durable replay marker: ${JSON.stringify(replayMarker)}`,
     );
-    const committed = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    const committed = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     assert(
       committed.world_seq > initial.world_seq,
       `${spec.label} action loop did not advance world sequence`,
@@ -1570,7 +1600,7 @@ async function runWorldLoop(spec) {
         `${spec.label} rejected or bypassed its compacted production checkpoint: ${JSON.stringify(restarted.meta.persistence)}`,
       );
     }
-    let replayed = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
+    let replayed = await fetchInspectableState(restarted.baseUrl, actorId, actorSession);
     assertScene(
       replayed,
       { ...spec, location: finalLocationName, locationPack: finalLocationPack },
@@ -1607,10 +1637,9 @@ async function runWorldLoop(spec) {
       const completedConnection = replayed.shared_questions?.find((question) =>
         question.id === exactConnection.jobId);
       assert(
-        completedConnection?.resolution === "completed"
-          && completedConnection.presentation_state === "completed_memory"
-          && completedConnection.completion_memory?.includes(exactConnection.itemName)
-          && completedConnection.completion_memory.includes(exactConnection.originName),
+        completedConnection?.presentation_state === "completed_memory"
+          && completedConnection.situation?.includes(exactConnection.itemName)
+          && completedConnection.situation.includes(exactConnection.originName),
         `${spec.label} restart lost its exact Connection memory: ${JSON.stringify(completedConnection)}`,
       );
       events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);
@@ -1663,7 +1692,7 @@ async function runWorldLoop(spec) {
           actual: restartedFinale,
         })}`,
       );
-      const afterRestartRetry = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
+      const afterRestartRetry = await fetchInspectableState(restarted.baseUrl, actorId, actorSession);
       assert(
         afterRestartRetry.world_seq === replayed.world_seq
           && afterRestartRetry.economy?.orbs === replayed.economy?.orbs,

@@ -5274,6 +5274,7 @@
     let handPassSubmission = null;
     let recoveryPromptPending = false;
     let logEvents = [];
+    let roomHistoryHydrated = false;
     const seenSeq = new Set();
     const worldBeatPresentationContractVersion = 1;
     const worldBeatReceiptState = new Map();
@@ -5934,6 +5935,9 @@
       const wasTired = actorIsTired(state);
       const requestedActorId = actorId;
       await rotateActorSessionIfNeeded();
+      const historyWasNeeded = !roomHistoryHydrated
+        || pendingModelInteractionRehydrationRequired;
+      let recentEventsRequest = historyWasNeeded ? fetchRecentEvents() : null;
       let stateRequest = api(statePath());
       const contentPacksRequest = ensureContentPacks().catch(() => null);
       let nextState = await stateRequest;
@@ -5942,6 +5946,7 @@
         const recovery = await renewActorSession();
         if (recovery.ok && recovery.renewed) {
           stateRequest = api(statePath());
+          if (historyWasNeeded) recentEventsRequest = fetchRecentEvents();
           nextState = await stateRequest;
         }
       } else if (actorId) {
@@ -5960,9 +5965,12 @@
         handCompositionSignature = nextHandCompositionSignature;
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
-      if (logEvents.length === 0 || locationChanged || timelineRewound
+      if (historyWasNeeded || locationChanged || timelineRewound
           || pendingModelInteractionRehydrationRequired) {
-        rebuildLogFromAuthoritativeState(state);
+        const replay = recentEventsRequest
+          ? await recentEventsRequest
+          : await fetchRecentEvents();
+        rebuildLogFromAuthoritativeEvents(replay?.events || []);
       }
       if (locationChanged) {
         handKeys = [];
@@ -6030,6 +6038,20 @@
       const params = requestParams();
       const qs = params.toString();
       return `/state${qs ? `?${qs}` : ""}`;
+    }
+
+    function eventsPath(limit = 80) {
+      const params = requestParams();
+      params.set("limit", String(limit));
+      return `/events?${params.toString()}`;
+    }
+
+    async function fetchRecentEvents() {
+      const replay = await api(eventsPath());
+      if (!replay || !Array.isArray(replay.events)) {
+        throw new Error("Room history received an invalid /events response.");
+      }
+      return replay;
     }
 
     async function exportJournal() {
@@ -6117,11 +6139,10 @@
 
     function transcriptTimelineRewound(view, localLatest = latestSeenSeq()) {
       if (!localLatest) return false;
-      const serverLatest = (view?.recent_events || []).reduce(
-        (latest, event) => Math.max(latest, Number(event?.seq) || 0),
-        0,
-      );
-      return serverLatest < localLatest;
+      if (state?.world_epoch !== undefined
+          && view?.world_epoch !== undefined
+          && Number(view.world_epoch) !== Number(state.world_epoch)) return true;
+      return Number(view?.room_event_seq ?? view?.world_seq ?? 0) < localLatest;
     }
 
     function streamPath() {
@@ -6889,7 +6910,7 @@
           command: String(
             offer.command || `${binding.procedure} ${targetLabel}`
           ).trim(),
-          focusKey: `discovery:${binding.claim_key}:${binding.procedure}`,
+          focusKey: `discovery:${binding.slot_id}:${binding.procedure}`,
           card: binding.target_kind === "item" && targetId
             ? cardForItem(targetId)
             : cardForLocation(view.location?.id),
@@ -8812,13 +8833,6 @@
               offer_id: offer.offer_id,
               composition_id: offer.composition_id,
               kind: offer.kind,
-              rules_action: offer.rules_action,
-              operation: offer.operation,
-              rules_profile: offer.rules_profile,
-              state_revision: offer.state_revision,
-              route: offer.route,
-              target: offer.target,
-              cost: offer.cost,
               payload: currentPayload,
             })
           : postResult(path, currentPayload);
@@ -8939,17 +8953,16 @@
     }
 
     function canonicalCommandEnvelope() {
-      const actor = (state?.actors || []).find((candidate) => Number(candidate?.id) === Number(actorId));
-      const location = state?.location || {};
+      const commandContext = state?.command_context || {};
       const randomIntent = globalThis.crypto?.randomUUID?.()
         || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       return {
         world_id: state?.world_id || "world://cosyworld/official",
         intent_id: `web:${randomIntent}`,
-        actor_ref: actor?.canonical_ref || "",
+        actor_ref: commandContext.actor_ref || "",
         observed: {
-          ...(Number(actor?.entity_version) > 0 ? { actor_version: Number(actor.entity_version) } : {}),
-          ...(Number(location?.entity_version) > 0 ? { location_version: Number(location.entity_version) } : {}),
+          ...(Number(commandContext.actor_version) > 0 ? { actor_version: Number(commandContext.actor_version) } : {}),
+          ...(Number(commandContext.location_version) > 0 ? { location_version: Number(commandContext.location_version) } : {}),
         },
         last_world_seq: Math.max(0, Number(state?.world_seq) || latestSeenSeq() || 0),
       };
@@ -8959,9 +8972,6 @@
       return JSON.stringify({
         kind: String(offer.kind || ""),
         command: String(offer.command || "").trim(),
-        operation: String(offer.operation || ""),
-        rules_action: String(offer.rules_action || ""),
-        rules_profile: String(offer.rules_profile || ""),
         target: offer.target ? {
           kind: String(offer.target.kind || ""),
           id: String(offer.target.id || ""),
@@ -10056,9 +10066,14 @@
       renderJournalActivity();
     }
 
-    function rebuildLogFromAuthoritativeState(view = state) {
-      rebuildLog([...(view?.recent_events || [])].reverse());
+    function rebuildLogFromAuthoritativeEvents(events = []) {
+      rebuildLog(Array.isArray(events) ? events : []);
+      roomHistoryHydrated = true;
       pendingModelInteractionRehydrationRequired = false;
+    }
+
+    function rebuildLogFromAuthoritativeState(view = state) {
+      rebuildLogFromAuthoritativeEvents([...(view?.recent_events || [])].reverse());
     }
 
     function eventIsMuted(event) {
@@ -10684,6 +10699,7 @@
       pendingChats = [];
       pendingModelInteractions = [];
       logEvents = [];
+      roomHistoryHydrated = false;
       seenSeq.clear();
       pendingModelInteractionRehydrationRequired = true;
     }
