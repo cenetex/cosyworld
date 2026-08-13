@@ -11,7 +11,8 @@
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
       "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
-      "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e"
+      "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e",
+      "sha256:d8c8c233967317140819efca5ad628d353cdd684fd4740a0c767aa0a09e9a3b8"
     ]
   },
   "pack_lifecycle": {
@@ -739,7 +740,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:d8c8c233967317140819efca5ad628d353cdd684fd4740a0c767aa0a09e9a3b8",
+  "bundle_hash": "sha256:f279ba9bc054ec60df7f835ca0970c616b834e8e6ac5417706c7e855d38294d1",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -903,7 +904,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.12",
+      "version": "1.3.13",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1950,13 +1951,13 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
+      "integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8"
     },
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable public school world, card catalog, and First Bell experience.",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2094,7 +2095,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:a6cd0983e10a75cf05abbc502a124f3d6b65079ade12c539c892a46def0a4104"
+      "integrity": "sha256:86a4047049681121531d06b27dbc978d86a8046961b5efa3f7a5b1d0934dec1d"
     },
     {
       "id": "cosyworld.composition.core-ruby",

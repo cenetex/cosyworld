@@ -10,7 +10,7 @@
     "blurb": "A brisk landlady mouse who knits aggressively, keeps the kettle loaded, and has opinions about your boots.",
     "aspect": "tall",
     "source": "cosyworld_core",
-    "asset_status": "pending_art",
+    "asset_status": "source_art",
     "art": {
       "label": "Rati",
       "role": "resident",
@@ -20,6 +20,7 @@
       "accent": "#efc96b",
       "glyph": "RA"
     },
+    "image_url": "/assets/generated/cards/rati.png",
     "pack_id": "cosyworld.core"
   },
   {

@@ -1175,7 +1175,7 @@ mod tests {
         );
         assert_eq!(
             runtime.item_provenance[&bloom_item_id].origin,
-            "craft:refine-iron-bloom@2:cosyworld.core@1.3.12"
+            "craft:refine-iron-bloom@2:cosyworld.core@1.3.13"
         );
         assert_eq!(
             events
