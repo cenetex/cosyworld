@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.20 — 2026-08-12
+
+- Redesign Travel confirmation around the destination and route context, with
+  compact neutral and primary actions instead of repetitive copy and controls.
+
 ## 1.0.19 — 2026-08-12
 
 - Keep one illustrated journey tracker and fold its way, party, and next-step
