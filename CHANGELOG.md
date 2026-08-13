@@ -1,9 +1,19 @@
 # Changelog
 
-## 1.0.21 — 2026-08-12
+## 1.0.23 — 2026-08-12
 
 - Restrict the browser state projection to an explicit public allowlist, load
   room history separately, and validate action details on the server.
+
+## 1.0.22 — 2026-08-12
+
+- Move pending human gift consent into the recipient's action hand, mark the
+  corresponding room avatars, and cancel the offer when either player leaves.
+
+## 1.0.21 — 2026-08-12
+
+- Redesign Travel confirmation around the destination and route context, with
+  compact neutral and primary actions instead of repetitive copy and controls.
 
 ## 1.0.20 — 2026-08-12
 
