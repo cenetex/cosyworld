@@ -2839,19 +2839,22 @@
     }
     .action-dialog {
       display: grid;
-      gap: 10px;
+      gap: 0;
+      width: min(440px, calc(100vw - 28px));
+      padding: 0;
+      overflow: hidden auto;
     }
     .action-art {
       clear: both;
-      border: 1px solid var(--line-strong);
+      border: 0;
+      border-bottom: 1px solid var(--line);
       background: rgba(101, 230, 138, 0.06);
-      border-radius: 4px;
       overflow: hidden;
     }
     .action-art img {
       display: block;
       width: 100%;
-      aspect-ratio: 16 / 10;
+      aspect-ratio: 16 / 9;
       object-fit: cover;
       background: rgba(16, 25, 18, 0.72);
     }
@@ -2864,21 +2867,44 @@
         radial-gradient(circle at 50% 42%, rgba(239, 201, 107, 0.12), transparent 56%),
         rgba(16, 25, 18, 0.72);
     }
+    .action-copy {
+      display: grid;
+      gap: 5px;
+      padding: 16px 18px 0;
+    }
+    .action-eyebrow {
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .action-eyebrow[hidden],
+    .action-summary:empty {
+      display: none;
+    }
     .action-title {
       margin: 0;
       color: var(--amber);
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 900;
-      line-height: 1.15;
+      line-height: 1.12;
+      text-wrap: balance;
     }
     .action-summary {
-      color: var(--text);
-      line-height: 1.35;
+      color: var(--dim);
+      font-size: 14px;
+      line-height: 1.4;
       overflow-wrap: anywhere;
     }
     .action-meta {
       display: grid;
       gap: 6px;
+      margin: 14px 18px 0;
+    }
+    .action-meta:empty {
+      display: none;
     }
     .action-row {
       display: grid;
@@ -2903,6 +2929,7 @@
     .action-choice-list {
       display: grid;
       gap: 7px;
+      margin: 14px 18px 0;
     }
     .action-choice-list[hidden] {
       display: none;
@@ -2944,33 +2971,45 @@
     }
     .action-confirm {
       min-height: 42px;
+      padding: 0 16px;
       border: 1px solid rgba(101, 230, 138, 0.5);
       border-radius: 4px;
-      background: rgba(101, 230, 138, 0.14);
-      color: var(--green);
+      background: rgba(101, 230, 138, 0.18);
+      color: var(--amber);
       font: inherit;
       font-weight: 900;
+    }
+    .action-confirm:hover {
+      background: rgba(101, 230, 138, 0.25);
     }
     .action-confirm:focus-visible {
       outline: 2px solid rgba(101, 230, 138, 0.86);
       outline-offset: 2px;
     }
     .action-cancel {
-      width: 100%;
       min-height: 40px;
-      border: 1px solid rgba(var(--type-danger-rgb), 0.58);
+      padding: 0 16px;
+      border: 1px solid var(--line);
       border-radius: 4px;
-      background: rgba(var(--type-danger-rgb), 0.16);
-      color: var(--red);
+      background: transparent;
+      color: var(--dim);
       font: inherit;
-      font-weight: 900;
+      font-weight: 800;
     }
     .action-cancel:hover {
-      background: rgba(var(--type-danger-rgb), 0.24);
+      border-color: var(--line-strong);
+      background: rgba(216, 247, 220, 0.06);
+      color: var(--text);
     }
     .action-cancel:focus-visible {
-      outline: 2px solid rgba(var(--type-danger-rgb), 0.86);
+      outline: 2px solid var(--amber);
       outline-offset: 2px;
+    }
+    .action-actions {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      padding: 18px;
     }
     .wallet-title {
       clear: both;
@@ -5093,12 +5132,17 @@
   <div class="action-modal" id="action-modal" hidden>
     <section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="action-modal-title" tabindex="-1" data-player-concept="action">
       <div class="action-art"><img id="action-modal-image" alt="" /></div>
-      <h2 class="action-title" id="action-modal-title"></h2>
-      <div class="action-summary" id="action-modal-summary"></div>
+      <div class="action-copy">
+        <div class="action-eyebrow" id="action-modal-eyebrow" hidden></div>
+        <h2 class="action-title" id="action-modal-title"></h2>
+        <div class="action-summary" id="action-modal-summary"></div>
+      </div>
       <div class="action-meta" id="action-modal-meta"></div>
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
-      <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
-      <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>cancel</button>
+      <div class="action-actions">
+        <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>not now</button>
+        <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
+      </div>
     </section>
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
@@ -7560,6 +7604,7 @@
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeLabel = String(firstExit.route_label || "").trim();
+          const routeWayName = routeLabel.replace(/\s+from\s+.+\s+to\s+.+$/i, "").trim();
           const conciseRouteLabel = routeLabel.replace(
             /^(.*?)\s+from\s+.+\s+to\s+(.+)$/i,
             "$1 to $2",
@@ -7607,22 +7652,25 @@
               : (cardForLocation(view.location?.id) || cardForLocation(firstExit.destination_location_id)),
             shape: "location",
             priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
+            modalEyebrow: onePath
+              ? (firstPathwayDirection ? "On the road" : (fleeing ? "Way out" : (searchingPathway ? "Pathway scout" : "Destination")))
+              : (fleeing ? "Way out" : (searchingPathway ? "Pathway scout" : "Travel")),
             modalTitle: onePath
-              ? undefined
-              : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel")),
+              ? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)
+              : (fleeing ? "Choose a way out" : "Choose a destination"),
             modalSummary: onePath
               ? (firstPathwayDirection
-                ? `Move one stretch toward ${firstPathwayDirection.endpointName}.`
+                ? `Take the next stretch${routeWayName ? ` via ${routeWayName}` : ""}.`
                 : fleeing
-                ? `Leave the danger behind and hurry toward ${firstExit.destination_location_name}.`
+                ? `Leave the danger behind${routeWayName ? ` via ${routeWayName}` : ""}.`
                 : (searchingPathway
-                  ? `Reveal the first adjacent stretch toward ${firstExit.destination_location_name} without moving.`
-                  : `Travel to ${firstExit.destination_location_name}.`))
+                  ? "Reveal the first adjacent stretch without moving."
+                  : `${view.location?.name ? `From ${view.location.name}` : "From here"}${routeWayName ? ` via ${routeWayName}` : ""}.`))
               : (fleeing
-                ? "Choose a way out."
+                ? "Leave the danger behind."
                 : (searchingPathway
-                  ? "Choose a destination and reveal its next adjacent route segment without moving."
-                  : "Choose where to travel.")),
+                  ? "Reveal its next adjacent route segment without moving."
+                  : `${view.location?.name ? `From ${view.location.name}.` : "Choose where the road leads next."}`)),
             effect: onePath
               ? (firstPathwayDirection
                 ? (Number(firstExit.destination_location_id) === Number(firstPathwayDirection.endpointId)
@@ -15371,7 +15419,10 @@
       if (String(action?.intention || "") === "contribute") {
         return String(action?.project?.verb || "contribute").toLowerCase();
       }
-      if (["notice", "inspect", "scout", "travel"].includes(String(action?.intention || ""))) {
+      if (String(action?.intention || "") === "travel") {
+        return action?.choices?.length ? "travel" : "travel there";
+      }
+      if (["notice", "inspect", "scout"].includes(String(action?.intention || ""))) {
         return label || String(action.intention);
       }
       if (label === "begin again") return "begin again";
@@ -15396,6 +15447,12 @@
       return fallback === "act" ? "take this turn" : fallback;
     }
 
+    function actionCancelLabel(action) {
+      if (action?.creationStage === "origin") return "back";
+      if (["travel", "flee"].includes(String(action?.intention || "").toLowerCase())) return "stay here";
+      return "not now";
+    }
+
     function openActionModal(action) {
       if (!action || actionBusy) return;
       if (action.kind === "orb-chat" && pendingChats.length) {
@@ -15409,13 +15466,16 @@
         ? (action.choices.find((choice) => String(choice.value || "") === String(action.selectedChoice || "")) || action.choices[0])
         : null;
       syncActionChoicePreview(action, selectedChoice);
+      const eyebrow = String(action.modalEyebrow || "").trim();
+      $("action-modal-eyebrow").textContent = eyebrow;
+      $("action-modal-eyebrow").hidden = !eyebrow;
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
       renderActionModalRows(action);
       renderActionChoices(action);
       renderRoomAvatarRail();
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
-      $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
+      $("action-modal-cancel").textContent = actionCancelLabel(action);
       openModal("action-modal", $("action-modal-confirm"));
     }
 
@@ -15486,7 +15546,9 @@
       $("action-modal-meta").innerHTML = "";
       $("action-modal-choices").hidden = true;
       $("action-modal-choices").innerHTML = "";
-      $("action-modal-cancel").textContent = "cancel";
+      $("action-modal-eyebrow").hidden = true;
+      $("action-modal-eyebrow").textContent = "";
+      $("action-modal-cancel").textContent = "not now";
       actionConfirmAction = null;
       renderRoomAvatarRail();
     }

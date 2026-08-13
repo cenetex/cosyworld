@@ -1737,8 +1737,8 @@ async function main() {
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);
-    assert(travel?.title === "travel to rain-soft garden", `Travel confirmation should name the destination plainly: ${JSON.stringify(result)}`);
-    assert(travel?.summary === "Travel to Rain-Soft Garden.", `Travel confirmation should describe the story beat: ${JSON.stringify(result)}`);
+    assert(travel?.title === "Rain-Soft Garden", `Travel confirmation should use the destination as its heading: ${JSON.stringify(result)}`);
+    assert(travel?.summary === "From The Cosy Cottage.", `Travel confirmation should add origin context without repeating the destination: ${JSON.stringify(result)}`);
     assert(travel?.rows?.some((row) => row[1] === "you arrive in Rain-Soft Garden"), `Travel confirmation should explain where the player ends up: ${JSON.stringify(result)}`);
   }
 
@@ -3545,15 +3545,16 @@ async function main() {
         const confirmButton = document.querySelector("#action-modal-confirm");
         const cancelButton = document.querySelector("#action-modal [data-action-close]");
         const modal = {
+          eyebrow: document.querySelector("#action-modal-eyebrow")?.textContent?.trim() || "",
           title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
           summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
           confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
           cancel: cancelButton?.textContent?.trim() || "",
           cancelClass: cancelButton?.classList.contains("action-cancel") || false,
-          cancelAfterConfirm: Boolean(
+          cancelBeforeConfirm: Boolean(
             confirmButton
               && cancelButton
-              && (confirmButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING),
+              && (cancelButton.compareDocumentPosition(confirmButton) & Node.DOCUMENT_POSITION_FOLLOWING),
           ),
           confirmStyle: confirmButton ? {
             color: getComputedStyle(confirmButton).color,
@@ -3672,17 +3673,18 @@ async function main() {
         && result.selectedPreview.objectFit === "cover",
       `selecting a Travel destination should preview that Location card: ${JSON.stringify(result)}`,
     );
-    assert(result.modal.title === "choose where to travel", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
-    assert(result.modal.summary === "Choose where to travel.", `grouped Travel should explain the gesture plainly: ${JSON.stringify(result)}`);
+    assert(result.modal.eyebrow === "Travel", `grouped Travel should identify the action without repeating it in the heading: ${JSON.stringify(result)}`);
+    assert(result.modal.title === "Choose a destination", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
+    assert(result.modal.summary === "From Bethlehem.", `grouped Travel should add useful origin context: ${JSON.stringify(result)}`);
     assert(result.modal.confirm === "travel", `grouped Travel should keep the core Travel confirmation: ${JSON.stringify(result)}`);
     assert(
-      result.modal.cancel === "cancel"
+      result.modal.cancel === "stay here"
         && result.modal.cancelClass
-        && result.modal.cancelAfterConfirm
-        && result.modal.cancelStyle?.width === result.modal.confirmStyle?.width
+        && result.modal.cancelBeforeConfirm
+        && result.modal.cancelStyle?.width !== result.modal.confirmStyle?.width
         && result.modal.cancelStyle?.color !== result.modal.confirmStyle?.color
         && result.modal.cancelStyle?.background !== result.modal.confirmStyle?.background,
-      `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
+      `Travel modals should place a quiet Stay here choice beside the primary action: ${JSON.stringify(result)}`,
     );
     assert(result.modal.rows.length === 0, `Travel confirmation should stay to one sentence plus the destination choices: ${JSON.stringify(result)}`);
     assert(
@@ -4483,6 +4485,116 @@ async function main() {
     assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
     assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
     assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
+  }
+
+  async function assertHumanGiftHandoffUsesRecipientHandAndAvatarRail() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      try {
+        const gift = {
+          id: "gift-5000-5001-2005",
+          kind: "gift",
+          offered_by_actor_id: 5000,
+          offered_by_actor_name: "Giver",
+          offered_to_actor_id: 5001,
+          offered_to_actor_name: "Receiver",
+          offered_item_id: 2005,
+          offered_item_name: "Story Button",
+        };
+        const certificate = {
+          offer_id: "core:17:accept_transfer:gift-5000-5001-2005",
+          id: "accept_transfer:gift-5000-5001-2005",
+          kind: "accept_transfer",
+          claim_key: gift.id,
+          rank: 0,
+          verb: "Accept",
+          label: "Accept Story Button from Giver",
+          effect: "Story Button passes from Giver to you",
+          target: { kind: "actor", id: 5000, label: "Giver" },
+          provider: { kind: "pending_gift", id: `transfer:${gift.id}`, label: "Story Button" },
+        };
+        const baseState = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          actors: [
+            { id: 5000, name: "Giver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+            { id: 5001, name: "Receiver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+          ],
+          items: [{ id: 2005, name: "Story Button", holder_actor_id: 5000 }],
+          exits: [],
+          room_features: [],
+          cards: { actors: {}, items: {}, locations: {} },
+          economy: {},
+          ledger: {},
+          primary_action: { options: [] },
+          action_offers: [],
+          action_hand: { entries: [] },
+          safety: { incoming_offers: [], outgoing_offers: [], gift_auto_accepts: [] },
+        };
+
+        actorId = 5001;
+        state = {
+          ...baseState,
+          action_offers: [certificate],
+          action_hand: { entries: [{ offer_id: certificate.offer_id, kind: certificate.kind }] },
+          safety: { ...baseState.safety, incoming_offers: [gift] },
+        };
+        actions = buildActions(state);
+        const accept = actions.find((candidate) => candidate.focusKey === `accept-transfer:${gift.id}`);
+        const receiverRail = document.createElement("div");
+        receiverRail.innerHTML = roomAvatarRailHtml(state);
+        const giverFrame = [...receiverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Giver.")
+        ));
+
+        actorId = 5000;
+        state = {
+          ...baseState,
+          safety: { ...baseState.safety, outgoing_offers: [gift] },
+        };
+        const giverRail = document.createElement("div");
+        giverRail.innerHTML = roomAvatarRailHtml(state);
+        const receiverFrame = [...giverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Receiver.")
+        ));
+
+        return {
+          accept: accept ? {
+            label: accept.label,
+            detail: accept.detail,
+            command: accept.command,
+            focusKeys: accept.focusKeys,
+          } : null,
+          receiverSeesGiverMarker: Boolean(giverFrame?.querySelector(".room-avatar-transfer-marker")),
+          receiverGiverLabel: giverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+          giverSeesReceiverMarker: Boolean(receiverFrame?.querySelector(".room-avatar-transfer-marker")),
+          giverReceiverLabel: receiverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+      }
+    });
+    assert(
+      result.accept?.label === "accept"
+        && result.accept.detail === "Story Button from Giver"
+        && result.accept.command === "accept Story Button from Giver"
+        && result.accept.focusKeys.includes("actor:5000")
+        && result.accept.focusKeys.includes("item:2005"),
+      `a pending human gift should become the recipient's exact Accept card: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.receiverSeesGiverMarker
+        && result.receiverGiverLabel.includes("gift from Giver waiting for your answer"),
+      `the recipient should see the pending-gift marker on the giver: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.giverSeesReceiverMarker
+        && result.giverReceiverLabel.includes("gift offered to Receiver"),
+      `the giver should see the pending-gift marker on the recipient: ${JSON.stringify(result)}`,
+    );
   }
 
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
@@ -12558,7 +12670,7 @@ async function main() {
         .length,
     }));
     assert(modal.backgroundInert && modal.activeInside && modal.heading === "H2" && modal.exposedBackgroundControls === 0, `${label}: action dialog should isolate focus and expose a heading: ${JSON.stringify(modal)}`);
-    await page.locator("#action-modal [data-action-close]").focus();
+    await page.locator("#action-modal-confirm").focus();
     await page.keyboard.press("Tab");
     assert(await page.evaluate(() => {
       const modal = document.querySelector("#action-modal");
@@ -12567,7 +12679,7 @@ async function main() {
       return document.activeElement === first;
     }), `${label}: Tab should wrap from the last dialog control to the first`);
     await page.keyboard.press("Shift+Tab");
-    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal [data-action-close]")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
+    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal-confirm")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#action-modal")?.hidden === true && !document.querySelector(".shell")?.hasAttribute("inert"));
     await page.waitForFunction(() => document.activeElement?.id === "primary");
@@ -14283,6 +14395,7 @@ async function main() {
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
   await assertAvatarItemsUseDisclosureAndExactActions();
+  await assertHumanGiftHandoffUsesRecipientHandAndAvatarRail();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
   await assertCharmSlotExpansionIsDemandDriven();
   await assertBondSurfacesAsCompactRelationshipAction();
