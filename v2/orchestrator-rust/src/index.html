@@ -586,12 +586,17 @@
     .room-hero.pathway .room-avatar-rail { display: none; }
     .pathway-stage-head {
       display: flex;
-      align-items: baseline;
+      align-items: start;
       justify-content: space-between;
       gap: 12px;
       min-width: 0;
     }
-    .pathway-stage-head strong {
+    .pathway-stage-title {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .pathway-stage-title strong {
       min-width: 0;
       overflow: hidden;
       font-family: Georgia, "Times New Roman", serif;
@@ -600,7 +605,17 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .pathway-stage-head span {
+    .pathway-stage-meta {
+      min-width: 0;
+      overflow: hidden;
+      color: rgba(255, 243, 212, 0.7);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.025em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pathway-stage-progress {
       flex: 0 0 auto;
       color: rgba(255, 243, 212, 0.76);
       font-size: 10px;
@@ -1592,8 +1607,6 @@
       .chat-thinking-dots > i { animation: none; opacity: 0.72; }
       .arrival-scene::before { animation: none; opacity: 0.9; }
       .expedition-ring.committed-change { animation: none; }
-      .journey-progress-fill,
-      .journey-progress-party { transition: none; }
     }
     .chat-pfp {
       width: 32px;
@@ -3536,8 +3549,9 @@
       }
       .room-hero.pathway { height: 156px; }
       .pathway-stage { padding: 10px 12px 9px; }
-      .pathway-stage-head strong { font-size: 16px; }
-      .pathway-stage-head span { font-size: 9px; }
+      .pathway-stage-title strong { font-size: 16px; }
+      .pathway-stage-meta,
+      .pathway-stage-progress { font-size: 9px; }
       .pathway-track-wrap { margin-inline: 17px; }
       .pathway-directions { font-size: 10px; gap: 8px; }
       .room-avatar-rail {
@@ -4527,165 +4541,6 @@
       font-size: 12px;
       text-align: center;
     }
-    .journey-strip {
-      position: relative;
-      display: grid;
-      gap: 10px;
-      margin: 0 -16px -12px;
-      padding: 12px 16px 13px;
-      border-top: 1px solid rgba(239, 201, 107, 0.2);
-      background:
-        linear-gradient(90deg, rgba(239, 201, 107, 0.075), transparent 36%),
-        rgba(7, 13, 9, 0.76);
-      overflow: hidden;
-    }
-    .journey-strip[hidden] { display: none; }
-    .journey-strip::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(255, 255, 255, 0.012) 22px 23px);
-    }
-    .journey-heading,
-    .journey-foot {
-      position: relative;
-      z-index: 1;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .journey-title {
-      min-width: 0;
-      display: grid;
-      gap: 1px;
-    }
-    .journey-kicker {
-      color: var(--green);
-      font-size: 9px;
-      font-weight: 850;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-    .journey-destination {
-      min-width: 0;
-      overflow: hidden;
-      color: var(--text);
-      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
-      font-size: 17px;
-      font-weight: 650;
-      line-height: 1.2;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .journey-way {
-      min-width: 0;
-      overflow: hidden;
-      color: var(--amber);
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 1.3;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .journey-remaining,
-    .journey-next {
-      color: var(--dim);
-      font-size: 11px;
-      line-height: 1.3;
-    }
-    .journey-remaining {
-      flex: 0 0 auto;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .journey-progress {
-      position: relative;
-      z-index: 1;
-      height: 10px;
-      border: 1px solid rgba(239, 201, 107, 0.3);
-      border-radius: 999px;
-      background: rgba(3, 7, 4, 0.82);
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.58);
-    }
-    .journey-progress-fill {
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: var(--journey-progress, 0%);
-      border-radius: inherit;
-      background: linear-gradient(90deg, rgba(101, 230, 138, 0.72), var(--amber));
-      transition: width 320ms ease;
-    }
-    .journey-progress-stops {
-      position: absolute;
-      inset: 0 5px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .journey-progress-stop {
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: rgba(248, 237, 207, 0.5);
-      box-shadow: 0 0 0 2px rgba(5, 8, 6, 0.64);
-    }
-    .journey-progress-party {
-      position: absolute;
-      top: 50%;
-      left: clamp(8px, var(--journey-progress, 0%), calc(100% - 8px));
-      width: 18px;
-      height: 18px;
-      display: grid;
-      place-items: center;
-      border: 2px solid var(--amber);
-      border-radius: 50%;
-      background: #102016;
-      color: var(--text);
-      transform: translate(-50%, -50%);
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.54);
-      transition: left 320ms ease;
-    }
-    .journey-progress-party .ui-icon { width: 11px; height: 11px; }
-    .journey-party {
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-    }
-    .journey-party-faces {
-      display: flex;
-      align-items: center;
-      padding-left: 3px;
-    }
-    .journey-party-face {
-      width: 24px;
-      height: 24px;
-      margin-left: -4px;
-      border: 2px solid #101a12;
-      border-radius: 50%;
-      background: rgba(13, 20, 15, 0.94) center / cover no-repeat;
-      box-shadow: 0 0 0 1px rgba(239, 201, 107, 0.34);
-    }
-    .journey-party-face.you { box-shadow: 0 0 0 1px var(--amber); }
-    .journey-party-label {
-      min-width: 0;
-      overflow: hidden;
-      color: var(--text);
-      font-size: 11px;
-      font-weight: 700;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .journey-next {
-      min-width: 0;
-      overflow: hidden;
-      text-align: right;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     .party-channel-heading {
       position: sticky;
       top: -12px;
@@ -4726,14 +4581,6 @@
     .log.journey-mode.room-mode .chat-empty { margin: auto; }
 
     @media (max-width: 900px) {
-      .journey-strip {
-        margin: 0 -12px -11px;
-        padding: 10px 12px 11px;
-      }
-      .journey-heading { align-items: end; }
-      .journey-destination { font-size: 15px; }
-      .journey-foot { gap: 8px; }
-      .journey-next { max-width: 46%; }
       .party-channel-heading {
         top: -12px;
         margin-inline: -16px;
@@ -5155,28 +5002,6 @@
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
         </div>
-        <section class="journey-strip" id="journey-strip" aria-labelledby="journey-destination" hidden>
-          <header class="journey-heading">
-            <div class="journey-title">
-              <span class="journey-kicker">Journey</span>
-              <strong class="journey-destination" id="journey-destination"></strong>
-              <span class="journey-way" id="journey-way"></span>
-            </div>
-            <span class="journey-remaining" id="journey-remaining"></span>
-          </header>
-          <div class="journey-progress" id="journey-progress" role="progressbar" aria-valuemin="0">
-            <span class="journey-progress-fill" aria-hidden="true"></span>
-            <span class="journey-progress-stops" id="journey-progress-stops" aria-hidden="true"></span>
-            <span class="journey-progress-party" aria-hidden="true"></span>
-          </div>
-          <footer class="journey-foot">
-            <div class="journey-party">
-              <span class="journey-party-faces" id="journey-party-faces" aria-hidden="true"></span>
-              <span class="journey-party-label" id="journey-party-label"></span>
-            </div>
-            <span class="journey-next" id="journey-next"></span>
-          </footer>
-        </section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -10952,6 +10777,14 @@
       const position = Math.max(0, Math.min(100, (currentStep / totalSteps) * 100));
       const originName = String(journey.origin_name || "the way back");
       const destinationName = String(journey.destination_name || "the destination");
+      const wayName = String(journey.way_name || `Way to ${destinationName}`);
+      const partyCount = journeyPartyActors(view).length || 1;
+      const travellerWord = partyCount === 1 ? "traveller" : "travellers";
+      const meta = [
+        wayName,
+        `${partyCount} ${travellerWord}`,
+        journeyNextStepLabel(journey),
+      ].filter(Boolean).join(" · ");
       const avatar = actorForId(actorId);
       const avatarCard = cardForActor(actorId);
       const avatarName = avatar ? actorLabel(avatar) : "Your avatar";
@@ -10965,7 +10798,7 @@
         const passed = point <= position ? " passed" : "";
         return `<span class="pathway-track-point${passed}" style="--pathway-point:${point.toFixed(2)}%" aria-hidden="true"></span>`;
       }).join("");
-      return `<div class="pathway-stage-head"><strong>${escapeHtml(originName)} — ${escapeHtml(destinationName)}</strong><span>stretch ${currentStep} of ${totalSteps}</span></div><div class="pathway-track-wrap" style="--pathway-position:${position.toFixed(2)}%"><span class="pathway-track" aria-hidden="true"></span><span class="pathway-track-progress" aria-hidden="true"></span>${points}<span class="pathway-avatar-position" style="${avatarStyle}" aria-hidden="true">${avatarImage ? "" : escapeHtml(initials(avatarName))}</span></div><div class="pathway-directions"><span>to ${escapeHtml(originName)}</span><span>to ${escapeHtml(destinationName)}</span></div>`;
+      return `<div class="pathway-stage-head"><div class="pathway-stage-title"><strong>${escapeHtml(originName)} — ${escapeHtml(destinationName)}</strong><span class="pathway-stage-meta" id="pathway-stage-meta">${escapeHtml(meta)}</span></div><span class="pathway-stage-progress">stretch ${currentStep} of ${totalSteps}</span></div><div class="pathway-track-wrap" style="--pathway-position:${position.toFixed(2)}%"><span class="pathway-track" aria-hidden="true"></span><span class="pathway-track-progress" aria-hidden="true"></span>${points}<span class="pathway-avatar-position" style="${avatarStyle}" aria-hidden="true">${avatarImage ? "" : escapeHtml(initials(avatarName))}</span></div><div class="pathway-directions"><span>to ${escapeHtml(originName)}</span><span>to ${escapeHtml(destinationName)}</span></div>`;
     }
 
     function renderPathwayStage(view = state) {
@@ -10974,9 +10807,11 @@
       stage.hidden = !journey;
       stage.innerHTML = journey ? pathwayStageHtml(view) : "";
       if (journey) {
+        const partyCount = journeyPartyActors(view).length || 1;
+        const wayName = String(journey.way_name || `Way to ${journey.destination_name || "the destination"}`);
         stage.setAttribute(
           "aria-label",
-          `On the pathway from ${journey.origin_name || "the way back"} to ${journey.destination_name || "the destination"}. Stretch ${journey.current_step} of ${journey.total_steps}.`,
+          `On ${wayName}, from ${journey.origin_name || "the way back"} to ${journey.destination_name || "the destination"}. Stretch ${journey.current_step} of ${journey.total_steps}. ${partyCount} ${partyCount === 1 ? "traveller" : "travellers"}. ${journeyNextStepLabel(journey)}.`,
         );
       } else {
         stage.removeAttribute("aria-label");
@@ -11005,7 +10840,6 @@
         ? (renderSpatialScene(null), false)
         : renderSpatialScene(state?.spatial_scene);
       roomHero.classList.toggle("spatial", hasSpatialScene);
-      renderJourney();
       $("location-name").textContent = pathwayJourney
         ? `on the way to ${pathwayJourney.destination_name || "the destination"}`
         : (location.name || "Unknown");
@@ -11044,68 +10878,12 @@
         });
     }
 
-    function journeyPartyFaceHtml(actor) {
-      const card = cardForActor(actor.id);
-      const fallback = card || {
-        display_name: actor.name || "Traveller",
-        role: "avatar",
-        aspect: "tall",
-      };
-      const image = cardImage(card) || fallbackCardImage(fallback);
-      const you = Number(actor.id) === Number(actorId);
-      return `<span class="journey-party-face${you ? " you" : ""}" title="${escapeAttr(you ? `${actorLabel(actor)} (you)` : actorLabel(actor))}"${backgroundImageStyle(image)}></span>`;
-    }
-
-    function journeyNextStepText(journey) {
+    function journeyNextStepLabel(journey) {
       const nextName = String(journey?.next_location_name || "").trim();
-      if (!nextName) return "Choose how the party makes camp.";
-      if (/^unexplored stretch\b/i.test(nextName)) return "Next: scout the road ahead";
-      if (Number(journey?.steps_remaining || 0) <= 1) return `Next: arrive at ${journey.destination_name}`;
-      return `Next: press on to ${nextName}`;
-    }
-
-    function renderJourney(view = state) {
-      const strip = $("journey-strip");
-      const journey = view?.journey || null;
-      const active = Boolean(
-        journey
-        && Number(journey.total_steps || 0) > 0
-        && Number(journey.steps_remaining || 0) > 0
-      );
-      document.querySelector(".terminal")?.classList.toggle("journey-active", active);
-      strip.hidden = !active;
-      if (!active) {
-        strip.removeAttribute("aria-label");
-        return;
-      }
-      const total = Math.max(1, Number(journey.total_steps || 1));
-      const current = Math.max(0, Math.min(total, Number(journey.current_step || 0)));
-      const remaining = Math.max(0, total - current);
-      const percent = Math.max(0, Math.min(100, (current / total) * 100));
-      const destination = String(journey.destination_name || "the destination");
-      const wayName = String(journey.way_name || `Way to ${destination}`);
-      const party = journeyPartyActors(view);
-      const travellerWord = party.length === 1 ? "traveller" : "travellers";
-      $("journey-destination").textContent = destination;
-      $("journey-way").textContent = wayName;
-      $("journey-remaining").textContent = `${remaining} ${remaining === 1 ? "stretch" : "stretches"} to go`;
-      $("journey-party-faces").innerHTML = party.slice(0, 5).map(journeyPartyFaceHtml).join("");
-      $("journey-party-label").textContent = `${party.length || 1} ${travellerWord} together`;
-      $("journey-next").textContent = journeyNextStepText(journey);
-      const progress = $("journey-progress");
-      progress.style.setProperty("--journey-progress", `${percent}%`);
-      progress.setAttribute("aria-valuemax", String(total));
-      progress.setAttribute("aria-valuenow", String(current));
-      progress.setAttribute("aria-valuetext", `${current} of ${total} stretches travelled toward ${destination}; ${remaining} remaining`);
-      $("journey-progress-stops").innerHTML = Array.from(
-        { length: total + 1 },
-        () => '<i class="journey-progress-stop"></i>',
-      ).join("");
-      progress.querySelector(".journey-progress-party").innerHTML = iconSvg("travel");
-      strip.setAttribute(
-        "aria-label",
-        `Journey to ${destination} via ${wayName}. ${current} of ${total} stretches travelled. ${party.length || 1} ${travellerWord} together.`,
-      );
+      if (!nextName) return "make camp";
+      if (/^unexplored stretch\b/i.test(nextName)) return "next scout ahead";
+      if (Number(journey?.steps_remaining || 0) <= 1) return `next ${journey.destination_name}`;
+      return `next ${nextName}`;
     }
 
     function renderEconomy() {
@@ -12998,9 +12776,7 @@
 
     function travellingPartyHeaderHtml(view = state) {
       if (!view?.journey) return "";
-      const party = journeyPartyActors(view);
-      const count = party.length || 1;
-      return `<header class="party-channel-heading"><span class="party-channel-title">${iconSvg("travel")}Travelling party</span><small>${escapeHtml(`${count} ${count === 1 ? "traveller" : "travellers"} · this conversation follows the road`)}</small></header>`;
+      return `<header class="party-channel-heading"><span class="party-channel-title">${iconSvg("travel")}Travelling party</span><small>conversation follows the road</small></header>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
