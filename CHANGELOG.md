@@ -5,6 +5,12 @@
 - Redesign Travel confirmation around the destination and route context, with
   compact neutral and primary actions instead of repetitive copy and controls.
 
+## 1.0.20 — 2026-08-12
+
+- Clarify that semantic instruments rank only facts a holder can already reach,
+  remain subordinate to the authoritative fact contract, and never become a
+  source of history or provenance.
+
 ## 1.0.19 — 2026-08-12
 
 - Keep one illustrated journey tracker and fold its way, party, and next-step
