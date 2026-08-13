@@ -609,7 +609,7 @@
       "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
     }
   },
-  "bundle_hash": "sha256:06faab50ec5a0439d3d84ac83f22680b766c795a2ac7bf59b1e9a6c3b44b8945",
+  "bundle_hash": "sha256:70d51da64a3b5a76ba543d3aca70059022d75f57c0102d750c93f74139857b06",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -773,7 +773,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.12",
+      "version": "1.3.13",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1820,7 +1820,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
+      "integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8"
     }
   ],
   "files": {

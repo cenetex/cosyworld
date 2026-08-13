@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.18 — 2026-08-12
+
+- Lock Rati's authored portrait into Core and Ruby High cards, recompiling every
+  affected composition while preserving production replay compatibility.
+
 ## 1.0.17 — 2026-08-12
 
 - Recover once from stale command observations when the refreshed hand still
