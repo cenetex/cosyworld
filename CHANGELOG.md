@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.26 — 2026-08-13
+
+- Declare the live official-world bundle replay-compatible with the additive
+  Ruby High population and art update, preserving its journal and checkpoint
+  across deployment.
+
 ## 1.0.25 — 2026-08-13
 
 - Double the deterministic kernel's actor capacity so one world can absorb all
