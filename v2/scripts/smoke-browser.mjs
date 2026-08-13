@@ -615,11 +615,32 @@ async function main() {
   async function assertActionBarCapped(label, expectedCount = null) {
     const buttons = await visibleCommandButtons();
     if (expectedCount === null) {
-      assert(buttons.length >= 1 && buttons.length <= 2, `${label} should expose one or two actions: ${JSON.stringify(buttons)}`);
+      assert(buttons.length >= 1 && buttons.length <= 3, `${label} should expose one to three Story Hand actions: ${JSON.stringify(buttons)}`);
     } else {
       assert(buttons.length === expectedCount, `${label} should expose ${expectedCount} action${expectedCount === 1 ? "" : "s"}: ${JSON.stringify(buttons)}`);
     }
     return buttons;
+  }
+
+  async function focusThinkableCard(label, preferredSlot = "") {
+    const focused = await page.evaluate((slot) => {
+      const thinkable = actionBarActions().filter((action) => (
+        projectedHandEntryForAction(action)?.think?.available === true
+      ));
+      const candidate = thinkable.find((action) => (
+        !slot || projectedHandEntryForAction(action)?.slot === slot
+      )) || (!slot ? thinkable[0] : null);
+      if (!candidate) return null;
+      focusIndex = candidate.actionIndex;
+      focusedKey = actionHandKey(candidate);
+      renderCommands();
+      return {
+        key: focusedKey,
+        slot: projectedHandEntryForAction(candidate)?.slot || "",
+      };
+    }, preferredSlot);
+    assert(focused?.key, `${label} needs a Story Hand card with an available Think`);
+    return focused;
   }
 
   async function assertBrowserDrawReachesEveryLegalAction() {
@@ -629,28 +650,29 @@ async function main() {
         .map((button) => button.dataset.handKey)
         .filter(Boolean),
       eventSeq: Math.max(0, ...logEvents
-        .filter((event) => event.type === "hand.shuffled")
+        .filter((event) => event.type === "hand.thought")
         .map((event) => Number(event.seq || 0))),
       drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
     }));
     const initial = await handSnapshot();
     assert(
-      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 2 && initial.drawVisible,
+      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && initial.drawVisible,
       `the opening scene should expose its finite hand and Think: ${JSON.stringify(initial)}`,
     );
+    await focusThinkableCard("opening scene");
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
-        && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+        && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
       page.locator("#shuffle").click(),
     ]);
     const receipt = await response.json();
-    const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+    const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
     assert(
       receipt.ok && Number(drawEvent?.seq || 0) > initial.eventSeq,
-      `Think should commit a newer hand.shuffled event: ${JSON.stringify(receipt)}`,
+      `Think should commit a newer hand.thought event: ${JSON.stringify(receipt)}`,
     );
     await page.waitForFunction(() => document.querySelector("#shuffle")?.disabled === false);
     const current = await handSnapshot();
@@ -661,20 +683,20 @@ async function main() {
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         drawFits: rect.left >= 0 && rect.right <= window.innerWidth,
-        journaled: logEvents.some((event) => event.type === "hand.shuffled"),
+        journaled: logEvents.some((event) => event.type === "hand.thought"),
       };
     });
     assert(
       current.visibleKeys.length >= 1
-        && current.visibleKeys.length <= 2
+        && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
         && layout.drawFits
         && layout.journaled,
-      `Think should replace the finite hand without opening a full-deck chooser: ${JSON.stringify({ initial, current, layout })}`,
+      `Think should replace one Story Hand card without opening the offer queue: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser Think deals the next finite hand",
+      label: "browser Think replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -1091,7 +1113,7 @@ async function main() {
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace === "nowrap" && guide.layout?.overflow === "hidden", `collapsed Journal guidance should stay on one line: ${JSON.stringify(guide)}`);
-    assert(guide.primary.toLowerCase().startsWith("notice"), `first-thread guidance should keep Notice in the dealt hand: ${JSON.stringify(guide)}`);
+    assert(guide.primary.toLowerCase().startsWith("wonder suit, notice"), `first-thread guidance should keep a Wonder · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(
       guide.settledNoticeStep?.stage === 2
@@ -1184,6 +1206,10 @@ async function main() {
   async function assertStalePassRefreshesAndRotatesReceipt() {
     const result = await page.evaluate(async () => {
       const previousState = state;
+      const previousActions = actions;
+      const previousHandKeys = handKeys;
+      const previousFocusIndex = focusIndex;
+      const previousFocusedKey = focusedKey;
       const previousActorId = actorId;
       const previousActorSession = actorSession;
       const previousSubmission = handPassSubmission;
@@ -1198,8 +1224,21 @@ async function main() {
         state = {
           world_seq: 19,
           primary_action: { kind: "check" },
-          action_hand: { pass: { offer_id: "pass:5000:19:1:ordinary" } },
+          action_hand: { entries: [{
+            slot: "story",
+            offer_id: "notice-19",
+            think: {
+              available: true,
+              slot: "story",
+              generation: 1,
+              offer_id: "think:5000:19:story:1:notice-19",
+            },
+          }] },
         };
+        actions = [{ label: "notice", focusKey: "check", offerIds: ["notice-19"] }];
+        handKeys = ["offer:notice-19"];
+        focusIndex = 0;
+        focusedKey = "check";
         actorId = 5000;
         actorSession = "stale-pass-test-session";
         handPassSubmission = null;
@@ -1214,8 +1253,19 @@ async function main() {
           state = {
             ...state,
             world_seq: 20,
-            action_hand: { pass: { offer_id: "pass:5000:20:1:ordinary" } },
+            action_hand: { entries: [{
+              slot: "story",
+              offer_id: "notice-20",
+              think: {
+                available: true,
+                slot: "story",
+                generation: 2,
+                offer_id: "think:5000:20:story:2:notice-20",
+              },
+            }] },
           };
+          actions = [{ label: "notice", focusKey: "check", offerIds: ["notice-20"] }];
+          handKeys = ["offer:notice-20"];
         };
         renderCommands = () => {};
         setError = (message) => errors.push(message);
@@ -1236,6 +1286,10 @@ async function main() {
         renderCommands = previousRenderCommands;
         setError = previousSetError;
         state = previousState;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        focusIndex = previousFocusIndex;
+        focusedKey = previousFocusedKey;
         actorId = previousActorId;
         actorSession = previousActorSession;
         handPassSubmission = previousSubmission;
@@ -1248,11 +1302,13 @@ async function main() {
         && result.retry?.ok === true
         && result.calls.length === 2
         && result.calls.every((call) => call.path === "/commands")
-        && result.calls[0]?.payload?.offer_id === "pass:5000:19:1:ordinary"
-        && result.calls[1]?.payload?.offer_id === "pass:5000:20:1:ordinary"
+        && result.calls[0]?.payload?.command === "think"
+        && result.calls[1]?.payload?.command === "think"
+        && result.calls[0]?.payload?.offer_id === "think:5000:19:story:1:notice-19"
+        && result.calls[1]?.payload?.offer_id === "think:5000:20:story:2:notice-20"
         && result.calls[0]?.payload?.envelope?.intent_id !== result.calls[1]?.payload?.envelope?.intent_id
         && result.submissionAfterStale === null,
-      "A definitive stale Pass must refresh the hand and use a new certificate on retry: "
+      "A definitive stale Think must refresh the selected slot and use a new certificate on retry: "
         + JSON.stringify(result),
     );
   }
@@ -1550,6 +1606,7 @@ async function main() {
             readableLabel.querySelectorAll(".card-emoji").forEach((emoji) => emoji.remove());
             return {
               text: readableLabel.textContent.trim(),
+              kicker: node.closest("button")?.querySelector(".cmd-kicker")?.textContent.trim() || "",
               clientWidth: node.closest("button")?.clientWidth || node.clientWidth,
               scrollWidth: node.closest("button")?.scrollWidth || node.scrollWidth,
             };
@@ -1592,10 +1649,10 @@ async function main() {
     assert(result.travelCards[0]?.focusKeys.length === 2, `grouped travel should keep both route focus targets: ${JSON.stringify(result)}`);
     assert(result.connectWalletActionCount === 0, `locked room routes should not deal wallet cards: ${JSON.stringify(result)}`);
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
-    const travelLabel = result.labels.find((entry) => entry.text === "go" || entry.text === "travel");
-    assert(travelLabel, `travel should remain a visible route action label: ${JSON.stringify(result)}`);
-    const listenLabel = result.labels.find((entry) => entry.text === "listen");
-    assert(listenLabel, `listen should remain a visible action label: ${JSON.stringify(result)}`);
+    const travelLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "travel");
+    assert(travelLabel, `travel should remain visible as the exact route verb: ${JSON.stringify(result)}`);
+    const listenLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "listen");
+    assert(listenLabel, `listen should remain visible as the exact action verb: ${JSON.stringify(result)}`);
     for (const label of [travelLabel, listenLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
     }
@@ -1715,7 +1772,6 @@ async function main() {
           focusKey: action.focusKey,
           intention: action.intention,
           accessibleLabel: action.accessibleLabel,
-          cardType: actionCardType(action),
           icon: actionEmoji(action),
           title: actionTitle(action),
           summary: actionSummary(action),
@@ -2218,6 +2274,7 @@ async function main() {
           const button = document.querySelector(`#${id}`);
           const action = actions[Number(button?.dataset?.actionIndex)];
           return {
+            kicker: button?.querySelector(".cmd-kicker")?.textContent?.trim() || "",
             label: button?.querySelector(".cmd-label")?.textContent?.trim() || "",
             detail: button?.querySelector(".detail")?.textContent?.trim() || "",
             offerIds: action?.offerIds || [],
@@ -2233,7 +2290,7 @@ async function main() {
       };
       try {
         actorId = 5000;
-        actorSession = "exact-two-card-binding";
+        actorSession = "exact-story-hand-binding";
         post = async (path, payload) => {
           submissions.push({ path, payload });
           return { ok: true, status: 200, events: [] };
@@ -2373,12 +2430,13 @@ async function main() {
     });
     const exactCards = (family, expected) => {
       assert(
-        JSON.stringify(family.rendered) === JSON.stringify(expected.map((entry) => ({
-          label: entry.label,
-          detail: entry.detail,
-          offerIds: [entry.offerId],
-        }))),
+        JSON.stringify(family.rendered.map((entry) => entry.offerIds))
+          === JSON.stringify(expected.map((entry) => [entry.offerId])),
         `two same-kind current offers must remain two distinct exact cards: ${JSON.stringify(family)}`,
+      );
+      assert(
+        new Set(family.rendered.map((entry) => `${entry.kicker}\u0000${entry.label}\u0000${entry.detail}`)).size === expected.length,
+        `same-kind cards should remain visibly distinguishable by verb, title, and effect: ${JSON.stringify(family)}`,
       );
       for (const submission of family.submissions) {
         for (const internal of [
@@ -3251,8 +3309,7 @@ async function main() {
       && result.reloadPending[0].profile === "speech"
       && result.reloadPending[0].stage === "generating", `reload must reconstruct the latest unmatched model interaction: ${JSON.stringify(result.reloadPending)}`);
     assert(result.duplicateCard?.disabled === true
-      && result.duplicateCard?.busy === "true"
-      && /synthesizing the line with the exact voice/i.test(result.duplicateCard?.text || ""), `a rehydrated durable interaction must keep its duplicate action disabled: ${JSON.stringify(result.duplicateCard)}`);
+      && result.duplicateCard?.busy === "true", `a rehydrated durable interaction must keep its duplicate action disabled: ${JSON.stringify(result.duplicateCard)}`);
     assert(result.gapPrepared === true && result.gapRehydrationCleared === true, `the SSE gap path must require and complete authoritative rehydration: ${JSON.stringify(result)}`);
     assert(result.gapPending?.length === 1
       && result.gapPending[0].queueEventSeq === 410
@@ -3678,7 +3735,7 @@ async function main() {
         && result.busy?.progressBars === 1
         && result.busy?.opacity === "1"
         && result.busy?.cursor === "progress"
-        && /travelling.*following the path to Rain-Silver Crossing/i.test(result.busy?.text || ""),
+        && /travel.*Rain-Silver Crossing/i.test(result.busy?.text || ""),
       `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
     );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
@@ -3719,13 +3776,13 @@ async function main() {
       `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
     );
     assert(
-      result.singleCard?.text === "Route to Jerusalem"
-        && result.singleCard?.label === "Route to Jerusalem"
+      result.singleCard?.text === "TRAVEL Rain-Silver Crossing free"
+        && result.singleCard?.label === "Rain-Silver Crossing"
         && !result.singleCard?.detail
         && !result.singleCard?.provider
         && !result.singleCard?.story
-        && result.singleCard?.aria === "Travel via Route to Jerusalem",
-      `a single Travel card should show only its concise destination: ${JSON.stringify(result)}`,
+        && result.singleCard?.aria === "control, Travel, Rain-Silver Crossing, free",
+      `a synthetic Travel offer without server presentation should show its exact verb and target while failing closed to a control: ${JSON.stringify(result)}`,
     );
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
@@ -3941,7 +3998,7 @@ async function main() {
           offer_id: "pickup-story-button",
           kind: "pick_up",
           target: { kind: "item", id: 2005, label: "Story Button" },
-          effect: "adds the floor item to your carried deck",
+          effect: "adds the floor item to your Pack",
         }],
         economy: {
           orbs: 0,
@@ -4108,7 +4165,7 @@ async function main() {
     assert(result.full.detail === "Story Button", `Take should name the incoming card: ${JSON.stringify(result)}`);
     assert(result.full.title === "pick up Story Button" && result.full.confirm === "take", `Take should keep its own verb through confirmation: ${JSON.stringify(result)}`);
     assert(result.full.summary === "Tuck Story Button into your keeping.", `Take should add the card without evicting another one: ${JSON.stringify(result)}`);
-    assert(result.empty.label === "take" && result.empty.detail === "Story Button", `an empty carried deck should still offer a simple Take card: ${JSON.stringify(result)}`);
+    assert(result.empty.label === "take" && result.empty.detail === "Story Button", `an empty Pack should still offer a simple Take card: ${JSON.stringify(result)}`);
     assert(result.empty.title === "pick up Story Button" && result.empty.confirm === "take", `Take should keep simple confirmation language: ${JSON.stringify(result)}`);
     assert(result.empty.summary === "Tuck Story Button into your keeping.", `Take should explain where the item goes: ${JSON.stringify(result)}`);
     assert(result.multiple.count === 1 && result.multiple.detail === "choose an item", `multiple floor items should share one Take card: ${JSON.stringify(result)}`);
@@ -4139,12 +4196,12 @@ async function main() {
           item_id: 2005,
           target_item_id: 2002,
         }),
-      `a full carried deck must submit the exact deterministic exchange chosen by the Rust authority: ${JSON.stringify(result.capacityExchange)}`,
+      `a full Pack must submit the exact deterministic exchange chosen by the Rust authority: ${JSON.stringify(result.capacityExchange)}`,
     );
     assert(result.searchConfirm === "search" && result.travelConfirm === "go", `every card should confirm with its own verb: ${JSON.stringify(result)}`);
   }
 
-  async function assertGiveTradeCanBeDrawnFromShuffledDeck() {
+  async function assertGiveTradeCanBeDealtInStoryHand() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -4190,10 +4247,28 @@ async function main() {
           { offer_id: "move", kind: "move", verb: "Travel", rank: 40, provider: { kind: "rules", id: "move", priority: 40 } },
         ],
         action_hand: {
-          pass: { offer_id: "pass:deck-test", label: "Think" },
           entries: [
-            { offer_id: "give", kind: "give_item", provider: { kind: "rules", id: "give", priority: 10 } },
-            { offer_id: "trade", kind: "trade_item", provider: { kind: "rules", id: "trade", priority: 20 } },
+            {
+              slot: "story",
+              offer_id: "give",
+              kind: "give_item",
+              provider: { kind: "rules", id: "give", priority: 10 },
+              think: { available: true, free: true, slot: "story", offer_id: "think:story-hand-test:story" },
+            },
+            {
+              slot: "self",
+              offer_id: "trade",
+              kind: "trade_item",
+              provider: { kind: "rules", id: "trade", priority: 20 },
+              think: { available: true, free: false, slot: "self", offer_id: "think:story-hand-test:self" },
+            },
+            {
+              slot: "anchor",
+              offer_id: "check",
+              kind: "check",
+              provider: { kind: "rules", id: "check", priority: 30 },
+              think: { available: true, free: false, slot: "anchor", offer_id: "think:story-hand-test:anchor" },
+            },
           ],
         },
         economy: {
@@ -4243,7 +4318,7 @@ async function main() {
       };
       state = fakeState;
       actorId = 5000;
-      actorSession = "deck-test";
+      actorSession = "story-hand-test";
       actions = buildActions(fakeState);
       handKeys = ["check", "exit:2"];
       discardedHandKeys = [];
@@ -4389,8 +4464,8 @@ async function main() {
       `a certified Trade card must not expose undealt swap choices: ${JSON.stringify(result)}`,
     );
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
-    assert(result.visibleHand.length === 2, `the authoritative browser hand should expose exactly two actions: ${JSON.stringify(result)}`);
-    assert(!result.hasThirdCard && result.hasShuffleCard, `the browser hand should keep two action cards beside its draw control: ${JSON.stringify(result)}`);
+    assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
+    assert(result.hasThirdCard && result.hasShuffleCard, `the browser should provide three Story Hand slots beside its Think control: ${JSON.stringify(result)}`);
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -4730,7 +4805,7 @@ async function main() {
     assert(result.demanded.includes("Thimble Charm teaches careful handwork"), `the slot prompt should explain why this charm needs room: ${JSON.stringify(result)}`);
     assert(result.demanded.includes("Your Journal has enough advancement"), `the slot prompt should explain its Journal source: ${JSON.stringify(result)}`);
     assert(result.demanded.includes("data-unlock-charm-slot"), `the demand-driven prompt should expose one capacity action: ${JSON.stringify(result)}`);
-    assert(!result.absent.includes("data-unlock-charm-slot") && !result.absent.includes("Make room for"), `Deck & Loadout should stay quiet when no concrete charm demand exists: ${JSON.stringify(result)}`);
+    assert(!result.absent.includes("data-unlock-charm-slot") && !result.absent.includes("Make room for"), `Pack & Loadout should stay quiet when no concrete charm demand exists: ${JSON.stringify(result)}`);
   }
 
   async function assertPlayerDefeatTransitionIsExplicit() {
@@ -6096,6 +6171,7 @@ async function main() {
           effect: "Rati bond +1",
           risk: "one-shot",
           detail: "Story Button, Rati bond +1",
+          target: { kind: "item", id: 2005, label: "Story Button" },
         });
         const simpleButtonTitle = probeButton.getAttribute("title") || "";
         const simpleButtonAria = probeButton.getAttribute("aria-label") || "";
@@ -6105,6 +6181,7 @@ async function main() {
           effect: "helps Moonlit Echo; finishes progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
           risk: "",
           detail: "finish, safe, bond +1",
+          target: { kind: "actor", id: 1004, label: "Moonlit Echo" },
         });
         const finishButtonTitle = probeButton.getAttribute("title") || "";
         renderButton("compact-meta-probe", {
@@ -6113,6 +6190,7 @@ async function main() {
           effect: "uses complete project evidence; sets up +3 progress",
           risk: "",
           detail: "setup +3",
+          target: { kind: "project", id: "moonlit-trail", label: "Moonlit Trail" },
         });
         const setupButtonTitle = probeButton.getAttribute("title") || "";
         actorId = 5000;
@@ -6322,10 +6400,10 @@ async function main() {
     assert(result.cozyMemory.some((entry) => entry.text === "Hearth Tonic changes hands."), `room memory should turn command-like Take copy into a room beat: ${JSON.stringify(result)}`);
     assert(result.cozyMemory.some((entry) => entry.text === "Skull carries Hearth Tonic toward Hearth."), `room memory should turn item-use hints into story language: ${JSON.stringify(result)}`);
     assert(result.cozyMemory.some((entry) => entry.label === "purpose" && entry.text === "I listen for odd jobs."), `room memory should keep the purpose without its setup prompt: ${JSON.stringify(result)}`);
-    assert(result.buttonTitle === "use Story Button; friendship with Rati grows; once", `button tooltip should use warm relationship copy: ${JSON.stringify(result)}`);
-    assert(result.finishButtonTitle === "assist; helps Moonlit Echo; finishes the work; first help brings you closer to Moonlit Echo", `finish tooltip should hide progress-clock jargon: ${JSON.stringify(result)}`);
-    assert(result.setupButtonTitle === "prepare; brings together every clue you found; makes the next try count", `setup tooltip should explain its payoff naturally: ${JSON.stringify(result)}`);
-    assert(result.buttonAria === "use, Story Button, friendship with Rati grows", `button aria copy should stay warm and readable: ${JSON.stringify(result)}`);
+    assert(result.buttonTitle === "use; Story Button; friendship with Rati grows; free · once", `button tooltip should follow verb, target, effect, and cost/risk order with warm copy: ${JSON.stringify(result)}`);
+    assert(result.finishButtonTitle === "help; Moonlit Echo; helps Moonlit Echo; finishes the work; first help brings you closer to Moonlit Echo; free", `finish tooltip should hide progress-clock jargon: ${JSON.stringify(result)}`);
+    assert(result.setupButtonTitle === "prepare; Moonlit Trail; brings together every clue you found; makes the next try count; free", `setup tooltip should explain its payoff naturally: ${JSON.stringify(result)}`);
+    assert(result.buttonAria === "control, use, Story Button, friendship with Rati grows, free, once", `button aria copy should preserve the same readable card-face order: ${JSON.stringify(result)}`);
     assert(result.finishDetail === "finishes the work", `finish effect copy should hide progress-clock text: ${JSON.stringify(result)}`);
     assert(result.setupDetail === "uses complete project evidence; makes the next try count", `compact setup copy should hide progress arithmetic before the friendlier rendering pass: ${JSON.stringify(result)}`);
     assert(result.orbGainText === "earned one" && result.orbSpendText === "spent two", `Orb changes should read as small events rather than signed arithmetic: ${JSON.stringify(result)}`);
@@ -6333,7 +6411,7 @@ async function main() {
     assert(result.sheetHtml.includes("journal") && result.sheetHtml.includes("something you noticed is ready to keep · you can strengthen a friendship or open bracelet space"), `Journal row should summarize growth without counted resources: ${JSON.stringify(result)}`);
     assert(!/memory marks?|growth points?|\b(?:one|two|three|four) (?:memories|chances)\b/i.test(result.sheetHtml), `Journal row should keep growth arithmetic out of the avatar sheet: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("purpose") && result.sheetHtml.includes("I stick my nose into lost-property trouble."), `avatar sheet should name purpose in everyday language: ${JSON.stringify(result)}`);
-    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Deck"), `avatar sheet should direct skill loadout changes to physical charms: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Pack"), `avatar sheet should direct Loadout changes to physical charms: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("friends") && result.sheetHtml.includes("I bring small kindnesses to Gust. (new friend)"), `friendship should show its statement and warm closeness instead of a raw strength number: ${JSON.stringify(result)}`);
     assert(!result.sheetHtml.includes("Gust 1"), `avatar sheet should not expose raw bond counters: ${JSON.stringify(result)}`);
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
@@ -9741,29 +9819,39 @@ async function main() {
     ), 8, stopWhen);
   }
 
-  async function passCertifiedHandForDraw(label) {
+  async function passCertifiedHandForDraw(label, preferredSlot = "") {
     let lastRejection = null;
-    const currentPassState = () => page.evaluate(() => ({
-      offerId: String(state?.action_hand?.pass?.offer_id || ""),
-      generation: Number(state?.action_hand?.generation || 0),
-    }));
-    const reconciledAsOneHandAdvance = (before, after) => (
-      after.offerId
-        && after.offerId !== before.offerId
+    const currentThinkState = (slot = "") => page.evaluate((expectedSlot) => {
+      const entry = expectedSlot
+        ? (state?.action_hand?.entries || []).find((candidate) => candidate?.slot === expectedSlot)
+        : projectedHandEntryForAction(visibleFocusedAction());
+      const think = entry?.think || {};
+      return {
+        offerId: String(think.offer_id || ""),
+        slot: String(think.slot || entry?.slot || ""),
+        generation: Number(think.generation || 0),
+      };
+    }, slot);
+    const reconciledAsOneSlotAdvance = (before, after) => (
+      after.offerId !== before.offerId
+        && after.slot === before.slot
         && after.generation === before.generation + 1
     );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await focusThinkableCard(label, preferredSlot);
       await page.waitForFunction(() => (
         actionBusy === false
           && refreshInFlight === null
           && document.querySelector("#shuffle")?.disabled === false
       ));
       const before = await page.evaluate(() => {
-        const pass = state?.action_hand?.pass || null;
+        const entry = projectedHandEntryForAction(visibleFocusedAction());
+        const think = entry?.think || {};
         const control = document.querySelector("#shuffle");
         return {
-          offerId: String(pass?.offer_id || ""),
-          generation: Number(state?.action_hand?.generation || 0),
+          offerId: String(think.offer_id || ""),
+          slot: String(think.slot || entry?.slot || ""),
+          generation: Number(think.generation || 0),
           controlId: control?.id || "",
           visible: Boolean(control && getComputedStyle(control).display !== "none"),
           disabled: Boolean(control?.disabled),
@@ -9775,8 +9863,8 @@ async function main() {
           && before.controlId === "shuffle"
           && before.visible
           && !before.disabled
-          && /commit a pass/i.test(before.ariaLabel),
-        `${label} hand rotation must start from the certified Pass (Think) control: ${JSON.stringify(before)}`,
+          && /replace the .* card/i.test(before.ariaLabel),
+        `${label} replacement must start from the focused card's certified Think control: ${JSON.stringify(before)}`,
       );
       let response;
       try {
@@ -9784,58 +9872,59 @@ async function main() {
           page.waitForResponse((candidate) => (
             candidate.request().method() === "POST"
               && new URL(candidate.url()).pathname === "/commands"
-              && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+              && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
           ), { timeout: 10_000 }),
           page.locator("#shuffle").click(),
         ]);
       } catch (error) {
         lastRejection = { before, error: String(error?.message || error) };
         await page.evaluate(() => refresh());
-        const after = await currentPassState();
-        if (reconciledAsOneHandAdvance(before, after)) return;
+        const after = await currentThinkState(before.slot);
+        if (reconciledAsOneSlotAdvance(before, after)) return;
         assert(
           after.offerId === before.offerId && after.generation === before.generation,
-          `${label} Pass outcome was ambiguous across multiple hand generations: ${JSON.stringify({ before, after, error: lastRejection.error })}`,
+          `${label} Think outcome was ambiguous across multiple slot generations: ${JSON.stringify({ before, after, error: lastRejection.error })}`,
         );
-        throw new Error(`${label} Pass response was not observed; refusing an ambiguous retry: ${lastRejection.error}`);
+        throw new Error(`${label} Think response was not observed; refusing an ambiguous retry: ${lastRejection.error}`);
       }
       const receipt = await response.json();
       const request = response.request().postDataJSON();
-      const shuffleEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+      const thinkEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
       if (receipt.ok === true) {
         assert(
-          request?.command === "pass"
+          request?.command === "think"
             && String(request?.offer_id || "") === before.offerId
-            && Number(shuffleEvent?.seq || 0) > 0,
-          `${label} hand rotation must commit the exact certified Pass, never an undealt action: ${JSON.stringify({ before, request, receipt })}`,
+            && Number(thinkEvent?.seq || 0) > 0,
+          `${label} must commit the focused card's exact Think certificate: ${JSON.stringify({ before, request, receipt })}`,
         );
         await page.waitForFunction(() => (
           actionBusy === false
             && refreshInFlight === null
-            && document.querySelector("#shuffle")?.disabled === false
         ));
-        const after = await currentPassState();
+        await page.evaluate(() => refresh());
+        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+        const after = await currentThinkState(before.slot);
         assert(
-          reconciledAsOneHandAdvance(before, after),
-          `${label} successful Pass should advance exactly one hand generation: ${JSON.stringify({ before, request, after, receipt })}`,
+          reconciledAsOneSlotAdvance(before, after),
+          `${label} successful Think should advance exactly one slot generation: ${JSON.stringify({ before, request, after, receipt })}`,
         );
         return;
       }
       lastRejection = { before, request, receipt, httpStatus: response.status() };
       assert(
         Number(receipt.status || response.status()) === 409,
-        `${label} Pass failed without a definitive stale certificate: ${JSON.stringify(lastRejection)}`,
+        `${label} Think failed without a definitive stale certificate: ${JSON.stringify(lastRejection)}`,
       );
       await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
       await page.evaluate(() => refresh());
-      const after = await currentPassState();
-      if (reconciledAsOneHandAdvance(before, after)) return;
+      const after = await currentThinkState(before.slot);
+      if (reconciledAsOneSlotAdvance(before, after)) return;
       assert(
         after.generation === before.generation,
-        `${label} stale Pass crossed multiple hand generations: ${JSON.stringify({ before, after, lastRejection })}`,
+        `${label} stale Think crossed multiple slot generations: ${JSON.stringify({ before, after, lastRejection })}`,
       );
     }
-    throw new Error(`${label} could not obtain a fresh certified Pass after three stale scenes: ${JSON.stringify(lastRejection)}`);
+    throw new Error(`${label} could not obtain a fresh certified Think after three stale scenes: ${JSON.stringify(lastRejection)}`);
   }
 
   async function drawCertifiedGardenInspect(label, stopWhen = null) {
@@ -10916,27 +11005,27 @@ async function main() {
       const availableKinds = await page.evaluate(() => actions.map((action) => (
         [compactActionLabel(action), action?.command].filter(Boolean).join(" ").toLowerCase()
       )));
-      if (!availableKinds.some((text) => text.startsWith("inspect"))
+      if (!availableKinds.some((text) => /^(inspect|scout)\b/.test(text))
         && !listeningPreludeUsed
         && availableKinds.some((text) => text.startsWith("notice"))) {
         await focusPrimaryMatching(
-          `notice before inspecting for ${name}`,
+          `notice before discovering ${name}`,
           (text) => text.startsWith("notice"),
           4,
         );
-        await clickPrimary(`notice before inspecting for ${name}`);
+        await clickPrimary(`notice before discovering ${name}`);
         await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
         listeningPreludeUsed = true;
         attempt -= 1;
         continue;
       }
       await focusPrimaryMatchingAcrossShuffles(
-        `inspect for ${name}`,
-        (text) => text.startsWith("inspect"),
+        `discover route to ${name}`,
+        (text) => /^(inspect|scout)\b/.test(text),
       );
-      await clickSearchAndAssertProgress(`inspect for ${name} ${attempt}`);
+      await clickSearchAndAssertProgress(`discover route to ${name} ${attempt}`);
     }
-    throw new Error(`${name} was not found after ${maxAttempts} Inspect turns`);
+    throw new Error(`${name} was not found after ${maxAttempts} Wonder discovery turns`);
   }
 
   async function joinNearbyResident() {
@@ -11459,7 +11548,7 @@ async function main() {
       if (result.ok) break;
       if (stopWhen && await stopWhen()) return null;
       if (draw + 1 < deckSize) {
-        await passCertifiedHandForDraw(`find ${name} gift`);
+        await passCertifiedHandForDraw(`find ${name} gift`, "self");
       }
     }
     assert(result?.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
@@ -12141,7 +12230,7 @@ async function main() {
     assert(!/\((?:human|npc)\)/i.test(result.who.output), `who should name people without engine categories: ${JSON.stringify(result.who)}`);
     assert(
       result.inventory.ok === true
-        && /You carry|You aren't carrying|Your carried deck is empty|Your carried deck:/i.test(result.inventory.output)
+        && /You carry|You aren't carrying|Your Pack is empty|Your Pack:/i.test(result.inventory.output)
         && result.inventory.events.length === 0,
       `inventory should remain a read-only terminal view: ${JSON.stringify(result.inventory)}`,
     );
@@ -12166,14 +12255,14 @@ async function main() {
   async function assertBrowserCommandEntryAbsent() {
     const before = await visibleCommandButtons();
     assert(
-      await page.locator("#command-toggle, #command-palette, #command-input, #tertiary").count() === 0
+      await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
         && await page.locator("#shuffle").count() === 1
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
       "the browser room should expose only its dealt action hand and Think, without command entry or a full-deck chooser",
     );
     assert(
-      before.length >= 1 && before.length <= 2,
-      `the browser room should show one or two dealt action cards: ${JSON.stringify(before)}`,
+      before.length >= 1 && before.length <= 3,
+      `the browser room should show one to three dealt Story Hand cards: ${JSON.stringify(before)}`,
     );
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press("Slash");
@@ -12309,6 +12398,9 @@ async function main() {
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
+            await other.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+            await other.evaluate(() => refresh());
+            await other.waitForFunction(() => actionBusy === false && refreshInFlight === null);
             await other.waitForFunction(settled, null, { timeout: 15_000 });
             return lastResult.body;
           }
@@ -12334,7 +12426,7 @@ async function main() {
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
-      assert(firstTaleStart.primary.toLowerCase().startsWith("notice"), `second player should enter through a welcoming Notice: ${JSON.stringify(firstTaleStart)}`);
+      assert(firstTaleStart.primary.toLowerCase().startsWith("wonder suit, notice"), `second player should enter through a welcoming Wonder · Notice card: ${JSON.stringify(firstTaleStart)}`);
       await playOtherPrimary("second-player Notice", () => (
         state?.first_tale?.phase === "follow_lead"
         && state?.first_tale?.trace_event_seq == null
@@ -12354,7 +12446,7 @@ async function main() {
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
         afterFirstListen.visibleLabels.length >= 1
-          && afterFirstListen.visibleLabels.length <= 2
+          && afterFirstListen.visibleLabels.length <= 3
           && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
@@ -12735,7 +12827,7 @@ async function main() {
     await page.locator("#brand").click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
     await page.locator('[data-menu-section="deck"]').click();
-    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "your deck");
+    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "your pack");
     const menuDeck = await page.evaluate(() => ({
       sections: [...document.querySelectorAll('[data-menu-section]')].map((button) => ({
         id: button.getAttribute("data-menu-section"),
@@ -12752,17 +12844,17 @@ async function main() {
       brandScrollWidth: document.querySelector("#brand")?.scrollWidth || 0,
     }));
     assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
-      { id: "deck", label: "deck" },
+      { id: "deck", label: "pack" },
       { id: "character", label: "character" },
       { id: "identity", label: "sign in / identity" },
       { id: "world", label: "worlds & packs" },
       { id: "journal", label: "journal" },
       { id: "settings", label: "orbs & settings" },
-    ]), `${label}: Menu should separate deck, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
+    ]), `${label}: Menu should separate pack, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
+    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your pack", `${label}: Pack should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.brandScrollWidth <= menuDeck.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menuDeck)}`);
-    assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /carried weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /spell deck/i.test(menuDeck.copy) && /exhausted \/ discard/i.test(menuDeck.copy), `${label}: Deck should explain weight, loadout, charms, spells, and exhausted cards: ${JSON.stringify(menuDeck)}`);
+    assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /pack weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /prepared spells/i.test(menuDeck.copy) && /spent/i.test(menuDeck.copy), `${label}: Pack should explain weight, Loadout, charms, Prepared spells, and Spent cards: ${JSON.stringify(menuDeck)}`);
     await page.locator('[data-menu-section="world"]').click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
     const library = await page.evaluate(() => ({
@@ -13638,6 +13730,7 @@ async function main() {
         .map((button) => {
           const thumb = button.querySelector(".thumb");
           const labelNode = button.querySelector(".cmd-label");
+          const kickerNode = button.querySelector(".cmd-kicker");
           return {
             id: button.id,
             text: button.innerText.trim().replace(/\s+/g, " "),
@@ -13647,6 +13740,7 @@ async function main() {
             hasIcon: Boolean(button.querySelector(".cmd-label .ui-icon")),
             width: button.getBoundingClientRect().width,
             labelClipped: Boolean(labelNode && labelNode.scrollWidth > labelNode.clientWidth + 1),
+            verbClipped: Boolean(kickerNode && kickerNode.scrollWidth > kickerNode.clientWidth + 1),
           };
         });
       const roomRow = document.querySelector("#log .line.event.room");
@@ -13720,13 +13814,13 @@ async function main() {
     assert(!shell.journalVisible && !shell.memoryVisible, `${label}: normal shell should keep Journal content out of chat: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
-    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary"].includes(button.id));
-    assert(actionButtons.length >= 1 && actionButtons.length <= 2, `${label}: shell should expose at most two action cards: ${JSON.stringify(shell.buttons)}`);
+    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary", "tertiary"].includes(button.id));
+    assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: shell should expose at most three Story Hand cards: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasIcon), `${label}: action names should use the recovered SVG icon system: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
-      assert(actionButtons.length === 2, `${label}: narrow screens should preserve both authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
-      assert(actionButtons.every((button) => button.width >= 60 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: narrow screens should preserve every authoritative Story Hand card: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.every((button) => button.width >= 60 && !button.verbClipped), `${label}: mobile card suit and verb kickers should remain readable: ${JSON.stringify(shell.buttons)}`);
       assert(shell.roomFallbackStacked, `${label}: mobile room story should use the full transcript width: ${JSON.stringify(shell)}`);
       assert(!shell.roomFallbackClipped, `${label}: mobile room story should not end mid-sentence: ${JSON.stringify(shell)}`);
     } else {
@@ -13892,16 +13986,17 @@ async function main() {
     await page.waitForSelector("#primary");
     await page.waitForFunction(() => {
       const primary = document.querySelector("#primary");
-      const label = primary?.getAttribute("aria-label") || "";
-      return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
+      const label = (primary?.getAttribute("aria-label") || "").trim().toLowerCase();
+      return !primary?.disabled && /\bbegin\b/.test(label) && /shared[- ]world/.test(label);
     });
-    await assertActionBarCapped("guest avatar gate", 1);
+    await assertActionBarCapped("guest avatar gate", 2);
+    const openingPrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
     const openingPrimary = (await primaryText()).toLowerCase();
     assert(
-      openingPrimary.includes("begin")
-        && openingPrimary.includes("shared world")
+      /\bbegin\b/.test(openingPrimaryAria)
+        && /shared[- ]world/.test(openingPrimaryAria)
         && !openingPrimary.includes("lantern keeper"),
-      `guest first card should ask only for core identity and aspiration: ${openingPrimary}`,
+      `guest first card should ask only for core identity and aspiration: ${openingPrimaryAria}`,
     );
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
@@ -13966,7 +14061,7 @@ async function main() {
     assert(
       guestSheetText.includes("your first little moment is waiting")
         && guestSheetText.includes("worn skill charms")
-        && guestSheetText.includes("find a skill charm, then wear it from Deck")
+        && guestSheetText.includes("find a skill charm, then wear it from Pack")
         && guestSheetText.includes("someone new is waiting to meet you"),
       `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
     );
@@ -14108,12 +14203,12 @@ async function main() {
   async function assertHumanActionRequiresActorSession() {
     const rejected = await page.evaluate(async () => {
       const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
-      const pass = state?.action_hand?.pass;
-      if (!pass?.offer_id) return { ok: false, status: 0, events: [], missing: "pass certificate" };
+      const think = (state?.action_hand?.entries || []).find((entry) => entry?.think?.available)?.think;
+      if (!think?.offer_id) return { ok: false, status: 0, events: [], missing: "Think certificate" };
       const response = await fetch("/commands", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ actor_id: actorId, command: "pass", offer_id: pass.offer_id }),
+        body: JSON.stringify({ actor_id: actorId, command: "think", offer_id: think.offer_id }),
       });
       return response.json();
     });
@@ -14357,10 +14452,11 @@ async function main() {
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
   await assertChatMarkdownTypography();
-  // Before an avatar exists there is one onboarding command, rather than a
-  // dealt action hand. The finite two-card cap begins with normal play.
-  await assertActionBarCapped("avatar gate", 1);
-  assert((await primaryText()).toLowerCase().includes("begin"), "first command should begin avatar creation");
+  // Before an avatar exists there are core and optional campaign onboarding
+  // commands, rather than a dealt Story Hand. The three slots begin in play.
+  await assertActionBarCapped("avatar gate", 2);
+  const avatarGatePrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
+  assert(/\bbegin\b/.test(avatarGatePrimaryAria), "first command should begin avatar creation");
 
   await beginAvatarAndAssertArrival();
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
@@ -14394,7 +14490,7 @@ async function main() {
     );
   }
   // A fresh seed has not necessarily banked the advancement that authorizes
-  // Chat, so the authoritative opening hand may contain one or two cards.
+  // Chat, so a sparse authoritative opening Story Hand may contain fewer than three cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
   await assertStalePassRefreshesAndRotatesReceipt();
@@ -14441,7 +14537,7 @@ async function main() {
   await assertChatActivityLivesInStatusSurface();
   await assertChoicePreviewFollowsSelectedCard();
   await assertCarriedDeckUsesWeightLanguage();
-  await assertGiveTradeCanBeDrawnFromShuffledDeck();
+  await assertGiveTradeCanBeDealtInStoryHand();
   await assertAvatarItemsUseDisclosureAndExactActions();
   await assertHumanGiftHandoffUsesRecipientHandAndAvatarRail();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
@@ -14759,7 +14855,7 @@ async function main() {
       residentChatDiagnostic.advancement >= 0
         && residentChatDiagnostic.residents.length > 0
         && residentChatDiagnostic.visibleLabels.length >= 1
-        && residentChatDiagnostic.visibleLabels.length <= 2,
+        && residentChatDiagnostic.visibleLabels.length <= 3,
       `the shared room should expose a bounded authoritative hand near its resident: ${JSON.stringify(residentChatDiagnostic)}`,
     );
     if (residentChatDiagnostic.chatOfferAvailable) {
@@ -14919,7 +15015,7 @@ async function main() {
               ok: false,
               actionHand: {
                 capacity: Number(state?.action_hand?.capacity || 0),
-                deckSize: Number(state?.action_hand?.deck_size || 0),
+                deckSize: Number(state?.action_hand?.offer_queue_size || 0),
                 generation: Number(state?.action_hand?.generation || 0),
               },
               hand: visible.map((candidate) => {
@@ -15628,6 +15724,10 @@ async function main() {
       await travelTo("Moonlit Trail");
     }
     await exerciseFrontierRecovery();
+    const frontierJourney = await fetchCurrentState();
+    if (frontierJourney.journey?.destination_name) {
+      await travelTo(frontierJourney.journey.destination_name);
+    }
     if ((await currentLocation()) !== "Rain-Soft Garden") {
       await leaveTrailTo("Rain-Soft Garden");
     }
@@ -15895,7 +15995,7 @@ async function main() {
     ...finalState.branchReceiptEvents.map((event) => ({ ...event, source: "action receipt" })),
   ];
   assert(allBranchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(allBranchEvents)}`);
-  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 2, `the journey should finish with at most two action cards: ${JSON.stringify(finalState.buttons)}`);
+  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `the journey should finish with at most three Story Hand cards: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);

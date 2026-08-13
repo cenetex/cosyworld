@@ -1,5 +1,25 @@
 use super::*;
 
+#[test]
+fn story_hand_scene_change_resets_each_slot_generation() {
+    let mut runtime = RuntimeWorld::seeded();
+    runtime.story_hand_states.insert(
+        5000,
+        StoryHandActorState {
+            scene_key: "safe:1".to_string(),
+            slot_generations: [8, 4, 2],
+            free_think_used: true,
+        },
+    );
+    runtime.hand_generations.insert(5000, 9);
+
+    let changed = runtime.story_hand_state_for_scene(5000, "safe:2");
+
+    assert_eq!(changed.scene_key, "safe:2");
+    assert_eq!(changed.slot_generations, [0; 3]);
+    assert!(!changed.free_think_used);
+}
+
 fn submission_for_offer(
     offer: &RankedActionOffer,
     path: &str,
@@ -81,7 +101,12 @@ async fn current_dealt_offer(
     })
 }
 
-async fn certified_think(state: &AppState, actor_id: u64, actor_session: &str) {
+async fn certified_think_in_slot(
+    state: &AppState,
+    actor_id: u64,
+    actor_session: &str,
+    slot: Option<&str>,
+) {
     let pass_offer_id = {
         let active_direct_actors = active_actor_ids_for_state(state);
         let runtime = state.inner.lock().await;
@@ -95,10 +120,12 @@ async fn certified_think(state: &AppState, actor_id: u64, actor_session: &str) {
             &mut offers,
             state.ai_config.as_ref().as_ref(),
         );
-        runtime
-            .action_hand_for(Some(actor_id), &offers)
-            .pass
-            .offer_id
+        let hand = runtime.action_hand_for(Some(actor_id), &offers);
+        hand.entries
+            .iter()
+            .find(|entry| slot.is_none_or(|slot| entry.slot == slot) && entry.think.available)
+            .map(|entry| entry.think.offer_id.clone())
+            .expect("the chosen Story Hand slot has a replacement")
     };
     let response = command(
         ConnectInfo("127.0.0.1:44272".parse().expect("client address")),
@@ -115,9 +142,13 @@ async fn certified_think(state: &AppState, actor_id: u64, actor_session: &str) {
         response
             .events
             .iter()
-            .any(|event| event.type_name == "hand.shuffled"),
+            .any(|event| event.type_name == "hand.thought"),
         "Think must rotate through the ordinary hand pipeline: {response:?}"
     );
+}
+
+async fn certified_think(state: &AppState, actor_id: u64, actor_session: &str) {
+    certified_think_in_slot(state, actor_id, actor_session, None).await;
 }
 
 async fn rotate_to_dealt_offer(
@@ -146,7 +177,21 @@ async fn rotate_to_dealt_offer(
         if let Some(offer) = current_dealt_offer(state, actor_id, &predicate).await {
             return offer;
         }
-        certified_think(state, actor_id, actor_session).await;
+        let desired_slot = {
+            let active_direct_actors = active_actor_ids_for_state(state);
+            let runtime = state.inner.lock().await;
+            let (_, offers) = runtime.legal_action_candidates_with_presence(
+                Some(actor_id),
+                &AccessContext::default(),
+                Some(&active_direct_actors),
+            );
+            offers
+                .iter()
+                .find(|offer| predicate(offer))
+                .map(story_hand_natural_slot)
+                .map(|slot| STORY_HAND_SLOTS[slot].to_string())
+        };
+        certified_think_in_slot(state, actor_id, actor_session, desired_slot.as_deref()).await;
     }
     let active_direct_actors = active_actor_ids_for_state(state);
     let runtime = state.inner.lock().await;
@@ -190,6 +235,7 @@ async fn live_story_button_hand_lifecycle() {
         COSY_COTTAGE_LOCATION_ID,
         "Story Button Golden Witness",
     );
+    complete_guided_story_for_test(&mut runtime, actor_id);
     runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
     runtime.hide_loose_items_at_location(RAIN_SOFT_GARDEN_LOCATION_ID);
     runtime
@@ -708,7 +754,7 @@ async fn assert_missing_and_wrong_fields_reject_without_mutation(
 async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_mutation() {
     let actor_id = 5000;
 
-    // A current offer is still unusable when it is not one of the two cards
+    // A current offer is still unusable when it is not one of the Story Hand cards
     // dealt to the actor.  Use three exact pickup choices so one is certainly
     // outside the initial hand.
     let mut undealt_runtime = RuntimeWorld::seeded();
@@ -868,6 +914,7 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     assert!(!cast_runtime
         .set_spell_prepared(actor_id, 2014, true, "test")
         .is_empty());
+    complete_guided_story_for_test(&mut cast_runtime, actor_id);
     let cast_offer = cast_runtime
         .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
             offer.kind == "cast_spell"
@@ -1244,9 +1291,15 @@ async fn certified_pass_redeals_the_hand_and_consumes_the_turn() {
         },
     );
     assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    complete_guided_story_for_test(&mut runtime, 5000);
 
     let state = test_app_state(runtime, None);
     let (actor_session, _) = issue_actor_session(&state, 5000);
+    assert_eq!(
+        actor_for_session(&state.actor_sessions, &actor_session),
+        Some(5000)
+    );
+    commit_presence_event(&state, 5000, true).await;
     let (before_tick, before_next_event_seq, before_hand) = {
         let runtime = state.inner.lock().await;
         let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
@@ -1260,7 +1313,13 @@ async fn certified_pass_redeals_the_hand_and_consumes_the_turn() {
             runtime.world.next_event_seq,
             hand.entries
                 .iter()
-                .map(|entry| entry.kind.clone())
+                .map(|entry| {
+                    let offer = offers
+                        .iter()
+                        .find(|offer| offer.offer_id == entry.offer_id)
+                        .expect("Story Hand entry has an authoritative offer");
+                    (entry.slot.clone(), offer.id.clone())
+                })
                 .collect::<Vec<_>>(),
         )
     };
@@ -1281,22 +1340,35 @@ async fn certified_pass_redeals_the_hand_and_consumes_the_turn() {
     assert!(response
         .events
         .iter()
-        .any(|event| event.type_name == "hand.shuffled"));
-    assert!(response
-        .events
-        .iter()
-        .any(|event| event.type_name == "action.receipt"));
+        .any(|event| event.type_name == "hand.thought"));
     let runtime = state.inner.lock().await;
-    assert_eq!(runtime.world.tick, before_tick + 1);
+    assert_eq!(
+        runtime.world.tick, before_tick,
+        "the first safe-scene Think is free"
+    );
     assert!(runtime.world.next_event_seq > before_next_event_seq);
     let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
     let after_hand = runtime.action_hand_for(Some(5000), &offers);
-    let after_kinds = after_hand
+    let after_cards = after_hand
         .entries
         .iter()
-        .map(|entry| entry.kind.clone())
+        .map(|entry| {
+            let offer = offers
+                .iter()
+                .find(|offer| offer.offer_id == entry.offer_id)
+                .expect("Story Hand entry has an authoritative offer");
+            (entry.slot.clone(), offer.id.clone())
+        })
         .collect::<Vec<_>>();
-    assert_ne!(after_kinds, before_hand);
+    assert_eq!(
+        after_cards
+            .iter()
+            .zip(&before_hand)
+            .filter(|(after, before)| after != before)
+            .count(),
+        1,
+        "Think replaces exactly one Story Hand slot; before={before_hand:?} after={after_cards:?}"
+    );
 }
 
 #[tokio::test]
@@ -1323,6 +1395,7 @@ async fn submit_offer_cannot_cross_a_certified_pass_hand_boundary() {
             item.container_item_id = 0;
         }
     }
+    complete_guided_story_for_test(&mut runtime, actor_id);
     let pickup_offer = runtime
         .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
             offer.kind == "pick_up"
@@ -1339,11 +1412,15 @@ async fn submit_offer_cannot_cross_a_certified_pass_hand_boundary() {
         let runtime = state.inner.lock().await;
         let (_, offers) =
             runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        let hand = runtime.action_hand_for(Some(actor_id), &offers);
         (
-            runtime
-                .action_hand_for(Some(actor_id), &offers)
-                .pass
-                .offer_id,
+            hand.entries
+                .iter()
+                .find(|entry| entry.offer_id == pickup_offer.offer_id)
+                .expect("the dealt pickup keeps its exact Story Hand slot")
+                .think
+                .offer_id
+                .clone(),
             runtime.world.tick,
         )
     };
@@ -1412,9 +1489,8 @@ async fn submit_offer_cannot_cross_a_certified_pass_hand_boundary() {
     assert!(submitted.events.is_empty());
     let runtime = state.inner.lock().await;
     assert_eq!(
-        runtime.world.tick,
-        before_tick + 1,
-        "only Pass consumes the turn"
+        runtime.world.tick, before_tick,
+        "the first safe-scene Think is free"
     );
     assert!(runtime
         .item_by_id(item_id)
@@ -1436,8 +1512,12 @@ fn certified_pass_runs_the_ordinary_played_turn_pipeline() {
     .into_player_card();
     record
         .projection_mutations
-        .push(ProjectionMutation::ShuffleHand {
-            reason: "player_pass".to_string(),
+        .push(ProjectionMutation::ThinkHand {
+            slot: 0,
+            scene_key: format!("safe:{COSY_COTTAGE_LOCATION_ID}"),
+            replaces_offer_id: "test-offer".to_string(),
+            free: false,
+            reason: "player_think".to_string(),
         });
 
     let (status, events) = runtime.apply_journal_record(&record);
@@ -1448,9 +1528,7 @@ fn certified_pass_runs_the_ordinary_played_turn_pipeline() {
         runtime.world_simulation.last_advanced_tick,
         WORLD_PULSE_INTERVAL_TICKS
     );
-    assert!(events
-        .iter()
-        .any(|event| event.type_name == "hand.shuffled"));
+    assert!(events.iter().any(|event| event.type_name == "hand.thought"));
 }
 
 #[tokio::test]
@@ -1470,6 +1548,7 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
         COSY_COTTAGE_LOCATION_ID,
         "Other Certified Pass Witness",
     );
+    complete_guided_story_for_test(&mut runtime, actor_id);
     let event_store_path = std::env::temp_dir().join(format!(
         "cosyworld-certified-pass-metrics-{}-{}.sqlite",
         std::process::id(),
@@ -1479,10 +1558,19 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
     let state = test_app_state(runtime, Some(event_store_path.clone()));
     let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
     let other_actor_session = create_actor_session(&state.actor_sessions, other_actor_id).0;
+    let active_direct_actors = active_actor_ids_for_state(&state);
     let (request, cross_actor_request, before_tick, before_generations, before_event_count) = {
         let runtime = state.inner.lock().await;
-        let (_, offers) =
-            runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
+            Some(actor_id),
+            &AccessContext::default(),
+            Some(&active_direct_actors),
+        );
+        retain_configured_model_interaction_offers(
+            &mut primary_action,
+            &mut offers,
+            state.ai_config.as_ref().as_ref(),
+        );
         let hand = runtime.action_hand_for(Some(actor_id), &offers);
         assert!(!hand.pass.offer_id.is_empty());
         let mut request = canonical_test_command_request(
@@ -1531,7 +1619,7 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
     assert!(first
         .events
         .iter()
-        .any(|event| event.type_name == "hand.shuffled"));
+        .any(|event| event.type_name == "hand.thought"));
     let event_count_after_first = state.inner.lock().await.event_log.len();
 
     let duplicate = command(client, State(state.clone()), Json(request.clone()))
@@ -1573,7 +1661,10 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
     assert!(stale_retry.events.is_empty());
 
     let runtime = state.inner.lock().await;
-    assert_eq!(runtime.world.tick, before_tick + 1);
+    assert_eq!(
+        runtime.world.tick, before_tick,
+        "the first safe Think is free"
+    );
     assert_eq!(runtime.event_log.len(), event_count_after_first);
     assert_eq!(
         serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
@@ -1615,6 +1706,7 @@ async fn repeated_certified_thinks_rotate_and_roll_without_farming() {
         COSY_COTTAGE_LOCATION_ID,
         "Pass Boundary Witness",
     );
+    complete_guided_story_for_test(&mut runtime, actor_id);
     // Start immediately before a pulse. Two certified passes cross the
     // boundary once, so the regression covers harmless simulation metadata
     // advancing without turning Think into a way to farm progress or stakes.
@@ -1680,7 +1772,7 @@ async fn repeated_certified_thinks_rotate_and_roll_without_farming() {
         before_relevant,
         "repeated Think must not farm Orbs, marks, practice, claims, items, projects, or danger",
     );
-    assert_eq!(runtime.world.tick, before_tick + PASS_COUNT);
+    assert_eq!(runtime.world.tick, before_tick + PASS_COUNT - 1);
     assert_eq!(
         runtime.world_simulation.pulse_index,
         before_pulse_index + 1,
@@ -1714,7 +1806,7 @@ async fn repeated_certified_thinks_rotate_and_roll_without_farming() {
         record.action.actor_id == actor_id
             && record.action.kind == CW_ACTION_NONE
             && record.projection_mutations.iter().any(|mutation| {
-                matches!(mutation, ProjectionMutation::ShuffleHand { reason } if reason == "player_pass")
+                matches!(mutation, ProjectionMutation::ThinkHand { reason, .. } if reason == "player_think")
             })
             && record.projection_mutations.iter().any(|mutation| {
                 matches!(
@@ -1764,6 +1856,7 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         COSY_COTTAGE_LOCATION_ID,
         "Pass Metric Witness",
     );
+    complete_guided_story_for_test(&mut runtime, actor_id);
     let event_store_path = std::env::temp_dir().join(format!(
         "cosyworld-certified-pass-window-{}-{}.sqlite",
         std::process::id(),
@@ -1778,10 +1871,15 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         let pass_offer_id = {
             let active_direct_actors = active_actor_ids_for_state(&state);
             let runtime = state.inner.lock().await;
-            let (_, offers) = runtime.legal_action_candidates_with_presence(
+            let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
                 Some(actor_id),
                 &AccessContext::default(),
                 Some(&active_direct_actors),
+            );
+            retain_configured_model_interaction_offers(
+                &mut primary_action,
+                &mut offers,
+                state.ai_config.as_ref().as_ref(),
             );
             runtime
                 .action_hand_for(Some(actor_id), &offers)
@@ -1818,9 +1916,9 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
             response
                 .events
                 .iter()
-                .find(|event| event.type_name == "hand.shuffled")
+                .find(|event| event.type_name == "hand.thought")
                 .map(|event| event.seq)
-                .expect("each Pass emits its hand shuffle source event"),
+                .expect("each Think emits its exact replacement source event"),
         );
     }
 
@@ -1828,9 +1926,12 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
     // metric window. The submitted certificate remains fully authoritative.
     let search_offer = {
         let mut runtime = state.inner.lock().await;
+        let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
         let mut found = None;
         for generation in 0..64 {
-            runtime.hand_generations.insert(actor_id, generation);
+            let mut story_state = runtime.story_hand_state_for_scene(actor_id, &scene_key);
+            story_state.slot_generations[0] = generation;
+            runtime.story_hand_states.insert(actor_id, story_state);
             let (_, offers) =
                 runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
             let hand = runtime.action_hand_for(Some(actor_id), &offers);
@@ -1845,7 +1946,7 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
                 break;
             }
         }
-        found.expect("a finite hand eventually deals a meaningful Search")
+        found.expect("a finite Story slot eventually deals a meaningful Search")
     };
     let meaningful = command(
         ConnectInfo("127.0.0.1:45142".parse().expect("client address")),
@@ -1863,10 +1964,15 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
     let next_pass_offer_id = {
         let active_direct_actors = active_actor_ids_for_state(&state);
         let runtime = state.inner.lock().await;
-        let (_, offers) = runtime.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
             Some(actor_id),
             &AccessContext::default(),
             Some(&active_direct_actors),
+        );
+        retain_configured_model_interaction_offers(
+            &mut primary_action,
+            &mut offers,
+            state.ai_config.as_ref().as_ref(),
         );
         runtime
             .action_hand_for(Some(actor_id), &offers)
@@ -1902,9 +2008,9 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         next_pass
             .events
             .iter()
-            .find(|event| event.type_name == "hand.shuffled")
+            .find(|event| event.type_name == "hand.thought")
             .map(|event| event.seq)
-            .expect("the post-Search Pass emits its hand shuffle source event"),
+            .expect("the post-Search Think emits its exact replacement source event"),
     );
 
     let conn = open_event_store(&event_store_path).expect("open pass metric store");
@@ -2004,6 +2110,9 @@ async fn stale_pass_certificate_does_not_release_inactive_inventory() {
         serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
             .expect("snapshot serializes before stale Pass")
     };
+    let mut stale_think = empty_think_view();
+    stale_think.offer_id = "think:stale-certificate".to_string();
+    stale_think.available = true;
     let response = pass_action(
         ConnectInfo("127.0.0.1:45132".parse().expect("client address")),
         State(state.clone()),
@@ -2011,7 +2120,7 @@ async fn stale_pass_certificate_does_not_release_inactive_inventory() {
             actor_id: 5000,
             actor_session: Some(actor_session),
         }),
-        "pass:stale-certificate",
+        &stale_think,
     )
     .await
     .0;
@@ -2085,10 +2194,10 @@ fn public_state_keeps_the_action_hand_bounded() {
     );
     assert!(state["action_offers"]
         .as_array()
-        .is_some_and(|offers| offers.len() <= 2));
+        .is_some_and(|offers| offers.len() <= 3));
     assert!(state["action_hand"]["entries"]
         .as_array()
-        .is_some_and(|entries| entries.len() <= 2));
+        .is_some_and(|entries| entries.len() <= 3));
     assert!(state["journal_beats"]
         .as_array()
         .is_some_and(|beats| beats.len() <= 60));
@@ -2326,7 +2435,7 @@ fn full_carried_deck_still_projects_an_exact_pickup_exchange_offer() {
             offer.kind == "pick_up"
                 && offer.target.as_ref().and_then(|target| target.id) == Some(STORY_BUTTON_ITEM_ID)
         })
-        .expect("full carried deck still has an exact Story Button offer");
+        .expect("full Pack still has an exact Story Button offer");
     let exchange = runtime
         .plan_item_offer_action(5000, &pickup_offer, 2001)
         .expect("the exact pickup offer permits the required exchange");
@@ -2382,33 +2491,50 @@ fn same_kind_exact_offers_cover_a_bounded_rotation_in_wrap_order() {
         .collect::<BTreeSet<_>>();
     assert!(pickup_offer_ids.len() >= expected_item_ids.len());
 
-    let deck_size = usize::from(compose_action_hand_at(&pickup_offers, 0).deck_size);
+    let initial = compose_story_hand_at(&pickup_offers, [0; 3]);
+    assert_eq!(initial.entries.len(), 3);
+    assert_eq!(
+        initial
+            .entries
+            .iter()
+            .map(|entry| entry.slot.as_str())
+            .collect::<Vec<_>>(),
+        ["story", "self", "anchor"]
+    );
     let mut seen = BTreeSet::new();
-    let mut first_cycle = Vec::new();
-    for generation in 0..deck_size {
-        let hand = compose_action_hand_at(&pickup_offers, generation);
-        assert_eq!(hand.entries.len(), 2);
-        for entry in &hand.entries {
-            if pickup_offer_ids.contains(&entry.offer_id) {
-                seen.insert(entry.offer_id.clone());
+    for slot_index in 0..3 {
+        let entry = &initial.entries[slot_index];
+        let pool_size = usize::from(entry.replacement_count) + 1;
+        let initial_ids = initial
+            .entries
+            .iter()
+            .map(|entry| entry.offer_id.clone())
+            .collect::<Vec<_>>();
+        for generation in 0..pool_size {
+            let mut generations = [0; 3];
+            generations[slot_index] = generation;
+            let hand = compose_story_hand_at(&pickup_offers, generations);
+            seen.insert(hand.entries[slot_index].offer_id.clone());
+            for (other_slot, initial_id) in initial_ids.iter().enumerate() {
+                if other_slot != slot_index {
+                    assert_eq!(
+                        &hand.entries[other_slot].offer_id, initial_id,
+                        "rotating one slot preserves both other exact cards"
+                    );
+                }
             }
-            first_cycle.push(entry.offer_id.clone());
         }
+        let mut wrapped_generations = [0; 3];
+        wrapped_generations[slot_index] = pool_size;
+        let wrapped = compose_story_hand_at(&pickup_offers, wrapped_generations);
+        assert_eq!(
+            wrapped.entries[slot_index].offer_id, initial_ids[slot_index],
+            "each exact slot wraps independently"
+        );
     }
     assert_eq!(
         seen, pickup_offer_ids,
         "every exact pickup certificate is dealt"
-    );
-
-    let wrapped = compose_action_hand_at(&pickup_offers, deck_size);
-    assert_eq!(
-        wrapped
-            .entries
-            .iter()
-            .map(|entry| entry.offer_id.clone())
-            .collect::<Vec<_>>(),
-        first_cycle[..2],
-        "the next full rotation returns to the original exact hand order"
     );
 }
 
@@ -2421,6 +2547,7 @@ fn hand_generation_survives_projection_churn_snapshot_migration_and_replay() {
         COSY_COTTAGE_LOCATION_ID,
         "Durable Hand Tester",
     );
+    complete_guided_story_for_test(&mut runtime, 5000);
     let initial = runtime
         .state_response(Some(5000), &AccessContext::default())
         .action_hand;
@@ -2443,12 +2570,13 @@ fn hand_generation_survives_projection_churn_snapshot_migration_and_replay() {
     let shuffled = runtime
         .state_response(Some(5000), &AccessContext::default())
         .action_hand;
-    assert_eq!(shuffled.generation, initial.generation + 1);
-    assert_eq!(shuffled.pass.generation, shuffled.generation);
     assert_eq!(
-        runtime.hand_generations.get(&5000),
-        Some(&shuffled.generation)
+        shuffled.generation,
+        initial.generation + 3,
+        "a legacy whole-hand shuffle migrates all three slot counters"
     );
+    assert_eq!(shuffled.pass.generation, 1);
+    assert_eq!(runtime.hand_generations.get(&5000), Some(&1));
 
     let mut legacy_json = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
         .expect("legacy snapshot serializes");
@@ -2532,6 +2660,7 @@ fn hand_generation_survives_projection_churn_snapshot_migration_and_replay() {
         COSY_COTTAGE_LOCATION_ID,
         "Durable Hand Tester",
     );
+    complete_guided_story_for_test(&mut replay, 5000);
     assert_eq!(replay.apply_journal_record(&shuffle).0, CW_OK);
     let replayed_hand = replay
         .state_response(Some(5000), &AccessContext::default())
@@ -2581,7 +2710,7 @@ fn resident_inference_rejects_legal_off_hand_actions_and_traces_only_its_hand() 
                     .iter()
                     .any(|entry| entry.offer_id == offer.offer_id)
         })
-        .expect("one of the four legal pickup offers must be outside the two-card hand");
+        .expect("one of the four legal pickup offers must be outside the Story Hand");
     let item_id = off_hand
         .target
         .as_ref()

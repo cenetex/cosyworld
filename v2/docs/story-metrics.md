@@ -16,11 +16,11 @@ rankings.
 - **Meaningful action:** a successful, player-authored canonical action with a
   durable world effect. Presence, arrival, movement, hand dealing, dice rolls,
   turn bookkeeping, resets, and background system work are excluded.
-- **Pass diagnostic:** every committed certified Think/Pass writes one
-  `action_passed` row keyed to its `hand.shuffled` source sequence. Its
+- **Think diagnostic:** every committed certified Think writes one
+  compatibility `action_passed` row keyed to its `hand.thought` source sequence. Its
   non-prose attributes record a rolling pass count, pass-rate basis points,
   and consecutive-pass count. A later meaningful action records the preceding
-  consecutive count and resets the next Pass streak. Stale Pass rejections are
+  consecutive count and resets the next Think streak. Stale Think rejections are
   separately deduplicated `pass_stale_rejected` diagnostics; none of these
   signals grant rewards, progress, or eligibility.
 - **Co-presence:** at least two active human actors share the action's room.

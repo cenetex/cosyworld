@@ -174,3 +174,37 @@ pub(super) fn create_test_human(
     );
     assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 }
+
+/// Remove the guided-story pin from fixtures that are testing arbitrary card
+/// rotation rather than the First Tale itself. The production hand keeps the
+/// advancing Story card pinned; these fixtures model a player who has already
+/// completed that guided progression.
+pub(super) fn complete_guided_story_for_test(runtime: &mut RuntimeWorld, actor_id: u64) {
+    let Some(first_tale) = active_first_tale() else {
+        return;
+    };
+    let Some(claim_key) = first_tale_trace_claim_key(actor_id, 90_000 + actor_id) else {
+        return;
+    };
+    runtime.rpg_claims.insert(claim_key);
+    runtime.journeys.remove(&actor_id);
+    if let Some(continuation) = first_tale.continuation.as_ref() {
+        let id = bond_id(actor_id, continuation.target_actor_id);
+        runtime.bonds.insert(
+            id.clone(),
+            BondState {
+                id,
+                actor_id,
+                target_actor_id: continuation.target_actor_id,
+                statement: "The guided story is complete in this test fixture.".to_string(),
+                strength: 1,
+                status: "active".to_string(),
+                source_event_seq: Some(90_000 + actor_id),
+                updated_event_seq: Some(90_000 + actor_id),
+                dialogue_status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+                dialogue_event_seq: Some(90_000 + actor_id),
+            },
+        );
+    }
+    runtime.ensure_canonical_identities(90_000 + actor_id);
+}

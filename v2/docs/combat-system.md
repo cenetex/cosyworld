@@ -11,7 +11,7 @@ implementation of either SRD.
 An encounter has a stable numeric id, location, round, current participant,
 status, and initiative-sorted sides. Initiative is `d20 + Dexterity modifier`;
 higher totals act first and actor id breaks ties. The encounter deck contains
-three bounded choice families, but the current participant sees at most two
+three bounded choice families, while the current participant sees at most three
 cards at once:
 
 - **Attack:** if the avatar has an equipped weapon Item, the action records that

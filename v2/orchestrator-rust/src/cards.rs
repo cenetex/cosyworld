@@ -1254,7 +1254,7 @@ impl RuntimeWorld {
                 let preview_capacity =
                     carrying_capacity + u32::from(item.container_capacity_tenths);
                 format!(
-                    "equip {}: capacity becomes {:.1} lb and the carried deck would be {}",
+                    "equip {}: capacity becomes {:.1} lb and the Pack would be {}",
                     self.item_name(item.id)
                         .unwrap_or_else(|| format!("Item {}", item.id)),
                     preview_capacity as f64 / 10.0,

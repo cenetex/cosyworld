@@ -198,6 +198,65 @@ fn offer_composition_matches_at_submitted_revision(
 }
 
 impl RuntimeWorld {
+    pub(super) fn story_hand_scene_for_actor(&self, actor_id: u64) -> (String, bool) {
+        if let Some(focused) = focused_encounter_for_actor(self, actor_id) {
+            return (format!("ordered:{}", focused.handoff_key()), false);
+        }
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return ("unseated".to_string(), false);
+        };
+        let safety = self
+            .room_sheets
+            .get(&actor.location_id)
+            .map(|sheet| sheet.safety.as_str())
+            .unwrap_or_else(|| {
+                if self.location_is_frontier(actor.location_id) {
+                    "risky"
+                } else {
+                    "safe"
+                }
+            });
+        (format!("{safety}:{}", actor.location_id), safety == "safe")
+    }
+
+    pub(super) fn story_hand_state_for_scene(
+        &self,
+        actor_id: u64,
+        scene_key: &str,
+    ) -> StoryHandActorState {
+        let legacy_generation = self
+            .hand_generations
+            .get(&actor_id)
+            .copied()
+            .unwrap_or_default();
+        if let Some(state) = self.story_hand_states.get(&actor_id) {
+            if state.scene_key == scene_key {
+                return state.clone();
+            }
+            if state.scene_key.is_empty() {
+                return StoryHandActorState {
+                    scene_key: scene_key.to_string(),
+                    slot_generations: if state.slot_generations == [0; 3] && legacy_generation > 0 {
+                        [legacy_generation; 3]
+                    } else {
+                        state.slot_generations
+                    },
+                    ..state.clone()
+                };
+            }
+            return StoryHandActorState {
+                scene_key: scene_key.to_string(),
+                slot_generations: [0; 3],
+                free_think_used: false,
+            };
+        }
+        StoryHandActorState {
+            scene_key: scene_key.to_string(),
+            slot_generations: [legacy_generation; 3],
+            free_think_used: false,
+        }
+    }
+
     pub(super) fn current_state_revision(&self) -> u64 {
         self.world.next_event_seq.saturating_sub(1)
     }
@@ -276,7 +335,7 @@ impl RuntimeWorld {
             .iter()
             .any(|entry| entry.offer_id == offer.offer_id)
         {
-            return Err("that offer is not in the current two-card hand");
+            return Err("that offer is not in the current Story Hand");
         }
         let revision_rebound = exact_offer.is_none()
             && offer_composition_matches_at_submitted_revision(offer, submission);
@@ -1561,7 +1620,7 @@ impl RuntimeWorld {
         offer.effect = match offer.kind.as_str() {
             "pick_up" => self.actor_by_id(actor_id).map(|actor| {
                 if self.actor_can_receive_item(actor, item.id) {
-                    "adds the item card to your carried deck".to_string()
+                    "adds the item card to your Pack".to_string()
                 } else {
                     "keeps the chosen item and leaves one carried item here".to_string()
                 }
@@ -2135,7 +2194,7 @@ impl RuntimeWorld {
                 let actor = self.actor_by_id(actor_id)?;
                 let item = self.loose_items_at_location(actor.location_id).into_iter().next()?;
                 if self.actor_can_receive_item(actor, item.id) {
-                    Some("adds the item card to your carried deck".to_string())
+                    Some("adds the item card to your Pack".to_string())
                 } else {
                     Some("needs more carrying capacity or an explicit item exchange".to_string())
                 }
@@ -2299,14 +2358,99 @@ pub(super) fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandVie
     compose_action_hand_at(offers, 0)
 }
 
+#[cfg(test)]
 pub(super) fn compose_action_hand_at(
     offers: &[RankedActionOffer],
     draw_count: usize,
 ) -> ActionHandView {
-    const CAPACITY: usize = 2;
+    compose_story_hand_at(offers, [draw_count; 3])
+}
+
+pub(super) const STORY_HAND_SLOTS: [&str; 3] = ["story", "self", "anchor"];
+
+pub(super) fn story_hand_natural_slot(offer: &RankedActionOffer) -> usize {
+    let suit = action_card_suit(offer).unwrap_or_else(|error| panic!("{error}"));
+    if offer.project.is_some()
+        || offer.risk.is_some()
+        || matches!(
+            offer.provider.kind.as_str(),
+            "job" | "location" | "campaign"
+        )
+        || matches!(suit, "way" | "courage")
+    {
+        0
+    } else if matches!(
+        offer.provider.kind.as_str(),
+        "journal" | "friendship" | "held_item" | "calling"
+    ) || matches!(suit, "heart" | "hearth")
+    {
+        1
+    } else {
+        2
+    }
+}
+
+pub(super) fn empty_think_view() -> ActionHandPassView {
+    ActionHandPassView {
+        offer_id: String::new(),
+        label: "Think".to_string(),
+        state_revision: 0,
+        generation: 0,
+        scene_key: String::new(),
+        slot: String::new(),
+        replaces_offer_id: String::new(),
+        free: false,
+        consumes_turn: true,
+        available: false,
+    }
+}
+
+fn story_hand_entry(
+    offer: &RankedActionOffer,
+    slot_index: usize,
+    replacement_count: usize,
+) -> ActionHandEntryView {
+    ActionHandEntryView {
+        offer_id: offer.offer_id.clone(),
+        kind: offer.kind.clone(),
+        intention: offer.intention.clone(),
+        provider: offer.provider.clone(),
+        slot: STORY_HAND_SLOTS[slot_index].to_string(),
+        suit: action_card_suit(offer)
+            .unwrap_or_else(|error| panic!("{error}"))
+            .to_string(),
+        verb: offer.verb.clone(),
+        think: empty_think_view(),
+        replacement_count: u16::try_from(replacement_count).unwrap_or(u16::MAX),
+    }
+}
+
+#[cfg(test)]
+pub(super) fn compose_story_hand_at(
+    offers: &[RankedActionOffer],
+    slot_generations: [usize; 3],
+) -> ActionHandView {
+    compose_story_hand_with_pin(offers, slot_generations, None)
+}
+
+fn compose_story_hand_with_pin(
+    offers: &[RankedActionOffer],
+    slot_generations: [usize; 3],
+    progression_pin: Option<(&RankedActionOffer, &BTreeSet<String>)>,
+) -> ActionHandView {
+    const CAPACITY: usize = STORY_HAND_SLOTS.len();
+    let pinned_offer_id = progression_pin.map(|(offer, _)| offer.offer_id.as_str());
+    let excluded_offer_ids = progression_pin.map(|(_, excluded)| excluded);
     let mut candidates: Vec<_> = offers
         .iter()
-        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
+        .filter(|offer| {
+            offer.ranked_hand_eligible
+                && action_offer_is_reachable(offer)
+                && !matches!(offer.kind.as_str(), "create_avatar" | "wait")
+                && (Some(offer.offer_id.as_str()) == pinned_offer_id
+                    || excluded_offer_ids
+                        .is_none_or(|excluded| !excluded.contains(&offer.offer_id)))
+        })
         .collect();
     candidates.sort_by(|left, right| {
         left.provider
@@ -2325,90 +2469,81 @@ pub(super) fn compose_action_hand_at(
     }
 
     let deck_size = grouped.len();
-    let selected = if deck_size == 0 {
-        Vec::new()
-    } else {
-        let start = draw_count.saturating_mul(CAPACITY) % deck_size;
-        (0..CAPACITY.min(deck_size))
-            .map(|offset| grouped[(start + offset) % deck_size])
-            .collect::<Vec<_>>()
-    };
-
-    ActionHandView {
-        schema_version: 1,
-        capacity: CAPACITY as u8,
-        deck_size: u16::try_from(deck_size).unwrap_or(u16::MAX),
-        draw_available: deck_size > CAPACITY,
-        generation: u64::try_from(draw_count).unwrap_or(u64::MAX),
-        pass: ActionHandPassView {
-            offer_id: String::new(),
-            label: "Think".to_string(),
-            state_revision: 0,
-            generation: u64::try_from(draw_count).unwrap_or(u64::MAX),
-            scene_key: "ordinary".to_string(),
-        },
-        entries: selected
-            .into_iter()
-            .map(|offer| ActionHandEntryView {
-                offer_id: offer.offer_id.clone(),
-                kind: offer.kind.clone(),
-                intention: offer.intention.clone(),
-                provider: offer.provider.clone(),
-            })
-            .collect(),
+    let mut slot_pools: [Vec<&RankedActionOffer>; 3] = std::array::from_fn(|_| Vec::new());
+    for offer in grouped {
+        slot_pools[story_hand_natural_slot(offer)].push(offer);
     }
-}
-
-fn pin_action_hand_offer(
-    hand: &mut ActionHandView,
-    offers: &[RankedActionOffer],
-    draw_count: usize,
-    pinned_offer: &RankedActionOffer,
-    excluded_offer_ids: &BTreeSet<String>,
-) {
-    let companion_capacity = usize::from(hand.capacity).saturating_sub(1);
-    let mut companion_candidates = offers
+    if let Some((pinned_offer, _)) = progression_pin {
+        for pool in &mut slot_pools {
+            pool.retain(|offer| offer.offer_id != pinned_offer.offer_id);
+        }
+        slot_pools[0].insert(0, pinned_offer);
+        // The pinned progression card must remain visible, but it must not
+        // strand every other Story-shaped action behind an unavailable Think.
+        // In a sparse scene, lend that overflow to Self and Anchor's queues so
+        // those exact cards can still rotate while Story stays guaranteed.
+        let overflow = slot_pools[0].split_off(1);
+        for offer in overflow {
+            let destination = if slot_pools[1].len() <= slot_pools[2].len() {
+                1
+            } else {
+                2
+            };
+            slot_pools[destination].push(offer);
+        }
+    }
+    // Keep the three pools disjoint so advancing one slot can never move a
+    // different slot. Sparse scenes borrow a stable fallback from a pool that
+    // has more than one card.
+    for empty_index in 0..slot_pools.len() {
+        if !slot_pools[empty_index].is_empty() {
+            continue;
+        }
+        let donor = (0..slot_pools.len())
+            .filter(|index| *index != empty_index && slot_pools[*index].len() > 1)
+            .max_by_key(|index| slot_pools[*index].len());
+        if let Some(donor) = donor {
+            let fallback = slot_pools[donor]
+                .pop()
+                .expect("a Story Hand donor has more than one card");
+            slot_pools[empty_index].push(fallback);
+        }
+    }
+    let entries = slot_pools
         .iter()
-        .filter(|candidate| {
-            candidate.ranked_hand_eligible
-                && action_offer_is_reachable(candidate)
-                && !excluded_offer_ids.contains(&candidate.offer_id)
+        .enumerate()
+        .filter(|(_, pool)| !pool.is_empty())
+        .map(|(slot_index, pool)| {
+            let generation = slot_generations[slot_index];
+            let progression_locked = slot_index == 0 && progression_pin.is_some();
+            story_hand_entry(
+                pool[if progression_locked {
+                    0
+                } else {
+                    generation % pool.len()
+                }],
+                slot_index,
+                if progression_locked {
+                    0
+                } else {
+                    pool.len().saturating_sub(1)
+                },
+            )
         })
         .collect::<Vec<_>>();
-    companion_candidates.sort_by(|left, right| {
-        left.provider
-            .priority
-            .cmp(&right.provider.priority)
-            .then_with(|| left.rank.cmp(&right.rank))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    let mut seen_groups = BTreeSet::new();
-    companion_candidates.retain(|candidate| seen_groups.insert(action_offer_hand_group(candidate)));
-    let companion_count = companion_candidates.len();
-    let companions = if companion_count == 0 || companion_capacity == 0 {
-        Vec::new()
-    } else {
-        let start = draw_count.saturating_mul(companion_capacity) % companion_count;
-        (0..companion_capacity.min(companion_count))
-            .map(|offset| companion_candidates[(start + offset) % companion_count])
-            .collect::<Vec<_>>()
-    };
-    hand.entries = std::iter::once(ActionHandEntryView {
-        offer_id: pinned_offer.offer_id.clone(),
-        kind: pinned_offer.kind.clone(),
-        intention: pinned_offer.intention.clone(),
-        provider: pinned_offer.provider.clone(),
-    })
-    .chain(companions.into_iter().map(|companion| ActionHandEntryView {
-        offer_id: companion.offer_id.clone(),
-        kind: companion.kind.clone(),
-        intention: companion.intention.clone(),
-        provider: companion.provider.clone(),
-    }))
-    .collect();
-    let guided_deck_size = companion_count.saturating_add(1);
-    hand.deck_size = u16::try_from(guided_deck_size).unwrap_or(u16::MAX);
-    hand.draw_available = companion_count > companion_capacity;
+    let generation = slot_generations
+        .into_iter()
+        .fold(0usize, usize::saturating_add);
+
+    ActionHandView {
+        schema_version: 2,
+        capacity: CAPACITY as u8,
+        deck_size: u16::try_from(deck_size).unwrap_or(u16::MAX),
+        draw_available: slot_pools.iter().any(|pool| pool.len() > 1),
+        generation: u64::try_from(generation).unwrap_or(u64::MAX),
+        pass: empty_think_view(),
+        entries,
+    }
 }
 
 impl RuntimeWorld {
@@ -2448,67 +2583,112 @@ impl RuntimeWorld {
         actor_id: Option<u64>,
         offers: &[RankedActionOffer],
     ) -> ActionHandView {
-        let draw_count = actor_id
-            .and_then(|actor_id| self.hand_generations.get(&actor_id).copied())
-            .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX))
-            .unwrap_or_default();
-        let mut hand = compose_action_hand_at(offers, draw_count);
+        let actor_id_value = actor_id.unwrap_or_default();
+        let (scene_key, safe_scene) = self.story_hand_scene_for_actor(actor_id_value);
+        let story_state = self.story_hand_state_for_scene(actor_id_value, &scene_key);
+        self.action_hand_for_story_state(actor_id, offers, &scene_key, safe_scene, &story_state)
+    }
+
+    pub(super) fn action_hand_after_think_for(
+        &self,
+        actor_id: u64,
+        offers: &[RankedActionOffer],
+        slot_index: usize,
+    ) -> ActionHandView {
+        let (scene_key, safe_scene) = self.story_hand_scene_for_actor(actor_id);
+        let mut story_state = self.story_hand_state_for_scene(actor_id, &scene_key);
+        if let Some(generation) = story_state.slot_generations.get_mut(slot_index) {
+            *generation = generation.saturating_add(1);
+        }
+        story_state.free_think_used = true;
+        self.action_hand_for_story_state(
+            Some(actor_id),
+            offers,
+            &scene_key,
+            safe_scene,
+            &story_state,
+        )
+    }
+
+    fn action_hand_for_story_state(
+        &self,
+        actor_id: Option<u64>,
+        offers: &[RankedActionOffer],
+        scene_key: &str,
+        safe_scene: bool,
+        story_state: &StoryHandActorState,
+    ) -> ActionHandView {
+        let actor_id_value = actor_id.unwrap_or_default();
+        let slot_generations_u64 = story_state.slot_generations;
+        let slot_generations = slot_generations_u64
+            .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX));
+        let mut progression_offer = None;
+        let mut progression_offer_ids = BTreeSet::new();
         if let Some(actor_id) = actor_id {
             if let Some(accept_offer) = offers
                 .iter()
                 .filter(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
                 .min_by(|left, right| left.id.cmp(&right.id))
             {
-                let pinned_ids = BTreeSet::from([accept_offer.offer_id.clone()]);
-                pin_action_hand_offer(&mut hand, offers, draw_count, accept_offer, &pinned_ids);
+                progression_offer_ids.insert(accept_offer.offer_id.clone());
+                progression_offer = Some(accept_offer);
             } else if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
-                let journey_offer_ids = BTreeSet::from([journey_offer.offer_id.clone()]);
-                pin_action_hand_offer(
-                    &mut hand,
-                    offers,
-                    draw_count,
-                    journey_offer,
-                    &journey_offer_ids,
-                );
+                progression_offer_ids.insert(journey_offer.offer_id.clone());
+                progression_offer = Some(journey_offer);
             } else {
                 let (advancing_offer_id, advancing_offer_ids) =
                     self.first_tale_advancing_offer_selection(actor_id, offers);
-                if let Some(offer) = advancing_offer_id
+                progression_offer = advancing_offer_id
                     .as_ref()
-                    .and_then(|offer_id| offers.iter().find(|offer| offer.offer_id == *offer_id))
-                {
-                    pin_action_hand_offer(
-                        &mut hand,
-                        offers,
-                        draw_count,
-                        offer,
-                        &advancing_offer_ids,
-                    );
-                }
+                    .and_then(|offer_id| offers.iter().find(|offer| offer.offer_id == *offer_id));
+                progression_offer_ids = advancing_offer_ids;
             }
         }
+        let mut hand = compose_story_hand_with_pin(
+            offers,
+            slot_generations,
+            progression_offer.map(|offer| (offer, &progression_offer_ids)),
+        );
         let state_revision = self.current_state_revision();
-        let scene_key = focused_encounter_for_actor(self, actor_id.unwrap_or_default())
-            .map(|focused| focused.handoff_key())
-            .unwrap_or_else(|| "ordinary".to_string());
-        let label = if scene_key == "ordinary" {
-            "Think"
-        } else {
-            "Pass"
-        };
-        hand.pass = ActionHandPassView {
-            offer_id: format!(
-                "pass:{}:{}:{}:{}",
-                actor_id.unwrap_or_default(),
+        let free = safe_scene && !story_state.free_think_used;
+        for entry in &mut hand.entries {
+            let slot_index = STORY_HAND_SLOTS
+                .iter()
+                .position(|slot| *slot == entry.slot)
+                .expect("Story Hand entries use one of the three slots");
+            let generation = slot_generations_u64[slot_index];
+            let available = entry.replacement_count > 0;
+            entry.think = ActionHandPassView {
+                offer_id: if available {
+                    format!(
+                        "think:{}:{}:{}:{}:{}:{}",
+                        actor_id_value,
+                        state_revision,
+                        entry.slot,
+                        generation,
+                        scene_key,
+                        stable_hash_hex(&["story-hand-think", &entry.offer_id]),
+                    )
+                } else {
+                    String::new()
+                },
+                label: "Think".to_string(),
                 state_revision,
-                hand.generation,
-                scene_key
-            ),
-            label: label.to_string(),
-            state_revision,
-            generation: hand.generation,
-            scene_key,
-        };
+                generation,
+                scene_key: scene_key.to_string(),
+                slot: entry.slot.clone(),
+                replaces_offer_id: entry.offer_id.clone(),
+                free,
+                consumes_turn: !free,
+                available,
+            };
+        }
+        hand.pass = hand
+            .entries
+            .iter()
+            .find(|entry| entry.think.available)
+            .map(|entry| entry.think.clone())
+            .unwrap_or_else(empty_think_view);
         hand
     }
 
@@ -2529,24 +2709,69 @@ impl RuntimeWorld {
                 None,
             );
         }
-        let attempts = initial_offers.len().max(1);
+        let attempts = initial_offers
+            .len()
+            .max(1)
+            .saturating_mul(STORY_HAND_SLOTS.len());
         drop(initial_offers);
-        for _ in 0..attempts {
+        for attempt in 0..attempts {
             let (mut primary_action, mut offers) =
                 self.legal_action_candidates_with_presence(Some(actor_id), access, None);
             if direct_input {
                 retain_configured_model_interaction_offers(&mut primary_action, &mut offers, None);
             }
             let hand = self.action_hand_for(Some(actor_id), &offers);
-            if let Some(offer) = offers.into_iter().find(|offer| {
-                hand.entries
-                    .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id)
-                    && predicate(offer)
+            let matching_offer_ids = offers
+                .iter()
+                .filter(|offer| predicate(offer))
+                .map(|offer| offer.offer_id.clone())
+                .collect::<BTreeSet<_>>();
+            if let Some(offer) = offers.iter().find(|offer| {
+                matching_offer_ids.contains(&offer.offer_id)
+                    && hand
+                        .entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
             }) {
-                return Some(offer);
+                return Some(offer.clone());
             }
-            self.append_hand_shuffled_event(actor_id, "test_draw");
+            let replaceable_slots = hand
+                .entries
+                .iter()
+                .filter(|entry| entry.think.available)
+                .filter_map(|entry| STORY_HAND_SLOTS.iter().position(|slot| *slot == entry.slot))
+                .collect::<Vec<_>>();
+            let target_slot = replaceable_slots
+                .iter()
+                .copied()
+                .find(|slot| {
+                    self.action_hand_after_think_for(actor_id, &offers, *slot)
+                        .entries
+                        .iter()
+                        .any(|entry| matching_offer_ids.contains(&entry.offer_id))
+                })
+                .or_else(|| {
+                    (!replaceable_slots.is_empty())
+                        .then(|| replaceable_slots[attempt % replaceable_slots.len()])
+                })?;
+            let (scene_key, _) = self.story_hand_scene_for_actor(actor_id);
+            let replaces_offer_id = hand
+                .entries
+                .iter()
+                .find(|entry| entry.slot == STORY_HAND_SLOTS[target_slot])
+                .map(|entry| entry.offer_id.as_str())
+                .unwrap_or_default()
+                .to_string();
+            self.append_story_hand_thought_event(
+                actor_id,
+                (
+                    target_slot as u8,
+                    &scene_key,
+                    &replaces_offer_id,
+                    false,
+                    "test_draw",
+                ),
+            );
         }
         None
     }
@@ -2638,6 +2863,173 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
     }
 }
 
+fn spell_effect_suit(effect: Option<&str>) -> Option<&'static str> {
+    let effect = effect?.to_ascii_lowercase();
+    if ["rest", "recover", "heal", "glow", "train", "grow", "evolve"]
+        .iter()
+        .any(|term| effect.contains(term))
+    {
+        Some("hearth")
+    } else if ["damage", "attack", "defend", "guard", "rescue", "escape"]
+        .iter()
+        .any(|term| effect.contains(term))
+    {
+        Some("courage")
+    } else if ["reveal", "find", "notice", "inspect", "search", "study"]
+        .iter()
+        .any(|term| effect.contains(term))
+    {
+        Some("wonder")
+    } else if ["travel", "move", "return", "cross", "path"]
+        .iter()
+        .any(|term| effect.contains(term))
+    {
+        Some("way")
+    } else if [
+        "friend",
+        "bond",
+        "speak",
+        "chat",
+        "influence",
+        "give",
+        "trade",
+    ]
+    .iter()
+    .any(|term| effect.contains(term))
+    {
+        Some("heart")
+    } else if ["make", "craft", "create", "open", "use", "work", "prepare"]
+        .iter()
+        .any(|term| effect.contains(term))
+    {
+        Some("hand")
+    } else {
+        None
+    }
+}
+
+/// Exhaustive server-owned mapping from a playable offer to the six Story
+/// Hand suits. There is intentionally no utility/danger fallback: a new verb
+/// must choose its meaning before it can be published as a card.
+pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str, String> {
+    if offer.kind == "cast_spell" {
+        return spell_effect_suit(offer.effect.as_deref()).ok_or_else(|| {
+            format!(
+                "spell offer {} has no effect-derived Story Hand suit",
+                offer.offer_id
+            )
+        });
+    }
+    let intention_suit = match offer.intention.as_str() {
+        "notice" | "inspect" | "search" | "study" | "scout" | "listen" | "find_resonance"
+        | "rank_echoes" => Some("wonder"),
+        "travel" | "go" | "cross" | "return" | "route" | "routes" => Some("way"),
+        "chat" | "speak" | "echo" | "befriend" | "remember" | "influence" | "give" | "accept"
+        | "trade" => Some("heart"),
+        "take" | "drop" | "use" | "open" | "craft" | "prepare" | "work" | "help" | "finish"
+        | "illustrate" => Some("hand"),
+        "attack" | "defend" | "flee" | "rescue" | "steal" => Some("courage"),
+        "rest" | "bank" | "practice" | "train" | "evolve" | "class" => Some("hearth"),
+        _ => None,
+    };
+    let suit = if let Some(suit) = intention_suit {
+        suit
+    } else {
+        match offer.kind.as_str() {
+            "check"
+            | "search"
+            | "study"
+            | "explore_path"
+            | FOCUSED_NOTICE_OFFER_KIND
+            | DISCOVERY_SEARCH_OFFER_KIND
+            | DISCOVERY_STUDY_OFFER_KIND
+            | DISCOVERY_SCOUT_OFFER_KIND => "wonder",
+            "move" => "way",
+            "chat"
+            | "influence"
+            | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
+            | "trade_item"
+            | "create_bond"
+            | "resolve_bond" => "heart",
+            "pick_up" | "drop_item" | "use_item" | "use_feature" | "open" | "craft" | "prepare"
+            | "work" | "help" => "hand",
+            "attack" | "defend" | "flee" | "theft" => "courage",
+            "rest" | "train_skill" | "revise_calling" | "revise_bond" => "hearth",
+            "model_interaction" => match offer.intention.as_str() {
+                "find_resonance" | "rank_echoes" => "wonder",
+                "speak" | "echo" => "heart",
+                "illustrate" => "hand",
+                intention => {
+                    return Err(format!(
+                        "model interaction {} has unmapped intention {intention}",
+                        offer.offer_id
+                    ));
+                }
+            },
+            kind => {
+                return Err(format!(
+                    "playable offer {} has unmapped Story Hand kind {kind}",
+                    offer.offer_id
+                ));
+            }
+        }
+    };
+    Ok(suit)
+}
+
+fn action_card_provenance(offer: &RankedActionOffer) -> &'static str {
+    let pack_id = offer
+        .source_collectible
+        .as_ref()
+        .map(|source| source.pack_id.as_str())
+        .unwrap_or(offer.pack_provenance.pack_id.as_str())
+        .to_ascii_lowercase();
+    if pack_id.contains("legacy") {
+        "legacy"
+    } else if pack_id.contains("community") || pack_id.contains("ugc") {
+        "community"
+    } else if pack_id.starts_with("cosyworld.core")
+        || pack_id.contains("commons")
+        || pack_id.contains("rules-profile")
+    {
+        "core"
+    } else {
+        "worldpack"
+    }
+}
+
+pub(super) fn action_card_presentation(
+    offer: &RankedActionOffer,
+) -> Result<ActionCardPresentationView, String> {
+    let (family, suit) = if offer.kind == "create_avatar" {
+        ("ceremony", None)
+    } else if offer.kind == "wait" {
+        ("control", None)
+    } else {
+        ("action", Some(action_card_suit(offer)?.to_string()))
+    };
+    Ok(ActionCardPresentationView {
+        family: family.to_string(),
+        suit,
+        verb: offer.verb.clone(),
+        source: ActionCardSourceView {
+            kind: offer.provider.kind.clone(),
+            id: offer.provider.id.clone(),
+            label: offer.provider.label.clone(),
+        },
+        state: if offer.disabled { "locked" } else { "ready" }.to_string(),
+        provenance: action_card_provenance(offer).to_string(),
+        // Rarity is a collectible marker, never the action's primary colour or
+        // a proxy for strength. Content can author richer values later.
+        rarity: "everyday".to_string(),
+        power: "standard".to_string(),
+        cost: offer.cost.clone(),
+        risk: offer.risk.clone(),
+        effect: offer.effect.clone(),
+    })
+}
+
 pub(super) fn contribution_resolution_label(policy: &ContributionResolutionPolicy) -> &'static str {
     match policy {
         ContributionResolutionPolicy::Certain => "certain",
@@ -2656,15 +3048,31 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         DISCOVERY_STUDY_OFFER_KIND => "Study",
         DISCOVERY_SCOUT_OFFER_KIND => "Scout",
         "move" => "Travel",
+        "chat" => "Chat",
+        "influence" => "Influence",
+        "give_item" => "Give",
+        "trade_item" => "Trade",
+        "create_bond" => "Befriend",
+        "resolve_bond" => "Remember",
         "model_interaction" => "Illustrate",
         "open" => "Open",
         "work" => "Push",
         "help" => "Help",
+        "use_item" | "use_feature" => "Use",
+        "craft" => "Craft",
+        "attack" => "Attack",
+        "defend" => "Defend",
         "flee" => "Flee",
+        "theft" => "Steal",
         "prepare" => "Prepare",
         "pick_up" => "Take",
         "drop_item" => "Drop",
         ACCEPT_TRANSFER_OFFER_KIND => "Accept",
+        "rest" => "Rest",
+        "train_skill" => "Practice",
+        "revise_calling" => "Evolve",
+        "revise_bond" => "Remember",
+        "cast_spell" => "Cast",
         _ => "Act",
     }
 }
@@ -2749,6 +3157,161 @@ mod tests {
             offer_id: None,
             wallet_session: None,
             envelope: None,
+        }
+    }
+
+    #[test]
+    fn story_hand_suits_are_explicit_exhaustive_and_effect_driven_for_spells() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Suit Tester");
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+        let base = offers.first().expect("seeded actor has an action").clone();
+
+        for (kind, intention, effect, expected) in [
+            ("check", "notice", None, "wonder"),
+            ("move", "travel", None, "way"),
+            ("chat", "chat", None, "heart"),
+            (ACCEPT_TRANSFER_OFFER_KIND, "accept", None, "heart"),
+            ("craft", "craft", None, "hand"),
+            ("attack", "attack", None, "courage"),
+            ("rest", "rest", None, "hearth"),
+            ("model_interaction", "find_resonance", None, "wonder"),
+            ("model_interaction", "echo", None, "heart"),
+            ("model_interaction", "illustrate", None, "hand"),
+            ("cast_spell", "cast", Some("heal a nearby friend"), "hearth"),
+            (
+                "cast_spell",
+                "cast",
+                Some("guard a nearby friend"),
+                "courage",
+            ),
+            ("cast_spell", "cast", Some("reveal a hidden path"), "wonder"),
+        ] {
+            let mut offer = base.clone();
+            offer.kind = kind.to_string();
+            offer.intention = intention.to_string();
+            offer.effect = effect.map(str::to_string);
+            offer.offer_id = format!("test:{kind}:{intention}:{expected}");
+            assert_eq!(
+                action_card_suit(&offer).as_deref(),
+                Ok(expected),
+                "{kind}/{intention} has one authored Story Hand suit"
+            );
+        }
+
+        for (expected, intentions) in [
+            (
+                "wonder",
+                &[
+                    "notice",
+                    "inspect",
+                    "search",
+                    "study",
+                    "scout",
+                    "listen",
+                    "find_resonance",
+                    "rank_echoes",
+                ][..],
+            ),
+            (
+                "way",
+                &["travel", "go", "cross", "return", "route", "routes"],
+            ),
+            (
+                "heart",
+                &[
+                    "chat",
+                    "speak",
+                    "echo",
+                    "befriend",
+                    "remember",
+                    "influence",
+                    "give",
+                    "trade",
+                ],
+            ),
+            (
+                "hand",
+                &[
+                    "take",
+                    "drop",
+                    "use",
+                    "open",
+                    "craft",
+                    "prepare",
+                    "work",
+                    "help",
+                    "finish",
+                    "illustrate",
+                ],
+            ),
+            ("courage", &["attack", "defend", "flee", "rescue", "steal"]),
+            (
+                "hearth",
+                &["rest", "bank", "practice", "train", "evolve", "class"],
+            ),
+        ] {
+            for intention in intentions {
+                let mut offer = base.clone();
+                offer.kind = "authored_action".to_string();
+                offer.intention = (*intention).to_string();
+                offer.offer_id = format!("test:intention:{intention}");
+                assert_eq!(action_card_suit(&offer).as_deref(), Ok(expected));
+            }
+        }
+
+        let mut unmapped = base.clone();
+        unmapped.kind = "utility".to_string();
+        assert!(action_card_presentation(&unmapped).is_err());
+        unmapped.kind = "model_interaction".to_string();
+        unmapped.intention = "generic".to_string();
+        assert!(action_card_presentation(&unmapped).is_err());
+    }
+
+    #[test]
+    fn action_card_presentation_keeps_meaning_source_state_and_collectibility_separate() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Presentation Tester",
+        );
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+        assert!(!offers.is_empty());
+        for offer in &offers {
+            let presentation = action_card_presentation(offer)
+                .unwrap_or_else(|error| panic!("{}: {error}", offer.offer_id));
+            assert_eq!(presentation.family, "action");
+            assert!(matches!(
+                presentation.suit.as_deref(),
+                Some("wonder" | "way" | "heart" | "hand" | "courage" | "hearth")
+            ));
+            assert_eq!(presentation.verb, offer.verb);
+            assert_eq!(presentation.source.kind, offer.provider.kind);
+            assert_eq!(presentation.source.id, offer.provider.id);
+            assert_eq!(presentation.source.label, offer.provider.label);
+            assert!(matches!(presentation.state.as_str(), "ready" | "locked"));
+            assert!(matches!(
+                presentation.provenance.as_str(),
+                "core" | "worldpack" | "community" | "legacy"
+            ));
+            assert_eq!(presentation.rarity, "everyday");
+            assert_eq!(presentation.power, "standard");
+        }
+        let public = serde_json::to_value(&offers).expect("every published offer is mapped");
+        let first = &public.as_array().expect("offer list")[0]["presentation"];
+        for field in [
+            "family",
+            "suit",
+            "verb",
+            "source",
+            "state",
+            "provenance",
+            "rarity",
+            "power",
+        ] {
+            assert!(!first[field].is_null(), "presentation publishes {field}");
         }
     }
 

@@ -19,6 +19,20 @@
       --amber: #efc96b;
       --blue: #8bb7ff;
       --red: #ff8d8d;
+      --suit-wonder: #79c7ff;
+      --suit-wonder-rgb: 121, 199, 255;
+      --suit-way: #65e68a;
+      --suit-way-rgb: 101, 230, 138;
+      --suit-heart: #f2a5c4;
+      --suit-heart-rgb: 242, 165, 196;
+      --suit-hand: #efc96b;
+      --suit-hand-rgb: 239, 201, 107;
+      --suit-courage: #ff7b72;
+      --suit-courage-rgb: 255, 123, 114;
+      --suit-hearth: #b89cff;
+      --suit-hearth-rgb: 184, 156, 255;
+      --card-control: #9db3c7;
+      --card-control-rgb: 157, 179, 199;
       --type-travel: #65e68a;
       --type-travel-rgb: 101, 230, 138;
       --type-chat: #f2df9b;
@@ -55,24 +69,6 @@
       --type-shuffle-rgb: 157, 179, 199;
       --type-utility: #aab7a4;
       --type-utility-rgb: 170, 183, 164;
-      --rarity-free: #9db3c7;
-      --rarity-free-rgb: 157, 179, 199;
-      --rarity-seed: #65e68a;
-      --rarity-seed-rgb: 101, 230, 138;
-      --rarity-common: #f2df9b;
-      --rarity-common-rgb: 242, 223, 155;
-      --rarity-uncommon: #79c7ff;
-      --rarity-uncommon-rgb: 121, 199, 255;
-      --rarity-generated: #82e6c2;
-      --rarity-generated-rgb: 130, 230, 194;
-      --rarity-rare: #b89cff;
-      --rarity-rare-rgb: 184, 156, 255;
-      --rarity-super-rare: #f2a65a;
-      --rarity-super-rare-rgb: 242, 166, 90;
-      --rarity-ultra-rare: #c65cff;
-      --rarity-ultra-rare-rgb: 198, 92, 255;
-      --rarity-mythic: #ffd36a;
-      --rarity-mythic-rgb: 255, 211, 106;
       --avatar-pfp-background-size: 138%;
       --avatar-pfp-background-position: center top;
       --safe-bot: env(safe-area-inset-bottom, 0px);
@@ -2240,7 +2236,7 @@
     }
     .prompt {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 9px;
       align-items: stretch;
       padding: 10px 12px calc(10px + var(--safe-bot));
@@ -2357,7 +2353,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .prompt.has-draw {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(64px, 86px);
+      grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(64px, 86px);
     }
     .prompt.choice-mode.has-draw {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2367,8 +2363,8 @@
     }
     .prompt[hidden] { display: none; }
     .cmd {
-      --cmd-accent: var(--type-utility);
-      --cmd-accent-rgb: var(--type-utility-rgb);
+      --cmd-accent: var(--card-control);
+      --cmd-accent-rgb: var(--card-control-rgb);
       min-width: 0;
       min-height: 58px;
       border: 1px solid rgba(var(--cmd-accent-rgb), 0.42);
@@ -2450,36 +2446,13 @@
       font-size: 10px;
       line-height: 1;
     }
-    .cmd.type-travel { --cmd-accent: var(--type-travel); --cmd-accent-rgb: var(--type-travel-rgb); }
-    .cmd.type-chat { --cmd-accent: var(--type-chat); --cmd-accent-rgb: var(--type-chat-rgb); }
-    .cmd.type-bond { --cmd-accent: var(--type-bond); --cmd-accent-rgb: var(--type-bond-rgb); }
-    .cmd.type-listen { --cmd-accent: var(--type-listen); --cmd-accent-rgb: var(--type-listen-rgb); }
-    .cmd.type-notice { --cmd-accent: var(--type-notice); --cmd-accent-rgb: var(--type-notice-rgb); }
-    .cmd.type-inspect { --cmd-accent: var(--type-inspect); --cmd-accent-rgb: var(--type-inspect-rgb); }
-    .cmd.type-scout { --cmd-accent: var(--type-scout); --cmd-accent-rgb: var(--type-scout-rgb); }
-    .cmd.type-train { --cmd-accent: var(--type-train); --cmd-accent-rgb: var(--type-train-rgb); }
-    .cmd.type-evolve { --cmd-accent: var(--type-evolve); --cmd-accent-rgb: var(--type-evolve-rgb); }
-    .cmd.type-trade { --cmd-accent: var(--type-trade); --cmd-accent-rgb: var(--type-trade-rgb); }
-    .cmd.type-bank { --cmd-accent: var(--type-bank); --cmd-accent-rgb: var(--type-bank-rgb); }
-    .cmd.type-craft { --cmd-accent: var(--type-craft); --cmd-accent-rgb: var(--type-craft-rgb); }
-    .cmd.type-project { --cmd-accent: var(--type-project); --cmd-accent-rgb: var(--type-project-rgb); }
-    .cmd.type-item { --cmd-accent: var(--type-item); --cmd-accent-rgb: var(--type-item-rgb); }
-    .cmd.type-combat { --cmd-accent: var(--type-combat); --cmd-accent-rgb: var(--type-combat-rgb); }
-    .cmd.type-danger { --cmd-accent: var(--type-danger); --cmd-accent-rgb: var(--type-danger-rgb); }
-    .cmd.type-shuffle { --cmd-accent: var(--type-shuffle); --cmd-accent-rgb: var(--type-shuffle-rgb); }
-    .cmd.type-utility { --cmd-accent: var(--type-utility); --cmd-accent-rgb: var(--type-utility-rgb); }
-    .cmd.rarity-free { --cmd-accent: var(--rarity-free); --cmd-accent-rgb: var(--rarity-free-rgb); }
-    .cmd.rarity-seed { --cmd-accent: var(--rarity-seed); --cmd-accent-rgb: var(--rarity-seed-rgb); }
-    .cmd.rarity-common { --cmd-accent: var(--rarity-common); --cmd-accent-rgb: var(--rarity-common-rgb); }
-    .cmd.rarity-uncommon { --cmd-accent: var(--rarity-uncommon); --cmd-accent-rgb: var(--rarity-uncommon-rgb); }
-    .cmd.rarity-generated,
-    .cmd.rarity-mystery,
-    .cmd.rarity-pack { --cmd-accent: var(--rarity-generated); --cmd-accent-rgb: var(--rarity-generated-rgb); }
-    .cmd.rarity-rare { --cmd-accent: var(--rarity-rare); --cmd-accent-rgb: var(--rarity-rare-rgb); }
-    .cmd.rarity-super-rare { --cmd-accent: var(--rarity-super-rare); --cmd-accent-rgb: var(--rarity-super-rare-rgb); }
-    .cmd.rarity-ultra-rare { --cmd-accent: var(--rarity-ultra-rare); --cmd-accent-rgb: var(--rarity-ultra-rare-rgb); }
-    .cmd.rarity-mythic,
-    .cmd.rarity-legendary { --cmd-accent: var(--rarity-mythic); --cmd-accent-rgb: var(--rarity-mythic-rgb); }
+    .cmd.suit-wonder { --cmd-accent: var(--suit-wonder); --cmd-accent-rgb: var(--suit-wonder-rgb); }
+    .cmd.suit-way { --cmd-accent: var(--suit-way); --cmd-accent-rgb: var(--suit-way-rgb); }
+    .cmd.suit-heart { --cmd-accent: var(--suit-heart); --cmd-accent-rgb: var(--suit-heart-rgb); }
+    .cmd.suit-hand { --cmd-accent: var(--suit-hand); --cmd-accent-rgb: var(--suit-hand-rgb); }
+    .cmd.suit-courage { --cmd-accent: var(--suit-courage); --cmd-accent-rgb: var(--suit-courage-rgb); }
+    .cmd.suit-hearth { --cmd-accent: var(--suit-hearth); --cmd-accent-rgb: var(--suit-hearth-rgb); }
+    .cmd.card-control { --cmd-accent: var(--card-control); --cmd-accent-rgb: var(--card-control-rgb); }
     .cmd::before {
       content: "";
       position: absolute;
@@ -2665,6 +2638,34 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+    .cmd-kicker {
+      display: block;
+      color: var(--cmd-accent);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .cmd-meta {
+      display: block;
+      color: var(--dim);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .collectible-mark {
+      position: absolute;
+      right: 7px;
+      bottom: 5px;
+      z-index: 2;
+      color: var(--cmd-accent);
+      font-size: 9px;
+      opacity: 0.72;
     }
     .cmd:disabled {
       opacity: 0.42;
@@ -3835,6 +3836,20 @@
       --amber: #dec28d;
       --blue: #9ab0bd;
       --red: #d98f77;
+      --suit-wonder: #91a9b2;
+      --suit-wonder-rgb: 145, 169, 178;
+      --suit-way: #9faf88;
+      --suit-way-rgb: 159, 175, 136;
+      --suit-heart: #c99aa5;
+      --suit-heart-rgb: 201, 154, 165;
+      --suit-hand: #dec28d;
+      --suit-hand-rgb: 222, 194, 141;
+      --suit-courage: #d98f77;
+      --suit-courage-rgb: 217, 143, 119;
+      --suit-hearth: #b89bbd;
+      --suit-hearth-rgb: 184, 155, 189;
+      --card-control: #a89c86;
+      --card-control-rgb: 168, 156, 134;
       --type-travel: #9faf88;
       --type-travel-rgb: 159, 175, 136;
       --type-chat: #dec28d;
@@ -5044,7 +5059,7 @@
         <span id="location-name">booting</span>
       </button>
       <div class="topbar-actions">
-        <span class="economy" id="economy" aria-label="Carried deck and Orb status"></span>
+        <span class="economy" id="economy" aria-label="Pack and Orb status"></span>
         <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><strong class="room-log-count" id="journal-notification-count" aria-hidden="true" hidden>0</strong><span class="room-log-kicker">Journal</span></button>
       </div>
     </header>
@@ -5101,14 +5116,15 @@
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
-    <footer class="prompt">
+    <footer class="prompt" aria-label="Story Hand">
       <div class="turn-banner" id="turn-banner" hidden>
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="pass" data-analytics-event="action.pass" aria-label="Think: pass these two actions and commit the turn">
+      <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <button class="cmd shuffle card-control" id="shuffle" data-player-concept="think" data-analytics-event="action.think" aria-label="Think about replacing the focused Story Hand card">
         <span class="shuffle-glyph" aria-hidden="true">↻</span><span class="cmd-label">think</span>
       </button>
     </footer>
@@ -5210,44 +5226,9 @@
     function abilityLabel(value, fallback = "an ability") {
       return authoredAbilityChoice(value)?.label || String(value || fallback);
     }
-    const actionCardTypes = [
-      "travel",
-      "notice",
-      "inspect",
-      "scout",
-      "chat",
-      "illustrate",
-      "bond",
-      "listen",
-      "train",
-      "evolve",
-      "trade",
-      "bank",
-      "craft",
-      "project",
-      "item",
-      "combat",
-      "danger",
-      "shuffle",
-      "utility",
-    ];
-    const actionCardTypeClasses = actionCardTypes.map((type) => `type-${type}`);
-    const actionCardRarities = [
-      "free",
-      "seed",
-      "common",
-      "uncommon",
-      "generated",
-      "mystery",
-      "pack",
-      "rare",
-      "super-rare",
-      "ultra-rare",
-      "mythic",
-      "legendary",
-    ];
-    const actionCardRarityClasses = actionCardRarities.map((rarity) => `rarity-${rarity}`);
-    const actionCardAccentClasses = [...actionCardTypeClasses, ...actionCardRarityClasses];
+    const actionCardSuits = ["wonder", "way", "heart", "hand", "courage", "hearth"];
+    const actionCardSuitClasses = actionCardSuits.map((suit) => `suit-${suit}`);
+    const actionCardAccentClasses = [...actionCardSuitClasses, "card-control"];
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
     if (wantsReset) clearLocalSession();
@@ -6653,6 +6634,15 @@
           reason: `From ${view.location?.name || "this room"}`,
           priority: 60,
         };
+        const exactOffer = (view.action_offers || []).find((offer) => (
+          action.offerIds.includes(String(offer?.offer_id || ""))
+        )) || null;
+        if (exactOffer?.presentation) action.presentation = exactOffer.presentation;
+        const handEntry = (view.action_hand?.entries || []).find((entry) => (
+          action.offerIds.includes(String(entry?.offer_id || ""))
+        )) || null;
+        action.storyHandSlot = handEntry?.slot || "";
+        action.storyHandThink = handEntry?.think || null;
         return action;
       };
       const offerVerb = (offer, fallback) => String(offer?.verb || fallback || "Act").trim();
@@ -6667,6 +6657,7 @@
       const semanticAction = (offer, fallbackIntention, accessibleLabel = "") => ({
         ...offerHand(offer),
         intention: String(offer?.intention || fallbackIntention || "").trim(),
+        presentation: offer?.presentation || null,
         target: offer?.target || null,
         project: offer?.project || null,
         accessibleLabel: String(accessibleLabel || offer?.accessible_label || "").trim(),
@@ -7400,10 +7391,10 @@
             effect: oneItem
               ? (swapping
                 ? `${firstItem.name} comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
-                : `${firstItem.name} joins your carried deck until you use, give, trade, or drop it`)
+                : `${firstItem.name} joins your pack until you use, give, trade, or drop it`)
               : (swapping
                 ? `the item you choose comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
-                : "the card you choose joins your carried deck until you use, give, trade, or drop it"),
+                : "the card you choose joins your pack until you use, give, trade, or drop it"),
             ...(oneItem ? {} : {
               choices: takeCandidates.map((candidate) => {
                 const item = candidate.item;
@@ -7628,12 +7619,8 @@
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeLabel = String(firstExit.route_label || "").trim();
           const routeWayName = routeLabel.replace(/\s+from\s+.+\s+to\s+.+$/i, "").trim();
-          const conciseRouteLabel = routeLabel.replace(
-            /^(.*?)\s+from\s+.+\s+to\s+(.+)$/i,
-            "$1 to $2",
-          );
           const destinationOnlyCardLabel = onePath && !searchingPathway && !fleeing
-            ? (conciseRouteLabel || firstPathwayDirection?.endpointName || firstExit.destination_location_name)
+            ? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)
             : "";
           const routeTargetLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeAccessibleLabel = firstPathwayDirection
@@ -7653,9 +7640,7 @@
             pathwayDirection: firstPathwayDirection,
             label: routeVerb.toLowerCase(),
             destinationOnlyCardLabel,
-            destinationOnlyCardAriaLabel: destinationOnlyCardLabel
-              ? `${routeVerb}${routeLabel ? " via " : " to "}${destinationOnlyCardLabel}`
-              : "",
+            destinationOnlyCardAriaLabel: destinationOnlyCardLabel,
             detail: onePath
               ? (firstPathwayDirection
                 ? `toward ${firstPathwayDirection.endpointName}`
@@ -8383,70 +8368,38 @@
       return 500;
     }
 
-    function normalizeActionCardType(type) {
-      const normalized = String(type || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      return actionCardTypes.includes(normalized) ? normalized : "";
+    function normalizeActionCardSuit(suit) {
+      const normalized = String(suit || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return actionCardSuits.includes(normalized) ? normalized : "";
     }
 
     function normalizeActionCardRarity(rarity) {
       const normalized = String(rarity || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      return actionCardRarities.includes(normalized) ? normalized : "generated";
-    }
-
-    function friendlyCardRarity(rarity) {
-      const normalized = normalizeActionCardRarity(rarity);
+      if (["everyday", "curious", "rare", "storybook"].includes(normalized)) return normalized;
       if (["ultra-rare", "mythic", "legendary"].includes(normalized)) return "storybook";
       if (["rare", "super-rare"].includes(normalized)) return "rare";
       if (normalized === "uncommon") return "curious";
       return "everyday";
     }
 
-    function actionCardType(action) {
-      const semanticTypes = {
-        notice: "notice",
-        inspect: "inspect",
-        scout: "scout",
-        travel: "travel",
-        contribute: "project",
-      };
-      const semantic = semanticTypes[String(action?.intention || "").toLowerCase()];
-      if (semantic) return semantic;
-      const explicit = normalizeActionCardType(action?.cardType || action?.type);
-      if (explicit) return explicit;
-      const label = String(action?.label || "").toLowerCase();
-      const command = String(action?.command || "").toLowerCase();
-      const focusKey = String(action?.focusKey || "").toLowerCase();
-      const detail = String(action?.detail || "").toLowerCase();
-      const risk = String(action?.risk || "").toLowerCase();
+    function friendlyCardRarity(rarity) {
+      return normalizeActionCardRarity(rarity);
+    }
 
-      if (label.includes("shuffle") || command === "shuffle" || focusKey === "shuffle-hand") return "shuffle";
-      if (label === "attack" || label === "defend" || command.startsWith("attack ") || command === "defend") return "combat";
-      if (label === "flee" || command.startsWith("flee") || risk.includes("danger")) return "danger";
-      if (label === "travel" || command.startsWith("go ")) return "travel";
-      if (label === "chat" || command.startsWith("chat ")) return "chat";
-      if (label === "leave an echo" || command.startsWith("echo ")) return "chat";
-      if (label === "illustrate" || command.startsWith("illustrate ")) return "illustrate";
-      if (label === "grow closer" || label === "bond" || label === "remember" || focusKey.includes("bond")) return "bond";
-      if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
-      if (label === "evolve" || command === "evolve") return "evolve";
-      if (label === "practice" || label === "train" || command.startsWith("skill ")) return "train";
-      if (label === "trade" || label === "give") return "trade";
-      if (label === "take" || label === "swap") return "item";
-      if (label === "use") return detail.includes("progress") ? "craft" : "item";
-      if (label === "prepare" || label === "work" || label === "help" || label === "finish") return "project";
-      if (label === "rest") return "utility";
-      return "utility";
+    function actionCardSuit(action) {
+      if (String(action?.presentation?.family || "") !== "action") return "";
+      return normalizeActionCardSuit(action?.presentation?.suit);
     }
 
     function actionCardAccentClass(action) {
-      const cardType = actionCardType(action);
-      if (["combat", "notice", "inspect", "scout", "travel", "project"].includes(cardType)
-          && String(action?.intention || "")) {
-        return { cardType, rarity: "", className: `type-${cardType}` };
-      }
-      if (cardType === "combat") return { cardType, rarity: "", className: "type-combat" };
-      const rarity = normalizeActionCardRarity(action?.card?.rarity || action?.rarity || action?.target?.rarity);
-      return { cardType, rarity, className: `rarity-${rarity}` };
+      const suit = actionCardSuit(action);
+      const rarity = friendlyCardRarity(action?.presentation?.rarity);
+      return {
+        cardType: suit || "control",
+        suit,
+        rarity,
+        className: suit ? `suit-${suit}` : "card-control",
+      };
     }
 
     function setWalletQrStatus(message, kind = "ok") {
@@ -8821,7 +8774,7 @@
           ok: false,
           status: 409,
           events: [],
-          output: "That card is no longer in your hand. Think or choose one of the two current cards.",
+          output: "That card is no longer in your Story Hand. Think or choose a current card.",
         };
         setError(result.output);
         void queueRefresh();
@@ -9019,7 +8972,7 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        setError("That free redeal command has retired. Choose Think to commit a pass.");
+        setError("That whole-hand redeal has retired. Focus one Story Hand card, then choose Think.");
         return null;
       }
       const beforeOrbs = economyOrbCount();
@@ -10580,6 +10533,7 @@
         || event.type === "actor.entered_location"
         || event.type === "actor.moved"
         || event.type === "hand.shuffled"
+        || event.type === "hand.thought"
         || event.type === "turn.ping_started"
         || event.type === "turn.pong"
         || event.type === "turn.ping_skipped"
@@ -11028,7 +10982,7 @@
       }
       const economyNode = $("economy");
       economyNode.innerHTML = parts.join("");
-      economyNode.setAttribute("aria-label", `${orbs} Orbs and carried deck status`);
+      economyNode.setAttribute("aria-label", `${orbs} Orbs and pack status`);
     }
 
     function exitUnavailable(exit, view = state) {
@@ -12424,7 +12378,10 @@
         return { kind: "move", label: "locked", text: event.destination_location_name || "path blocked" };
       }
       if (event.type === "hand.shuffled") {
-        return { kind: "hand", label: "hand", text: "new actions" };
+        return { kind: "hand", label: "hand", text: "Story Hand changed" };
+      }
+      if (event.type === "hand.thought") {
+        return { kind: "hand", label: "think", text: "one Story Hand card changed" };
       }
       if (event.type === "turn.ping_started") {
         const actor = event.actor_name || "someone";
@@ -12513,7 +12470,7 @@
       if (type.startsWith("combat.")) return "combat";
       if (type === "exit.discovered") return "search";
       if (type === "encounter.reset") return "combat";
-      if (type === "hand.shuffled") return "hand";
+      if (type === "hand.shuffled" || type === "hand.thought") return "hand";
       if (type.startsWith("turn.")) return "hand";
       if (
         type === "job.contribution.resolved"
@@ -12534,6 +12491,7 @@
       if (type === "exit.discovered") return "entrance";
       if (type === "encounter.reset") return "frontier";
       if (type === "hand.shuffled") return "hand";
+      if (type === "hand.thought") return "think";
       if (type.startsWith("turn.")) return "turn";
       if (type === "job.contribution.resolved") return "approach";
       if (type === "clock.updated") return "clock";
@@ -12639,7 +12597,7 @@
 
     function menuNavHtml(active = menuSection) {
       const entries = [
-        ["deck", "deck"],
+        ["deck", "pack"],
         ["character", "character"],
         ["identity", "sign in / identity"],
         ["world", "worlds & packs"],
@@ -12669,7 +12627,8 @@
     function deckCardRow(card, actionHtml = "") {
       const skill = card.skill_id ? ` · ${card.skill_id.replaceAll("_", " ")} ${Number(card.skill_bonus || 0) >= 0 ? "+" : ""}${card.skill_bonus || 0}` : "";
       const charges = ["spell", "consumable"].includes(String(card.role || "")) ? ` · ${Number(card.charges || 0)} use${Number(card.charges || 0) === 1 ? "" : "s"}` : "";
-      return `<div class="deck-card"><div class="deck-card-copy"><strong>${escapeHtml(card.name || `Item ${card.id}`)}</strong><small>${escapeHtml(`${card.zone || "carried"} · ${card.role || "generic"} · ${card.size || "small"} · ${deckWeightLabel(card.weight_tenths)}${charges}${skill}`)}</small></div>${actionHtml}</div>`;
+      const zone = card.zone === "carried" ? "pack" : (card.zone || "pack");
+      return `<div class="deck-card"><div class="deck-card-copy"><strong>${escapeHtml(card.name || `Item ${card.id}`)}</strong><small>${escapeHtml(`${zone} · ${card.role || "generic"} · ${card.size || "small"} · ${deckWeightLabel(card.weight_tenths)}${charges}${skill}`)}</small></div>${actionHtml}</div>`;
     }
 
     function deckPanelHtml() {
@@ -12707,15 +12666,15 @@
           actionParts.push(`<button class="account-button secondary" type="button" data-set-contained="${card.id}" data-container="${firstContainer.id}">put in ${escapeHtml(firstContainer.name)}</button>`);
         }
         return deckCardRow(card, actionParts.join(""));
-      }).join("") : `<div class="deck-empty">Your carried deck is empty. Pick up item cards in the world.</div>`;
+      }).join("") : `<div class="deck-empty">Your pack is empty. Pick up item cards in the world.</div>`;
       const spellRows = spells.length ? spells.map((card) => {
         const prepared = preparedSpellIds.has(Number(card.id));
         const exhausted = exhaustedSpellIds.has(Number(card.id));
         const actionHtml = exhausted
-          ? `<span class="account-wallet">exhausted</span>`
+          ? `<span class="account-wallet">spent</span>`
           : `<button class="account-button secondary" type="button" data-set-spell="${card.id}" data-prepared="${prepared ? "false" : "true"}"${!prepared && preparedSpells.length >= spellSlots ? " disabled" : ""}>${prepared ? "unprepare" : "prepare"}</button>`;
         return deckCardRow(card, actionHtml);
-      }).join("") : `<div class="deck-empty">No spell cards are currently carried.</div>`;
+      }).join("") : `<div class="deck-empty">No spell cards are in your pack.</div>`;
       const loadoutRows = [deck.equipped_weapon, ...(Array.isArray(deck.equipped_containers) ? deck.equipped_containers : [])]
         .filter(Boolean)
         .map((card) => deckCardRow(card))
@@ -12727,9 +12686,9 @@
       const validation = validationErrors.map((message) => `<div class="deck-empty">${escapeHtml(message)}</div>`).join("");
       const previews = bagPreviews.map((message) => `<div class="item-note">${escapeHtml(message)}</div>`).join("");
       const exhaustedRows = exhaustedCards.length
-        ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">exhausted</span>`)).join("")
-        : `<div class="deck-empty">No cards are exhausted.</div>`;
-      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="item-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
+        ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">spent</span>`)).join("")
+        : `<div class="deck-empty">No cards are spent.</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">your pack</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>pack weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spells</small></div></div>${validation}${previews}<div class="account-section-title">loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">prepared spells</div><div class="item-note">Only prepared spells can be cast. Spent cards remain in your pack until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">spent</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">pack</div><div class="deck-card-list">${carriedRows}</div>`;
     }
 
     function journalPanelHtml() {
@@ -12741,7 +12700,7 @@
       const deck = state?.deck || {};
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="item-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", openRouterApiKey() ? "your OpenRouter connection" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="item-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", openRouterApiKey() ? "your OpenRouter connection" : "world default")}${accountRow("pack", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
     }
 
     function libraryPanelHtml() {
@@ -13044,7 +13003,7 @@
         const skill = abilityLabel(charm.skill_id, charm.skill_id || "skill");
         const bonus = Math.max(0, Number(charm.skill_bonus || 0));
         return `${charm.name} — ${skill}${bonus ? ` +${bonus}` : ""}`;
-      }).join(", ") : "find a skill charm, then wear it from Deck"));
+      }).join(", ") : "find a skill charm, then wear it from Pack"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
       rows.push(accountRow("relationships", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
@@ -13920,7 +13879,8 @@
       if (event.type === "branch.opened") return `opens a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.resolved") return `finishes a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
-      if (event.type === "hand.shuffled") return "draws a new hand.";
+      if (event.type === "hand.shuffled") return "changes their Story Hand.";
+      if (event.type === "hand.thought") return "thinks and changes one Story Hand card.";
       if (event.type === "ability_check.rolled") return abilityCheckEventText(event);
       if (event.type === "study.resolved") {
         return event.content?.includes("yielded")
@@ -15005,39 +14965,30 @@
     }
 
     function actionEmoji(action) {
-      const byType = {
-        travel: "🥾", notice: "👁️", inspect: "🔎", scout: "🧭", chat: "💬", illustrate: "🖼️", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
-        evolve: "🌱", bank: "✨", craft: "🛠️", project: "🧩", item: "🎒", combat: "⚔️", danger: "⚠️",
-        shuffle: "🔄", utility: "🪄",
+      const bySuit = {
+        wonder: "👁️",
+        way: "🧭",
+        heart: "💞",
+        hand: "🛠️",
+        courage: "🛡️",
+        hearth: "🔥",
       };
-      return byType[actionCardType(action)] || cardEmoji(action?.card, action?.shape);
+      return bySuit[actionCardSuit(action)] || cardEmoji(action?.card, action?.shape);
     }
 
     function actionIconName(action) {
       const label = String(action?.label || action?.command || "").trim().toLowerCase();
       if (label === "dodge") return "shield";
       if (label === "escape" || label === "flee") return "travel";
-      const byType = {
-        travel: "travel",
-        notice: "notice",
-        inspect: "inspect",
-        scout: "scout",
-        chat: "chat",
-        illustrate: "craft",
-        bond: "bond",
-        listen: "listen",
-        train: "train",
-        evolve: "evolve",
-        trade: "trade",
-        bank: "bank",
-        craft: "craft",
-        project: "project",
-        item: "item",
-        combat: "combat",
-        danger: "danger",
-        utility: "utility",
+      const bySuit = {
+        wonder: "notice",
+        way: "travel",
+        heart: "bond",
+        hand: "craft",
+        courage: "shield",
+        hearth: "utility",
       };
-      return byType[actionCardType(action)] || cardRoleIconName(action?.card, action?.shape);
+      return bySuit[actionCardSuit(action)] || cardRoleIconName(action?.card, action?.shape);
     }
 
     function emojiHtml(emoji) {
@@ -15045,6 +14996,8 @@
     }
 
     function handProviderReason(action) {
+      const source = action?.presentation?.source;
+      if (source?.label) return `From ${source.label}`;
       return String(action?.handProvider?.reason || "").trim();
     }
 
@@ -15788,12 +15741,13 @@
           String(entry?.intention || ""),
           String(entry?.provider?.kind || ""),
           String(entry?.provider?.id || ""),
+          String(entry?.slot || ""),
+          String(entry?.suit || ""),
+          String(entry?.think?.offer_id || ""),
         ]),
-        pass: [
+        think: [
           String(view?.action_hand?.generation || ""),
-          String(view?.action_hand?.pass?.offer_id || ""),
-          String(view?.action_hand?.pass?.state_revision || ""),
-          String(view?.action_hand?.pass?.scene_key || ""),
+          ...(view?.action_hand?.entries || []).map((entry) => String(entry?.think?.offer_id || "")),
         ],
       });
     }
@@ -15801,6 +15755,12 @@
     function actionMatchesProjectedHandEntry(action, entry) {
       const offerIds = Array.isArray(action?.offerIds) ? action.offerIds : [];
       return offerIds.includes(String(entry?.offer_id || ""));
+    }
+
+    function projectedHandEntryForAction(action) {
+      return (state?.action_hand?.entries || []).find((entry) => (
+        actionMatchesProjectedHandEntry(action, entry)
+      )) || null;
     }
 
     function actionIndexForHandKey(key) {
@@ -15838,7 +15798,7 @@
     }
 
     function handCapacity() {
-      return 2;
+      return state?.branch ? 2 : Number(state?.action_hand?.capacity || 3);
     }
 
     function validActionHandKeySet() {
@@ -16008,6 +15968,7 @@
         button.removeAttribute("data-action-index");
         button.removeAttribute("data-hand-key");
         button.removeAttribute("data-card-type");
+        button.removeAttribute("data-card-suit");
         button.removeAttribute("data-card-rarity");
         button.removeAttribute("data-story-guide");
         button.classList.remove(...actionCardAccentClasses);
@@ -16034,12 +15995,14 @@
       if (action.command) button.dataset.command = action.command;
       else button.removeAttribute("data-command");
       button.classList.remove(...actionCardAccentClasses);
-      const { cardType, rarity, className } = actionCardAccentClass(action);
+      const { cardType, suit, rarity, className } = actionCardAccentClass(action);
       const storyGuide = action.storyGuide === true;
       const storyGuideLabel = storyGuide
         ? String(action.storyGuideLabel || "next tale beat")
         : "";
       button.dataset.cardType = cardType;
+      if (suit) button.dataset.cardSuit = suit;
+      else button.removeAttribute("data-card-suit");
       if (rarity) button.dataset.cardRarity = rarity;
       else button.removeAttribute("data-card-rarity");
       button.classList.add(className);
@@ -16062,11 +16025,31 @@
         button.removeAttribute("data-hand-key");
         button.classList.remove("dealt");
       }
+      const presentation = action.presentation || {};
+      const exactVerb = String(
+        String(action?.intention || "").toLowerCase() === "travel"
+          ? "Travel"
+          : (presentation.verb || action.label || "Act")
+      ).trim();
+      const cardTitle = String(
+        action.destinationOnlyCardLabel
+          || action.target?.label
+          || action.card?.display_name
+          || action.detail
+          || action.label
+          || "Action"
+      ).trim();
+      const effectText = friendlyActionText(presentation.effect || action.effect);
+      const riskText = friendlyActionText(presentation.risk || action.risk);
+      const orbCost = Number(presentation.cost?.orbs || action.orbCost || 0);
+      const costText = orbCost ? `${orbCost} Orb${orbCost === 1 ? "" : "s"}` : "free";
+      const sourceText = handProviderReason(action);
       const title = [
-        action.pathwayDirection ? "" : action.command,
-        handProviderReason(action),
-        friendlyActionText(action.effect),
-        friendlyActionText(action.risk),
+        suit ? `${suit} · ${exactVerb}` : exactVerb,
+        cardTitle,
+        effectText,
+        [costText, riskText].filter(Boolean).join(" · "),
+        sourceText,
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
       else button.removeAttribute("title");
@@ -16083,19 +16066,17 @@
       button.setAttribute(
         "aria-label",
         [
-          action.destinationOnlyCardAriaLabel || action.accessibleLabel || action.label,
-          destinationOnlyCardLabel ? "" : detail,
-          destinationOnlyCardLabel ? "" : handProviderReason(action),
+          suit ? `${suit} suit` : "control",
+          exactVerb,
+          action.destinationOnlyCardAriaLabel || action.accessibleLabel || cardTitle,
+          destinationOnlyCardLabel ? "" : effectText,
+          [costText, riskText].filter(Boolean).join(", "),
+          destinationOnlyCardLabel ? "" : sourceText,
           storyGuideLabel,
           count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
       );
-      if (cardType === "shuffle") {
-        button.classList.add("has-copy");
-        button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${iconSvg("cards")}${escapeHtml(compactActionLabel(action) || "all")}</span>`;
-        return;
-      }
       const directionArrow = action.pathwayDirection?.side === "back"
         ? "←"
         : (action.pathwayDirection?.side === "forward" ? "→" : "↔");
@@ -16103,23 +16084,26 @@
         ? `<span class="thumb pathway-direction-thumb" aria-hidden="true">${directionArrow}</span>`
         : thumbnailHtml(action, false, "action-mini-card");
       button.classList.add("has-copy");
-      const labelText = destinationOnlyCardLabel
-        || compactActionLabel(action)
-        || String(action.command || "action").toLowerCase();
-      const detailHtml = detail && !destinationOnlyCardLabel
-        ? `<span class="detail">${escapeHtml(detail)}</span>`
+      const labelText = cardTitle;
+      const detailHtml = effectText && !destinationOnlyCardLabel
+        ? `<span class="detail">${escapeHtml(effectText)}</span>`
         : "";
       const storyHtml = storyGuide && !destinationOnlyCardLabel
         ? `<span class="story-call">✦ ${escapeHtml(storyGuideLabel)}</span>`
         : "";
-      const providerReason = destinationOnlyCardLabel ? "" : handProviderReason(action);
+      const providerReason = destinationOnlyCardLabel ? "" : sourceText;
       const providerHtml = providerReason
         ? `<span class="provider-call">↳ ${escapeHtml(providerReason)}</span>`
         : "";
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml}</span>${busyHtml}`;
+      const kicker = suit ? `${suit} · ${exactVerb}` : exactVerb;
+      const economy = [costText, riskText].filter(Boolean).join(" · ");
+      const rarityMark = suit
+        ? `<span class="collectible-mark" title="${escapeAttr(`${rarity} · ${presentation.provenance || "core"}`)}" aria-hidden="true">◇</span>`
+        : "";
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(kicker)}</span><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}<span class="cmd-meta">${escapeHtml(economy)}</span>${providerHtml}${storyHtml}</span>${rarityMark}${busyHtml}`;
     }
 
     function actionBarActions() {
@@ -16166,7 +16150,7 @@
       focusedKey = action.focusKey || "";
       renderRoomAvatarRail();
       renderCommands();
-      $((["primary", "secondary"])[next])?.focus();
+      $((["primary", "secondary", "tertiary"])[next])?.focus();
     }
 
     function isDefinitivePassRejection(result = {}) {
@@ -16184,21 +16168,23 @@
       handShuffleBusy = true;
       button.disabled = true;
       try {
-        const pass = state?.action_hand?.pass;
-        if (!pass?.offer_id) {
-          setError("Think is not available until the current hand arrives.");
+        const focused = visibleFocusedAction();
+        const entry = projectedHandEntryForAction(focused);
+        const think = entry?.think;
+        if (!think?.available || !think?.offer_id) {
+          setError("Choose a Story Hand card that has another possibility, then Think again.");
           return null;
         }
-        if (handPassSubmission?.offer_id !== pass.offer_id) {
+        if (handPassSubmission?.offer_id !== think.offer_id) {
           handPassSubmission = {
-            offer_id: pass.offer_id,
+            offer_id: think.offer_id,
             envelope: canonicalCommandEnvelope(),
           };
         }
         const result = await postResult("/commands", withAccess({
           actor_id: actorId,
           actor_session: actorSession,
-          command: "pass",
+          command: "think",
           offer_id: handPassSubmission.offer_id,
           envelope: handPassSubmission.envelope,
         }));
@@ -16215,24 +16201,18 @@
           return result;
         }
         handPassSubmission = null;
-        const thoughtRoll = (result.events || []).find((event) => (
-          event.type === "ability_check.rolled" && event.content === "think"
-        ));
-        if (!thoughtRoll) {
-          setError("The hand passed, but no reflection check was returned.");
-        }
         await refresh();
         renderCommands();
         return result;
       } finally {
         handShuffleBusy = false;
-        button.disabled = false;
+        renderCommands();
       }
     }
 
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
-      const buttonIds = ["primary", "secondary"];
+      const buttonIds = ["primary", "secondary", "tertiary"];
       const drawButton = $("shuffle");
       renderTurnPingPill();
       prompt.classList.toggle("single-action", actionBusy);
@@ -16259,21 +16239,31 @@
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
+      const visibleActions = actionBarActions().slice(0, handCapacity());
+      const focusedVisibleAction = visibleActions.find((action) => action.actionIndex === focusIndex)
+        || visibleActions[0]
+        || null;
+      const focusedThink = projectedHandEntryForAction(focusedVisibleAction)?.think || null;
       const canDraw = !state?.branch
         && actorId
         && actorSession
         && state?.primary_action?.kind !== "create_avatar"
-        && Boolean(state?.action_hand?.pass?.offer_id)
+        && (state?.action_hand?.entries || []).some((entry) => entry?.think?.available)
         && (!state?.combat || state?.turn?.is_current_actor);
       prompt.classList.toggle("combat-mode", Boolean(state?.combat));
       prompt.classList.toggle("choice-mode", choiceMode);
       prompt.classList.toggle("has-draw", canDraw);
       drawButton.style.display = canDraw ? "flex" : "none";
-      drawButton.disabled = handShuffleBusy;
-      const passLabel = state?.action_hand?.pass?.label || "Think";
-      drawButton.querySelector(".cmd-label").textContent = passLabel.toLowerCase();
-      drawButton.setAttribute("aria-label", `${passLabel}: commit a pass for the current two actions`);
-      const visibleActions = actionBarActions().slice(0, handCapacity());
+      drawButton.disabled = handShuffleBusy || !focusedThink?.available;
+      const thinkCost = focusedThink?.free ? "free" : "uses this turn";
+      const thinkSlot = String(focusedThink?.slot || focusedVisibleAction?.storyHandSlot || "focused");
+      drawButton.querySelector(".cmd-label").textContent = focusedThink?.free ? "think · free" : "think";
+      drawButton.setAttribute(
+        "aria-label",
+        focusedThink?.available
+          ? `Think: replace the ${thinkSlot} card; ${thinkCost}`
+          : `Think: the ${thinkSlot} card has no other current possibility`,
+      );
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
         const visibleAction = visibleActions[index]
@@ -17146,6 +17136,11 @@
 
     $("secondary").addEventListener("click", () => {
       const action = actionForButton("secondary") || (state?.branch ? actions[1] : null);
+      if (action) openActionModal(action);
+    });
+
+    $("tertiary").addEventListener("click", () => {
+      const action = actionForButton("tertiary");
       if (action) openActionModal(action);
     });
 

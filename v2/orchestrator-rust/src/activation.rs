@@ -786,6 +786,7 @@ fn event_is_first_tale_completed(event: &EventView, actor_id: u64) -> bool {
 fn event_counts_as_first_committed_turn(event: &EventView) -> bool {
     event.success
         && event.actor_id.is_some()
+        && !(event.type_name == "ability_check.rolled" && event.content.as_deref() == Some("think"))
         && matches!(
             event.type_name.as_str(),
             "ability_check.rolled"

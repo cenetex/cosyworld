@@ -263,4 +263,10 @@
 # lookup/resolution, search reinforcement, and legacy migration into
 # residents/memory.rs. Room observation, disproved-memory cleanup, movement
 # observation, gossip, and belief projection remain for the sequential #324.
-66712
+# 66712 -> 66896: integrate the Story Hand's persisted per-slot Think state,
+# public presentation envelope, projection event, and cross-surface regression
+# contracts at the existing runtime/snapshot/HTTP boundaries. Hand composition,
+# policy, commands, autonomous selection, and their focused tests remain in the
+# owning modules; this is a reviewed integration exception, not a new root-owned
+# gameplay subsystem.
+66889

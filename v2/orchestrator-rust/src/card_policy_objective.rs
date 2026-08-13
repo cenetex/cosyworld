@@ -604,17 +604,18 @@ fn commit_resident_card_policy_turn(
                 if status != CW_OK {
                     return Err(format!("card_policy_draw_kernel_rejected:{status}"));
                 }
-                // A draw is itself an authoritative turn. Usually we immediately
-                // re-rank the next pair, but if the objective budget ended or a
-                // pathological model keeps drawing beyond one deck traversal,
-                // publish this completed draw and resume on the next reply turn.
+                // Think advances exactly one authoritative Story Hand slot.
+                // Usually we immediately re-rank the replacement, but if the
+                // objective budget ended or a pathological model keeps Thinking
+                // beyond one offer-queue traversal, publish this completed
+                // reflection and resume on the next reply turn.
                 if !runtime.actor_has_active_treasure_objective(base_plan.speaker_actor_id)
                     || draw_index == maximum_draws
                 {
                     return Ok(Some(CommittedResidentPolicyTurn {
                         action: committed_action,
                         offer_kind: "draw".to_string(),
-                        offer_label: "draw the next two cards".to_string(),
+                        offer_label: "think about one Story Hand card".to_string(),
                         offer_id: format!(
                             "resident-card-policy-draw:{}:{}",
                             base_plan.speaker_actor_id, draw_index
@@ -959,7 +960,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn live_card_policy_draws_then_reranks_the_new_hand() {
+    async fn live_card_policy_thinks_one_slot_then_reranks_the_replacement() {
         use cosyworld_orchestrator::card_policy::CardPolicyModel;
 
         let mut runtime = RuntimeWorld::seeded();
@@ -968,14 +969,27 @@ mod tests {
             .resident_reply_plan_for_target(
                 SKULL_ACTOR_ID,
                 RATI_ACTOR_ID,
-                "The first two choices feel wrong.",
+                "The first Story Hand choices feel wrong.",
             )
             .expect("seeded resident reply plan");
         plan.planner_requested = true;
         let plan = runtime.prepare_resident_planner_snapshot(plan);
 
         let mut after_draw = runtime.clone();
-        after_draw.hand_generations.insert(RATI_ACTOR_ID, 1);
+        let (_, offers) =
+            after_draw.legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default());
+        let hand = after_draw.action_hand_for(Some(RATI_ACTOR_ID), &offers);
+        let slot = STORY_HAND_SLOTS
+            .iter()
+            .position(|candidate| *candidate == hand.pass.slot)
+            .expect("resident Think has an exact Story Hand slot");
+        let (scene_key, _) = after_draw.story_hand_scene_for_actor(RATI_ACTOR_ID);
+        let mut story_state = after_draw.story_hand_state_for_scene(RATI_ACTOR_ID, &scene_key);
+        story_state.slot_generations[slot] = story_state.slot_generations[slot].saturating_add(1);
+        story_state.free_think_used = true;
+        after_draw
+            .story_hand_states
+            .insert(RATI_ACTOR_ID, story_state);
         let after_draw_plan = after_draw.prepare_resident_planner_snapshot(plan.clone());
         let rollout = (0..10_000)
             .find_map(|seed| {
@@ -1008,9 +1022,9 @@ mod tests {
             .collect::<Vec<_>>();
         let draw_seq = new_events
             .iter()
-            .find(|event| event.type_name == "hand.shuffled")
+            .find(|event| event.type_name == "hand.thought")
             .map(|event| event.seq)
-            .expect("draw advanced the authoritative hand");
+            .expect("Think advanced one authoritative Story Hand slot");
         let narration_seq = new_events
             .iter()
             .find(|event| event.type_name == "message.created")
@@ -1020,9 +1034,18 @@ mod tests {
             event.seq > draw_seq
                 && event.seq < narration_seq
                 && event.actor_id == Some(RATI_ACTOR_ID)
-                && event.type_name != "hand.shuffled"
+                && event.type_name != "hand.thought"
         }));
-        assert_eq!(runtime.hand_generations.get(&RATI_ACTOR_ID), Some(&1));
+        let generations = runtime
+            .story_hand_states
+            .get(&RATI_ACTOR_ID)
+            .map(|state| state.slot_generations)
+            .expect("resident Think keeps an actor-scoped Story Hand state");
+        assert!(generations[slot] >= 1);
+        assert!(generations
+            .iter()
+            .enumerate()
+            .all(|(index, generation)| index == slot || *generation == 0));
     }
 
     fn loose_treasure(runtime: &RuntimeWorld) -> CwItem {
