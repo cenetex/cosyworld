@@ -723,7 +723,7 @@ async function main() {
             lead_location_id: 1,
             instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
-        }, [{ label: "notice", intention: "notice", target: { id: 1 }, focusKey: "check", command: "listen" }]),
+        }, [{ label: "notice", intention: "notice", target: { id: 1001, label: "Rati" }, focusKey: "actor:1001", command: "notice Rati" }]),
         missedListenWithOtherAdvancementStep: firstThreadModel({
           primary_action: { kind: "search" },
           first_tale: {
@@ -841,6 +841,16 @@ async function main() {
         welcomingListenWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "search" }] },
+          action_offers: [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }],
+          action_hand: {
+            entries: [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }],
+          },
           economy: { listen_attempted_here: false },
           ledger: { unbanked_count: 1, unbanked_marks: [{ category: "witness" }] },
           turn: { enabled: false, is_current_actor: true },
@@ -1158,7 +1168,7 @@ async function main() {
     // The floor is preserved by dealing a waiting player no bypass action at
     // all, which is stricter than the previous single observational card.
     assert(guide.arrivalActions.length === 0, `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits, dealing no bypass card: ${JSON.stringify(guide)}`);
-    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
+    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.length === 0, `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 0, `ordinary ordered-scene waiting should preserve the combat floor without a timer card: ${JSON.stringify(guide)}`);
     assert(
@@ -1693,12 +1703,27 @@ async function main() {
           kind: "chat",
           options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
         },
-        action_offers: [{
-          offer_id: "move:rain-soft-garden",
-          kind: "move",
-          target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
-          provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
-        }],
+        action_offers: [
+          {
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          },
+          {
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
+        ],
+        action_hand: {
+          entries: [
+            { offer_id: "core:1:notice-rati", kind: "notice_actor" },
+            { offer_id: "move:rain-soft-garden", kind: "move" },
+          ],
+        },
         economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
         search_available: true,
         room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
@@ -11079,71 +11104,55 @@ async function main() {
     });
   }
 
-  async function exerciseFrontierRecovery() {
-    assert((await currentLocation()) === "Moonlit Trail", "frontier recovery should begin on Moonlit Trail");
-    const startingState = await fetchCurrentState();
-    if ((startingState.tags || []).some((tag) => tag.label === "tired")) {
-      const startingRestAvailable = await page.evaluate(() => (
-        actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-      ));
-      if (!startingRestAvailable) {
-        await leaveTrailTo("Rain-Soft Garden");
-      }
-      const startingRest = await drawPrimaryMatching("pre-existing frontier rest", ["rest", "feel fresh"]);
-      steps.push({ label: "pre-existing frontier rest", primary: startingRest, location: await currentLocation() });
-      await clickPrimary("pre-existing frontier rest");
-      await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-      if ((await currentLocation()) !== "Moonlit Trail") await travelTo("Moonlit Trail");
-    }
-    let firstListenCommitted = startingState.economy?.listen_attempted_here === true;
-    if (firstListenCommitted) {
-      steps.push({
-        label: "frontier notice already attempted",
-        location: await currentLocation(),
-      });
-    }
-    for (let attempt = 1; attempt <= 3 && !firstListenCommitted; attempt += 1) {
-      const firstListen = await drawPrimaryMatching("first frontier notice", ["notice", "for a clue"]);
-      steps.push({ label: "first frontier notice", primary: firstListen, location: await currentLocation(), attempt });
-      await clickPrimary("first frontier notice");
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
-      firstListenCommitted = (await fetchCurrentState()).economy?.listen_attempted_here === true;
-    }
-    assert(firstListenCommitted, "the first frontier Notice should commit before drawing its free repeat");
-    const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "free"]);
-    steps.push({ label: "tiring frontier notice", primary: repeatNotice, location: await currentLocation() });
-    await clickActionMatching("tiring frontier notice", ["notice", "free"]);
+  async function exerciseFrontierObservation() {
+    assert((await currentLocation()) === "Moonlit Trail", "frontier observation should begin on Moonlit Trail");
+    const noticeCard = await drawPrimaryMatching(
+      "frontier actor notice",
+      ["notice", "reveals one disclosure-safe observable fact"],
+    );
+    const before = await page.evaluate(() => ({
+      actorId: Number(actorId || 0),
+      eventSeq: logEvents.reduce((latest, event) => Math.max(latest, Number(event.seq) || 0), 0),
+      ledger: {
+        banked: Number(state?.ledger?.banked_count || 0),
+        unbanked: Number(state?.ledger?.unbanked_count || 0),
+      },
+      tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+    }));
+    assert(!before.tired, `frontier Notice should begin from a fresh actor: ${JSON.stringify(before)}`);
+    steps.push({ label: "frontier actor notice", primary: noticeCard, location: await currentLocation() });
+    await clickPrimary("frontier actor notice");
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const tiredState = await fetchCurrentState();
-    if (!(tiredState.tags || []).some((tag) => tag.label === "tired")) {
-      steps.push({ label: "frontier notice stayed fresh", location: await currentLocation() });
-      return;
-    }
-    const restAlreadyAvailable = await page.evaluate(() => (
-      actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-    ));
-    if (!restAlreadyAvailable) {
-      await leaveTrailTo("Rain-Soft Garden");
-      steps.push({ label: "frontier recovery walk", location: await currentLocation() });
-    }
-
-    const restCard = await drawPrimaryMatching("frontier rest", ["rest", "feel fresh"]);
-    steps.push({ label: "immediate frontier recovery", primary: restCard, location: await currentLocation() });
+    const after = await page.evaluate((starting) => {
+      const events = logEvents.filter((event) => Number(event.seq || 0) > starting.eventSeq);
+      return {
+        observations: events.filter((event) => (
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === starting.actorId
+        )).length,
+        rolled: events.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: events.some((event) => (
+          event.type === "ledger.marked" || event.type === "ledger.banked"
+        )),
+        ledger: {
+          banked: Number(state?.ledger?.banked_count || 0),
+          unbanked: Number(state?.ledger?.unbanked_count || 0),
+        },
+        tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+      };
+    }, before);
     assert(
-      restCard.toLowerCase().startsWith("rest feel fresh"),
-      `Rest should become the first card as soon as frontier listening leaves you tired: ${restCard}`,
-    );
-    steps.push({ label: "frontier rest", primary: restCard, location: await currentLocation() });
-    await clickPrimary("frontier rest");
-    await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-    const rested = await fetchCurrentState();
-    assert(
-      !(rested.tags || []).some((tag) => tag.label === "tired"),
-      `Rest should leave the avatar feeling fresh again: ${JSON.stringify(rested.tags)}`,
+      after.observations === 1
+        && after.rolled === false
+        && after.touchedGrowth === false
+        && after.ledger.banked === before.ledger.banked
+        && after.ledger.unbanked === before.ledger.unbanked
+        && after.tired === false,
+      `frontier Notice should remain one truthful, non-tiring observation: ${JSON.stringify({ before, after })}`,
     );
   }
 
@@ -11293,15 +11302,14 @@ async function main() {
       const handOfferIds = new Set((state?.action_hand?.entries || [])
         .map((entry) => String(entry?.offer_id || ""))
         .filter(Boolean));
-      const previousRollSeq = Math.max(0, ...roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === currentActorId
-        ))
-        .map((entry) => Number(entry.seq || 0)));
+      const exactOffer = (state?.action_offers || []).find((offer) =>
+        (focused?.offerIds || []).includes(offer.offer_id)) || null;
       return {
         actorId: currentActorId,
-        previousRollSeq,
+        targetActorId: Number(exactOffer?.target?.id || 0),
+        previousEventSeq: logEvents.reduce((latest, event) => (
+          Math.max(latest, Number(event.seq) || 0)
+        ), 0),
         focused: focused && {
           label: compactActionLabel(focused),
           intention: focused.intention,
@@ -11313,75 +11321,42 @@ async function main() {
     });
     assert(
       noticeBefore.actorId > 0
+        && noticeBefore.targetActorId > 0
         && noticeBefore.focused?.intention === "notice"
         && noticeBefore.focused?.isCertified === true,
       `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
     );
     await clickPrimary("notice");
-    await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    await page.waitForFunction(({ actorId: currentActorId, previousRollSeq }) => (
-      roomMemoryModel().recent.some((entry) => (
-        entry.kind === "roll"
-          && Number(entry.actorId || 0) === Number(currentActorId)
-          && Number(entry.seq || 0) > Number(previousRollSeq)
-          && String(entry.text || "").trim().length > 0
-      ))
-    ), noticeBefore);
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      // A resident reply is asynchronous: intent inference, then dialogue
-      // inference, then the authored chat delay. Re-enabling the primary button
-      // does not mean the line has landed, so wait for it rather than sampling
-      // the log the instant the action completes.
-      await page
-        .waitForFunction(() => [...document.querySelectorAll("#log > *")].some((node) => (
-          node.classList.contains("chat")
-          && node.classList.contains("avatar")
-          && !node.classList.contains("you")
-        )), { timeout: 45000 })
-        .catch(() => {});
-    }
-    const scene = await page.evaluate(({ actorId: currentActorId, previousRollSeq }) => {
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && state?.first_tale?.phase === "follow_lead"
+    ));
+    const scene = await page.evaluate(({ actorId: currentActorId, targetActorId, previousEventSeq }) => {
       const rows = [...document.querySelectorAll("#log > *")];
-      // Chat rows are classified you/avatar/world; there is no longer an "npc"
-      // class. A resident reply is any avatar row that is not the player's.
-      const reply = rows.findLast((node) => (
-        node.classList.contains("chat")
-        && node.classList.contains("avatar")
-        && !node.classList.contains("you")
-      ));
-      const noticeRoll = roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === Number(currentActorId)
-            && Number(entry.seq || 0) > Number(previousRollSeq)
-        ))
-        .sort((left, right) => Number(left.seq || 0) - Number(right.seq || 0))
-        .at(-1) || null;
+      const newEvents = logEvents.filter((event) => Number(event.seq || 0) > Number(previousEventSeq));
       return {
-        residentReply: reply?.textContent?.trim().replace(/\s+/g, " ") || "",
-        roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        noticeRoll: noticeRoll && {
-          seq: Number(noticeRoll.seq || 0),
-          actorId: Number(noticeRoll.actorId || 0),
-          kind: noticeRoll.kind,
-          label: noticeRoll.label,
-          text: noticeRoll.text,
-        },
+        observed: newEvents.some((event) =>
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === Number(currentActorId)
+            && Number(event.target_actor_id || 0) === Number(targetActorId)),
+        rolled: newEvents.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: newEvents.some((event) =>
+          event.type === "ledger.marked" || event.type === "ledger.banked"),
+        ledger: state?.ledger || {},
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
         nonChatRows: rows.filter((node) => node.classList.contains("line") && !node.classList.contains("chat")).length,
       };
     }, noticeBefore);
     assert(scene.eventRows === 0 && scene.nonChatRows === 0, `Notice outcomes should stay out of group chat: ${JSON.stringify(scene)}`);
     assert(
-      scene.noticeRoll?.seq > noticeBefore.previousRollSeq
-        && scene.noticeRoll?.actorId === noticeBefore.actorId
-        && scene.noticeRoll?.kind === "roll"
-        && String(scene.noticeRoll?.text || "").trim().length > 0,
-      `the room Log should retain this actor's new Notice roll without depending on success or failure prose: ${JSON.stringify({ noticeBefore, scene })}`,
+      scene.observed === true
+        && scene.rolled === false
+        && scene.touchedGrowth === false
+        && Number(scene.ledger?.banked_count || 0) === 0
+        && Number(scene.ledger?.unbanked_count || 0) === 0,
+      `actor Notice should record one generic observation without a roll or growth mutation: ${JSON.stringify({ noticeBefore, scene })}`,
     );
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      assert(scene.residentReply.length > 0, `group chat should retain the resident's spoken reply: ${JSON.stringify(scene)}`);
-    }
     await assertActionBarCapped("notice action bar");
   }
 
@@ -12364,14 +12339,19 @@ async function main() {
           && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
-      assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
+      assert(
+        !/earned one|\+1/i.test(afterFirstListen.economy)
+          && Number(afterFirstListen.ledger?.banked_count || 0) === 0
+          && Number(afterFirstListen.ledger?.unbanked_count || 0) === 0,
+        `actor Notice should advance the lead without mutating growth: ${JSON.stringify(afterFirstListen)}`,
+      );
       const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
         afterFirstListen.currentActorId === sharedTurnOwner
           && afterFirstListen.firstTale?.phase === "follow_lead"
           && /Rain-Soft Garden/i.test(afterFirstListen.guide)
           && !/your first tale is yours/i.test(afterFirstListen.guide),
-        `automatic discovery settlement should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+        `truthful observation should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
         label: "waiting player shared-world lead",
@@ -15633,7 +15613,7 @@ async function main() {
       );
       await travelTo("Moonlit Trail");
     }
-    await exerciseFrontierRecovery();
+    await exerciseFrontierObservation();
     if ((await currentLocation()) !== "Rain-Soft Garden") {
       await leaveTrailTo("Rain-Soft Garden");
     }
