@@ -70,6 +70,7 @@ mod moderation;
 mod movement;
 mod mud;
 mod natural_affordances;
+mod notice;
 mod offer_commands;
 mod ownership;
 #[cfg(test)]
@@ -180,6 +181,7 @@ use moderation::*;
 use movement::*;
 use mud::*;
 use natural_affordances::*;
+use notice::*;
 use offer_commands::*;
 use ownership::*;
 use projection_cache::*;
@@ -930,6 +932,12 @@ enum ProjectionMutation {
     },
     SetGiftAutoAccept(projection_ledger::SetGiftAutoAccept),
     ConsumeGiftAutoAccept(projection::ConsumeGiftAutoAccept),
+    RecordNoticeActorFact {
+        fact_id: String,
+        target_actor_id: u64,
+        item_id: u64,
+        held_since_tick: u64,
+    },
     ShuffleHand {
         reason: String,
     },
@@ -1347,6 +1355,7 @@ impl ActorControlMode {
 
 const TRANSFER_OFFER_TTL_TICKS: u64 = 24;
 const ACCEPT_TRANSFER_OFFER_KIND: &str = "accept_transfer";
+const NOTICE_ACTOR_OFFER_KIND: &str = "notice_actor";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -4947,6 +4956,7 @@ fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
         ACCEPT_TRANSFER_OFFER_KIND => "give_item",
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
         FOCUSED_NOTICE_OFFER_KIND => "check",
+        NOTICE_ACTOR_OFFER_KIND => "check",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         "open" => "use_item",
         other => other,
@@ -9379,6 +9389,32 @@ impl RuntimeWorld {
                 ProjectionMutation::ConsumeGiftAutoAccept(mutation) => {
                     mutation.apply(self, &ctx);
                 }
+                ProjectionMutation::RecordNoticeActorFact {
+                    fact_id,
+                    target_actor_id,
+                    item_id: _,
+                    held_since_tick: _,
+                } => {
+                    if self.rpg_claims.insert(fact_id.clone()) {
+                        if action.location_id != 0 {
+                            self.listen_attempt_claims.insert(listen_attempt_claim_key(
+                                action.actor_id,
+                                action.location_id,
+                            ));
+                        }
+                        let target_name = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        events.push(self.append_async_job_event(
+                            "notice.actor_observed",
+                            action.actor_id,
+                            Some(*target_actor_id),
+                            Some(format!(
+                                "A private observable detail about {target_name} became known."
+                            )),
+                        ));
+                    }
+                }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
@@ -13197,8 +13233,8 @@ impl RuntimeWorld {
             .actor_by_id(actor_id)
             .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Notice requires an active avatar.".to_string())?;
-        if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
-            return Err("That avatar is not close enough to notice.".to_string());
+        if target_actor_id != 0 {
+            return Err("Actor Notice now requires a certified notice_actor_v1 offer.".to_string());
         }
         Ok((
             CwAction {
@@ -19272,6 +19308,21 @@ The relationship statement they are preserving is: {statement}"
                 record.projection_mutations.extend(mutations);
                 record
             }
+            NOTICE_ACTOR_OFFER_KIND => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)?;
+                let (action, mutation, _) = self
+                    .plan_notice_actor_action(actor.id, target_actor_id)
+                    .ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind(NOTICE_ACTOR_OFFER_KIND);
+                record.projection_mutations.push(mutation);
+                record
+            }
             "check" => {
                 if self.event_log.iter().rev().any(|event| {
                     event.seq >= min_seq
@@ -19635,6 +19686,18 @@ The relationship statement they are preserving is: {statement}"
                             intent.strategy.strategy_label.trim_end_matches('.')
                         ))
                     }
+                    ProjectionMutation::RecordNoticeActorFact {
+                        target_actor_id, ..
+                    } => {
+                        proposed_action.kind = NOTICE_ACTOR_OFFER_KIND.to_string();
+                        proposed_action.target_actor_id = Some(*target_actor_id);
+                        let target = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        Some(format!(
+                            "{actor_name} intends to notice one visible detail about {target}."
+                        ))
+                    }
                     ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => {
                         proposed_action.kind = "rest".to_string();
                         Some(format!("{actor_name} intends to rest."))
@@ -19806,6 +19869,24 @@ The relationship statement they are preserving is: {statement}"
             return offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(destination_location_id)
             });
+        }
+        if let Some((fact_id, target_actor_id)) =
+            record
+                .projection_mutations
+                .iter()
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::RecordNoticeActorFact {
+                        fact_id,
+                        target_actor_id,
+                        ..
+                    } => Some((fact_id.as_str(), *target_actor_id)),
+                    _ => None,
+                })
+        {
+            return offer.claim_key.as_deref() == Some(fact_id)
+                && offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "actor" && target.id == Some(target_actor_id)
+                });
         }
         if action.kind == CW_ACTION_RULES_SEARCH && offer.kind == "check" {
             return offer.target.as_ref().is_some_and(|target| {
@@ -22302,6 +22383,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(CheckRequest)),
+            )
+            .await
+        }
+        "/actions/notice" => {
+            notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(NoticeActorRequest)),
             )
             .await
         }
@@ -25417,6 +25506,19 @@ async fn command_inner(
         CommandDispatch::OpenThreshold { action } => {
             let Json(response) =
                 apply_and_broadcast(state.clone(), *action, payload.actor_session.as_deref()).await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::NoticeActor { target_actor_id } => {
+            let Json(response) = notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(NoticeActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Check => {
@@ -36989,7 +37091,8 @@ mod tests {
     #[test]
     fn avatar_inspector_and_hand_expose_room_bound_transfer_consent() {
         for contract in [
-            "data-avatar-notice=",
+            "exactOfferVariants(\"notice_actor\")",
+            "/actions/notice",
             "Nothing known yet.",
             "data-avatar-transfer=\"give\"",
             "data-avatar-item-toggle=",
@@ -37553,13 +37656,7 @@ mod tests {
         kind: &str,
     ) -> CommandRequest {
         let offer_id = if kind == "*" {
-            runtime
-                .state_response(Some(actor_id), &AccessContext::default())
-                .visible_action_offers
-                .into_iter()
-                .find(|offer| !offer.disabled && offer.kind != "chat")
-                .map(|offer| offer.offer_id)
-                .unwrap_or_else(|| runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id)
+            runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -42997,7 +43094,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
         assert!(INDEX_HTML.contains("discover the room through play"));
-        assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("/actions/notice"));
+        assert!(!INDEX_HTML.contains("data-avatar-notice"));
         assert!(!INDEX_HTML.contains("hasCheckContribution"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
@@ -43041,7 +43140,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("rules:ordered-scene-pass"));
         assert!(!INDEX_HTML.contains("rules:ordered-scene-need-time"));
         assert!(!INDEX_HTML.contains("shows the current combat order without taking an action"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(
+            INDEX_HTML.contains("Notice one disclosure-safe fact that is visibly true right now.")
+        );
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
@@ -43155,13 +43256,12 @@ mod tests {
         assert!(INDEX_HTML.contains("/ai/openrouter/verify"));
         assert!(!INDEX_HTML.contains("/api/v1/auth/keys"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
-        assert!(INDEX_HTML.contains("listen_attempted_here"));
-        assert!(INDEX_HTML.contains("listen again"));
-        assert!(INDEX_HTML.contains("The room may have nothing new yet."));
-        assert!(INDEX_HTML.contains("the room may share another clue"));
+        assert!(!INDEX_HTML.contains("listen_attempted_here"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("target_actor_id: targetId"));
         assert!(INDEX_HTML.contains("[\"Costs\", orbCost ?"));
         assert!(!INDEX_HTML.contains("to listen again"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(!INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
@@ -47738,63 +47838,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn targeted_notice_endpoint_reveals_only_after_a_successful_check() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Endpoint Observer",
-        );
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("observer exists")
-            .stats
-            .wisdom = i8::MAX;
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = ability_check(
-            ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
-            State(state.clone()),
-            Json(CheckRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                ability: "wisdom".to_string(),
-                dc: Some(LISTEN_DC),
-                target_actor_id: Some(RATI_ACTOR_ID),
-            }),
-        )
-        .await
-        .0;
-
-        assert!(response.ok);
-        let notice = response
-            .events
-            .iter()
-            .find(|event| event.type_name == "ability_check.rolled")
-            .expect("targeted notice event");
-        assert!(notice.success);
-        assert_eq!(notice.content.as_deref(), Some("notice"));
-        assert_eq!(notice.target_actor_id, Some(RATI_ACTOR_ID));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "job.contribution.resolved"));
-        let runtime = state.inner.lock().await;
-        assert!(runtime.economy_known_by(5000, RATI_ACTOR_ID));
-        assert!(runtime
-            .state_response(Some(5000), &AccessContext::default())
-            .actors
-            .iter()
-            .find(|actor| actor.id == RATI_ACTOR_ID)
-            .is_some_and(|actor| actor.resident_economy.is_some()));
-    }
-
-    #[tokio::test]
     async fn ability_check_endpoint_rejects_noncanonical_dc_and_ability() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -48823,7 +48866,7 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "check"));
+            .all(|option| option.kind != "check"));
 
         let bank_command = runtime
             .resolve_command(&command_request(5000, "grow"), &AccessContext::default())
@@ -51945,7 +51988,7 @@ mod tests {
         let baseline_notice = baseline
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice is already legal before practice recognition");
 
         for seq in 1..=5 {
@@ -51982,7 +52025,7 @@ mod tests {
         let recognized_notice = recognized
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice remains legal after practice recognition");
 
         assert_eq!(recognized_kinds, baseline_kinds);
@@ -56781,7 +56824,7 @@ mod tests {
             .action_hand
             .entries
             .iter()
-            .any(|entry| entry.kind == "check"));
+            .any(|entry| entry.kind == NOTICE_ACTOR_OFFER_KIND));
         assert!(calling_runtime
             .bank_visit_ledger(5000, "action_hand_fixture")
             .is_some());
@@ -56950,10 +56993,10 @@ mod tests {
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
         assert!(state
-            .primary_action
-            .options
+            .action_offers
             .iter()
-            .any(|option| option.kind == "check" && option.command == "listen"));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert!(state
             .primary_action
             .options
@@ -56964,33 +57007,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "help" && option.command == "assist"));
-        let listen_offer = state
+        assert!(state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
-            .expect("listen offer is exposed");
-        assert_eq!(listen_offer.category, "discovery");
-        assert_eq!(listen_offer.intention, "notice");
-        assert_eq!(listen_offer.verb, "Notice");
-        assert_eq!(listen_offer.label, "Notice");
-        assert_eq!(listen_offer.accessible_label, "Notice at Moonlit Trail");
-        assert!(listen_offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location"
-                && target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
-                && target.label.as_deref() == Some("Moonlit Trail")
-        }));
-        assert_eq!(listen_offer.zone, ZONE_FRONTIER);
-        assert!(listen_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("one useful clue")
-                && effect.contains("shared work")
-                && !effect.contains(MOONLIT_PROGRESS_CLOCK_ID)));
-        assert_eq!(listen_offer.progress, Some(1));
-        assert!(listen_offer
-            .risk
-            .as_deref()
-            .is_some_and(|risk| risk.contains("out here may tire you")));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert_complete_offer_inspector(&state);
         let help_offer = state
             .action_offers
@@ -57084,9 +57105,7 @@ mod tests {
             .room
             .listen_reason
             .as_deref()
-            .is_some_and(|reason| reason.contains("one useful clue")
-                && reason.contains("shared work")
-                && !reason.contains(MOONLIT_PROGRESS_CLOCK_ID)));
+            .is_some_and(|reason| !reason.contains("ambient lead")));
         assert!(
             inspector
                 .jobs
@@ -57865,97 +57884,6 @@ mod tests {
             revealed.items.iter().any(|item| item.id == 2001),
             "disclosure reveals held item cards through the same viewer-target fact"
         );
-    }
-
-    #[test]
-    fn notice_disclosure_is_success_gated_and_survives_snapshot_and_replay() {
-        std::thread::Builder::new()
-            .name("economy-disclosure-replay".to_string())
-            .stack_size(16 * 1024 * 1024)
-            .spawn(|| {
-                let mut runtime = RuntimeWorld::seeded();
-                create_test_human(
-                    &mut runtime,
-                    5000,
-                    COSY_COTTAGE_LOCATION_ID,
-                    "Careful Observer",
-                );
-                let target_actor_id = RATI_ACTOR_ID;
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_none());
-
-                let failed_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: -100,
-                        ..CwAction::default()
-                    },
-                    86_001,
-                );
-                let (status, failed_events) = runtime.apply_journal_record(&failed_record);
-                assert_eq!(status, CW_OK);
-                let failed = failed_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("notice check event");
-                assert_eq!(failed.content.as_deref(), Some("notice"));
-                assert_eq!(failed.target_actor_id, Some(target_actor_id));
-                assert!(!runtime.economy_known_by(5000, target_actor_id));
-
-                let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-                let successful_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: 100,
-                        ..CwAction::default()
-                    },
-                    86_002,
-                );
-                let (status, successful_events) = runtime.apply_journal_record(&successful_record);
-                assert_eq!(status, CW_OK);
-                let successful = successful_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("successful notice event");
-                assert!(successful.success);
-                assert_eq!(successful.content.as_deref(), Some("notice"));
-                assert!(runtime.economy_known_by(5000, target_actor_id));
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_some());
-
-                let persisted = RuntimeSnapshot::from_runtime(&runtime);
-                drop(runtime);
-                let restored = persisted
-                    .into_runtime()
-                    .expect("economy disclosure snapshot restores");
-                assert!(restored.economy_known_by(5000, target_actor_id));
-                drop(restored);
-
-                let mut replayed = replay_base
-                    .into_runtime()
-                    .expect("pre-disclosure snapshot restores");
-                assert_eq!(replayed.apply_journal_record(&successful_record).0, CW_OK);
-                assert!(replayed.economy_known_by(5000, target_actor_id));
-            })
-            .expect("spawn economy disclosure replay test")
-            .join()
-            .expect("economy disclosure replay test completes");
     }
 
     #[test]
@@ -60497,8 +60425,8 @@ mod tests {
             .find(|offer| offer.kind == "search")
             .expect("the player candidate surface offers Search");
         let record = runtime
-            .resident_economy_autonomy_record(actor, seed)
-            .expect("the resident selects the same Search offer");
+            .resident_record_for_shared_offer(actor, &offer, seed)
+            .expect("the resident can execute the same Search offer");
         assert_eq!(record.origin, JournalOrigin::ActorConsequence);
         assert_eq!(record.rules_action, offer.rules_action);
         assert_eq!(record.operation, offer.operation);
@@ -60706,7 +60634,7 @@ mod tests {
     }
 
     #[test]
-    fn resident_notice_uses_the_player_offer_and_replays_the_roll() {
+    fn resident_notice_uses_the_player_fact_offer_and_replays_the_projection() {
         let mut runtime = RuntimeWorld::seeded();
         runtime
             .actor_autonomy
@@ -60714,16 +60642,40 @@ mod tests {
             .or_default()
             .control_mode = ActorControlMode::LocalAi;
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let target_actor_id = 1002;
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|target| target.id == target_actor_id)
+            .expect("target resident exists")
+            .location_id = actor.location_id;
+        let item = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("story button exists");
+        item.location_id = 0;
+        item.holder_actor_id = target_actor_id;
+        item.container_item_id = 0;
+        item.zone = CW_CARD_ZONE_CARRIED;
+        item.held_since_tick = 98;
         let inference_offers = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1;
         let offer = inference_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| {
+                offer.kind == NOTICE_ACTOR_OFFER_KIND
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(target_actor_id)
+            })
             .cloned()
             .expect("the resident sees the player-facing Notice offer");
         assert!(offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location" && target.id == Some(actor.location_id)
+            target.kind == "actor" && target.id == Some(target_actor_id)
         }));
 
         runtime
@@ -60739,8 +60691,8 @@ mod tests {
             serde_json::to_value(&inference_offers).expect("inference offers serialize"),
             "controller mode cannot change legal Notice enumeration"
         );
-        let (player_action, player_mutations) = runtime
-            .plan_notice_action(actor.id, 0)
+        let (player_action, player_mutation, _) = runtime
+            .plan_notice_actor_action(actor.id, target_actor_id)
             .expect("the player Notice planner accepts the current offer");
 
         runtime
@@ -60750,14 +60702,20 @@ mod tests {
             .control_mode = ActorControlMode::LocalAi;
         runtime
             .draw_until_test_offer(actor.id, &AccessContext::default(), |candidate| {
-                candidate.kind == "check"
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
             })
             .expect("the exact Notice offer is dealt before LocalAI selects it");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1
             .into_iter()
-            .find(|candidate| candidate.kind == "check")
+            .find(|candidate| {
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
+            })
             .expect("the dealt Notice offer remains current");
         let record = runtime
             .resident_record_for_shared_offer(actor, &offer, 98_101)
@@ -60778,7 +60736,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             serde_json::to_value(resident_mutations).expect("resident mutations serialize"),
-            serde_json::to_value(player_mutations).expect("player mutations serialize")
+            serde_json::to_value([player_mutation]).expect("player mutation serializes")
         );
         let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
         let record = runtime
@@ -60793,7 +60751,7 @@ mod tests {
             .resident_decision
             .as_ref()
             .expect("Notice selection carries a decision trace");
-        assert_eq!(trace.choice.offer_kind, "check");
+        assert_eq!(trace.choice.offer_kind, NOTICE_ACTOR_OFFER_KIND);
         assert_eq!(
             trace.choice.offer_id.as_deref(),
             Some(offer.offer_id.as_str())
@@ -60803,9 +60761,9 @@ mod tests {
         let (status, events) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
-            event.type_name == "ability_check.rolled"
+            event.type_name == "notice.actor_observed"
                 && event.actor_id == Some(actor.id)
-                && event.location_id == Some(actor.location_id)
+                && event.target_actor_id == Some(target_actor_id)
         }));
         assert!(runtime
             .resident_record_for_shared_offer(actor, &offer, 98_102)

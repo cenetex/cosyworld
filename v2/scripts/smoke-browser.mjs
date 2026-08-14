@@ -723,7 +723,7 @@ async function main() {
             lead_location_id: 1,
             instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
-        }, [{ label: "notice", intention: "notice", target: { id: 1 }, focusKey: "check", command: "listen" }]),
+        }, [{ label: "notice", intention: "notice", target: { id: 1001, label: "Rati" }, focusKey: "actor:1001", command: "notice Rati" }]),
         missedListenWithOtherAdvancementStep: firstThreadModel({
           primary_action: { kind: "search" },
           first_tale: {
@@ -841,6 +841,16 @@ async function main() {
         welcomingListenWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "search" }] },
+          action_offers: [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }],
+          action_hand: {
+            entries: [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }],
+          },
           economy: { listen_attempted_here: false },
           ledger: { unbanked_count: 1, unbanked_marks: [{ category: "witness" }] },
           turn: { enabled: false, is_current_actor: true },
@@ -1158,7 +1168,7 @@ async function main() {
     // The floor is preserved by dealing a waiting player no bypass action at
     // all, which is stricter than the previous single observational card.
     assert(guide.arrivalActions.length === 0, `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits, dealing no bypass card: ${JSON.stringify(guide)}`);
-    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
+    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.length === 0, `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 0, `ordinary ordered-scene waiting should preserve the combat floor without a timer card: ${JSON.stringify(guide)}`);
     assert(
@@ -1290,22 +1300,32 @@ async function main() {
     }, needles);
   }
 
-  async function zeroOrbActionLabels(listenRewardClaimable) {
-    return page.evaluate((claimable) => {
+  async function zeroOrbActionLabels(factAvailable) {
+    return page.evaluate((available) => {
       const previousState = state;
       const previousActorId = actorId;
       const fakeState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
           kind: "chat",
-          options: [{ kind: "chat" }, { kind: "check" }],
+          options: [{ kind: "chat" }],
+        },
+        action_offers: available ? [{
+          offer_id: "core:1:notice-rati",
+          kind: "notice_actor",
+          command: "notice Rati",
+          target: { kind: "actor", id: 1001, label: "Rati" },
+          provider: { kind: "actor", id: "actor:1001", priority: 40 },
+        }] : [],
+        action_hand: {
+          entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
         },
         economy: {
           orbs: 0,
           can_chat_with_orbs: false,
-          listen_cost_orbs: claimable ? 0 : 1,
-          listen_reward_claimable: claimable,
-          listen_attempted_here: !claimable,
+          listen_cost_orbs: available ? 0 : 1,
+          listen_reward_claimable: available,
+          listen_attempted_here: !available,
           openrouter_connected: false,
         },
         actors: [
@@ -1339,7 +1359,7 @@ async function main() {
         state = previousState;
         actorId = previousActorId;
       }
-    }, listenRewardClaimable);
+    }, factAvailable);
   }
 
   async function assertFreeActionsIgnoreOrbBalance() {
@@ -1349,8 +1369,8 @@ async function main() {
     assert(!claimableLabels.includes("connect ai"), `free actions should not offer Connect AI as a command: ${JSON.stringify(claimableActions)}`);
     const exhaustedActions = await zeroOrbActionLabels(false);
     const exhaustedLabels = exhaustedActions.map((action) => action.label);
-    assert(!exhaustedLabels.includes("notice"), `a claimed first clue should become repeat Notice: ${JSON.stringify(exhaustedActions)}`);
-    assert(exhaustedActions.some((action) => action.label === "notice again" && action.detail === "free"), `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice"), `Notice should disappear when no certified fact remains: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice again"), `ambient repeat Notice must not be reconstructed from stale economy fields: ${JSON.stringify(exhaustedActions)}`);
     const travelActions = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -1538,11 +1558,11 @@ async function main() {
           shape: "location",
         });
         renderButton("secondary", {
-          label: "listen",
-          detail: "Homeroom",
-          command: "listen",
-          card: cardForLocation(11),
-          shape: "location",
+          label: "notice",
+          detail: "Rati",
+          command: "notice Rati",
+          card: cardForActor(1001),
+          shape: "avatar",
         });
         const labels = [...document.querySelectorAll("footer.prompt .cmd-label")]
           .map((node) => {
@@ -1594,9 +1614,9 @@ async function main() {
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
     const travelLabel = result.labels.find((entry) => entry.text === "go" || entry.text === "travel");
     assert(travelLabel, `travel should remain a visible route action label: ${JSON.stringify(result)}`);
-    const listenLabel = result.labels.find((entry) => entry.text === "listen");
-    assert(listenLabel, `listen should remain a visible action label: ${JSON.stringify(result)}`);
-    for (const label of [travelLabel, listenLabel]) {
+    const noticeLabel = result.labels.find((entry) => entry.text === "notice");
+    assert(noticeLabel, `actor Notice should remain a visible action label: ${JSON.stringify(result)}`);
+    for (const label of [travelLabel, noticeLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
     }
   }
@@ -1608,13 +1628,9 @@ async function main() {
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
-          kind: "check",
-          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "move" }],
         },
-        action_offers: [{
-          kind: "check",
-          risk: "repeat listening on the frontier can leave you tired",
-        }],
         economy: {
           orbs: 0,
           can_chat_with_orbs: true,
@@ -1631,10 +1647,20 @@ async function main() {
         cards: { actors: {}, items: {}, locations: {} },
         access: {},
       };
-      const actionsFor = (attempted, economyPatch = {}) => {
+      const actionsFor = (available, economyPatch = {}) => {
         const fakeState = {
           ...baseState,
-          economy: { ...baseState.economy, listen_attempted_here: attempted, ...economyPatch },
+          action_offers: available ? [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }] : [],
+          action_hand: {
+            entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
+          },
+          economy: { ...baseState.economy, listen_attempted_here: !available, ...economyPatch },
         };
         state = fakeState;
         actorId = 5000;
@@ -1651,30 +1677,20 @@ async function main() {
       };
       try {
         return {
-          fresh: actionsFor(false),
-          repeat: actionsFor(true),
-          stalePaidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
+          fresh: actionsFor(true),
+          exhausted: actionsFor(false),
+          staleLegacy: actionsFor(false, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
         };
       } finally {
         state = previousState;
         actorId = previousActorId;
       }
     });
-    assert(result.fresh[0]?.label === "notice", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
-    assert(result.repeat[0]?.label !== "notice again", `repeat Notice should not stay the default action: ${JSON.stringify(result)}`);
-    assert(result.repeat.some((action) => action.label === "chat"), `free Chat should remain available beside repeat Notice when the server exposes an eligible resident: ${JSON.stringify(result)}`);
-    const repeatIndex = result.repeat.findIndex((action) => action.label === "notice again");
-    assert(repeatIndex > 0 && result.repeat[repeatIndex]?.detail === "free", `free repeat Notice should remain available without hijacking the primary action: ${JSON.stringify(result)}`);
-    const stalePaidRepeat = result.stalePaidRepeat.find((action) => action.label === "notice again");
-    assert(stalePaidRepeat?.detail === "free" && stalePaidRepeat?.compactLabel === "notice again", `repeat Notice should stay free even when stale state reports a legacy cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.title === "notice once more", `repeat confirmation should keep the Notice verb: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.summary === "Notice another ambient lead. The room may have nothing new yet.", `repeat confirmation should explain its uncertain outcome without an Orb charge: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.rows?.some((row) => row[0] === "Costs"), `repeat Notice should never display an Orb cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "What may happen" && row[1] === "the room may share another clue"), `repeat confirmation should describe its possible reward plainly: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "Watch for" && row[1] === "listening again may tire you"), `repeat confirmation should preserve its gentle fatigue warning: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.confirm === "notice again", `repeat confirmation button should match the card: ${JSON.stringify(result)}`);
-    assert(!JSON.stringify(stalePaidRepeat).includes("to listen again"), `repeat listen should not repeat its own verb: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.detail.includes("/"), `repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
+    const freshNotice = result.fresh.find((action) => action.label === "notice");
+    assert(freshNotice?.detail === "Rati" && freshNotice?.command === "notice Rati", `certified actor Notice should name its exact target: ${JSON.stringify(result)}`);
+    assert(result.exhausted.some((action) => action.label === "chat"), `free Chat should remain when no Notice fact is eligible: ${JSON.stringify(result)}`);
+    assert(!result.exhausted.some((action) => action.label === "notice" || action.label === "notice again"), `Notice should disappear after its certified fact is exhausted: ${JSON.stringify(result)}`);
+    assert(!result.staleLegacy.some((action) => action.label === "notice" || action.label === "notice again"), `stale legacy cost and attempt fields must not recreate Notice: ${JSON.stringify(result)}`);
   }
 
   async function assertCalmRoomSearchDoesNotHijackPrimary() {
@@ -1687,12 +1703,27 @@ async function main() {
           kind: "chat",
           options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
         },
-        action_offers: [{
-          offer_id: "move:rain-soft-garden",
-          kind: "move",
-          target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
-          provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
-        }],
+        action_offers: [
+          {
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          },
+          {
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
+        ],
+        action_hand: {
+          entries: [
+            { offer_id: "core:1:notice-rati", kind: "notice_actor" },
+            { offer_id: "move:rain-soft-garden", kind: "move" },
+          ],
+        },
         economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
         search_available: true,
         room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
@@ -1858,7 +1889,7 @@ async function main() {
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
     assert(chatIndex >= 0, `optional feature fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
-    assert(listenAgainIndex > travelIndex && result[listenAgainIndex]?.detail === "free", `repeat Notice should remain available without outranking concrete travel: ${JSON.stringify(result)}`);
+    assert(listenAgainIndex === -1, `ambient repeat Notice must stay absent from the feature surface: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
       assert(result[useIndex]?.command === "use Story Button on Scarf Basket", `feature use should remain focusable when the server exposes it: ${JSON.stringify(result)}`);
@@ -4497,7 +4528,7 @@ async function main() {
     });
     assert(result.direct.chips === 1 && result.direct.requests === 1 && result.direct.trades === 1, `a disclosed direct-player item should become one icon with exact consent actions: ${JSON.stringify(result)}`);
     assert(result.inference.chips === 1 && result.inference.requests === 0 && result.inference.steals === 1, `an inference-held item must not expose the invalid direct-player request route: ${JSON.stringify(result)}`);
-    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 1, `unknown holdings must stay hidden behind Notice: ${JSON.stringify(result)}`);
+    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 0, `unknown holdings must stay hidden without an inspector Notice shortcut: ${JSON.stringify(result)}`);
     assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
     assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
     assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
@@ -11073,71 +11104,55 @@ async function main() {
     });
   }
 
-  async function exerciseFrontierRecovery() {
-    assert((await currentLocation()) === "Moonlit Trail", "frontier recovery should begin on Moonlit Trail");
-    const startingState = await fetchCurrentState();
-    if ((startingState.tags || []).some((tag) => tag.label === "tired")) {
-      const startingRestAvailable = await page.evaluate(() => (
-        actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-      ));
-      if (!startingRestAvailable) {
-        await leaveTrailTo("Rain-Soft Garden");
-      }
-      const startingRest = await drawPrimaryMatching("pre-existing frontier rest", ["rest", "feel fresh"]);
-      steps.push({ label: "pre-existing frontier rest", primary: startingRest, location: await currentLocation() });
-      await clickPrimary("pre-existing frontier rest");
-      await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-      if ((await currentLocation()) !== "Moonlit Trail") await travelTo("Moonlit Trail");
-    }
-    let firstListenCommitted = startingState.economy?.listen_attempted_here === true;
-    if (firstListenCommitted) {
-      steps.push({
-        label: "frontier notice already attempted",
-        location: await currentLocation(),
-      });
-    }
-    for (let attempt = 1; attempt <= 3 && !firstListenCommitted; attempt += 1) {
-      const firstListen = await drawPrimaryMatching("first frontier notice", ["notice", "for a clue"]);
-      steps.push({ label: "first frontier notice", primary: firstListen, location: await currentLocation(), attempt });
-      await clickPrimary("first frontier notice");
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
-      firstListenCommitted = (await fetchCurrentState()).economy?.listen_attempted_here === true;
-    }
-    assert(firstListenCommitted, "the first frontier Notice should commit before drawing its free repeat");
-    const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "free"]);
-    steps.push({ label: "tiring frontier notice", primary: repeatNotice, location: await currentLocation() });
-    await clickActionMatching("tiring frontier notice", ["notice", "free"]);
+  async function exerciseFrontierObservation() {
+    assert((await currentLocation()) === "Moonlit Trail", "frontier observation should begin on Moonlit Trail");
+    const noticeCard = await drawPrimaryMatching(
+      "frontier actor notice",
+      ["notice", "reveals one disclosure-safe observable fact"],
+    );
+    const before = await page.evaluate(() => ({
+      actorId: Number(actorId || 0),
+      eventSeq: logEvents.reduce((latest, event) => Math.max(latest, Number(event.seq) || 0), 0),
+      ledger: {
+        banked: Number(state?.ledger?.banked_count || 0),
+        unbanked: Number(state?.ledger?.unbanked_count || 0),
+      },
+      tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+    }));
+    assert(!before.tired, `frontier Notice should begin from a fresh actor: ${JSON.stringify(before)}`);
+    steps.push({ label: "frontier actor notice", primary: noticeCard, location: await currentLocation() });
+    await clickPrimary("frontier actor notice");
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const tiredState = await fetchCurrentState();
-    if (!(tiredState.tags || []).some((tag) => tag.label === "tired")) {
-      steps.push({ label: "frontier notice stayed fresh", location: await currentLocation() });
-      return;
-    }
-    const restAlreadyAvailable = await page.evaluate(() => (
-      actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-    ));
-    if (!restAlreadyAvailable) {
-      await leaveTrailTo("Rain-Soft Garden");
-      steps.push({ label: "frontier recovery walk", location: await currentLocation() });
-    }
-
-    const restCard = await drawPrimaryMatching("frontier rest", ["rest", "feel fresh"]);
-    steps.push({ label: "immediate frontier recovery", primary: restCard, location: await currentLocation() });
+    const after = await page.evaluate((starting) => {
+      const events = logEvents.filter((event) => Number(event.seq || 0) > starting.eventSeq);
+      return {
+        observations: events.filter((event) => (
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === starting.actorId
+        )).length,
+        rolled: events.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: events.some((event) => (
+          event.type === "ledger.marked" || event.type === "ledger.banked"
+        )),
+        ledger: {
+          banked: Number(state?.ledger?.banked_count || 0),
+          unbanked: Number(state?.ledger?.unbanked_count || 0),
+        },
+        tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+      };
+    }, before);
     assert(
-      restCard.toLowerCase().startsWith("rest feel fresh"),
-      `Rest should become the first card as soon as frontier listening leaves you tired: ${restCard}`,
-    );
-    steps.push({ label: "frontier rest", primary: restCard, location: await currentLocation() });
-    await clickPrimary("frontier rest");
-    await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-    const rested = await fetchCurrentState();
-    assert(
-      !(rested.tags || []).some((tag) => tag.label === "tired"),
-      `Rest should leave the avatar feeling fresh again: ${JSON.stringify(rested.tags)}`,
+      after.observations === 1
+        && after.rolled === false
+        && after.touchedGrowth === false
+        && after.ledger.banked === before.ledger.banked
+        && after.ledger.unbanked === before.ledger.unbanked
+        && after.tired === false,
+      `frontier Notice should remain one truthful, non-tiring observation: ${JSON.stringify({ before, after })}`,
     );
   }
 
@@ -11287,15 +11302,14 @@ async function main() {
       const handOfferIds = new Set((state?.action_hand?.entries || [])
         .map((entry) => String(entry?.offer_id || ""))
         .filter(Boolean));
-      const previousRollSeq = Math.max(0, ...roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === currentActorId
-        ))
-        .map((entry) => Number(entry.seq || 0)));
+      const exactOffer = (state?.action_offers || []).find((offer) =>
+        (focused?.offerIds || []).includes(offer.offer_id)) || null;
       return {
         actorId: currentActorId,
-        previousRollSeq,
+        targetActorId: Number(exactOffer?.target?.id || 0),
+        previousEventSeq: logEvents.reduce((latest, event) => (
+          Math.max(latest, Number(event.seq) || 0)
+        ), 0),
         focused: focused && {
           label: compactActionLabel(focused),
           intention: focused.intention,
@@ -11307,75 +11321,42 @@ async function main() {
     });
     assert(
       noticeBefore.actorId > 0
+        && noticeBefore.targetActorId > 0
         && noticeBefore.focused?.intention === "notice"
         && noticeBefore.focused?.isCertified === true,
       `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
     );
     await clickPrimary("notice");
-    await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    await page.waitForFunction(({ actorId: currentActorId, previousRollSeq }) => (
-      roomMemoryModel().recent.some((entry) => (
-        entry.kind === "roll"
-          && Number(entry.actorId || 0) === Number(currentActorId)
-          && Number(entry.seq || 0) > Number(previousRollSeq)
-          && String(entry.text || "").trim().length > 0
-      ))
-    ), noticeBefore);
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      // A resident reply is asynchronous: intent inference, then dialogue
-      // inference, then the authored chat delay. Re-enabling the primary button
-      // does not mean the line has landed, so wait for it rather than sampling
-      // the log the instant the action completes.
-      await page
-        .waitForFunction(() => [...document.querySelectorAll("#log > *")].some((node) => (
-          node.classList.contains("chat")
-          && node.classList.contains("avatar")
-          && !node.classList.contains("you")
-        )), { timeout: 45000 })
-        .catch(() => {});
-    }
-    const scene = await page.evaluate(({ actorId: currentActorId, previousRollSeq }) => {
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && state?.first_tale?.phase === "follow_lead"
+    ));
+    const scene = await page.evaluate(({ actorId: currentActorId, targetActorId, previousEventSeq }) => {
       const rows = [...document.querySelectorAll("#log > *")];
-      // Chat rows are classified you/avatar/world; there is no longer an "npc"
-      // class. A resident reply is any avatar row that is not the player's.
-      const reply = rows.findLast((node) => (
-        node.classList.contains("chat")
-        && node.classList.contains("avatar")
-        && !node.classList.contains("you")
-      ));
-      const noticeRoll = roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === Number(currentActorId)
-            && Number(entry.seq || 0) > Number(previousRollSeq)
-        ))
-        .sort((left, right) => Number(left.seq || 0) - Number(right.seq || 0))
-        .at(-1) || null;
+      const newEvents = logEvents.filter((event) => Number(event.seq || 0) > Number(previousEventSeq));
       return {
-        residentReply: reply?.textContent?.trim().replace(/\s+/g, " ") || "",
-        roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        noticeRoll: noticeRoll && {
-          seq: Number(noticeRoll.seq || 0),
-          actorId: Number(noticeRoll.actorId || 0),
-          kind: noticeRoll.kind,
-          label: noticeRoll.label,
-          text: noticeRoll.text,
-        },
+        observed: newEvents.some((event) =>
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === Number(currentActorId)
+            && Number(event.target_actor_id || 0) === Number(targetActorId)),
+        rolled: newEvents.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: newEvents.some((event) =>
+          event.type === "ledger.marked" || event.type === "ledger.banked"),
+        ledger: state?.ledger || {},
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
         nonChatRows: rows.filter((node) => node.classList.contains("line") && !node.classList.contains("chat")).length,
       };
     }, noticeBefore);
     assert(scene.eventRows === 0 && scene.nonChatRows === 0, `Notice outcomes should stay out of group chat: ${JSON.stringify(scene)}`);
     assert(
-      scene.noticeRoll?.seq > noticeBefore.previousRollSeq
-        && scene.noticeRoll?.actorId === noticeBefore.actorId
-        && scene.noticeRoll?.kind === "roll"
-        && String(scene.noticeRoll?.text || "").trim().length > 0,
-      `the room Log should retain this actor's new Notice roll without depending on success or failure prose: ${JSON.stringify({ noticeBefore, scene })}`,
+      scene.observed === true
+        && scene.rolled === false
+        && scene.touchedGrowth === false
+        && Number(scene.ledger?.banked_count || 0) === 0
+        && Number(scene.ledger?.unbanked_count || 0) === 0,
+      `actor Notice should record one generic observation without a roll or growth mutation: ${JSON.stringify({ noticeBefore, scene })}`,
     );
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      assert(scene.residentReply.length > 0, `group chat should retain the resident's spoken reply: ${JSON.stringify(scene)}`);
-    }
     await assertActionBarCapped("notice action bar");
   }
 
@@ -12358,14 +12339,19 @@ async function main() {
           && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
-      assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
+      assert(
+        !/earned one|\+1/i.test(afterFirstListen.economy)
+          && Number(afterFirstListen.ledger?.banked_count || 0) === 0
+          && Number(afterFirstListen.ledger?.unbanked_count || 0) === 0,
+        `actor Notice should advance the lead without mutating growth: ${JSON.stringify(afterFirstListen)}`,
+      );
       const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
         afterFirstListen.currentActorId === sharedTurnOwner
           && afterFirstListen.firstTale?.phase === "follow_lead"
           && /Rain-Soft Garden/i.test(afterFirstListen.guide)
           && !/your first tale is yours/i.test(afterFirstListen.guide),
-        `automatic discovery settlement should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+        `truthful observation should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
         label: "waiting player shared-world lead",
@@ -15627,7 +15613,7 @@ async function main() {
       );
       await travelTo("Moonlit Trail");
     }
-    await exerciseFrontierRecovery();
+    await exerciseFrontierObservation();
     if ((await currentLocation()) !== "Rain-Soft Garden") {
       await leaveTrailTo("Rain-Soft Garden");
     }

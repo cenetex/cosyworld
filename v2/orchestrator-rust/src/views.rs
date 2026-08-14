@@ -3557,7 +3557,48 @@ impl RuntimeWorld {
         }
         if let Some(viewer_actor_id) = client_actor_id {
             if !self.economy_known_by(viewer_actor_id, resident.id) {
-                return None;
+                let noticed_items = self.noticed_actor_items(viewer_actor_id, resident.id);
+                if noticed_items.is_empty() {
+                    return None;
+                }
+                let resident_name = self
+                    .actor_name(resident.id)
+                    .unwrap_or_else(|| format!("Avatar {}", resident.id));
+                let held_item_ids = noticed_items.iter().map(|item| item.id).collect::<Vec<_>>();
+                let held_items = noticed_items
+                    .into_iter()
+                    .map(|item| {
+                        let item_name = self
+                            .item_name(item.id)
+                            .unwrap_or_else(|| format!("Item {}", item.id));
+                        ResidentHeldItemView {
+                            item_id: item.id,
+                            disposition: "noticed".to_string(),
+                            reason: format!("{resident_name} is visibly carrying {item_name}."),
+                            keep_score: 0,
+                            available_actions: Vec::new(),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                return Some(ResidentEconomyView {
+                    inventory_count: held_item_ids.len(),
+                    held_item_ids,
+                    held_items,
+                    inventory_capacity: 0,
+                    carried_weight_tenths: 0,
+                    carrying_capacity_tenths: 0,
+                    desired_item_ids: Vec::new(),
+                    sought_item_ids: Vec::new(),
+                    sought_items: Vec::new(),
+                    attached_item_ids: Vec::new(),
+                    seeking_item_id: None,
+                    seeking_location_id: None,
+                    seeking_location_name: None,
+                    request: None,
+                    trade_offer: None,
+                    trade_stance: None,
+                    motive: String::new(),
+                });
             }
         }
         let held_items_raw = self.actor_held_items(resident.id);

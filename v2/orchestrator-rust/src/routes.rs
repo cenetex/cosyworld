@@ -21,6 +21,7 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
                 | DISCOVERY_SCOUT_OFFER_KIND
         ),
         "/actions/flee" => kind == "flee",
+        "/actions/notice" => kind == NOTICE_ACTOR_OFFER_KIND,
         "/actions/check" => kind == "check",
         "/actions/study" => kind == "study",
         "/actions/influence" => kind == "influence",
@@ -243,6 +244,7 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(legacy_action_requires_certificate),
         )
         .route("/actions/check", post(legacy_action_requires_certificate))
+        .route("/actions/notice", post(legacy_action_requires_certificate))
         .route("/actions/study", post(legacy_action_requires_certificate))
         .route(
             "/actions/influence",

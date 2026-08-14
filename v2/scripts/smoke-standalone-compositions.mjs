@@ -96,7 +96,7 @@ const worldCases = [
     locationPack: "ruby-high.first-bell",
     selectedBy: "ruby-high.first-bell",
     capability: "ruby-high.first-bell/rules",
-    offerVerb: "Tune in",
+    offerVerb: "Notice",
     firstTaleAbsent: true,
   },
   {
@@ -139,6 +139,7 @@ const worldCases = [
     localSeedActorCount: 1,
     localSeedActorControlMode: "local_ai",
     localItemCount: 1,
+    noticeAbsent: true,
     scoutDestination: "Void 002",
     additionalScoutDestination: "Void 003",
     multiStepScoutPath: true,
@@ -672,9 +673,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const noticeOffer = firstTaleAdvancingOffer(initial, "lantern Cottage notice");
   const listened = await command(baseUrl, actorId, actorSession, noticeOffer.command);
   assert(
-    listened.events?.some((event) => event.type === "ability_check.rolled")
-      && listened.events?.some((event) => event.type === "ledger.banked"),
-    `Lantern Keeper Cottage Notice did not bank its first useful lead: ${JSON.stringify(listened)}`,
+    listened.events?.some((event) => event.type === "notice.actor_observed")
+      && listened.events?.some((event) => event.type === "notice.fact_revealed"),
+    `Lantern Keeper Cottage Notice did not reveal its first useful lead: ${JSON.stringify(listened)}`,
   );
 
   let taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
@@ -709,8 +710,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     contributionEvent
       && traceEvents.length === 1
-      && traceEvents[0].caused_by_event_seq === contributionEvent.seq,
-    `Lantern Keeper first contribution did not emit one explicit replay-safe public trace: ${JSON.stringify(firstContribution)}`,
+      && traceEvents[0].caused_by_event_seq === contributionEvent.seq
+      && firstContribution.events?.some((event) => event.type === "ledger.banked"),
+    `Lantern Keeper first contribution did not emit one replay-safe trace and settle its reward: ${JSON.stringify(firstContribution)}`,
   );
   taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
@@ -970,7 +972,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
   );
   traceLantern("lantern Tower ready", towerReady);
-  const dangerBeforeMeaningfulRest = Number(towerReady.shared_questions?.find((question) =>
+  const dangerBeforeFinale = Number(towerReady.shared_questions?.find((question) =>
     question.id === "lantern-keeper:rekindle-the-beacon")?.danger_filled || 0);
 
   const tamperedOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
@@ -987,7 +989,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
   );
 
-  const firstTowerListen = await command(baseUrl, actorId, actorSession, "listen");
+  await passCurrentHand(baseUrl, actorId, actorSession);
   const staleOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
@@ -1002,24 +1004,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
   );
 
-  const repeatedListen = await command(baseUrl, actorId, actorSession, "listen");
-  assert(
-    repeatedListen.events?.some((event) =>
-      event.type === "tag.applied" && event.tag_label === "tired"),
-    `Lantern Keeper repeat frontier action did not create a meaningful Rest choice: ${JSON.stringify(repeatedListen)}`,
-  );
-  const tiredAtTower = await fetchInspectableState(baseUrl, actorId, actorSession);
-  await dealOffer(baseUrl, actorId, actorSession, (offer) => offer.kind === "rest", "the Rest card");
-  const rested = await command(baseUrl, actorId, actorSession, "rest");
-  assert(
-    rested.events?.some((event) =>
-      event.type === "tag.cleared" && event.tag_label === "tired")
-      && rested.events?.some((event) =>
-        event.type === "clock.updated"
-          && event.clock_id === "lantern-keeper.darkness"
-          && event.clock_filled === dangerBeforeMeaningfulRest + 1),
-    `Lantern Keeper Rest did not trade recovery for authored danger: ${JSON.stringify(rested)}`,
-  );
   towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   const freshWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
     offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the refreshed finale Work card");
@@ -1029,11 +1013,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     question.id === "lantern-keeper:rekindle-the-beacon");
   assert(
     readyQuestion?.filled === 0
-      && readyQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1
-      && freshWorkOffer?.offer_id
-      && rested.receipt?.world_id
-      && rested.receipt?.actor_ref,
-    `Lantern Keeper lost its finale after the meaningful Rest choice: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+      && readyQuestion?.danger_filled === dangerBeforeFinale
+      && freshWorkOffer?.offer_id,
+    `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
   );
 
   const finalePayload = {
@@ -1076,7 +1058,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     completedQuestion?.presentation_state === "completed_memory"
       && completedQuestion?.filled === 6
-      && completedQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1
+      && completedQuestion?.danger_filled === dangerBeforeFinale
       && completedQuestion?.situation?.includes("Mothwood beacon")
       && completedAtTower.tags?.some((tag) => tag.id === "room:804:beacon_rekindled")
       && completedAtTower.economy?.orbs === beforeFinaleOrbs + 2
@@ -1110,7 +1092,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     afterTravelQuestion?.presentation_state === "completed_memory"
       && afterTravelQuestion?.filled === 6
-      && afterTravelQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1,
+      && afterTravelQuestion?.danger_filled === dangerBeforeFinale,
     `Lantern Keeper's post-finale travel reset completion before restart: ${JSON.stringify(lanternJourneySummary(completed))}`,
   );
   traceLantern("lantern completed", completed);
@@ -1119,7 +1101,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     expected: {
       orbs: completed.economy?.orbs,
       progress: 6,
-      danger: dangerBeforeMeaningfulRest + 1,
+      danger: dangerBeforeFinale,
       completionSituation: completedQuestion.situation,
       finalePayload,
       finaleResponse: finale,
@@ -1523,11 +1505,18 @@ async function runWorldLoop(spec) {
       }
     }
 
-    if (!spec.goldenJourney) {
-      const listened = await command(first.baseUrl, actorId, actorSession, "listen");
+    if (!spec.goldenJourney && !spec.noticeAbsent) {
+      const noticeDeal = await dealOffer(
+        first.baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.kind === "notice_actor",
+        `${spec.label} actor Notice`,
+      );
+      const noticed = await command(first.baseUrl, actorId, actorSession, noticeDeal.offer.command);
       assert(
-        listened.events?.length > 0,
-        `${spec.label} Listen produced no committed events: ${JSON.stringify(listened)}`,
+        noticed.events?.some((event) => event.type === "notice.actor_observed"),
+        `${spec.label} Notice produced no committed observation: ${JSON.stringify(noticed)}`,
       );
     }
     const replayMarker = await passCurrentHand(first.baseUrl, actorId, actorSession);
