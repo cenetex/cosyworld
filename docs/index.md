@@ -115,6 +115,9 @@ do not define V2 behavior.
 - **[Player Journal as a Semantic Chronicle](backlog/player-journal-semantic-chronicle.md)** —
   deterministic story-beat projection, causal event grouping, consistent
   player copy, and truthful disclosure behaviour.
+- **[Journal Storybook Pages](../v2/docs/journal-storybook-pages.md)** —
+  rest-authored first-person prose, long-rest illustrations, avatar style, and
+  provenance-ready personal artifacts.
 - **[Seventh-Visit Operating Queue](backlog/seventh-visit-operating-queue.md)** —
   the bounded production-trust, authority, and first-campaign delivery waves,
   with portfolio gates and backlog-state rules.

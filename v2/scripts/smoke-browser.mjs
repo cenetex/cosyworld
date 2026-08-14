@@ -1152,7 +1152,7 @@ async function main() {
     assert(guide.cue === "story" && /notice what the rain has changed/i.test(guide.aria), `fresh first-thread guidance should be one compact semantic thread: ${JSON.stringify(guide)}`);
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
-    assert(guide.layout?.whiteSpace === "nowrap" && guide.layout?.overflow === "hidden", `collapsed Journal guidance should stay on one line: ${JSON.stringify(guide)}`);
+    assert(guide.layout?.whiteSpace === "normal" && guide.layout?.overflow === "visible", `Journal guidance should read as wrapped handwriting instead of a clipped status row: ${JSON.stringify(guide)}`);
     assert(guide.primary.toLowerCase().startsWith("head suit, notice"), `first-thread guidance should keep a Head · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(
@@ -8464,10 +8464,10 @@ async function main() {
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
           latestJournalRow: [...document.querySelectorAll("#journal-log .journal-row-summary")]
             .at(-1)?.textContent?.trim().replace(/\s+/g, " ") || "",
-          journalSummariesOneLine: [...document.querySelectorAll("#journal-log .journal-row > summary")]
+          journalSummariesWrap: [...document.querySelectorAll("#journal-log .journal-row > summary")]
             .every((node) => {
               const style = getComputedStyle(node.querySelector(".journal-row-summary"));
-              return style.whiteSpace === "nowrap" && style.overflow === "hidden";
+              return style.whiteSpace === "normal" && style.overflow === "visible";
             }),
           roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
           preferredPlayerBeat: preferredRoomLogEntry([
@@ -8578,10 +8578,10 @@ async function main() {
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
-        && result.journalSummariesOneLine
+        && result.journalSummariesWrap
         && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
         && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
-      `system and discovery history should remain available as compact rows in the closed Journal: ${JSON.stringify(result)}`,
+      `system and discovery history should remain available as readable prose in the closed Journal: ${JSON.stringify(result)}`,
     );
     assert(
       result.roomLatest === result.latestJournalRow
@@ -8833,10 +8833,14 @@ async function main() {
         )).length,
       };
     }, result.text);
-    assert(evidence.latest === result.text, `receipt evidence should show the exact authored scene status: ${JSON.stringify(evidence)}`);
     assert(
-      evidence.summary === result.text
-        && evidence.proseNodeCount === 1
+      evidence.latest === evidence.summary
+        && evidence.latest.startsWith("I rekindle")
+        && !evidence.latest.startsWith("Kit Featherstep"),
+      `a personal Journal should preserve the authored scene while writing the owner's action in first person: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.proseNodeCount === 1
         && evidence.detailBlockCount === 0
         && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
         && evidence.sourceLeakCount === 0,
@@ -13359,7 +13363,9 @@ async function main() {
         fontFamily: journalStyle.fontFamily,
         rowCount: rows.length,
         allCollapsed: rows.every((row) => !row.open),
-        rowsCompact: rows.every((row) => row.getBoundingClientRect().height <= 42),
+        currentPlaceExists: Boolean(document.querySelector("#journal-current-place")),
+        storyPageExists: Boolean(document.querySelector("#journal-story-history")),
+        noteExists: Boolean(document.querySelector("#journal-open-threads")),
         semanticRows: rows.map((row) => {
           const category = row.querySelector(".journal-row-label")?.textContent?.trim() || "";
           const prose = row.querySelector(".journal-row-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
@@ -13369,11 +13375,10 @@ async function main() {
             aria: row.getAttribute("aria-label")?.trim().replace(/\s+/g, " ") || "",
           };
         }),
-        summariesOneLine: summaries.every((node) => {
+        summariesWrapped: summaries.every((node) => {
           const style = getComputedStyle(node);
-          return style.whiteSpace === "nowrap"
-            && style.overflow === "hidden"
-            && node.scrollHeight <= Math.ceil(Number.parseFloat(style.lineHeight) * 1.5);
+          return style.whiteSpace === "normal"
+            && style.overflow === "visible";
         }),
         oneProseNodePerRow: rows.every((row) => (
           row.querySelectorAll(".journal-row-summary").length === 1
@@ -13385,9 +13390,15 @@ async function main() {
         pageExists: Boolean(document.querySelector("#journal-log > .journal-page")),
         visibleStoryBeats: document.querySelectorAll("#journal-log .journal-beat").length,
         pageControls: document.querySelectorAll("#journal-page-nav button").length,
-        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i)?.[0] || "",
-        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i.test(document.querySelector("#journal-view")?.innerText || ""),
-        noDashboardChrome: document.querySelectorAll("#journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
+        chapterHeadingVisible: (() => {
+          const heading = document.querySelector("#journal-story-history-heading")?.getBoundingClientRect();
+          const stream = document.querySelector("#journal-view .journal-stream")?.getBoundingClientRect();
+          return Boolean(heading && stream && heading.top >= stream.top && heading.bottom <= stream.bottom);
+        })(),
+        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i)?.[0] || "",
+        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i.test(document.querySelector("#journal-view")?.innerText || ""),
+        noDashboardChrome: document.querySelectorAll("#journal-view .shared-question-meter, #journal-view .shared-question-suggestions, #journal-view .update-pill").length === 0,
+        illustrationCount: document.querySelectorAll("#journal-view .journal-page-illustration img").length,
         panesDoNotOverlap: Boolean(
           journalRect
           && chatRect
@@ -13428,16 +13439,17 @@ async function main() {
       `${label}: Journal should become the full reading surface and cover the room transcript and card selector: ${JSON.stringify(journal)}`,
     );
     assert(
-      journal.regionNames.includes("Current place")
-        && journal.regionNames.includes("Story so far")
+      journal.currentPlaceExists
+        && journal.storyPageExists
+        && journal.noteExists
         && journal.rowCount >= 2,
-      `${label}: Journal should expose labeled current-place and chronological-history regions: ${JSON.stringify(journal)}`,
+      `${label}: Journal should keep place, story, and loose-note semantics inside one reading leaf: ${JSON.stringify(journal)}`,
     );
     assert(
       journal.allCollapsed
-        && journal.summariesOneLine
+        && journal.summariesWrapped
         && journal.oneProseNodePerRow,
-      `${label}: Journal beats should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
+      `${label}: Journal beats should begin as connected wrapped prose with one text node apiece: ${JSON.stringify(journal)}`,
     );
     assert(
       journal.semanticRows.every(({ category, prose, aria }) => (
@@ -13445,22 +13457,24 @@ async function main() {
         && !["event", "tag"].includes(category)
         && prose.length > 0
         && /[.!?…]["')\]]*$/.test(prose)
-        && aria === `${category}. ${prose}`
+        && aria === prose
         && !/->|Something changed|\b(?:journey|pathway)\.[a-z_]+|^(?:is now|shakes off)\b/i.test(prose)
       )),
-      `${label}: every visible Journal row needs one closed-vocabulary tag, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
+      `${label}: every Journal sentence needs hidden semantic typing, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
     );
     assert(
-      journal.heading === "The Journal"
+      /(?:My|.+?'s) Journal$/.test(journal.heading)
         && /serif|georgia|cambria/i.test(journal.fontFamily)
         && journal.pageExists
         && journal.visibleStoryBeats <= 6
         && journal.pageControls === 2
-        && /^Page \d+ of \d+$/.test(journal.pageLabel)
+        && journal.chapterHeadingVisible
+        && /^\d+ \/ \d+$/.test(journal.pageLabel)
         && journal.pageTitle.length > 0
         && /\.$/.test(journal.chapterSummary)
         && journal.noRawDebugCopy
         && journal.noDashboardChrome
+        && journal.illustrationCount <= 1
         && journal.insideTerminal
         && journal.fillsTerminal
         && journal.stateUnchanged,
@@ -13510,15 +13524,15 @@ async function main() {
       `${label}: a one-line Journal beat should have no disclosure affordance: ${JSON.stringify(beatDisclosure)}`,
     );
     assert(
-      beatDisclosure.long.overflowing
-        && beatDisclosure.long.markerVisible
-        && beatDisclosure.long.tabIndex === 0
-        && beatDisclosure.long.openAfterClick
+      !beatDisclosure.long.overflowing
+        && !beatDisclosure.long.markerVisible
+        && beatDisclosure.long.tabIndex === -1
+        && !beatDisclosure.long.openAfterClick
         && beatDisclosure.long.sameCompleteHeadline
         && beatDisclosure.long.expandedWhiteSpace === "normal"
         && beatDisclosure.long.proseNodeCount === 1
         && beatDisclosure.long.detailBlockCount === 0,
-      `${label}: only an overflowing beat should unclip the same complete prose node: ${JSON.stringify(beatDisclosure)}`,
+      `${label}: long Journal prose should wrap in place without becoming a disclosure widget: ${JSON.stringify(beatDisclosure)}`,
     );
 
     const disclosureViewport = page.viewportSize();
@@ -13560,7 +13574,7 @@ async function main() {
     );
     await page.setViewportSize({ width: 320, height: 760 });
     await page.waitForFunction(() => (
-      document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
+      getComputedStyle(document.querySelector("#journal-log .journal-row-summary")).whiteSpace === "normal"
     ));
     const narrowDisclosure = await page.evaluate((prose) => {
       const row = document.querySelector("#journal-log .journal-beat");
@@ -13591,18 +13605,18 @@ async function main() {
     }, wideDisclosure.prose);
     assert(
       narrowDisclosure.collapsed.sameProse
-        && narrowDisclosure.collapsed.overflowing
-        && narrowDisclosure.collapsed.markerVisible
-        && narrowDisclosure.collapsed.tabIndex === 0
-        && narrowDisclosure.collapsed.whiteSpace === "nowrap"
-        && narrowDisclosure.expanded.open
+        && !narrowDisclosure.collapsed.overflowing
+        && !narrowDisclosure.collapsed.markerVisible
+        && narrowDisclosure.collapsed.tabIndex === -1
+        && narrowDisclosure.collapsed.whiteSpace === "normal"
+        && !narrowDisclosure.expanded.open
         && narrowDisclosure.expanded.sameProse
         && narrowDisclosure.expanded.whiteSpace === "normal"
         && narrowDisclosure.expanded.proseNodes === 1
         && !narrowDisclosure.recollapsed.open
         && narrowDisclosure.recollapsed.sameProse
-        && narrowDisclosure.recollapsed.whiteSpace === "nowrap",
-      `${label}: viewport resize should reveal a truthful affordance, expand the same prose, and collapse it back to one line: ${JSON.stringify(narrowDisclosure)}`,
+        && narrowDisclosure.recollapsed.whiteSpace === "normal",
+      `${label}: viewport resize should keep the same prose naturally wrapped with no disclosure chrome: ${JSON.stringify(narrowDisclosure)}`,
     );
     if (disclosureViewport) await page.setViewportSize(disclosureViewport);
     await page.evaluate(() => renderJournalLog());
@@ -13651,10 +13665,7 @@ async function main() {
       localStorage.setItem("cosyworld.ui.largeText", "true");
       applyUiPreferences();
     });
-    await page.waitForFunction(() => (
-      document.body.classList.contains("large-text")
-      && document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
-    ));
+    await page.waitForFunction(() => document.body.classList.contains("large-text"));
     const largeTextDisclosure = await page.evaluate((prose) => {
       const row = document.querySelector("#journal-log .journal-beat");
       const summary = row?.querySelector(":scope > summary");
@@ -13681,10 +13692,10 @@ async function main() {
     }, textSizeFixture.prose);
     assert(
       largeTextDisclosure.sameProse
-        && largeTextDisclosure.overflowing
-        && largeTextDisclosure.markerVisible
-        && largeTextDisclosure.tabIndex === 0,
-      `${label}: larger-text preference should recalculate and expose the disclosure affordance without changing prose: ${JSON.stringify(largeTextDisclosure)}`,
+        && !largeTextDisclosure.overflowing
+        && !largeTextDisclosure.markerVisible
+        && largeTextDisclosure.tabIndex === -1,
+      `${label}: larger-text preference should keep prose wrapped without adding disclosure controls: ${JSON.stringify(largeTextDisclosure)}`,
     );
 
     const rowContract = await page.evaluate(() => ({
@@ -13738,17 +13749,84 @@ async function main() {
       }
     });
     assert(
-      pagination.latest.label === "Page 3 of 3"
+      pagination.latest.label === "3 / 3"
         && pagination.latest.rows === 2
         && !pagination.latest.previousDisabled
         && pagination.latest.nextDisabled
         && pagination.latest.summary.startsWith("This chapter has been shaped by")
-        && pagination.middle.label === "Page 2 of 3"
+        && pagination.middle.label === "2 / 3"
         && pagination.middle.rows === 6
         && !pagination.middle.previousDisabled
         && !pagination.middle.nextDisabled
-        && pagination.returned.label === "Page 3 of 3",
+        && pagination.returned.label === "3 / 3",
       `${label}: storybook pages should summarize the whole chapter and turn without showing a raw event wall: ${JSON.stringify(pagination)}`,
+    );
+
+    const restAuthoredPages = await page.evaluate(() => {
+      const previousState = state;
+      const previousPageIndex = journalPageIndex;
+      try {
+        const illustrationUrl = document.querySelector("#location-image")?.src || "";
+        state = {
+          ...state,
+          journal_beats: [],
+          journal_pages: [
+            {
+              page_index: 0,
+              artifact_id: "journal-leaf:test:short",
+              style_revision: "kit-field-hand/2",
+              rest_kind: "short",
+              title: "Rain at the window",
+              sentences: ["I stopped long enough to hear the rain change on the cottage roof."],
+            },
+            {
+              page_index: 1,
+              artifact_id: "journal-leaf:test:long",
+              style_revision: "kit-field-hand/2",
+              rest_kind: "long",
+              title: "The road after dusk",
+              sentences: ["I dreamed of the road remembering every lantern I relit."],
+              illustration_url: illustrationUrl,
+              illustration_alt: "A painted lantern road after rain.",
+            },
+          ],
+        };
+        journalPageIndex = -1;
+        renderJournalLog();
+        const leaf = () => document.querySelector("#journal-log > .journal-page");
+        const snapshot = () => ({
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          prose: document.querySelector("#journal-log .journal-row-summary")?.textContent?.trim() || "",
+          restKind: leaf()?.dataset.journalRestKind || "",
+          artifactId: leaf()?.dataset.journalArtifactId || "",
+          styleRevision: leaf()?.dataset.journalStyleRevision || "",
+          illustrationCount: leaf()?.querySelectorAll(".journal-page-illustration.generated img").length || 0,
+          caption: leaf()?.querySelector("figcaption")?.textContent?.trim() || "",
+        });
+        const long = snapshot();
+        turnJournalPage(-1);
+        const short = snapshot();
+        return { long, short };
+      } finally {
+        state = previousState;
+        journalPageIndex = previousPageIndex;
+        renderJournalLog();
+      }
+    });
+    assert(
+      restAuthoredPages.long.label === "2 / 2"
+        && restAuthoredPages.long.restKind === "long"
+        && restAuthoredPages.long.artifactId === "journal-leaf:test:long"
+        && restAuthoredPages.long.styleRevision === "kit-field-hand/2"
+        && restAuthoredPages.long.illustrationCount === 1
+        && restAuthoredPages.long.caption === "painted after a long rest"
+        && /dreamed of the road/i.test(restAuthoredPages.long.prose)
+        && restAuthoredPages.short.label === "1 / 2"
+        && restAuthoredPages.short.restKind === "short"
+        && restAuthoredPages.short.artifactId === "journal-leaf:test:short"
+        && restAuthoredPages.short.illustrationCount === 0
+        && /stopped long enough/i.test(restAuthoredPages.short.prose),
+      `${label}: short rests should accept durable prose leaves and long rests should add one versioned illustrated artifact: ${JSON.stringify(restAuthoredPages)}`,
     );
 
     const growthThread = await page.evaluate(() => {
