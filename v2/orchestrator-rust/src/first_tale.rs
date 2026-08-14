@@ -170,7 +170,13 @@ impl RuntimeWorld {
         if let Some(claim_key) = first_tale_trace_claim_key(action.actor_id, trace.seq) {
             self.rpg_claims.insert(claim_key);
         }
-        vec![trace]
+        let mut projected = vec![trace];
+        // Truthful actor Notice does not touch growth; completing the tale is
+        // the authored reward that funds its relationship continuation.
+        if let Some(settlement) = self.bank_visit_ledger(action.actor_id, "first_tale") {
+            projected.push(settlement);
+        }
+        projected
     }
 
     pub(super) fn first_tale_stage(&self, actor_id: u64) -> Option<FirstTaleStage> {
