@@ -4190,11 +4190,11 @@
       }
     }
     .journal-view {
-      --journal-paper: #1c1a13;
-      --journal-paper-deep: #15130e;
-      --journal-ink: #e8dfc6;
-      --journal-ink-soft: #b9aa88;
-      --journal-rule: rgba(239, 201, 107, 0.2);
+      --journal-paper: #d8c9a6;
+      --journal-paper-deep: #cbbb94;
+      --journal-ink: #263126;
+      --journal-ink-soft: #66705d;
+      --journal-rule: rgba(72, 70, 48, 0.2);
       grid-row: 2;
       min-width: 0;
       min-height: 0;
@@ -4203,8 +4203,8 @@
       grid-template-rows: auto minmax(0, 1fr);
       border-top: 1px solid var(--line);
       background:
-        radial-gradient(circle at 12% 0%, rgba(239, 201, 107, 0.08), transparent 28%),
-        #0e0e0b;
+        radial-gradient(circle at 12% 0%, rgba(239, 201, 107, 0.1), transparent 28%),
+        linear-gradient(115deg, #10130d, #090a07 70%);
       color: var(--journal-ink);
       font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
     }
@@ -4218,9 +4218,9 @@
       align-items: end;
       justify-content: space-between;
       gap: 14px;
-      border-bottom: 1px solid var(--journal-rule);
-      background: rgba(10, 10, 8, 0.72);
-      color: var(--journal-ink-soft);
+      border-bottom: 1px solid rgba(239, 201, 107, 0.14);
+      background: rgba(10, 10, 8, 0.78);
+      color: #b9aa88;
     }
     .journal-heading-copy {
       min-width: 0;
@@ -4235,14 +4235,14 @@
     }
     .journal-heading h2 {
       margin: 0;
-      color: var(--journal-ink);
-      font: 650 clamp(22px, 2vw, 28px)/1.05 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      color: #e8dfc6;
+      font: 500 clamp(22px, 2vw, 28px)/1.05 "Bradley Hand", "Segoe Print", ui-serif, Georgia, serif;
       letter-spacing: 0.01em;
     }
     .journal-heading span {
       min-width: 0;
       overflow: hidden;
-      color: var(--journal-ink-soft);
+      color: #b9aa88;
       font: 650 10px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0.06em;
       text-overflow: ellipsis;
@@ -4256,11 +4256,11 @@
       overscroll-behavior: contain;
       scrollbar-width: thin;
       scrollbar-color: rgba(239, 201, 107, 0.38) rgba(5, 12, 7, 0.2);
-      padding: 14px;
-      scroll-padding-top: 14px;
+      padding: clamp(12px, 3vw, 34px);
+      scroll-padding-top: 20px;
     }
     .journal-stream > .journal-region {
-      width: min(100%, 980px);
+      width: min(100%, 760px);
       margin-inline: auto;
     }
     .journal-stream > [hidden] {
@@ -4269,82 +4269,103 @@
     .journal-region {
       min-width: 0;
       margin: 0;
-      padding: 14px 15px;
-      border: 1px solid var(--journal-rule);
-      border-radius: 12px;
-      background:
-        linear-gradient(90deg, rgba(239, 201, 107, 0.035), transparent 18%, transparent 82%, rgba(239, 201, 107, 0.025)),
-        var(--journal-paper);
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+      padding: 0;
+      border: 0;
+      border-radius: 3px 9px 7px 2px;
+      background: var(--journal-paper);
+      box-shadow:
+        0 2px 0 #aa9874,
+        0 5px 0 #75674d,
+        0 20px 42px rgba(0, 0, 0, 0.42);
     }
-    .journal-region + .journal-region {
-      margin-top: 12px;
-    }
+    .journal-region + .journal-region { margin-top: 0; }
     .journal-region-heading {
       margin: 0;
       padding: 0 0 8px;
-      color: var(--amber);
-      font: 750 9px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+      color: var(--journal-ink-soft);
+      font: 500 16px/1.25 "Bradley Hand", "Segoe Print", cursive;
+      letter-spacing: 0.01em;
     }
     .journal-current-place {
       position: relative;
+      padding: 0 clamp(24px, 7vw, 64px) 8px;
       overflow: hidden;
     }
     .journal-current-place::after {
-      content: "❦";
+      content: "❧";
       position: absolute;
-      right: 15px;
-      top: 9px;
-      color: rgba(239, 201, 107, 0.32);
-      font-size: 17px;
+      right: clamp(23px, 6vw, 58px);
+      top: 0;
+      color: rgba(47, 71, 43, 0.36);
+      font-size: 21px;
     }
     .journal-open-threads {
-      border-left: 3px solid rgba(101, 230, 138, 0.38);
+      position: relative;
+      width: min(78%, 430px);
+      margin: 22px clamp(20px, 5vw, 48px) 30px auto;
+      padding: 24px 24px 20px;
+      transform: rotate(-0.8deg);
+      border: 0;
       background:
-        linear-gradient(90deg, rgba(101, 230, 138, 0.055), transparent 38%),
-        var(--journal-paper);
+        linear-gradient(165deg, rgba(255, 255, 255, 0.2), transparent 38%),
+        #c2ad80;
+      box-shadow: 0 6px 15px rgba(58, 45, 27, 0.2);
+    }
+    .journal-open-threads::before {
+      content: "";
+      position: absolute;
+      width: 62px;
+      height: 19px;
+      left: calc(50% - 31px);
+      top: -9px;
+      transform: rotate(2deg);
+      background: rgba(213, 194, 151, 0.78);
+      box-shadow: 0 1px 2px rgba(62, 50, 31, 0.18);
     }
     .journal-activity {
       display: grid;
       gap: 7px;
-      padding: 1px 0 8px;
+      padding: 0 0 5px;
     }
     .journal-activity[hidden] {
       display: none;
     }
     .journal-activity-row {
       min-width: 0;
-      padding: 9px 10px;
-      display: grid;
-      grid-template-columns: minmax(7ch, 10ch) minmax(0, 1fr);
-      gap: 3px 7px;
+      padding: 7px 0 7px 19px;
+      display: block;
       align-items: center;
-      border: 1px solid rgba(239, 201, 107, 0.12);
-      border-radius: 8px;
-      background: rgba(7, 10, 7, 0.2);
+      border: 0;
+      border-bottom: 1px solid rgba(54, 66, 43, 0.13);
+      background: transparent;
+    }
+    .journal-activity-row::before {
+      content: "✦";
+      float: left;
+      margin-left: -19px;
+      color: #506448;
+      font-size: 10px;
     }
     .journal-activity-row-label {
       overflow: hidden;
-      color: #a8d7ae;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 10px;
-      font-weight: 800;
-      text-overflow: ellipsis;
-      text-transform: lowercase;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
       white-space: nowrap;
     }
     .journal-activity-row-label::before { content: ""; }
     .journal-activity-row-text {
       min-width: 0;
       color: var(--journal-ink);
-      font-size: 13px;
-      line-height: 1.35;
+      font: 500 15px/1.45 "Bradley Hand", "Segoe Print", ui-serif, Georgia, serif;
       overflow-wrap: anywhere;
     }
     .journal-progress-segments {
-      grid-column: 2;
+      width: 70%;
       display: grid;
       grid-template-columns: repeat(var(--journal-segment-count), minmax(0, 1fr));
       gap: 4px;
@@ -4353,11 +4374,11 @@
     }
     .journal-progress-segments span {
       border-radius: 999px;
-      background: rgba(222, 194, 141, 0.2);
+      background: rgba(44, 58, 38, 0.15);
     }
     .journal-progress-segments span.filled {
-      background: var(--amber);
-      box-shadow: 0 0 7px rgba(222, 194, 141, 0.34);
+      background: #536b49;
+      box-shadow: none;
     }
     .shared-questions,
     .updates,
@@ -4375,27 +4396,42 @@
       align-items: stretch;
     }
     .journal-story-history {
+      position: relative;
       padding: 0;
       overflow: hidden;
-      background: var(--journal-paper-deep);
-    }
-    .journal-chapter-heading {
-      padding: 18px 18px 15px;
-      border-bottom: 1px solid var(--journal-rule);
       background:
-        radial-gradient(circle at 90% 0%, rgba(239, 201, 107, 0.09), transparent 34%),
+        radial-gradient(circle at 16% 12%, rgba(255, 255, 255, 0.26), transparent 26%),
+        linear-gradient(92deg, rgba(74, 59, 34, 0.13), transparent 17px),
         var(--journal-paper);
     }
+    .journal-story-history::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.38;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(79, 68, 43, 0.2) 0 0.7px, transparent 0.9px),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.24) 0 0.6px, transparent 0.8px);
+      background-size: 17px 19px, 23px 29px;
+    }
+    .journal-chapter-heading {
+      position: relative;
+      z-index: 1;
+      padding: clamp(34px, 7vw, 64px) clamp(24px, 7vw, 64px) 12px;
+      border: 0;
+      background: transparent;
+      text-align: center;
+    }
     .journal-chapter-heading .journal-region-heading {
-      padding-bottom: 5px;
+      padding: 0;
+      color: #344b35;
+      font: 500 clamp(30px, 7vw, 49px)/1.05 "Bradley Hand", "Segoe Print", cursive;
+      letter-spacing: 0.015em;
+      text-transform: none;
     }
     .journal-chapter-summary {
-      max-width: 58ch;
-      margin: 0;
-      color: var(--journal-ink);
-      font-size: 15px;
-      font-style: italic;
-      line-height: 1.55;
+      display: none;
     }
     .journal-chapter-summary::first-letter {
       color: var(--amber);
@@ -4404,49 +4440,91 @@
     }
     .journal-page {
       position: relative;
-      min-height: 420px;
-      padding: 18px 18px 32px 30px;
-      background:
-        linear-gradient(90deg, rgba(0, 0, 0, 0.14), transparent 20px),
-        repeating-linear-gradient(0deg, transparent 0 29px, rgba(239, 201, 107, 0.035) 29px 30px),
-        var(--journal-paper);
+      z-index: 1;
+      min-height: 460px;
+      padding: 8px clamp(24px, 7vw, 64px) 34px;
+      background: transparent;
     }
     .journal-page::before {
       content: "";
       position: absolute;
-      left: 16px;
-      top: 17px;
-      bottom: 24px;
-      width: 1px;
-      background: rgba(239, 201, 107, 0.2);
+      left: clamp(12px, 3vw, 24px);
+      top: 0;
+      bottom: 18px;
+      width: 34px;
+      background:
+        radial-gradient(ellipse at 45% 12%, rgba(59, 91, 50, 0.34) 0 3px, transparent 3.5px),
+        linear-gradient(97deg, transparent 47%, rgba(59, 91, 50, 0.28) 48% 51%, transparent 52%);
+      background-size: 28px 48px, 28px 100%;
     }
     .journal-page-heading {
-      margin: 0 0 10px;
+      margin: 0 0 18px;
       display: flex;
       align-items: baseline;
-      justify-content: space-between;
+      justify-content: center;
       gap: 12px;
     }
     .journal-page-title {
       color: var(--journal-ink);
-      font-size: 17px;
-      font-weight: 650;
-      letter-spacing: 0.01em;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
     }
     .journal-page-date {
       color: var(--journal-ink-soft);
-      font: 700 9px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      font: 500 14px/1.2 "Bradley Hand", "Segoe Print", cursive;
+      letter-spacing: 0.02em;
       white-space: nowrap;
+    }
+    .journal-page-illustration {
+      position: relative;
+      width: min(92%, 560px);
+      margin: 0 auto 23px;
+      overflow: hidden;
+      transform: rotate(-0.45deg);
+      border-radius: 42% 6% 39% 7% / 7% 34% 8% 29%;
+      background: rgba(49, 72, 42, 0.11);
+    }
+    .journal-page-illustration::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(222, 208, 173, 0.24), transparent 46%, rgba(64, 72, 45, 0.13));
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+    .journal-page-illustration img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      filter: sepia(0.36) saturate(0.72) contrast(0.9);
+      mix-blend-mode: multiply;
+      opacity: 0.88;
+    }
+    .journal-page-illustration figcaption {
+      position: absolute;
+      right: 14px;
+      bottom: 9px;
+      padding: 2px 7px;
+      background: rgba(209, 193, 153, 0.72);
+      color: #4d5f49;
+      font: 500 12px/1.25 "Bradley Hand", "Segoe Print", cursive;
+      transform: rotate(-1deg);
+    }
+    .journal-page-prose {
+      max-width: 62ch;
+      margin-inline: auto;
     }
     .journal-page-folio {
       position: absolute;
-      right: 17px;
-      bottom: 10px;
-      color: rgba(239, 201, 107, 0.55);
-      font-size: 11px;
-      font-style: italic;
+      left: 50%;
+      bottom: 8px;
+      color: rgba(42, 60, 40, 0.62);
+      font: 500 14px/1 "Bradley Hand", "Segoe Print", cursive;
+      transform: translateX(-50%);
     }
     .journal-row {
       position: static;
@@ -4457,7 +4535,7 @@
       margin: 0;
       padding: 0;
       border: 0;
-      border-bottom: 1px solid rgba(239, 201, 107, 0.11);
+      border: 0;
       background: transparent;
       color: var(--text);
       overflow: visible;
@@ -4468,44 +4546,37 @@
       box-sizing: border-box;
       min-width: 0;
       min-height: 0;
-      padding: 9px 0;
-      display: grid;
-      grid-template-columns: minmax(7ch, 10ch) minmax(0, 1fr) auto;
-      gap: 9px;
+      padding: 0 0 15px;
+      display: block;
       align-items: start;
       list-style: none;
-      cursor: pointer;
+      cursor: default;
     }
     .journal-row > summary::-webkit-details-marker {
       display: none;
     }
     .journal-row-label {
-      max-width: 10ch;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
       overflow: hidden;
-      align-self: start;
-      margin-top: 3px;
-      color: #a8d7ae;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      text-overflow: ellipsis;
-      text-transform: lowercase;
+      clip: rect(0, 0, 0, 0);
       white-space: nowrap;
     }
     .journal-row-label::before { content: ""; }
     .journal-row-summary {
       min-width: 0;
-      overflow: hidden;
+      overflow: visible;
       color: var(--journal-ink);
-      font-size: 14px;
-      line-height: 1.48;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font: 500 clamp(17px, 2.6vw, 21px)/1.55 "Bradley Hand", "Segoe Print", ui-serif, Georgia, serif;
+      letter-spacing: 0.006em;
+      text-overflow: clip;
+      white-space: normal;
     }
     .journal-row-marker {
-      color: var(--journal-ink-soft);
-      font: 800 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: none;
     }
     .journal-row.journal-prose-row:not(.is-overflowing) > summary { cursor: default; }
     .journal-row.journal-prose-row:not(.is-overflowing) .journal-row-marker { display: none; }
@@ -4517,55 +4588,63 @@
     .journal-row.is-measuring-overflow .journal-row-summary {
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
     }
     .journal-row.is-measuring-overflow .journal-row-marker {
       display: none;
     }
     .journal-row[open] .journal-row-marker::before { content: "−"; }
     .journal-row:not([open]) .journal-row-marker::before { content: "+"; }
-    .journal-row.journal-beat:last-of-type { border-bottom: 0; }
+    .journal-row.journal-beat:nth-of-type(even) .journal-row-summary {
+      display: block;
+      transform: rotate(-0.18deg);
+    }
+    .journal-row.journal-beat:last-of-type { padding-bottom: 0; }
     .journal-row.journal-beat:first-of-type .journal-row-summary::first-letter {
-      color: var(--amber);
-      font-size: 1.18em;
-      font-weight: 700;
+      float: left;
+      margin: 0.06em 0.1em 0 0;
+      color: #3c5a3a;
+      font-size: 2.7em;
+      font-weight: 500;
+      line-height: 0.75;
     }
     .journal-page-nav {
-      padding: 10px 14px;
+      position: relative;
+      z-index: 2;
+      padding: 10px clamp(18px, 5vw, 44px) 18px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       gap: 10px;
       align-items: center;
-      border-top: 1px solid var(--journal-rule);
-      background: #11100c;
+      border: 0;
+      background: transparent;
     }
     .journal-page-nav button {
       min-height: 34px;
       padding: 5px 8px;
-      border: 1px solid rgba(239, 201, 107, 0.22);
-      border-radius: 999px;
-      background: rgba(239, 201, 107, 0.04);
+      border: 0;
+      border-bottom: 1px solid rgba(44, 67, 41, 0.3);
+      border-radius: 0;
+      background: transparent;
       color: var(--journal-ink-soft);
-      font: 700 10px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      font: 500 15px/1 "Bradley Hand", "Segoe Print", cursive;
+      letter-spacing: 0.01em;
     }
     .journal-page-nav button:last-child { justify-self: end; }
     .journal-page-nav button:hover,
     .journal-page-nav button:focus-visible {
-      border-color: rgba(239, 201, 107, 0.5);
-      color: var(--amber);
+      border-color: rgba(44, 67, 41, 0.68);
+      color: #344b35;
       outline: 0;
     }
     .journal-page-nav button:disabled {
       border-color: transparent;
-      color: rgba(185, 170, 136, 0.35);
+      color: rgba(74, 78, 60, 0.34);
       cursor: default;
     }
     .journal-page-label {
       color: var(--journal-ink-soft);
-      font-size: 12px;
-      font-style: italic;
+      font: 500 14px/1 "Bradley Hand", "Segoe Print", cursive;
       text-align: center;
       white-space: nowrap;
     }
@@ -4588,6 +4667,22 @@
     .terminal.journal-open + .status { display: none; }
     .terminal.panel-open .journal-view {
       display: none;
+    }
+    @media (max-width: 560px) {
+      .journal-heading { padding: 12px 15px 10px; }
+      .journal-stream { padding: 9px 7px 20px; }
+      .journal-story-history { border-radius: 2px 7px 5px 2px; }
+      .journal-chapter-heading { padding-top: 29px; }
+      .journal-current-place { padding-inline: 22px; }
+      .journal-page { padding-inline: 22px; }
+      .journal-page::before { display: none; }
+      .journal-page-illustration { width: 100%; }
+      .journal-open-threads {
+        width: calc(100% - 38px);
+        margin: 20px 19px 26px;
+        padding-inline: 19px;
+      }
+      .journal-page-nav { padding-inline: 14px; }
     }
     .chat-empty {
       margin: auto;
@@ -5063,32 +5158,32 @@
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
           <div class="journal-heading-copy">
-            <span class="journal-book-kicker">A living storybook</span>
-            <h2>The Journal</h2>
+            <span class="journal-book-kicker">Written while the world rests</span>
+            <h2 id="journal-owner">My Journal</h2>
           </div>
-          <span id="journal-location"></span>
+          <span>private field notes</span>
         </header>
         <div class="journal-stream">
-          <section class="journal-region journal-current-place" id="journal-current-place" aria-labelledby="journal-current-place-heading">
-            <h3 class="journal-region-heading" id="journal-current-place-heading">Current place</h3>
-            <div class="room-memory" id="room-memory" hidden></div>
-          </section>
-          <section class="journal-region journal-open-threads" id="journal-open-threads" aria-labelledby="journal-open-threads-heading" hidden>
-            <h3 class="journal-region-heading" id="journal-open-threads-heading">Open threads</h3>
-            <section class="journal-activity" id="journal-activity" aria-label="Journal activity" hidden></section>
-            <section class="shared-questions" id="shared-questions" aria-label="Unresolved matters in this place" hidden></section>
-            <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
-          </section>
           <section class="journal-region journal-story-history" id="journal-story-history" aria-labelledby="journal-story-history-heading">
             <header class="journal-chapter-heading">
-              <h3 class="journal-region-heading" id="journal-story-history-heading">Story so far</h3>
+              <h3 class="journal-region-heading" id="journal-story-history-heading"><span id="journal-location"></span></h3>
               <p class="journal-chapter-summary" id="journal-chapter-summary"></p>
             </header>
+            <section class="journal-current-place" id="journal-current-place" aria-labelledby="journal-current-place-heading">
+              <h3 class="journal-region-heading" id="journal-current-place-heading">What the place felt like</h3>
+              <div class="room-memory" id="room-memory" hidden></div>
+            </section>
             <section class="journal-log" id="journal-log" aria-label="Chronological story history"></section>
+            <aside class="journal-open-threads" id="journal-open-threads" aria-labelledby="journal-open-threads-heading" hidden>
+              <h3 class="journal-region-heading" id="journal-open-threads-heading">Still on my mind</h3>
+              <section class="journal-activity" id="journal-activity" aria-label="Journal activity" hidden></section>
+              <section class="shared-questions" id="shared-questions" aria-label="Unresolved matters in this place" hidden></section>
+              <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
+            </aside>
             <nav class="journal-page-nav" id="journal-page-nav" aria-label="Journal pages">
-              <button id="journal-page-previous" type="button" aria-label="Read the previous Journal page">← Earlier</button>
+              <button id="journal-page-previous" type="button" aria-label="Read the previous Journal page">← Turn back</button>
               <span class="journal-page-label" id="journal-page-label" aria-live="polite"></span>
-              <button id="journal-page-next" type="button" aria-label="Read the next Journal page">Later →</button>
+              <button id="journal-page-next" type="button" aria-label="Read the next Journal page">Turn on →</button>
             </nav>
           </section>
         </div>
@@ -10920,6 +11015,10 @@
       $("journal-location").textContent = pathwayJourney
         ? `${pathwayJourney.origin_name || "the way back"} — ${pathwayJourney.destination_name || "the destination"}`
         : (location.name || "Unknown");
+      const journalActor = actorForId(actorId);
+      $("journal-owner").textContent = journalActor
+        ? `${actorLabel(journalActor)}'s Journal`
+        : "My Journal";
       document.querySelector(".room")?.classList.toggle("collapsed", !roomCopyExpanded);
       if (lastRoomCopyLocationId !== location.id) {
         roomCopyExpanded = false;
@@ -11277,16 +11376,46 @@
     } = {}) {
       const text = cleanJournalProseText(prose);
       if (!text) return "";
-      return `<details class="journal-row journal-prose-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(`${category}. ${text}`)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(text)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary></details>`;
+      return `<details class="journal-row journal-prose-row ${escapeAttr(kind)}" data-journal-category="${escapeAttr(category)}"${attrs} aria-label="${escapeAttr(text)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(text)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary></details>`;
     }
 
     function cleanJournalProseText(value) {
       return String(value || "")
         .trim()
         .replace(/:{1,2}(resident_feature_use|resident_autonomy_intent)\b/g, "")
+        .replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b[.!?]*/gi, "")
         .replace(/^you:\s*/i, "")
+        .replace(/\s+([,.;!?])/g, "$1")
+        .replace(/\.{2,}/g, ".")
         .replace(/\s+/g, " ")
         .trim();
+    }
+
+    function journalFirstPersonProse(value) {
+      let prose = cleanJournalProseText(value);
+      const self = actorForId(actorId);
+      const name = cleanStatusText(self ? actorLabel(self) : "");
+      if (!prose || !name) return prose;
+      const quotedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      prose = prose
+        .replace(new RegExp(`^${quotedName}(?=\\s)`, "i"), "I")
+        .replace(new RegExp(`\\b${quotedName}(?:'s|')\\b`, "gi"), "my")
+        .replace(/^You\b/i, "I")
+        .replace(/^Your\b/i, "My");
+      prose = prose.replace(/^I\s+([A-Za-z'-]+)/, (match, verb) => {
+        const lower = verb.toLowerCase();
+        const irregular = { is: "am", has: "have", does: "do", goes: "go" };
+        let firstPerson = irregular[lower] || verb;
+        if (!irregular[lower] && /ies$/i.test(verb)) {
+          firstPerson = `${verb.slice(0, -3)}y`;
+        } else if (!irregular[lower] && /(?:ches|shes|sses|xes|zes|oes)$/i.test(verb)) {
+          firstPerson = verb.slice(0, -2);
+        } else if (!irregular[lower] && /s$/i.test(verb) && !/(?:ss|us|is|was)$/i.test(verb)) {
+          firstPerson = verb.slice(0, -1);
+        }
+        return `I ${firstPerson}`;
+      });
+      return prose;
     }
 
     function syncJournalMode() {
@@ -11328,7 +11457,7 @@
       }
       if (opening) journalPageIndex = -1;
       journalOpen = Boolean(open);
-      if (opening) renderJournalLog();
+      if (opening) renderJournalLog({ pageTurn: true });
       syncJournalMode();
       if (closing) renderStatusUpdates();
     }
@@ -11605,7 +11734,7 @@
     }
 
     function journalWorldProse(value) {
-      const prose = cleanStatusText(value);
+      const prose = cleanJournalProseText(cleanStatusText(value));
       if (/^world(?:\s*\.\s*[a-z0-9_]+)+[.!?…]*$/i.test(prose)) return "";
       const sentences = prose.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [];
       return cleanStatusText(sentences
@@ -11624,7 +11753,7 @@
       const memory = roomMemoryModel();
       const latestJournalBeat = journalBeatsForPresentation().at(-1);
       const latestText = latestJournalBeat
-        ? latestJournalBeat.headline
+        ? journalFirstPersonProse(latestJournalBeat.headline)
         : memory.hasLatestEvent
           ? atmosphericMemoryBeat(memory.latest) || memory.latest.text
           : "";
@@ -11855,7 +11984,7 @@
 
     function journalBeatHtml(beat, index) {
       const category = String(beat.category || "");
-      const headline = cleanStatusText(beat.headline);
+      const headline = journalFirstPersonProse(beat.headline);
       if (!journalBeatCategories.has(category) || !headline) return "";
       const receiptAttrs = beat.world_beat_exposure_id
         ? ` data-world-beat-receipt data-journal-beat-index="${Number(index)}"`
@@ -11866,6 +11995,48 @@
         kind: `journal-beat ${category}`,
         attrs: receiptAttrs,
       });
+    }
+
+    function authoredJournalPage(pageIndex, view = state) {
+      const pages = Array.isArray(view?.journal_pages) ? view.journal_pages : [];
+      return pages.find((page) => (
+        Number(page?.page_index ?? page?.index ?? -1) === Number(pageIndex)
+      )) || pages[pageIndex] || null;
+    }
+
+    function journalPageCount(beats, view = state) {
+      const authoredCount = Array.isArray(view?.journal_pages) ? view.journal_pages.length : 0;
+      return Math.max(1, authoredCount, Math.ceil(beats.length / journalPageSize));
+    }
+
+    function journalPageMedia(pageIndex, pageCount) {
+      const authored = authoredJournalPage(pageIndex);
+      const authoredImage = cleanStatusText(
+        authored?.illustration_url
+          || authored?.image_url
+          || authored?.media?.image_url
+          || ""
+      );
+      if (authoredImage) {
+        return {
+          url: authoredImage,
+          alt: cleanStatusText(authored?.illustration_alt || authored?.alt || "A painted memory from this Journal leaf."),
+          caption: "painted after a long rest",
+          generated: true,
+        };
+      }
+      if (pageIndex !== pageCount - 1) return null;
+      const location = state?.location || {};
+      const locationCard = cardForLocation(location.id);
+      const placeImage = cardImage(locationCard);
+      return placeImage
+        ? {
+            url: placeImage,
+            alt: `A view of ${location.name || "the current place"} kept with these notes.`,
+            caption: "a view tucked between the pages",
+            generated: false,
+          }
+        : null;
     }
 
     function journalPhraseList(values) {
@@ -11910,22 +12081,51 @@
     }
 
     function journalPageHtml(beats, pageIndex, pageCount, firstBeatIndex) {
+      const authored = authoredJournalPage(pageIndex);
       const dominantCategory = journalDominantCategory(beats);
-      const title = journalPageTitles[dominantCategory] || journalPageTitles.story;
-      const leaf = pageIndex === pageCount - 1 ? "Latest leaf" : "Earlier leaf";
-      const entries = beats.length
-        ? beats.map((beat, index) => journalBeatHtml(beat, firstBeatIndex + index)).join("")
+      const title = cleanStatusText(authored?.title)
+        || journalPageTitles[dominantCategory]
+        || journalPageTitles.story;
+      const pageMedia = journalPageMedia(pageIndex, pageCount);
+      const restKind = String(authored?.rest_kind || (pageMedia?.generated ? "long" : "open"));
+      const leaf = restKind === "long" && pageMedia?.generated
+        ? "paint and ink, after a long rest"
+        : restKind === "short"
+          ? "a few lines, after a short rest"
+        : pageIndex === pageCount - 1
+          ? "the latest leaf"
+          : "an earlier leaf";
+      const authoredSentences = [
+        ...(Array.isArray(authored?.sentences) ? authored.sentences : []),
+        ...(authored?.short_rest_sentence ? [authored.short_rest_sentence] : []),
+      ]
+        .map((sentence) => cleanJournalProseText(sentence?.text || sentence))
+        .filter(Boolean);
+      const entries = authoredSentences.length
+        ? authoredSentences.map((sentence) => journalProseRowHtml({
+            category: "story",
+            prose: journalFirstPersonProse(sentence),
+            kind: "journal-beat rest-written",
+          })).join("")
+        : beats.length
+          ? beats.map((beat, index) => journalBeatHtml(beat, firstBeatIndex + index)).join("")
         : journalProseRowHtml({
             category: "story",
-            prose: "Nothing has been written here yet. Explore the room or change the world to leave the first trace.",
+            prose: "The page is waiting. I only need to look a little closer, take a road, or leave something kinder than I found it.",
             kind: "empty",
           });
-      return `<article class="journal-page" aria-labelledby="journal-page-title"><header class="journal-page-heading"><h4 class="journal-page-title" id="journal-page-title">${escapeHtml(title)}</h4><span class="journal-page-date">${escapeHtml(leaf)}</span></header>${entries}<span class="journal-page-folio" aria-hidden="true">${pageIndex + 1}</span></article>`;
+      const illustration = pageMedia
+        ? `<figure class="journal-page-illustration${pageMedia.generated ? " generated" : " place-reference"}"><img src="${escapeAttr(pageMedia.url)}" alt="${escapeAttr(pageMedia.alt)}" loading="lazy" /><figcaption>${escapeHtml(pageMedia.caption)}</figcaption></figure>`
+        : "";
+      const artifactId = cleanStatusText(authored?.artifact_id || "");
+      const styleRevision = cleanStatusText(authored?.style_revision || "");
+      const artifactAttrs = `${artifactId ? ` data-journal-artifact-id="${escapeAttr(artifactId)}"` : ""}${styleRevision ? ` data-journal-style-revision="${escapeAttr(styleRevision)}"` : ""} data-journal-rest-kind="${escapeAttr(restKind)}"`;
+      return `<article class="journal-page" aria-labelledby="journal-page-title"${artifactAttrs}><header class="journal-page-heading"><h4 class="journal-page-title" id="journal-page-title">${escapeHtml(title)}</h4><span class="journal-page-date">${escapeHtml(leaf)}</span></header>${illustration}<div class="journal-page-prose">${entries}</div><span class="journal-page-folio" aria-hidden="true">— ${pageIndex + 1} —</span></article>`;
     }
 
     function turnJournalPage(delta) {
       const beats = journalBeatsForPresentation();
-      const pageCount = Math.max(1, Math.ceil(beats.length / journalPageSize));
+      const pageCount = journalPageCount(beats);
       const currentPage = journalPageIndex < 0
         ? pageCount - 1
         : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
@@ -11973,11 +12173,8 @@
       const panel = $("journal-log");
       const stream = panel.closest(".journal-stream");
       const previousScrollTop = stream?.scrollTop || 0;
-      const wasAtBottom = !stream
-        || stream.scrollHeight <= stream.clientHeight + 1
-        || stream.scrollHeight - stream.scrollTop - stream.clientHeight < 28;
       const beats = journalBeatsForPresentation();
-      const pageCount = Math.max(1, Math.ceil(beats.length / journalPageSize));
+      const pageCount = journalPageCount(beats);
       const pageIndex = journalPageIndex < 0
         ? pageCount - 1
         : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
@@ -11985,15 +12182,15 @@
       const pageBeats = beats.slice(firstBeatIndex, firstBeatIndex + journalPageSize);
       panel.innerHTML = journalPageHtml(pageBeats, pageIndex, pageCount, firstBeatIndex);
       $("journal-chapter-summary").textContent = journalChapterSummary(beats);
-      $("journal-page-label").textContent = `Page ${pageIndex + 1} of ${pageCount}`;
+      $("journal-page-label").textContent = `${pageIndex + 1} / ${pageCount}`;
       $("journal-page-previous").disabled = pageIndex === 0;
       $("journal-page-next").disabled = pageIndex === pageCount - 1;
       scheduleJournalRowOverflowSync();
       if (stream) {
         if (pageTurn) {
-          stream.scrollTop = Math.max(0, $("journal-story-history").offsetTop - 8);
+          stream.scrollTop = 0;
         } else {
-          stream.scrollTop = wasAtBottom ? stream.scrollHeight : previousScrollTop;
+          stream.scrollTop = previousScrollTop;
         }
       }
     }
