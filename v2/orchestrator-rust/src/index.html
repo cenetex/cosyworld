@@ -2604,6 +2604,12 @@
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+    .cmd-label-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .cmd-kicker {
       display: block;
       color: var(--cmd-accent);
@@ -5074,6 +5080,12 @@
       min-height: 44px;
     }
     @media (max-width: 900px) {
+      html,
+      body {
+        font-size: 15px;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
       .topbar {
         grid-template-columns: auto minmax(0, 1fr) auto;
         grid-template-areas: "brand location economy";
@@ -5094,7 +5106,7 @@
         justify-self: stretch;
         min-width: 0;
         padding: 0 4px;
-        font-size: 13px;
+        font-size: 14px;
       }
       .economy {
         max-width: none;
@@ -5108,9 +5120,166 @@
         width: 14px;
         height: 14px;
       }
+      .status {
+        padding: 7px 10px;
+        overflow: visible;
+        font-size: 13px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        white-space: normal;
+      }
+      .prompt,
+      .prompt.choice-mode {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: visible;
+        padding: 8px max(8px, env(safe-area-inset-right, 0px))
+          calc(8px + var(--safe-bot)) max(8px, env(safe-area-inset-left, 0px));
+      }
+      .turn-banner {
+        grid-column: 1 / -1;
+      }
+      .prompt:not(.choice-mode) .cmd.tertiary,
+      .prompt.single-action .cmd.primary {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+      .cmd {
+        width: 100%;
+        min-width: 0;
+        min-height: 104px;
+        gap: 5px;
+        justify-content: flex-start;
+        padding: 5px;
+        text-align: left;
+      }
+      .cmd-copy {
+        gap: 3px;
+        padding: 0 14px 0 6px;
+      }
+      .cmd-kicker {
+        font-size: 10px;
+        line-height: 1.2;
+      }
+      .cmd-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 5px;
+        overflow: visible;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 780;
+        line-height: 1.18;
+        text-overflow: clip;
+        white-space: normal;
+      }
+      .cmd-label-text {
+        display: -webkit-box;
+        min-width: 0;
+        overflow: hidden;
+        text-wrap: pretty;
+        text-overflow: clip;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+      .detail {
+        margin-top: 1px;
+        font-size: 12px;
+        line-height: 1.25;
+        -webkit-line-clamp: 2;
+      }
+      .cmd-meta,
+      .provider-call,
+      .story-call {
+        font-size: 10px;
+        line-height: 1.2;
+      }
+      .cmd-meta {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+      }
+      .cmd.has-copy .thumb {
+        width: 46px;
+        height: 46px;
+        flex-basis: 46px;
+      }
+      .cmd.has-copy .thumb.avatar {
+        width: 36px;
+        height: 48px;
+        flex-basis: 36px;
+      }
+      .cmd.has-copy .thumb.location {
+        width: 54px;
+        height: 36px;
+        flex-basis: 54px;
+      }
+      body.large-text .status {
+        font-size: 15px;
+      }
+      body.large-text .cmd-label {
+        font-size: 16px;
+      }
+      body.large-text .detail {
+        font-size: 14px;
+      }
+      body.large-text :is(.cmd-kicker, .cmd-meta, .provider-call, .story-call) {
+        font-size: 12px;
+      }
       .menu-nav button {
         padding-inline: 5px;
         font-size: 12px;
+      }
+    }
+    @media (max-width: 360px) {
+      .location-pill img {
+        display: none;
+      }
+      .cmd-copy {
+        padding-right: 10px;
+        padding-left: 4px;
+      }
+      .cmd-label {
+        font-size: 13px;
+      }
+      .cmd-label .ui-icon {
+        display: none;
+      }
+      .cmd.has-copy .thumb,
+      .cmd.has-copy .thumb.location {
+        width: 40px;
+        height: 40px;
+        flex-basis: 40px;
+      }
+      .cmd.has-copy .thumb.avatar {
+        width: 32px;
+        height: 44px;
+        flex-basis: 32px;
+      }
+      body.large-text .cmd-label {
+        font-size: 15px;
+      }
+    }
+    @media (min-width: 600px) and (max-width: 900px) {
+      .prompt,
+      .prompt:not(.choice-mode) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .prompt.choice-mode {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .prompt:not(.choice-mode) .cmd.tertiary {
+        grid-column: auto;
+      }
+      .cmd {
+        min-height: 96px;
       }
     }
   </style>
@@ -16288,7 +16457,7 @@
       const rarityMark = suit
         ? `<span class="collectible-mark" title="${escapeAttr(`${rarity} · ${presentation.provenance || "core"}`)}" aria-hidden="true">◇</span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(kicker)}</span><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}<span class="cmd-meta">${escapeHtml(economy)}</span>${providerHtml}${storyHtml}</span>${rarityMark}${busyHtml}`;
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(kicker)}</span><span class="cmd-label">${iconSvg(actionIconName(action))}<span class="cmd-label-text">${escapeHtml(labelText)}</span></span>${detailHtml}<span class="cmd-meta">${escapeHtml(economy)}</span>${providerHtml}${storyHtml}</span>${rarityMark}${busyHtml}`;
     }
 
     function actionBarActions() {
