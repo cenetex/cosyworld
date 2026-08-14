@@ -70,6 +70,7 @@ mod moderation;
 mod movement;
 mod mud;
 mod natural_affordances;
+mod notice;
 mod offer_commands;
 mod ownership;
 #[cfg(test)]
@@ -180,6 +181,7 @@ use moderation::*;
 use movement::*;
 use mud::*;
 use natural_affordances::*;
+use notice::*;
 use offer_commands::*;
 use ownership::*;
 use projection_cache::*;
@@ -930,6 +932,12 @@ enum ProjectionMutation {
     },
     SetGiftAutoAccept(projection_ledger::SetGiftAutoAccept),
     ConsumeGiftAutoAccept(projection::ConsumeGiftAutoAccept),
+    RecordNoticeActorFact {
+        fact_id: String,
+        target_actor_id: u64,
+        item_id: u64,
+        held_since_tick: u64,
+    },
     ShuffleHand {
         reason: String,
     },
@@ -1354,6 +1362,7 @@ impl ActorControlMode {
 
 const TRANSFER_OFFER_TTL_TICKS: u64 = 24;
 const ACCEPT_TRANSFER_OFFER_KIND: &str = "accept_transfer";
+const NOTICE_ACTOR_OFFER_KIND: &str = "notice_actor";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -5004,6 +5013,7 @@ fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
         ACCEPT_TRANSFER_OFFER_KIND => "give_item",
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
         FOCUSED_NOTICE_OFFER_KIND => "check",
+        NOTICE_ACTOR_OFFER_KIND => "check",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         "open" => "use_item",
         other => other,
@@ -9498,6 +9508,32 @@ impl RuntimeWorld {
                 ProjectionMutation::ConsumeGiftAutoAccept(mutation) => {
                     mutation.apply(self, &ctx);
                 }
+                ProjectionMutation::RecordNoticeActorFact {
+                    fact_id,
+                    target_actor_id,
+                    item_id: _,
+                    held_since_tick: _,
+                } => {
+                    if self.rpg_claims.insert(fact_id.clone()) {
+                        if action.location_id != 0 {
+                            self.listen_attempt_claims.insert(listen_attempt_claim_key(
+                                action.actor_id,
+                                action.location_id,
+                            ));
+                        }
+                        let target_name = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        events.push(self.append_async_job_event(
+                            "notice.actor_observed",
+                            action.actor_id,
+                            Some(*target_actor_id),
+                            Some(format!(
+                                "A private observable detail about {target_name} became known."
+                            )),
+                        ));
+                    }
+                }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
@@ -13328,8 +13364,8 @@ impl RuntimeWorld {
             .actor_by_id(actor_id)
             .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Notice requires an active avatar.".to_string())?;
-        if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
-            return Err("That avatar is not close enough to notice.".to_string());
+        if target_actor_id != 0 {
+            return Err("Actor Notice now requires a certified notice_actor_v1 offer.".to_string());
         }
         Ok((
             CwAction {
@@ -19403,6 +19439,21 @@ The relationship statement they are preserving is: {statement}"
                 record.projection_mutations.extend(mutations);
                 record
             }
+            NOTICE_ACTOR_OFFER_KIND => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)?;
+                let (action, mutation, _) = self
+                    .plan_notice_actor_action(actor.id, target_actor_id)
+                    .ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind(NOTICE_ACTOR_OFFER_KIND);
+                record.projection_mutations.push(mutation);
+                record
+            }
             "check" => {
                 if self.event_log.iter().rev().any(|event| {
                     event.seq >= min_seq
@@ -19766,6 +19817,18 @@ The relationship statement they are preserving is: {statement}"
                             intent.strategy.strategy_label.trim_end_matches('.')
                         ))
                     }
+                    ProjectionMutation::RecordNoticeActorFact {
+                        target_actor_id, ..
+                    } => {
+                        proposed_action.kind = NOTICE_ACTOR_OFFER_KIND.to_string();
+                        proposed_action.target_actor_id = Some(*target_actor_id);
+                        let target = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        Some(format!(
+                            "{actor_name} intends to notice one visible detail about {target}."
+                        ))
+                    }
                     ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => {
                         proposed_action.kind = "rest".to_string();
                         Some(format!("{actor_name} intends to rest."))
@@ -19937,6 +20000,24 @@ The relationship statement they are preserving is: {statement}"
             return offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(destination_location_id)
             });
+        }
+        if let Some((fact_id, target_actor_id)) =
+            record
+                .projection_mutations
+                .iter()
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::RecordNoticeActorFact {
+                        fact_id,
+                        target_actor_id,
+                        ..
+                    } => Some((fact_id.as_str(), *target_actor_id)),
+                    _ => None,
+                })
+        {
+            return offer.claim_key.as_deref() == Some(fact_id)
+                && offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "actor" && target.id == Some(target_actor_id)
+                });
         }
         if action.kind == CW_ACTION_RULES_SEARCH && offer.kind == "check" {
             return offer.target.as_ref().is_some_and(|target| {
@@ -22436,6 +22517,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(CheckRequest)),
+            )
+            .await
+        }
+        "/actions/notice" => {
+            notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(NoticeActorRequest)),
             )
             .await
         }
@@ -25551,6 +25640,19 @@ async fn command_inner(
         CommandDispatch::OpenThreshold { action } => {
             let Json(response) =
                 apply_and_broadcast(state.clone(), *action, payload.actor_session.as_deref()).await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::NoticeActor { target_actor_id } => {
+            let Json(response) = notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(NoticeActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Check => {
@@ -37123,7 +37225,8 @@ mod tests {
     #[test]
     fn avatar_inspector_and_hand_expose_room_bound_transfer_consent() {
         for contract in [
-            "data-avatar-notice=",
+            "exactOfferVariants(\"notice_actor\")",
+            "/actions/notice",
             "Nothing known yet.",
             "data-avatar-transfer=\"give\"",
             "data-avatar-item-toggle=",
@@ -37686,14 +37789,40 @@ mod tests {
         intent_id: &str,
         kind: &str,
     ) -> CommandRequest {
+        canonical_test_offer_request_with_presence(
+            runtime,
+            actor_id,
+            actor_session,
+            intent_id,
+            kind,
+            None,
+        )
+    }
+
+    fn canonical_test_offer_request_with_presence(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+        kind: &str,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> CommandRequest {
         let offer_id = if kind == "*" {
+            let offers = runtime
+                .legal_action_candidates_with_presence(
+                    Some(actor_id),
+                    &AccessContext::default(),
+                    active_direct_actor_ids,
+                )
+                .1;
             runtime
-                .state_response(Some(actor_id), &AccessContext::default())
-                .visible_action_offers
+                .action_hand_for(Some(actor_id), &offers)
+                .entries
                 .into_iter()
-                .find(|offer| !offer.disabled && offer.kind != "chat")
-                .map(|offer| offer.offer_id)
-                .unwrap_or_else(|| runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id)
+                .find(|entry| entry.think.available)
+                .unwrap_or_else(|| panic!("canonical test hand exposes an exact Think certificate"))
+                .think
+                .offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -37707,7 +37836,11 @@ mod tests {
             actor_id,
             actor_session,
             intent_id,
-            "offer identity selects the action",
+            if kind == "*" {
+                "think"
+            } else {
+                "offer identity selects the action"
+            },
         );
         request.offer_id = Some(offer_id);
         request
@@ -37722,11 +37855,42 @@ mod tests {
         intent_id: &str,
     ) -> CommandResponse {
         let mut last_response = None;
-        for _ in 0..4 {
-            let request = {
-                let mut runtime = state.inner.lock().await;
-                canonical_test_offer_request(&mut runtime, actor_id, actor_session, intent_id, "*")
+        for _ in 0..12 {
+            let state_view = client
+                .get(format!("{base_url}/state"))
+                .query(&[
+                    ("actor_id", actor_id.to_string()),
+                    ("actor_session", actor_session.to_string()),
+                ])
+                .send()
+                .await
+                .expect("canonical hand state")
+                .json::<serde_json::Value>()
+                .await
+                .expect("canonical hand state response");
+            let offer_id = state_view["action_hand"]["entries"]
+                .as_array()
+                .and_then(|entries| {
+                    entries.iter().find_map(|entry| {
+                        entry["think"]["available"]
+                            .as_bool()
+                            .filter(|available| *available)
+                            .and_then(|_| entry["think"]["offer_id"].as_str())
+                    })
+                })
+                .unwrap_or_else(|| panic!("canonical hand exposes an exact Think certificate"))
+                .to_string();
+            let mut request = {
+                let runtime = state.inner.lock().await;
+                canonical_test_command_request(
+                    &runtime,
+                    actor_id,
+                    actor_session,
+                    intent_id,
+                    "think",
+                )
             };
+            request.offer_id = Some(offer_id);
             let response = client
                 .post(format!("{base_url}/commands"))
                 .json(&request)
@@ -37736,11 +37900,12 @@ mod tests {
                 .json::<CommandResponse>()
                 .await
                 .expect("canonical card response");
-            if response.ok || response.status != 404 {
+            if response.ok || !matches!(response.status, 404 | 409 | 503) {
                 return response;
             }
             last_response = Some(response);
             let _ = converge_capacity_for_read(state, Some(actor_session)).await;
+            tokio::time::sleep(Duration::from_millis(150)).await;
         }
         last_response.expect("canonical card retry response")
     }
@@ -38657,13 +38822,16 @@ mod tests {
             let response = submit_canonical_test_offer(
                 &client,
                 base,
-                edge_state,
+                &state_a,
                 actor_hot,
                 &session_hot,
                 &intent_id,
             )
             .await;
-            assert!(response.ok, "{response:?}");
+            assert!(
+                response.ok,
+                "hot-room command {index} via {base} failed: {response:?}"
+            );
             converge_capacity_for_read(&state_a, Some(&session_hot)).await;
             committed_seqs.push(
                 response
@@ -38754,25 +38922,15 @@ mod tests {
             io::ErrorKind::PermissionDenied
         );
 
-        let post_handoff_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:after-hot-room-handoff",
-                "*",
-            )
-        };
-        let post_handoff: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&post_handoff_request)
-            .send()
-            .await
-            .expect("post-handoff command through stale edge")
-            .json()
-            .await
-            .expect("post-handoff response");
+        let post_handoff = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:after-hot-room-handoff",
+        )
+        .await;
         assert!(post_handoff.ok, "{post_handoff:?}");
         assert!(
             post_handoff.receipt.as_ref().is_some_and(|receipt| {
@@ -38782,25 +38940,15 @@ mod tests {
         );
 
         converge_capacity_for_read(&state_a, Some(&session_cold)).await;
-        let cold_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_cold,
-                &session_cold,
-                "test:cold-range-checkpoint",
-                "*",
-            )
-        };
-        let cold_response: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&cold_request)
-            .send()
-            .await
-            .expect("cold range command")
-            .json()
-            .await
-            .expect("cold range response");
+        let cold_response = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_cold,
+            &session_cold,
+            "test:cold-range-checkpoint",
+        )
+        .await;
         assert!(cold_response.ok, "{cold_response:?}");
         let split_now = now_millis();
         let hot_before_split = current_partition_lease(
@@ -38950,25 +39098,15 @@ mod tests {
         let _ = convergence_b.await;
         let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
-        let process_loss_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:hot-owner-loss",
-                "*",
-            )
-        };
-        let process_loss: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&process_loss_request)
-            .send()
-            .await
-            .expect("command after hot owner loss")
-            .json()
-            .await
-            .expect("process loss response");
+        let process_loss = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:hot-owner-loss",
+        )
+        .await;
         assert!(process_loss.ok, "{process_loss:?}");
         let process_loss_fence = process_loss
             .receipt
@@ -39081,25 +39219,15 @@ mod tests {
         let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
-        let recovery_request = {
-            let mut runtime = recovery_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:regional-promotion",
-                "*",
-            )
-        };
-        let recovery_response: CommandResponse = client
-            .post(format!("{recovery_url}/commands"))
-            .json(&recovery_request)
-            .send()
-            .await
-            .expect("recovery region command")
-            .json()
-            .await
-            .expect("recovery command response");
+        let recovery_response = submit_canonical_test_offer(
+            &client,
+            &recovery_url,
+            &recovery_state,
+            actor_hot,
+            &session_hot,
+            "test:regional-promotion",
+        )
+        .await;
         assert!(recovery_response.ok, "{recovery_response:?}");
         assert!(
             recovery_response.receipt.as_ref().is_some_and(
@@ -39131,25 +39259,15 @@ mod tests {
         let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
-        let reconnect_request = {
-            let mut runtime = reconnect_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:cross-region-reconnect",
-                "*",
-            )
-        };
-        let reconnect_response: CommandResponse = client
-            .post(format!("{reconnect_url}/commands"))
-            .json(&reconnect_request)
-            .send()
-            .await
-            .expect("reconnected region command")
-            .json()
-            .await
-            .expect("reconnected command response");
+        let reconnect_response = submit_canonical_test_offer(
+            &client,
+            &reconnect_url,
+            &reconnect_state,
+            actor_hot,
+            &session_hot,
+            "test:cross-region-reconnect",
+        )
+        .await;
         assert!(reconnect_response.ok, "{reconnect_response:?}");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
@@ -43131,7 +43249,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
         assert!(INDEX_HTML.contains("discover the room through play"));
-        assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("/actions/notice"));
+        assert!(!INDEX_HTML.contains("data-avatar-notice"));
         assert!(!INDEX_HTML.contains("hasCheckContribution"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
@@ -43175,7 +43295,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("rules:ordered-scene-pass"));
         assert!(!INDEX_HTML.contains("rules:ordered-scene-need-time"));
         assert!(!INDEX_HTML.contains("shows the current combat order without taking an action"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(
+            INDEX_HTML.contains("Notice one disclosure-safe fact that is visibly true right now.")
+        );
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
@@ -43304,13 +43426,12 @@ mod tests {
         assert!(INDEX_HTML.contains("/ai/openrouter/verify"));
         assert!(!INDEX_HTML.contains("/api/v1/auth/keys"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
-        assert!(INDEX_HTML.contains("listen_attempted_here"));
-        assert!(INDEX_HTML.contains("listen again"));
-        assert!(INDEX_HTML.contains("The room may have nothing new yet."));
-        assert!(INDEX_HTML.contains("the room may share another clue"));
+        assert!(!INDEX_HTML.contains("listen_attempted_here"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("target_actor_id: targetId"));
         assert!(INDEX_HTML.contains("[\"Costs\", orbCost ?"));
         assert!(!INDEX_HTML.contains("to listen again"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(!INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
@@ -47891,63 +48012,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn targeted_notice_endpoint_reveals_only_after_a_successful_check() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Endpoint Observer",
-        );
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("observer exists")
-            .stats
-            .wisdom = i8::MAX;
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = ability_check(
-            ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
-            State(state.clone()),
-            Json(CheckRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                ability: "wisdom".to_string(),
-                dc: Some(LISTEN_DC),
-                target_actor_id: Some(RATI_ACTOR_ID),
-            }),
-        )
-        .await
-        .0;
-
-        assert!(response.ok);
-        let notice = response
-            .events
-            .iter()
-            .find(|event| event.type_name == "ability_check.rolled")
-            .expect("targeted notice event");
-        assert!(notice.success);
-        assert_eq!(notice.content.as_deref(), Some("notice"));
-        assert_eq!(notice.target_actor_id, Some(RATI_ACTOR_ID));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "job.contribution.resolved"));
-        let runtime = state.inner.lock().await;
-        assert!(runtime.economy_known_by(5000, RATI_ACTOR_ID));
-        assert!(runtime
-            .state_response(Some(5000), &AccessContext::default())
-            .actors
-            .iter()
-            .find(|actor| actor.id == RATI_ACTOR_ID)
-            .is_some_and(|actor| actor.resident_economy.is_some()));
-    }
-
-    #[tokio::test]
     async fn ability_check_endpoint_rejects_noncanonical_dc_and_ability() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -48976,7 +49040,7 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "check"));
+            .all(|option| option.kind != "check"));
 
         let bank_command = runtime
             .resolve_command(&command_request(5000, "grow"), &AccessContext::default())
@@ -52107,7 +52171,7 @@ mod tests {
         let baseline_notice = baseline
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice is already legal before practice recognition");
 
         for seq in 1..=5 {
@@ -52144,7 +52208,7 @@ mod tests {
         let recognized_notice = recognized
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice remains legal after practice recognition");
 
         assert_eq!(recognized_kinds, baseline_kinds);
@@ -53678,6 +53742,11 @@ mod tests {
             "Inferred Combat Human",
         );
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
         let actor = runtime
             .world
@@ -53726,22 +53795,6 @@ mod tests {
             .find(|actor| actor.id == 5000)
             .expect("test human remains")
             .damage = 50;
-        let defend = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_723, None)
-            .expect("hurt inferred avatar chooses");
-        assert_eq!(defend.action.kind, CW_ACTION_COMBAT_PASS);
-        assert!(defend
-            .projection_mutations
-            .iter()
-            .any(|mutation| matches!(mutation, ProjectionMutation::ThinkHand { .. })));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("test human remains")
-            .damage = 80;
         let all_offers = runtime
             .legal_action_candidates(Some(5000), &AccessContext::default())
             .1;
@@ -53750,8 +53803,8 @@ mod tests {
             format!("think:{}:{}", expected_think.scene_key, expected_think.slot);
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let think = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_724, Some(77))
-            .expect("badly hurt inferred avatar chooses");
+            .resident_combat_autonomy_record(encounter_id, 71_723, Some(77))
+            .expect("hurt inferred avatar chooses");
         assert_eq!(think.origin, JournalOrigin::ActorConsequence);
         assert_eq!(think.action.kind, CW_ACTION_COMBAT_PASS);
         assert!(think.projection_mutations.iter().any(|mutation| {
@@ -55431,6 +55484,11 @@ mod tests {
         // Think must reveal a real next card. Discovering a second escape
         // route gives this ordered fixture a fourth exact combat option.
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         let actor = runtime
             .world
             .actors
@@ -55519,7 +55577,7 @@ mod tests {
             .any(|event| event.type_name == "combat.pass"));
         assert_eq!(state.inner.lock().await.world.tick, before_tick);
 
-        {
+        let ordered_think = {
             let runtime = state.inner.lock().await;
             let (_, offers) =
                 runtime.legal_action_candidates(Some(5000), &AccessContext::default());
@@ -55528,17 +55586,19 @@ mod tests {
                 hand.pass.available,
                 "ordered fixture must have a real next card for Think: {hand:?}"
             );
-        }
+            hand.pass
+        };
 
-        let Json(drawn) = Box::pin(draw_action(
+        let mut think_command = command_request(5000, "think");
+        think_command.actor_session = Some(actor_session);
+        think_command.offer_id = Some(ordered_think.offer_id);
+        let drawn = command_inner(
             ConnectInfo("127.0.0.1:44013".parse().unwrap()),
             State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        ))
-        .await;
+            Json(think_command),
+        )
+        .await
+        .0;
         assert!(drawn.ok, "ordered-scene Think succeeds: {drawn:?}");
         assert!(drawn
             .events
@@ -56958,7 +57018,7 @@ mod tests {
             .action_hand
             .entries
             .iter()
-            .any(|entry| entry.kind == "check"));
+            .any(|entry| entry.kind == NOTICE_ACTOR_OFFER_KIND));
         assert!(calling_runtime
             .bank_visit_ledger(5000, "action_hand_fixture")
             .is_some());
@@ -57127,10 +57187,10 @@ mod tests {
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
         assert!(state
-            .primary_action
-            .options
+            .action_offers
             .iter()
-            .any(|option| option.kind == "check" && option.command == "listen"));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert!(state
             .primary_action
             .options
@@ -57141,33 +57201,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "help" && option.command == "assist"));
-        let listen_offer = state
+        assert!(state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
-            .expect("listen offer is exposed");
-        assert_eq!(listen_offer.category, "discovery");
-        assert_eq!(listen_offer.intention, "notice");
-        assert_eq!(listen_offer.verb, "Notice");
-        assert_eq!(listen_offer.label, "Notice");
-        assert_eq!(listen_offer.accessible_label, "Notice at Moonlit Trail");
-        assert!(listen_offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location"
-                && target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
-                && target.label.as_deref() == Some("Moonlit Trail")
-        }));
-        assert_eq!(listen_offer.zone, ZONE_FRONTIER);
-        assert!(listen_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("one useful clue")
-                && effect.contains("shared work")
-                && !effect.contains(MOONLIT_PROGRESS_CLOCK_ID)));
-        assert_eq!(listen_offer.progress, Some(1));
-        assert!(listen_offer
-            .risk
-            .as_deref()
-            .is_some_and(|risk| risk.contains("out here may tire you")));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert_complete_offer_inspector(&state);
         let help_offer = state
             .action_offers
@@ -57261,9 +57299,7 @@ mod tests {
             .room
             .listen_reason
             .as_deref()
-            .is_some_and(|reason| reason.contains("one useful clue")
-                && reason.contains("shared work")
-                && !reason.contains(MOONLIT_PROGRESS_CLOCK_ID)));
+            .is_some_and(|reason| !reason.contains("ambient lead")));
         assert!(
             inspector
                 .jobs
@@ -58042,97 +58078,6 @@ mod tests {
             revealed.items.iter().any(|item| item.id == 2001),
             "disclosure reveals held item cards through the same viewer-target fact"
         );
-    }
-
-    #[test]
-    fn notice_disclosure_is_success_gated_and_survives_snapshot_and_replay() {
-        std::thread::Builder::new()
-            .name("economy-disclosure-replay".to_string())
-            .stack_size(16 * 1024 * 1024)
-            .spawn(|| {
-                let mut runtime = RuntimeWorld::seeded();
-                create_test_human(
-                    &mut runtime,
-                    5000,
-                    COSY_COTTAGE_LOCATION_ID,
-                    "Careful Observer",
-                );
-                let target_actor_id = RATI_ACTOR_ID;
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_none());
-
-                let failed_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: -100,
-                        ..CwAction::default()
-                    },
-                    86_001,
-                );
-                let (status, failed_events) = runtime.apply_journal_record(&failed_record);
-                assert_eq!(status, CW_OK);
-                let failed = failed_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("notice check event");
-                assert_eq!(failed.content.as_deref(), Some("notice"));
-                assert_eq!(failed.target_actor_id, Some(target_actor_id));
-                assert!(!runtime.economy_known_by(5000, target_actor_id));
-
-                let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-                let successful_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: 100,
-                        ..CwAction::default()
-                    },
-                    86_002,
-                );
-                let (status, successful_events) = runtime.apply_journal_record(&successful_record);
-                assert_eq!(status, CW_OK);
-                let successful = successful_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("successful notice event");
-                assert!(successful.success);
-                assert_eq!(successful.content.as_deref(), Some("notice"));
-                assert!(runtime.economy_known_by(5000, target_actor_id));
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_some());
-
-                let persisted = RuntimeSnapshot::from_runtime(&runtime);
-                drop(runtime);
-                let restored = persisted
-                    .into_runtime()
-                    .expect("economy disclosure snapshot restores");
-                assert!(restored.economy_known_by(5000, target_actor_id));
-                drop(restored);
-
-                let mut replayed = replay_base
-                    .into_runtime()
-                    .expect("pre-disclosure snapshot restores");
-                assert_eq!(replayed.apply_journal_record(&successful_record).0, CW_OK);
-                assert!(replayed.economy_known_by(5000, target_actor_id));
-            })
-            .expect("spawn economy disclosure replay test")
-            .join()
-            .expect("economy disclosure replay test completes");
     }
 
     #[test]
@@ -60674,8 +60619,8 @@ mod tests {
             .find(|offer| offer.kind == "search")
             .expect("the player candidate surface offers Search");
         let record = runtime
-            .resident_economy_autonomy_record(actor, seed)
-            .expect("the resident selects the same Search offer");
+            .resident_record_for_shared_offer(actor, &offer, seed)
+            .expect("the resident can execute the same Search offer");
         assert_eq!(record.origin, JournalOrigin::ActorConsequence);
         assert_eq!(record.rules_action, offer.rules_action);
         assert_eq!(record.operation, offer.operation);
@@ -60883,7 +60828,7 @@ mod tests {
     }
 
     #[test]
-    fn resident_notice_uses_the_player_offer_and_replays_the_roll() {
+    fn resident_notice_uses_the_player_fact_offer_and_replays_the_projection() {
         let mut runtime = RuntimeWorld::seeded();
         runtime
             .actor_autonomy
@@ -60891,16 +60836,40 @@ mod tests {
             .or_default()
             .control_mode = ActorControlMode::LocalAi;
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let target_actor_id = 1002;
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|target| target.id == target_actor_id)
+            .expect("target resident exists")
+            .location_id = actor.location_id;
+        let item = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("story button exists");
+        item.location_id = 0;
+        item.holder_actor_id = target_actor_id;
+        item.container_item_id = 0;
+        item.zone = CW_CARD_ZONE_CARRIED;
+        item.held_since_tick = 98;
         let inference_offers = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1;
         let offer = inference_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| {
+                offer.kind == NOTICE_ACTOR_OFFER_KIND
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(target_actor_id)
+            })
             .cloned()
             .expect("the resident sees the player-facing Notice offer");
         assert!(offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location" && target.id == Some(actor.location_id)
+            target.kind == "actor" && target.id == Some(target_actor_id)
         }));
 
         runtime
@@ -60916,8 +60885,8 @@ mod tests {
             serde_json::to_value(&inference_offers).expect("inference offers serialize"),
             "controller mode cannot change legal Notice enumeration"
         );
-        let (player_action, player_mutations) = runtime
-            .plan_notice_action(actor.id, 0)
+        let (player_action, player_mutation, _) = runtime
+            .plan_notice_actor_action(actor.id, target_actor_id)
             .expect("the player Notice planner accepts the current offer");
 
         runtime
@@ -60927,14 +60896,20 @@ mod tests {
             .control_mode = ActorControlMode::LocalAi;
         runtime
             .draw_until_test_offer(actor.id, &AccessContext::default(), |candidate| {
-                candidate.kind == "check"
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
             })
             .expect("the exact Notice offer is dealt before LocalAI selects it");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1
             .into_iter()
-            .find(|candidate| candidate.kind == "check")
+            .find(|candidate| {
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
+            })
             .expect("the dealt Notice offer remains current");
         let record = runtime
             .resident_record_for_shared_offer(actor, &offer, 98_101)
@@ -60955,7 +60930,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             serde_json::to_value(resident_mutations).expect("resident mutations serialize"),
-            serde_json::to_value(player_mutations).expect("player mutations serialize")
+            serde_json::to_value([player_mutation]).expect("player mutation serializes")
         );
         let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
         let record = runtime
@@ -60970,7 +60945,7 @@ mod tests {
             .resident_decision
             .as_ref()
             .expect("Notice selection carries a decision trace");
-        assert_eq!(trace.choice.offer_kind, "check");
+        assert_eq!(trace.choice.offer_kind, NOTICE_ACTOR_OFFER_KIND);
         assert_eq!(
             trace.choice.offer_id.as_deref(),
             Some(offer.offer_id.as_str())
@@ -60980,9 +60955,9 @@ mod tests {
         let (status, events) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
-            event.type_name == "ability_check.rolled"
+            event.type_name == "notice.actor_observed"
                 && event.actor_id == Some(actor.id)
-                && event.location_id == Some(actor.location_id)
+                && event.target_actor_id == Some(target_actor_id)
         }));
         assert!(runtime
             .resident_record_for_shared_offer(actor, &offer, 98_102)

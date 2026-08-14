@@ -6923,6 +6923,30 @@
           }),
         });
       }
+      for (const offer of exactOfferVariants("notice_actor").filter(Boolean)) {
+        const targetId = Number(offer?.target?.id || 0);
+        const targetLabel = String(offer?.target?.label || "a nearby actor").trim();
+        if (!targetId) continue;
+        const noticeVerb = offerVerb(offer, "Notice");
+        built.push({
+          ...semanticAction(offer, "notice", `${noticeVerb} ${targetLabel}`),
+          label: noticeVerb.toLowerCase(),
+          detail: targetLabel,
+          command: offer.command || `notice ${targetLabel}`,
+          focusKey: `actor:${targetId}`,
+          focusKeys: [`actor:${targetId}`],
+          card: cardForActor(targetId),
+          shape: "avatar",
+          priority: Number(offer.rank || 52),
+          modalTitle: `${noticeVerb.toLowerCase()} ${targetLabel}`,
+          modalSummary: "Notice one disclosure-safe fact that is visibly true right now.",
+          effect: offer.effect,
+          run: () => action("/actions/notice", {
+            actor_id: actorId,
+            target_actor_id: targetId,
+          }),
+        });
+      }
       const journey = view.journey || null;
       const pathwayJourney = activePathwayJourney(view);
       const scoutOffers = (view.action_offers || []).filter((offer) => (
@@ -8040,39 +8064,6 @@
           });
         }
       });
-      const listenAttemptedHere = economy.listen_attempted_here === true;
-      const ambientCheckOffer = (view.action_offers || []).find((offer) => (
-        offer.kind === "check" && !offer.project
-      )) || null;
-      const listenHasFreshOutcome = !listenAttemptedHere
-        || Boolean(ambientCheckOffer)
-        || options.has("check");
-      const listenKnownUnattempted = economy.listen_attempted_here === false;
-      if ((options.has("check") || listenKnownUnattempted)
-          && listenHasFreshOutcome) {
-        const listenOffer = ambientCheckOffer;
-        const noticeVerb = offerVerb(listenOffer, "Notice");
-        built.push({
-          ...semanticAction(listenOffer, "notice"),
-          label: listenAttemptedHere ? `${noticeVerb.toLowerCase()} again` : noticeVerb.toLowerCase(),
-          detail: listenAttemptedHere ? "free" : "for a clue",
-          command: "listen",
-          focusKey: "check",
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: listenAttemptedHere ? 82 : Number(listenOffer?.rank || 60),
-          orbCost: 0,
-          modalTitle: listenAttemptedHere ? `${noticeVerb.toLowerCase()} once more` : noticeVerb.toLowerCase(),
-          modalSummary: listenAttemptedHere
-            ? "Notice another ambient lead. The room may have nothing new yet."
-            : "Receive one ambient lead from the room.",
-          effect: listenAttemptedHere
-            ? "the room may share another clue"
-            : "the room shares one clue it is ready to tell",
-          risk: listenAttemptedHere ? listenOffer?.risk : undefined,
-          run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
-        });
-      }
       if (options.has("influence")) {
         for (const influenceOffer of exactOfferVariants("influence")) {
           const targetId = Number(influenceOffer?.target?.id || 0);
@@ -8604,6 +8595,7 @@
         "/actions/move": ["move"],
         "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
+        "/actions/notice": ["notice_actor"],
         "/actions/open": ["open"],
         "/actions/check": ["check"],
         "/actions/study": ["study"],
@@ -8648,6 +8640,7 @@
       "/actions/move",
       "/actions/explore-path",
       "/actions/flee",
+      "/actions/notice",
       "/actions/open",
       "/actions/check",
       "/actions/study",
@@ -8687,7 +8680,7 @@
         return Number(payload.item_id || 0);
       }
       if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
-      if (["/actions/chat", "/actions/model-interaction", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
+      if (["/actions/chat", "/actions/notice", "/actions/model-interaction", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
@@ -14652,7 +14645,6 @@
       if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
       const actorNumericId = Number(actor.id || 0);
       const downed = actorIsDownedForRail(actor);
-      const economyKnown = Boolean(actor?.economy);
       const giftAvailable = !downed && Boolean(transferActionForActor("give", actorNumericId));
       const careAvailable = actorNeedsHealing(actor) && Boolean(careActionForActor(actorNumericId));
       const incoming = (state?.safety?.incoming_offers || [])
@@ -14679,16 +14671,13 @@
       ].join("");
       const muteVerb = actor.muted_by_you ? "unmute" : "mute";
       const blockVerb = actor.blocked_by_you ? "unblock" : "block";
-      const noticeButton = economyKnown || downed
-        ? ""
-        : `<button class="account-button avatar-icon-action" type="button" data-avatar-notice="${actorNumericId}">${iconSvg("notice")}<span>notice</span></button>`;
       const giftButton = giftAvailable
         ? `<button class="account-button avatar-icon-action" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}">${iconSvg("gift")}<span>gift</span></button>`
         : "";
       const careButton = careAvailable
         ? `<button class="account-button avatar-icon-action" type="button" data-avatar-care="${actorNumericId}">${iconSvg("utility")}<span>help</span></button>`
         : "";
-      const primaryActions = `${careButton}${noticeButton}${giftButton}`;
+      const primaryActions = `${careButton}${giftButton}`;
       return `${offerHtml}<div class="avatar-interactions" aria-label="Interactions with ${escapeAttr(actorLabel(actor))}">${primaryActions ? `<div class="avatar-action-strip">${primaryActions}</div>` : ""}${avatarKnownItemsHtml(actor, giftRequests)}<div class="avatar-safety-strip" aria-label="Safety controls"><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${iconSvg("mute")}<span>${muteVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${iconSvg("block")}<span>${blockVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-report="${actorNumericId}">${iconSvg("report")}<span>report</span></button></div></div>`;
     }
 
@@ -16857,25 +16846,6 @@
         if (targetChoice) careAction.selectedChoice = targetChoice;
         closeCardModal();
         openActionModal(careAction);
-        return;
-      }
-      const notice = event.target.closest("[data-avatar-notice]");
-      if (notice) {
-        event.preventDefault();
-        event.stopPropagation();
-        const targetActorId = Number(notice.getAttribute("data-avatar-notice") || 0);
-        if (!targetActorId) return;
-        notice.disabled = true;
-        action("/actions/check", {
-          actor_id: actorId,
-          target_actor_id: targetActorId,
-          ability: "wisdom",
-          dc: 12,
-        }).then(async () => {
-          await refresh();
-          const updated = cardForActor(targetActorId);
-          if (updated) openCardModal(updated);
-        });
         return;
       }
       const transfer = event.target.closest("[data-avatar-transfer]");

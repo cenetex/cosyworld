@@ -11,6 +11,7 @@ fn submitted_payload_target_key(path: &str, target: &ActionTargetView) -> Option
         ("/actions/use-item", "feature") => "location_id",
         (
             "/actions/chat"
+            | "/actions/notice"
             | "/actions/model-interaction"
             | "/actions/attack"
             | "/actions/give-item"
@@ -166,6 +167,7 @@ fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | NOTICE_ACTOR_OFFER_KIND
             | "model_interaction"
             | "influence"
             | "attack"
@@ -803,6 +805,8 @@ impl RuntimeWorld {
         offers = self.expand_route_action_offers(actor_id, access, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
         offers.extend(self.discovery_action_offers(actor_id));
+        offers.retain(|offer| offer.kind != "check" || offer.project.is_some());
+        offers.extend(self.notice_actor_action_offers(actor_id));
         if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
             let mut unavailable = self.ranked_offer_from_parts(
                 "rest",
@@ -988,6 +992,73 @@ impl RuntimeWorld {
             return 84;
         }
         action_offer_rank(kind)
+    }
+
+    fn notice_actor_action_offers(&self, actor_id: u64) -> Vec<RankedActionOffer> {
+        self.notice_actor_facts(actor_id)
+            .into_iter()
+            .map(|fact| {
+                let target = ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(fact.target_actor_id),
+                    label: Some(fact.target_name.clone()),
+                };
+                let mut offer = self.ranked_offer_from_parts(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    "Notice",
+                    &format!("notice {}", fact.target_name),
+                    action_offer_rank(NOTICE_ACTOR_OFFER_KIND),
+                    false,
+                    None,
+                    Some(target),
+                    None,
+                    None,
+                    Some(format!(
+                        "reveals one disclosure-safe observable fact about {}",
+                        fact.target_name
+                    )),
+                    Some(fact.fact_id.clone()),
+                    "one nearby visible actor has one unresolved disclosure-safe fact",
+                );
+                let legacy_id = format!("notice_actor_v1:{}", fact.fact_id);
+                offer.id = legacy_id.clone();
+                offer.offer_id = format!(
+                    "{}:{}:{}",
+                    offer.rules_profile, offer.state_revision, legacy_id
+                );
+                let binding = resolved_action_binding(NOTICE_ACTOR_OFFER_KIND)
+                    .expect("notice_actor must resolve through the SRD search binding");
+                let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+                let source_collectible = self.location_source_collectible(actor_id);
+                offer.composition_trace = self.action_composition_trace(
+                    location_id,
+                    offer.state_revision,
+                    &binding,
+                    ActionCompositionContributions {
+                        source_card_instances: source_collectible.clone().into_iter().collect(),
+                        target: offer.target.clone(),
+                        applied_reskins: Vec::new(),
+                        contextual_offers: Vec::new(),
+                    },
+                );
+                offer.source_collectible = source_collectible;
+                offer.source = "visible_actor+observable_fact".to_string();
+                offer.accessible_label = self.action_offer_accessible_label(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    &offer.verb,
+                    &offer.label,
+                    offer.target.as_ref(),
+                    None,
+                );
+                offer.provider = self.action_offer_provider(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    actor_id,
+                    offer.target.as_ref(),
+                    None,
+                );
+                offer
+            })
+            .collect()
     }
 
     pub(super) fn ranked_offer_from_parts(
@@ -1193,7 +1264,7 @@ impl RuntimeWorld {
 
         if let Some(calling) = self.callings.get(&actor_id) {
             let calling_matches = match kind {
-                "check" => calling_matches_listen(&calling.statement),
+                "check" | NOTICE_ACTOR_OFFER_KIND => calling_matches_listen(&calling.statement),
                 "search" => calling_matches_inspect(&calling.statement),
                 "explore_path" | "move" => calling_statement_is_explorer(&calling.statement),
                 _ => false,
@@ -1217,6 +1288,21 @@ impl RuntimeWorld {
                 format!("From {}", project.label),
                 50,
             );
+        }
+
+        if kind == NOTICE_ACTOR_OFFER_KIND {
+            if let Some(target_actor_id) = target.and_then(|target| target.id) {
+                let target_name = self
+                    .actor_name(target_actor_id)
+                    .unwrap_or_else(|| format!("Actor {target_actor_id}"));
+                return action_provider(
+                    "actor",
+                    format!("actor:{target_actor_id}"),
+                    target_name,
+                    "One nearby visible actor has a detail you can truthfully observe",
+                    40,
+                );
+            }
         }
 
         if let Some(actor) = actor {
@@ -2286,6 +2372,7 @@ pub(super) fn action_offer_requires_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | NOTICE_ACTOR_OFFER_KIND
             | "model_interaction"
             | "influence"
             | "attack"
@@ -2341,6 +2428,7 @@ pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> boo
     matches!(
         offer.kind.as_str(),
         "check"
+            | NOTICE_ACTOR_OFFER_KIND
             | "search"
             | FOCUSED_NOTICE_OFFER_KIND
             | DISCOVERY_SEARCH_OFFER_KIND
@@ -2619,6 +2707,23 @@ impl RuntimeWorld {
         story_state: &StoryHandActorState,
     ) -> ActionHandView {
         let actor_id_value = actor_id.unwrap_or_default();
+        // Ordered scenes must never deal a card that their command boundary
+        // will reject. Chat remains concurrent; every other dealt card must
+        // be one of the focused encounter's exact actions for the turn owner.
+        let focused_offers = actor_id
+            .filter(|actor_id| focused_encounter_for_actor(self, *actor_id).is_some())
+            .map(|actor_id| {
+                offers
+                    .iter()
+                    .filter(|offer| {
+                        offer.kind == "chat"
+                            || focused_encounter_offer_context(self, actor_id, &offer.kind)
+                                .is_some()
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            });
+        let offers = focused_offers.as_deref().unwrap_or(offers);
         let slot_generations_u64 = story_state.slot_generations;
         let slot_generations = slot_generations_u64
             .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX));
@@ -2793,6 +2898,7 @@ pub(super) fn action_offer_rank(kind: &str) -> u16 {
         "help" => 49,
         "flee" => 50,
         FOCUSED_NOTICE_OFFER_KIND => 52,
+        NOTICE_ACTOR_OFFER_KIND => 52,
         DISCOVERY_SEARCH_OFFER_KIND => 53,
         DISCOVERY_STUDY_OFFER_KIND => 54,
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND => 55,
@@ -2819,6 +2925,7 @@ pub(super) fn practice_category_matches_offer(category: &str, kind: &str) -> boo
                 | "search"
                 | "check"
                 | FOCUSED_NOTICE_OFFER_KIND
+                | NOTICE_ACTOR_OFFER_KIND
                 | DISCOVERY_SEARCH_OFFER_KIND
                 | DISCOVERY_SCOUT_OFFER_KIND
                 | "open"
@@ -2851,6 +2958,7 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
         "search" => "inspect",
         "explore_path" => "scout",
         FOCUSED_NOTICE_OFFER_KIND => "notice",
+        NOTICE_ACTOR_OFFER_KIND => "notice",
         DISCOVERY_SEARCH_OFFER_KIND => "inspect",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         DISCOVERY_SCOUT_OFFER_KIND => "scout",
@@ -3044,6 +3152,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         "search" => "Inspect",
         "explore_path" => "Scout",
         FOCUSED_NOTICE_OFFER_KIND => "Notice",
+        NOTICE_ACTOR_OFFER_KIND => "Notice",
         DISCOVERY_SEARCH_OFFER_KIND => "Search",
         DISCOVERY_STUDY_OFFER_KIND => "Study",
         DISCOVERY_SCOUT_OFFER_KIND => "Scout",
@@ -3133,6 +3242,7 @@ pub(super) fn action_offer_category(kind: &str) -> &'static str {
         "craft" => "craft",
         "chat" | "model_interaction" | "help" | "create_bond" | "resolve_bond" => "social",
         "check"
+        | NOTICE_ACTOR_OFFER_KIND
         | "search"
         | FOCUSED_NOTICE_OFFER_KIND
         | DISCOVERY_SEARCH_OFFER_KIND

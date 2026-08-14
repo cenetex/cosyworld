@@ -1983,6 +1983,15 @@ mod tests {
         .into_system();
         assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
         assert!(runtime.active_combat_encounter(encounter_id).is_some());
+        let ordered = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(ordered
+            .visible_action_offers
+            .iter()
+            .all(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee" | "chat")));
+        assert!(ordered
+            .visible_action_offers
+            .iter()
+            .any(|offer| offer.kind == "flee"));
 
         let mut complete_record = JournalRecord::new(
             CwAction {

@@ -435,7 +435,6 @@ async function submitOffer(
 }
 
 async function discoverExit(baseUrl, actorId, actorSession, destinationLocationId) {
-  await commandExactOffer(baseUrl, actorId, actorSession, "listen");
   for (let attempt = 0; attempt < 32; attempt += 1) {
     const state = await fetchInspectableState(baseUrl, actorId, actorSession);
     if (state.exits?.some((exit) =>
@@ -651,7 +650,7 @@ async function main() {
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     const worldSeqBeforeRestart = homeroom.world_seq;
@@ -669,7 +668,7 @@ async function main() {
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     assert(
@@ -854,7 +853,7 @@ async function main() {
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     console.log(JSON.stringify({

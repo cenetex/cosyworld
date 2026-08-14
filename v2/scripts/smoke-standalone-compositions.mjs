@@ -96,7 +96,7 @@ const worldCases = [
     locationPack: "ruby-high.first-bell",
     selectedBy: "ruby-high.first-bell",
     capability: "ruby-high.first-bell/rules",
-    offerVerb: "Tune in",
+    offerVerb: "Notice",
     firstTaleAbsent: true,
   },
   {
@@ -139,6 +139,7 @@ const worldCases = [
     localSeedActorCount: 1,
     localSeedActorControlMode: "local_ai",
     localItemCount: 1,
+    noticeAbsent: true,
     scoutDestination: "Void 002",
     additionalScoutDestination: "Void 003",
     multiStepScoutPath: true,
@@ -529,7 +530,15 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
     offer?.offer_id,
     `The finite hand did not deal ${description} within ${maxPassAttempts} Thinks: ${JSON.stringify({
       hand: state?.action_hand,
-      offers: state?.action_offers?.map(({ kind, command, label }) => ({ kind, command, label })),
+      offers: state?.action_offers?.map(({ kind, command, label, project, provider, target }) => ({
+        kind,
+        command,
+        label,
+        project,
+        provider,
+        target,
+      })),
+      firstTale: state?.first_tale,
       questions: state?.shared_questions?.map(({ id, strategies }) => ({
         id,
         strategies: strategies?.map(({ id: strategyId, available, availability_reason }) => ({
@@ -577,7 +586,12 @@ async function command(baseUrl, actorId, actorSession, value) {
 
 async function passCurrentHand(baseUrl, actorId, actorSession) {
   const state = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const passOffer = state.action_hand?.pass;
+  const thinkEntries = (state.action_hand?.entries || [])
+    .filter((entry) => entry.think?.available && entry.think.offer_id)
+    .sort((left, right) =>
+      Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
+        || left.slot.localeCompare(right.slot));
+  const passOffer = thinkEntries[0]?.think ?? state.action_hand?.pass;
   assert(passOffer?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
   const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
@@ -591,6 +605,30 @@ async function passCurrentHand(baseUrl, actorId, actorSession) {
     `Think failed while committing the replay marker: ${JSON.stringify(passed)}`,
   );
   return passed.body;
+}
+
+async function commitReplayMarker(baseUrl, actorId, actorSession) {
+  const state = await fetchInspectableState(baseUrl, actorId, actorSession);
+  if ((state.action_hand?.entries || []).some((entry) => entry.think?.available)) {
+    return passCurrentHand(baseUrl, actorId, actorSession);
+  }
+  const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
+  const offer = (state.action_offers || []).find((candidate) => (
+    !candidate.disabled && dealtIds.has(candidate.offer_id)
+  ));
+  assert(offer?.offer_id && offer.command, `a non-replaceable Story Hand must remain playable: ${JSON.stringify(state.action_hand)}`);
+  const played = await postJsonWithStatus(`${baseUrl}/commands`, {
+    actor_id: actorId,
+    actor_session: actorSession,
+    command: offer.command,
+    offer_id: offer.offer_id,
+    envelope: offerEnvelope(state, actorId, offer.offer_id),
+  });
+  assert(
+    played.status >= 200 && played.status < 300 && played.body.ok === true,
+    `the non-replaceable Story Hand action failed while committing the replay marker: ${JSON.stringify(played)}`,
+  );
+  return played.body;
 }
 
 function lanternJourneySummary(state) {
@@ -680,9 +718,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const noticeOffer = firstTaleAdvancingOffer(initial, "lantern Cottage notice");
   const listened = await command(baseUrl, actorId, actorSession, noticeOffer.command);
   assert(
-    listened.events?.some((event) => event.type === "ability_check.rolled")
-      && listened.events?.some((event) => event.type === "ledger.banked"),
-    `Lantern Keeper Cottage Notice did not bank its first useful lead: ${JSON.stringify(listened)}`,
+    listened.events?.some((event) => event.type === "notice.actor_observed")
+      && listened.events?.some((event) => event.type === "notice.fact_revealed"),
+    `Lantern Keeper Cottage Notice did not reveal its first useful lead: ${JSON.stringify(listened)}`,
   );
 
   let taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
@@ -717,8 +755,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     contributionEvent
       && traceEvents.length === 1
-      && traceEvents[0].caused_by_event_seq === contributionEvent.seq,
-    `Lantern Keeper first contribution did not emit one explicit replay-safe public trace: ${JSON.stringify(firstContribution)}`,
+      && traceEvents[0].caused_by_event_seq === contributionEvent.seq
+      && firstContribution.events?.some((event) => event.type === "ledger.banked"),
+    `Lantern Keeper first contribution did not emit one replay-safe trace and settle its reward: ${JSON.stringify(firstContribution)}`,
   );
   taleState = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
@@ -976,7 +1015,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
   );
   traceLantern("lantern Tower ready", towerReady);
-  const dangerBeforeMeaningfulRest = Number(towerReady.shared_questions?.find((question) =>
+  const dangerBeforeFinale = Number(towerReady.shared_questions?.find((question) =>
     question.id === "lantern-keeper:rekindle-the-beacon")?.danger_filled || 0);
 
   const tamperedOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
@@ -993,7 +1032,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
   );
 
-  const firstTowerListen = await command(baseUrl, actorId, actorSession, "listen");
+  await passCurrentHand(baseUrl, actorId, actorSession);
   const staleOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
@@ -1008,24 +1047,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
   );
 
-  const repeatedListen = await command(baseUrl, actorId, actorSession, "listen");
-  assert(
-    repeatedListen.events?.some((event) =>
-      event.type === "tag.applied" && event.tag_label === "tired"),
-    `Lantern Keeper repeat frontier action did not create a meaningful Rest choice: ${JSON.stringify(repeatedListen)}`,
-  );
-  const tiredAtTower = await fetchInspectableState(baseUrl, actorId, actorSession);
-  await dealOffer(baseUrl, actorId, actorSession, (offer) => offer.kind === "rest", "the Rest card");
-  const rested = await command(baseUrl, actorId, actorSession, "rest");
-  assert(
-    rested.events?.some((event) =>
-      event.type === "tag.cleared" && event.tag_label === "tired")
-      && rested.events?.some((event) =>
-        event.type === "clock.updated"
-          && event.clock_id === "lantern-keeper.darkness"
-          && event.clock_filled === dangerBeforeMeaningfulRest + 1),
-    `Lantern Keeper Rest did not trade recovery for authored danger: ${JSON.stringify(rested)}`,
-  );
   towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   const freshWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
     offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the refreshed finale Work card");
@@ -1035,11 +1056,9 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     question.id === "lantern-keeper:rekindle-the-beacon");
   assert(
     readyQuestion?.filled === 0
-      && readyQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1
-      && freshWorkOffer?.offer_id
-      && rested.receipt?.world_id
-      && rested.receipt?.actor_ref,
-    `Lantern Keeper lost its finale after the meaningful Rest choice: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+      && readyQuestion?.danger_filled === dangerBeforeFinale
+      && freshWorkOffer?.offer_id,
+    `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
   );
 
   const finalePayload = {
@@ -1082,7 +1101,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     completedQuestion?.presentation_state === "completed_memory"
       && completedQuestion?.filled === 6
-      && completedQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1
+      && completedQuestion?.danger_filled === dangerBeforeFinale
       && completedQuestion?.situation?.includes("Mothwood beacon")
       && completedAtTower.tags?.some((tag) => tag.id === "room:804:beacon_rekindled")
       && completedAtTower.economy?.orbs === beforeFinaleOrbs + 2
@@ -1116,7 +1135,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     afterTravelQuestion?.presentation_state === "completed_memory"
       && afterTravelQuestion?.filled === 6
-      && afterTravelQuestion?.danger_filled === dangerBeforeMeaningfulRest + 1,
+      && afterTravelQuestion?.danger_filled === dangerBeforeFinale,
     `Lantern Keeper's post-finale travel reset completion before restart: ${JSON.stringify(lanternJourneySummary(completed))}`,
   );
   traceLantern("lantern completed", completed);
@@ -1125,7 +1144,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     expected: {
       orbs: completed.economy?.orbs,
       progress: 6,
-      danger: dangerBeforeMeaningfulRest + 1,
+      danger: dangerBeforeFinale,
       completionSituation: completedQuestion.situation,
       finalePayload,
       finaleResponse: finale,
@@ -1368,6 +1387,7 @@ async function runWorldLoop(spec) {
     let finalLocationName = spec.location;
     let finalLocationPack = spec.locationPack;
     let goldenJourney = null;
+    let actorNoticeCommitted = false;
     let initial = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     assertScene(initial, spec, { requireOffer: false });
     if (spec.offerVerb) {
@@ -1375,10 +1395,23 @@ async function runWorldLoop(spec) {
         first.baseUrl,
         actorId,
         actorSession,
-        (offer) => offer.verb === spec.offerVerb,
+        (offer) => spec.offerVerb === "Notice"
+          ? offer.kind === "notice_actor"
+          : offer.verb === spec.offerVerb,
         `${spec.label} ${spec.offerVerb} card`,
       );
       initial = dealt.state;
+      assertScene(initial, spec);
+      if (spec.offerVerb === "Notice") {
+        const noticed = await command(first.baseUrl, actorId, actorSession, dealt.offer.command);
+        assert(
+          noticed.events?.some((event) => event.type === "notice.actor_observed"),
+          `${spec.label} Notice produced no committed observation: ${JSON.stringify(noticed)}`,
+        );
+        actorNoticeCommitted = true;
+        initial = await fetchInspectableState(first.baseUrl, actorId, actorSession);
+      }
+    } else {
       assertScene(initial, spec);
     }
     if (spec.goldenJourney) {
@@ -1537,14 +1570,21 @@ async function runWorldLoop(spec) {
       }
     }
 
-    if (!spec.goldenJourney) {
-      const listened = await command(first.baseUrl, actorId, actorSession, "listen");
+    if (!spec.goldenJourney && !spec.noticeAbsent && !actorNoticeCommitted) {
+      const noticeDeal = await dealOffer(
+        first.baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.kind === "notice_actor",
+        `${spec.label} actor Notice`,
+      );
+      const noticed = await command(first.baseUrl, actorId, actorSession, noticeDeal.offer.command);
       assert(
-        listened.events?.length > 0,
-        `${spec.label} Listen produced no committed events: ${JSON.stringify(listened)}`,
+        noticed.events?.some((event) => event.type === "notice.actor_observed"),
+        `${spec.label} Notice produced no committed observation: ${JSON.stringify(noticed)}`,
       );
     }
-    const replayMarker = await passCurrentHand(first.baseUrl, actorId, actorSession);
+    const replayMarker = await commitReplayMarker(first.baseUrl, actorId, actorSession);
     const replayMarkerSeq = Math.max(
       ...(replayMarker.events || [])
         .filter((event) => event.actor_id === actorId)

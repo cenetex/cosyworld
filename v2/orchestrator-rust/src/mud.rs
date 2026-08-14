@@ -84,6 +84,9 @@ pub(crate) enum CommandDispatch {
     OpenThreshold {
         action: Box<CwAction>,
     },
+    NoticeActor {
+        target_actor_id: u64,
+    },
     Check,
     Study,
     Discover {
@@ -505,6 +508,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
         CommandDispatch::OpenThreshold { .. } => {
             "That threshold method changed while you were choosing. Look again."
+        }
+        CommandDispatch::NoticeActor { .. } => {
+            "That observable fact changed while you were choosing. Look again."
         }
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
         CommandDispatch::Study => "There is no authored subject to Study here now.",
@@ -996,6 +1002,7 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.item_name.as_deref().unwrap_or("the prepared spell")
         )),
         "influence.committed" => event.content.clone(),
+        "notice.fact_revealed" => event.content.clone(),
         "study.resolved" => Some(
             if event
                 .content
@@ -2620,6 +2627,50 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action("check", "Listen", "listen")),
                     dispatch: CommandDispatch::Check,
+                })
+            }
+            "notice" => {
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        rest,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
+                    )
+                    .map_err(|output| command_error(&command, "notice", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                let canonical = format!("notice {target_name}");
+                if self
+                    .notice_actor_fact_for_target(actor.id, target.id)
+                    .is_none()
+                {
+                    return Ok(ResolvedCommand {
+                        command: canonical.clone(),
+                        verb,
+                        action: Some(command_action(
+                            NOTICE_ACTOR_OFFER_KIND,
+                            "Notice",
+                            &canonical,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!(
+                                "There is no unresolved observable fact about {target_name}."
+                            ),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: canonical.clone(),
+                    verb,
+                    action: Some(command_action(
+                        NOTICE_ACTOR_OFFER_KIND,
+                        "Notice",
+                        &canonical,
+                    )),
+                    dispatch: CommandDispatch::NoticeActor {
+                        target_actor_id: target.id,
+                    },
                 })
             }
             "contribute" => {

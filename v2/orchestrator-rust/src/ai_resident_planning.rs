@@ -25,6 +25,7 @@ const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
     "search",
     "craft",
     "influence",
+    NOTICE_ACTOR_OFFER_KIND,
     "check",
     "explore_path",
     "prepare",
@@ -598,6 +599,7 @@ impl RuntimeWorld {
                         | "search"
                         | "craft"
                         | "influence"
+                        | NOTICE_ACTOR_OFFER_KIND
                         | "check"
                         | "explore_path"
                         | "prepare"
@@ -626,6 +628,7 @@ impl RuntimeWorld {
                 self.resident_card_policy_job_record(actor, &offer, seed)?
             }
             "rest"
+            | NOTICE_ACTOR_OFFER_KIND
             | "check"
             | FOCUSED_NOTICE_OFFER_KIND
             | DISCOVERY_SEARCH_OFFER_KIND
@@ -1498,6 +1501,7 @@ fn resident_card_kind_is_search(kind: &str) -> bool {
         kind,
         "search"
             | "check"
+            | NOTICE_ACTOR_OFFER_KIND
             | "study"
             | FOCUSED_NOTICE_OFFER_KIND
             | DISCOVERY_SEARCH_OFFER_KIND
@@ -1521,6 +1525,7 @@ fn resident_event_matches_card_kind(event_type: &str, kind: &str) -> bool {
             event_type,
             "location.searched" | "feature.searched" | "discovery.resolved"
         ),
+        NOTICE_ACTOR_OFFER_KIND => event_type == "notice.actor_observed",
         DISCOVERY_STUDY_OFFER_KIND | "study" => {
             matches!(event_type, "location.studied" | "discovery.resolved")
         }
@@ -2333,6 +2338,11 @@ mod tests {
     #[test]
     fn current_snapshot_rejects_forged_fields_and_newer_revision() {
         let mut runtime = RuntimeWorld::seeded();
+        let executable_offer = runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "pick_up"
+            })
+            .expect("the seeded resident can draw a kernel-executable card");
         let plan = runtime
             .resident_reply_plan_for_target(
                 SKULL_ACTOR_ID,
@@ -2344,7 +2354,8 @@ mod tests {
         let plan = runtime.prepare_resident_planner_snapshot(plan);
         let candidate = plan
             .planner_candidates
-            .first()
+            .iter()
+            .find(|candidate| candidate.candidate_id == executable_offer.offer_id)
             .expect("seeded Rati has a legal planner candidate")
             .clone();
         let proposal = AvatarProposedAction {
@@ -2706,6 +2717,12 @@ mod tests {
     #[test]
     fn accepted_rejected_committed_lifecycle_replays_without_a_gateway() {
         let mut runtime = RuntimeWorld::seeded();
+        let executable_offer = runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "pick_up"
+            })
+            .expect("the seeded resident can draw a kernel-executable card");
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let plan = runtime
             .resident_reply_plan_for_target(
                 SKULL_ACTOR_ID,
@@ -2717,7 +2734,8 @@ mod tests {
         let plan = runtime.prepare_resident_planner_snapshot(plan);
         let candidate = plan
             .planner_candidates
-            .first()
+            .iter()
+            .find(|candidate| candidate.candidate_id == executable_offer.offer_id)
             .expect("seeded Rati has an executable planner candidate")
             .clone();
         let mut accepted_trace = ResidentPlanningTrace::absent(&plan);
@@ -2853,7 +2871,9 @@ mod tests {
         let encoded = serde_json::to_string(&records).expect("records serialize");
         let replay_records: Vec<JournalRecord> =
             serde_json::from_str(&encoded).expect("records deserialize");
-        let mut replayed = RuntimeWorld::seeded();
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("the pre-lifecycle snapshot restores");
         for record in &replay_records {
             assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
         }
