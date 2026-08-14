@@ -76,6 +76,22 @@ describe("three-slot Story Hand", () => {
     expect(cardRenderBlock).toContain('? "Travel"');
   });
 
+  it("shows suit emojis instead of suit names on action cards", () => {
+    const cardRenderBlock = browser.slice(
+      browser.indexOf("function renderButton"),
+      browser.indexOf("function actionBarActions"),
+    );
+
+    expect(browser).toContain('head: "🧠"');
+    expect(browser).toContain('heart: "❤️"');
+    expect(browser).toContain('honor: "🛡️"');
+    expect(browser).toContain('hustle: "🛠️"');
+    expect(cardRenderBlock).toContain("const suitEmoji = actionCardSuitEmoji(suit);");
+    expect(cardRenderBlock).toContain('suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb');
+    expect(cardRenderBlock).not.toContain('suit ? `${suit} · ${exactVerb}` : exactVerb');
+    expect(cardRenderBlock).toContain('suit ? `${suit} suit` : "control"');
+  });
+
   it("submits room-feature Use offers through the typed item endpoint", () => {
     const featureUseBlock = browser.slice(
       browser.indexOf('if (options.has("use_feature"))'),
