@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn defend_sets_up_active_room_project() {
+fn combat_project_requires_declaration_before_dodge_is_available() {
     let mut runtime = RuntimeWorld::seeded();
     let create = CwAction {
         kind: CW_ACTION_CREATE_ACTOR,
@@ -22,91 +22,18 @@ fn defend_sets_up_active_room_project() {
     assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
     let initial = runtime.state_response(Some(5000), &AccessContext::default());
-    let defend_offer = initial
+    assert!(initial
         .action_offers
         .iter()
-        .find(|offer| offer.kind == "defend")
-        .expect("defend offer is exposed in combat project room");
-    assert_eq!(defend_offer.progress, Some(3));
-    assert_eq!(
-        defend_offer.effect.as_deref(),
-        Some("guards carefully and makes the next try count")
-    );
-    for offer in &initial.action_offers {
-        let player_copy = format!(
-            "{} {}",
-            offer.effect.as_deref().unwrap_or_default(),
-            offer.risk.as_deref().unwrap_or_default()
-        )
-        .to_ascii_lowercase();
-        for forbidden in ["progress", "clock", "ledger", "tag", "projection", "kernel"] {
-            assert!(
-                !player_copy.contains(forbidden),
-                "{} offer leaked {forbidden}: {player_copy}",
-                offer.kind
-            );
-        }
-        assert!(
-            !player_copy.contains(" +"),
-            "{} offer leaked arithmetic: {player_copy}",
-            offer.kind
-        );
-    }
+        .any(|offer| offer.kind == "attack" && offer.verb == "Confront"));
+    assert!(initial
+        .action_offers
+        .iter()
+        .all(|offer| offer.kind != "defend" && offer.kind != "flee"));
     assert_eq!(
         runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
         1
     );
-
-    let defend_action = CwAction {
-        kind: CW_ACTION_DEFEND,
-        actor_id: 5000,
-        ..CwAction::default()
-    };
-    let (status, events) = runtime.apply_journal_record(&JournalRecord::new(defend_action, 7161));
-    assert_eq!(status, CW_OK);
-    assert!(events.iter().any(|event| {
-        event.type_name == "combat.defend"
-            && event.actor_id == Some(5000)
-            && event.location_id == Some(MOONLIT_TRAIL_LOCATION_ID)
-    }));
-    assert!(events.iter().any(|event| {
-        event.type_name == "tag.applied"
-            && event.tag_id.as_deref()
-                == Some(prepared_tag_id(5000, MOONLIT_TRAIL_LOCATION_ID).as_str())
-            && event.tag_label.as_deref() == Some("prepared")
-            && event.content.as_deref() == Some("defend_prepare")
-    }));
-    assert!(runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
-    let work_intent = runtime
-        .job_contribution_intent(5000, "work", Some(MOONLIT_JOB_ID), None, None)
-        .expect("Defend leaves a valid prepared Push");
-    let prepared_input = runtime
-        .project_push_input(5000, &work_intent, true)
-        .expect("prepared Push snapshot");
-    assert_eq!(
-        prepared_input,
-        CwProjectPushInput {
-            base_progress: 2,
-            prepared_bonus_progress: 1,
-            prepared: 1,
-            evidence_count: 0,
-            location_count: 1,
-            remaining_progress: 4,
-        }
-    );
-    assert_eq!(RuntimeWorld::resolve_project_push(prepared_input), Some(3));
-    assert_eq!(
-        runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-        3
-    );
-
-    let prepared = runtime.state_response(Some(5000), &AccessContext::default());
-    assert!(prepared
-        .action_offers
-        .iter()
-        .find(|offer| offer.kind == "defend")
-        .and_then(|offer| offer.effect.as_deref())
-        .is_some_and(|effect| effect.contains("careful guard")));
 }
 
 #[test]

@@ -272,4 +272,6 @@
 # command-boundary ordered-scene regression. Hand composition, policy, commands,
 # autonomous selection, and their focused tests remain in the owning modules;
 # this is a reviewed integration exception, not a new root-owned gameplay system.
-66864
+# 66864 -> 66856: move attack and explicit combat-declaration handlers into
+# combat.rs while separating declaration from the first attack.
+66856

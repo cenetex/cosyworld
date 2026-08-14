@@ -812,7 +812,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:884d0123b8ada90815ec388e705d36040f887fe4b4c2487d70aa6d8c97136986",
+  "bundle_hash": "sha256:617a4af665a2bb0f8cd8765da696438304f088f8bcc095f38841c03820d60a60",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2108,7 +2108,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2192,7 +2192,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
-        "spatial_scenes": 1,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -2340,7 +2340,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:c5de2288d001e41959156ff058754f6709b2c930c47927e392c93b09cbb42e9a"
+      "integrity": "sha256:5c351e2b082b1219a057a8256af0c9800d2add7596e75295ab7dc84a849c4fda"
     },
     {
       "id": "cosyworld.the-holy-land",

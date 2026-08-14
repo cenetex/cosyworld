@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("three-slot Story Hand", () => {
-  it("keeps Story, Self, and Anchor visible and exposes targeted certified Think as the only cycle action", () => {
+  it("keeps Story, Self, and Anchor visible and puts targeted Discard inside card details", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -20,11 +20,12 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
     expect(browser).toContain('id="tertiary"');
-    expect(browser).toContain('id="shuffle"');
-    expect(browser).toContain('data-player-concept="think"');
-    expect(browser).toContain('aria-label="Think about replacing the focused Story Hand card"');
+    expect(browser).not.toContain('id="shuffle"');
+    expect(browser).not.toContain('data-player-concept="think"');
+    expect(browser).toContain('id="action-modal-discard"');
+    expect(browser).toContain('data-analytics-event="action.discard"');
     expect(browser).toContain('const buttonIds = ["primary", "secondary", "tertiary"];');
-    expect(browser).toContain('async function passHand()');
+    expect(browser).toContain('async function discardActionCard(focused = visibleFocusedAction())');
     expect(browser).toContain('const think = entry?.think;');
     expect(browser).toContain('command: "think"');
     expect(browser).toContain('postResult("/commands", withAccess({');
@@ -32,7 +33,14 @@ describe("three-slot Story Hand", () => {
     expect(browser).not.toContain("advanceHandPage");
     expect(browser).not.toContain("drawNextHandCard");
     expect(browser).toContain('event.type === "hand.thought"');
+    expect(browser).toContain('Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return state\?\.branch \? 2 : Number\(state\?\.action_hand\?\.capacity \|\| 3\);\s+\}/);
+  });
+
+  it("declares combat before offering an attack", () => {
+    expect(browser).toContain('const declaringCombat = !view.combat;');
+    expect(browser).toContain('declaringCombat ? "/actions/declare-combat" : "/actions/attack"');
+    expect(browser).toContain('No attack is made yet; ordinary advancement pauses while combat is active.');
   });
 
   it("keeps same-kind Search and Scout targets bound to their dealt certificates", () => {

@@ -81,8 +81,9 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
     expect(index).not.toContain('id="all-actions-title">all actions</h2>');
     expect(index).not.toContain("data-all-action-index");
     expect(index).not.toContain('data-player-concept="action-menu"');
-    expect(index).toContain('data-player-concept="think"');
-    expect(index).toContain('aria-label="Think about replacing the focused Story Hand card"');
+    expect(index).not.toContain('data-player-concept="think"');
+    expect(index).toContain('id="action-modal-discard"');
+    expect(index).toContain('`Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card;');
     expect(index).toContain('command: "think"');
     expect(index).not.toContain('command: "pass"');
   });

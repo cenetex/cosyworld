@@ -2352,12 +2352,6 @@
     .prompt.choice-mode {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .prompt.has-draw {
-      grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(64px, 86px);
-    }
-    .prompt.choice-mode.has-draw {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
     .prompt.single-action .cmd.primary {
       grid-column: 1 / -1;
     }
@@ -2422,29 +2416,6 @@
     }
     .cmd.secondary {
       color: var(--text);
-    }
-    .cmd.shuffle {
-      flex-direction: column;
-      justify-content: center;
-      text-align: center;
-      min-width: 86px;
-      gap: 2px;
-      padding: 5px;
-    }
-    .shuffle-glyph {
-      position: relative;
-      z-index: 2;
-      color: var(--cmd-accent);
-      font-size: 17px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      line-height: 0.7;
-    }
-    .cmd.shuffle .cmd-label {
-      position: relative;
-      z-index: 2;
-      font-size: 10px;
-      line-height: 1;
     }
     .cmd.suit-wonder { --cmd-accent: var(--suit-wonder); --cmd-accent-rgb: var(--suit-wonder-rgb); }
     .cmd.suit-way { --cmd-accent: var(--suit-way); --cmd-accent-rgb: var(--suit-way-rgb); }
@@ -2989,7 +2960,8 @@
       outline: 2px solid rgba(101, 230, 138, 0.86);
       outline-offset: 2px;
     }
-    .action-cancel {
+    .action-cancel,
+    .action-discard {
       min-height: 40px;
       padding: 0 16px;
       border: 1px solid var(--line);
@@ -2999,20 +2971,30 @@
       font: inherit;
       font-weight: 800;
     }
-    .action-cancel:hover {
+    .action-cancel:hover,
+    .action-discard:hover {
       border-color: var(--line-strong);
       background: rgba(216, 247, 220, 0.06);
       color: var(--text);
     }
-    .action-cancel:focus-visible {
+    .action-cancel:focus-visible,
+    .action-discard:focus-visible {
       outline: 2px solid var(--amber);
       outline-offset: 2px;
     }
+    .action-discard {
+      border-color: rgba(239, 201, 107, 0.42);
+      color: var(--amber);
+    }
+    .action-discard[hidden] { display: none; }
     .action-actions {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       gap: 8px;
       padding: 18px;
+    }
+    .action-actions.has-discard {
+      grid-template-columns: auto auto minmax(0, 1fr);
     }
     .wallet-title {
       clear: both;
@@ -3767,10 +3749,6 @@
         padding: 3px;
         text-align: center;
       }
-      .cmd.shuffle {
-        flex: 0 0 72px;
-        min-width: 72px;
-      }
       .cmd-copy {
         flex: 1 1 auto;
         min-width: 0;
@@ -3940,6 +3918,7 @@
     .action-dialog,
     .action-confirm,
     .action-cancel,
+    .action-discard,
     .card-dialog,
     .card-close {
       border-radius: 4px;
@@ -5005,6 +4984,7 @@
     }
     .action-confirm,
     .action-cancel,
+    .action-discard,
     .account-button {
       min-height: 44px;
     }
@@ -5124,9 +5104,6 @@
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd shuffle card-control" id="shuffle" data-player-concept="think" data-analytics-event="action.think" aria-label="Think about replacing the focused Story Hand card">
-        <span class="shuffle-glyph" aria-hidden="true">↻</span><span class="cmd-label">think</span>
-      </button>
     </footer>
   </div>
   <div class="card-modal" id="card-modal" hidden>
@@ -5159,6 +5136,7 @@
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <div class="action-actions">
         <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>not now</button>
+        <button class="action-discard" id="action-modal-discard" type="button" data-analytics-event="action.discard" hidden>discard</button>
         <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
       </div>
     </section>
@@ -7846,6 +7824,7 @@
       }
       if (options.has("attack")) {
         for (const offer of exactOfferVariants("attack")) {
+          const declaringCombat = !view.combat;
           const attackRisk = String(offer?.risk || "");
           const attackMethodId = offer?.source_collectible?.kind === "item"
             ? Number(offer.source_collectible.instance_id || 0)
@@ -7863,13 +7842,18 @@
           const firstTargetLabel = actorLabel(firstTarget);
           const attackAction = {
             ...semanticAction(offer, "attack"),
-            label: "attack",
+            kind: declaringCombat ? "combat-declaration" : "combat-attack",
+            label: declaringCombat ? "confront" : "attack",
             detail: oneTarget
-              ? (attackRisk.includes("danger +1")
-                ? `${firstTargetLabel} · ${attackMethodName}, trouble draws near`
-                : `${firstTargetLabel} · ${attackMethodName}`)
+              ? (declaringCombat
+                ? `${firstTargetLabel} · declare combat`
+                : (attackRisk.includes("danger +1")
+                  ? `${firstTargetLabel} · ${attackMethodName}, trouble draws near`
+                  : `${firstTargetLabel} · ${attackMethodName}`))
               : "choose an opponent",
-            command: oneTarget ? `attack ${firstTargetLabel}` : "attack",
+            command: oneTarget
+              ? `${declaringCombat ? "confront" : "attack"} ${firstTargetLabel}`
+              : (declaringCombat ? "confront" : "attack"),
             focusKey: oneTarget
               ? `actor:${firstTarget.id}`
               : `attack:${attackTargets.map((actor) => actor.id).join("|")}`,
@@ -7877,12 +7861,16 @@
             card: cardForActor(firstTarget.id),
             shape: "avatar",
             targetName: oneTarget ? firstTargetLabel : "",
-            modalTitle: oneTarget ? undefined : "choose who to face",
-            modalSummary: oneTarget
-              ? undefined
+            modalTitle: oneTarget
+              ? (declaringCombat ? `confront ${firstTargetLabel}?` : undefined)
+              : "choose who to face",
+            modalSummary: declaringCombat
+              ? `Declare an encounter with ${oneTarget ? firstTargetLabel : "this opponent"}. No attack is made yet; ordinary advancement pauses while combat is active.`
+              : (oneTarget
+                ? undefined
               : (attackRisk.includes("danger +1")
                 ? "Choose who to confront. Trouble may draw nearer."
-                : "Choose who to confront."),
+                : "Choose who to confront.")),
             risk: offer?.risk,
             effect: offer?.effect,
             ...(oneTarget ? {} : {
@@ -7902,7 +7890,10 @@
             actor_id: actorId,
             target_actor_id: Number(attackAction.selectedChoice || firstTarget.id),
           });
-          attackAction.run = () => action("/actions/attack", attackAction.selectedPayload());
+          attackAction.run = () => action(
+            declaringCombat ? "/actions/declare-combat" : "/actions/attack",
+            attackAction.selectedPayload(),
+          );
           built.push(attackAction);
         }
       }
@@ -8614,6 +8605,7 @@
         "/actions/accept-transfer-offer": ["accept_transfer"],
         "/actions/theft": ["theft"],
         "/actions/craft": ["craft"],
+        "/actions/declare-combat": ["attack"],
         "/actions/attack": ["attack"],
         "/actions/defend": ["defend"],
         "/actions/prepare": ["prepare"],
@@ -8655,6 +8647,7 @@
       "/actions/accept-transfer-offer",
       "/actions/theft",
       "/actions/craft",
+      "/actions/declare-combat",
       "/actions/attack",
       "/actions/defend",
       "/actions/prepare",
@@ -8680,7 +8673,7 @@
         return Number(payload.item_id || 0);
       }
       if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
-      if (["/actions/chat", "/actions/notice", "/actions/model-interaction", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
+      if (["/actions/chat", "/actions/notice", "/actions/model-interaction", "/actions/declare-combat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
@@ -8767,7 +8760,7 @@
           ok: false,
           status: 409,
           events: [],
-          output: "That card is no longer in your Story Hand. Think or choose a current card.",
+          output: "That card is no longer in your Story Hand. Discard or choose a current card.",
         };
         setError(result.output);
         void queueRefresh();
@@ -8965,7 +8958,7 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        setError("That whole-hand redeal has retired. Focus one Story Hand card, then choose Think.");
+        setError("Whole-hand redeals have retired. Open the card you want to replace, then choose Discard.");
         return null;
       }
       const beforeOrbs = economyOrbCount();
@@ -12374,7 +12367,7 @@
         return { kind: "hand", label: "hand", text: "Story Hand changed" };
       }
       if (event.type === "hand.thought") {
-        return { kind: "hand", label: "think", text: "one Story Hand card changed" };
+        return { kind: "hand", label: "discard", text: "one Story Hand card changed" };
       }
       if (event.type === "turn.ping_started") {
         const actor = event.actor_name || "someone";
@@ -12484,7 +12477,7 @@
       if (type === "exit.discovered") return "entrance";
       if (type === "encounter.reset") return "frontier";
       if (type === "hand.shuffled") return "hand";
-      if (type === "hand.thought") return "think";
+      if (type === "hand.thought") return "discard";
       if (type.startsWith("turn.")) return "turn";
       if (type === "job.contribution.resolved") return "approach";
       if (type === "clock.updated") return "clock";
@@ -13873,7 +13866,7 @@
       if (event.type === "branch.resolved") return `finishes a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "hand.shuffled") return "changes their Story Hand.";
-      if (event.type === "hand.thought") return "thinks and changes one Story Hand card.";
+      if (event.type === "hand.thought") return "discards and replaces one Story Hand card.";
       if (event.type === "ability_check.rolled") return abilityCheckEventText(event);
       if (event.type === "study.resolved") {
         return event.content?.includes("yielded")
@@ -15436,6 +15429,24 @@
       renderRoomAvatarRail();
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal-cancel").textContent = actionCancelLabel(action);
+      const discardButton = $("action-modal-discard");
+      const discardCertificate = projectedHandEntryForAction(action)?.think || null;
+      const canDiscard = !state?.branch
+        && actorId
+        && actorSession
+        && discardCertificate?.available
+        && discardCertificate?.offer_id
+        && (!state?.combat || state?.turn?.is_current_actor);
+      discardButton.hidden = !canDiscard;
+      discardButton.disabled = handShuffleBusy;
+      discardButton.textContent = discardCertificate?.free ? "discard · free" : "discard";
+      discardButton.setAttribute(
+        "aria-label",
+        canDiscard
+          ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
+          : "This Story Hand card cannot be discarded",
+      );
+      discardButton.closest(".action-actions")?.classList.toggle("has-discard", Boolean(canDiscard));
       openModal("action-modal", $("action-modal-confirm"));
     }
 
@@ -15509,6 +15520,8 @@
       $("action-modal-eyebrow").hidden = true;
       $("action-modal-eyebrow").textContent = "";
       $("action-modal-cancel").textContent = "not now";
+      $("action-modal-discard").hidden = true;
+      $("action-modal-discard").closest(".action-actions")?.classList.remove("has-discard");
       actionConfirmAction = null;
       renderRoomAvatarRail();
     }
@@ -16146,22 +16159,19 @@
       return [400, 409, 423].includes(Number(result.status || 0));
     }
 
-    async function passHand() {
+    async function discardActionCard(focused = visibleFocusedAction()) {
       if (handShuffleBusy
         || !actorId
         || !actorSession
         || state?.primary_action?.kind === "create_avatar") {
         return null;
       }
-      const button = $("shuffle");
       handShuffleBusy = true;
-      button.disabled = true;
       try {
-        const focused = visibleFocusedAction();
         const entry = projectedHandEntryForAction(focused);
         const think = entry?.think;
         if (!think?.available || !think?.offer_id) {
-          setError("Choose a Story Hand card that has another possibility, then Think again.");
+          setError("That Story Hand card has no other current possibility to discard into.");
           return null;
         }
         if (handPassSubmission?.offer_id !== think.offer_id) {
@@ -16199,16 +16209,19 @@
       }
     }
 
+    // Kept for transport/browser compatibility; the player-facing control is
+    // Discard inside the selected card's detail modal.
+    async function passHand(focused = visibleFocusedAction()) {
+      return discardActionCard(focused);
+    }
+
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary", "tertiary"];
-      const drawButton = $("shuffle");
       renderTurnPingPill();
       prompt.classList.toggle("single-action", actionBusy);
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
-        prompt.classList.remove("has-draw");
-        drawButton.style.display = "none";
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
@@ -16229,30 +16242,8 @@
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
       const visibleActions = actionBarActions().slice(0, handCapacity());
-      const focusedVisibleAction = visibleActions.find((action) => action.actionIndex === focusIndex)
-        || visibleActions[0]
-        || null;
-      const focusedThink = projectedHandEntryForAction(focusedVisibleAction)?.think || null;
-      const canDraw = !state?.branch
-        && actorId
-        && actorSession
-        && state?.primary_action?.kind !== "create_avatar"
-        && (state?.action_hand?.entries || []).some((entry) => entry?.think?.available)
-        && (!state?.combat || state?.turn?.is_current_actor);
       prompt.classList.toggle("combat-mode", Boolean(state?.combat));
       prompt.classList.toggle("choice-mode", choiceMode);
-      prompt.classList.toggle("has-draw", canDraw);
-      drawButton.style.display = canDraw ? "flex" : "none";
-      drawButton.disabled = handShuffleBusy || !focusedThink?.available;
-      const thinkCost = focusedThink?.free ? "free" : "uses this turn";
-      const thinkSlot = String(focusedThink?.slot || focusedVisibleAction?.storyHandSlot || "focused");
-      drawButton.querySelector(".cmd-label").textContent = focusedThink?.free ? "think · free" : "think";
-      drawButton.setAttribute(
-        "aria-label",
-        focusedThink?.available
-          ? `Think: replace the ${thinkSlot} card; ${thinkCost}`
-          : `Think: the ${thinkSlot} card has no other current possibility`,
-      );
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
         const visibleAction = visibleActions[index]
@@ -17114,8 +17105,11 @@
       if (action) openActionModal(action);
     });
 
-    $("shuffle").addEventListener("click", () => {
-      void passHand();
+    $("action-modal-discard").addEventListener("click", (event) => {
+      event.preventDefault();
+      const action = actionConfirmAction;
+      closeActionModal();
+      if (action) void discardActionCard(action);
     });
 
     document.addEventListener("keydown", (event) => {

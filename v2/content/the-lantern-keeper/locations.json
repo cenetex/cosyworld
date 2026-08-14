@@ -52,7 +52,6 @@
     "biome": "flooded moor",
     "terrain": ["black water", "narrow causeway", "sunken stones"],
     "memory": ["Rowan spilled dawn oil here while running uphill.", "Something armored learned to walk without breathing."],
-    "interior_view": "isometric",
     "allow_combat": true
   },
   {

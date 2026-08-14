@@ -35,11 +35,26 @@ participants. A finishing hit leaves the target at 1 Hit Point, sets
 `CW_ACTOR_KNOCKED_OUT`, and applies `CW_CONDITION_UNCONSCIOUS`. Death, death
 saves, and negative Hit Points are outside this profile.
 
+## Declaration and entry
+
+Combat is an explicit scene transition, not an automatic room mode and not the
+side effect of the first attack. Outside combat, an eligible opponent publishes
+a **Confront** card among the ordinary Story Hand possibilities. Playing it
+declares the encounter, records initiative, and changes the scene hand; it does
+not also make an attack.
+
+Until Confront is played, the room remains an ordinary room: the player may
+talk, investigate, use an authored nonviolent resolution, or leave through an
+available route. Once combat is active, ordinary advancement and unrelated
+room actions are absent from the certified hand. The encounter must resolve or
+the avatar must Escape before normal advancement returns.
+
 ## Action economy and exclusions
 
 During an active encounter, a participant may play a current Attack, Dodge, or
-Escape card, or Pass. Pass rotates to the next two combat cards and yields the
-turn; it does not grant Dodge. Arbitrary room speech and normal movement,
+Escape card, or Discard a selected combat card. Discard uses the certified
+historical Think/Pass receipt, replaces only that slot, and yields the turn when
+the receipt is not free; it does not grant Dodge. Arbitrary room speech and normal movement,
 unrelated item, check, project, trade, search, and craft actions are rejected.
 
 The profile does not implement tactical distance, speed, reach, ranged weapon
@@ -51,7 +66,9 @@ remain explicit exclusions, not browser approximations.
 An authored [spatial scene](spatial-scenes.md) may visualize participants,
 exits, and an active blocking relationship. That projection does not add
 distance, positioning, reach, or another source of action legality; the kernel
-and the current combat hand remain authoritative.
+and the current combat hand remain authoritative. Flooded Barrow intentionally
+uses the normal room view; declaring combat is the only transition into its
+combat presentation.
 
 ## Product integration
 
@@ -65,12 +82,13 @@ the target. Sanctuary rooms reject encounter creation regardless of pack
 reskins.
 
 The browser and terminal submit current hand envelopes through
-`POST /actions/submit`; certificate-bound `POST /commands` is the only cycle/pass operation.
+`POST /actions/submit`; certificate-bound `POST /commands` is the only discard operation.
 There are no direct attack, defend, flee, or uncertified pass endpoints. `/state`
 exposes protocol, round, participants, current actor, and only the two current
 offers. `/meta` advertises protocol and kernel versions.
 
-The combat footer contains only those cards and Pass. Group chat renders
+The combat footer contains only those cards. Discard lives in the selected
+card's detail modal. Group chat renders
 speech and dice-call pills; outcomes such as hits, misses, defence, knockout,
 escape, and resolution remain in Journal and may appear as dismissible
 important alerts.
