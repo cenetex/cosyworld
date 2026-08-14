@@ -606,7 +606,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:not(#shuffle):visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt .cmd:visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -678,19 +678,50 @@ async function main() {
       initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.hasFourthCard,
       `the opening scene should expose at most three cards without a fourth Think card: ${JSON.stringify(initial)}`,
     );
-    await focusThinkableCard("opening scene");
-    await page.evaluate(() => openActionModal(visibleFocusedAction()));
+    const focused = await focusThinkableCard("opening scene");
+    await page.evaluate((handKey) => {
+      const button = [...document.querySelectorAll("#hand-rail .cmd[data-hand-key]")]
+        .find((candidate) => candidate.dataset.handKey === handKey);
+      button?.click();
+    }, focused.key);
     await page.waitForFunction(() => {
-      const discard = document.querySelector("#action-modal-discard");
-      return discard && !discard.hidden && !discard.disabled;
+      const prompt = document.querySelector("footer.prompt");
+      const discard = document.querySelector("#hand-discard");
+      return prompt?.classList.contains("hand-expanded")
+        && document.querySelector("#action-modal")?.hidden === true
+        && discard
+        && !discard.hidden
+        && !discard.disabled;
     });
+    const expandedLayout = await page.evaluate(() => {
+      const prompt = document.querySelector("footer.prompt");
+      const rail = document.querySelector("#hand-rail");
+      const current = rail.querySelector(".cmd[aria-current='true']");
+      return {
+        expanded: prompt.classList.contains("hand-expanded"),
+        modalHidden: document.querySelector("#action-modal")?.hidden === true,
+        inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
+        horizontalRail: getComputedStyle(rail).display === "flex"
+          && getComputedStyle(rail).overflowX === "auto"
+          && getComputedStyle(rail).scrollSnapType.includes("x"),
+        focusedCardReadable: Boolean(current && current.getBoundingClientRect().width >= window.innerWidth * 0.75),
+      };
+    });
+    assert(
+      expandedLayout.expanded
+        && expandedLayout.modalHidden
+        && expandedLayout.inspectorVisible
+        && expandedLayout.horizontalRail
+        && expandedLayout.focusedCardReadable,
+      `tapping a compact card should expand a readable swipeable hand without a modal: ${JSON.stringify(expandedLayout)}`,
+    );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator("#action-modal-discard").click(),
+      page.locator("#hand-discard").click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -701,7 +732,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && document.querySelector("#action-modal")?.hidden === true
+        && !document.querySelector("footer.prompt")?.classList.contains("hand-expanded")
     ));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
@@ -709,19 +740,24 @@ async function main() {
       const status = document.querySelector("#error");
       const statusStyle = getComputedStyle(status);
       const labels = [...prompt.querySelectorAll(".cmd-label-text")];
-      const cards = [...prompt.querySelectorAll("button")]
+      const handRail = document.querySelector("#hand-rail");
+      const cards = [...handRail.querySelectorAll("button")]
         .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.getBoundingClientRect());
-      const tertiary = document.querySelector("#tertiary");
-      const tertiaryRect = tertiary?.getBoundingClientRect();
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
-        promptColumns: getComputedStyle(prompt).gridTemplateColumns.split(" ").filter(Boolean).length,
+        compactHandHeight: document.querySelector(".hand-header").getBoundingClientRect().height
+          + handRail.getBoundingClientRect().height,
+        railDisplay: getComputedStyle(handRail).display,
+        railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
         cardsFit: cards.length <= 3
           && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
-        thirdCardSpansRow: cards.length < 3
-          || Boolean(tertiaryRect && tertiaryRect.width >= prompt.clientWidth - 17),
+        cardsCompact: cards.every((rect) => rect.height <= 54),
+        detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
+          .every((node) => getComputedStyle(node).display === "none"),
+        collapsed: !prompt.classList.contains("hand-expanded"),
+        modalHidden: document.querySelector("#action-modal")?.hidden === true,
         documentFits: document.documentElement.scrollWidth <= window.innerWidth,
         primaryLabelsFit: labels.every((label) => label.scrollHeight <= label.clientHeight + 1),
         statusWraps: statusStyle.whiteSpace === "normal"
@@ -735,10 +771,15 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
-        && layout.promptDisplay === "grid"
-        && layout.promptColumns === 2
+        && layout.promptDisplay === "block"
+        && layout.compactHandHeight <= 100
+        && layout.railDisplay === "grid"
+        && layout.railColumns === current.visibleKeys.length
         && layout.cardsFit
-        && layout.thirdCardSpansRow
+        && layout.cardsCompact
+        && layout.detailsHidden
+        && layout.collapsed
+        && layout.modalHidden
         && layout.documentFits
         && layout.primaryLabelsFit
         && layout.statusWraps
@@ -3857,7 +3898,7 @@ async function main() {
       `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
     );
     assert(
-      result.singleCard?.text === "TRAVEL Rain-Silver Crossing free"
+      result.singleCard?.text === "TRAVEL Rain-Silver Crossing"
         && result.singleCard?.label === "Rain-Silver Crossing"
         && !result.singleCard?.detail
         && !result.singleCard?.provider
@@ -4421,7 +4462,7 @@ async function main() {
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
-        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt .cmd")]
             .filter((button) => getComputedStyle(button).display !== "none")
             .map((button) => {
               const label = button.querySelector(".cmd-label")?.cloneNode(true);
@@ -10343,8 +10384,13 @@ async function main() {
 
   async function confirmActionModalIfOpen() {
     await page.waitForTimeout(75);
-    if (!(await actionModalIsOpen())) return false;
-    await page.locator("#action-modal-confirm").click();
+    if (await actionModalIsOpen()) {
+      await page.locator("#action-modal-confirm").click();
+      return true;
+    }
+    const handOpen = await page.locator("footer.prompt.hand-expanded #hand-confirm").count();
+    if (!handOpen) return false;
+    await page.locator("#hand-confirm").click();
     return true;
   }
 
@@ -12560,8 +12606,15 @@ async function main() {
               && new URL(response.url()).pathname.startsWith("/actions/")
           ));
           await other.locator("#primary").click();
-          await other.waitForSelector("#action-modal:not([hidden])");
-          await other.locator("#action-modal-confirm").click();
+          await other.waitForFunction(() => (
+            !document.querySelector("#action-modal")?.hidden
+              || document.querySelector("footer.prompt")?.classList.contains("hand-expanded")
+          ));
+          if (await other.locator("#action-modal:not([hidden])").count()) {
+            await other.locator("#action-modal-confirm").click();
+          } else {
+            await other.locator("#hand-confirm").click();
+          }
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
@@ -13949,7 +14002,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && [...document.querySelectorAll("footer.prompt button")]
+        && [...document.querySelectorAll("footer.prompt .cmd")]
           .some((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
     ));
     await assertNoVisibleOverflow();
@@ -13972,7 +14025,7 @@ async function main() {
       const roomCopy = document.querySelector("#location-copy");
       const roomLogToggle = document.querySelector("#room-log-toggle");
       const transcript = document.querySelector("#log");
-      const buttons = [...document.querySelectorAll("footer.prompt button")]
+      const buttons = [...document.querySelectorAll("footer.prompt .cmd")]
         .filter(visible)
         .map((button) => {
           const thumb = button.querySelector(".thumb");
@@ -14246,26 +14299,27 @@ async function main() {
       `guest first card should ask only for core identity and aspiration: ${openingPrimaryAria}`,
     );
     await page.locator("#primary").click();
-    await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
-    const coreOpeningSummary = await page.locator("#action-modal-summary").innerText();
+    await page.waitForSelector("footer.prompt.hand-expanded #hand-inspector:not([hidden])");
+    assert(await page.locator("#hand-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
+    const coreOpeningSummary = await page.locator("#hand-summary").innerText();
     assert(
       coreOpeningSummary.includes("Choose an aspiration")
         && coreOpeningSummary.includes("deeds reveal"),
       `core arrival should leave identity to later deeds: ${coreOpeningSummary}`,
     );
-    const coreOpeningRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
+    const coreOpeningRows = await page.locator("#hand-meta .action-row").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
-      coreOpeningRows.length === 0,
-      `core arrival should keep its expanded description to one sentence: ${JSON.stringify(coreOpeningRows)}`,
+      coreOpeningRows.some((row) => /Choose/i.test(row))
+        && coreOpeningRows.some((row) => /Then/i.test(row)),
+      `core arrival should expose its full choice details inside the expanded hand: ${JSON.stringify(coreOpeningRows)}`,
     );
-    await page.locator("#action-modal-cancel").click();
+    await page.locator("#hand-close").click();
     await page.locator("#primary").click();
-    await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-confirm").innerText() === "begin", "the certified core arrival should begin the classless traveler");
-    await page.locator("#action-modal-confirm").click();
+    await page.waitForSelector("footer.prompt.hand-expanded #hand-inspector:not([hidden])");
+    assert(await page.locator("#hand-confirm").innerText() === "begin", "the certified core arrival should begin the classless traveler");
+    await page.locator("#hand-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
     steps.push({ label: "guest begin avatar", primary: await primaryText(), location: await page.locator("#location-name").innerText() });
@@ -16176,7 +16230,7 @@ async function main() {
       branchEvents,
       fleeEvents,
       trailExitEvents,
-      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+      buttons: [...document.querySelectorAll("footer.prompt .cmd")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean),

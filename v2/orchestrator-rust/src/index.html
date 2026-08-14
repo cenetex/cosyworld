@@ -2239,6 +2239,13 @@
       border-top: 1px solid var(--line);
       background: rgba(5, 8, 6, 0.98);
     }
+    .hand-header,
+    .hand-inspector {
+      display: none;
+    }
+    .hand-rail {
+      display: contents;
+    }
     /* Art that has not been generated yet. The image itself already falls back
        to the authored placeholder; this marks it as pending rather than final
        so it never reads as finished art. See issue #476. */
@@ -5282,6 +5289,300 @@
         min-height: 96px;
       }
     }
+    @media (max-width: 900px) {
+      .prompt,
+      .prompt.choice-mode,
+      .prompt:not(.choice-mode) {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0 0 var(--safe-bot);
+      }
+      footer.prompt[hidden] {
+        display: none;
+      }
+      .prompt .turn-banner {
+        padding: 7px 8px 0;
+      }
+      .hand-header {
+        display: block;
+        border-bottom: 1px solid rgba(216, 247, 220, 0.09);
+      }
+      .hand-toggle {
+        width: 100%;
+        min-height: 34px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        background: transparent;
+        padding: 5px 10px;
+        text-align: left;
+      }
+      .hand-toggle:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: -2px;
+      }
+      .hand-toggle-title {
+        color: var(--amber);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .hand-toggle-status {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--dim);
+        font-size: 10px;
+        font-weight: 750;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hand-toggle-chevron {
+        color: var(--amber);
+        font-size: 15px;
+        line-height: 1;
+        transition: transform 160ms ease;
+      }
+      .hand-rail {
+        --hand-card-count: 3;
+        display: grid;
+        grid-template-columns: repeat(var(--hand-card-count), minmax(0, 1fr));
+        gap: 5px;
+        padding: 6px 8px 7px;
+      }
+      .prompt:not(.hand-expanded) .cmd {
+        width: 100%;
+        min-width: 0;
+        min-height: 52px;
+        height: 52px;
+        grid-column: auto;
+        gap: 5px;
+        justify-content: flex-start;
+        padding: 4px;
+        text-align: left;
+      }
+      .prompt:not(.hand-expanded) .hand-rail .cmd.tertiary,
+      .prompt:not(.hand-expanded).single-action .hand-rail .cmd.primary {
+        grid-column: auto;
+        width: 100%;
+      }
+      .prompt:not(.hand-expanded) .cmd-copy {
+        align-content: center;
+        gap: 1px;
+        padding: 0 8px 0 2px;
+      }
+      .prompt:not(.hand-expanded) .cmd-kicker {
+        overflow: hidden;
+        font-size: 8px;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt:not(.hand-expanded) .cmd-label {
+        display: block;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1.15;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt:not(.hand-expanded) .cmd-label-text {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt:not(.hand-expanded) .cmd-label .ui-icon,
+      .prompt:not(.hand-expanded) .detail,
+      .prompt:not(.hand-expanded) .cmd-meta,
+      .prompt:not(.hand-expanded) .provider-call,
+      .prompt:not(.hand-expanded) .story-call,
+      .prompt:not(.hand-expanded) .collectible-mark {
+        display: none;
+      }
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.avatar,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.item,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.location {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+      }
+      .prompt.hand-expanded {
+        max-height: min(56dvh, 460px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .prompt.hand-expanded .hand-header {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        background: rgba(17, 16, 13, 0.98);
+      }
+      .prompt.hand-expanded .hand-toggle-chevron {
+        transform: rotate(180deg);
+      }
+      .prompt.hand-expanded .hand-rail {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 9px 14px 8px;
+        scroll-padding-inline: 14px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .prompt.hand-expanded .hand-rail::-webkit-scrollbar {
+        display: none;
+      }
+      .prompt.hand-expanded .cmd {
+        flex: 0 0 calc(100% - 28px);
+        width: calc(100% - 28px);
+        min-width: 0;
+        min-height: 142px;
+        gap: 9px;
+        justify-content: flex-start;
+        padding: 9px;
+        text-align: left;
+        scroll-snap-align: center;
+        opacity: 0.66;
+        transition: border-color 140ms ease, opacity 140ms ease;
+      }
+      .prompt.hand-expanded .cmd[aria-current="true"] {
+        border-color: rgba(var(--cmd-accent-rgb), 0.78);
+        box-shadow:
+          inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.72),
+          0 0 0 1px rgba(var(--cmd-accent-rgb), 0.16);
+        opacity: 1;
+      }
+      .prompt.hand-expanded .cmd-copy {
+        align-content: center;
+        gap: 4px;
+        padding: 0 14px 0 2px;
+      }
+      .prompt.hand-expanded .cmd-kicker {
+        font-size: 10px;
+      }
+      .prompt.hand-expanded .cmd-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        overflow: visible;
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 820;
+        line-height: 1.16;
+        white-space: normal;
+      }
+      .prompt.hand-expanded .cmd-label-text {
+        display: -webkit-box;
+        min-width: 0;
+        overflow: hidden;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+      .prompt.hand-expanded .detail {
+        display: -webkit-box;
+        margin-top: 2px;
+        overflow: hidden;
+        font-size: 13px;
+        line-height: 1.3;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+      .prompt.hand-expanded :is(.cmd-meta, .provider-call, .story-call) {
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt.hand-expanded .cmd.has-copy .thumb,
+      .prompt.hand-expanded .cmd.has-copy .thumb.item,
+      .prompt.hand-expanded .cmd.has-copy .thumb.location {
+        width: 82px;
+        height: 72px;
+        flex: 0 0 82px;
+      }
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar {
+        width: 58px;
+        height: 78px;
+        flex-basis: 58px;
+      }
+      .prompt.hand-expanded .hand-inspector {
+        display: block;
+        border-top: 1px solid rgba(216, 247, 220, 0.09);
+      }
+      .prompt .hand-inspector[hidden] {
+        display: none;
+      }
+      .hand-inspector > .action-title {
+        padding: 8px 14px 0;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+      .hand-inspector > .action-summary {
+        padding: 4px 14px 0;
+        color: var(--dim);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .hand-inspector > .action-meta,
+      .hand-inspector > .action-choice-list {
+        margin: 8px 14px 0;
+      }
+      .hand-inspector .action-row {
+        padding-top: 5px;
+      }
+      .hand-inspector .action-row-key,
+      .hand-inspector .action-row-value {
+        font-size: 11px;
+      }
+      .hand-inspector .action-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        gap: 7px;
+        padding: 10px 14px;
+        background: rgba(17, 16, 13, 0.98);
+      }
+      .hand-inspector .action-actions > button {
+        min-height: 42px;
+        padding-inline: 10px;
+      }
+    }
+    @media (max-width: 360px) {
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.avatar,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.item,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.location {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+      }
+      .prompt:not(.hand-expanded) .cmd-copy {
+        padding-right: 5px;
+      }
+      .prompt:not(.hand-expanded) .cmd-label {
+        font-size: 10px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hand-toggle-chevron,
+      .prompt.hand-expanded .cmd {
+        transition: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -5355,9 +5656,29 @@
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
-      <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <div class="hand-header">
+        <button class="hand-toggle" id="hand-toggle" type="button" aria-expanded="false" aria-controls="hand-rail hand-inspector">
+          <span class="hand-toggle-title">your hand</span>
+          <span class="hand-toggle-status" id="hand-toggle-status">3 cards · tap a card to open</span>
+          <span class="hand-toggle-chevron" aria-hidden="true">⌃</span>
+        </button>
+      </div>
+      <div class="hand-rail" id="hand-rail" role="group" aria-label="Cards in your hand">
+        <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
+        <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
+        <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+      </div>
+      <section class="hand-inspector" id="hand-inspector" aria-label="Selected card details" hidden>
+        <h2 class="action-title" id="hand-title"></h2>
+        <div class="action-summary" id="hand-summary"></div>
+        <div class="action-meta" id="hand-meta"></div>
+        <div class="action-choice-list" id="hand-choices" hidden></div>
+        <div class="action-actions" id="hand-actions">
+          <button class="action-cancel" id="hand-close" type="button">close hand</button>
+          <button class="action-discard" id="hand-discard" type="button" data-analytics-event="action.discard" hidden>discard</button>
+          <button class="action-confirm" id="hand-confirm" type="button" data-analytics-event="action.confirm">choose</button>
+        </div>
+      </section>
     </footer>
   </div>
   <div class="card-modal" id="card-modal" hidden>
@@ -5487,6 +5808,10 @@
     let playerPromotedHandKey = "";
     let handShuffleBusy = false;
     let handPassSubmission = null;
+    let storyHandExpanded = false;
+    let storyHandActiveKey = "";
+    let storyHandScrollPending = false;
+    let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
     let logEvents = [];
     let roomHistoryHydrated = false;
@@ -15758,6 +16083,204 @@
       return "not now";
     }
 
+    function usesInlineStoryHand() {
+      return window.matchMedia("(max-width: 900px)").matches;
+    }
+
+    function storyHandKey(action) {
+      return String(action?.handKey || actionHandKey(action) || action?.focusKey || "");
+    }
+
+    function originalStoryHandAction(action) {
+      const index = Number(action?.actionIndex);
+      return Number.isInteger(index) && index >= 0 && index < actions.length
+        ? actions[index]
+        : action;
+    }
+
+    function storyHandRowsHtml(action) {
+      return actionModalRows(action)
+        .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim())
+        .map(([key, value]) => {
+          const label = String(key).trim();
+          const detail = String(value).trim();
+          const risk = /^watch for$/i.test(label) ? " risk" : "";
+          return `<div class="action-row${risk}" role="group" aria-label="${escapeAttr(label)}"><span class="action-row-key">${escapeHtml(label)}</span><span class="action-row-value">${escapeHtml(detail)}</span></div>`;
+        })
+        .join("");
+    }
+
+    function storyHandChoicesHtml(action) {
+      const choices = Array.isArray(action?.choices) ? action.choices : [];
+      if (!choices.length) return "";
+      const selected = action.selectedChoice || choices[0]?.value || "";
+      action.selectedChoice = selected;
+      return choices.map((choice, index) => {
+        const value = String(choice.value || "");
+        const active = value === String(selected);
+        const choiceAria = [choice.label || value, choice.detail || value].filter(Boolean).join(". ");
+        return `<label class="action-choice${active ? " active" : ""}" data-hand-choice-index="${index}"><input type="radio" name="hand-action-choice" value="${escapeAttr(value)}" aria-label="${escapeAttr(choiceAria)}"${active ? " checked" : ""} /><span class="action-choice-text"><span class="action-choice-label">${escapeHtml(choice.label || value)}</span><span class="action-choice-detail">${escapeHtml(choice.detail || value)}</span></span></label>`;
+      }).join("");
+    }
+
+    function renderStoryHandInspector(action) {
+      const inspector = $("hand-inspector");
+      if (!usesInlineStoryHand() || !storyHandExpanded || !action || actionBusy) {
+        inspector.hidden = true;
+        $("hand-title").textContent = "";
+        $("hand-summary").textContent = "";
+        $("hand-meta").innerHTML = "";
+        $("hand-choices").hidden = true;
+        $("hand-choices").innerHTML = "";
+        return;
+      }
+      actionConfirmAction = action;
+      inspector.hidden = false;
+      $("hand-title").textContent = actionTitle(action);
+      $("hand-summary").textContent = journalSentence(actionSummary(action));
+      $("hand-meta").innerHTML = storyHandRowsHtml(action);
+      const choicesHtml = storyHandChoicesHtml(action);
+      $("hand-choices").hidden = !choicesHtml;
+      $("hand-choices").innerHTML = choicesHtml;
+      const discardButton = $("hand-discard");
+      const discardCertificate = projectedHandEntryForAction(action)?.think || null;
+      const canDiscard = !state?.branch
+        && actorId
+        && actorSession
+        && discardCertificate?.available
+        && discardCertificate?.offer_id
+        && (!state?.combat || state?.turn?.is_current_actor);
+      discardButton.hidden = !canDiscard;
+      discardButton.disabled = handShuffleBusy;
+      discardButton.textContent = discardCertificate?.free ? "discard · free" : "discard";
+      discardButton.setAttribute(
+        "aria-label",
+        canDiscard
+          ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
+          : "This Story Hand card cannot be discarded",
+      );
+      $("hand-actions").classList.toggle("has-discard", Boolean(canDiscard));
+      $("hand-confirm").textContent = actionConfirmLabel(action);
+    }
+
+    function scrollStoryHandCardIntoView(action, behavior = "smooth") {
+      if (!usesInlineStoryHand() || !storyHandExpanded || !action) return;
+      const rail = $("hand-rail");
+      const key = storyHandKey(action);
+      const card = [...rail.querySelectorAll(".cmd[data-hand-key]")]
+        .find((button) => String(button.dataset.handKey || "") === key);
+      if (!card) return;
+      const left = card.offsetLeft - Math.max(0, (rail.clientWidth - card.offsetWidth) / 2);
+      rail.scrollTo({ left, behavior });
+    }
+
+    function renderStoryHandChrome(visibleActions) {
+      const prompt = document.querySelector(".prompt");
+      const inline = usesInlineStoryHand();
+      const expanded = inline && storyHandExpanded && !actionBusy && visibleActions.length > 0;
+      if (!expanded && storyHandExpanded && (!inline || !visibleActions.length || actionBusy)) {
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
+      }
+      prompt.classList.toggle("hand-expanded", expanded);
+      $("hand-rail").style.setProperty("--hand-card-count", String(Math.max(1, visibleActions.length)));
+      $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
+      let selectedIndex = visibleActions.findIndex((action) => storyHandKey(action) === storyHandActiveKey);
+      if (selectedIndex < 0) {
+        selectedIndex = Math.max(0, visibleActions.findIndex((action) => action.actionIndex === focusIndex));
+      }
+      const selectedVisible = visibleActions[selectedIndex] || visibleActions[0] || null;
+      if (expanded && selectedVisible) storyHandActiveKey = storyHandKey(selectedVisible);
+      const count = visibleActions.length;
+      $("hand-toggle-status").textContent = expanded
+        ? `${Math.max(1, selectedIndex + 1)} of ${count} · swipe between cards`
+        : `${count} ${count === 1 ? "card" : "cards"} · tap a card to open`;
+      for (const button of $("hand-rail").querySelectorAll(".cmd")) {
+        const current = expanded && String(button.dataset.handKey || "") === storyHandActiveKey;
+        if (current) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      }
+      renderStoryHandInspector(expanded && selectedVisible ? originalStoryHandAction(selectedVisible) : null);
+      if (expanded && selectedVisible && storyHandScrollPending) {
+        storyHandScrollPending = false;
+        window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selectedVisible, "auto"));
+      }
+    }
+
+    function setStoryHandExpanded(expanded, action = null) {
+      if (!usesInlineStoryHand()) return false;
+      storyHandExpanded = Boolean(expanded);
+      if (storyHandExpanded) {
+        const visibleActions = actionBarActions();
+        const actionIndex = actions.indexOf(action);
+        const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex)
+          || visibleActions.find((candidate) => storyHandKey(candidate) === storyHandActiveKey)
+          || visibleActions[0]
+          || null;
+        if (selected) {
+          storyHandActiveKey = storyHandKey(selected);
+          focusIndex = selected.actionIndex;
+          focusedKey = originalStoryHandAction(selected)?.focusKey || "";
+          actionConfirmAction = originalStoryHandAction(selected);
+          storyHandScrollPending = true;
+        }
+      } else {
+        storyHandActiveKey = "";
+        actionConfirmAction = null;
+      }
+      renderCommands();
+      return true;
+    }
+
+    function activateStoryHandAction(action) {
+      if (!action || actionBusy) return;
+      if (!usesInlineStoryHand()) {
+        openActionModal(action);
+        return;
+      }
+      const visibleActions = actionBarActions();
+      const actionIndex = actions.indexOf(action);
+      const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex) || visibleActions[0];
+      if (!selected) return;
+      storyHandExpanded = true;
+      storyHandActiveKey = storyHandKey(selected);
+      focusIndex = selected.actionIndex;
+      focusedKey = action.focusKey || "";
+      actionConfirmAction = action;
+      storyHandScrollPending = true;
+      renderCommands();
+    }
+
+    function selectStoryHandCardFromScroll() {
+      if (!usesInlineStoryHand() || !storyHandExpanded) return;
+      const rail = $("hand-rail");
+      const cards = [...rail.querySelectorAll(".cmd[data-action-index]")]
+        .filter((button) => getComputedStyle(button).display !== "none");
+      if (!cards.length) return;
+      const railCenter = rail.scrollLeft + rail.clientWidth / 2;
+      const card = cards.reduce((nearest, candidate) => {
+        const candidateCenter = candidate.offsetLeft + candidate.offsetWidth / 2;
+        const nearestCenter = nearest.offsetLeft + nearest.offsetWidth / 2;
+        return Math.abs(candidateCenter - railCenter) < Math.abs(nearestCenter - railCenter)
+          ? candidate
+          : nearest;
+      });
+      const action = actionForButton(card.id);
+      const key = String(card.dataset.handKey || "");
+      if (!action || !key || key === storyHandActiveKey) return;
+      storyHandActiveKey = key;
+      focusIndex = Number(card.dataset.actionIndex);
+      focusedKey = action.focusKey || "";
+      actionConfirmAction = action;
+      for (const button of cards) {
+        if (button === card) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      }
+      const index = cards.indexOf(card);
+      $("hand-toggle-status").textContent = `${index + 1} of ${cards.length} · swipe between cards`;
+      renderStoryHandInspector(action);
+    }
+
     function openActionModal(action) {
       if (!action || actionBusy) return;
       if (action.kind === "orb-chat" && pendingChats.length) {
@@ -15891,6 +16414,22 @@
       }
       closeActionModal();
       if (action) await runAction(action);
+    }
+
+    async function confirmStoryHandAction() {
+      const action = actionConfirmAction;
+      if (!action) return;
+      if (action?.creationStage === "species") {
+        action.selectedSpeciesId = action.selectedChoice;
+        setCreationModalStage(action, "origin");
+        renderStoryHandInspector(action);
+        return;
+      }
+      if (action?.creationStage === "origin") {
+        action.selectedOriginId = action.selectedChoice;
+      }
+      setStoryHandExpanded(false);
+      await runAction(action);
     }
 
     function fallbackCardImage(card) {
@@ -16502,6 +17041,11 @@
       const action = visible[next];
       focusIndex = action.actionIndex;
       focusedKey = action.focusKey || "";
+      if (usesInlineStoryHand() && storyHandExpanded) {
+        storyHandActiveKey = storyHandKey(action);
+        actionConfirmAction = originalStoryHandAction(action);
+        storyHandScrollPending = true;
+      }
       renderRoomAvatarRail();
       renderCommands();
       $((["primary", "secondary", "tertiary"])[next])?.focus();
@@ -16590,6 +17134,8 @@
           renderButton(id, null);
           $(id).style.display = "none";
         }
+        renderStoryHandChrome([]);
+        $("hand-toggle-status").textContent = "action in progress";
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
@@ -16608,6 +17154,7 @@
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }
+      renderStoryHandChrome(visibleActions);
     }
 
     function actionForButton(id) {
@@ -17444,17 +17991,65 @@
 
     $("primary").addEventListener("click", () => {
       const action = actionForButton("primary") || (state?.branch ? actions[0] : focusedAction());
-      if (action) openActionModal(action);
+      if (action) activateStoryHandAction(action);
     });
 
     $("secondary").addEventListener("click", () => {
       const action = actionForButton("secondary") || (state?.branch ? actions[1] : null);
-      if (action) openActionModal(action);
+      if (action) activateStoryHandAction(action);
     });
 
     $("tertiary").addEventListener("click", () => {
       const action = actionForButton("tertiary");
-      if (action) openActionModal(action);
+      if (action) activateStoryHandAction(action);
+    });
+
+    $("hand-toggle").addEventListener("click", () => {
+      setStoryHandExpanded(!storyHandExpanded, actionConfirmAction || visibleFocusedAction());
+    });
+
+    $("hand-close").addEventListener("click", (event) => {
+      event.preventDefault();
+      setStoryHandExpanded(false);
+      $("hand-toggle").focus();
+    });
+
+    $("hand-choices").addEventListener("change", (event) => {
+      const input = event.target.closest("input[name='hand-action-choice']");
+      if (!input || !actionConfirmAction) return;
+      const choice = input.closest("[data-hand-choice-index]");
+      const index = Number(choice?.dataset.handChoiceIndex || 0);
+      const selected = actionConfirmAction.choices?.[index];
+      if (!selected) return;
+      actionConfirmAction.selectedChoice = selected.value;
+      renderStoryHandInspector(actionConfirmAction);
+    });
+
+    $("hand-confirm").addEventListener("click", (event) => {
+      event.preventDefault();
+      void confirmStoryHandAction();
+    });
+
+    $("hand-discard").addEventListener("click", (event) => {
+      event.preventDefault();
+      const action = actionConfirmAction;
+      setStoryHandExpanded(false);
+      if (action) void discardActionCard(action);
+    });
+
+    $("hand-rail").addEventListener("scroll", () => {
+      if (storyHandScrollFrame !== null) return;
+      storyHandScrollFrame = window.requestAnimationFrame(() => {
+        storyHandScrollFrame = null;
+        selectStoryHandCardFromScroll();
+      });
+    }, { passive: true });
+
+    window.matchMedia("(max-width: 900px)").addEventListener("change", () => {
+      storyHandExpanded = false;
+      storyHandActiveKey = "";
+      actionConfirmAction = null;
+      renderCommands();
     });
 
     $("action-modal-discard").addEventListener("click", (event) => {
@@ -17493,6 +18088,12 @@
         }
         return;
       }
+      if (storyHandExpanded && event.key === "Escape") {
+        event.preventDefault();
+        setStoryHandExpanded(false);
+        $("hand-toggle").focus();
+        return;
+      }
       if (libraryPanelPinned && event.key === "Escape") {
         event.preventDefault();
         toggleLibraryPanel(false);
@@ -17515,7 +18116,7 @@
       }
       if (journalOpen) return;
       const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
-        && Boolean(event.target?.closest?.(".actions .cmd"));
+        && Boolean(event.target?.closest?.(".hand-rail .cmd"));
       if (
         event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")
         && !actionArrow
@@ -17523,10 +18124,10 @@
       if (event.key === "Enter") {
         event.preventDefault();
         const action = state?.branch ? actions[0] : visibleFocusedAction();
-        if (action) openActionModal(action);
+        if (action) activateStoryHandAction(originalStoryHandAction(action));
       } else if (event.key === " ") {
         event.preventDefault();
-        if (state?.branch && actions[1]) openActionModal(actions[1]);
+        if (state?.branch && actions[1]) activateStoryHandAction(actions[1]);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         moveVisibleActionFocus(1);
