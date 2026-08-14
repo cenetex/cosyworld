@@ -2471,19 +2471,31 @@ pub(super) const STORY_HAND_SLOTS: [&str; 3] = ["story", "self", "anchor"];
 
 pub(super) fn story_hand_natural_slot(offer: &RankedActionOffer) -> usize {
     let suit = action_card_suit(offer).unwrap_or_else(|error| panic!("{error}"));
+    let hustle_is_movement = matches!(
+        offer.intention.as_str(),
+        "travel" | "go" | "cross" | "return" | "route" | "routes"
+    ) || offer.kind == "move"
+        || (offer.kind == "cast_spell"
+            && offer.effect.as_deref().is_some_and(|effect| {
+                let effect = effect.to_ascii_lowercase();
+                ["travel", "move", "return", "cross", "path"]
+                    .iter()
+                    .any(|term| effect.contains(term))
+            }));
     if offer.project.is_some()
         || offer.risk.is_some()
         || matches!(
             offer.provider.kind.as_str(),
             "job" | "location" | "campaign"
         )
-        || matches!(suit, "way" | "courage")
+        || suit == "honor"
+        || (suit == "hustle" && hustle_is_movement)
     {
         0
     } else if matches!(
         offer.provider.kind.as_str(),
         "journal" | "friendship" | "held_item" | "calling"
-    ) || matches!(suit, "heart" | "hearth")
+    ) || suit == "heart"
     {
         1
     } else {
@@ -2990,22 +3002,22 @@ fn spell_effect_suit(effect: Option<&str>) -> Option<&'static str> {
         .iter()
         .any(|term| effect.contains(term))
     {
-        Some("hearth")
+        Some("heart")
     } else if ["damage", "attack", "defend", "guard", "rescue", "escape"]
         .iter()
         .any(|term| effect.contains(term))
     {
-        Some("courage")
+        Some("honor")
     } else if ["reveal", "find", "notice", "inspect", "search", "study"]
         .iter()
         .any(|term| effect.contains(term))
     {
-        Some("wonder")
+        Some("head")
     } else if ["travel", "move", "return", "cross", "path"]
         .iter()
         .any(|term| effect.contains(term))
     {
-        Some("way")
+        Some("hustle")
     } else if [
         "friend",
         "bond",
@@ -3023,13 +3035,13 @@ fn spell_effect_suit(effect: Option<&str>) -> Option<&'static str> {
         .iter()
         .any(|term| effect.contains(term))
     {
-        Some("hand")
+        Some("hustle")
     } else {
         None
     }
 }
 
-/// Exhaustive server-owned mapping from a playable offer to the six Story
+/// Exhaustive server-owned mapping from a playable offer to the four Story
 /// Hand suits. There is intentionally no utility/danger fallback: a new verb
 /// must choose its meaning before it can be published as a card.
 pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str, String> {
@@ -3043,14 +3055,14 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
     }
     let intention_suit = match offer.intention.as_str() {
         "notice" | "inspect" | "search" | "study" | "scout" | "listen" | "find_resonance"
-        | "rank_echoes" => Some("wonder"),
-        "travel" | "go" | "cross" | "return" | "route" | "routes" => Some("way"),
+        | "rank_echoes" => Some("head"),
+        "travel" | "go" | "cross" | "return" | "route" | "routes" => Some("hustle"),
         "chat" | "speak" | "echo" | "befriend" | "remember" | "influence" | "give" | "accept"
         | "trade" => Some("heart"),
         "take" | "drop" | "use" | "open" | "craft" | "prepare" | "work" | "help" | "finish"
-        | "illustrate" => Some("hand"),
-        "attack" | "defend" | "flee" | "rescue" | "steal" => Some("courage"),
-        "rest" | "bank" | "practice" | "train" | "evolve" | "class" => Some("hearth"),
+        | "illustrate" => Some("hustle"),
+        "attack" | "defend" | "flee" | "rescue" | "steal" => Some("honor"),
+        "rest" | "bank" | "practice" | "train" | "evolve" | "class" => Some("heart"),
         _ => None,
     };
     let suit = if let Some(suit) = intention_suit {
@@ -3064,8 +3076,8 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
             | FOCUSED_NOTICE_OFFER_KIND
             | DISCOVERY_SEARCH_OFFER_KIND
             | DISCOVERY_STUDY_OFFER_KIND
-            | DISCOVERY_SCOUT_OFFER_KIND => "wonder",
-            "move" => "way",
+            | DISCOVERY_SCOUT_OFFER_KIND => "head",
+            "move" => "hustle",
             "chat"
             | "influence"
             | "give_item"
@@ -3074,13 +3086,13 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
             | "create_bond"
             | "resolve_bond" => "heart",
             "pick_up" | "drop_item" | "use_item" | "use_feature" | "open" | "craft" | "prepare"
-            | "work" | "help" => "hand",
-            "attack" | "defend" | "flee" | "theft" => "courage",
-            "rest" | "train_skill" | "revise_calling" | "revise_bond" => "hearth",
+            | "work" | "help" => "hustle",
+            "attack" | "defend" | "flee" | "theft" => "honor",
+            "rest" | "train_skill" | "revise_calling" | "revise_bond" => "heart",
             "model_interaction" => match offer.intention.as_str() {
-                "find_resonance" | "rank_echoes" => "wonder",
+                "find_resonance" | "rank_echoes" => "head",
                 "speak" | "echo" => "heart",
-                "illustrate" => "hand",
+                "illustrate" => "hustle",
                 intention => {
                     return Err(format!(
                         "model interaction {} has unmapped intention {intention}",
@@ -3291,24 +3303,19 @@ mod tests {
         let base = offers.first().expect("seeded actor has an action").clone();
 
         for (kind, intention, effect, expected) in [
-            ("check", "notice", None, "wonder"),
-            ("move", "travel", None, "way"),
+            ("check", "notice", None, "head"),
+            ("move", "travel", None, "hustle"),
             ("chat", "chat", None, "heart"),
             (ACCEPT_TRANSFER_OFFER_KIND, "accept", None, "heart"),
-            ("craft", "craft", None, "hand"),
-            ("attack", "attack", None, "courage"),
-            ("rest", "rest", None, "hearth"),
-            ("model_interaction", "find_resonance", None, "wonder"),
+            ("craft", "craft", None, "hustle"),
+            ("attack", "attack", None, "honor"),
+            ("rest", "rest", None, "heart"),
+            ("model_interaction", "find_resonance", None, "head"),
             ("model_interaction", "echo", None, "heart"),
-            ("model_interaction", "illustrate", None, "hand"),
-            ("cast_spell", "cast", Some("heal a nearby friend"), "hearth"),
-            (
-                "cast_spell",
-                "cast",
-                Some("guard a nearby friend"),
-                "courage",
-            ),
-            ("cast_spell", "cast", Some("reveal a hidden path"), "wonder"),
+            ("model_interaction", "illustrate", None, "hustle"),
+            ("cast_spell", "cast", Some("heal a nearby friend"), "heart"),
+            ("cast_spell", "cast", Some("guard a nearby friend"), "honor"),
+            ("cast_spell", "cast", Some("reveal a hidden path"), "head"),
         ] {
             let mut offer = base.clone();
             offer.kind = kind.to_string();
@@ -3324,7 +3331,7 @@ mod tests {
 
         for (expected, intentions) in [
             (
-                "wonder",
+                "head",
                 &[
                     "notice",
                     "inspect",
@@ -3337,7 +3344,7 @@ mod tests {
                 ][..],
             ),
             (
-                "way",
+                "hustle",
                 &["travel", "go", "cross", "return", "route", "routes"],
             ),
             (
@@ -3354,7 +3361,7 @@ mod tests {
                 ],
             ),
             (
-                "hand",
+                "hustle",
                 &[
                     "take",
                     "drop",
@@ -3368,9 +3375,9 @@ mod tests {
                     "illustrate",
                 ],
             ),
-            ("courage", &["attack", "defend", "flee", "rescue", "steal"]),
+            ("honor", &["attack", "defend", "flee", "rescue", "steal"]),
             (
-                "hearth",
+                "heart",
                 &["rest", "bank", "practice", "train", "evolve", "class"],
             ),
         ] {
@@ -3408,7 +3415,7 @@ mod tests {
             assert_eq!(presentation.family, "action");
             assert!(matches!(
                 presentation.suit.as_deref(),
-                Some("wonder" | "way" | "heart" | "hand" | "courage" | "hearth")
+                Some("head" | "heart" | "honor" | "hustle")
             ));
             assert_eq!(presentation.verb, offer.verb);
             assert_eq!(presentation.source.kind, offer.provider.kind);

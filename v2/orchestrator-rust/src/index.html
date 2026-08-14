@@ -19,18 +19,14 @@
       --amber: #efc96b;
       --blue: #8bb7ff;
       --red: #ff8d8d;
-      --suit-wonder: #79c7ff;
-      --suit-wonder-rgb: 121, 199, 255;
-      --suit-way: #65e68a;
-      --suit-way-rgb: 101, 230, 138;
+      --suit-head: #79c7ff;
+      --suit-head-rgb: 121, 199, 255;
       --suit-heart: #f2a5c4;
       --suit-heart-rgb: 242, 165, 196;
-      --suit-hand: #efc96b;
-      --suit-hand-rgb: 239, 201, 107;
-      --suit-courage: #ff7b72;
-      --suit-courage-rgb: 255, 123, 114;
-      --suit-hearth: #b89cff;
-      --suit-hearth-rgb: 184, 156, 255;
+      --suit-honor: #ff7b72;
+      --suit-honor-rgb: 255, 123, 114;
+      --suit-hustle: #efc96b;
+      --suit-hustle-rgb: 239, 201, 107;
       --card-control: #9db3c7;
       --card-control-rgb: 157, 179, 199;
       --type-travel: #65e68a;
@@ -2417,12 +2413,10 @@
     .cmd.secondary {
       color: var(--text);
     }
-    .cmd.suit-wonder { --cmd-accent: var(--suit-wonder); --cmd-accent-rgb: var(--suit-wonder-rgb); }
-    .cmd.suit-way { --cmd-accent: var(--suit-way); --cmd-accent-rgb: var(--suit-way-rgb); }
+    .cmd.suit-head { --cmd-accent: var(--suit-head); --cmd-accent-rgb: var(--suit-head-rgb); }
     .cmd.suit-heart { --cmd-accent: var(--suit-heart); --cmd-accent-rgb: var(--suit-heart-rgb); }
-    .cmd.suit-hand { --cmd-accent: var(--suit-hand); --cmd-accent-rgb: var(--suit-hand-rgb); }
-    .cmd.suit-courage { --cmd-accent: var(--suit-courage); --cmd-accent-rgb: var(--suit-courage-rgb); }
-    .cmd.suit-hearth { --cmd-accent: var(--suit-hearth); --cmd-accent-rgb: var(--suit-hearth-rgb); }
+    .cmd.suit-honor { --cmd-accent: var(--suit-honor); --cmd-accent-rgb: var(--suit-honor-rgb); }
+    .cmd.suit-hustle { --cmd-accent: var(--suit-hustle); --cmd-accent-rgb: var(--suit-hustle-rgb); }
     .cmd.card-control { --cmd-accent: var(--card-control); --cmd-accent-rgb: var(--card-control-rgb); }
     .cmd::before {
       content: "";
@@ -3814,18 +3808,14 @@
       --amber: #dec28d;
       --blue: #9ab0bd;
       --red: #d98f77;
-      --suit-wonder: #91a9b2;
-      --suit-wonder-rgb: 145, 169, 178;
-      --suit-way: #9faf88;
-      --suit-way-rgb: 159, 175, 136;
+      --suit-head: #91a9b2;
+      --suit-head-rgb: 145, 169, 178;
       --suit-heart: #c99aa5;
       --suit-heart-rgb: 201, 154, 165;
-      --suit-hand: #dec28d;
-      --suit-hand-rgb: 222, 194, 141;
-      --suit-courage: #d98f77;
-      --suit-courage-rgb: 217, 143, 119;
-      --suit-hearth: #b89bbd;
-      --suit-hearth-rgb: 184, 155, 189;
+      --suit-honor: #d98f77;
+      --suit-honor-rgb: 217, 143, 119;
+      --suit-hustle: #dec28d;
+      --suit-hustle-rgb: 222, 194, 141;
       --card-control: #a89c86;
       --card-control-rgb: 168, 156, 134;
       --type-travel: #9faf88;
@@ -5204,7 +5194,7 @@
     function abilityLabel(value, fallback = "an ability") {
       return authoredAbilityChoice(value)?.label || String(value || fallback);
     }
-    const actionCardSuits = ["wonder", "way", "heart", "hand", "courage", "hearth"];
+    const actionCardSuits = ["head", "heart", "honor", "hustle"];
     const actionCardSuitClasses = actionCardSuits.map((suit) => `suit-${suit}`);
     const actionCardAccentClasses = [...actionCardSuitClasses, "card-control"];
     const bootParams = new URLSearchParams(window.location.search);
@@ -14948,12 +14938,10 @@
 
     function actionEmoji(action) {
       const bySuit = {
-        wonder: "👁️",
-        way: "🧭",
-        heart: "💞",
-        hand: "🛠️",
-        courage: "🛡️",
-        hearth: "🔥",
+        head: "🧠",
+        heart: "❤️",
+        honor: "🛡️",
+        hustle: "🛠️",
       };
       return bySuit[actionCardSuit(action)] || cardEmoji(action?.card, action?.shape);
     }
@@ -14963,12 +14951,10 @@
       if (label === "dodge") return "shield";
       if (label === "escape" || label === "flee") return "travel";
       const bySuit = {
-        wonder: "notice",
-        way: "travel",
+        head: "notice",
         heart: "bond",
-        hand: "craft",
-        courage: "shield",
-        hearth: "utility",
+        honor: "shield",
+        hustle: "craft",
       };
       return bySuit[actionCardSuit(action)] || cardRoleIconName(action?.card, action?.shape);
     }
