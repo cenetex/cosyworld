@@ -43280,7 +43280,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-player-concept=\"think\""));
         assert!(!INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("id=\"tertiary\""));
-        for suit in ["wonder", "way", "heart", "hand", "courage", "hearth"] {
+        for suit in ["head", "heart", "honor", "hustle"] {
             assert!(INDEX_HTML.contains(&format!(".cmd.suit-{suit}")));
         }
         assert!(INDEX_HTML.contains(

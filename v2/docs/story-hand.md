@@ -1,9 +1,9 @@
 # Story Hand
 
 The Story Hand is the player-facing action system. Its surface has three stable
-slots and six suits; the exact verb remains authoritative underneath.
+slots and four suits; the exact verb remains authoritative underneath.
 
-## The six action suits
+## The four action suits
 
 Only playable actions have suits. Actor, Item, Location, Spell, Calling,
 Friendship, Journal, and Worldpack cards keep their own roles and may be the
@@ -11,16 +11,14 @@ source or target of an action.
 
 | Suit | Meaning | Typical exact verbs |
 | --- | --- | --- |
-| **Wonder** | Learn, notice, interpret, or reveal. | Notice, Inspect, Search, Study, Scout, Listen, Find resonance, Rank echoes |
-| **Way** | Change place or follow a route. | Travel, Go, Cross, Return |
-| **Heart** | Relate, communicate, exchange, or remember. | Chat, Speak, Echo, Befriend, Remember, Influence, Give, Accept, Trade |
-| **Hand** | Manipulate, make, prepare, or contribute. | Take, Drop, Use, Open, Craft, Prepare, Work, Help, Finish, Illustrate |
-| **Courage** | Face immediate danger or protect someone from it. | Attack, Defend, Flee, Rescue, Steal |
-| **Hearth** | Recover, consolidate growth, or change the self. | Rest, Bank, Practice, Train, Evolve, class and growth ceremonies |
+| **Head** | Learn, notice, interpret, or reveal. | Notice, Inspect, Search, Study, Scout, Listen, Find resonance, Rank echoes |
+| **Heart** | Relate, communicate, exchange, recover, or grow. | Chat, Speak, Befriend, Remember, Give, Accept, Trade, Rest, Train, Evolve |
+| **Honor** | Face immediate danger or protect someone from it. | Attack, Defend, Flee, Rescue, Steal |
+| **Hustle** | Move, manipulate, make, prepare, or contribute. | Travel, Take, Drop, Use, Open, Craft, Prepare, Work, Help, Finish, Illustrate |
 
 Suit is navigation, not the action identity. `Take`, `Use`, and `Craft` are
-different actions even though each is Hand. Danger is risk metadata, not a
-seventh suit. A Spell is still an Item/source card; the spell action's suit is
+different actions even though each is Hustle. Danger is risk metadata, not a
+fifth suit. A Spell is still an Item/source card; the spell action's suit is
 derived from its effect.
 
 ## Three stable slots
@@ -60,7 +58,7 @@ The hidden deterministic structure is an **Offer queue**, not a player deck.
 Every published playable offer must carry these independent dimensions:
 
 - `family`: action, control, or ceremony;
-- `suit`: one of the six suits for an action, absent for controls/ceremonies;
+- `suit`: one of Head, Heart, Honor, or Hustle for an action, absent for controls/ceremonies;
 - `verb`: the exact authored action;
 - `source`: kind, stable id, and player-facing label;
 - `state`: ready or locked;
