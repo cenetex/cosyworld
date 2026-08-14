@@ -37656,13 +37656,7 @@ mod tests {
         kind: &str,
     ) -> CommandRequest {
         let offer_id = if kind == "*" {
-            runtime
-                .state_response(Some(actor_id), &AccessContext::default())
-                .visible_action_offers
-                .into_iter()
-                .find(|offer| !offer.disabled && offer.kind != "chat")
-                .map(|offer| offer.offer_id)
-                .unwrap_or_else(|| runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id)
+            runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {

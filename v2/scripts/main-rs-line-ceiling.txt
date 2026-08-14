@@ -263,6 +263,7 @@
 # lookup/resolution, search reinforcement, and legacy migration into
 # residents/memory.rs. Room observation, disproved-memory cleanup, movement
 # observation, gossip, and belief projection remain for the sequential #324.
-# 66712 -> 66676: move the complete actor Notice fact contract, endpoint, and
-# focused replay/staleness tests into notice.rs.
-66676
+# 66712 -> 66670: move the complete actor Notice fact contract, endpoint, and
+# focused replay/staleness tests into notice.rs; keep canonical capacity tests
+# on their stable certified Pass card instead of unrelated gameplay offers.
+66670
