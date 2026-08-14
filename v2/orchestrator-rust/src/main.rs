@@ -17122,16 +17122,6 @@ The relationship statement they are preserving is: {statement}"
                 command: "go".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_FLEE != 0
-            && has_combat_target
-            && self.has_accessible_exit(actor_id, access)
-        {
-            options.push(ActionOption {
-                kind: "flee".to_string(),
-                label: "Flee".to_string(),
-                command: "flee".to_string(),
-            });
-        }
         if has_pickup_offer {
             options.push(ActionOption {
                 kind: "pick_up".to_string(),
@@ -17202,17 +17192,10 @@ The relationship statement they are preserving is: {statement}"
                 command: "steal".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_DEFEND != 0 && has_combat_target {
-            options.push(ActionOption {
-                kind: "defend".to_string(),
-                label: "Defend".to_string(),
-                command: "defend".to_string(),
-            });
-        }
         if offers.option_flags & CW_OFFER_ATTACK != 0 && has_combat_target {
             options.push(ActionOption {
                 kind: "attack".to_string(),
-                label: "Attack".to_string(),
+                label: "Confront".to_string(),
                 command: "attack".to_string(),
             });
         }
@@ -17313,7 +17296,7 @@ The relationship statement they are preserving is: {statement}"
                 "use_item" => "Use",
                 "use_feature" => "Use",
                 "rest" => "Rest",
-                "attack" => "Attack",
+                "attack" => "Confront",
                 "defend" => "Defend",
                 "pick_up" => "Take",
                 "drop_item" => "Drop",
@@ -22612,6 +22595,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(CraftRequest)),
+            )
+            .await
+        }
+        "/actions/declare-combat" => {
+            declare_combat(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(AttackRequest)),
             )
             .await
         }
@@ -29826,31 +29817,6 @@ async fn craft(
     } else {
         apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
     }
-}
-
-async fn attack(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<AttackRequest>,
-) -> Json<ActionResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return action_rate_limited_response();
-    }
-    apply_combat_choice(
-        state,
-        payload.actor_id,
-        CombatChoice::Attack {
-            target_actor_id: payload.target_actor_id,
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
 }
 
 async fn defend(
@@ -43182,7 +43148,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("interior-exit"));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
-        assert!(INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
         assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
@@ -43310,8 +43275,10 @@ mod tests {
         assert!(!INDEX_HTML.contains("post(\"/actions/pass\""));
         assert!(INDEX_HTML.contains("\"/actions/need-time\""));
         assert!(!INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
-        assert!(INDEX_HTML.contains("function passHand"));
-        assert!(INDEX_HTML.contains("data-player-concept=\"think\""));
+        assert!(INDEX_HTML.contains("function discardActionCard"));
+        assert!(INDEX_HTML.contains("id=\"action-modal-discard\""));
+        assert!(!INDEX_HTML.contains("data-player-concept=\"think\""));
+        assert!(!INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("id=\"tertiary\""));
         for suit in ["wonder", "way", "heart", "hand", "courage", "hearth"] {
             assert!(INDEX_HTML.contains(&format!(".cmd.suit-{suit}")));
@@ -43327,7 +43294,7 @@ mod tests {
         assert!(INDEX_HTML.contains("class=\"cmd-meta\""));
         assert!(INDEX_HTML.contains("class=\"provider-call\""));
         assert!(INDEX_HTML.contains("class=\"collectible-mark\""));
-        assert!(INDEX_HTML.contains("whole-hand redeal has retired"));
+        assert!(INDEX_HTML.contains("Whole-hand redeals have retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
         assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
@@ -43349,7 +43316,6 @@ mod tests {
         assert!(INDEX_HTML.contains("flex-shrink: 0;"));
         assert!(!INDEX_HTML.contains("classList.toggle(\"expanded\")"));
         assert!(INDEX_HTML.contains("action-mini-card"));
-        assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
         assert!(INDEX_HTML.contains("Reveal one stretch toward"));
         assert!(INDEX_HTML.contains("${firstScout.destinationName} is revealed"));
@@ -49771,7 +49737,7 @@ mod tests {
             offer
                 .source_collectible
                 .as_ref()
-                .is_some_and(|source| source.instance_id == 2013)
+                .is_some_and(|source| source.instance_id == MOONLIT_TRAIL_LOCATION_ID)
         }));
 
         assert!(!runtime
@@ -53203,9 +53169,10 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "attack")
             .expect("attack offer is exposed in combat project room");
-        assert!(attack_offer.risk.as_deref().is_some_and(|risk| risk
-            .contains("scuffle grows more dangerous")
-            && risk.contains("fall quiet")));
+        assert!(attack_offer
+            .risk
+            .as_deref()
+            .is_some_and(|risk| risk.contains("declaring combat pauses ordinary advancement")));
 
         let mut attack = CwAction::default();
         attack.kind = CW_ACTION_ATTACK;
@@ -54027,7 +53994,7 @@ mod tests {
         let rejected = apply_combat_choice(
             state.clone(),
             5000,
-            CombatChoice::Attack {
+            CombatChoice::Declare {
                 target_actor_id: 1003,
             },
             Some(&actor_session),
@@ -54038,7 +54005,31 @@ mod tests {
         assert_eq!(rejected.status, 409);
         assert!(rejected.events.is_empty());
 
-        let mut all_events = Vec::new();
+        let declared = apply_combat_choice(
+            state.clone(),
+            5000,
+            CombatChoice::Declare {
+                target_actor_id: 1004,
+            },
+            Some(&actor_session),
+        )
+        .await
+        .0;
+        assert!(
+            declared.ok,
+            "combat declaration failed with {}",
+            declared.status
+        );
+        assert!(declared
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.encounter.started"));
+        assert!(declared
+            .events
+            .iter()
+            .all(|event| event.type_name != "combat.attack.attempt"));
+
+        let mut all_events = declared.events;
         for _ in 0..128 {
             let response = apply_combat_choice(
                 state.clone(),
@@ -57548,17 +57539,18 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(trail
+            .any(|option| option.kind == "attack" && option.label == "Confront"));
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "defend"));
-        assert!(trail
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "flee"));
+        assert!(trail.combat.is_none());
         assert!(!trail
             .primary_action
             .options
@@ -57722,13 +57714,13 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(trail
+            .any(|option| option.kind == "attack" && option.label == "Confront"));
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "defend"));
-        assert!(trail
+        assert!(!trail
             .primary_action
             .options
             .iter()

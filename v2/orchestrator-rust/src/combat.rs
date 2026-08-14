@@ -2,6 +2,7 @@ use super::*;
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum CombatChoice {
+    Declare { target_actor_id: u64 },
     Attack { target_actor_id: u64 },
     Dodge,
     Escape { destination_location_id: u64 },
@@ -526,17 +527,29 @@ impl RuntimeWorld {
             .into_iter()
             .filter(action_offer_is_reachable)
             .find(|offer| match choice {
-                CombatChoice::Attack { target_actor_id } => {
-                    offer.kind == "attack"
+                CombatChoice::Declare { target_actor_id } => {
+                    self.active_combat_encounter_for_actor(actor_id).is_none()
+                        && offer.kind == "attack"
                         && offer.target.as_ref().is_some_and(|target| {
                             target.kind == "actor" && target.id == Some(target_actor_id)
                         })
                 }
-                CombatChoice::Dodge => offer.kind == "defend",
+                CombatChoice::Attack { target_actor_id } => {
+                    self.active_combat_encounter_for_actor(actor_id).is_some()
+                        && offer.kind == "attack"
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "actor" && target.id == Some(target_actor_id)
+                        })
+                }
+                CombatChoice::Dodge => {
+                    self.active_combat_encounter_for_actor(actor_id).is_some()
+                        && offer.kind == "defend"
+                }
                 CombatChoice::Escape {
                     destination_location_id,
                 } => {
-                    offer.kind == "flee"
+                    self.active_combat_encounter_for_actor(actor_id).is_some()
+                        && offer.kind == "flee"
                         && offer.target.as_ref().is_some_and(|target| {
                             target.kind == "location" && target.id == Some(destination_location_id)
                         })
@@ -1078,6 +1091,69 @@ pub(super) fn start_focused_encounter_scheduler(state: AppState) {
     });
 }
 
+pub(super) async fn attack(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<AttackRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let choice = {
+        let runtime = state.inner.lock().await;
+        if runtime
+            .active_combat_encounter_for_actor(payload.actor_id)
+            .is_some()
+        {
+            CombatChoice::Attack {
+                target_actor_id: payload.target_actor_id,
+            }
+        } else {
+            CombatChoice::Declare {
+                target_actor_id: payload.target_actor_id,
+            }
+        }
+    };
+    apply_combat_choice(
+        state,
+        payload.actor_id,
+        choice,
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
+pub(super) async fn declare_combat(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<AttackRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    apply_combat_choice(
+        state,
+        payload.actor_id,
+        CombatChoice::Declare {
+            target_actor_id: payload.target_actor_id,
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
 pub(super) async fn apply_combat_choice(
     state: AppState,
     actor_id: u64,
@@ -1111,12 +1187,27 @@ pub(super) async fn apply_combat_choice(
         });
     }
     let requested_target_id = match choice {
-        CombatChoice::Attack { target_actor_id } => Some(target_actor_id),
+        CombatChoice::Declare { target_actor_id } | CombatChoice::Attack { target_actor_id } => {
+            Some(target_actor_id)
+        }
         CombatChoice::Dodge
         | CombatChoice::Escape { .. }
         | CombatChoice::Pass
         | CombatChoice::NeedTime => None,
     };
+    if matches!(choice, CombatChoice::Declare { .. })
+        && runtime
+            .active_combat_encounter_for_actor(actor_id)
+            .is_some()
+    {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
     if runtime
         .active_combat_encounter_for_actor(actor_id)
         .is_none()
@@ -1163,6 +1254,15 @@ pub(super) async fn apply_combat_choice(
     let mut events = Vec::new();
 
     if runtime.active_combat_encounter(encounter_id).is_none() {
+        if !matches!(choice, CombatChoice::Declare { .. }) {
+            drop(runtime);
+            broadcast_events(&state, &released_events);
+            return Json(ActionResponse {
+                ok: false,
+                status: 409,
+                events: Vec::new(),
+            });
+        }
         let record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_COMBAT_START,
@@ -1173,7 +1273,7 @@ pub(super) async fn apply_combat_choice(
             },
             runtime.next_seed_value(),
         )
-        .into_system();
+        .into_player_card();
         let Ok((status, start_events)) = commit_journal_record(&state, &mut runtime, record) else {
             drop(runtime);
             broadcast_events(&state, &released_events);
@@ -1194,6 +1294,29 @@ pub(super) async fn apply_combat_choice(
                 events,
             });
         }
+        let observation = advance_turn_and_capture_player_tick_observation(
+            &state,
+            &mut runtime,
+            turn_location_id,
+            actor_id,
+            status,
+            &mut events,
+        );
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        broadcast_events(&state, &events);
+        if let Some(observation) = observation {
+            schedule_player_tick_observation(&state, observation);
+        }
+        let mut response_events = events;
+        if !was_active {
+            response_events.extend(commit_presence_event(&state, actor_id, true).await);
+        }
+        return Json(ActionResponse {
+            ok: true,
+            status,
+            events: response_events,
+        });
     } else if !runtime.combat_actor_is_participant(encounter_id, actor_id) {
         let record = JournalRecord::new(
             combat_join_action(actor_id, encounter_id),
@@ -1334,6 +1457,7 @@ pub(super) async fn apply_combat_choice(
             content_id: encounter_id,
             ..CwAction::default()
         },
+        CombatChoice::Declare { .. } => unreachable!("declaration returns after starting combat"),
     };
     let need_time = matches!(choice, CombatChoice::NeedTime);
     let journey_transition = matches!(action.kind, CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE)
@@ -1957,13 +2081,13 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(active
+            .any(|option| option.kind == "attack" && option.label == "Confront"));
+        assert!(!active
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "defend"));
-        assert!(active
+        assert!(!active
             .primary_action
             .options
             .iter()

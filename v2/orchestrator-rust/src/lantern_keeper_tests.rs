@@ -473,55 +473,18 @@ fn dawn_oil_authored_choice_resolves_barrow_without_random_combat() {
 }
 
 #[test]
-fn flooded_barrow_state_projects_visible_scene_and_releases_the_blocker() {
+fn flooded_barrow_uses_the_normal_room_view_until_combat_is_declared() {
     let actor_id = 9_851;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(&mut runtime, actor_id, 803, "Barrow Cartographer");
 
     let state = runtime.state_response(Some(actor_id), &AccessContext::default());
-    let scene = state
-        .spatial_scene
-        .expect("the Flooded Barrow projects its authored spatial scene");
-    assert_eq!(scene.id, "lantern-keeper:scene:803");
-    assert_eq!(
-        scene.viewer.as_ref().map(|viewer| viewer.site_id.as_str()),
-        Some("west-bank")
-    );
-    assert!(
-        scene
-            .tokens
-            .iter()
-            .any(|token| token.ref_id == "actor:8303" && token.hostile),
-        "tokens={:?}; portals={:?}; constraints={:?}",
-        scene.tokens,
-        scene.portals,
-        scene.constraints
-    );
-    assert!(scene
-        .portals
+    assert!(state.spatial_scene.is_none());
+    assert!(state
+        .primary_action
+        .options
         .iter()
-        .any(|portal| portal.ref_id == "exit:804" && portal.blocked));
-    assert!(scene
-        .constraints
-        .iter()
-        .any(|constraint| constraint.id == "moth-knight-bars-tower-road" && constraint.active));
-    assert!(valid_sha256_digest(&scene.definition_hash));
-
-    let actor_count = runtime.world.actor_count;
-    runtime.world.actors[..actor_count]
-        .iter_mut()
-        .find(|actor| actor.id == 8303)
-        .expect("the Moth-Eaten Knight is seeded")
-        .status = CW_ACTOR_KNOCKED_OUT;
-    let released = runtime.state_response(Some(actor_id), &AccessContext::default());
-    let released_scene = released
-        .spatial_scene
-        .expect("the resolved Barrow still has a spatial scene");
-    assert!(released_scene
-        .constraints
-        .iter()
-        .all(|constraint| !constraint.active));
-    assert!(released_scene.portals.iter().all(|portal| !portal.blocked));
+        .any(|option| option.kind == "attack" && option.label == "Confront"));
 }
 
 pub(super) fn install_lantern_finale_evidence(
@@ -919,7 +882,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.10");
+    assert_eq!(restored_strategy.pack_version, "0.1.11");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)

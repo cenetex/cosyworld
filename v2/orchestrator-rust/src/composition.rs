@@ -1352,6 +1352,9 @@ impl RuntimeWorld {
     }
 
     pub(super) fn action_offer_verb(&self, kind: &str, actor_id: u64) -> String {
+        if kind == "attack" && self.active_combat_encounter_for_actor(actor_id).is_none() {
+            return "Confront".to_string();
+        }
         if kind == "model_interaction" {
             return self
                 .model_interaction_offer_profile(actor_id)
@@ -1604,7 +1607,9 @@ impl RuntimeWorld {
     ) -> Option<ActionSourceCollectibleView> {
         let source_item = match kind {
             "cast_spell" => self.default_spell_card(actor_id),
-            "attack" => self.authoritative_combat_weapon_item(actor_id),
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_some() => {
+                self.authoritative_combat_weapon_item(actor_id)
+            }
             "use_item" | "use_feature" => self
                 .actor_held_items(actor_id)
                 .into_iter()
@@ -1949,6 +1954,10 @@ impl RuntimeWorld {
     pub(super) fn action_offer_risk(&self, kind: &str, actor_id: u64) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_none() => Some(
+                "declaring combat pauses ordinary advancement until the encounter resolves or you escape"
+                    .to_string(),
+            ),
             "attack"
                 if self
                     .active_danger_clock_id_for_location(actor.location_id)
@@ -2043,6 +2052,10 @@ impl RuntimeWorld {
     ) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_none() => self
+                .combat_job_for_actor(actor_id, None)
+                .and_then(|(_, target_id)| self.actor_name(target_id))
+                .map(|name| format!("declares an encounter with {name}; no attack is made yet")),
             "attack" => Some(self.combat_method_effect(actor_id)),
             "chat" => self
                 .default_chat_target(actor_id)

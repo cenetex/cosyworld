@@ -665,27 +665,32 @@ async function main() {
   async function assertBrowserDrawReachesEveryLegalAction() {
     const handSnapshot = () => page.evaluate(() => ({
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
-        .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
+        .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.dataset.handKey)
         .filter(Boolean),
       eventSeq: Math.max(0, ...logEvents
         .filter((event) => event.type === "hand.thought")
         .map((event) => Number(event.seq || 0))),
-      drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
+      hasFourthCard: Boolean(document.querySelector("#shuffle")),
     }));
     const initial = await handSnapshot();
     assert(
-      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && initial.drawVisible,
-      `the opening scene should expose its finite hand and Think: ${JSON.stringify(initial)}`,
+      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.hasFourthCard,
+      `the opening scene should expose at most three cards without a fourth Think card: ${JSON.stringify(initial)}`,
     );
     await focusThinkableCard("opening scene");
+    await page.evaluate(() => openActionModal(visibleFocusedAction()));
+    await page.waitForFunction(() => {
+      const discard = document.querySelector("#action-modal-discard");
+      return discard && !discard.hidden && !discard.disabled;
+    });
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator("#shuffle").click(),
+      page.locator("#action-modal-discard").click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -693,15 +698,21 @@ async function main() {
       receipt.ok && Number(drawEvent?.seq || 0) > initial.eventSeq,
       `Think should commit a newer hand.thought event: ${JSON.stringify(receipt)}`,
     );
-    await page.waitForFunction(() => document.querySelector("#shuffle")?.disabled === false);
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && document.querySelector("#action-modal")?.hidden === true
+    ));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
-      const draw = document.querySelector("#shuffle");
-      const rect = draw.getBoundingClientRect();
+      const cards = [...prompt.querySelectorAll("button")]
+        .filter((button) => getComputedStyle(button).display !== "none")
+        .map((button) => button.getBoundingClientRect());
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
-        drawFits: rect.left >= 0 && rect.right <= window.innerWidth,
+        cardsFit: cards.length <= 3
+          && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
         journaled: logEvents.some((event) => event.type === "hand.thought"),
       };
     });
@@ -710,12 +721,12 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
-        && layout.drawFits
+        && layout.cardsFit
         && layout.journaled,
-      `Think should replace one Story Hand card without opening the offer queue: ${JSON.stringify({ initial, current, layout })}`,
+      `Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser Think replaces one Story Hand card",
+      label: "browser Discard replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -4466,7 +4477,8 @@ async function main() {
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
           visibleHand,
           hasThirdCard: Boolean(document.querySelector("#tertiary")),
-          hasShuffleCard: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
+          hasDiscardInModal: Boolean(document.querySelector("#action-modal-discard")),
+          hasFourthCard: Boolean(document.querySelector("#shuffle")),
           semanticBindings,
           giveKindsBeforeRename,
           giveKindsAfterRename,
@@ -4524,7 +4536,10 @@ async function main() {
     );
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
-    assert(result.hasThirdCard && result.hasShuffleCard, `the browser should provide three Story Hand slots beside its Think control: ${JSON.stringify(result)}`);
+    assert(
+      result.hasThirdCard && result.hasDiscardInModal && !result.hasFourthCard,
+      `the browser should provide three Story Hand slots with Discard in the card modal: ${JSON.stringify(result)}`,
+    );
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -5876,6 +5891,8 @@ async function main() {
       const previousActorId = actorId;
       const baseState = {
         location: { id: 3, name: "Moonlit Trail" },
+        combat: { encounter_id: "combat-potion-test" },
+        turn: { is_current_actor: true },
         primary_action: {
           kind: "attack",
           options: [{ kind: "use_item" }, { kind: "attack" }, { kind: "defend" }],
@@ -6019,6 +6036,8 @@ async function main() {
       const previousActorId = actorId;
       const fakeState = {
         location: { id: 3, name: "Moonlit Trail" },
+        combat: { encounter_id: "combat-copy-test" },
+        turn: { is_current_actor: true },
         primary_action: {
           kind: "attack",
           options: [{ kind: "attack" }, { kind: "defend" }],
@@ -9905,15 +9924,17 @@ async function main() {
     );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await focusThinkableCard(label, preferredSlot);
+      await page.evaluate(() => openActionModal(visibleFocusedAction()));
       await page.waitForFunction(() => (
         actionBusy === false
           && refreshInFlight === null
-          && document.querySelector("#shuffle")?.disabled === false
+          && document.querySelector("#action-modal-discard")?.hidden === false
+          && document.querySelector("#action-modal-discard")?.disabled === false
       ));
       const before = await page.evaluate(() => {
         const entry = projectedHandEntryForAction(visibleFocusedAction());
         const think = entry?.think || {};
-        const control = document.querySelector("#shuffle");
+        const control = document.querySelector("#action-modal-discard");
         return {
           offerId: String(think.offer_id || ""),
           slot: String(think.slot || entry?.slot || ""),
@@ -9926,11 +9947,11 @@ async function main() {
       });
       assert(
         before.offerId
-          && before.controlId === "shuffle"
+          && before.controlId === "action-modal-discard"
           && before.visible
           && !before.disabled
-          && /replace the .* card/i.test(before.ariaLabel),
-        `${label} replacement must start from the focused card's certified Think control: ${JSON.stringify(before)}`,
+          && /discard this .* card/i.test(before.ariaLabel),
+        `${label} replacement must start from the focused card's certified Discard control: ${JSON.stringify(before)}`,
       );
       let response;
       try {
@@ -9940,7 +9961,7 @@ async function main() {
               && new URL(candidate.url()).pathname === "/commands"
               && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
           ), { timeout: 10_000 }),
-          page.locator("#shuffle").click(),
+          page.locator("#action-modal-discard").click(),
         ]);
       } catch (error) {
         lastRejection = { before, error: String(error?.message || error) };
@@ -12377,9 +12398,10 @@ async function main() {
     const before = await visibleCommandButtons();
     assert(
       await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
-        && await page.locator("#shuffle").count() === 1
+        && await page.locator("#shuffle").count() === 0
+        && await page.locator("#action-modal-discard").count() === 1
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
-      "the browser room should expose only its dealt action hand and Think, without command entry or a full-deck chooser",
+      "the browser room should expose only its three-card hand, with Discard in card details and no command entry or full-deck chooser",
     );
     assert(
       before.length >= 1 && before.length <= 3,
