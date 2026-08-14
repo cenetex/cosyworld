@@ -651,6 +651,17 @@ async function main() {
     return focused;
   }
 
+  async function storyHandRotationSlots() {
+    return page.evaluate(() => (state?.action_hand?.entries || []).flatMap((entry) => (
+      entry?.think?.available === true
+        ? Array.from(
+          { length: Math.max(0, Number(entry.replacement_count || 0)) },
+          () => String(entry.slot || ""),
+        ).filter(Boolean)
+        : []
+    )));
+  }
+
   async function assertBrowserDrawReachesEveryLegalAction() {
     const handSnapshot = () => page.evaluate(() => ({
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
@@ -10161,8 +10172,8 @@ async function main() {
       };
     }, needle);
     let last = null;
-    const deckSize = await fetchInspectableDeckSize();
-    for (let attempt = 1; attempt <= deckSize; attempt += 1) {
+    const rotationSlots = await storyHandRotationSlots();
+    for (let attempt = 0; attempt <= rotationSlots.length; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
       const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
@@ -10186,8 +10197,11 @@ async function main() {
         return primary;
       }
       last = { result, primary };
-      if (attempt < deckSize) {
-        await passCertifiedHandForDraw(`route ${text} draw ${attempt}`);
+      if (attempt < rotationSlots.length) {
+        await passCertifiedHandForDraw(
+          `route ${text} draw ${attempt + 1}`,
+          rotationSlots[attempt],
+        );
       }
     }
     if (
