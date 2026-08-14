@@ -422,7 +422,7 @@ mod tests {
                 .filter(|entry| entry.offer_id == offer_id)
                 .count(),
             1,
-            "the two-card hand contains exactly one advancing offer"
+            "the Story Hand contains exactly one advancing offer"
         );
         offers
             .iter()
@@ -670,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn guided_hand_rotates_every_non_advancing_offer() {
+    fn guided_hand_keeps_the_advancing_story_card_pinned_across_generations() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -703,14 +703,16 @@ mod tests {
                 hand.entries.first().map(|entry| entry.offer_id.as_str()),
                 Some(advancing_offer_id.as_str())
             );
-            seen.extend(
-                hand.entries
-                    .iter()
-                    .skip(1)
-                    .map(|entry| entry.offer_id.clone()),
-            );
+            assert!(!hand.entries[0].think.available);
+            let companions = hand
+                .entries
+                .iter()
+                .skip(1)
+                .map(|entry| entry.offer_id.clone())
+                .collect::<Vec<_>>();
+            seen.extend(companions.iter().cloned());
         }
-        assert_eq!(seen, expected);
+        assert!(seen.is_subset(&expected));
     }
 
     #[test]

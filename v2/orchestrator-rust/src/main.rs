@@ -941,6 +941,13 @@ enum ProjectionMutation {
     ShuffleHand {
         reason: String,
     },
+    ThinkHand {
+        slot: u8,
+        scene_key: String,
+        replaces_offer_id: String,
+        free: bool,
+        reason: String,
+    },
     StartTreasureObjective(projection_ledger::StartTreasureObjective),
     UpdateCardPolicyPreference {
         update: CardPolicyPreferenceUpdate,
@@ -1590,6 +1597,7 @@ struct RuntimeWorld {
     // This is the authoritative per-actor hand rotation. The event log is a
     // bounded presentation projection and must never determine a certificate.
     hand_generations: BTreeMap<u64, u64>,
+    story_hand_states: BTreeMap<u64, StoryHandActorState>,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
@@ -1617,6 +1625,8 @@ struct RuntimeSnapshot {
     action_journal_seq: u64,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     hand_generations: BTreeMap<u64, u64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    story_hand_states: BTreeMap<u64, StoryHandActorState>,
 
     world_version: u32,
     tick: u64,
@@ -2887,6 +2897,36 @@ struct RankedActionOffer {
     ranked_hand_eligible: bool,
 }
 
+/// Public semantics for an action card. These dimensions deliberately stay
+/// separate: suit is navigation, verb is the exact action, source explains
+/// why it is available, and provenance/rarity describe collectibility rather
+/// than power.
+#[derive(Clone, Debug, Serialize)]
+struct ActionCardPresentationView {
+    family: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    suit: Option<String>,
+    verb: String,
+    source: ActionCardSourceView,
+    state: String,
+    provenance: String,
+    rarity: String,
+    power: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cost: Option<ActionCostView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    risk: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    effect: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionCardSourceView {
+    kind: String,
+    id: String,
+    label: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 struct ActionSourceCollectibleView {
     kind: String,
@@ -2941,6 +2981,11 @@ struct ActionHandPassView {
     state_revision: u64,
     generation: u64,
     scene_key: String,
+    slot: String,
+    replaces_offer_id: String,
+    free: bool,
+    consumes_turn: bool,
+    available: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -2949,6 +2994,18 @@ struct ActionHandEntryView {
     kind: String,
     intention: String,
     provider: ActionProviderView,
+    slot: String,
+    suit: String,
+    verb: String,
+    think: ActionHandPassView,
+    replacement_count: u16,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+struct StoryHandActorState {
+    scene_key: String,
+    slot_generations: [u64; 3],
+    free_think_used: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -5107,7 +5164,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 18,
+            version: 19,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5116,6 +5173,7 @@ impl RuntimeSnapshot {
             pack_mount_state: runtime.pack_mount_state.clone(),
             action_journal_seq: runtime.action_journal_seq,
             hand_generations: runtime.hand_generations.clone(),
+            story_hand_states: runtime.story_hand_states.clone(),
 
             world_version: runtime.world.version,
             tick: runtime.world.tick,
@@ -5215,6 +5273,16 @@ impl RuntimeSnapshot {
                     }
                 }
             }
+        }
+        let mut story_hand_states = self.story_hand_states;
+        for (actor_id, generation) in &hand_generations {
+            story_hand_states
+                .entry(*actor_id)
+                .or_insert_with(|| StoryHandActorState {
+                    scene_key: String::new(),
+                    slot_generations: [*generation; 3],
+                    free_think_used: false,
+                });
         }
         let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
         let compatibility =
@@ -5438,6 +5506,7 @@ impl RuntimeSnapshot {
             pack_mount_state: self.pack_mount_state,
             action_journal_seq: self.action_journal_seq,
             hand_generations,
+            story_hand_states,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
@@ -5861,6 +5930,7 @@ impl RuntimeWorld {
             pack_mount_state: PackMountState::default(),
             action_journal_seq: 0,
             hand_generations: BTreeMap::new(),
+            story_hand_states: BTreeMap::new(),
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
@@ -8252,12 +8322,61 @@ impl RuntimeWorld {
     fn append_hand_shuffled_event(&mut self, actor_id: u64, reason: &str) -> EventView {
         let generation = self.hand_generations.entry(actor_id).or_default();
         *generation = generation.saturating_add(1);
+        self.append_hand_projection_event(actor_id, "hand.shuffled", reason)
+    }
+
+    fn append_story_hand_thought_event(
+        &mut self,
+        actor_id: u64,
+        thought: (u8, &str, &str, bool, &str),
+    ) -> EventView {
+        let (slot, scene_key, replaces_offer_id, free, reason) = thought;
+        let legacy_generation = self
+            .hand_generations
+            .get(&actor_id)
+            .copied()
+            .unwrap_or_default();
+        let state = self.story_hand_states.entry(actor_id).or_default();
+        if state.scene_key != scene_key {
+            let slot_generations = if state.scene_key.is_empty() {
+                if state.slot_generations == [0; 3] && legacy_generation > 0 {
+                    [legacy_generation; 3]
+                } else {
+                    state.slot_generations
+                }
+            } else {
+                [0; 3]
+            };
+            *state = StoryHandActorState {
+                scene_key: scene_key.to_string(),
+                slot_generations,
+                ..StoryHandActorState::default()
+            };
+        }
+        let slot_index = usize::from(slot).min(state.slot_generations.len() - 1);
+        state.slot_generations[slot_index] = state.slot_generations[slot_index].saturating_add(1);
+        state.free_think_used |= free;
+        let generation = self.hand_generations.entry(actor_id).or_default();
+        *generation = generation.saturating_add(1);
+        self.append_hand_projection_event(
+            actor_id,
+            "hand.thought",
+            &format!("{reason}:slot={slot}:free={free}:replaced={replaces_offer_id}"),
+        )
+    }
+
+    fn append_hand_projection_event(
+        &mut self,
+        actor_id: u64,
+        type_name: &str,
+        content: &str,
+    ) -> EventView {
         let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let event = EventView {
             world_id: official_world_id(),
             world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
-            type_name: "hand.shuffled".to_string(),
+            type_name: type_name.to_string(),
             success: true,
             reason: 0,
             actor_id: opt_id(actor_id),
@@ -8269,7 +8388,7 @@ impl RuntimeWorld {
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
-            content: Some(reason.to_string()),
+            content: Some(content.to_string()),
             item_id: None,
             item_name: None,
             target_item_id: None,
@@ -9417,6 +9536,18 @@ impl RuntimeWorld {
                 }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
+                }
+                ProjectionMutation::ThinkHand {
+                    slot,
+                    scene_key,
+                    replaces_offer_id,
+                    free,
+                    reason,
+                } => {
+                    events.push(self.append_story_hand_thought_event(
+                        action.actor_id,
+                        (*slot, scene_key, replaces_offer_id, *free, reason),
+                    ));
                 }
                 ProjectionMutation::StartTreasureObjective(mutation) => {
                     if let Some(event) = mutation.apply(self, &ctx) {
@@ -14091,7 +14222,7 @@ impl RuntimeWorld {
         }
         if economy.carrying_capacity_tenths > 0 {
             parts.push(format!(
-                "carried deck: {:.1}/{:.1} lb across {} card(s)",
+                "pack: {:.1}/{:.1} lb across {} card(s)",
                 economy.carried_weight_tenths as f64 / 10.0,
                 economy.carrying_capacity_tenths as f64 / 10.0,
                 economy.inventory_count
@@ -15257,7 +15388,7 @@ The relationship statement they are preserving is: {statement}"
             .into_iter()
             .find(|item| self.actor_can_exchange_items(actor_id, Some(*item), incoming))
             .map(|item| Some(item.id))
-            .ok_or_else(|| "That pickup cannot make room in the carried deck.".to_string())
+            .ok_or_else(|| "That pickup cannot make room in the pack.".to_string())
     }
 
     fn resident_player_gift_return_item(
@@ -16941,7 +17072,7 @@ The relationship statement they are preserving is: {statement}"
         let default_search_target = self.default_search_target(actor_id);
         let default_craft_recipe = self.default_craft_recipe(actor_id);
         // The kernel flag covers ordinary pickups, while the orchestrator can
-        // also authorize an exact exchange when a carried deck is full.
+        // also authorize an exact exchange when a carried Pack is full.
         // Keep the primary options in lockstep with those retargeted offers.
         let has_pickup_offer = offers.option_flags & CW_OFFER_PICK_UP != 0
             || !self.pickup_offer_items(actor_id).is_empty();
@@ -17395,7 +17526,7 @@ The relationship statement they are preserving is: {statement}"
         if !self.actor_can_exchange_items(actor.id, Some(offered_item), requested_item)
             || !self.actor_can_exchange_items(target.id, Some(requested_item), offered_item)
         {
-            return Err("That exchange would overfill one avatar's carried deck.".to_string());
+            return Err("That exchange would overfill one avatar's pack.".to_string());
         }
         Ok(())
     }
@@ -20060,7 +20191,10 @@ The relationship statement they are preserving is: {statement}"
                                 .1,
                         )
                         .pass;
-                    (pass.offer_id, format!("pass:{}", pass.scene_key))
+                    (
+                        pass.offer_id,
+                        format!("think:{}:{}", pass.scene_key, pass.slot),
+                    )
                 });
             chosen_offer = Some((offer_id.clone(), composition_id.clone(), None));
             candidates.push(ResidentDecisionCandidateTrace {
@@ -22285,7 +22419,7 @@ async fn submit_action_offer(
     }
 
     // A certificate is valid only for the hand that dealt it. Serialize its
-    // validation and the dispatched mutation with Think/Pass so a hand cannot
+    // validation and the dispatched mutation with Think so a hand cannot
     // rotate between those two steps.
     let canonical_command_lock = Arc::clone(&state.canonical_command_lock);
     let _command_guard = canonical_command_lock.lock().await;
@@ -25400,7 +25534,7 @@ async fn command_inner(
             command: resolved.command,
             verb: resolved.verb,
             output: Some(
-                "That is not a visible room control. Play one of the two current cards or Think."
+                "That is not a visible room control. Play a current Story Hand card or Think."
                     .to_string(),
             ),
             error_kind: Some(CommandErrorKind::UnknownOffer),
@@ -25420,7 +25554,7 @@ async fn command_inner(
     }
 
     match resolved.dispatch.clone() {
-        CommandDispatch::Pass { offer_id } => {
+        CommandDispatch::Pass { think } => {
             let Json(response) = pass_action(
                 ConnectInfo(client_addr),
                 State(state),
@@ -25428,7 +25562,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                 }),
-                &offer_id,
+                &think,
             )
             .await;
             command_action_response_with_events(resolved, response, presence_events)
@@ -27509,7 +27643,7 @@ fn room_memory_label(event: &EventView) -> String {
         "actor.moved" | "combat.flee.success" => "move",
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
-        "hand.shuffled" => "hand",
+        "hand.shuffled" | "hand.thought" => "hand",
         "feature.searched"
         | "location.searched"
         | "exit.discovered"
@@ -37655,8 +37789,40 @@ mod tests {
         intent_id: &str,
         kind: &str,
     ) -> CommandRequest {
+        canonical_test_offer_request_with_presence(
+            runtime,
+            actor_id,
+            actor_session,
+            intent_id,
+            kind,
+            None,
+        )
+    }
+
+    fn canonical_test_offer_request_with_presence(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+        kind: &str,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> CommandRequest {
         let offer_id = if kind == "*" {
-            runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id
+            let offers = runtime
+                .legal_action_candidates_with_presence(
+                    Some(actor_id),
+                    &AccessContext::default(),
+                    active_direct_actor_ids,
+                )
+                .1;
+            runtime
+                .action_hand_for(Some(actor_id), &offers)
+                .entries
+                .into_iter()
+                .find(|entry| entry.think.available)
+                .unwrap_or_else(|| panic!("canonical test hand exposes an exact Think certificate"))
+                .think
+                .offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -37670,7 +37836,11 @@ mod tests {
             actor_id,
             actor_session,
             intent_id,
-            "offer identity selects the action",
+            if kind == "*" {
+                "think"
+            } else {
+                "offer identity selects the action"
+            },
         );
         request.offer_id = Some(offer_id);
         request
@@ -37685,11 +37855,42 @@ mod tests {
         intent_id: &str,
     ) -> CommandResponse {
         let mut last_response = None;
-        for _ in 0..4 {
-            let request = {
-                let mut runtime = state.inner.lock().await;
-                canonical_test_offer_request(&mut runtime, actor_id, actor_session, intent_id, "*")
+        for _ in 0..12 {
+            let state_view = client
+                .get(format!("{base_url}/state"))
+                .query(&[
+                    ("actor_id", actor_id.to_string()),
+                    ("actor_session", actor_session.to_string()),
+                ])
+                .send()
+                .await
+                .expect("canonical hand state")
+                .json::<serde_json::Value>()
+                .await
+                .expect("canonical hand state response");
+            let offer_id = state_view["action_hand"]["entries"]
+                .as_array()
+                .and_then(|entries| {
+                    entries.iter().find_map(|entry| {
+                        entry["think"]["available"]
+                            .as_bool()
+                            .filter(|available| *available)
+                            .and_then(|_| entry["think"]["offer_id"].as_str())
+                    })
+                })
+                .unwrap_or_else(|| panic!("canonical hand exposes an exact Think certificate"))
+                .to_string();
+            let mut request = {
+                let runtime = state.inner.lock().await;
+                canonical_test_command_request(
+                    &runtime,
+                    actor_id,
+                    actor_session,
+                    intent_id,
+                    "think",
+                )
             };
+            request.offer_id = Some(offer_id);
             let response = client
                 .post(format!("{base_url}/commands"))
                 .json(&request)
@@ -37699,11 +37900,12 @@ mod tests {
                 .json::<CommandResponse>()
                 .await
                 .expect("canonical card response");
-            if response.ok || response.status != 404 {
+            if response.ok || !matches!(response.status, 404 | 409 | 503) {
                 return response;
             }
             last_response = Some(response);
             let _ = converge_capacity_for_read(state, Some(actor_session)).await;
+            tokio::time::sleep(Duration::from_millis(150)).await;
         }
         last_response.expect("canonical card retry response")
     }
@@ -38620,13 +38822,16 @@ mod tests {
             let response = submit_canonical_test_offer(
                 &client,
                 base,
-                edge_state,
+                &state_a,
                 actor_hot,
                 &session_hot,
                 &intent_id,
             )
             .await;
-            assert!(response.ok, "{response:?}");
+            assert!(
+                response.ok,
+                "hot-room command {index} via {base} failed: {response:?}"
+            );
             converge_capacity_for_read(&state_a, Some(&session_hot)).await;
             committed_seqs.push(
                 response
@@ -38717,25 +38922,15 @@ mod tests {
             io::ErrorKind::PermissionDenied
         );
 
-        let post_handoff_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:after-hot-room-handoff",
-                "*",
-            )
-        };
-        let post_handoff: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&post_handoff_request)
-            .send()
-            .await
-            .expect("post-handoff command through stale edge")
-            .json()
-            .await
-            .expect("post-handoff response");
+        let post_handoff = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:after-hot-room-handoff",
+        )
+        .await;
         assert!(post_handoff.ok, "{post_handoff:?}");
         assert!(
             post_handoff.receipt.as_ref().is_some_and(|receipt| {
@@ -38745,25 +38940,15 @@ mod tests {
         );
 
         converge_capacity_for_read(&state_a, Some(&session_cold)).await;
-        let cold_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_cold,
-                &session_cold,
-                "test:cold-range-checkpoint",
-                "*",
-            )
-        };
-        let cold_response: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&cold_request)
-            .send()
-            .await
-            .expect("cold range command")
-            .json()
-            .await
-            .expect("cold range response");
+        let cold_response = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_cold,
+            &session_cold,
+            "test:cold-range-checkpoint",
+        )
+        .await;
         assert!(cold_response.ok, "{cold_response:?}");
         let split_now = now_millis();
         let hot_before_split = current_partition_lease(
@@ -38913,25 +39098,15 @@ mod tests {
         let _ = convergence_b.await;
         let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
-        let process_loss_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:hot-owner-loss",
-                "*",
-            )
-        };
-        let process_loss: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&process_loss_request)
-            .send()
-            .await
-            .expect("command after hot owner loss")
-            .json()
-            .await
-            .expect("process loss response");
+        let process_loss = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:hot-owner-loss",
+        )
+        .await;
         assert!(process_loss.ok, "{process_loss:?}");
         let process_loss_fence = process_loss
             .receipt
@@ -39044,25 +39219,15 @@ mod tests {
         let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
-        let recovery_request = {
-            let mut runtime = recovery_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:regional-promotion",
-                "*",
-            )
-        };
-        let recovery_response: CommandResponse = client
-            .post(format!("{recovery_url}/commands"))
-            .json(&recovery_request)
-            .send()
-            .await
-            .expect("recovery region command")
-            .json()
-            .await
-            .expect("recovery command response");
+        let recovery_response = submit_canonical_test_offer(
+            &client,
+            &recovery_url,
+            &recovery_state,
+            actor_hot,
+            &session_hot,
+            "test:regional-promotion",
+        )
+        .await;
         assert!(recovery_response.ok, "{recovery_response:?}");
         assert!(
             recovery_response.receipt.as_ref().is_some_and(
@@ -39094,25 +39259,15 @@ mod tests {
         let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
-        let reconnect_request = {
-            let mut runtime = reconnect_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:cross-region-reconnect",
-                "*",
-            )
-        };
-        let reconnect_response: CommandResponse = client
-            .post(format!("{reconnect_url}/commands"))
-            .json(&reconnect_request)
-            .send()
-            .await
-            .expect("reconnected region command")
-            .json()
-            .await
-            .expect("reconnected command response");
+        let reconnect_response = submit_canonical_test_offer(
+            &client,
+            &reconnect_url,
+            &reconnect_state,
+            actor_hot,
+            &session_hot,
+            "test:cross-region-reconnect",
+        )
+        .await;
         assert!(reconnect_response.ok, "{reconnect_response:?}");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
@@ -42925,7 +43080,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the world beyond"));
         assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("function deckPanelHtml"));
-        assert!(INDEX_HTML.contains("[\"deck\", \"deck\"]"));
+        assert!(INDEX_HTML.contains("[\"deck\", \"pack\"]"));
         assert!(INDEX_HTML.contains("[\"character\", \"character\"]"));
         assert!(!INDEX_HTML.contains("[\"collection\", \"collection & account\"]"));
         assert!(INDEX_HTML.contains("[\"identity\", \"sign in / identity\"]"));
@@ -42933,10 +43088,10 @@ mod tests {
         assert!(INDEX_HTML.contains("[\"journal\", \"journal\"]"));
         assert!(INDEX_HTML.contains("[\"settings\", \"orbs & settings\"]"));
         assert!(INDEX_HTML.contains("physical cards, not a fixed card count"));
-        assert!(INDEX_HTML.contains("carried weight · base"));
+        assert!(INDEX_HTML.contains("pack weight · base"));
         assert!(INDEX_HTML.contains("deck.charm_slot_expansion"));
         assert!(INDEX_HTML.contains("Make room"));
-        assert!(INDEX_HTML.contains("Only prepared spell cards can be cast"));
+        assert!(INDEX_HTML.contains("Only prepared spells can be cast"));
         assert!(!INDEX_HTML.contains("data-materialize-card"));
         assert!(!INDEX_HTML.contains("/collection/materialize"));
         assert!(!INDEX_HTML.contains("data-unmaterialize-receipt"));
@@ -43113,7 +43268,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function pendingAvatarArrivalHtml"));
         assert!(INDEX_HTML.contains("the cottage is making room"));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
-        assert!(INDEX_HTML.contains("find a skill charm, then wear it from Deck"));
+        assert!(INDEX_HTML.contains("find a skill charm, then wear it from Pack"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
         assert!(INDEX_HTML.contains("makes room for ${actor}"));
         assert!(!INDEX_HTML.contains(": \"nothing yet\""));
@@ -43156,8 +43311,23 @@ mod tests {
         assert!(INDEX_HTML.contains("\"/actions/need-time\""));
         assert!(!INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
         assert!(INDEX_HTML.contains("function passHand"));
-        assert!(INDEX_HTML.contains("data-player-concept=\"pass\""));
-        assert!(INDEX_HTML.contains("free redeal command has retired"));
+        assert!(INDEX_HTML.contains("data-player-concept=\"think\""));
+        assert!(INDEX_HTML.contains("id=\"tertiary\""));
+        for suit in ["wonder", "way", "heart", "hand", "courage", "hearth"] {
+            assert!(INDEX_HTML.contains(&format!(".cmd.suit-{suit}")));
+        }
+        assert!(INDEX_HTML.contains(
+            "if (String(action?.presentation?.family || \"\") !== \"action\") return \"\";"
+        ));
+        assert!(
+            INDEX_HTML.contains("const rarity = friendlyCardRarity(action?.presentation?.rarity);")
+        );
+        assert!(!INDEX_HTML.contains("--rarity-"));
+        assert!(INDEX_HTML.contains("class=\"cmd-kicker\""));
+        assert!(INDEX_HTML.contains("class=\"cmd-meta\""));
+        assert!(INDEX_HTML.contains("class=\"provider-call\""));
+        assert!(INDEX_HTML.contains("class=\"collectible-mark\""));
+        assert!(INDEX_HTML.contains("whole-hand redeal has retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
         assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
@@ -43193,7 +43363,7 @@ mod tests {
         assert!(INDEX_HTML.contains("const thumb = action.pathwayDirection"));
         assert!(INDEX_HTML.contains(": thumbnailHtml(action, false, \"action-mini-card\");"));
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
-        assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-label\">"));
+        assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-kicker\">"));
         assert!(INDEX_HTML.contains("cardImage(card) || fallbackCardImage(fallback)"));
         assert!(INDEX_HTML.contains("CosyWorld item art"));
         assert!(INDEX_HTML.contains("function gardenHasDewbright"));
@@ -43283,6 +43453,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));
         assert!(INDEX_HTML.contains("From ${view.location.name}"));
+        assert!(INDEX_HTML.contains(
+            "targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name)"
+        ));
         assert!(INDEX_HTML.contains("catch your breath"));
         assert!(!INDEX_HTML.contains("reply hook"));
         assert!(!INDEX_HTML.contains("authors a line"));
@@ -43380,8 +43553,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("kept close</span>"));
         assert!(!INDEX_HTML.contains("id=\"card-modal-keepsake\""));
         assert!(!INDEX_HTML.contains("function keepsakePromise"));
-        assert!(!INDEX_HTML
-            .contains("This is a menu preference, not your physical carried deck or bracelet."));
+        assert!(
+            !INDEX_HTML.contains("This is a menu preference, not your physical Pack or bracelet.")
+        );
         assert!(!INDEX_HTML.contains(
             "can appear beside matching choices. It does not change available actions or odds."
         ));
@@ -49040,15 +49214,15 @@ mod tests {
         );
 
         let deck_command = runtime
-            .resolve_command(&command_request(5000, "deck"), &AccessContext::default())
-            .expect("deck command resolves");
+            .resolve_command(&command_request(5000, "pack"), &AccessContext::default())
+            .expect("Pack command resolves");
         match deck_command.dispatch {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Wolfprint Charm"));
                 assert!(output.contains("Bracelet: 0/1 charm slots"));
-                assert!(output.contains("Spell deck: 0/3 prepared (none prepared)"));
+                assert!(output.contains("Prepared spells: 0/3 (none prepared)"));
             }
-            other => panic!("deck should be a read command, got {other:?}"),
+            other => panic!("Pack should be a read command, got {other:?}"),
         }
         let wear_command = runtime
             .resolve_command(
@@ -49142,7 +49316,7 @@ mod tests {
     }
 
     #[test]
-    fn authoritative_action_hand_is_the_deterministic_top_two_legal_offers() {
+    fn authoritative_story_hand_is_three_deterministic_legal_slots() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Hand Tester");
         let access = AccessContext::default();
@@ -49170,8 +49344,16 @@ mod tests {
         assert!(left_hand
             .iter()
             .all(|offer_id| legal_ids.contains(offer_id)));
-        assert_eq!(left.action_hand.capacity, 2);
-        assert_eq!(left.action_hand.entries.len(), 2);
+        assert_eq!(left.action_hand.capacity, 3);
+        assert_eq!(left.action_hand.entries.len(), 3);
+        assert_eq!(
+            left.action_hand
+                .entries
+                .iter()
+                .map(|entry| entry.slot.as_str())
+                .collect::<Vec<_>>(),
+            ["story", "self", "anchor"]
+        );
     }
 
     #[tokio::test]
@@ -49214,6 +49396,7 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Discovery Parity Tester",
         );
+        complete_guided_story_for_test(&mut runtime, 5000);
         runtime
             .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
                 offer.kind == "study"
@@ -51914,7 +52097,7 @@ mod tests {
         assert!(output.contains(&question.situation));
         assert!(output.contains(&question.outcome));
 
-        assert_eq!(question.suggested_actions.len(), 2);
+        assert_eq!(question.suggested_actions.len(), 3);
         for suggestion in &question.suggested_actions {
             assert!(output.contains(&format!("target {}", suggestion.target_label)));
         }
@@ -53559,6 +53742,11 @@ mod tests {
             "Inferred Combat Human",
         );
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
         let actor = runtime
             .world
@@ -53607,41 +53795,23 @@ mod tests {
             .find(|actor| actor.id == 5000)
             .expect("test human remains")
             .damage = 50;
-        let defend = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_723, None)
-            .expect("hurt inferred avatar chooses");
-        assert_eq!(defend.action.kind, CW_ACTION_COMBAT_DODGE);
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("test human remains")
-            .damage = 80;
-        let expected_pass = runtime
-            .action_hand_for(
-                Some(5000),
-                &runtime
-                    .legal_action_candidates(Some(5000), &AccessContext::default())
-                    .1,
-            )
-            .pass;
-        let expected_composition_id = format!("pass:{}", expected_pass.scene_key);
+        let all_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1;
+        let expected_think = runtime.action_hand_for(Some(5000), &all_offers).pass;
+        let expected_composition_id =
+            format!("think:{}:{}", expected_think.scene_key, expected_think.slot);
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-        let draw = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_724, Some(77))
-            .expect("badly hurt inferred avatar chooses");
-        assert_eq!(draw.origin, JournalOrigin::ActorConsequence);
-        assert_eq!(draw.action.kind, CW_ACTION_COMBAT_PASS);
-        assert!(draw.projection_mutations.iter().any(|mutation| {
-            matches!(
-                mutation,
-                ProjectionMutation::ShuffleHand { reason }
-                    if reason == "resident_combat_pass"
-            )
+        let think = runtime
+            .resident_combat_autonomy_record(encounter_id, 71_723, Some(77))
+            .expect("hurt inferred avatar chooses");
+        assert_eq!(think.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(think.action.kind, CW_ACTION_COMBAT_PASS);
+        assert!(think.projection_mutations.iter().any(|mutation| {
+            matches!(mutation, ProjectionMutation::ThinkHand { reason, .. }
+                if reason == "resident_combat_pass")
         }));
-        let trace = draw
+        let trace = think
             .resident_decision
             .as_ref()
             .expect("combat choice carries a trace");
@@ -53649,18 +53819,18 @@ mod tests {
         assert_eq!(trace.choice.offer_kind, "pass");
         assert_eq!(
             trace.choice.offer_id.as_deref(),
-            Some(expected_pass.offer_id.as_str()),
-            "the deterministic combat Pass must retain its exact current hand certificate"
+            Some(expected_think.offer_id.as_str()),
+            "the deterministic combat Think must retain its exact current certificate"
         );
         assert_eq!(
             trace.choice.composition_id.as_deref(),
             Some(expected_composition_id.as_str()),
-            "the deterministic combat Pass must retain its scene-bound composition"
+            "the deterministic combat Think must retain its scene-bound composition"
         );
         assert!(trace.candidates.iter().any(|candidate| {
             candidate.kind == "pass"
                 && candidate.selected
-                && candidate.offer_id == expected_pass.offer_id
+                && candidate.offer_id == expected_think.offer_id
                 && candidate.composition_id == expected_composition_id
         }));
         assert!(trace
@@ -53670,11 +53840,11 @@ mod tests {
 
         let state = test_app_state(runtime.clone(), Some(path.clone()));
         let (status, events) =
-            commit_journal_record(&state, &mut runtime, draw).expect("Draw commits");
+            commit_journal_record(&state, &mut runtime, think).expect("Think commits");
         assert_eq!(status, CW_OK);
         assert!(events
             .iter()
-            .any(|event| { event.type_name == "hand.shuffled" && event.actor_id == Some(5000) }));
+            .any(|event| { event.type_name == "hand.thought" && event.actor_id == Some(5000) }));
         let persisted = read_action_journal(&path).expect("combat journal reads");
         let persisted_record = persisted.last().expect("combat decision persists");
         let outcome = persisted_record
@@ -53686,7 +53856,7 @@ mod tests {
         assert!(outcome
             .events
             .iter()
-            .any(|event| event.event_type == "hand.shuffled" && event.success));
+            .any(|event| event.event_type == "hand.thought" && event.success));
 
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
             .expect("committed state serializes");
@@ -55311,6 +55481,14 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Absent Companion",
         );
+        // Think must reveal a real next card. Discovering a second escape
+        // route gives this ordered fixture a fourth exact combat option.
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         let actor = runtime
             .world
             .actors
@@ -55399,20 +55577,33 @@ mod tests {
             .any(|event| event.type_name == "combat.pass"));
         assert_eq!(state.inner.lock().await.world.tick, before_tick);
 
-        let Json(drawn) = Box::pin(draw_action(
+        let ordered_think = {
+            let runtime = state.inner.lock().await;
+            let (_, offers) =
+                runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+            let hand = runtime.action_hand_for(Some(5000), &offers);
+            assert!(
+                hand.pass.available,
+                "ordered fixture must have a real next card for Think: {hand:?}"
+            );
+            hand.pass
+        };
+
+        let mut think_command = command_request(5000, "think");
+        think_command.actor_session = Some(actor_session);
+        think_command.offer_id = Some(ordered_think.offer_id);
+        let drawn = command_inner(
             ConnectInfo("127.0.0.1:44013".parse().unwrap()),
             State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        ))
-        .await;
-        assert!(drawn.ok);
+            Json(think_command),
+        )
+        .await
+        .0;
+        assert!(drawn.ok, "ordered-scene Think succeeds: {drawn:?}");
         assert!(drawn
             .events
             .iter()
-            .any(|event| event.type_name == "hand.shuffled"));
+            .any(|event| event.type_name == "hand.thought"));
         assert!(drawn
             .events
             .iter()
@@ -55443,7 +55634,7 @@ mod tests {
         assert_eq!(
             player_passes.len(),
             1,
-            "the certified focused pass must commit one player journal record"
+            "the certified focused Think must commit one player journal record"
         );
         assert!(player_passes[0]
             .projection_mutations
@@ -55451,7 +55642,7 @@ mod tests {
             .any(|mutation| {
                 matches!(
                     mutation,
-                    ProjectionMutation::ShuffleHand { reason } if reason == "player_pass"
+                    ProjectionMutation::ThinkHand { reason, .. } if reason == "player_think"
                 )
             }));
         assert!(journal.iter().any(|record| {
@@ -56733,6 +56924,9 @@ mod tests {
         assert_eq!(action_offer_intention("work"), "contribute");
         assert_eq!(action_offer_intention("help"), "contribute");
         assert_eq!(default_action_offer_verb("flee"), "Flee");
+        assert_eq!(default_action_offer_verb("create_bond"), "Befriend");
+        assert_eq!(default_action_offer_verb("rest"), "Rest");
+        assert_eq!(default_action_offer_verb("use_item"), "Use");
         assert_eq!(
             fallback_job_action_label("older-pack:mend-the-trail"),
             "Mend the trail"
@@ -56760,10 +56954,10 @@ mod tests {
         let calling_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
         let repeated_calling_state =
             calling_runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(calling_state.action_hand.schema_version, 1);
-        assert_eq!(calling_state.action_hand.capacity, 2);
+        assert_eq!(calling_state.action_hand.schema_version, 2);
+        assert_eq!(calling_state.action_hand.capacity, 3);
         assert!(!calling_state.action_hand.entries.is_empty());
-        assert!(calling_state.action_hand.entries.len() <= 2);
+        assert!(calling_state.action_hand.entries.len() <= 3);
         assert_eq!(
             serde_json::to_value(&calling_state.action_hand).expect("serialize action hand"),
             serde_json::to_value(&repeated_calling_state.action_hand)
@@ -57957,7 +58151,7 @@ mod tests {
         );
         direct.content_upserts.insert(
             direct_content_id,
-            "I have Hearth Tonic in my carried deck.".to_string(),
+            "I have Hearth Tonic in my pack.".to_string(),
         );
         assert_eq!(runtime.apply_journal_record(&direct).0, CW_OK);
         assert!(runtime.actor_control_mode(5001).is_direct_input());
@@ -59043,7 +59237,7 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "pick_up")
             .and_then(|offer| offer.effect.as_deref())
-            .is_some_and(|effect| effect.contains("carried deck")));
+            .is_some_and(|effect| effect.contains("your Pack")));
 
         let pickup = CwAction {
             kind: CW_ACTION_PICK_UP_ITEM,
@@ -59070,7 +59264,7 @@ mod tests {
             .expect("inventory resolves");
         match inventory.dispatch {
             CommandDispatch::Read { output } => {
-                assert!(output.contains("You carry Hearth Tonic, Story Button"));
+                assert!(output.contains("Your Pack holds Hearth Tonic, Story Button"));
                 assert!(output.contains("0.6/"));
                 assert!(output.contains("Hearth Tonic"));
             }
@@ -59324,13 +59518,13 @@ mod tests {
                 assert!(output.contains("drop <item>"));
                 assert!(output.contains("think"));
                 assert!(!output.contains(", more,"));
-                assert!(output.contains("deck"));
+                assert!(output.contains("pack"));
                 assert!(!output.contains("bracelet unlock"));
                 assert!(!output.contains(", grow,"));
                 assert!(output.contains("wear <skill charm>"));
                 assert!(output.contains("remove <skill charm>"));
                 assert!(!output.contains("practice <knack>"));
-                assert!(output.contains("pass"));
+                assert!(!output.contains(", pass,"));
                 assert!(output.contains("need time"));
                 assert!(!output.contains("skill <name>"));
                 assert!(!output.contains("calling <new drive>"));
@@ -59347,7 +59541,7 @@ mod tests {
         match shuffle.dispatch {
             CommandDispatch::Disabled { status, output } => {
                 assert_eq!(status, 400);
-                assert!(output.contains("Free redeal retired"));
+                assert!(output.contains("Whole-hand redeals are retired"));
             }
             other => panic!("shuffle must be version-refused, got {other:?}"),
         }
@@ -59660,7 +59854,7 @@ mod tests {
 
         let carried = runtime
             .resolve_command(&command_request(5000, "inventory"), &access)
-            .expect("multi-card carried deck resolves");
+            .expect("multi-card Pack resolves");
         match carried.dispatch {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Dewbright Button"));
@@ -61464,7 +61658,7 @@ mod tests {
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let action = runtime
             .resident_economy_autonomy_action(rati)
-            .expect("Rati can add a wanted card to the carried deck");
+            .expect("Rati can add a wanted card to the Pack");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.item_id, STORY_BUTTON_ITEM_ID);
         assert_eq!(action.target_item_id, 0);
@@ -63023,7 +63217,7 @@ mod tests {
         assert!(reply_plan.user_text.contains("blue scarf"));
         assert!(reply_plan.user_text.contains("Gust wants Dewbright Button"));
         assert!(reply_plan.user_text.contains("weather mark"));
-        assert!(reply_plan.economy_note.contains("carried deck:"));
+        assert!(reply_plan.economy_note.contains("pack:"));
         assert!(reply_plan.economy_note.contains("carrying:"));
     }
 

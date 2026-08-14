@@ -315,7 +315,12 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
     if (!state || attempt > 0) {
       state = await fetchInspectableState(baseUrl, actorId, actorSession);
     }
-    const pass = state.action_hand?.pass;
+    const thinkEntries = (state.action_hand?.entries || [])
+      .filter((entry) => entry.think?.available && entry.think.offer_id)
+      .sort((left, right) =>
+        Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
+          || left.slot.localeCompare(right.slot));
+    const pass = thinkEntries[0]?.think ?? state.action_hand?.pass;
     assert(pass?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
     const response = await fetch(`${baseUrl}/commands`, {
       method: "POST",
@@ -342,8 +347,11 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
 
 async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
   let state = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const deckSize = Math.max(1, Number(state.action_hand?.deck_size) || 1);
-  for (let attempt = 0; attempt < deckSize; attempt += 1) {
+  const boundedThinks = Math.max(
+    1,
+    (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
+  );
+  for (let attempt = 0; attempt < boundedThinks; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));

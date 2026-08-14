@@ -576,19 +576,25 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
         return Ok(());
     }
 
-    if !matches!(
-        record.origin,
-        JournalOrigin::PlayerCard | JournalOrigin::Speech
-    ) {
+    let records_think = record.projection_mutations.iter().any(|mutation| {
+        matches!(mutation, ProjectionMutation::ThinkHand { reason, .. } if reason == "player_think")
+    });
+    let records_story_action = match record.origin {
+        JournalOrigin::PlayerCard | JournalOrigin::Speech => true,
+        JournalOrigin::PlayerControl => records_think,
+        _ => false,
+    };
+    if !records_story_action {
         return Ok(());
     }
     let pass_window = pass_metric_window(conn, &player_ref, &session_ref)?;
-    if record.projection_mutations.iter().any(
-        |mutation| matches!(mutation, ProjectionMutation::ShuffleHand { reason } if reason == "player_pass"),
-    ) {
+    if record.projection_mutations.iter().any(|mutation| {
+        matches!(mutation, ProjectionMutation::ShuffleHand { reason } if reason == "player_pass")
+            || matches!(mutation, ProjectionMutation::ThinkHand { reason, .. } if reason == "player_think")
+    }) {
         let source_seq = events
             .iter()
-            .find(|event| event.type_name == "hand.shuffled")
+            .find(|event| matches!(event.type_name.as_str(), "hand.shuffled" | "hand.thought"))
             .map(|event| event.seq)
             .unwrap_or_default();
         let pass_count = pass_window.pass_count.saturating_add(1);
@@ -1254,6 +1260,7 @@ fn story_event_counts_as_meaningful(event: &EventView, actor_id: u64) -> bool {
                 | "actor.entered_location"
                 | "actor.presence"
                 | "hand.shuffled"
+                | "hand.thought"
                 | "ability_check.rolled"
                 | "action.receipt"
                 | "turn.ping_started"

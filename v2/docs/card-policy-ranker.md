@@ -5,13 +5,15 @@ selection. The learned model does **not** classify `A`, `B`, or `DRAW` directly.
 It scores every currently legal card with shared weights and returns a complete
 deck ranking.
 
-The authoritative two-card hand is a deterministic adapter over that ranking:
+The resident policy uses a deterministic adapter over that ranking. Its
+historical `A`, `B`, and `DRAW` names are internal policy choices, not the
+player-facing Story Hand slots:
 
 1. read the highest-ranked card's integer score;
 2. inspect up to the highest-ranked `k` cards;
 3. consider rank two or three executable only when its score exactly ties the
    highest score;
-4. execute the highest-ranked executable card shown as A or B, otherwise DRAW;
+4. execute the highest-ranked executable card exposed to the resident, otherwise DRAW;
 5. after DRAW, rebuild the avatar observation and rank the complete deck again.
 
 `k` is configurable from 1 through 3. The conservative default remains 1.
@@ -49,8 +51,8 @@ record; a coverage test fails if the policy deck and commit adapter drift.
 
 The model never bypasses authoritative offer
 identity, staleness checks, costs, permissions, or the world kernel. A/B still
-uses the existing command path. DRAW only advances the replayable actor-scoped
-hand cursor.
+uses the existing command path. DRAW advances only the selected replayable
+actor-scoped Story Hand slot.
 
 ## Per-avatar history
 
@@ -80,9 +82,9 @@ split by whole world/trajectory rather than shuffled as independent cards.
 ## Synthetic bootstrap data
 
 The generator creates connected graph worlds, hides treasure away from the
-start, gives every location a variable deck of movement/search cards, and keeps
-an authoritative two-card cursor. A failed search exposes an observable
-shortest-path clue.
+start, gives every location a variable offer queue of movement/search cards,
+and keeps authoritative resident selections. A failed search exposes an
+observable shortest-path clue.
 
 Each observation stores the current A/B candidate indices plus the features and
 exact semantic cost-to-treasure for **every legal card**:

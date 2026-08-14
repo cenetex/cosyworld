@@ -737,10 +737,10 @@ a winner. See [action-pack-authoring.md](action-pack-authoring.md).
 
 Card subject kinds include avatar, item, and location. Weapon, skill
 charm, spell, relic, tool, and consumable are Item roles sharing a playable-item
-contract. Skill and bonus are state of a charm instance; spell cards occupy a
-spell deck; weapons occupy equipment slots. Items also declare weight and
+contract. Skill and bonus are state of a charm instance; spell cards occupy
+Prepared spells; weapons occupy Loadout slots. Items also declare weight and
 size/bulk, while container items declare added capacity and fit constraints.
-The carried deck is validated from those physical rules, never a fixed card
+The Pack is validated from those physical rules, never a fixed card
 count. Packs may author rarity and transfer or theft eligibility independently
 of the mechanical power budget.
 

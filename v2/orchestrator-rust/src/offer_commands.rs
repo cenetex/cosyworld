@@ -91,7 +91,7 @@ fn select_current_offer(
         CommandErrorKind::UnknownOffer,
         404,
         format!(
-            "That offer_id is not in the current two-card hand for rules profile {}. Think or refresh the scene and choose a published offer.",
+            "That offer_id is not in the current Story Hand for rules profile {}. Think or refresh the scene and choose a published offer.",
             parsed.rules_profile
         ),
     ))
@@ -333,14 +333,18 @@ impl RuntimeWorld {
         );
         retain_configured_model_interaction_offers(&mut primary_action, &mut offers, model_config);
         let hand = self.action_hand_for(Some(payload.actor_id), &offers);
-        if hand.pass.offer_id == offer_id {
+        if let Some(think) = hand
+            .entries
+            .iter()
+            .map(|entry| &entry.think)
+            .find(|think| think.offer_id == offer_id)
+            .cloned()
+        {
             return Ok(ResolvedCommand {
-                command: "pass".to_string(),
-                verb: "pass".to_string(),
-                action: Some(command_action("pass", &hand.pass.label, "pass")),
-                dispatch: CommandDispatch::Pass {
-                    offer_id: offer_id.to_string(),
-                },
+                command: "think".to_string(),
+                verb: "think".to_string(),
+                action: Some(command_action("think", &think.label, "think")),
+                dispatch: CommandDispatch::Pass { think },
             });
         }
         let offer = select_current_offer(self, payload.actor_id, &offers, offer_id)?;
@@ -402,16 +406,14 @@ pub(crate) async fn resolve_command_submission_at_boundary(
             Ok((resolved, presence_events))
         }
         Err(error) => {
-            // A normal stale Think/Pass is refused before `pass_action` is
+            // A normal stale Think is refused before `pass_action` is
             // reached, because the certificate no longer names the current
             // hand. Record that canonical-boundary rejection exactly once;
             // direct/internal `pass_action` calls retain their own hook.
             if error.status == 409 {
-                if let Some(pass_offer_id) = payload
-                    .offer_id
-                    .as_deref()
-                    .filter(|offer_id| offer_id.starts_with("pass:"))
-                {
+                if let Some(pass_offer_id) = payload.offer_id.as_deref().filter(|offer_id| {
+                    offer_id.starts_with("pass:") || offer_id.starts_with("think:")
+                }) {
                     if let Some(path) = state.event_store_path.as_deref() {
                         if let Err(metric_error) =
                             record_stale_pass_rejection(path, payload.actor_id, pass_offer_id)
@@ -486,12 +488,18 @@ mod tests {
     fn offer_id_wins_over_legacy_prose_and_hashing_is_deterministic() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5_000, COSY_COTTAGE_LOCATION_ID, "ID Winner");
-        let offer = runtime
-            .legal_action_candidates(Some(5_000), &AccessContext::default())
-            .1
+        let (_, offers) = runtime.legal_action_candidates(Some(5_000), &AccessContext::default());
+        let hand = runtime.action_hand_for(Some(5_000), &offers);
+        let offer = offers
             .into_iter()
-            .find(|offer| !offer.disabled)
-            .expect("seeded actor has an enabled offer");
+            .find(|offer| {
+                !offer.disabled
+                    && hand
+                        .entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+            })
+            .expect("seeded actor has an enabled dealt offer");
         let left = request(5_000, "session", &offer.offer_id);
         let mut right = left.clone();
         right.command = "different legacy prose".to_string();
@@ -575,22 +583,56 @@ mod tests {
             "Offer Property",
         );
         let access = AccessContext::default();
-        let (_, all_offers) = runtime.legal_action_candidates(Some(5_000), &access);
-        let hand = runtime.action_hand_for(Some(5_000), &all_offers);
-        let offers = all_offers
-            .into_iter()
-            .filter(|offer| {
-                hand.entries
-                    .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id)
-            })
-            .collect::<Vec<_>>();
-        assert!(!offers.is_empty());
         let initial = snapshot_bytes(&runtime);
+        let slot_count = runtime
+            .state_response(Some(5_000), &access)
+            .action_hand
+            .entries
+            .len();
+        assert!(slot_count > 0);
 
-        for offer in offers {
+        for slot_index in 0..slot_count {
             let state = test_app_state(runtime_from_bytes(&initial), None);
             let (session, _) = issue_actor_session(&state, 5_000);
+            let mut activate = request(5_000, &session, "");
+            activate.offer_id = None;
+            activate.command = "look".to_string();
+            let activation = command_inner(
+                ConnectInfo("127.0.0.1:44090".parse().expect("client address")),
+                State(state.clone()),
+                Json(activate),
+            )
+            .await
+            .0;
+            assert!(
+                activation.ok,
+                "read-only activation makes the session present"
+            );
+            let active_direct_actors = active_actor_ids_for_state(&state);
+            let offer = {
+                let runtime = state.inner.lock().await;
+                let (mut primary_action, mut offers) = runtime
+                    .legal_action_candidates_with_presence(
+                        Some(5_000),
+                        &access,
+                        Some(&active_direct_actors),
+                    );
+                retain_configured_model_interaction_offers(
+                    &mut primary_action,
+                    &mut offers,
+                    state.ai_config.as_ref().as_ref(),
+                );
+                let hand = runtime.action_hand_for(Some(5_000), &offers);
+                let offer_id = hand
+                    .entries
+                    .get(slot_index)
+                    .map(|entry| entry.offer_id.clone())
+                    .expect("the refreshed hand keeps its bounded slot");
+                offers
+                    .into_iter()
+                    .find(|offer| offer.offer_id == offer_id)
+                    .expect("each refreshed hand entry binds one exact offer")
+            };
             let response = command_inner(
                 ConnectInfo("127.0.0.1:44090".parse().expect("client address")),
                 State(state),
@@ -651,6 +693,7 @@ mod tests {
                 _ => {}
             }
         }
+        complete_guided_story_for_test(&mut runtime, actor_id);
         assert!(runtime.actor_inventory_full(actor_id));
         let pickup_offer = runtime
             .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -679,7 +722,7 @@ mod tests {
                     .any(|entry| entry.offer_id == offer.offer_id)
             })
             .map(|offer| offer.offer_id.clone())
-            .expect("fixture has an offer outside the two-card hand");
+            .expect("fixture has an offer outside the Story Hand");
 
         let state = test_app_state(runtime, None);
         let (session, _) = issue_actor_session(&state, actor_id);
@@ -792,11 +835,21 @@ mod tests {
             "offer rejection emits no presence event"
         );
         let runtime = state.inner.lock().await;
-        assert_eq!(
-            snapshot_bytes(&runtime),
-            before,
-            "offer rejection is byte-atomic"
-        );
+        let after = snapshot_bytes(&runtime);
+        if after != before {
+            let before_value: serde_json::Value =
+                serde_json::from_slice(&before).expect("before snapshot is JSON");
+            let after_value: serde_json::Value =
+                serde_json::from_slice(&after).expect("after snapshot is JSON");
+            let changed_keys = before_value
+                .as_object()
+                .expect("before snapshot is an object")
+                .keys()
+                .filter(|key| before_value.get(*key) != after_value.get(*key))
+                .cloned()
+                .collect::<Vec<_>>();
+            panic!("offer rejection changed snapshot fields: {changed_keys:?}");
+        }
         let restored = runtime_from_bytes(&before);
         assert_eq!(
             serde_json::to_vec(&runtime.event_log).expect("current event log"),

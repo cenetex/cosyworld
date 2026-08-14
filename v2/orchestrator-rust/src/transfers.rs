@@ -941,7 +941,7 @@ mod tests {
                 .collect::<BTreeSet<_>>()
                 .len(),
             action_hand.entries.len(),
-            "the two-card hand cannot collapse or duplicate exact transfer offers"
+            "the Story Hand cannot collapse or duplicate exact transfer offers"
         );
 
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;

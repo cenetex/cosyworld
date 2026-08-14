@@ -10,8 +10,8 @@ const browser = fs.readFileSync(
   "utf8",
 );
 
-describe("two-action browser hand", () => {
-  it("keeps exactly two current card slots and exposes certified Think/Pass as the only cycle action", () => {
+describe("three-slot Story Hand", () => {
+  it("keeps Story, Self, and Anchor visible and exposes targeted certified Think as the only cycle action", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -19,19 +19,20 @@ describe("two-action browser hand", () => {
     expect(browser).not.toContain("data-all-action-index");
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
-    expect(browser).not.toContain('id="tertiary"');
+    expect(browser).toContain('id="tertiary"');
     expect(browser).toContain('id="shuffle"');
-    expect(browser).toContain('data-player-concept="pass"');
-    expect(browser).toContain('aria-label="Think: pass these two actions and commit the turn"');
-    expect(browser).toContain('const buttonIds = ["primary", "secondary"];');
+    expect(browser).toContain('data-player-concept="think"');
+    expect(browser).toContain('aria-label="Think about replacing the focused Story Hand card"');
+    expect(browser).toContain('const buttonIds = ["primary", "secondary", "tertiary"];');
     expect(browser).toContain('async function passHand()');
-    expect(browser).toContain('offer_id: handPassSubmission.offer_id');
+    expect(browser).toContain('const think = entry?.think;');
+    expect(browser).toContain('command: "think"');
     expect(browser).toContain('postResult("/commands", withAccess({');
     expect(browser).not.toContain('post("/actions/draw"');
     expect(browser).not.toContain("advanceHandPage");
     expect(browser).not.toContain("drawNextHandCard");
-    expect(browser).toContain('event.type === "hand.shuffled"');
-    expect(browser).toMatch(/function handCapacity\(\) \{\s+return 2;\s+\}/);
+    expect(browser).toContain('event.type === "hand.thought"');
+    expect(browser).toMatch(/function handCapacity\(\) \{\s+return state\?\.branch \? 2 : Number\(state\?\.action_hand\?\.capacity \|\| 3\);\s+\}/);
   });
 
   it("keeps same-kind Search and Scout targets bound to their dealt certificates", () => {
@@ -44,6 +45,27 @@ describe("two-action browser hand", () => {
     expect(browser).toContain('const scoutGroups = projectedScoutOfferIds.size > 1');
     expect(browser).toContain('scoutAction.selectedTarget = () => scoutCandidates.find((candidate) => (');
     expect(browser).toContain('scoutAction.selectedPayload = () => ({');
+  });
+
+  it("shows Travel and the destination without route-type copy in the hand", () => {
+    const routeBlock = browser.slice(
+      browser.indexOf("const projectedRouteOfferIds"),
+      browser.indexOf('if (options.has("use_item"))'),
+    );
+    const cardRenderBlock = browser.slice(
+      browser.indexOf("function renderButton"),
+      browser.indexOf("function actionBarActions"),
+    );
+
+    expect(routeBlock).toContain(
+      "? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)",
+    );
+    expect(routeBlock).toContain("destinationOnlyCardAriaLabel: destinationOnlyCardLabel");
+    expect(routeBlock).not.toContain("conciseRouteLabel");
+    expect(cardRenderBlock).toContain(
+      'String(action?.intention || "").toLowerCase() === "travel"',
+    );
+    expect(cardRenderBlock).toContain('? "Travel"');
   });
 
   it("submits room-feature Use offers through the typed item endpoint", () => {
