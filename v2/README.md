@@ -623,7 +623,7 @@ The default client is JRPG-style button mode:
 [Q]     quit
 ```
 
-The client presents the server-authored Story, Self, and Anchor slots. Each action has one of six suits—Wonder, Way, Heart, Hand, Courage, or Hearth—plus an exact verb, source, state, provenance, cost, risk, and effect. Think replaces only the focused slot: the first Think after entering a safe scene is free, while later Thinks and every Think in a risky or ordered scene consume the turn. `/commands` remains a narrow text convenience for room inspection, reporting, and safety; state-changing scene play requires a current offered certificate.
+The client presents the server-authored Story, Self, and Anchor slots. Each action has one of four suits—Head, Heart, Honor, or Hustle—plus an exact verb, source, state, provenance, cost, risk, and effect. Think replaces only the focused slot: the first Think after entering a safe scene is free, while later Thinks and every Think in a risky or ordered scene consume the turn. `/commands` remains a narrow text convenience for room inspection, reporting, and safety; state-changing scene play requires a current offered certificate.
 
 See [Story Hand](docs/story-hand.md) for the complete suit meanings, slot rules,
 presentation contract, and player vocabulary.

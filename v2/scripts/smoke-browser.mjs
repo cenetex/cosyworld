@@ -1153,7 +1153,7 @@ async function main() {
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace === "normal" && guide.layout?.overflow === "visible", `Journal guidance should read as wrapped handwriting instead of a clipped status row: ${JSON.stringify(guide)}`);
-    assert(guide.primary.toLowerCase().startsWith("wonder suit, notice"), `first-thread guidance should keep a Wonder · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
+    assert(guide.primary.toLowerCase().startsWith("head suit, notice"), `first-thread guidance should keep a Head · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(
       guide.settledNoticeStep?.stage === 2
@@ -12573,7 +12573,7 @@ async function main() {
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
-      assert(firstTaleStart.primary.toLowerCase().startsWith("wonder suit, notice"), `second player should enter through a welcoming Wonder · Notice card: ${JSON.stringify(firstTaleStart)}`);
+      assert(firstTaleStart.primary.toLowerCase().startsWith("head suit, notice"), `second player should enter through a welcoming Head · Notice card: ${JSON.stringify(firstTaleStart)}`);
       const firstNotice = await playOtherPrimary("second-player Notice", () => (
         state?.first_tale?.phase === "follow_lead"
         && state?.first_tale?.trace_event_seq == null
