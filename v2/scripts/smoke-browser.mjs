@@ -706,13 +706,27 @@ async function main() {
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
+      const status = document.querySelector("#error");
+      const statusStyle = getComputedStyle(status);
+      const labels = [...prompt.querySelectorAll(".cmd-label-text")];
       const cards = [...prompt.querySelectorAll("button")]
         .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.getBoundingClientRect());
+      const tertiary = document.querySelector("#tertiary");
+      const tertiaryRect = tertiary?.getBoundingClientRect();
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
+        promptDisplay: getComputedStyle(prompt).display,
+        promptColumns: getComputedStyle(prompt).gridTemplateColumns.split(" ").filter(Boolean).length,
         cardsFit: cards.length <= 3
           && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
+        thirdCardSpansRow: cards.length < 3
+          || Boolean(tertiaryRect && tertiaryRect.width >= prompt.clientWidth - 17),
+        documentFits: document.documentElement.scrollWidth <= window.innerWidth,
+        primaryLabelsFit: labels.every((label) => label.scrollHeight <= label.clientHeight + 1),
+        statusWraps: statusStyle.whiteSpace === "normal"
+          && statusStyle.textOverflow === "clip"
+          && status.scrollHeight <= status.clientHeight + 1,
         journaled: logEvents.some((event) => event.type === "hand.thought"),
       };
     });
@@ -721,7 +735,13 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
+        && layout.promptDisplay === "grid"
+        && layout.promptColumns === 2
         && layout.cardsFit
+        && layout.thirdCardSpansRow
+        && layout.documentFits
+        && layout.primaryLabelsFit
+        && layout.statusWraps
         && layout.journaled,
       `Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
     );
