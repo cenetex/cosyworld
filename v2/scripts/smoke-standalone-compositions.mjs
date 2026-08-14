@@ -489,10 +489,18 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
     offer = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
     if (offer) break;
     if (maxPassAttempts === 0) {
-      maxPassAttempts = Math.max(1, Number(state.action_hand?.deck_size ?? 0));
+      maxPassAttempts = Math.max(
+        1,
+        Number(state.action_hand?.deck_size ?? 0) * Number(state.action_hand?.capacity ?? 1),
+      );
     }
     if (passAttempts >= maxPassAttempts) break;
-    const passOffer = state.action_hand?.pass;
+    const thinkEntries = (state.action_hand?.entries || [])
+      .filter((entry) => entry.think?.available && entry.think.offer_id)
+      .sort((left, right) =>
+        Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
+          || left.slot.localeCompare(right.slot));
+    const passOffer = thinkEntries[0]?.think ?? state.action_hand?.pass;
     assert(
       passOffer?.offer_id,
       `No dealt card matches ${description} and Think is unavailable: ${JSON.stringify(state.action_hand)}`,
@@ -519,7 +527,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   }
   assert(
     offer?.offer_id,
-    `The finite hand did not deal ${description} within ${maxPassAttempts} Passes: ${JSON.stringify({
+    `The finite hand did not deal ${description} within ${maxPassAttempts} Thinks: ${JSON.stringify({
       hand: state?.action_hand,
       offers: state?.action_offers?.map(({ kind, command, label }) => ({ kind, command, label })),
       questions: state?.shared_questions?.map(({ id, strategies }) => ({
@@ -618,7 +626,7 @@ function assertLanternSuggestions(state, label) {
   if (question.presentation_state !== "active") return;
   const suggestions = state.action_offers || [];
   assert(
-    suggestions.length === 2
+    suggestions.length === 3
       && suggestions.every((suggestion) =>
         suggestion.offer_id
           && suggestion.accessible_label
@@ -627,7 +635,7 @@ function assertLanternSuggestions(state, label) {
           && suggestion.effect)
       && Number.isFinite(Number(question.filled))
       && Number.isFinite(Number(question.danger_filled)),
-    `${label} did not expose exactly two accessible truthful suggestions: ${JSON.stringify({
+    `${label} did not expose exactly three accessible truthful suggestions: ${JSON.stringify({
       suggestions,
       question,
     })}`,
@@ -766,6 +774,28 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   traceLantern("lantern arrival", taleState);
 
+  const maraOffer = firstTaleAdvancingOffer(taleState, "lantern Mara continuation");
+  assert(
+    maraOffer.kind === "create_bond" && maraOffer.target?.id === 8301,
+    `Lantern continuation did not certify Mara's exact relationship offer: ${JSON.stringify(maraOffer)}`,
+  );
+  const metMara = await command(baseUrl, actorId, actorSession, maraOffer.command);
+  assert(
+    metMara.events?.filter((event) => event.type === "bond.created").length === 1
+      && metMara.events?.filter((event) => event.type === "relationship.beat").length === 1
+      && metMara.events?.some((event) =>
+        event.type === "relationship.beat" && event.content?.includes("empty key hook")),
+    `Lantern Keeper did not commit Mara's corrected authored relationship beat: ${JSON.stringify(metMara)}`,
+  );
+  const acceptedMara = await fetchInspectableState(baseUrl, actorId, actorSession);
+  assert(
+    acceptedMara.first_tale?.continuation?.phase === "accepted"
+      && acceptedMara.first_tale?.continuation?.target_actor_id === 8301
+      && acceptedMara.first_tale?.continuation?.instruction?.includes("dark-road lead")
+      && acceptedMara.first_tale?.advancing_offer_id == null,
+    `Lantern continuation did not settle after Mara's active bond: ${JSON.stringify(acceptedMara.first_tale)}`,
+  );
+
   const searchedFailingLantern = await command(baseUrl, actorId, actorSession, "search");
   assert(
     searchedFailingLantern.events?.some((event) =>
@@ -791,30 +821,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     equippedCampKit.events?.filter((event) =>
       event.type === "item.equipped" && event.item_id === 8405).length === 1,
     `Lantern Keeper could not equip its public camp-shelter tool: ${JSON.stringify(equippedCampKit)}`,
-  );
-
-  const readyForMara = await fetchInspectableState(baseUrl, actorId, actorSession);
-  traceLantern("lantern ready for Mara", readyForMara);
-  const maraOffer = firstTaleAdvancingOffer(readyForMara, "lantern Mara continuation");
-  assert(
-    maraOffer.kind === "create_bond" && maraOffer.target?.id === 8301,
-    `Lantern continuation did not certify Mara's exact relationship offer: ${JSON.stringify(maraOffer)}`,
-  );
-  const metMara = await command(baseUrl, actorId, actorSession, maraOffer.command);
-  assert(
-    metMara.events?.filter((event) => event.type === "bond.created").length === 1
-      && metMara.events?.filter((event) => event.type === "relationship.beat").length === 1
-      && metMara.events?.some((event) =>
-        event.type === "relationship.beat" && event.content?.includes("empty key hook")),
-    `Lantern Keeper did not commit Mara's corrected authored relationship beat: ${JSON.stringify(metMara)}`,
-  );
-  const acceptedMara = await fetchInspectableState(baseUrl, actorId, actorSession);
-  assert(
-    acceptedMara.first_tale?.continuation?.phase === "accepted"
-      && acceptedMara.first_tale?.continuation?.target_actor_id === 8301
-      && acceptedMara.first_tale?.continuation?.instruction?.includes("dark-road lead")
-      && acceptedMara.first_tale?.advancing_offer_id == null,
-    `Lantern continuation did not settle after Mara's active bond: ${JSON.stringify(acceptedMara.first_tale)}`,
   );
 
   const scouted = await command(baseUrl, actorId, actorSession, "scout Mothwood Path");
@@ -1413,13 +1419,21 @@ async function runWorldLoop(spec) {
     let exactConnection = null;
     if (spec.scoutDestination) {
       if (spec.additionalScoutDestination) {
-        const initialScoutTargets = initial.action_offers
-          ?.filter((offer) => offer.kind === "explore_path")
-          .map((offer) => offer.target?.label);
-        assert(
-          initialScoutTargets?.includes(spec.scoutDestination)
-            && initialScoutTargets.includes(spec.additionalScoutDestination),
-          `${spec.label} did not expose its branching Scout routes: ${JSON.stringify(initialScoutTargets)}`,
+        await dealOffer(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          (offer) => offer.kind === "explore_path"
+            && offer.target?.label === spec.scoutDestination,
+          `${spec.label} primary branching Scout route`,
+        );
+        await dealOffer(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          (offer) => offer.kind === "explore_path"
+            && offer.target?.label === spec.additionalScoutDestination,
+          `${spec.label} additional branching Scout route`,
         );
       }
       for (let attempt = 0; attempt < 24; attempt += 1) {
