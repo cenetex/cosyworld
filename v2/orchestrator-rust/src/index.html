@@ -5459,6 +5459,12 @@
       return authoredAbilityChoice(value)?.label || String(value || fallback);
     }
     const actionCardSuits = ["head", "heart", "honor", "hustle"];
+    const actionCardSuitEmojis = {
+      head: "🧠",
+      heart: "❤️",
+      honor: "🛡️",
+      hustle: "🛠️",
+    };
     const actionCardSuitClasses = actionCardSuits.map((suit) => `suit-${suit}`);
     const actionCardAccentClasses = [...actionCardSuitClasses, "card-control"];
     const bootParams = new URLSearchParams(window.location.search);
@@ -8607,6 +8613,10 @@
     function normalizeActionCardSuit(suit) {
       const normalized = String(suit || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       return actionCardSuits.includes(normalized) ? normalized : "";
+    }
+
+    function actionCardSuitEmoji(suit) {
+      return actionCardSuitEmojis[normalizeActionCardSuit(suit)] || "";
     }
 
     function normalizeActionCardRarity(rarity) {
@@ -15303,13 +15313,7 @@
     }
 
     function actionEmoji(action) {
-      const bySuit = {
-        head: "🧠",
-        heart: "❤️",
-        honor: "🛡️",
-        hustle: "🛠️",
-      };
-      return bySuit[actionCardSuit(action)] || cardEmoji(action?.card, action?.shape);
+      return actionCardSuitEmoji(actionCardSuit(action)) || cardEmoji(action?.card, action?.shape);
     }
 
     function actionIconName(action) {
@@ -16393,13 +16397,14 @@
           || action.label
           || "Action"
       ).trim();
+      const suitEmoji = actionCardSuitEmoji(suit);
       const effectText = friendlyActionText(presentation.effect || action.effect);
       const riskText = friendlyActionText(presentation.risk || action.risk);
       const orbCost = Number(presentation.cost?.orbs || action.orbCost || 0);
       const costText = orbCost ? `${orbCost} Orb${orbCost === 1 ? "" : "s"}` : "free";
       const sourceText = handProviderReason(action);
       const title = [
-        suit ? `${suit} · ${exactVerb}` : exactVerb,
+        suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb,
         cardTitle,
         effectText,
         [costText, riskText].filter(Boolean).join(" · "),
@@ -16452,7 +16457,7 @@
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      const kicker = suit ? `${suit} · ${exactVerb}` : exactVerb;
+      const kicker = suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb;
       const economy = [costText, riskText].filter(Boolean).join(" · ");
       const rarityMark = suit
         ? `<span class="collectible-mark" title="${escapeAttr(`${rarity} · ${presentation.provenance || "core"}`)}" aria-hidden="true">◇</span>`
