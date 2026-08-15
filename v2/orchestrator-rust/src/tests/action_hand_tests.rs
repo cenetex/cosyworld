@@ -2181,6 +2181,7 @@ fn public_state_keeps_the_action_hand_bounded() {
         "factions",
         "card_transactions",
         "inspector",
+        "journal_beats",
     ] {
         assert!(state.get(hidden).is_none(), "{hidden} must remain internal");
     }
@@ -2198,9 +2199,10 @@ fn public_state_keeps_the_action_hand_bounded() {
     assert!(state["action_hand"]["entries"]
         .as_array()
         .is_some_and(|entries| entries.len() <= 3));
-    assert!(state["journal_beats"]
+    assert_eq!(state["journal"]["protocol"], "cosyworld.daily-journal.v1");
+    assert!(state["journal"]["pages"]
         .as_array()
-        .is_some_and(|beats| beats.len() <= 60));
+        .is_some_and(|pages| pages.len() <= 32));
 
     let location = state["location"].as_object().expect("public location");
     for hidden in [
