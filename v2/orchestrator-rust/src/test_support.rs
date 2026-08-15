@@ -117,6 +117,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
         qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
         wallet_actor_links: Arc::new(StdMutex::new(BTreeMap::new())),
+        avatar_creation_lock: Arc::new(Mutex::new(())),
         actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
         actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
         rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
