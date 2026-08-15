@@ -6780,7 +6780,7 @@
           .find((candidate) => candidate.id === selection.profileId) || null
         : null;
       const choiceId = selection?.choiceId || profile?.default_choice_id || null;
-      const payload = profile
+      const creationPayload = profile
         ? {
             character_creation_id: selection?.profileId || profile.id,
             ...(profile.schema_version === 2
@@ -6791,6 +6791,11 @@
               : { character_choice_id: choiceId }),
           }
         : { calling: selection?.calling || authoredCallingChoices[0].statement };
+      const summonFromActorId = Number(selection?.summonFromActorId || 0);
+      const payload = {
+        ...creationPayload,
+        ...(summonFromActorId ? { summon_from_actor_id: summonFromActorId } : {}),
+      };
       const avatar = await post("/avatar", withAccess(payload));
       if (!avatar.ok || !avatar.actor?.id || !avatar.actor_session) {
         throw new Error(avatarFailureMessage(avatar));
@@ -7309,8 +7314,9 @@
     }
 
     function buildActions(view) {
-      if (view.primary_action?.kind === "create_avatar") {
-        if (actorId && !actorSessionTerminal) {
+      const summoningAvatar = view.primary_action?.kind === "summon_avatar";
+      if (view.primary_action?.kind === "create_avatar" || summoningAvatar) {
+        if (!summoningAvatar && actorId && !actorSessionTerminal) {
           return [{
             kind: "avatar-reconnect",
             label: "reconnect",
@@ -7327,7 +7333,7 @@
             run: () => connectWallet(),
           }];
         }
-        const beginningAgain = Boolean(defeatTransition);
+        const beginningAgain = Boolean(defeatTransition) && !summoningAvatar;
         const creationProfile = (view.character_creation || [])[0] || null;
         const callingChoices = authoredCallingChoices.map((choice) => ({
           label: choice.label,
@@ -7348,21 +7354,29 @@
             priority: 0,
           },
           kind: "avatar-arrival",
-          label: beginningAgain ? "begin again" : "begin",
-          detail: beginningAgain
+          label: summoningAvatar ? "summon" : beginningAgain ? "begin again" : "begin",
+          detail: summoningAvatar
+            ? "bring a rescuer into the world"
+            : beginningAgain
             ? "make a new avatar"
             : "choose what draws you into the shared world",
-          command: "create avatar",
-          focusKey: "create-avatar",
+          command: summoningAvatar ? "summon avatar" : "create avatar",
+          focusKey: summoningAvatar ? "summon-avatar" : "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          modalTitle: beginningAgain
+          modalTitle: summoningAvatar
+            ? "summon a new traveler"
+            : beginningAgain
             ? "begin another tale"
             : "what draws you in?",
-          modalSummary: beginningAgain
+          modalSummary: summoningAvatar
+            ? "Your knocked-out avatar remains where they fell, with their identity and belongings. Choose who enters the world to attempt the rescue."
+            : beginningAgain
             ? "Choose the aspiration that draws your next avatar into the world."
             : "Choose an aspiration, then let deeds reveal what this avatar becomes known for.",
-          effect: "brings your new avatar into The Cosy Cottage",
+          effect: summoningAvatar
+            ? "creates one playable rescuer while your knocked-out avatar remains in the world"
+            : "brings your new avatar into The Cosy Cottage",
           choices: callingChoices,
           selectedChoice: authoredCallingChoices[0].statement,
           busyLabel: "arriving",
@@ -7370,6 +7384,7 @@
         };
         action.run = () => createAvatar({
           calling: action.selectedChoice || authoredCallingChoices[0].statement,
+          summonFromActorId: summoningAvatar ? actorId : 0,
         });
         if (!creationProfile) return [action];
 
@@ -7396,10 +7411,10 @@
             priority: 20,
           },
           kind: "campaign-avatar-arrival",
-          label: "campaign rules",
-          detail: `begin with ${creationProfile.name}`,
-          command: "create campaign avatar",
-          focusKey: `create-avatar:${creationProfile.id}`,
+          label: summoningAvatar ? "summon with campaign rules" : "campaign rules",
+          detail: `${summoningAvatar ? "summon" : "begin"} with ${creationProfile.name}`,
+          command: summoningAvatar ? "summon campaign avatar" : "create campaign avatar",
+          focusKey: `${summoningAvatar ? "summon" : "create"}-avatar:${creationProfile.id}`,
           card: cardForLocation(creationProfile.entry_location_id || view.location?.id),
           shape: "location",
           modalTitle: creationProfile.prompt || "what kind of campaign traveler arrives?",
@@ -7423,10 +7438,12 @@
               profileId: creationProfile.id,
               speciesId: campaignAction.selectedSpeciesId || creationProfile.default_species_id,
               originId: campaignAction.selectedOriginId || creationProfile.default_origin_id,
+              summonFromActorId: summoningAvatar ? actorId : 0,
             }
           : {
               profileId: creationProfile.id,
               choiceId: campaignAction.selectedChoice || creationProfile.default_choice_id,
+              summonFromActorId: summoningAvatar ? actorId : 0,
             });
         return [action, campaignAction];
       }
@@ -14011,23 +14028,29 @@
       const actor = defeatTransition.actorName || "Your avatar";
       const opponent = defeatTransition.opponentName || "the danger";
       const knockedOut = defeatTransition.kind === "combat.knockout";
+      const canSummonRescuer = state?.primary_action?.kind === "summon_avatar";
       const kicker = knockedOut ? "knocked out" : "this tale has ended";
       const text = knockedOut
         ? `${actor} was knocked out by ${opponent}.`
         : `${actor} was defeated by ${opponent}.`;
       const cue = knockedOut
-        ? "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Stay with them while help arrives."
+        ? canSummonRescuer
+          ? "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Summon one new traveler to attempt the rescue."
+          : "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Stay with them while help arrives."
         : "This avatar is gone. Any linked account and items are still here. Choose begin again below when you are ready.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
     function knockedOutObserverHtml() {
-      if (defeatTransition || state?.primary_action?.kind !== "await_rescue") return "";
+      const rescueAction = state?.primary_action?.kind;
+      if (defeatTransition || !["await_rescue", "summon_avatar"].includes(rescueAction)) return "";
       const actor = actorForId(actorId);
       const name = actor?.name || "Your avatar";
       const text = `${name} is knocked out, but still present in this one shared world.`;
-      const cue = "You can observe the room while another traveler brings help. This identity, its bonds, belongings, and journal remain attached.";
+      const cue = rescueAction === "summon_avatar"
+        ? "You can observe the room or summon one new traveler to attempt the rescue. This identity, its bonds, belongings, and journal remain attached."
+        : "You can observe the room while another traveler brings help. This identity, its bonds, belongings, and journal remain attached.";
       const aria = `awaiting rescue. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">awaiting rescue</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }

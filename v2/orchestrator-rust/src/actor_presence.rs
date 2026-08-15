@@ -379,6 +379,18 @@ impl RuntimeWorld {
             && self.actor_control_mode(actor_id).is_direct_input()
     }
 
+    pub(super) fn can_summon_avatar_for_rescue(&self, actor_id: u64) -> bool {
+        self.actor_by_id(actor_id).is_some_and(|actor| {
+            actor.kind == CW_ACTOR_HUMAN
+                && actor.status == CW_ACTOR_KNOCKED_OUT
+                && self.actor_control_mode(actor.id).is_direct_input()
+        }) && !self.avatar_rescue_predecessors.contains_key(&actor_id)
+            && !self
+                .avatar_rescue_predecessors
+                .values()
+                .any(|downed_actor_id| *downed_actor_id == actor_id)
+    }
+
     pub(super) fn avatar_lifecycle_primary_action(&self, actor_id: u64) -> Option<PrimaryAction> {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return Some(create_avatar_primary_action());
@@ -458,6 +470,16 @@ fn create_avatar_primary_action() -> PrimaryAction {
         kind: "create_avatar".to_string(),
         label: "Create Avatar".to_string(),
         command: "create avatar".to_string(),
+        disabled: false,
+        options: Vec::new(),
+    }
+}
+
+pub(super) fn summon_avatar_primary_action() -> PrimaryAction {
+    PrimaryAction {
+        kind: "summon_avatar".to_string(),
+        label: "Summon a New Avatar".to_string(),
+        command: "summon avatar".to_string(),
         disabled: false,
         options: Vec::new(),
     }

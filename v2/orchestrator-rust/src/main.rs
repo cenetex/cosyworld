@@ -18,6 +18,7 @@ mod ai_voice_routing;
 mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_levels;
+mod avatar_links;
 mod avatar_reflections;
 #[cfg(test)]
 mod beliefs_tests;
@@ -127,6 +128,7 @@ use ai_readiness::*;
 use ai_resident_planning::*;
 use avatar_context_spine::*;
 use avatar_identity::*;
+use avatar_links::*;
 use avatar_reflections::*;
 use axum::{
     body::{to_bytes, Body},
@@ -280,6 +282,7 @@ struct AppState {
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
     wallet_actor_links: Arc<StdMutex<BTreeMap<String, u64>>>,
+    avatar_creation_lock: Arc<Mutex<()>>,
     actor_sessions: Arc<StdMutex<ActorSessions>>,
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
@@ -919,6 +922,9 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    StartAvatarRescueRun {
+        downed_actor_id: u64,
+    },
     ResolveCraft {
         receipt: CraftReceiptState,
     },
@@ -1565,6 +1571,7 @@ struct RuntimeWorld {
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
+    avatar_rescue_predecessors: BTreeMap<u64, u64>,
     character_identities: BTreeMap<u64, AvatarIdentityState>,
     callings: BTreeMap<u64, CallingState>,
     skills: BTreeMap<String, SkillState>,
@@ -1702,6 +1709,8 @@ struct RuntimeSnapshot {
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     #[serde(default)]
     journeys: BTreeMap<u64, JourneyState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    avatar_rescue_predecessors: BTreeMap<u64, u64>,
     #[serde(default)]
     character_identities: BTreeMap<u64, AvatarIdentityState>,
     #[serde(default)]
@@ -3237,6 +3246,8 @@ struct CreateAvatarRequest {
     name: Option<String>,
     calling: Option<String>,
     wallet_session: Option<String>,
+    #[serde(default)]
+    summon_from_actor_id: Option<u64>,
     character_creation_id: Option<String>,
     character_choice_id: Option<String>,
     species_id: Option<String>,
@@ -4228,36 +4239,6 @@ fn ping_actor_session_for_actor(
     Some(was_active)
 }
 
-fn linked_actor_for_wallet(state: &AppState, wallet_address: &str) -> Option<u64> {
-    let wallet = wallet_address.trim();
-    if wallet.is_empty() {
-        return None;
-    }
-    state
-        .wallet_actor_links
-        .lock()
-        .ok()
-        .and_then(|links| links.get(wallet).copied())
-}
-
-fn link_wallet_actor(state: &AppState, wallet_address: &str, actor_id: u64) {
-    let wallet = wallet_address.trim();
-    if wallet.is_empty() || actor_id == 0 {
-        return;
-    }
-    if let Ok(mut links) = state.wallet_actor_links.lock() {
-        links.insert(wallet.to_string(), actor_id);
-    }
-    if let Some(path) = state.event_store_path.as_deref() {
-        if let Err(error) = persist_wallet_actor_link(path, wallet, actor_id) {
-            warn!(
-                "failed to persist CosyWorld wallet avatar link for {} -> {}: {}",
-                wallet, actor_id, error
-            );
-        }
-    }
-}
-
 fn active_actor_ids(actor_sessions: &StdMutex<ActorSessions>) -> BTreeSet<u64> {
     active_actor_ids_with_window(actor_sessions, ACTIVE_ACTOR_WINDOW)
 }
@@ -4430,17 +4411,6 @@ fn allow_actor_mutation(
     let actor_key = rate_limit_key(scope, actor_id);
     state.allow_rate_limit(ip_key, PUBLIC_MUTATION_LIMIT)
         && state.allow_rate_limit(actor_key, actor_limit)
-}
-
-fn avatar_rate_limited_response() -> Json<AvatarResponse> {
-    Json(AvatarResponse {
-        ok: false,
-        status: RATE_LIMITED_STATUS,
-        actor: None,
-        actor_session: None,
-        actor_session_expires_at_unix: None,
-        events: Vec::new(),
-    })
 }
 
 fn action_rate_limited_response() -> Json<ActionResponse> {
@@ -4924,6 +4894,7 @@ impl AppState {
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(wallet_actor_links)),
+            avatar_creation_lock: Arc::new(Mutex::new(())),
             actor_sessions: Arc::new(StdMutex::new(actor_sessions)),
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
@@ -5226,6 +5197,7 @@ impl RuntimeSnapshot {
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
+            avatar_rescue_predecessors: runtime.avatar_rescue_predecessors.clone(),
             character_identities: runtime.character_identities.clone(),
             callings: runtime.callings.clone(),
             skills: runtime.skills.clone(),
@@ -5481,6 +5453,7 @@ impl RuntimeSnapshot {
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
+            avatar_rescue_predecessors: self.avatar_rescue_predecessors,
             character_identities: self.character_identities,
             callings: self.callings,
             skills: self.skills,
@@ -5906,6 +5879,7 @@ impl RuntimeWorld {
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
+            avatar_rescue_predecessors: BTreeMap::new(),
             character_identities: BTreeMap::new(),
             callings: BTreeMap::new(),
             skills: BTreeMap::new(),
@@ -9467,6 +9441,39 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::StartAvatarRescueRun { downed_actor_id } => {
+                    let rescuer_actor_id = action.actor_id;
+                    let valid_downed_body =
+                        self.actor_by_id(*downed_actor_id).is_some_and(|actor| {
+                            actor.kind == CW_ACTOR_HUMAN && actor.status == CW_ACTOR_KNOCKED_OUT
+                        });
+                    let valid_rescuer = self.actor_by_id(rescuer_actor_id).is_some_and(|actor| {
+                        actor.kind == CW_ACTOR_HUMAN && Self::actor_can_act(actor)
+                    });
+                    if action.kind == CW_ACTION_CREATE_ACTOR
+                        && rescuer_actor_id != *downed_actor_id
+                        && valid_downed_body
+                        && valid_rescuer
+                        && !self
+                            .avatar_rescue_predecessors
+                            .contains_key(&rescuer_actor_id)
+                        && !self
+                            .avatar_rescue_predecessors
+                            .values()
+                            .any(|existing_downed_id| existing_downed_id == downed_actor_id)
+                    {
+                        self.avatar_rescue_predecessors
+                            .insert(rescuer_actor_id, *downed_actor_id);
+                        events.push(self.append_async_job_event(
+                            "avatar.rescue_run.started",
+                            rescuer_actor_id,
+                            Some(*downed_actor_id),
+                            Some(
+                                "A new traveler entered the world to attempt a rescue.".to_string(),
+                            ),
+                        ));
+                    }
+                }
                 ProjectionMutation::ResolveCraft { receipt } => {
                     self.apply_craft_resolution(receipt, committed_events);
                 }
@@ -21274,12 +21281,20 @@ async fn state_view(
         record_daily_visit(&state, actor_id);
     }
     let active_direct_actors = active_actor_ids_for_state(&state);
+    let can_summon_avatar = actor_id.is_some_and(|actor_id| {
+        signed_wallet_can_summon_avatar(&state, &runtime, actor_id, &access)
+    });
     let mut response = runtime.state_response_configured(
         actor_id,
         &access,
         Some(&active_direct_actors),
         state.ai_config.as_ref().as_ref(),
     );
+    if can_summon_avatar {
+        let action = actor_presence::summon_avatar_primary_action();
+        response.primary_action = action.clone();
+        response.visible_primary_action = action;
+    }
     let turn_humans = active_actor_ids_for_state(&state);
     response.turn = room_turn_view_for_runtime(
         &state,
@@ -21837,217 +21852,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     Json(ResetResponse {
         ok: true,
         status: CW_OK,
-        events,
-    })
-}
-
-async fn create_avatar(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<CreateAvatarRequest>,
-) -> Json<AvatarResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("avatar-ip", client_ip_key(client_addr)),
-        AVATAR_CREATE_LIMIT,
-    ) {
-        return avatar_rate_limited_response();
-    }
-    let signed_wallet = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token));
-    if let Some(wallet_address) = signed_wallet.as_deref() {
-        if let Some(actor_id) = linked_actor_for_wallet(&state, wallet_address) {
-            if actor_is_suspended(&state, actor_id) {
-                return Json(AvatarResponse {
-                    ok: false,
-                    status: 403,
-                    actor: None,
-                    actor_session: None,
-                    actor_session_expires_at_unix: None,
-                    events: Vec::new(),
-                });
-            }
-            let runtime = state.inner.lock().await;
-            if let Some(actor) = runtime
-                .actor_by_id(actor_id)
-                .filter(|actor| runtime.client_actor_can_observe(actor.id))
-                .map(|actor| runtime.actor_view(actor))
-            {
-                drop(runtime);
-                let (actor_session, actor_session_record) = issue_actor_session(&state, actor_id);
-                record_daily_visit(&state, actor_id);
-                return Json(AvatarResponse {
-                    ok: true,
-                    status: CW_OK,
-                    actor: Some(actor),
-                    actor_session: Some(actor_session),
-                    actor_session_expires_at_unix: Some(actor_session_record.expires_at_unix),
-                    events: Vec::new(),
-                });
-            }
-        }
-    }
-
-    let selection_requested = payload.character_creation_id.is_some()
-        || payload.character_choice_id.is_some()
-        || payload.species_id.is_some()
-        || payload.origin_id.is_some();
-    let character_selection = if selection_requested {
-        let Some(selection) = character_creation_selection(
-            payload.character_creation_id.as_deref(),
-            payload.character_choice_id.as_deref(),
-            payload.species_id.as_deref(),
-            payload.origin_id.as_deref(),
-        ) else {
-            return Json(AvatarResponse {
-                ok: false,
-                status: 400,
-                actor: None,
-                actor_session: None,
-                actor_session_expires_at_unix: None,
-                events: Vec::new(),
-            });
-        };
-        Some(selection)
-    } else {
-        None
-    };
-    let actor_id = {
-        let mut runtime = state.inner.lock().await;
-        let actor_id = runtime.next_actor_id;
-        runtime.next_actor_id = runtime.next_actor_id.saturating_add(1);
-        actor_id
-    };
-    let initial_calling = character_selection
-        .as_ref()
-        .and_then(|selection| selection.class.as_ref())
-        .map(|class| class.calling.clone())
-        .or_else(|| {
-            payload
-                .calling
-                .as_deref()
-                .and_then(authored_calling_statement)
-        })
-        .unwrap_or_else(|| default_calling_statement().to_string());
-    let entry_location_id = character_selection
-        .as_ref()
-        .map(|selection| selection.profile.entry_location_id)
-        .or_else(|| content_registry().entry_location_id());
-    let Some(entry_location_id) = entry_location_id else {
-        return Json(AvatarResponse {
-            ok: false,
-            status: 503,
-            actor: None,
-            actor_session: None,
-            actor_session_expires_at_unix: None,
-            events: Vec::new(),
-        });
-    };
-    // Avatar creation is a card action, so it commits with a deterministic
-    // identity immediately. Unnamed avatars are refined by AI after the
-    // response has returned and announced over the event stream.
-    let naming_context = avatar_naming_context(character_selection.as_ref());
-    let base_identity = cosyworld_ai_model::generate_avatar_identity_with_naming(
-        actor_id,
-        payload.name.as_deref(),
-        active_content().manifest.avatar_naming.as_ref(),
-        naming_context.as_ref(),
-    )
-    .into();
-    let identity = apply_avatar_creation_flavor(
-        base_identity,
-        character_selection.as_ref(),
-        &initial_calling,
-    );
-    let actor_meta = ActorMeta {
-        name: identity.name.clone(),
-        speech_mode: "prose".to_string(),
-        title: identity.title.clone(),
-        description: identity.description.clone(),
-    };
-    let mut runtime = state.inner.lock().await;
-    let action = CwAction {
-        kind: CW_ACTION_CREATE_ACTOR,
-        actor_id,
-        location_id: entry_location_id,
-        modifier: character_selection
-            .as_ref()
-            .is_some_and(|selection| selection.profile.schema_version == 2)
-            .then_some(-1)
-            .unwrap_or_default(),
-        ..CwAction::default()
-    };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record.initial_calling = Some(initial_calling.clone());
-    record.initial_skill = character_selection
-        .as_ref()
-        .and_then(|selection| selection.class.as_ref())
-        .map(|class| class.starting_skill_id.clone());
-    if let Some(selection) = character_selection
-        .as_ref()
-        .filter(|selection| selection.profile.schema_version == 2)
-    {
-        record.initial_character_profile_id = Some(selection.profile.id.clone());
-        record.initial_species_id = selection.species.as_ref().map(|card| card.id.clone());
-        record.initial_origin_id = selection.origin.as_ref().map(|card| card.id.clone());
-        record.initial_physical_description = Some(identity.visual_prompt.clone());
-    }
-    record.actor_meta_upserts.insert(actor_id, actor_meta);
-    if let Some(host) = runtime.welcome_host_for(entry_location_id) {
-        record
-            .projection_mutations
-            .push(ProjectionMutation::PlaceResident {
-                actor_id: host.id,
-                location_id: entry_location_id,
-                reason: "welcome_new_avatar".to_string(),
-            });
-    }
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(AvatarResponse {
-            ok: false,
-            status: 500,
-            actor: None,
-            actor_session: None,
-            actor_session_expires_at_unix: None,
-            events: Vec::new(),
-        });
-    };
-    let actor = runtime
-        .actor_by_id(actor_id)
-        .map(|actor| runtime.actor_view(actor));
-    let actor_observation =
-        player_tick_observation(&runtime, Some(entry_location_id), actor_id, status, &events);
-    drop(runtime);
-    let (actor_session, actor_session_record) = issue_actor_session(&state, actor_id);
-    if status == CW_OK {
-        if let Some(wallet_address) = signed_wallet.as_deref() {
-            link_wallet_actor(&state, wallet_address, actor_id);
-        }
-        record_avatar_created(&state, actor_id);
-        record_daily_visit(&state, actor_id);
-        if payload.name.is_none() {
-            schedule_avatar_identity_refinement(
-                &state,
-                actor_id,
-                character_selection.clone(),
-                initial_calling.clone(),
-                identity.clone(),
-            );
-        }
-    }
-
-    broadcast_events(&state, &events);
-    if let Some(observation) = actor_observation {
-        schedule_player_tick_observation(&state, observation);
-    }
-    Json(AvatarResponse {
-        ok: status == CW_OK,
-        status,
-        actor,
-        actor_session: (status == CW_OK).then_some(actor_session),
-        actor_session_expires_at_unix: (status == CW_OK)
-            .then_some(actor_session_record.expires_at_unix),
         events,
     })
 }
@@ -43306,14 +43110,18 @@ mod tests {
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
         // A knockout is not an ended tale: the scene keeps the same identity
-        // attached and waits for rescue rather than offering replacement.
+        // attached and may offer one signed-in rescuer rather than replacement.
         assert!(INDEX_HTML.contains("was knocked out by"));
         assert!(INDEX_HTML.contains("Their body is still where it fell"));
         assert!(INDEX_HTML.contains("Stay with them while help arrives."));
-        assert!(INDEX_HTML.contains("kind !== \"await_rescue\""));
+        assert!(INDEX_HTML.contains("Summon one new traveler to attempt the rescue."));
+        assert!(INDEX_HTML.contains("[\"await_rescue\", \"summon_avatar\"].includes(rescueAction)"));
+        assert!(INDEX_HTML.contains("summon_from_actor_id: summonFromActorId"));
         assert!(INDEX_HTML.contains("/avatar/session"));
         assert!(INDEX_HTML.contains("restore this same avatar"));
-        assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
+        assert!(INDEX_HTML.contains(
+            "label: summoningAvatar ? \"summon\" : beginningAgain ? \"begin again\" : \"begin\""
+        ));
         assert!(INDEX_HTML.contains("character_creation_id"));
         assert!(INDEX_HTML.contains("character_choice_id"));
         assert!(INDEX_HTML.contains("species_id"));
@@ -47221,6 +47029,7 @@ mod tests {
                 name: Some("Terminal Sprig".to_string()),
                 calling: None,
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -47273,6 +47082,7 @@ mod tests {
                 name: Some("Elowen Reed".to_string()),
                 calling: None,
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: Some("the-lantern-keeper".to_string()),
                 character_choice_id: None,
                 species_id: Some("human".to_string()),
@@ -47551,6 +47361,7 @@ mod tests {
                 name: Some("Ignored Replacement".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: None,
                 character_creation_id: Some("the-lantern-keeper".to_string()),
                 character_choice_id: None,
                 species_id: Some("human".to_string()),
@@ -47581,6 +47392,170 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn wallet_linked_knocked_out_avatar_can_summon_one_rescuer() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("linked avatar")
+            .status = CW_ACTOR_KNOCKED_OUT;
+        let keepsake = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("story button item");
+        keepsake.holder_actor_id = 5000;
+        keepsake.location_id = 0;
+        keepsake.zone = CW_CARD_ZONE_CARRIED;
+        let actor_count = runtime.world.actor_count;
+
+        let state = test_app_state(runtime, None);
+        let wallet_address = "wallet-summoning-a-rescuer";
+        let wallet_session = "wallet-summoning-a-rescuer-session";
+        insert_wallet_session(&state, wallet_session, wallet_address);
+        link_wallet_actor(&state, wallet_address, 5000);
+
+        let downed_view = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: None,
+                wallet_session: Some(wallet_session.to_string()),
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(downed_view.primary_action.kind, "summon_avatar");
+
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Rowan Vale".to_string()),
+                calling: Some(default_calling_statement().to_string()),
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(5000),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let rescuer_id = response.actor.expect("summoned rescuer").id;
+        assert_ne!(rescuer_id, 5000);
+        assert_eq!(
+            linked_actor_for_wallet(&state, wallet_address),
+            Some(rescuer_id)
+        );
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "avatar.rescue_run.started"
+                && event.actor_id == Some(rescuer_id)
+                && event.target_actor_id == Some(5000)
+        }));
+
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(runtime.world.actor_count, actor_count + 1);
+            assert_eq!(
+                runtime
+                    .actor_by_id(5000)
+                    .expect("downed avatar remains")
+                    .status,
+                CW_ACTOR_KNOCKED_OUT
+            );
+            assert!(runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .any(|item| {
+                    item.id == STORY_BUTTON_ITEM_ID
+                        && item.holder_actor_id == 5000
+                        && item.zone == CW_CARD_ZONE_CARRIED
+                }));
+            assert_eq!(
+                runtime.avatar_rescue_predecessors.get(&rescuer_id),
+                Some(&5000)
+            );
+            let restored = RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .expect("rescue run survives a snapshot round trip");
+            assert_eq!(
+                restored.avatar_rescue_predecessors.get(&rescuer_id),
+                Some(&5000)
+            );
+        }
+
+        let repeated = create_avatar(
+            ConnectInfo("127.0.0.1:45116".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Another Rescuer".to_string()),
+                calling: None,
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(5000),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!repeated.ok);
+        assert_eq!(repeated.status, 409);
+
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            runtime.world.actors[..actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == rescuer_id)
+                .expect("rescuer")
+                .status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let rescuer_view = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(rescuer_id),
+                actor_session: None,
+                wallet_session: Some(wallet_session.to_string()),
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_ne!(rescuer_view.primary_action.kind, "summon_avatar");
+
+        let third_body = create_avatar(
+            ConnectInfo("127.0.0.1:45117".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Third Body".to_string()),
+                calling: None,
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(rescuer_id),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!third_body.ok);
+        assert_eq!(third_body.status, 409);
+        assert_eq!(state.inner.lock().await.world.actor_count, actor_count + 1);
+    }
+
+    #[tokio::test]
     async fn avatar_creation_without_ai_emits_no_fallback_welcome() {
         let state = test_app_state(RuntimeWorld::seeded(), None);
         let mut broadcasts = state.tx.subscribe();
@@ -47592,6 +47567,7 @@ mod tests {
                 name: Some("Welcome Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -47635,6 +47611,7 @@ mod tests {
                 name: Some("Homecoming Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -47692,6 +47669,7 @@ mod tests {
                 name: Some("Scarf Story Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
