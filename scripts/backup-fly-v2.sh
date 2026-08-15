@@ -180,7 +180,10 @@ if [ -z "$snapshot_id" ]; then
   echo "::notice::flyctl snapshot create returned no JSON snapshot id; resolving the exact new snapshot from the verified list"
 fi
 
-timeout_secs="${COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS:-180}"
+# Transient Fly queueing can leave a successfully accepted snapshot in
+# `waiting` or `running` for more than three minutes. Keep the deploy
+# fail-closed while allowing that verified snapshot enough time to finish.
+timeout_secs="${COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS:-600}"
 poll_secs="${COSYWORLD_FLY_SNAPSHOT_POLL_SECS:-5}"
 if ! [[ "$timeout_secs" =~ ^[0-9]+$ ]] || [ "$timeout_secs" -lt 1 ]; then
   echo "::error::COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS must be a positive integer" >&2
