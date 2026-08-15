@@ -1924,8 +1924,8 @@ async function main() {
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);
-    assert(travel?.title === "Rain-Soft Garden", `Travel confirmation should use the destination as its heading: ${JSON.stringify(result)}`);
-    assert(travel?.summary === "From The Cosy Cottage.", `Travel confirmation should add origin context without repeating the destination: ${JSON.stringify(result)}`);
+    assert(travel?.title === "Begin route to Rain-Soft Garden", `Travel confirmation should lead with the route action and destination: ${JSON.stringify(result)}`);
+    assert(!travel?.summary, `Travel confirmation should omit redundant origin prose when no waypoint needs naming: ${JSON.stringify(result)}`);
     assert(travel?.rows?.some((row) => row[1] === "you arrive in Rain-Soft Garden"), `Travel confirmation should explain where the player ends up: ${JSON.stringify(result)}`);
   }
 
@@ -3813,6 +3813,14 @@ async function main() {
           story: singleButton?.querySelector(".story-call")?.textContent?.trim() || "",
           aria: singleButton?.getAttribute("aria-label") || "",
         };
+        openActionModal(single, { handCard: true });
+        const singleModal = {
+          title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
+          summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
+          confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
+          rows: document.querySelectorAll("#action-modal-meta .action-row").length,
+        };
+        closeActionModal();
         return {
           count: routes.length,
           detail: route?.detail || "",
@@ -3827,6 +3835,7 @@ async function main() {
           modal,
           selectedPreview,
           singleCard,
+          singleModal,
           single: single ? {
             accessibleLabel: single.accessibleLabel,
             detail: single.detail,
@@ -3910,8 +3919,15 @@ async function main() {
         && !result.singleCard?.detail
         && !result.singleCard?.provider
         && !result.singleCard?.story
-        && result.singleCard?.aria === "control, Travel, Rain-Silver Crossing, free",
+        && result.singleCard?.aria === "control, Travel, Rain-Silver Crossing",
       `a synthetic Travel offer without server presentation should show its exact verb and target while failing closed to a control: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.singleModal?.title === "Begin route to Rain-Silver Crossing"
+        && !result.singleModal?.summary
+        && result.singleModal?.confirm === "begin route"
+        && result.singleModal?.rows === 0,
+      `single-route confirmation should keep only the destination and route action: ${JSON.stringify(result)}`,
     );
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
@@ -9402,6 +9418,7 @@ async function main() {
         exits: [{
           destination_location_id: 100001,
           destination_location_name: "Cedar Hollow",
+          route_label: "Cairn path from Rain-Soft Garden to Moonlit Trail",
           direction: "east",
           distance: 1,
           accessible: true,
@@ -9653,6 +9670,9 @@ async function main() {
           effect: travelling?.effect,
           command: travelling?.command,
           accessibleLabel: travelling?.accessibleLabel,
+          destinationOnlyCardLabel: travelling?.destinationOnlyCardLabel,
+          modalTitle: travelling?.modalTitle,
+          modalSummary: travelling?.modalSummary,
           direction: travelling?.pathwayDirection,
         },
         backtracking: {
@@ -9706,6 +9726,9 @@ async function main() {
       result.travelling.label === "travel"
         && result.travelling.detail === "toward Moonlit Trail"
         && result.travelling.accessibleLabel === "Travel toward Moonlit Trail"
+        && result.travelling.destinationOnlyCardLabel === "Moonlit Trail"
+        && result.travelling.modalTitle === "Begin route to Moonlit Trail"
+        && result.travelling.modalSummary === "via Cedar Hollow · Cairn path"
         && result.travelling.direction?.side === "forward"
         && result.travelling.direction?.endpointName === "Moonlit Trail"
         && result.travellingActionCount > 1,

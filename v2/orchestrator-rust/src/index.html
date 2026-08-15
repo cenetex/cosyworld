@@ -2636,6 +2636,23 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .cmd-symbols {
+      display: flex;
+      min-height: 11px;
+      align-items: center;
+      gap: 4px;
+      color: var(--dim);
+    }
+    .cmd-symbol {
+      display: inline-flex;
+      align-items: center;
+      color: var(--red);
+      line-height: 1;
+    }
+    .cmd-symbol .ui-icon {
+      width: 11px;
+      height: 11px;
+    }
     .collectible-mark {
       position: absolute;
       right: 7px;
@@ -2859,6 +2876,10 @@
     .action-dialog.hand-card-mode .action-art img {
       min-height: min(42dvh, 330px);
       aspect-ratio: 4 / 3;
+    }
+    .action-dialog.hand-card-mode.travel-card-mode .action-art img {
+      min-height: 0;
+      aspect-ratio: 16 / 7;
     }
     .action-art.avatar img,
     .action-art.item img {
@@ -8544,8 +8565,20 @@
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeLabel = String(firstExit.route_label || "").trim();
           const routeWayName = routeLabel.replace(/\s+from\s+.+\s+to\s+.+$/i, "").trim();
+          const routeWayDetail = /^(?:route|path|way)$/i.test(routeWayName) ? "" : routeWayName;
+          const routeDestinationName = firstPathwayDirection?.endpointName || firstExit.destination_location_name;
+          const routeViaName = firstPathwayDirection
+            && String(firstExit.destination_location_name || "") !== String(routeDestinationName || "")
+            ? firstExit.destination_location_name
+            : routeWayDetail;
+          const routeSupplement = firstPathwayDirection && routeWayDetail !== routeViaName
+            ? routeWayDetail
+            : "";
+          const minimalRouteSummary = [routeViaName ? `via ${routeViaName}` : "", routeSupplement]
+            .filter(Boolean)
+            .join(" · ");
           const destinationOnlyCardLabel = onePath && !searchingPathway && !fleeing
-            ? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)
+            ? routeDestinationName
             : "";
           const routeTargetLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeAccessibleLabel = firstPathwayDirection
@@ -8586,24 +8619,29 @@
             shape: "location",
             priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
             modalEyebrow: onePath
-              ? (firstPathwayDirection ? "On the road" : (fleeing ? "Way out" : (searchingPathway ? "Pathway scout" : "Destination")))
+              ? (fleeing ? "Way out" : (searchingPathway ? "Pathway scout" : "Travel"))
               : (fleeing ? "Way out" : (searchingPathway ? "Pathway scout" : "Travel")),
             modalTitle: onePath
-              ? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)
+              ? (fleeing || searchingPathway
+                ? routeDestinationName
+                : `Begin route to ${routeDestinationName}`)
               : (fleeing ? "Choose a way out" : "Choose a destination"),
             modalSummary: onePath
               ? (firstPathwayDirection
-                ? `Take the next stretch${routeWayName ? ` via ${routeWayName}` : ""}.`
+                ? (fleeing || searchingPathway
+                  ? `Take the next stretch${routeWayName ? ` via ${routeWayName}` : ""}.`
+                  : minimalRouteSummary)
                 : fleeing
                 ? `Leave the danger behind${routeWayName ? ` via ${routeWayName}` : ""}.`
                 : (searchingPathway
                   ? "Reveal the first adjacent stretch without moving."
-                  : `${view.location?.name ? `From ${view.location.name}` : "From here"}${routeWayName ? ` via ${routeWayName}` : ""}.`))
+                  : minimalRouteSummary))
               : (fleeing
                 ? "Leave the danger behind."
                 : (searchingPathway
                   ? "Reveal its next adjacent route segment without moving."
                   : `${view.location?.name ? `From ${view.location.name}.` : "Choose where the road leads next."}`)),
+            minimalTravelPresentation: onePath && !searchingPathway && !fleeing,
             effect: onePath
               ? (firstPathwayDirection
                 ? (Number(firstExit.destination_location_id) === Number(firstPathwayDirection.endpointId)
@@ -16096,6 +16134,7 @@
 
     function actionIconName(action) {
       const label = String(action?.label || action?.command || "").trim().toLowerCase();
+      if (String(action?.intention || "").toLowerCase() === "travel" || label === "travel") return "travel";
       if (label === "dodge") return "shield";
       if (label === "escape" || label === "flee") return "travel";
       const bySuit = {
@@ -16474,6 +16513,7 @@
     }
 
     function actionSummary(action) {
+      if (action?.minimalTravelPresentation) return String(action?.modalSummary || "");
       if (action?.modalSummary) return String(action.modalSummary);
       if (["nudge", "ping"].includes(String(action?.label || "").toLowerCase())) {
         return "Give them a moment. If they're away, the room passes the next choice to someone who's here.";
@@ -16507,7 +16547,7 @@
         return String(action?.project?.verb || "contribute").toLowerCase();
       }
       if (String(action?.intention || "") === "travel") {
-        return action?.choices?.length ? "travel" : "travel there";
+        return action?.choices?.length ? "travel" : "begin route";
       }
       if (["notice", "inspect", "scout"].includes(String(action?.intention || ""))) {
         return label || String(action.intention);
@@ -16733,9 +16773,10 @@
       }
       actionConfirmAction = action;
       const dialog = $("action-modal").querySelector(".action-dialog");
-      dialog.classList.remove("hand-card-mode", ...actionCardAccentClasses);
+      dialog.classList.remove("hand-card-mode", "travel-card-mode", ...actionCardAccentClasses);
       if (handCard) {
         dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);
+        if (action.minimalTravelPresentation) dialog.classList.add("travel-card-mode");
       }
       const label = action.modalTitle || actionTitle(action);
       const selectedChoice = Array.isArray(action?.choices)
@@ -16743,9 +16784,11 @@
         : null;
       syncActionChoicePreview(action, selectedChoice);
       const eyebrow = handCard
-        ? [actionCardSuitEmoji(actionCardSuit(action)), String(action?.presentation?.verb || action?.label || "play").trim()]
-          .filter(Boolean)
-          .join(" · ")
+        ? (action.minimalTravelPresentation
+          ? String(action?.presentation?.verb || action?.label || "travel").trim()
+          : [actionCardSuitEmoji(actionCardSuit(action)), String(action?.presentation?.verb || action?.label || "play").trim()]
+            .filter(Boolean)
+            .join(" · "))
         : String(action.modalEyebrow || "").trim();
       $("action-modal-eyebrow").textContent = eyebrow;
       $("action-modal-eyebrow").hidden = !eyebrow;
@@ -16755,7 +16798,9 @@
       else renderActionModalRows(action);
       renderActionChoices(action);
       renderRoomAvatarRail();
-      $("action-modal-confirm").textContent = handCard ? "play" : actionConfirmLabel(action);
+      $("action-modal-confirm").textContent = handCard && !action.minimalTravelPresentation
+        ? "play"
+        : actionConfirmLabel(action);
       const cancelButton = $("action-modal-cancel");
       cancelButton.textContent = handCard ? "close" : actionCancelLabel(action);
       cancelButton.hidden = false;
@@ -16847,7 +16892,7 @@
       closeModal("action-modal");
       $("action-modal-image").removeAttribute("src");
       $("action-modal").querySelector(".action-art")?.classList.remove("avatar", "item", "location");
-      $("action-modal").querySelector(".action-dialog")?.classList.remove("hand-card-mode", ...actionCardAccentClasses);
+      $("action-modal").querySelector(".action-dialog")?.classList.remove("hand-card-mode", "travel-card-mode", ...actionCardAccentClasses);
       $("action-modal-meta").innerHTML = "";
       $("action-modal-choices").hidden = true;
       $("action-modal-choices").innerHTML = "";
@@ -17381,6 +17426,11 @@
         button.classList.remove("dealt");
       }
       const presentation = action.presentation || {};
+      const destinationOnlyCardLabel = String(action.destinationOnlyCardLabel || "").trim();
+      const minimalTravelCard = Boolean(
+        destinationOnlyCardLabel
+        && String(action?.intention || "").toLowerCase() === "travel"
+      );
       const exactVerb = String(
         String(action?.intention || "").toLowerCase() === "travel"
           ? "Travel"
@@ -17399,12 +17449,13 @@
       const riskText = friendlyActionText(presentation.risk || action.risk);
       const orbCost = Number(presentation.cost?.orbs || action.orbCost || 0);
       const costText = orbCost ? `${orbCost} Orb${orbCost === 1 ? "" : "s"}` : "free";
+      const visibleCostText = minimalTravelCard && !orbCost ? "" : costText;
       const sourceText = handProviderReason(action);
       const title = [
         suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb,
         cardTitle,
         effectText,
-        [costText, riskText].filter(Boolean).join(" · "),
+        [visibleCostText, riskText].filter(Boolean).join(" · "),
         sourceText,
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
@@ -17418,7 +17469,6 @@
         ? (typeof action.busyDetail === "function" ? action.busyDetail() : action.busyDetail)
         : "";
       const detail = friendlyActionText(pendingDetail || action.detail);
-      const destinationOnlyCardLabel = String(action.destinationOnlyCardLabel || "").trim();
       button.setAttribute(
         "aria-label",
         [
@@ -17426,7 +17476,7 @@
           exactVerb,
           action.destinationOnlyCardAriaLabel || action.accessibleLabel || cardTitle,
           destinationOnlyCardLabel ? "" : effectText,
-          [costText, riskText].filter(Boolean).join(", "),
+          [visibleCostText, riskText].filter(Boolean).join(", "),
           destinationOnlyCardLabel ? "" : sourceText,
           storyGuideLabel,
           count ? `suggestion ${count}` : "",
@@ -17455,11 +17505,14 @@
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
       const kicker = suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb;
-      const economy = [costText, riskText].filter(Boolean).join(" · ");
+      const economy = [visibleCostText, minimalTravelCard ? "" : riskText].filter(Boolean).join(" · ");
+      const mechanicsHtml = minimalTravelCard && riskText
+        ? `<span class="cmd-symbols"><span class="cmd-symbol" title="${escapeAttr(riskText)}" aria-label="${escapeAttr(riskText)}">${iconSvg("danger")}</span></span>`
+        : (economy ? `<span class="cmd-meta">${escapeHtml(economy)}</span>` : "");
       const rarityMark = suit
         ? `<span class="collectible-mark" title="${escapeAttr(`${rarity} · ${presentation.provenance || "core"}`)}" aria-hidden="true">◇</span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(kicker)}</span><span class="cmd-label">${iconSvg(actionIconName(action))}<span class="cmd-label-text">${escapeHtml(labelText)}</span></span>${detailHtml}<span class="cmd-meta">${escapeHtml(economy)}</span>${providerHtml}${storyHtml}</span>${rarityMark}${busyHtml}`;
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(kicker)}</span><span class="cmd-label">${iconSvg(actionIconName(action))}<span class="cmd-label-text">${escapeHtml(labelText)}</span></span>${detailHtml}${mechanicsHtml}${providerHtml}${storyHtml}</span>${rarityMark}${busyHtml}`;
     }
 
     function actionBarActions() {
