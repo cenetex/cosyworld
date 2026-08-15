@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("three-slot Story Hand", () => {
-  it("keeps Story, Self, and Anchor visible and puts targeted Discard inside card details", () => {
+  it("keeps Story, Self, and Anchor visible and opens focused cards with Play and Discard", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -24,6 +24,13 @@ describe("three-slot Story Hand", () => {
     expect(browser).not.toContain('data-player-concept="think"');
     expect(browser).toContain('id="action-modal-discard"');
     expect(browser).toContain('data-analytics-event="action.discard"');
+    expect(browser).toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
+    expect(browser).toContain('openActionModal(action, { handCard: true });');
+    expect(browser).toContain('dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);');
+    expect(browser).toContain('$("action-modal-confirm").textContent = handCard ? "play"');
+    expect(browser).toContain('discardButton.textContent = handCard ? "discard"');
+    expect(browser).not.toContain("function travellingPartyHeaderHtml");
+    expect(browser).not.toContain('writeStatus(`${statusActivity.label} · ${statusActivity.text}`');
     expect(browser).toContain('const buttonIds = ["primary", "secondary", "tertiary"];');
     expect(browser).toContain('async function discardActionCard(focused = visibleFocusedAction())');
     expect(browser).toContain('const think = entry?.think;');

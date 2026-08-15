@@ -2825,6 +2825,20 @@
       padding: 0;
       overflow: hidden auto;
     }
+    .action-dialog.hand-card-mode {
+      --cmd-accent: var(--card-control);
+      --cmd-accent-rgb: var(--card-control-rgb);
+      width: min(390px, calc(100vw - 24px));
+      max-height: calc(100dvh - 24px);
+      border-color: rgba(var(--cmd-accent-rgb), 0.58);
+      background:
+        linear-gradient(180deg, rgba(var(--cmd-accent-rgb), 0.08), transparent 42%),
+        #191611;
+    }
+    .action-dialog.hand-card-mode.suit-head { --cmd-accent: var(--suit-head); --cmd-accent-rgb: var(--suit-head-rgb); }
+    .action-dialog.hand-card-mode.suit-heart { --cmd-accent: var(--suit-heart); --cmd-accent-rgb: var(--suit-heart-rgb); }
+    .action-dialog.hand-card-mode.suit-honor { --cmd-accent: var(--suit-honor); --cmd-accent-rgb: var(--suit-honor-rgb); }
+    .action-dialog.hand-card-mode.suit-hustle { --cmd-accent: var(--suit-hustle); --cmd-accent-rgb: var(--suit-hustle-rgb); }
     .action-art {
       clear: both;
       border: 0;
@@ -2839,6 +2853,13 @@
       object-fit: cover;
       background: rgba(16, 25, 18, 0.72);
     }
+    .action-dialog.hand-card-mode .action-art {
+      border-bottom-color: rgba(var(--cmd-accent-rgb), 0.34);
+    }
+    .action-dialog.hand-card-mode .action-art img {
+      min-height: min(42dvh, 330px);
+      aspect-ratio: 4 / 3;
+    }
     .action-art.avatar img,
     .action-art.item img {
       object-fit: contain;
@@ -2852,6 +2873,20 @@
       display: grid;
       gap: 5px;
       padding: 16px 18px 0;
+    }
+    .action-dialog.hand-card-mode .action-copy {
+      padding-top: 14px;
+    }
+    .action-dialog.hand-card-mode .action-eyebrow {
+      color: var(--cmd-accent);
+    }
+    .action-dialog.hand-card-mode .action-title {
+      color: var(--text);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: clamp(24px, 7vw, 32px);
+    }
+    .action-dialog.hand-card-mode .action-meta {
+      display: none;
     }
     .action-eyebrow {
       color: var(--dim);
@@ -2989,6 +3024,7 @@
       outline: 2px solid var(--amber);
       outline-offset: 2px;
     }
+    .action-cancel[hidden] { display: none; }
     .action-discard {
       border-color: rgba(239, 201, 107, 0.42);
       color: var(--amber);
@@ -3002,6 +3038,20 @@
     }
     .action-actions.has-discard {
       grid-template-columns: auto auto minmax(0, 1fr);
+    }
+    .action-actions.hand-card-actions {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .action-dialog.hand-card-mode .action-discard,
+    .action-dialog.hand-card-mode .action-confirm {
+      min-height: 48px;
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+    .action-dialog.hand-card-mode .action-confirm {
+      border-color: rgba(var(--cmd-accent-rgb), 0.58);
+      background: rgba(var(--cmd-accent-rgb), 0.18);
+      color: var(--text);
     }
     .wallet-title {
       clear: both;
@@ -4769,38 +4819,6 @@
       font-size: 12px;
       text-align: center;
     }
-    .party-channel-heading {
-      position: sticky;
-      top: -12px;
-      z-index: 4;
-      min-height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin: -12px -16px 9px;
-      padding: 8px 16px;
-      border-bottom: 1px solid rgba(239, 201, 107, 0.18);
-      background: rgba(8, 15, 10, 0.96);
-    }
-    .party-channel-title {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      color: var(--text);
-      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
-      font-size: 15px;
-      font-weight: 650;
-    }
-    .party-channel-title .ui-icon { color: var(--amber); }
-    .party-channel-heading small {
-      min-width: 0;
-      overflow: hidden;
-      color: var(--dim);
-      font-size: 10px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     .log.journey-mode.room-mode {
       align-items: stretch;
       justify-content: flex-start;
@@ -4809,11 +4827,6 @@
     .log.journey-mode.room-mode .chat-empty { margin: auto; }
 
     @media (max-width: 900px) {
-      .party-channel-heading {
-        top: -12px;
-        margin-inline: -16px;
-        padding-inline: 12px;
-      }
       .room-log-toggle {
         width: auto;
         min-width: auto;
@@ -5383,7 +5396,7 @@
         padding: 7px 8px 0;
       }
       .hand-header {
-        display: block;
+        display: none;
         border-bottom: 1px solid rgba(216, 247, 220, 0.09);
       }
       .hand-toggle {
@@ -10390,14 +10403,6 @@
       if (!panel) return;
       panel.hidden = activities.length === 0;
       panel.innerHTML = activities.map(journalActivityRowHtml).join("");
-      const latest = activities.at(-1);
-      const statusNode = $("error");
-      const statusActivity = journalOpen ? null : latest;
-      if (statusActivity && (!statusNode.textContent || statusNode.dataset.statusSource === "journal")) {
-        writeStatus(`${statusActivity.label} · ${statusActivity.text}`, "notice", "journal");
-      } else if (!statusActivity && statusNode.dataset.statusSource === "journal") {
-        writeStatus("");
-      }
       syncJournalRegions();
     }
 
@@ -13651,7 +13656,6 @@
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const observerScene = knockedOutObserverHtml();
-      const partyHeading = travellingPartyHeaderHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
@@ -13693,13 +13697,13 @@
         return;
       }
       if (pendingArrival) {
-        log.innerHTML = `${partyHeading}${pendingArrival}`;
+        log.innerHTML = pendingArrival;
         log.scrollTop = 0;
         return;
       }
       if (!hasTranscript) {
         renderedChatTailKey = "";
-        log.innerHTML = `${partyHeading}${quietRoomSceneHtml()}`;
+        log.innerHTML = quietRoomSceneHtml();
         log.scrollTop = 0;
         return;
       }
@@ -13713,7 +13717,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${partyHeading}${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -13999,11 +14003,6 @@
           ? "Chat with someone here or explore the room."
         : "Begin a tale, then discover the room through play.";
       return `<p class="chat-empty" role="note">${escapeHtml(cue)}</p>`;
-    }
-
-    function travellingPartyHeaderHtml(view = state) {
-      if (!view?.journey) return "";
-      return `<header class="party-channel-heading"><span class="party-channel-title">${iconSvg("travel")}Travelling party</span><small>conversation follows the road</small></header>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -16541,7 +16540,7 @@
     }
 
     function usesInlineStoryHand() {
-      return window.matchMedia("(max-width: 900px)").matches;
+      return false;
     }
 
     function storyHandKey(action) {
@@ -16691,21 +16690,7 @@
 
     function activateStoryHandAction(action) {
       if (!action || actionBusy) return;
-      if (!usesInlineStoryHand()) {
-        openActionModal(action);
-        return;
-      }
-      const visibleActions = actionBarActions();
-      const actionIndex = actions.indexOf(action);
-      const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex) || visibleActions[0];
-      if (!selected) return;
-      storyHandExpanded = true;
-      storyHandActiveKey = storyHandKey(selected);
-      focusIndex = selected.actionIndex;
-      focusedKey = action.focusKey || "";
-      actionConfirmAction = action;
-      storyHandScrollPending = true;
-      renderCommands();
+      openActionModal(action, { handCard: true });
     }
 
     function selectStoryHandCardFromScroll() {
@@ -16738,7 +16723,7 @@
       renderStoryHandInspector(action);
     }
 
-    function openActionModal(action) {
+    function openActionModal(action, { handCard = false } = {}) {
       if (!action || actionBusy) return;
       if (action.kind === "orb-chat" && pendingChats.length) {
         setError("Let the current conversation settle before starting another.");
@@ -16746,21 +16731,33 @@
         return;
       }
       actionConfirmAction = action;
+      const dialog = $("action-modal").querySelector(".action-dialog");
+      dialog.classList.remove("hand-card-mode", ...actionCardAccentClasses);
+      if (handCard) {
+        dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);
+      }
       const label = action.modalTitle || actionTitle(action);
       const selectedChoice = Array.isArray(action?.choices)
         ? (action.choices.find((choice) => String(choice.value || "") === String(action.selectedChoice || "")) || action.choices[0])
         : null;
       syncActionChoicePreview(action, selectedChoice);
-      const eyebrow = String(action.modalEyebrow || "").trim();
+      const eyebrow = handCard
+        ? [actionCardSuitEmoji(actionCardSuit(action)), String(action?.presentation?.verb || action?.label || "play").trim()]
+          .filter(Boolean)
+          .join(" · ")
+        : String(action.modalEyebrow || "").trim();
       $("action-modal-eyebrow").textContent = eyebrow;
       $("action-modal-eyebrow").hidden = !eyebrow;
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
-      renderActionModalRows(action);
+      if (handCard) $("action-modal-meta").innerHTML = "";
+      else renderActionModalRows(action);
       renderActionChoices(action);
       renderRoomAvatarRail();
-      $("action-modal-confirm").textContent = actionConfirmLabel(action);
-      $("action-modal-cancel").textContent = actionCancelLabel(action);
+      $("action-modal-confirm").textContent = handCard ? "play" : actionConfirmLabel(action);
+      const cancelButton = $("action-modal-cancel");
+      cancelButton.textContent = actionCancelLabel(action);
+      cancelButton.hidden = handCard;
       const discardButton = $("action-modal-discard");
       const discardCertificate = projectedHandEntryForAction(action)?.think || null;
       const canDiscard = !state?.branch
@@ -16769,16 +16766,18 @@
         && discardCertificate?.available
         && discardCertificate?.offer_id
         && (!state?.combat || state?.turn?.is_current_actor);
-      discardButton.hidden = !canDiscard;
-      discardButton.disabled = handShuffleBusy;
-      discardButton.textContent = discardCertificate?.free ? "discard · free" : "discard";
+      discardButton.hidden = handCard ? false : !canDiscard;
+      discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
+      discardButton.textContent = handCard ? "discard" : (discardCertificate?.free ? "discard · free" : "discard");
       discardButton.setAttribute(
         "aria-label",
         canDiscard
           ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
           : "This Story Hand card cannot be discarded",
       );
-      discardButton.closest(".action-actions")?.classList.toggle("has-discard", Boolean(canDiscard));
+      const actionButtons = discardButton.closest(".action-actions");
+      actionButtons?.classList.toggle("has-discard", Boolean(canDiscard) && !handCard);
+      actionButtons?.classList.toggle("hand-card-actions", handCard);
       openModal("action-modal", $("action-modal-confirm"));
     }
 
@@ -16846,14 +16845,17 @@
       closeModal("action-modal");
       $("action-modal-image").removeAttribute("src");
       $("action-modal").querySelector(".action-art")?.classList.remove("avatar", "item", "location");
+      $("action-modal").querySelector(".action-dialog")?.classList.remove("hand-card-mode", ...actionCardAccentClasses);
       $("action-modal-meta").innerHTML = "";
       $("action-modal-choices").hidden = true;
       $("action-modal-choices").innerHTML = "";
       $("action-modal-eyebrow").hidden = true;
       $("action-modal-eyebrow").textContent = "";
       $("action-modal-cancel").textContent = "not now";
+      $("action-modal-cancel").hidden = false;
       $("action-modal-discard").hidden = true;
-      $("action-modal-discard").closest(".action-actions")?.classList.remove("has-discard");
+      $("action-modal-discard").disabled = false;
+      $("action-modal-discard").closest(".action-actions")?.classList.remove("has-discard", "hand-card-actions");
       actionConfirmAction = null;
       renderRoomAvatarRail();
     }

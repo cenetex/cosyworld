@@ -685,35 +685,41 @@ async function main() {
       button?.click();
     }, focused.key);
     await page.waitForFunction(() => {
-      const prompt = document.querySelector("footer.prompt");
-      const discard = document.querySelector("#hand-discard");
-      return prompt?.classList.contains("hand-expanded")
-        && document.querySelector("#action-modal")?.hidden === true
+      const discard = document.querySelector("#action-modal-discard");
+      return document.querySelector("#action-modal")?.hidden === false
+        && document.querySelector("#action-modal .action-dialog")?.classList.contains("hand-card-mode")
         && discard
         && !discard.hidden
         && !discard.disabled;
     });
-    const expandedLayout = await page.evaluate(() => {
+    const modalLayout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
-      const rail = document.querySelector("#hand-rail");
-      const current = rail.querySelector(".cmd[aria-current='true']");
+      const dialog = document.querySelector("#action-modal .action-dialog");
+      const art = document.querySelector("#action-modal-image");
       return {
-        expanded: prompt.classList.contains("hand-expanded"),
-        modalHidden: document.querySelector("#action-modal")?.hidden === true,
+        modalOpen: document.querySelector("#action-modal")?.hidden === false,
+        largeCard: dialog?.classList.contains("hand-card-mode")
+          && art?.getBoundingClientRect().height >= 240,
+        promptExpanded: prompt.classList.contains("hand-expanded"),
+        handHeaderVisible: document.querySelector(".hand-header")?.getClientRects().length > 0,
         inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
-        horizontalRail: getComputedStyle(rail).display === "flex"
-          && getComputedStyle(rail).overflowX === "auto"
-          && getComputedStyle(rail).scrollSnapType.includes("x"),
-        focusedCardReadable: Boolean(current && current.getBoundingClientRect().width >= window.innerWidth * 0.75),
+        confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
+        discard: document.querySelector("#action-modal-discard")?.textContent?.trim() || "",
+        cancelVisible: document.querySelector("#action-modal-cancel")?.getClientRects().length > 0,
+        metaVisible: document.querySelector("#action-modal-meta")?.getClientRects().length > 0,
       };
     });
     assert(
-      expandedLayout.expanded
-        && expandedLayout.modalHidden
-        && expandedLayout.inspectorVisible
-        && expandedLayout.horizontalRail
-        && expandedLayout.focusedCardReadable,
-      `tapping a compact card should expand a readable swipeable hand without a modal: ${JSON.stringify(expandedLayout)}`,
+      modalLayout.modalOpen
+        && modalLayout.largeCard
+        && !modalLayout.promptExpanded
+        && !modalLayout.handHeaderVisible
+        && !modalLayout.inspectorVisible
+        && modalLayout.confirm === "play"
+        && modalLayout.discard === "discard"
+        && !modalLayout.cancelVisible
+        && !modalLayout.metaVisible,
+      `tapping a card should open only a larger card with Play and Discard: ${JSON.stringify(modalLayout)}`,
     );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
@@ -721,7 +727,7 @@ async function main() {
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator("#hand-discard").click(),
+      page.locator("#action-modal-discard").click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -732,7 +738,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && !document.querySelector("footer.prompt")?.classList.contains("hand-expanded")
+        && document.querySelector("#action-modal")?.hidden === true
     ));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
@@ -747,8 +753,7 @@ async function main() {
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
-        compactHandHeight: document.querySelector(".hand-header").getBoundingClientRect().height
-          + handRail.getBoundingClientRect().height,
+        compactHandHeight: handRail.getBoundingClientRect().height,
         railDisplay: getComputedStyle(handRail).display,
         railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
         cardsFit: cards.length <= 3
@@ -3909,7 +3914,7 @@ async function main() {
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
-  async function assertChatActivityLivesInStatusSurface() {
+  async function assertChatActivityStaysOutOfStatusSurface() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
@@ -4014,20 +4019,20 @@ async function main() {
     assert(
       result.initial.topTrayAbsent
         && !result.initial.bottomProgress
-        && result.initial.statusSource === "journal"
-        && result.initial.statusNotice
-        && result.initial.statusText.includes("chat")
+        && result.initial.statusSource === ""
+        && !result.initial.statusNotice
+        && result.initial.statusText === ""
         && result.initial.segments === 2
         && result.initial.filled === 2,
-      `Chat progress should use the shared status surface instead of a top popup: ${JSON.stringify(result)}`,
+      `Chat progress should remain in the Journal without consuming transcript space: ${JSON.stringify(result)}`,
     );
     assert(
       result.initiative.roundHandled
         && result.initiative.passHandled
         && result.initiative.segments === 3
         && result.initiative.filled === 1
-        && result.initiative.text.includes("passed"),
-      `initiative chat/pass events should advance Journal segments: ${JSON.stringify(result)}`,
+        && result.initiative.text === "",
+      `initiative chat/pass events should advance Journal segments without adding status chrome: ${JSON.stringify(result)}`,
     );
     assert(
       result.opened.statusCleared
@@ -9742,8 +9747,8 @@ async function main() {
         && result.journeyPresentation.pathwayMeta === "Road to Emmaus · 2 travellers · next Figshade Bend"
         && /On Road to Emmaus, from the way back to Emmaus\. Stretch 2 of 4\. 2 travellers\. next Figshade Bend\./i.test(result.journeyPresentation.pathwayLabel)
         && result.journeyPresentation.chatLabel === "Travelling party chat"
-        && /Travelling party/i.test(result.journeyPresentation.chatHeading),
-      `an active journey should keep one illustrated tracker with compact way, party, next-step, and chat context: ${JSON.stringify(result)}`,
+        && result.journeyPresentation.chatHeading === "",
+      `an active journey should keep one illustrated tracker without a second chat heading: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
@@ -10360,10 +10365,7 @@ async function main() {
       await page.locator("#action-modal-confirm").click();
       return true;
     }
-    const handOpen = await page.locator("footer.prompt.hand-expanded #hand-confirm").count();
-    if (!handOpen) return false;
-    await page.locator("#hand-confirm").click();
-    return true;
+    return false;
   }
 
   async function clickPrimary(label, { allowStale = false } = {}) {
@@ -12580,13 +12582,8 @@ async function main() {
           await other.locator("#primary").click();
           await other.waitForFunction(() => (
             !document.querySelector("#action-modal")?.hidden
-              || document.querySelector("footer.prompt")?.classList.contains("hand-expanded")
           ));
-          if (await other.locator("#action-modal:not([hidden])").count()) {
-            await other.locator("#action-modal-confirm").click();
-          } else {
-            await other.locator("#hand-confirm").click();
-          }
+          await other.locator("#action-modal-confirm").click();
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
@@ -13857,27 +13854,25 @@ async function main() {
       `guest first card should ask only for core identity and aspiration: ${openingPrimaryAria}`,
     );
     await page.locator("#primary").click();
-    await page.waitForSelector("footer.prompt.hand-expanded #hand-inspector:not([hidden])");
-    assert(await page.locator("#hand-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
-    const coreOpeningSummary = await page.locator("#hand-summary").innerText();
+    await page.waitForSelector("#action-modal:not([hidden]) .action-dialog.hand-card-mode");
+    assert(await page.locator("#action-modal-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
+    const coreOpeningSummary = await page.locator("#action-modal-summary").innerText();
     assert(
       coreOpeningSummary.includes("Choose an aspiration")
         && coreOpeningSummary.includes("deeds reveal"),
       `core arrival should leave identity to later deeds: ${coreOpeningSummary}`,
     );
-    const coreOpeningRows = await page.locator("#hand-meta .action-row").evaluateAll((nodes) => (
-      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
-    ));
     assert(
-      coreOpeningRows.some((row) => /Choose/i.test(row))
-        && coreOpeningRows.some((row) => /Then/i.test(row)),
-      `core arrival should expose its full choice details inside the expanded hand: ${JSON.stringify(coreOpeningRows)}`,
+      await page.locator("#action-modal-meta:visible").count() === 0
+        && await page.locator("#action-modal-confirm").innerText() === "play"
+        && await page.locator("#action-modal-discard").innerText() === "discard",
+      "core arrival should use the focused card surface without a hand dashboard",
     );
-    await page.locator("#hand-close").click();
+    await page.locator("#action-modal").click({ position: { x: 2, y: 2 } });
     await page.locator("#primary").click();
-    await page.waitForSelector("footer.prompt.hand-expanded #hand-inspector:not([hidden])");
-    assert(await page.locator("#hand-confirm").innerText() === "begin", "the certified core arrival should begin the classless traveler");
-    await page.locator("#hand-confirm").click();
+    await page.waitForSelector("#action-modal:not([hidden]) .action-dialog.hand-card-mode");
+    assert(await page.locator("#action-modal-confirm").innerText() === "play", "the certified core arrival should play the classless traveler card");
+    await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
     steps.push({ label: "guest begin avatar", primary: await primaryText(), location: await page.locator("#location-name").innerText() });
@@ -14393,7 +14388,7 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
-  await assertChatActivityLivesInStatusSurface();
+  await assertChatActivityStaysOutOfStatusSurface();
   await assertChoicePreviewFollowsSelectedCard();
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDealtInStoryHand();
