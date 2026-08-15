@@ -6076,6 +6076,7 @@
     let worldView = null;
     let worldViewAccessKey = "";
     let identity = null;
+    let passkeyRecoveryAvailable = false;
     const openRouterApiKeyStorage = "cosyworld.openrouterApiKey";
     const openRouterConnectionStorage = "cosyworld.openrouterConnection";
     const openRouterOauthVerifierStorage = "cosyworld.openrouterOauthVerifier";
@@ -6442,6 +6443,7 @@
     function applyIdentity(nextIdentity) {
       identity = nextIdentity || { authenticated: false, wallets: [], passkeys: [] };
       if (identity.authenticated) {
+        passkeyRecoveryAvailable = false;
         walletAddress = identity.active_wallet || "";
         walletSession = identity.wallet_session || "";
         localStorage.removeItem("cosyworld.walletSession");
@@ -6513,13 +6515,31 @@
       connectStream();
     }
 
+    function passkeyServerRecordIsMissing(error) {
+      return Number(error?.status || 0) === 401
+        && String(error?.message || "") === "passkey sign-in was not accepted";
+    }
+
     async function continueWithPasskey() {
       try {
         await loginWithPasskey();
       } catch (error) {
-        if (String(error?.name || "") !== "NotAllowedError") throw error;
-        await registerPasskey(false);
+        if (String(error?.name || "") === "NotAllowedError") {
+          await registerPasskey(false);
+          return;
+        }
+        if (passkeyServerRecordIsMissing(error)) {
+          passkeyRecoveryAvailable = true;
+          setStatus("This passkey's server record is missing. Choose a recovery option below.", "notice");
+          return false;
+        }
+        throw error;
       }
+    }
+
+    async function recoverWithReplacementPasskey() {
+      await registerPasskey(false);
+      passkeyRecoveryAvailable = false;
     }
 
     async function logoutAccount() {
@@ -13996,6 +14016,9 @@
 
     function identitySectionHtml() {
       if (!identity?.authenticated) {
+        if (passkeyRecoveryAvailable) {
+          return `<section class="account-section" aria-label="Passkey recovery"><div class="account-section-title">Passkey recovery</div><div class="item-note"><strong>This device has a passkey that CosyWorld no longer recognizes.</strong><br>Try another passkey if you have one. Creating a replacement starts a new CosyWorld account and does not restore data held only by the missing account.</div><div class="account-actions"><button class="account-button" type="button" data-passkey-recover>create replacement passkey</button><button class="account-button secondary" type="button" data-passkey-continue>try another passkey</button></div></section>`;
+        }
         return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-actions"><button class="account-button" type="button" data-passkey-continue>continue with passkey</button></div></section>`;
       }
       const passkeys = Array.isArray(identity.passkeys) ? identity.passkeys : [];
@@ -18035,6 +18058,12 @@
       if (passkeyContinue) {
         event.preventDefault();
         runIdentityTask("Continue with your passkey.", continueWithPasskey);
+        return;
+      }
+      const passkeyRecover = event.target.closest("[data-passkey-recover]");
+      if (passkeyRecover) {
+        event.preventDefault();
+        runIdentityTask("Creating a replacement passkey.", recoverWithReplacementPasskey);
         return;
       }
       const passkeyAdd = event.target.closest("[data-passkey-add]");
