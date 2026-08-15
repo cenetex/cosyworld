@@ -1,98 +1,89 @@
-# Journal Storybook Pages
+# Daily Journal Images
 
-The player Journal is a personal storybook, not an event table. Canonical
-events remain the replay authority, while rest turns those facts into durable
-sentences and illustrated leaves owned by one avatar's Journal.
+The player Journal is an avatar-private gallery of generated daily page images.
+It is not an event log, spreadsheet, progress dashboard, open-thread list, or
+room-memory view.
 
-## Rest cadence
+## Cadence
 
-- An open leaf accumulates typed `JournalBeatView` evidence.
-- A camp or lodging rest is a **short rest** for Journal presentation. It adds
-  one to three first-person sentences to the open leaf. Generation may shape
-  voice, but names, places, items, outcomes, and source sequences must all come
-  from the frozen semantic beats. A deterministic first-person sentence is the
-  provider-offline fallback.
-- A hearth rest is a **long rest**. It first adds the short-rest sentences,
-  then seals the leaf and schedules one illustration. Sealing is the durable
-  commit point; image generation is asynchronous and cannot hold the rest turn
-  open.
-- A failed or unavailable image route leaves a complete prose page. Retrying
-  reuses the same job identity and never rewrites its sentences or spends for
-  a second successful image.
+- Camp and lodged rests are short rests for the current Journal cadence. They
+  append newly observed semantic beats to the avatar's hidden Journal context.
+  Nothing new appears in the book.
+- A hearth rest is a long rest. The first long rest for an avatar on a UTC day
+  freezes all hidden context accumulated since the preceding generated page and
+  queues one page-writing job.
+- Further long rests by that avatar on the same UTC day cannot create, replace,
+  or revise another page. Later hidden updates remain available for a future
+  day's page.
+- The stable artifact identity is derived from world, epoch, avatar, and UTC
+  day. Retry, reconnect, snapshot restore, and journal replay therefore converge
+  on the same page.
 
-## Durable leaf view
+## Voice and image
 
-The browser accepts the following server-owned projection. It does not infer
-rest type, prose, provenance, or ownership from raw events.
+The Journaler LLM receives only bounded, actor-visible semantic updates frozen
+at rest. It writes one 55–95 word entry in the avatar's own first-person voice.
+The publication gate rejects mechanical vocabulary, IDs, prompt references,
+and output without first-person language. Provider failure uses a grounded
+first-person fallback derived from the same frozen updates.
+
+When an image-generation capability is configured, it paints those accepted
+words and their grounded moments into one immutable portrait Journal-page
+image. The deterministic illustrated SVG compositor is the offline fallback,
+so page publication never depends on a provider. In either case, the single
+page image is the only Journal content shown to the player: there are no
+separate prose rows, captions, counters, meters, tables, or logs. Alternative
+text preserves the accepted words for accessibility.
+
+## Projection
+
+The actor-scoped state response exposes only the bounded page gallery:
 
 ```json
 {
-  "artifact_id": "journal-leaf:v1:<actor-id>:<sealed-seq>",
-  "page_index": 4,
-  "rest_kind": "long",
-  "status": "ready",
-  "title": "Rain at the garden gate",
-  "source_event_seqs": [120, 121, 125],
-  "sentences": [
-    "I arrived as the rain began to soften.",
-    "The buried stones were still waiting beneath the drain."
-  ],
-  "illustration_url": "/generated/journal-leaves/<artifact-id>.webp",
-  "illustration_alt": "An ink-and-watercolour garden path after rain.",
-  "style_revision": "sylvie-field-hand/3",
-  "provenance_digest": "sha256:<digest>",
-  "transferable": false
+  "journal": {
+    "protocol": "cosyworld.daily-journal.v1",
+    "pages": [
+      {
+        "actor_id": 5000,
+        "day_index": 20600,
+        "page_index": 3,
+        "artifact_id": "<sha256>",
+        "rest_kind": "long",
+        "status": "ready",
+        "image_url": "/assets/generated/journal-pages/<sha256>.image",
+        "image_alt": "The avatar's daily Journal, in their own words: …",
+        "style_revision": "cosyworld-hand-painted-page/2"
+      }
+    ]
+  }
 }
 ```
 
-`sentences` are rendered as real text over paper. The model must not draw the
-Journal prose into the image: keeping text outside the bitmap preserves
-legibility, accessibility, localization, search, and exact replay.
+Raw `JournalBeatView` values, room memory, short-rest updates, source sequences,
+and Journaler prompts remain server-side inputs. They are not serialized as the
+player Journal.
 
-## Illustration route to wire
+## Failure and replay
 
-The server media job should use a new `journal_page` intent and the existing
-frozen recipe, candidate storage, review, publication, and attempt-budget
-boundaries. The browser contract is ready for the resulting approved URL; this
-document does not mean a provider call is active before that worker is shipped.
-
-1. Prefer the capability-registry route for `openai/gpt-image-2`.
-2. Allow a reviewed Google image route (the Nano Banana family) as a declared
-   fallback or canary, never as an unrecorded provider substitution.
-3. Freeze the avatar, place, accepted sentence set, source-event boundary,
-   style revision, prompt version, model binding, and optional approved
-   references before provider spend.
-4. Request a text-free ink/watercolour vignette with generous paper-like edge
-   falloff so the browser can compose it naturally into the leaf.
-5. Run the normal fail-closed vision publication review. Only the immutable
-   approved asset URL enters `journal_pages`.
-
-## Avatar style
-
-Each avatar begins with a worldpack-authored style profile. Accepted pages may
-advance a bounded style revision—palette, mark-making, framing habits, and
-recurring botanical or geometric motifs—but may not alter canonical identity
-or facts. The prior accepted revision is an optional certified style
-reference. Rejected candidates never become future style input.
-
-## Collectible boundary
-
-A sealed leaf has a stable artifact identity and provenance digest so it can
-later become an in-world tradeable item. Transferring that collectible changes
-who carries the artifact; it does not transfer, erase, or fork the originating
-avatar's canonical Journal history. External tokenization or wallet authority
-remains outside the core world contract and requires a separate product and
-ADR decision.
+- Rest commits before generation and never waits for the Journaler.
+- An unavailable Journaler uses deterministic first-person words; an
+  unavailable image model uses the deterministic illustrated SVG fallback.
+- A pending page is invisible until it is ready; the Journal shows a quiet empty
+  state when no generated page exists.
+- Publication is a journaled actor-consequence mutation. Replay restores the
+  accepted entry and never calls a model.
+- Snapshot state contains the hidden accumulator, daily identities, pending
+  jobs, and ready pages.
+- The generated page route serves only ready artifacts under an unguessable
+  SHA-256 identity with private immutable caching.
 
 ## Acceptance
 
-- No category columns, meters, event keys, source sequences, or provider
-  metadata appear on the page.
-- Short-rest prose and long-rest media reproduce identically after reconnect,
-  snapshot restore, and full journal replay.
-- Provider-offline play still seals readable prose leaves.
-- One long rest can publish at most one approved image for its artifact id.
-- Accessibility text describes the pictured memory without duplicating the
-  visible sentences.
-- Style evolution is versioned per avatar and can be audited back to accepted
-  page assets.
+- The visible Journal contains at most one generated long-rest image per
+  avatar-day.
+- Short rests never add visible rows or pages.
+- Room memory, raw logs, clocks, progress meters, growth sheets, and open
+  threads never appear in the Journal.
+- Generated words use `I`, `my`, or `me` and do not read like a system summary.
+- Repeated long rests, retries, and replay cannot duplicate a daily page.

@@ -4687,6 +4687,82 @@
       }
       .journal-page-nav { padding-inline: 14px; }
     }
+    /* The Journal is an image gallery. Legacy memory/activity nodes remain
+       available to internal renderers but never participate in its layout. */
+    .journal-stream {
+      display: grid;
+      place-items: center;
+    }
+    .journal-stream > .journal-story-history {
+      width: min(100%, 820px);
+      overflow: visible;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .journal-story-history::after,
+    .journal-page::before {
+      content: none;
+    }
+    .journal-log { display: block; }
+    .journal-page {
+      min-height: 0;
+      padding: 0;
+    }
+    .journal-page-illustration,
+    .journal-page-illustration.generated {
+      width: 100%;
+      margin: 0;
+      overflow: hidden;
+      transform: none;
+      border: 1px solid rgba(239, 201, 107, 0.2);
+      border-radius: 3px;
+      background: #d8c9a6;
+      box-shadow: 0 24px 56px rgba(0, 0, 0, 0.48);
+    }
+    .journal-page-illustration::after { content: none; }
+    .journal-page-illustration img {
+      display: block;
+      width: 100%;
+      max-height: calc(100vh - 190px);
+      aspect-ratio: auto;
+      object-fit: contain;
+      filter: none;
+      mix-blend-mode: normal;
+      opacity: 1;
+    }
+    .journal-page-illustration figcaption,
+    .journal-page-heading,
+    .journal-page-prose,
+    .journal-page-folio { display: none; }
+    .journal-page-nav { padding: 14px 0 0; }
+    .journal-page-nav[hidden] { display: none; }
+    .journal-page-nav button {
+      color: #b9aa88;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+    }
+    .journal-page-label {
+      color: #8f856d;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 11px;
+    }
+    .journal-empty {
+      min-height: min(62vh, 580px);
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      border: 1px dashed rgba(239, 201, 107, 0.2);
+      color: #8f856d;
+      font: 500 14px/1.5 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      text-align: center;
+    }
+    @media (max-width: 560px) {
+      .journal-stream { padding: 8px; }
+      .journal-page { padding: 0; }
+      .journal-page-illustration { width: 100%; }
+      .journal-page-illustration img { max-height: calc(100vh - 154px); }
+    }
     .chat-empty {
       margin: auto;
       color: var(--faint);
@@ -5828,34 +5904,28 @@
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
           <div class="journal-heading-copy">
-            <span class="journal-book-kicker">Written while the world rests</span>
+            <span class="journal-book-kicker">One page, when I sleep</span>
             <h2 id="journal-owner">My Journal</h2>
           </div>
-          <span>private field notes</span>
+          <span id="journal-location"></span>
         </header>
         <div class="journal-stream">
-          <section class="journal-region journal-story-history" id="journal-story-history" aria-labelledby="journal-story-history-heading">
-            <header class="journal-chapter-heading">
-              <h3 class="journal-region-heading" id="journal-story-history-heading"><span id="journal-location"></span></h3>
-              <p class="journal-chapter-summary" id="journal-chapter-summary"></p>
-            </header>
-            <section class="journal-current-place" id="journal-current-place" aria-labelledby="journal-current-place-heading">
-              <h3 class="journal-region-heading" id="journal-current-place-heading">What the place felt like</h3>
-              <div class="room-memory" id="room-memory" hidden></div>
-            </section>
-            <section class="journal-log" id="journal-log" aria-label="Chronological story history"></section>
-            <aside class="journal-open-threads" id="journal-open-threads" aria-labelledby="journal-open-threads-heading" hidden>
-              <h3 class="journal-region-heading" id="journal-open-threads-heading">Still on my mind</h3>
-              <section class="journal-activity" id="journal-activity" aria-label="Journal activity" hidden></section>
-              <section class="shared-questions" id="shared-questions" aria-label="Unresolved matters in this place" hidden></section>
-              <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
-            </aside>
+          <section class="journal-region journal-story-history" id="journal-story-history" aria-label="Daily illustrated Journal pages">
+            <section class="journal-log" id="journal-log" aria-live="polite"></section>
             <nav class="journal-page-nav" id="journal-page-nav" aria-label="Journal pages">
               <button id="journal-page-previous" type="button" aria-label="Read the previous Journal page">← Turn back</button>
               <span class="journal-page-label" id="journal-page-label" aria-live="polite"></span>
               <button id="journal-page-next" type="button" aria-label="Read the next Journal page">Turn on →</button>
             </nav>
           </section>
+        </div>
+        <div class="journal-internal-context" hidden aria-hidden="true">
+          <div class="room-memory" id="room-memory"></div>
+          <aside id="journal-open-threads" hidden>
+            <section class="journal-activity" id="journal-activity"></section>
+            <section class="shared-questions" id="shared-questions"></section>
+            <section class="updates" id="updates" aria-live="off"></section>
+          </aside>
         </div>
       </section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
@@ -10313,9 +10383,8 @@
         .filter((activity) => activity.text);
       const notificationCount = $("journal-notification-count");
       if (notificationCount) {
-        const additionalCount = Math.max(0, activities.length - 1);
-        notificationCount.textContent = String(additionalCount);
-        notificationCount.hidden = additionalCount === 0;
+        notificationCount.textContent = "0";
+        notificationCount.hidden = true;
       }
       const panel = $("journal-activity");
       if (!panel) return;
@@ -12329,20 +12398,13 @@
       journal.hidden = !open;
       terminal?.classList.toggle("journal-open", open);
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      const latest = String(toggle.dataset.latest || "").trim();
       toggle.setAttribute("aria-label", open ? "Close Journal" : "Open Journal");
       toggle.dataset.analyticsEvent = open ? "journal.close" : "journal.open";
       latestControl.setAttribute("aria-expanded", open ? "true" : "false");
-      latestControl.setAttribute("aria-label", open ? "Close Journal, latest entry" : `Open Journal, latest: ${latest}`);
+      latestControl.setAttribute("aria-label", open ? "Close Journal" : "Open Journal");
       latestControl.dataset.analyticsEvent = open ? "journal.close" : "journal.open";
       toggle.querySelector(".room-log-kicker")?.replaceChildren(document.createTextNode(open ? "Close Journal" : "Journal"));
       document.querySelector(".prompt").hidden = Boolean(panelMode || open);
-      if (open) {
-        scheduleVisibleWorldBeatReceipts();
-        scheduleVisibleClockPresentationReceipts();
-        scheduleVisibleFirstTalePresentationReceipts();
-        scheduleJournalRowOverflowSync();
-      }
       renderJournalActivity();
     }
 
@@ -12899,46 +12961,50 @@
       });
     }
 
-    function authoredJournalPage(pageIndex, view = state) {
-      const pages = Array.isArray(view?.journal_pages) ? view.journal_pages : [];
-      return pages.find((page) => (
-        Number(page?.page_index ?? page?.index ?? -1) === Number(pageIndex)
-      )) || pages[pageIndex] || null;
+    function journalPageDayKey(page) {
+      const value = page?.day_index ?? page?.journal_day ?? page?.date ?? "";
+      return String(value).trim();
     }
 
-    function journalPageCount(beats, view = state) {
-      const authoredCount = Array.isArray(view?.journal_pages) ? view.journal_pages.length : 0;
-      return Math.max(1, authoredCount, Math.ceil(beats.length / journalPageSize));
-    }
-
-    function journalPageMedia(pageIndex, pageCount) {
-      const authored = authoredJournalPage(pageIndex);
-      const authoredImage = cleanStatusText(
-        authored?.illustration_url
-          || authored?.image_url
-          || authored?.media?.image_url
-          || ""
-      );
-      if (authoredImage) {
-        return {
-          url: authoredImage,
-          alt: cleanStatusText(authored?.illustration_alt || authored?.alt || "A painted memory from this Journal leaf."),
-          caption: "painted after a long rest",
-          generated: true,
-        };
+    function dailyJournalPagesForPresentation(view = state) {
+      const projected = Array.isArray(view?.journal?.pages)
+        ? view.journal.pages
+        : Array.isArray(view?.journal_pages)
+          ? view.journal_pages
+          : [];
+      const actorScope = Number(actorId || 0);
+      const daily = new Map();
+      for (const page of projected) {
+        const dayKey = journalPageDayKey(page);
+        const imageUrl = cleanStatusText(
+          page?.image_url
+            || page?.illustration_url
+            || page?.media?.image_url
+            || "",
+        );
+        const status = String(page?.status || "ready").toLowerCase();
+        const pageActorId = Number(page?.actor_id || actorScope || 0);
+        if (
+          String(page.rest_kind || "").toLowerCase() !== "long"
+          || !dayKey
+          || !imageUrl
+          || !["ready", "published"].includes(status)
+          || (actorScope && pageActorId && pageActorId !== actorScope)
+        ) continue;
+        const candidate = { ...page, image_url: imageUrl, day_key: dayKey };
+        const prior = daily.get(dayKey);
+        if (!prior || Number(candidate.page_index ?? candidate.index ?? 0) >= Number(prior.page_index ?? prior.index ?? 0)) {
+          daily.set(dayKey, candidate);
+        }
       }
-      if (pageIndex !== pageCount - 1) return null;
-      const location = state?.location || {};
-      const locationCard = cardForLocation(location.id);
-      const placeImage = cardImage(locationCard);
-      return placeImage
-        ? {
-            url: placeImage,
-            alt: `A view of ${location.name || "the current place"} kept with these notes.`,
-            caption: "a view tucked between the pages",
-            generated: false,
-          }
-        : null;
+      return [...daily.values()].sort((left, right) => (
+        String(left.day_key).localeCompare(String(right.day_key), undefined, { numeric: true })
+        || Number(left.page_index ?? left.index ?? 0) - Number(right.page_index ?? right.index ?? 0)
+      ));
+    }
+
+    function journalPageCount(view = state) {
+      return dailyJournalPagesForPresentation(view).length;
     }
 
     function journalPhraseList(values) {
@@ -12982,59 +13048,30 @@
       return `This chapter has been shaped by ${journalPhraseList(themes)}. Its latest turn: ${latest}`;
     }
 
-    function journalPageHtml(beats, pageIndex, pageCount, firstBeatIndex) {
-      const authored = authoredJournalPage(pageIndex);
-      const dominantCategory = journalDominantCategory(beats);
-      const title = cleanStatusText(authored?.title)
-        || journalPageTitles[dominantCategory]
-        || journalPageTitles.story;
-      const pageMedia = journalPageMedia(pageIndex, pageCount);
-      const restKind = String(authored?.rest_kind || (pageMedia?.generated ? "long" : "open"));
-      const leaf = restKind === "long" && pageMedia?.generated
-        ? "paint and ink, after a long rest"
-        : restKind === "short"
-          ? "a few lines, after a short rest"
-        : pageIndex === pageCount - 1
-          ? "the latest leaf"
-          : "an earlier leaf";
-      const authoredSentences = [
-        ...(Array.isArray(authored?.sentences) ? authored.sentences : []),
-        ...(authored?.short_rest_sentence ? [authored.short_rest_sentence] : []),
-      ]
-        .map((sentence) => cleanJournalProseText(sentence?.text || sentence))
-        .filter(Boolean);
-      const entries = authoredSentences.length
-        ? authoredSentences.map((sentence) => journalProseRowHtml({
-            category: "story",
-            prose: journalFirstPersonProse(sentence),
-            kind: "journal-beat rest-written",
-          })).join("")
-        : beats.length
-          ? beats.map((beat, index) => journalBeatHtml(beat, firstBeatIndex + index)).join("")
-        : journalProseRowHtml({
-            category: "story",
-            prose: "The page is waiting. I only need to look a little closer, take a road, or leave something kinder than I found it.",
-            kind: "empty",
-          });
-      const illustration = pageMedia
-        ? `<figure class="journal-page-illustration${pageMedia.generated ? " generated" : " place-reference"}"><img src="${escapeAttr(pageMedia.url)}" alt="${escapeAttr(pageMedia.alt)}" loading="lazy" /><figcaption>${escapeHtml(pageMedia.caption)}</figcaption></figure>`
-        : "";
-      const artifactId = cleanStatusText(authored?.artifact_id || "");
-      const styleRevision = cleanStatusText(authored?.style_revision || "");
-      const artifactAttrs = `${artifactId ? ` data-journal-artifact-id="${escapeAttr(artifactId)}"` : ""}${styleRevision ? ` data-journal-style-revision="${escapeAttr(styleRevision)}"` : ""} data-journal-rest-kind="${escapeAttr(restKind)}"`;
-      return `<article class="journal-page" aria-labelledby="journal-page-title"${artifactAttrs}><header class="journal-page-heading"><h4 class="journal-page-title" id="journal-page-title">${escapeHtml(title)}</h4><span class="journal-page-date">${escapeHtml(leaf)}</span></header>${illustration}<div class="journal-page-prose">${entries}</div><span class="journal-page-folio" aria-hidden="true">— ${pageIndex + 1} —</span></article>`;
+    function journalPageHtml(page) {
+      const imageUrl = cleanStatusText(page?.image_url || "");
+      if (!imageUrl) return "";
+      const alt = cleanStatusText(
+        page?.image_alt
+          || page?.illustration_alt
+          || page?.alt
+          || `My illustrated Journal page for ${page?.day_key || "this day"}.`,
+      );
+      const artifactId = cleanStatusText(page?.artifact_id || page?.page_id || "");
+      const styleRevision = cleanStatusText(page?.style_revision || "");
+      const artifactAttrs = `${artifactId ? ` data-journal-artifact-id="${escapeAttr(artifactId)}"` : ""}${styleRevision ? ` data-journal-style-revision="${escapeAttr(styleRevision)}"` : ""} data-journal-day="${escapeAttr(page.day_key)}" data-journal-rest-kind="long"`;
+      return `<article class="journal-page"${artifactAttrs}><figure class="journal-page-illustration generated"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(alt)}" loading="lazy" /></figure></article>`;
     }
 
     function turnJournalPage(delta) {
-      const beats = journalBeatsForPresentation();
-      const pageCount = journalPageCount(beats);
+      const pageCount = journalPageCount();
+      if (!pageCount) return;
       const currentPage = journalPageIndex < 0
         ? pageCount - 1
         : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
       const nextPage = Math.max(0, Math.min(pageCount - 1, currentPage + Number(delta || 0)));
       journalPageIndex = nextPage === pageCount - 1 ? -1 : nextPage;
       renderJournalLog({ pageTurn: true });
-      scheduleVisibleWorldBeatReceipts();
     }
 
     function scheduleJournalRowOverflowSync() {
@@ -13075,19 +13112,22 @@
       const panel = $("journal-log");
       const stream = panel.closest(".journal-stream");
       const previousScrollTop = stream?.scrollTop || 0;
-      const beats = journalBeatsForPresentation();
-      const pageCount = journalPageCount(beats);
+      const pages = dailyJournalPagesForPresentation();
+      const pageCount = pages.length;
+      const nav = $("journal-page-nav");
+      if (!pageCount) {
+        panel.innerHTML = `<div class="journal-empty">No long-rest Journal page has been painted yet.</div>`;
+        nav.hidden = true;
+        return;
+      }
       const pageIndex = journalPageIndex < 0
         ? pageCount - 1
         : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
-      const firstBeatIndex = pageIndex * journalPageSize;
-      const pageBeats = beats.slice(firstBeatIndex, firstBeatIndex + journalPageSize);
-      panel.innerHTML = journalPageHtml(pageBeats, pageIndex, pageCount, firstBeatIndex);
-      $("journal-chapter-summary").textContent = journalChapterSummary(beats);
+      panel.innerHTML = journalPageHtml(pages[pageIndex]);
+      nav.hidden = pageCount <= 1;
       $("journal-page-label").textContent = `${pageIndex + 1} / ${pageCount}`;
       $("journal-page-previous").disabled = pageIndex === 0;
       $("journal-page-next").disabled = pageIndex === pageCount - 1;
-      scheduleJournalRowOverflowSync();
       if (stream) {
         if (pageTurn) {
           stream.scrollTop = 0;

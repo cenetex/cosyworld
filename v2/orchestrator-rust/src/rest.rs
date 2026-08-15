@@ -271,9 +271,21 @@ pub(super) async fn rest(
             events: Vec::new(),
         });
     };
+    let journal_day_index = current_daily_journal_day_index();
+    let journal_long_rest = action.rest.entitled_grade == CW_REST_GRADE_HEARTH;
+    let daily_journal_update = runtime.plan_daily_journal_rest_update(
+        payload.actor_id,
+        journal_day_index,
+        journal_long_rest,
+    );
     let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
     record.bind_offer_kind("rest");
     record.projection_mutations.extend(mutations);
+    if let Some(update) = daily_journal_update {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpdateDailyJournal { update });
+    }
     if let Some(job) = dream_job.clone() {
         attach_avatar_reflection_check(&mut record, job);
     }
@@ -302,6 +314,9 @@ pub(super) async fn rest(
     if status == CW_OK {
         if let Some(job) = dream_job {
             schedule_avatar_reflection(&state, job, &events);
+        }
+        if journal_long_rest {
+            schedule_daily_journal_page(&state, payload.actor_id, journal_day_index);
         }
     }
     Json(ActionResponse {

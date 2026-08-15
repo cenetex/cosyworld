@@ -757,6 +757,7 @@ pub(super) struct StateResponse {
     // clients load the same bounded, visibility-filtered history from /events.
     pub(super) recent_events: Vec<EventView>,
     pub(super) journal_beats: Vec<JournalBeatView>,
+    pub(super) journal: DailyJournalView,
     pub(super) room_memory: RoomMemoryView,
     #[allow(dead_code)]
     pub(super) primary_action: PrimaryAction,
@@ -829,7 +830,7 @@ impl Serialize for StateResponse {
             out.serialize_field("branch", value)?;
         }
         out.serialize_field("safety", &PublicActorSafetyView(&self.safety))?;
-        out.serialize_field("journal_beats", &self.journal_beats)?;
+        out.serialize_field("journal", &self.journal)?;
         out.serialize_field("room_memory", &self.room_memory)?;
         out.serialize_field("primary_action", &self.visible_primary_action)?;
         out.serialize_field("action_offers", &self.visible_action_offers)?;
@@ -1260,7 +1261,7 @@ fn journal_grouped_beat(
     }
 }
 
-fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
+pub(super) fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
     let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
     let mut chronological = events
         .iter()
@@ -4106,6 +4107,9 @@ impl RuntimeWorld {
             safety: self.actor_safety_view(client_actor_id),
             recent_events,
             journal_beats,
+            journal: client_actor_id
+                .map(|id| self.daily_journal_view(id))
+                .unwrap_or_else(|| self.daily_journal_view(0)),
             room_memory,
             primary_action,
             visible_primary_action,

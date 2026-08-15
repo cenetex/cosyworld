@@ -2664,21 +2664,53 @@ pub(crate) async fn request_image_generation_with_binding(
     binding: &crate::content_load::SeedActorModelBinding,
     request: ImageGenerationRequest<'_>,
 ) -> Result<AiGeneratedImage, AiGatewayError> {
-    let result = request_image_generation_with_binding_inner(config, binding, request).await;
+    let selection = config
+        .pin_actor_image_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let result = request_image_generation_with_selection(
+        config,
+        &selection,
+        request,
+        binding
+            .input_modalities
+            .iter()
+            .any(|value| value == "image"),
+    )
+    .await;
     if result.as_ref().is_err_and(|error| {
         error.affects_provider_health() && error.provider_http_status().is_none()
     }) {
         config
             .readiness
-            .record_transport_failure(IMAGE_GENERATION_ENDPOINT, &binding.requested_model_id);
+            .record_transport_failure(IMAGE_GENERATION_ENDPOINT, selection.requested_model_id());
     }
     result
 }
 
-async fn request_image_generation_with_binding_inner(
+pub(crate) async fn request_image_generation_for_key(
     config: &AiConfig,
-    binding: &crate::content_load::SeedActorModelBinding,
     request: ImageGenerationRequest<'_>,
+    routing_key: &str,
+) -> Result<AiGeneratedImage, AiGatewayError> {
+    let selection = config
+        .pin_model_for_key(ModelCapability::ImageGeneration, routing_key)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let result = request_image_generation_with_selection(config, &selection, request, false).await;
+    if result.as_ref().is_err_and(|error| {
+        error.affects_provider_health() && error.provider_http_status().is_none()
+    }) {
+        config
+            .readiness
+            .record_transport_failure(IMAGE_GENERATION_ENDPOINT, selection.requested_model_id());
+    }
+    result
+}
+
+async fn request_image_generation_with_selection(
+    config: &AiConfig,
+    selection: &PinnedModelSelection,
+    request: ImageGenerationRequest<'_>,
+    accepts_image_reference: bool,
 ) -> Result<AiGeneratedImage, AiGatewayError> {
     let started_at = Instant::now();
     if request.prompt.trim().is_empty() || request.prompt.len() > IMAGE_GENERATION_MAX_PROMPT_BYTES
@@ -2709,10 +2741,7 @@ async fn request_image_generation_with_binding_inner(
     if request.reference.is_some_and(|reference| {
         reference.bytes.is_empty()
             || reference.bytes.len() > IMAGE_GENERATION_MAX_BYTES
-            || !binding
-                .input_modalities
-                .iter()
-                .any(|value| value == "image")
+            || !accepts_image_reference
     }) {
         return Err(AiGatewayError {
             kind: AiFailureKind::Client,
@@ -2724,9 +2753,6 @@ async fn request_image_generation_with_binding_inner(
             latency: started_at.elapsed(),
         });
     }
-    let selection = config
-        .pin_actor_image_model(binding)
-        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
     let gate = config.exact_route_gate(IMAGE_GENERATION_ENDPOINT, selection.requested_model_id());
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(request.feature, gate));
@@ -4887,6 +4913,92 @@ mod tests {
             generated.model_attribution.resolved_model_id,
             "black-forest-labs/flux.2-klein-4b"
         );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn keyed_image_request_uses_the_registered_image_generation_capability() {
+        use std::sync::Mutex;
+
+        const PNG_1X1: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/images",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture keyed image request") = Some(body);
+                    Json(json!({
+                        "model": "provider/journal-painter-v1",
+                        "data": [{ "b64_json": PNG_1X1 }]
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind keyed image gateway test server");
+        let address = listener.local_addr().expect("keyed image gateway address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "journal-image-1",
+              "declared": [{
+                "requested_model_id": "provider/journal-painter-v1",
+                "provider": "test-provider",
+                "mutable_alias": false,
+                "input_modalities": ["text"],
+                "output_modalities": ["image"],
+                "supported_parameters": {"seed": true},
+                "data_policy": {"retention": "none", "training": "prohibited"},
+                "prompt_adapter": {"id": "image-generation", "version": "1"},
+                "sampling": {},
+                "capabilities": ["image_generation"]
+              }]
+            }"#,
+        )
+        .expect("valid Journal image registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            registry: Some(Arc::new(registry)),
+            capability_models: BTreeMap::from([(
+                ModelCapability::ImageGeneration,
+                "provider/journal-painter-v1".to_string(),
+            )]),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+
+        let generated = request_image_generation_for_key(
+            &config,
+            ImageGenerationRequest {
+                feature: "journal_image_test",
+                prompt_version: "journal-image-test-v1",
+                prompt: "one painted journal page",
+                reference: None,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+            "avatar:5000:day:20600",
+        )
+        .await
+        .expect("keyed image request");
+
+        let body = request_body
+            .lock()
+            .expect("read keyed image request")
+            .clone()
+            .expect("keyed image request captured");
+        assert_eq!(body["model"], "provider/journal-painter-v1");
+        assert_eq!(body["prompt"], "one painted journal page");
+        assert!(body.get("input_references").is_none());
+        assert_eq!(generated.content_type, "image/png");
         server.abort();
     }
 
