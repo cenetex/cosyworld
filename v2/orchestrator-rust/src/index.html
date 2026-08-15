@@ -5583,6 +5583,208 @@
         transition: none;
       }
     }
+    /* Combat is a live game state, not a kind of chat. Keep the immediate
+       result beside the encounter and disclose the deeper ledger on demand. */
+    .combat-dock {
+      min-width: 0;
+      margin: 0 0 9px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--type-combat-rgb), 0.34);
+      border-radius: 5px;
+      background:
+        linear-gradient(90deg, rgba(var(--type-combat-rgb), 0.09), transparent 44%),
+        rgba(14, 12, 10, 0.82);
+    }
+    .combat-dock[hidden] { display: none; }
+    .combat-dock-head {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 8px 5px 10px;
+      border-bottom: 1px solid rgba(var(--type-combat-rgb), 0.18);
+    }
+    .combat-dock-state {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      overflow: hidden;
+    }
+    .combat-dock-round {
+      flex: 0 0 auto;
+      color: var(--red);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .combat-dock-turn {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 820;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .combat-history-toggle {
+      flex: 0 0 auto;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 0;
+      border-bottom: 1px solid var(--line-strong);
+      border-radius: 0;
+      background: transparent;
+      color: var(--dim);
+      padding: 4px 2px;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .combat-history-toggle:hover,
+    .combat-history-toggle:focus-visible,
+    .combat-history-toggle[aria-expanded="true"] {
+      border-bottom-color: var(--red);
+      color: var(--text);
+      outline: 0;
+    }
+    .combat-history-toggle-count {
+      min-width: 17px;
+      height: 17px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(var(--type-combat-rgb), 0.42);
+      border-radius: 999px;
+      color: var(--red);
+      font-size: 9px;
+    }
+    .combat-latest,
+    .combat-latest-inner,
+    .combat-history-row {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .combat-latest {
+      min-height: 46px;
+      padding: 7px 10px;
+    }
+    .combat-latest-inner { display: contents; }
+    .combat-beat-icon {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(var(--type-combat-rgb), 0.42);
+      border-radius: 999px;
+      background: rgba(var(--type-combat-rgb), 0.1);
+      color: var(--red);
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .combat-beat-copy {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+    .combat-beat-summary,
+    .combat-beat-detail {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .combat-beat-summary {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 780;
+    }
+    .combat-beat-detail {
+      color: var(--dim);
+      font-size: 10px;
+    }
+    .combat-beat-result {
+      max-width: none;
+      overflow: hidden;
+      border: 1px solid rgba(var(--type-combat-rgb), 0.34);
+      border-radius: 999px;
+      background: rgba(var(--type-combat-rgb), 0.09);
+      color: var(--red);
+      padding: 3px 7px;
+      font-size: 9px;
+      font-weight: 900;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .combat-beat-result.miss,
+    .combat-beat-result.wait {
+      border-color: var(--line-strong);
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--dim);
+    }
+    .combat-beat-result.critical {
+      border-color: rgba(var(--type-combat-rgb), 0.7);
+      background: rgba(var(--type-combat-rgb), 0.2);
+      color: #fff;
+    }
+    .combat-history {
+      max-height: min(28vh, 230px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      border-top: 1px solid rgba(var(--type-combat-rgb), 0.18);
+      background: rgba(6, 6, 5, 0.46);
+      scrollbar-width: thin;
+    }
+    .combat-history[hidden] { display: none; }
+    .combat-history-row {
+      min-height: 42px;
+      align-items: start;
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    }
+    .combat-history-row .combat-beat-icon,
+    .combat-history-row .combat-beat-result { margin-top: 1px; }
+    .combat-history-row .combat-beat-detail {
+      display: -webkit-box;
+      overflow: hidden;
+      line-height: 1.25;
+      white-space: normal;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .combat-history-row:last-child { border-bottom: 0; }
+    .combat-history-empty {
+      margin: 0;
+      padding: 12px;
+      color: var(--dim);
+      font-size: 11px;
+      text-align: center;
+    }
+    @media (max-width: 900px) {
+      .combat-dock { margin-bottom: 7px; }
+      .combat-dock-head { min-height: 44px; padding-inline: 8px; }
+      .combat-latest { padding-inline: 8px; }
+      .combat-history-row { padding-inline: 8px; }
+    }
+    body.large-text .combat-dock-turn,
+    body.large-text .combat-beat-summary { font-size: 1rem; }
+    body.large-text .combat-dock-round,
+    body.large-text .combat-beat-detail,
+    body.large-text .combat-history-toggle { font-size: 0.82rem; }
+    @media (max-width: 360px) {
+      .combat-dock-state { gap: 5px; }
+      .combat-dock-turn { font-size: 11px; }
+      .combat-history-toggle { font-size: 0; }
+      .combat-history-toggle::before { content: "log"; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -5612,6 +5814,14 @@
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
         </div>
+        <section class="combat-dock" id="combat-dock" aria-label="Combat status" hidden>
+          <header class="combat-dock-head">
+            <div class="combat-dock-state"><span class="combat-dock-round" id="combat-dock-round"></span><strong class="combat-dock-turn" id="combat-dock-turn"></strong></div>
+            <button class="combat-history-toggle" id="combat-history-toggle" type="button" aria-expanded="false" aria-controls="combat-history">History <span class="combat-history-toggle-count" id="combat-history-count" aria-hidden="true">0</span></button>
+          </header>
+          <div class="combat-latest" id="combat-latest" role="status" aria-live="polite" aria-atomic="true"></div>
+          <div class="combat-history" id="combat-history" role="log" aria-label="Combat history" hidden></div>
+        </section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -5872,6 +6082,8 @@
     let openRouterConnection = loadOpenRouterConnection();
     let roomCopyExpanded = false;
     let journalOpen = false;
+    let combatHistoryOpen = false;
+    let combatHistoryEncounterId = 0;
     let journalPageIndex = -1;
     let roomLogTickerFrame = null;
     let journalRowOverflowFrame = null;
@@ -9737,24 +9949,30 @@
         && Number(attempt.content_id || 0) === Number(outcome.content_id || 0);
     }
 
-    function sharedRoomTranscriptEvents(events) {
+    function combatEventsForPresentation(events) {
       const visible = [];
       let combatActive = Boolean(state?.combat);
       const currentLocationId = Number(state?.location?.id || 0);
-      for (let index = 0; index < (events || []).length; index += 1) {
-        const event = events[index];
+      const localEvents = (events || []).filter((event) => {
         const eventLocationId = Number(event?.location_id || 0);
-        if (currentLocationId && eventLocationId && eventLocationId !== currentLocationId) continue;
-        if (["message.created", "image.created", "model_interaction.output"].includes(event?.type)) {
-          visible.push(event);
-          continue;
+        return !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
+      });
+      let encounterStart = -1;
+      for (let index = localEvents.length - 1; index >= 0; index -= 1) {
+        if (localEvents[index]?.type === "combat.encounter.started") {
+          encounterStart = index;
+          break;
         }
+      }
+      const encounterEvents = encounterStart >= 0 ? localEvents.slice(encounterStart) : localEvents;
+      for (let index = 0; index < encounterEvents.length; index += 1) {
+        const event = encounterEvents[index];
         if (event?.type === "combat.encounter.started") combatActive = true;
         if (event?.type === "combat.attack.attempt") {
           const grouped = { ...event };
           let lastSeq = Number(event.seq || 0);
-          for (let cursor = index + 1; cursor < events.length; cursor += 1) {
-            const outcome = events[cursor];
+          for (let cursor = index + 1; cursor < encounterEvents.length; cursor += 1) {
+            const outcome = encounterEvents[cursor];
             if (!combatAttackEventsShareBeat(event, outcome)) break;
             if (outcome.type === "combat.knockout") grouped.combat_knockout = outcome;
             else grouped.combat_outcome = outcome;
@@ -9773,8 +9991,16 @@
         }
         if (event?.type === "combat.encounter.resolved") combatActive = false;
       }
-      // The source log remains append-only and substantially deeper. This
-      // bound limits mounted DOM without dropping speech when combat begins.
+      return visible.slice(-24);
+    }
+
+    function sharedRoomTranscriptEvents(events) {
+      const currentLocationId = Number(state?.location?.id || 0);
+      const visible = (events || []).filter((event) => {
+        const eventLocationId = Number(event?.location_id || 0);
+        return eventIsChatTranscriptEvent(event)
+          && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
+      });
       return visible.slice(-40);
     }
 
@@ -9946,18 +10172,22 @@
     }
 
     const importantNotificationTypes = new Set([
-      "combat.encounter.started",
-      "combat.attack.hit",
-      "combat.attack.miss",
-      "combat.defend",
-      "combat.dodge",
-      "combat.pass",
       "combat.knockout",
       "combat.flee.success",
       "combat.encounter.resolved",
       "clock.threshold",
       "relationship.advanced",
       "world.conflict.escalated",
+    ]);
+    const dockOwnedCombatNotificationTypes = new Set([
+      "combat.encounter.started",
+      "combat.attack.attempt",
+      "combat.attack.hit",
+      "combat.attack.miss",
+      "combat.defend",
+      "combat.dodge",
+      "combat.pass",
+      "combat.need_time",
     ]);
 
     function enqueueImportantNotification(event) {
@@ -9984,6 +10214,7 @@
     function enqueueJournalNotification(event) {
       if (!sceneCardEventTypes.has(String(event?.type || ""))) return;
       if (["ability_check.rolled", "avatar.thought", "avatar.dream"].includes(event.type)) return;
+      if (dockOwnedCombatNotificationTypes.has(event.type)) return;
       const key = String(event?.seq || `${event.type}:${Date.now()}`);
       if (journalNotifications.some((notification) => notification.key === key)) return;
       const meta = statusUpdateMeta(event);
@@ -11868,6 +12099,140 @@
       $("room-hero")?.classList.toggle("has-rescue-row", Boolean(rescueHtml));
     }
 
+    function combatBeatPresentation(event) {
+      const type = String(event?.type || "");
+      const actor = event?.actor_name || "Someone";
+      const target = event?.target_actor_name || event?.combat_outcome?.target_actor_name || "their opponent";
+      const base = {
+        icon: "⚔",
+        summary: "The clash continues",
+        detail: "",
+        result: "",
+        resultKind: "wait",
+      };
+      if (type === "combat.attack.attempt") {
+        const outcome = event.combat_outcome || null;
+        const knockout = event.combat_knockout || null;
+        const method = event.combat_method || event.item_name || "Unarmed strike";
+        const mechanics = combatAttackMechanics(event).replace(/\s*·\s*$/g, "");
+        const damageValue = outcome?.damage ?? knockout?.damage;
+        const damage = Number.isFinite(Number(damageValue)) ? Math.max(0, Number(damageValue)) : null;
+        const missed = outcome?.type === "combat.attack.miss" || (!outcome && event.success === false);
+        return {
+          icon: missed ? "◇" : knockout ? "!" : "✦",
+          summary: actor + " → " + target,
+          detail: [method, mechanics].filter(Boolean).join(" · "),
+          result: missed ? "miss" : knockout ? "knockout" : damage > 0 ? damage + " harm" : "hit",
+          resultKind: missed ? "miss" : knockout ? "critical" : "hit",
+        };
+      }
+      if (type === "combat.encounter.started") {
+        return { ...base, icon: "⚔", summary: actor + " faces " + target, detail: "The encounter begins", result: "start" };
+      }
+      if (type === "combat.attack.hit") {
+        const damage = Math.max(0, Number(event.damage || 0));
+        return { ...base, icon: "✦", summary: actor + " hits " + target, detail: event.combat_method || event.item_name || "Attack", result: damage ? damage + " harm" : "hit", resultKind: "hit" };
+      }
+      if (type === "combat.attack.miss") {
+        return { ...base, icon: "◇", summary: target + " evades " + actor, detail: event.combat_method || event.item_name || "Attack", result: "miss", resultKind: "miss" };
+      }
+      if (type === "combat.knockout") {
+        return { ...base, icon: "!", summary: target + " is knocked out", detail: event.combat_method || event.item_name || actor + "'s attack", result: "knockout", resultKind: "critical" };
+      }
+      if (type === "combat.dodge") {
+        return { ...base, icon: "↝", summary: actor + " prepares to dodge", detail: "Attacks have Disadvantage", result: "dodge" };
+      }
+      if (type === "combat.defend") {
+        return { ...base, icon: "◇", summary: actor + " holds their guard", detail: "Waiting for an opening", result: "guard" };
+      }
+      if (type === "combat.pass") {
+        return { ...base, icon: "→", summary: actor + " passes", detail: "The combat floor moves on", result: "pass" };
+      }
+      if (type === "combat.need_time") {
+        return { ...base, icon: "…", summary: actor + " needs more time", detail: "The turn stays with them", result: "pause" };
+      }
+      if (type === "combat.flee.success") {
+        return { ...base, icon: "↗", summary: actor + " escapes", detail: "To " + (event.destination_location_name || "safety"), result: "away" };
+      }
+      if (type === "combat.encounter.resolved") {
+        return { ...base, icon: "✦", summary: "The clash is over", detail: "The room settles again", result: "resolved", resultKind: "hit" };
+      }
+      if (type === "item.used") {
+        const recovery = Number(event.damage || 0) < 0 ? Math.abs(Number(event.damage || 0)) : 0;
+        return { ...base, icon: "+", summary: actor + " uses " + (event.item_name || "an item"), detail: event.target_actor_name ? "On " + event.target_actor_name : "In the clash", result: recovery ? "+" + recovery + " HP" : "used", resultKind: recovery ? "hit" : "wait" };
+      }
+      if (type === "magic.spell_cast") {
+        return { ...base, icon: "✧", summary: actor + " casts " + (event.item_name || "a spell"), detail: event.target_actor_name ? "Toward " + event.target_actor_name : "Its effect takes hold", result: "cast", resultKind: "hit" };
+      }
+      return {
+        ...base,
+        summary: cleanStatusText(sceneCardEventText(event) || eventText(event)) || base.summary,
+      };
+    }
+
+    function combatBeatHtml(event, className) {
+      const beat = combatBeatPresentation(event);
+      const result = beat.result
+        ? '<span class="combat-beat-result ' + escapeAttr(beat.resultKind) + '">' + escapeHtml(beat.result) + "</span>"
+        : "";
+      const detail = beat.detail
+        ? '<span class="combat-beat-detail">' + escapeHtml(beat.detail) + "</span>"
+        : "";
+      const aria = [beat.summary, beat.detail, beat.result].filter(Boolean).join(". ");
+      return '<div class="' + escapeAttr(className) + '" data-combat-history-seq="' + Number(event?.transcript_tail_seq || event?.seq || 0) + '" aria-label="' + escapeAttr(aria) + '"><span class="combat-beat-icon" aria-hidden="true">' + escapeHtml(beat.icon) + '</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(beat.summary) + "</span>" + detail + "</span>" + result + "</div>";
+    }
+
+    function renderCombatDock(view = state) {
+      const dock = $("combat-dock");
+      const history = $("combat-history");
+      const toggle = $("combat-history-toggle");
+      if (!dock || !history || !toggle) return;
+      const combat = view?.combat || null;
+      if (!combat) {
+        dock.hidden = true;
+        combatHistoryOpen = false;
+        combatHistoryEncounterId = 0;
+        history.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        return;
+      }
+      const encounterId = Number(combat.encounter_id || 0);
+      if (encounterId !== combatHistoryEncounterId) {
+        combatHistoryEncounterId = encounterId;
+        combatHistoryOpen = false;
+      }
+      const beats = combatEventsForPresentation(logEvents);
+      const historicalBeats = beats.slice(0, -1);
+      const currentActor = combat.current_actor_name
+        || actorForId(combat.current_actor_id)?.name
+        || "The next combatant";
+      const round = Math.max(1, Number(combat.round || 1));
+      const turnCopy = combat.is_current_actor || Number(combat.current_actor_id) === Number(actorId)
+        ? "Your turn"
+        : currentActor + "'s turn";
+      $("combat-dock-round").textContent = "Round " + round;
+      $("combat-dock-turn").textContent = turnCopy;
+      $("combat-history-count").textContent = String(beats.length);
+      const latest = beats.at(-1);
+      $("combat-latest").innerHTML = latest
+        ? combatBeatHtml(latest, "combat-latest-inner")
+        : '<span class="combat-beat-icon" aria-hidden="true">…</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(currentActor) + ' is choosing</span><span class="combat-beat-detail">The encounter state is up to date</span></span><span class="combat-beat-result wait">waiting</span>';
+      history.innerHTML = historicalBeats.length
+        ? historicalBeats.map((event) => combatBeatHtml(event, "combat-history-row")).join("")
+        : '<p class="combat-history-empty">No earlier combat actions yet.</p>';
+      history.hidden = !combatHistoryOpen;
+      toggle.setAttribute("aria-expanded", combatHistoryOpen ? "true" : "false");
+      toggle.setAttribute("aria-label", (combatHistoryOpen ? "Hide" : "Show") + " combat history, " + beats.length + " " + (beats.length === 1 ? "event" : "events"));
+      const latestBeat = latest ? combatBeatPresentation(latest) : null;
+      dock.setAttribute("aria-label", [
+        "Combat, round " + round,
+        turnCopy,
+        latestBeat ? "Latest: " + latestBeat.summary + ", " + (latestBeat.result || latestBeat.detail) : "No actions resolved yet",
+      ].join(". "));
+      dock.hidden = false;
+      if (combatHistoryOpen) history.scrollTop = history.scrollHeight;
+    }
+
     function journalSentence(value) {
       const text = cleanStatusText(value);
       if (!text) return "";
@@ -11983,6 +12348,7 @@
       renderJournalActivity();
       renderRoomMemory();
       renderJournalLog();
+      renderCombatDock();
       renderLog();
       syncJournalRegions();
       syncJournalMode();
@@ -13565,7 +13931,9 @@
 
     function quietRoomSceneHtml() {
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
-      const cue = state?.journey
+      const cue = state?.combat
+        ? "The clash has the floor. Choose from your combat hand."
+        : state?.journey
         ? "The road is quiet for a moment. Chat with the travelling party or choose how to press on."
         : hasAvatar
           ? "Chat with someone here or explore the room."
@@ -17745,6 +18113,10 @@
     });
     $("room-log-latest").addEventListener("click", () => {
       setJournalOpen(!journalOpen);
+    });
+    $("combat-history-toggle").addEventListener("click", () => {
+      combatHistoryOpen = !combatHistoryOpen;
+      renderCombatDock();
     });
 
     $("card-modal").addEventListener("click", (event) => {
