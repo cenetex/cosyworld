@@ -27,7 +27,8 @@ describe("three-slot Story Hand", () => {
     expect(browser).toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
     expect(browser).toContain('openActionModal(action, { handCard: true });');
     expect(browser).toContain('dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);');
-    expect(browser).toContain('$("action-modal-confirm").textContent = handCard ? "play"');
+    expect(browser).toContain('$("action-modal-confirm").textContent = handCard && !action.minimalTravelPresentation');
+    expect(browser).toContain('? "play"\n        : actionConfirmLabel(action);');
     expect(browser).toContain('cancelButton.textContent = handCard ? "close"');
     expect(browser).toContain('cancelButton.hidden = false;');
     expect(browser).toContain('handCard ? `Close ${label} card`');
@@ -76,14 +77,17 @@ describe("three-slot Story Hand", () => {
     );
 
     expect(routeBlock).toContain(
-      "? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)",
+      "const routeDestinationName = firstPathwayDirection?.endpointName || firstExit.destination_location_name",
     );
     expect(routeBlock).toContain("destinationOnlyCardAriaLabel: destinationOnlyCardLabel");
+    expect(routeBlock).toContain("`Begin route to ${routeDestinationName}`");
+    expect(routeBlock).toContain("minimalTravelPresentation: onePath && !searchingPathway && !fleeing");
     expect(routeBlock).not.toContain("conciseRouteLabel");
     expect(cardRenderBlock).toContain(
       'String(action?.intention || "").toLowerCase() === "travel"',
     );
     expect(cardRenderBlock).toContain('? "Travel"');
+    expect(cardRenderBlock).toContain('const visibleCostText = minimalTravelCard && !orbCost ? "" : costText');
   });
 
   it("shows suit emojis instead of suit names on action cards", () => {
