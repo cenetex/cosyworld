@@ -721,6 +721,8 @@ pub(super) struct SeedActorContent {
     #[serde(default)]
     pub(super) voice: String,
     #[serde(default)]
+    pub(super) control_mode: Option<ActorControlMode>,
+    #[serde(default)]
     pub(super) ambient_autonomy: Option<bool>,
     #[serde(default)]
     pub(super) roaming: Option<bool>,
@@ -736,6 +738,18 @@ pub(super) struct SeedActorContent {
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
     #[serde(default)]
     pub(super) relationship: Option<SeedRelationshipContent>,
+}
+
+impl SeedActorContent {
+    pub(super) fn authored_default_control_mode(&self) -> ActorControlMode {
+        self.control_mode.unwrap_or_else(|| {
+            if self.ambient_autonomy.unwrap_or(true) {
+                ActorControlMode::LocalAi
+            } else {
+                ActorControlMode::ReactiveAi
+            }
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -793,6 +807,58 @@ pub(super) struct SeedActorModelBinding {
     pub(super) output_cost_per_million: Option<f64>,
     pub(super) zero_data_retention: bool,
     pub(super) speech_mode: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SeedActorBindingPolicy {
+    Complete,
+    Explicit,
+}
+
+fn seed_actor_binding_policy(
+    pack: &SeedWorldpackPack,
+) -> Result<Option<SeedActorBindingPolicy>, String> {
+    let Some(config) = pack.extensions.get("x-cosyworld-ai-cast") else {
+        return Ok(None);
+    };
+    let Some(config) = config.as_object() else {
+        return Err(format!("pack {} has an invalid AI cast extension", pack.id));
+    };
+    if config
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        != Some(1)
+        || config.get("provider").and_then(serde_json::Value::as_str) != Some("openrouter")
+        || config
+            .get("speech_mode")
+            .and_then(serde_json::Value::as_str)
+            != Some("raw")
+        || config
+            .get("runtime_refresh")
+            .and_then(serde_json::Value::as_bool)
+            != Some(false)
+    {
+        return Err(format!("pack {} has an invalid AI cast extension", pack.id));
+    }
+    let legacy_complete = config
+        .get("complete_actor_binding")
+        .and_then(serde_json::Value::as_bool);
+    let declared = config
+        .get("binding_policy")
+        .and_then(serde_json::Value::as_str);
+    let policy = match (declared, legacy_complete) {
+        (Some("complete"), None | Some(true)) | (None, Some(true)) => {
+            SeedActorBindingPolicy::Complete
+        }
+        (Some("explicit"), None) => SeedActorBindingPolicy::Explicit,
+        _ => {
+            return Err(format!(
+                "pack {} has an invalid AI cast binding policy",
+                pack.id
+            ))
+        }
+    };
+    Ok(Some(policy))
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2281,7 +2347,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         };
         validate_seed_stats(actor.id, stats)?;
     }
-    let mut actor_model_ids = BTreeSet::new();
+    let mut actor_binding_ids = BTreeSet::new();
     let mut model_actor_ids = BTreeSet::new();
     let mut bound_actor_counts_by_pack = BTreeMap::<&str, usize>::new();
     for binding in &content.actor_model_bindings {
@@ -2296,10 +2362,11 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 .iter()
                 .any(|value| value == "text");
         let expected_speech_mode = if text_chat { "raw" } else { "unavailable" };
-        if binding.id != binding.requested_model_id
-            || binding.provider != "openrouter"
+        if binding.provider != "openrouter"
             || binding.id.trim().is_empty()
             || binding.id.len() > 256
+            || binding.requested_model_id.trim().is_empty()
+            || binding.requested_model_id.len() > 256
             || binding.canonical_slug.trim().is_empty()
             || binding.display_name.trim().is_empty()
             || binding.catalog_snapshot_version.trim().is_empty()
@@ -2310,7 +2377,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             || binding.speech_mode != expected_speech_mode
             || binding.input_modalities.is_empty()
             || binding.output_modalities.is_empty()
-            || !actor_model_ids.insert(binding.id.as_str())
+            || !actor_binding_ids.insert(binding.id.as_str())
             || !model_actor_ids.insert(binding.actor_id)
         {
             return Err(format!("invalid actor model binding {}", binding.id));
@@ -2328,16 +2395,36 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             binding.zero_data_retention,
         );
     }
-    for (pack_id, bound_actor_count) in bound_actor_counts_by_pack {
+    for pack in &content.manifest.packs {
+        let bound_actor_count = bound_actor_counts_by_pack
+            .get(pack.id.as_str())
+            .copied()
+            .unwrap_or_default();
         let actor_count = content
             .actors
             .iter()
-            .filter(|actor| actor.pack_id == pack_id)
+            .filter(|actor| actor.pack_id == pack.id)
             .count();
-        if bound_actor_count != actor_count {
-            return Err(format!(
-                "actor model bindings for {pack_id} cover {bound_actor_count} of {actor_count} actors"
-            ));
+        match seed_actor_binding_policy(pack)? {
+            Some(SeedActorBindingPolicy::Complete) if bound_actor_count != actor_count => {
+                return Err(format!(
+                    "actor model bindings for {} cover {bound_actor_count} of {actor_count} actors",
+                    pack.id
+                ));
+            }
+            Some(SeedActorBindingPolicy::Explicit) if bound_actor_count == 0 => {
+                return Err(format!(
+                    "explicit actor model bindings for {} declare no actors",
+                    pack.id
+                ));
+            }
+            None if bound_actor_count != 0 => {
+                return Err(format!(
+                    "actor model bindings for {} have no AI cast policy",
+                    pack.id
+                ));
+            }
+            _ => {}
         }
     }
 

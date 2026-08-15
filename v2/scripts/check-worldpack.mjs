@@ -1580,6 +1580,11 @@ for (const actor of actors) {
       && (!isNonEmptyString(actor.voice) || [...actor.voice].length > 500)) {
     fail(`actor ${actor.id} voice must contain 1-500 characters`);
   }
+  if (actor.control_mode !== undefined
+      && !new Set(["direct_input", "reactive_ai", "local_ai", "roaming_ai", "delegated_ai"])
+        .has(actor.control_mode)) {
+    fail(`actor ${actor.id} has invalid control_mode`);
+  }
   if (actor.ambient_autonomy !== undefined && typeof actor.ambient_autonomy !== "boolean") {
     fail(`actor ${actor.id} has invalid ambient_autonomy`);
   }

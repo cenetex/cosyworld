@@ -19,6 +19,7 @@ export function actorModelBindingValidationErrors(manifest, actors, bindings) {
     "provider",
     "catalog_snapshot_version",
     "speech_mode",
+    "binding_policy",
     "complete_actor_binding",
     "runtime_refresh",
   ]);
@@ -31,15 +32,24 @@ export function actorModelBindingValidationErrors(manifest, actors, bindings) {
     errors.push(`${label} has an invalid catalog_snapshot_version`);
   }
   if (config.speech_mode !== "raw") errors.push(`${label} speech_mode must be raw`);
-  if (config.complete_actor_binding !== true) {
-    errors.push(`${label} complete_actor_binding must be true`);
+  const legacyComplete = config.complete_actor_binding;
+  const bindingPolicy = config.binding_policy
+    ?? (legacyComplete === true ? "complete" : undefined);
+  if (!new Set(["complete", "explicit"]).has(bindingPolicy)) {
+    errors.push(`${label} binding_policy must be complete or explicit`);
+  }
+  if (legacyComplete !== undefined && legacyComplete !== true) {
+    errors.push(`${label} legacy complete_actor_binding must be true when present`);
+  }
+  if (legacyComplete === true && bindingPolicy !== "complete") {
+    errors.push(`${label} complete_actor_binding conflicts with binding_policy`);
   }
   if (config.runtime_refresh !== false) errors.push(`${label} runtime_refresh must be false`);
 
   const packActors = actors.filter((actor) => actor.pack_id === manifest.id);
   const actorIds = new Set(packActors.map((actor) => actor.id));
   const boundActors = new Set();
-  const modelIds = new Set();
+  const bindingIds = new Set();
   const allowedFields = new Set([
     "pack_id",
     "id",
@@ -67,12 +77,15 @@ export function actorModelBindingValidationErrors(manifest, actors, bindings) {
       if (!allowedFields.has(field)) errors.push(`${owner} has unknown field ${field}`);
     }
     if (row.pack_id !== manifest.id) errors.push(`${owner} has the wrong pack_id`);
-    if (!MODEL_ID.test(row.id ?? "") || row.requested_model_id !== row.id) {
-      errors.push(`${owner} has an invalid or mismatched requested model id`);
-    } else if (modelIds.has(row.id)) {
-      errors.push(`${owner} repeats model ${row.id}`);
+    if (!MODEL_ID.test(row.id ?? "")) {
+      errors.push(`${owner} has an invalid binding id`);
+    } else if (bindingIds.has(row.id)) {
+      errors.push(`${owner} repeats binding ${row.id}`);
     } else {
-      modelIds.add(row.id);
+      bindingIds.add(row.id);
+    }
+    if (!MODEL_ID.test(row.requested_model_id ?? "")) {
+      errors.push(`${owner} has an invalid requested model id`);
     }
     if (!Number.isSafeInteger(row.actor_id) || row.actor_id <= 0 || !actorIds.has(row.actor_id)) {
       errors.push(`${owner} references an unknown actor`);
@@ -128,8 +141,11 @@ export function actorModelBindingValidationErrors(manifest, actors, bindings) {
       errors.push(`${owner} speech_mode does not match actor ${row.actor_id}`);
     }
   }
-  if (config.complete_actor_binding && boundActors.size !== packActors.length) {
+  if (bindingPolicy === "complete" && boundActors.size !== packActors.length) {
     errors.push(`${label} binds ${boundActors.size} of ${packActors.length} actors`);
+  }
+  if (bindingPolicy === "explicit" && bindings.length === 0) {
+    errors.push(`${label} explicit binding policy must declare at least one binding`);
   }
   return errors;
 }

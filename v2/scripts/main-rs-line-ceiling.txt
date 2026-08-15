@@ -274,4 +274,6 @@
 # this is a reviewed integration exception, not a new root-owned gameplay system.
 # 66864 -> 66856: move attack and explicit combat-declaration handlers into
 # combat.rs while separating declaration from the first attack.
-66856
+# 66856 -> 66855: route authored actor control-mode defaults through the
+# content loader while keeping avatar-session handoff persistence in its module.
+66855

@@ -18,7 +18,12 @@
       771002,
       771003,
       771004,
-      771007
+      771007,
+      771100,
+      771101,
+      771102,
+      771105,
+      771106
     ],
     "progress_clock_id": "hoppycat.february-third",
     "danger_clock_id": "hoppycat.perfect-copy",
@@ -70,7 +75,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -106,7 +111,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -142,7 +147,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -178,7 +183,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -214,7 +219,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ],
     "pack_id": "hoppycat.archive"
@@ -230,7 +235,9 @@
     ],
     "participant_ids": [
       771005,
-      771006
+      771006,
+      771101,
+      771103
     ],
     "progress_clock_id": "hoppycat.impossible-thing",
     "danger_clock_id": "hoppycat.perpetual-draft",
@@ -281,7 +288,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -317,7 +324,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -353,7 +360,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ],
     "pack_id": "hoppycat.archive"
@@ -371,7 +378,12 @@
       771000,
       771001,
       771002,
-      771005
+      771005,
+      771100,
+      771102,
+      771104,
+      771105,
+      771106
     ],
     "progress_clock_id": "hoppycat.living-footnote",
     "danger_clock_id": "hoppycat.rendering-adrift",
@@ -424,7 +436,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -462,7 +474,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -498,7 +510,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ],
     "pack_id": "hoppycat.archive"

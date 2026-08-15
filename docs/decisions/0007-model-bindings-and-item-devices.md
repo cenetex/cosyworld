@@ -136,6 +136,14 @@ The compatibility-first pack change is additive:
 5. keep exact-model, no-fallback, frozen-profile, publication-gate, and replay
    requirements unchanged.
 
+An actor pack declares a binding policy. `complete` retains the original rule
+that every pack-owned actor has one exact binding. `explicit` binds only the
+listed actors, leaving unlisted actors on their ordinary configured controller
+route. Binding identity is pack-owned and distinct from requested model
+identity, so two actors may intentionally share one exact model route without
+colliding. Every listed actor still fails closed on that exact model; the
+runtime must not substitute the global Voice model.
+
 An item binding belongs to the authored item profile. Each live item instance
 still has its own custody, zone, settings, exhaustion, provenance, and action
 certificate. The browser submits the certified offer identity; it never selects

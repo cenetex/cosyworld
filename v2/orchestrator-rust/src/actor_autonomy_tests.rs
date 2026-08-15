@@ -11,6 +11,7 @@ fn roaming_actor(ambient_autonomy: Option<bool>, roaming: Option<bool>) -> SeedA
         identity: None,
         level_track_id: None,
         voice: String::new(),
+        control_mode: None,
         ambient_autonomy,
         roaming,
         location_id: Some(COSY_COTTAGE_LOCATION_ID),
@@ -20,6 +21,22 @@ fn roaming_actor(ambient_autonomy: Option<bool>, roaming: Option<bool>) -> SeedA
         attachments: Vec::new(),
         relationship: None,
     }
+}
+
+#[test]
+fn authored_control_mode_overrides_the_autonomy_default() {
+    let mut actor = roaming_actor(Some(true), Some(true));
+    actor.control_mode = Some(ActorControlMode::DirectInput);
+    assert_eq!(
+        actor.authored_default_control_mode(),
+        ActorControlMode::DirectInput
+    );
+
+    actor.control_mode = None;
+    assert_eq!(
+        actor.authored_default_control_mode(),
+        ActorControlMode::LocalAi
+    );
 }
 
 #[test]
