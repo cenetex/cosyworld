@@ -5896,6 +5896,518 @@
       .combat-history-toggle { font-size: 0; }
       .combat-history-toggle::before { content: "log"; font-size: 10px; }
     }
+
+    /* Chat is the game table. Supporting controls use square, illustrated
+       card geometry and stay visually quiet beside the transcript. */
+    .location-pill,
+    .location-pill img,
+    .room-hero,
+    .room-hero-card,
+    .room-hero-card img,
+    .chat-empty.play-cue,
+    .prompt,
+    .prompt .cmd,
+    .prompt .thumb,
+    .prompt button,
+    .account-panel.minimal-menu,
+    .account-panel.minimal-menu button,
+    .account-panel.minimal-menu input,
+    .action-dialog,
+    .action-choice,
+    .action-confirm,
+    .action-cancel {
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    .chat-empty.play-cue {
+      min-height: 0;
+      border: 0;
+      background: transparent;
+      padding: 16px;
+    }
+    .play-cue-kicker,
+    .play-cue strong,
+    .play-cue-direction { display: none; }
+    .play-cue-copy {
+      color: var(--dim);
+      font: 500 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+    }
+    .economy-stat.orbs { gap: 7px; }
+    .minimal-orb-rack {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .minimal-orb-rack i {
+      width: 13px;
+      height: 13px;
+      display: block;
+      border: 1px solid var(--line-strong);
+      background: transparent;
+      transform: rotate(45deg);
+    }
+    .minimal-orb-rack i.filled { background: var(--amber); }
+    .minimal-orb-rack.tier-10 i.filled { background: #9eb6bf; }
+    .minimal-orb-rack.tier-100 i.filled { background: #c3a7d5; }
+    .minimal-orb-rack.tier-1000 i.filled { background: #efc96b; }
+    .minimal-orb-rack.compact { gap: 3px; }
+    .minimal-orb-rack.compact i { width: 8px; height: 8px; }
+
+    .prompt,
+    .prompt.onboarding-mode,
+    .prompt.choice-mode,
+    .prompt.has-draw,
+    .prompt.choice-mode.has-draw {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      width: 100%;
+      max-width: none;
+      max-height: none;
+      overflow: visible;
+      padding: 0;
+      border-top: 1px solid var(--line-strong);
+      background: #0a0b08;
+    }
+    .turn-banner {
+      grid-column: 1;
+      margin: 6px 8px 0;
+    }
+    .hand-header {
+      width: 100%;
+      min-height: 36px;
+      display: none;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+    }
+    .prompt.hand-expanded .hand-header { display: block; }
+    .hand-toggle {
+      width: 100%;
+      min-height: 36px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      background: transparent;
+      color: var(--dim);
+      padding: 7px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .hand-toggle:hover,
+    .hand-toggle:focus-visible { color: var(--text); }
+    .hand-toggle-title {
+      color: inherit;
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .hand-toggle-status {
+      color: var(--amber);
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.06em;
+    }
+    .hand-toggle-chevron {
+      color: var(--amber);
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transform: none !important;
+    }
+    .hand-rail {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      overflow: visible;
+      padding: 7px;
+      background: var(--line);
+    }
+    .story-card-slot {
+      min-width: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+      border: 1px solid rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.38);
+      background: #11110d;
+    }
+    .story-card-slot[hidden] { display: none !important; }
+    .story-card-actions {
+      display: none;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      border-top: 1px solid var(--line);
+    }
+    .story-card-actions button {
+      min-width: 0;
+      min-height: 42px;
+      border: 0;
+      background: transparent;
+      color: var(--dim);
+      padding: 7px 4px;
+      font: 750 11px/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .story-card-actions button + button { border-left: 1px solid var(--line); }
+    .story-card-actions .story-card-play { color: var(--amber); }
+    .story-card-actions button:hover,
+    .story-card-actions button:focus-visible {
+      background: rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.1);
+      color: var(--text);
+    }
+    .story-card-actions button:disabled { opacity: 0.32; cursor: default; }
+    .prompt .cmd {
+      width: 100%;
+      min-width: 0;
+      min-height: 58px;
+      height: 100%;
+      display: grid !important;
+      grid-template-columns: 54px minmax(0, 1fr);
+      grid-template-rows: 58px;
+      align-items: stretch;
+      justify-content: stretch;
+      gap: 0;
+      overflow: hidden;
+      border: 0;
+      background: #14140f;
+      padding: 0;
+      text-align: left;
+    }
+    .prompt .cmd[style*="display: none"] { display: none !important; }
+    .prompt .cmd::before,
+    .prompt .cmd::after,
+    .prompt .collectible-mark,
+    .prompt .cmd-symbols,
+    .prompt .cmd-meta,
+    .prompt .provider-call,
+    .prompt .story-call { display: none !important; }
+    .prompt .cmd .thumb,
+    .prompt .cmd .thumb.location,
+    .prompt .cmd .thumb.avatar,
+    .prompt .cmd .thumb.item,
+    .prompt .cmd .thumb.action-mini-card {
+      width: 54px;
+      height: 58px;
+      min-height: 0;
+      align-self: stretch;
+      flex: none;
+      border: 0;
+      border-right: 1px solid var(--line);
+      background-color: #080906;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover !important;
+    }
+    .prompt .cmd-copy {
+      min-width: 0;
+      align-content: center;
+      gap: 2px;
+      padding: 6px 7px;
+    }
+    .prompt .cmd-kicker {
+      color: var(--cmd-accent);
+      font-size: 8px;
+      letter-spacing: 0.12em;
+    }
+    .prompt .cmd-label {
+      display: block;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.12;
+      white-space: normal;
+    }
+    .prompt .cmd-label .ui-icon { display: none; }
+    .prompt .cmd-label-text {
+      display: -webkit-box;
+      overflow: hidden;
+      white-space: normal;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .prompt .detail { display: none; }
+    .prompt.hand-expanded .hand-rail {
+      height: clamp(238px, 34dvh, 330px);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      overflow: visible;
+      padding: 8px;
+    }
+    .prompt.hand-expanded .story-card-slot {
+      grid-template-rows: minmax(0, 1fr) 42px;
+    }
+    .prompt.hand-expanded .story-card-actions { display: grid; }
+    .prompt.hand-expanded .cmd {
+      width: 100%;
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(104px, 1.2fr) minmax(86px, 0.8fr);
+      opacity: 1;
+      transition: none;
+    }
+    .prompt.hand-expanded .cmd .thumb,
+    .prompt.hand-expanded .cmd .thumb.location,
+    .prompt.hand-expanded .cmd .thumb.avatar,
+    .prompt.hand-expanded .cmd .thumb.item,
+    .prompt.hand-expanded .cmd .thumb.action-mini-card {
+      width: 100%;
+      height: 100%;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .prompt.hand-expanded .cmd-copy {
+      align-content: start;
+      gap: 5px;
+      padding: 9px 8px;
+    }
+    .prompt.hand-expanded .cmd-kicker { font-size: 9px; }
+    .prompt.hand-expanded .cmd-label { font-size: clamp(12px, 1.4vw, 16px); }
+    .prompt.hand-expanded .detail {
+      display: -webkit-box;
+      overflow: hidden;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.28;
+      white-space: normal;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .hand-inspector { display: none !important; }
+    .prompt.onboarding-mode .hand-header,
+    .prompt.choice-mode .hand-header { display: none; }
+    .prompt.onboarding-mode .hand-rail,
+    .prompt.choice-mode .hand-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .prompt.onboarding-mode .story-card-actions,
+    .prompt.choice-mode .story-card-actions { display: none; }
+    #shuffle { display: none !important; }
+
+    .account-panel.minimal-menu {
+      width: min(820px, 100%);
+      max-width: 820px;
+      margin: 0 auto;
+      border: 1px solid var(--line-strong);
+      background: #0b0c09;
+      padding: 0;
+      color: var(--text);
+    }
+    .account-panel.minimal-menu * { border-radius: 0 !important; box-shadow: none !important; }
+    .minimal-menu-heading {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .minimal-menu-heading > span {
+      padding: 10px 13px;
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .minimal-menu-heading button {
+      align-self: stretch;
+      border: 0;
+      border-left: 1px solid var(--line);
+      background: transparent;
+      color: var(--amber);
+      padding: 8px 13px;
+      font: 750 10px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .minimal-menu-player {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin: 0 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .minimal-menu-player > div { min-width: 0; display: grid; gap: 3px; }
+    .minimal-menu-player strong {
+      overflow: hidden;
+      font: 600 17px/1.15 Georgia, "Times New Roman", serif;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .minimal-menu-player small {
+      overflow: hidden;
+      color: var(--dim);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .minimal-menu-avatar {
+      width: 52px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      background: #11110d;
+      color: var(--amber);
+      font: 600 18px/1 Georgia, "Times New Roman", serif;
+    }
+    .minimal-menu-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .minimal-menu-level { color: var(--amber); font: 600 14px/1 Georgia, "Times New Roman", serif; }
+    .minimal-menu-orbs {
+      min-height: 56px;
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin: 0 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .minimal-menu-orbs strong { color: var(--amber); font-size: 10px; }
+    .minimal-menu-slots {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin: 14px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+    .minimal-menu-slot {
+      position: relative;
+      min-width: 0;
+      min-height: 112px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 0;
+      background: #10110d;
+      color: var(--faint);
+      padding: 8px;
+      font: 750 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .minimal-menu-slot:disabled { cursor: default; }
+    .minimal-menu-slot img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+    .minimal-menu-slot.filled span {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1;
+      border-top: 1px solid var(--line);
+      background: rgba(7, 8, 5, 0.88);
+      color: var(--text);
+      padding: 5px;
+      text-align: center;
+    }
+    .minimal-menu-slot b { color: var(--line-strong); font: 500 18px/1 Georgia, "Times New Roman", serif; }
+    .minimal-menu-rows { margin: 0 14px; border-top: 1px solid var(--line); }
+    .minimal-menu-row {
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .minimal-menu-row > span:first-child {
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .minimal-menu-row strong,
+    .minimal-menu-value,
+    .minimal-menu-inline-action {
+      overflow: hidden;
+      color: var(--text);
+      font: 600 15px/1.2 Georgia, "Times New Roman", serif;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .minimal-menu-inline-action {
+      width: fit-content;
+      min-height: 36px;
+      border: 0;
+      border-bottom: 1px solid var(--amber);
+      background: transparent;
+      padding: 4px 0;
+      cursor: pointer;
+    }
+    .minimal-menu-settings {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 14px;
+      border: 1px solid var(--line);
+    }
+    .minimal-menu-settings label {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      color: var(--dim);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .minimal-menu-settings label + label { border-left: 1px solid var(--line); }
+    .minimal-menu-settings input { width: 18px; height: 18px; margin: 0; accent-color: var(--amber); }
+
+    @media (max-width: 560px) {
+      .topbar-actions .economy { display: flex; }
+      .economy-stat.orbs > strong { font-size: 10px; }
+      .prompt.hand-expanded .hand-rail { height: 274px; padding: 7px; }
+      .prompt.hand-expanded .cmd { grid-template-rows: 112px minmax(0, 1fr); }
+      .prompt.hand-expanded .cmd-copy { padding: 8px 6px; }
+      .prompt.hand-expanded .cmd-label { font-size: 12px; }
+      .prompt.hand-expanded .detail { font-size: 10px; -webkit-line-clamp: 2; }
+      .story-card-actions button { min-height: 40px; font-size: 10px; }
+      .account-panel.minimal-menu { border-right: 0; border-left: 0; }
+      .minimal-menu-player,
+      .minimal-menu-orbs,
+      .minimal-menu-rows { margin-inline: 10px; }
+      .minimal-menu-slots,
+      .minimal-menu-settings { margin: 10px; }
+      .minimal-menu-slot { min-height: 94px; }
+    }
+    @media (max-width: 350px) {
+      .minimal-orb-rack.compact i { width: 7px; height: 7px; }
+      .prompt .cmd { grid-template-columns: 44px minmax(0, 1fr); }
+      .prompt .cmd .thumb,
+      .prompt .cmd .thumb.location,
+      .prompt .cmd .thumb.avatar,
+      .prompt .cmd .thumb.item,
+      .prompt .cmd .thumb.action-mini-card { width: 44px; }
+      .prompt.hand-expanded .cmd {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 98px minmax(0, 1fr);
+      }
+      .prompt.hand-expanded .cmd .thumb,
+      .prompt.hand-expanded .cmd .thumb.location,
+      .prompt.hand-expanded .cmd .thumb.avatar,
+      .prompt.hand-expanded .cmd .thumb.item,
+      .prompt.hand-expanded .cmd .thumb.action-mini-card { width: 100%; }
+      .minimal-menu-slot { min-height: 82px; }
+    }
   </style>
 </head>
 <body>
@@ -5972,16 +6484,34 @@
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
       <div class="hand-header">
-        <button class="hand-toggle" id="hand-toggle" type="button" aria-expanded="false" aria-controls="hand-rail hand-inspector">
-          <span class="hand-toggle-title">your hand</span>
-          <span class="hand-toggle-status" id="hand-toggle-status">3 cards · tap a card to open</span>
-          <span class="hand-toggle-chevron" aria-hidden="true">⌃</span>
+        <button class="hand-toggle" id="hand-toggle" type="button" aria-expanded="false" aria-controls="hand-rail">
+          <span class="hand-toggle-title">Story Hand</span>
+          <span class="hand-toggle-status" id="hand-toggle-status">3 cards</span>
+          <span class="hand-toggle-chevron" aria-hidden="true">Close</span>
         </button>
       </div>
       <div class="hand-rail" id="hand-rail" role="group" aria-label="Cards in your hand">
-        <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
-        <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-        <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+        <article class="story-card-slot" data-story-card-slot="primary">
+          <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
+          <div class="story-card-actions" aria-label="First card actions">
+            <button class="story-card-discard" type="button" data-hand-discard="primary">Discard</button>
+            <button class="story-card-play" type="button" data-hand-play="primary">Play</button>
+          </div>
+        </article>
+        <article class="story-card-slot" data-story-card-slot="secondary">
+          <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
+          <div class="story-card-actions" aria-label="Second card actions">
+            <button class="story-card-discard" type="button" data-hand-discard="secondary">Discard</button>
+            <button class="story-card-play" type="button" data-hand-play="secondary">Play</button>
+          </div>
+        </article>
+        <article class="story-card-slot" data-story-card-slot="tertiary">
+          <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+          <div class="story-card-actions" aria-label="Third card actions">
+            <button class="story-card-discard" type="button" data-hand-discard="tertiary">Discard</button>
+            <button class="story-card-play" type="button" data-hand-play="tertiary">Play</button>
+          </div>
+        </article>
       </div>
       <section class="hand-inspector" id="hand-inspector" aria-label="Selected card details" hidden>
         <h2 class="action-title" id="hand-title"></h2>
@@ -11947,11 +12477,23 @@
       return `next ${nextName}`;
     }
 
+    function orbSlotPresentation(value) {
+      const total = Math.max(0, Math.floor(Number(value || 0)));
+      const tier = total >= 1000 ? 1000 : total >= 100 ? 100 : total >= 10 ? 10 : 1;
+      const filled = Math.min(5, tier === 1 ? total : Math.floor(total / tier));
+      const slots = Array.from({ length: 5 }, (_, index) => (
+        `<i class="${index < filled ? "filled" : ""}" aria-hidden="true"></i>`
+      )).join("");
+      return { total, tier, filled, slots };
+    }
+
     function renderEconomy() {
       const economy = state?.economy || {};
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
+      const orbPresentation = orbSlotPresentation(orbs);
+      const tierLabel = orbPresentation.tier > 1 ? `<strong>×${orbPresentation.tier}</strong>` : "";
       const parts = [
-        `<span class="economy-stat orbs">${iconSvg("orb")}<strong>${orbs}</strong> <span class="economy-unit">Orbs</span></span>`,
+        `<span class="economy-stat orbs" aria-label="${orbs} Orbs">${iconSvg("orb")}<span class="minimal-orb-rack compact tier-${orbPresentation.tier}">${orbPresentation.slots}</span>${tierLabel}</span>`,
       ];
       const compact = window.matchMedia("(max-width: 900px)").matches;
       if (economyFlash) {
@@ -12472,6 +13014,10 @@
     function setJournalOpen(open) {
       const closing = journalOpen && !open;
       const opening = !journalOpen && open;
+      if (opening) {
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
+      }
       if (closing) {
         for (const activity of currentJournalActivities()) {
           dismissedJournalActivityKeys.add(activity.key);
@@ -14098,21 +14644,55 @@
       return `<div class="line event scene-card combat" data-event-row data-combat-beat aria-label="${escapeAttr(`Combat beat. ${text}`)}"><span class="event-label" aria-hidden="true">⚔</span><span class="text">${escapeHtml(text)}</span></div>`;
     }
 
+    function minimalMenuOrbHtml() {
+      const total = Math.max(0, Math.floor(Number(state?.economy?.orbs || 0)));
+      const presentation = orbSlotPresentation(total);
+      const tierLabel = presentation.tier > 1 ? `<strong>×${presentation.tier}</strong>` : "";
+      return `<div class="minimal-menu-orbs" aria-label="${total} Orbs"><span>Orbs</span><div class="minimal-orb-rack tier-${presentation.tier}">${presentation.slots}</div>${tierLabel}</div>`;
+    }
+
+    function minimalMenuSlotHtml(label, item) {
+      const card = item ? cardForItem(item.id) : null;
+      const image = cardImage(card);
+      const title = String(card?.display_name || item?.name || label).trim();
+      const content = image
+        ? `<img src="${escapeAttr(image)}" alt="" /><span>${escapeHtml(label)}</span>`
+        : `<span>${escapeHtml(label)}</span><b aria-hidden="true">—</b>`;
+      return `<button class="minimal-menu-slot${image ? " filled" : ""}" type="button"${cardDataAttr(card)} aria-label="${escapeAttr(image ? `Open ${title}` : `${label} slot empty`)}"${image ? "" : " disabled"}>${content}</button>`;
+    }
+
+    function minimalMenuPanelHtml() {
+      const deck = state?.deck || {};
+      const avatar = actorForId(actorId);
+      const avatarCard = cardForActor(actorId);
+      const avatarName = String(avatar?.name || avatarCard?.display_name || "Traveler").trim();
+      const avatarTitle = String(avatar?.title || avatarCard?.title || "").trim();
+      const avatarImage = cardImage(avatarCard);
+      const avatarMark = avatarImage
+        ? `<button class="minimal-menu-avatar" type="button"${cardDataAttr(avatarCard)} aria-label="Open ${escapeAttr(avatarName)}"><img src="${escapeAttr(avatarImage)}" alt="" /></button>`
+        : `<span class="minimal-menu-avatar fallback" aria-hidden="true">${escapeHtml(avatarName.charAt(0) || "C")}</span>`;
+      const equippedContainers = Array.isArray(deck.equipped_containers) ? deck.equipped_containers : [];
+      const equippedCharms = Array.isArray(deck.equipped_charms) ? deck.equipped_charms : [];
+      const preparedSpells = Array.isArray(deck.prepared_spell_cards) ? deck.prepared_spell_cards : [];
+      const slots = [
+        minimalMenuSlotHtml("Weapon", deck.equipped_weapon),
+        minimalMenuSlotHtml("Pack", equippedContainers[0]),
+        minimalMenuSlotHtml("Charm", equippedCharms[0]),
+        minimalMenuSlotHtml("Spell", preparedSpells[0]),
+      ].join("");
+      const worldName = String(worldView?.name || contentPacks?.world_name || "CosyWorld Core").trim();
+      const identityAction = identity?.authenticated
+        ? `<span class="minimal-menu-value">Passkey</span>`
+        : `<button class="minimal-menu-inline-action" type="button" data-passkey-continue>Sign in</button>`;
+      const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
+      const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
+      const level = Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1);
+      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
+    }
+
     function accountPanelHtml() {
       if (!accountPanelPinned) return "";
-      if (menuSection === "deck") {
-        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${deckPanelHtml()}</section>`;
-      }
-      if (menuSection === "journal") {
-        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${journalPanelHtml()}</section>`;
-      }
-      if (menuSection === "settings") {
-        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${settingsPanelHtml()}</section>`;
-      }
-      if (menuSection === "identity") {
-        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">sign in & identity</h2><span class="account-wallet">portable account, optional linked avatars</span></div>${identitySectionHtml()}</section>`;
-      }
-      return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">character</h2><span class="account-wallet">story identity and growth</span></div>${characterSheetHtml()}</section>`;
+      return minimalMenuPanelHtml();
     }
 
     function identitySectionHtml() {
@@ -16603,8 +17183,28 @@
       return "not now";
     }
 
+    function handCardThink(action) {
+      return projectedHandEntryForAction(action)?.think || null;
+    }
+
+    function canDiscardHandCard(action) {
+      return Boolean(
+        !state?.branch
+        && actorId
+        && actorSession
+        && state?.primary_action?.kind !== "create_avatar"
+        && (!state?.combat || state?.turn?.is_current_actor)
+        && handCardThink(action)?.available
+        && handCardThink(action)?.offer_id
+      );
+    }
+
     function usesInlineStoryHand() {
-      return false;
+      return Boolean(
+        !state?.branch
+        && state?.primary_action?.kind !== "create_avatar"
+        && !actionBusy
+      );
     }
 
     function storyHandKey(action) {
@@ -16645,42 +17245,12 @@
 
     function renderStoryHandInspector(action) {
       const inspector = $("hand-inspector");
-      if (!usesInlineStoryHand() || !storyHandExpanded || !action || actionBusy) {
-        inspector.hidden = true;
-        $("hand-title").textContent = "";
-        $("hand-summary").textContent = "";
-        $("hand-meta").innerHTML = "";
-        $("hand-choices").hidden = true;
-        $("hand-choices").innerHTML = "";
-        return;
-      }
-      actionConfirmAction = action;
-      inspector.hidden = false;
-      $("hand-title").textContent = actionTitle(action);
-      $("hand-summary").textContent = journalSentence(actionSummary(action));
-      $("hand-meta").innerHTML = storyHandRowsHtml(action);
-      const choicesHtml = storyHandChoicesHtml(action);
-      $("hand-choices").hidden = !choicesHtml;
-      $("hand-choices").innerHTML = choicesHtml;
-      const discardButton = $("hand-discard");
-      const discardCertificate = projectedHandEntryForAction(action)?.think || null;
-      const canDiscard = !state?.branch
-        && actorId
-        && actorSession
-        && discardCertificate?.available
-        && discardCertificate?.offer_id
-        && (!state?.combat || state?.turn?.is_current_actor);
-      discardButton.hidden = !canDiscard;
-      discardButton.disabled = handShuffleBusy;
-      discardButton.textContent = discardCertificate?.free ? "discard · free" : "discard";
-      discardButton.setAttribute(
-        "aria-label",
-        canDiscard
-          ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
-          : "This Story Hand card cannot be discarded",
-      );
-      $("hand-actions").classList.toggle("has-discard", Boolean(canDiscard));
-      $("hand-confirm").textContent = actionConfirmLabel(action);
+      inspector.hidden = true;
+      $("hand-title").textContent = "";
+      $("hand-summary").textContent = "";
+      $("hand-meta").innerHTML = "";
+      $("hand-choices").hidden = true;
+      $("hand-choices").innerHTML = "";
     }
 
     function scrollStoryHandCardIntoView(action, behavior = "smooth") {
@@ -16703,28 +17273,29 @@
         storyHandActiveKey = "";
       }
       prompt.classList.toggle("hand-expanded", expanded);
-      $("hand-rail").style.setProperty("--hand-card-count", String(Math.max(1, visibleActions.length)));
       $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
-      let selectedIndex = visibleActions.findIndex((action) => storyHandKey(action) === storyHandActiveKey);
-      if (selectedIndex < 0) {
-        selectedIndex = Math.max(0, visibleActions.findIndex((action) => action.actionIndex === focusIndex));
-      }
-      const selectedVisible = visibleActions[selectedIndex] || visibleActions[0] || null;
-      if (expanded && selectedVisible) storyHandActiveKey = storyHandKey(selectedVisible);
       const count = visibleActions.length;
-      $("hand-toggle-status").textContent = expanded
-        ? `${Math.max(1, selectedIndex + 1)} of ${count} · swipe between cards`
-        : `${count} ${count === 1 ? "card" : "cards"} · tap a card to open`;
-      for (const button of $("hand-rail").querySelectorAll(".cmd")) {
-        const current = expanded && String(button.dataset.handKey || "") === storyHandActiveKey;
-        if (current) button.setAttribute("aria-current", "true");
-        else button.removeAttribute("aria-current");
-      }
-      renderStoryHandInspector(expanded && selectedVisible ? originalStoryHandAction(selectedVisible) : null);
-      if (expanded && selectedVisible && storyHandScrollPending) {
-        storyHandScrollPending = false;
-        window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selectedVisible, "auto"));
-      }
+      $("hand-toggle-status").textContent = expanded ? "Close" : `${count} ${count === 1 ? "card" : "cards"}`;
+      ["primary", "secondary", "tertiary"].forEach((id, index) => {
+        const action = visibleActions[index] || null;
+        const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
+        const play = document.querySelector(`[data-hand-play="${id}"]`);
+        const discard = document.querySelector(`[data-hand-discard="${id}"]`);
+        slot.hidden = !action;
+        if (!action) return;
+        const original = originalStoryHandAction(action);
+        const title = actionTitle(original);
+        play.disabled = !inline || Boolean(original.busy);
+        play.setAttribute("aria-label", `Play ${title}`);
+        discard.disabled = !inline || !canDiscardHandCard(original) || handShuffleBusy;
+        discard.setAttribute("aria-label", `Discard ${title}`);
+        discard.title = discard.disabled
+          ? "No replacement is available for this card right now."
+          : `Discard ${title} and draw its replacement`;
+      });
+      for (const button of $("hand-rail").querySelectorAll(".cmd")) button.removeAttribute("aria-current");
+      storyHandScrollPending = false;
+      renderStoryHandInspector(null);
     }
 
     function setStoryHandExpanded(expanded, action = null) {
@@ -16754,7 +17325,37 @@
 
     function activateStoryHandAction(action) {
       if (!action || actionBusy) return;
-      openActionModal(action, { handCard: true });
+      if (!usesInlineStoryHand()) {
+        openActionModal(action, { handCard: true });
+        return;
+      }
+      const index = actions.indexOf(action);
+      if (index >= 0) focusIndex = index;
+      focusedKey = action.focusKey || actionHandKey(action) || "";
+      storyHandActiveKey = storyHandKey(action);
+      setStoryHandExpanded(true, action);
+    }
+
+    async function discardStoryHandCard(id) {
+      const action = actionForButton(id);
+      if (!action || !canDiscardHandCard(action) || handShuffleBusy) return;
+      const index = Number($(id)?.dataset?.actionIndex);
+      if (Number.isInteger(index) && index >= 0) focusIndex = index;
+      focusedKey = action.focusKey || actionHandKey(action) || "";
+      await discardActionCard(action);
+    }
+
+    function playStoryHandCard(id) {
+      const action = actionForButton(id);
+      if (!action || actionBusy) return;
+      if (Array.isArray(action.choices) && action.choices.length > 1) {
+        openActionModal(action);
+        return;
+      }
+      if (Array.isArray(action.choices) && action.choices.length === 1 && !action.selectedChoice) {
+        action.selectedChoice = action.choices[0].value;
+      }
+      void runAction(action);
     }
 
     function selectStoryHandCardFromScroll() {
@@ -17645,7 +18246,7 @@
     }
 
     // Kept for transport/browser compatibility; the player-facing control is
-    // Discard inside the selected card's detail modal.
+    // Discard on each card in the expanded Story Hand.
     async function passHand(focused = visibleFocusedAction()) {
       return discardActionCard(focused);
     }
@@ -18111,6 +18712,12 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
+      if (event.target.closest("[data-menu-close]")) {
+        event.preventDefault();
+        toggleAccountPanel(false);
+        libraryPill.focus();
+        return;
+      }
       const menuTarget = event.target.closest("[data-menu-section]");
       if (menuTarget) {
         event.preventDefault();
@@ -18511,6 +19118,7 @@
       } else {
         menuSection = "deck";
         toggleAccountPanel(true);
+        Promise.all([loadIdentity(), ensureContentPacks()]).then(render).catch(() => render());
       }
     });
 
@@ -18521,7 +19129,11 @@
 
     function toggleAccountPanel(forceOpen = null) {
       accountPanelPinned = forceOpen === null ? !accountPanelPinned : Boolean(forceOpen);
-      if (accountPanelPinned) libraryPanelPinned = false;
+      if (accountPanelPinned) {
+        libraryPanelPinned = false;
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
+      }
       render();
       return accountPanelPinned;
     }
@@ -18555,6 +19167,22 @@
 
     $("hand-toggle").addEventListener("click", () => {
       setStoryHandExpanded(!storyHandExpanded, actionConfirmAction || visibleFocusedAction());
+    });
+
+    $("hand-rail").addEventListener("click", (event) => {
+      const play = event.target.closest("[data-hand-play]");
+      if (play) {
+        event.preventDefault();
+        event.stopPropagation();
+        playStoryHandCard(play.getAttribute("data-hand-play") || "");
+        return;
+      }
+      const discard = event.target.closest("[data-hand-discard]");
+      if (discard) {
+        event.preventDefault();
+        event.stopPropagation();
+        void discardStoryHandCard(discard.getAttribute("data-hand-discard") || "");
+      }
     });
 
     $("hand-close").addEventListener("click", (event) => {
