@@ -87,11 +87,14 @@ There are no direct attack, defend, flee, or uncertified pass endpoints. `/state
 exposes protocol, round, participants, current actor, and only the two current
 offers. `/meta` advertises protocol and kernel versions.
 
-The combat footer contains only those cards. Discard lives in the selected
-card's detail modal. Group chat renders
-speech and dice-call pills; outcomes such as hits, misses, defence, knockout,
-escape, and resolution remain in Journal and may appear as dismissible
-important alerts.
+The combat footer contains only those cards and Pass. Group chat remains a
+speech channel; it never renders attack rolls, damage, defence, knockout,
+escape, or resolution rows. During an active encounter, a compact combat dock
+beside the room scene shows the round, current actor, and latest outcome. Its
+player-opened history groups an attack attempt with its hit, miss, damage, and
+knockout outcome, preserving exact arithmetic without turning the room into a
+wall of system prose. Journal remains the durable post-encounter archive, and
+rare state changes may also appear as dismissible important alerts.
 
 Combat offer traces name the stable action, target, active profile, resolver,
 source location, and—when present—the equipped weapon's item/card/pack

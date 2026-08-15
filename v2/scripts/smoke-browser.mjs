@@ -8030,6 +8030,182 @@ async function main() {
     );
   }
 
+  async function assertCombatUsesDedicatedDockOutsideChat() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        logEvents: logEvents.slice(),
+        seenSeq: [...seenSeq],
+        actorId,
+        state,
+        accountPanelPinned,
+        libraryPanelPinned,
+        pendingChats: pendingChats.slice(),
+        renderedChatTailKey,
+        defeatTransition,
+        combatHistoryOpen,
+        combatHistoryEncounterId,
+      };
+      const message = (seq, content) => ({
+        seq,
+        type: "message.created",
+        actor_id: 1001,
+        actor_name: "Rati",
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content,
+      });
+      const combatEvent = (seq, type, extra = {}) => ({
+        seq,
+        type,
+        actor_id: 5000,
+        actor_name: "Lantern Stitch",
+        target_actor_id: 1004,
+        target_actor_name: "Coach",
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content_id: 77,
+        ...extra,
+      });
+      const events = [
+        message(990600001, "Keep the lantern between you and the dark."),
+        combatEvent(990600002, "combat.encounter.started"),
+        combatEvent(990600003, "combat.attack.attempt", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          raw_roll: 14,
+          modifier: 3,
+          total: 17,
+          dc: 13,
+        }),
+        combatEvent(990600004, "combat.attack.hit", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          damage: 4,
+          current_hp: 1,
+        }),
+        message(990600005, "I am still here. Breathe."),
+        combatEvent(990600006, "combat.dodge"),
+        combatEvent(990600007, "combat.flee.success", {
+          destination_location_name: "The Cosy Cottage",
+        }),
+        combatEvent(990600008, "combat.encounter.resolved"),
+      ];
+      const signature = (entries) => entries.map((event) => ({
+        type: event.type,
+        seq: Number(event.seq || 0),
+        tail: Number(event.transcript_tail_seq || event.seq || 0),
+        outcome: event.combat_outcome?.type || "",
+      }));
+      try {
+        actorId = 5000;
+        state = {
+          ...state,
+          location: { ...(state?.location || {}), id: 3, name: "Moonlit Trail" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", status: "active", control_mode: "direct_input" },
+            { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
+            { id: 1004, name: "Coach", status: "active", control_mode: "local_ai" },
+          ],
+          combat: {
+            encounter_id: 77,
+            round: 2,
+            current_actor_id: 5000,
+            current_actor_name: "Lantern Stitch",
+            is_current_actor: true,
+            participants: [],
+          },
+        };
+        accountPanelPinned = false;
+        libraryPanelPinned = false;
+        pendingChats = [];
+        defeatTransition = null;
+        logEvents = events.slice();
+        seenSeq.clear();
+        for (const event of events) seenSeq.add(event.seq);
+        renderedChatTailKey = "";
+        combatHistoryOpen = true;
+        combatHistoryEncounterId = 77;
+        const beforeReconnect = signature(combatEventsForPresentation(logEvents));
+        renderCombatDock();
+        renderLog();
+        const transcript = $("log");
+        const dock = $("combat-dock");
+        const history = $("combat-history");
+        const rendered = {
+          label: transcript.getAttribute("aria-label") || "",
+          chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
+          combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
+          eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
+          dockHidden: dock.hidden,
+          dockRound: $("combat-dock-round").textContent.trim(),
+          dockTurn: $("combat-dock-turn").textContent.trim(),
+          dockLatest: $("combat-latest").textContent.trim().replace(/\s+/g, " "),
+          historyHidden: history.hidden,
+          historyRows: history.querySelectorAll(".combat-history-row").length,
+          historyText: history.textContent.trim().replace(/\s+/g, " "),
+        };
+        rebuildLog(events);
+        const afterReconnect = signature(combatEventsForPresentation(logEvents));
+
+        logEvents = Array.from({ length: 40 }, (_, index) => message(
+          990601000 + index,
+          "A deliberately long transcript line " + (index + 1) + " keeps the reader's chosen place stable while another public beat arrives.",
+        ));
+        renderedChatTailKey = "";
+        renderLog();
+        const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
+        transcript.scrollTop = 0;
+        logEvents.push(combatEvent(990601100, "combat.dodge"));
+        renderCombatDock();
+        renderLog();
+        const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
+
+        return {
+          beforeReconnect,
+          afterReconnect,
+          rendered,
+          preservedReaderPosition,
+        };
+      } finally {
+        logEvents = previous.logEvents;
+        seenSeq.clear();
+        for (const seq of previous.seenSeq) seenSeq.add(seq);
+        actorId = previous.actorId;
+        state = previous.state;
+        accountPanelPinned = previous.accountPanelPinned;
+        libraryPanelPinned = previous.libraryPanelPinned;
+        pendingChats = previous.pendingChats;
+        renderedChatTailKey = previous.renderedChatTailKey;
+        defeatTransition = previous.defeatTransition;
+        combatHistoryOpen = previous.combatHistoryOpen;
+        combatHistoryEncounterId = previous.combatHistoryEncounterId;
+        renderTimelines();
+      }
+    });
+    assert(result.rendered.label === "Shared room transcript", "combat should keep the ordinary speech transcript mounted: " + JSON.stringify(result));
+    assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), "speech from before and during combat should remain ordered and visible: " + JSON.stringify(result));
+    assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", "combat system output must not be rendered as dialogue: " + JSON.stringify(result));
+    assert(!result.rendered.dockHidden
+      && result.rendered.dockRound === "Round 2"
+      && result.rendered.dockTurn === "Your turn"
+      && !result.rendered.historyHidden
+      && result.rendered.historyRows === 4, "active combat should expose one compact latest result with optional bounded earlier history: " + JSON.stringify(result));
+    assert(
+      result.rendered.historyText.includes("Ashwood Practice Blade")
+        && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
+        && result.rendered.historyText.includes("4 harm"),
+      "the grouped dock beat should retain method, Attribute, arithmetic, harm, and outcome: " + JSON.stringify(result),
+    );
+    assert(/prepares to dodge/.test(result.rendered.historyText), "Dodge needs compact combat-history feedback: " + JSON.stringify(result));
+    assert(/clash is over/i.test(result.rendered.dockLatest) && /Cosy Cottage/.test(result.rendered.historyText), "escape and resolution need immediate combat feedback: " + JSON.stringify(result));
+    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), "reconnect should reconstruct the same grouped combat-history ordering: " + JSON.stringify(result));
+    assert(result.preservedReaderPosition, "new combat beats must not move a reader's chosen place in chat: " + JSON.stringify(result));
+  }
+
   async function assertWorldResetClearsTranscriptAndResidentRepeatsCollapse() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
@@ -8215,186 +8391,6 @@ async function main() {
     assert(result.detectsServerTimelineRewind && result.acceptsForwardTimeline, `a reconnect should replace rewound server history without mistaking a forward timeline for a reset: ${JSON.stringify(result)}`);
     assert(result.afterTravelReceipt?.applied && result.afterTravelReceipt.pendingCount === 0 && result.afterTravelReceipt.events.length === 1 && result.afterTravelReceipt.events[0]?.content === "new room history", `a live travel receipt should clear pending chat and replace the old room transcript: ${JSON.stringify(result)}`);
     assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
-  }
-
-  async function assertCombatStaysInSharedRoomTranscript() {
-    const result = await page.evaluate(() => {
-      const previous = {
-        logEvents: logEvents.slice(),
-        seenSeq: [...seenSeq],
-        actorId,
-        state,
-        accountPanelPinned,
-        libraryPanelPinned,
-        pendingChats: pendingChats.slice(),
-        renderedChatTailKey,
-        defeatTransition,
-      };
-      const message = (seq, actorIdValue, actorName, content) => ({
-        seq,
-        type: "message.created",
-        actor_id: actorIdValue,
-        actor_name: actorName,
-        location_id: 3,
-        location_name: "Moonlit Trail",
-        content,
-      });
-      const combatEvent = (seq, type, extra = {}) => ({
-        seq,
-        type,
-        actor_id: 5000,
-        actor_name: "Lantern Stitch",
-        target_actor_id: 1004,
-        target_actor_name: "Coach",
-        location_id: 3,
-        location_name: "Moonlit Trail",
-        content_id: 77,
-        ...extra,
-      });
-      const events = [
-        message(990600001, 1001, "Rati", "Keep the lantern between you and the dark."),
-        combatEvent(990600002, "combat.encounter.started"),
-        combatEvent(990600003, "combat.attack.attempt", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-        }),
-        combatEvent(990600004, "combat.attack.hit", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-          damage: 4,
-          current_hp: 1,
-        }),
-        combatEvent(990600005, "combat.knockout", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-          damage: 4,
-          current_hp: 1,
-        }),
-        message(990600006, 1001, "Rati", "I am still here. Breathe."),
-        combatEvent(990600007, "combat.dodge"),
-        combatEvent(990600008, "combat.defend"),
-        combatEvent(990600009, "item.used", {
-          item_name: "Hearth Tonic",
-          target_actor_name: "Lantern Stitch",
-          damage: -2,
-        }),
-        combatEvent(990600010, "magic.spell_cast", {
-          item_name: "Mothlight",
-          target_actor_name: "Coach",
-        }),
-        combatEvent(990600011, "combat.flee.success", {
-          destination_location_name: "The Cosy Cottage",
-        }),
-        combatEvent(990600012, "combat.encounter.resolved"),
-      ];
-      const signature = (entries) => entries.map((event) => ({
-        type: event.type,
-        seq: Number(event.seq || 0),
-        tail: Number(event.transcript_tail_seq || event.seq || 0),
-        outcome: event.combat_outcome?.type || "",
-        knockout: event.combat_knockout?.type || "",
-      }));
-      try {
-        actorId = 5000;
-        state = {
-          ...state,
-          location: { ...(state?.location || {}), id: 3, name: "Moonlit Trail" },
-          actors: [
-            { id: 5000, name: "Lantern Stitch", status: "active", control_mode: "direct_input" },
-            { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
-            { id: 1004, name: "Coach", status: "knocked_out", control_mode: "local_ai" },
-          ],
-        };
-        accountPanelPinned = false;
-        libraryPanelPinned = false;
-        pendingChats = [];
-        defeatTransition = null;
-        logEvents = events.slice();
-        seenSeq.clear();
-        for (const event of events) seenSeq.add(event.seq);
-        renderedChatTailKey = "";
-        const beforeReconnect = signature(sharedRoomTranscriptEvents(logEvents));
-        renderLog();
-        const transcript = $("log");
-        const rendered = {
-          label: transcript.getAttribute("aria-label") || "",
-          chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
-          combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
-          combatBeat: transcript.querySelector("[data-combat-beat]")?.textContent?.trim().replace(/\s+/g, " ") || "",
-          eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
-        };
-        defeatTransition = {
-          actorName: "Lantern Stitch",
-          opponentName: "Coach",
-          kind: "combat.knockout",
-          eventSeq: 990600005,
-        };
-        renderLog();
-        rendered.defeatKeepsTranscript = transcript.querySelectorAll(".line.chat").length === 2
-          && transcript.querySelectorAll("[data-combat-beat]").length === 1
-          && Boolean(transcript.querySelector(".defeat-scene"));
-        defeatTransition = null;
-
-        rebuildLog(events);
-        const afterReconnect = signature(sharedRoomTranscriptEvents(logEvents));
-
-        logEvents = Array.from({ length: 40 }, (_, index) => message(
-          990601000 + index,
-          index % 2 ? 1001 : 5000,
-          index % 2 ? "Rati" : "Lantern Stitch",
-          `A deliberately long transcript line ${index + 1} keeps the reader's chosen place stable while another public beat arrives.`,
-        ));
-        renderedChatTailKey = "";
-        renderLog();
-        const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
-        transcript.scrollTop = 0;
-        logEvents.push(combatEvent(990601100, "combat.defend"));
-        renderLog();
-        const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
-
-        return {
-          beforeReconnect,
-          afterReconnect,
-          rendered,
-          overflow,
-          preservedReaderPosition,
-        };
-      } finally {
-        logEvents = previous.logEvents;
-        seenSeq.clear();
-        for (const seq of previous.seenSeq) seenSeq.add(seq);
-        actorId = previous.actorId;
-        state = previous.state;
-        accountPanelPinned = previous.accountPanelPinned;
-        libraryPanelPinned = previous.libraryPanelPinned;
-        pendingChats = previous.pendingChats;
-        renderedChatTailKey = previous.renderedChatTailKey;
-        defeatTransition = previous.defeatTransition;
-        renderTimelines();
-      }
-    });
-    assert(result.rendered.label === "Shared room transcript", `combat should keep the ordinary shared transcript mounted: ${JSON.stringify(result)}`);
-    assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), `speech from before and during combat should remain ordered and visible: ${JSON.stringify(result)}`);
-    assert(result.rendered.defeatKeepsTranscript, `a player Knockout transition should append without replacing room speech or the grouped combat beat: ${JSON.stringify(result)}`);
-    assert(result.rendered.combatBeatCount === 1, `attempt, hit, harm, and Knockout should render as one combat beat: ${JSON.stringify(result)}`);
-    assert(
-      result.rendered.combatBeat.includes("Ashwood Practice Blade")
-        && result.rendered.combatBeat.includes("Strength")
-        && result.rendered.combatBeat.includes("4 harm")
-        && result.rendered.combatBeat.includes("knocked out"),
-      `the grouped combat beat should retain method, Attribute, harm, and outcome: ${JSON.stringify(result)}`,
-    );
-    assert(/ready to slip clear/.test(result.rendered.eventText) && /plants their feet/.test(result.rendered.eventText), `Dodge and Defend need authored transcript text: ${JSON.stringify(result)}`);
-    assert(/Hearth Tonic/.test(result.rendered.eventText) && /Mothlight/.test(result.rendered.eventText), `item and spell actions need authored transcript text: ${JSON.stringify(result)}`);
-    assert(/clash is over/.test(result.rendered.eventText) && /Cosy Cottage/.test(result.rendered.eventText), `escape and resolution need authored transcript text: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), `reconnect should reconstruct the same grouped transcript ordering: ${JSON.stringify(result)}`);
-    assert(result.preservedReaderPosition, `new combat beats must not force-follow when the reader moved upward: ${JSON.stringify(result)}`);
   }
 
   async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
@@ -14869,7 +14865,7 @@ async function main() {
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
-  await assertCombatStaysInSharedRoomTranscript();
+  await assertCombatUsesDedicatedDockOutsideChat();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();

@@ -153,9 +153,10 @@ it lands
 - Damage, HP, and recovery keep their existing prose treatment. This section
   governs the roll, not its consequences: "Gust looks steadier" is still right,
   and zero-HP language is still banned.
-- The same roll may appear in both the transcript and the Log. That is
-  deliberate: the transcript carries the beat you read, the Log the row you
-  scan. They render from `detail` and `story` on the same event.
+- The same roll may appear in the active combat dock and the Journal. That is
+  deliberate: the dock carries the result you scan while playing, and the
+  Journal keeps the durable story record. Combat arithmetic never enters the
+  room's speech transcript.
 
 This reverses an earlier stance under which combat hid its arithmetic while
 ordinary checks exposed theirs — the same kernel roll with two opposite rules.
