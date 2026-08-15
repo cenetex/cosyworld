@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("three-slot Story Hand", () => {
-  it("keeps Story, Self, and Anchor visible and opens focused cards with Play and Discard", () => {
+  it("keeps Story, Self, and Anchor visible with inline Play and Discard", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -22,17 +22,18 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('id="tertiary"');
     expect(browser).not.toContain('id="shuffle"');
     expect(browser).not.toContain('data-player-concept="think"');
-    expect(browser).toContain('id="action-modal-discard"');
-    expect(browser).toContain('data-analytics-event="action.discard"');
-    expect(browser).toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
+    expect(browser).toContain('data-hand-play="primary"');
+    expect(browser).toContain('data-hand-discard="primary"');
+    expect(browser).toContain('data-hand-play="secondary"');
+    expect(browser).toContain('data-hand-discard="tertiary"');
+    expect(browser).toContain("function playStoryHandCard(id)");
+    expect(browser).toContain("async function discardStoryHandCard(id)");
+    expect(browser).toContain('prompt.classList.toggle("hand-expanded", expanded);');
+    expect(browser).not.toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
+    expect(browser).toContain('if (!usesInlineStoryHand()) {');
     expect(browser).toContain('openActionModal(action, { handCard: true });');
-    expect(browser).toContain('dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);');
-    expect(browser).toContain('$("action-modal-confirm").textContent = handCard && !action.minimalTravelPresentation');
-    expect(browser).toContain('? "play"\n        : actionConfirmLabel(action);');
-    expect(browser).toContain('cancelButton.textContent = handCard ? "close"');
-    expect(browser).toContain('cancelButton.hidden = false;');
-    expect(browser).toContain('handCard ? `Close ${label} card`');
-    expect(browser).toContain('discardButton.textContent = handCard ? "discard"');
+    expect(browser).toContain('setStoryHandExpanded(true, action);');
+    expect(browser).toContain('discardStoryHandCard(discard.getAttribute("data-hand-discard") || "")');
     expect(browser).not.toContain("function travellingPartyHeaderHtml");
     expect(browser).not.toContain('writeStatus(`${statusActivity.label} · ${statusActivity.text}`');
     expect(browser).toContain('const buttonIds = ["primary", "secondary", "tertiary"];');

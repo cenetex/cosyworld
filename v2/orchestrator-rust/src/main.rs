@@ -43028,6 +43028,14 @@ mod tests {
         assert!(!INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
         assert!(INDEX_HTML.contains("function discardActionCard"));
         assert!(INDEX_HTML.contains("id=\"action-modal-discard\""));
+        assert!(INDEX_HTML.contains("data-hand-play=\"primary\""));
+        assert!(INDEX_HTML.contains("data-hand-discard=\"primary\""));
+        assert!(INDEX_HTML.contains("function playStoryHandCard"));
+        assert!(INDEX_HTML.contains("function discardStoryHandCard"));
+        assert!(INDEX_HTML.contains("function minimalMenuPanelHtml"));
+        assert!(INDEX_HTML.contains("class=\"account-panel minimal-menu\""));
+        assert!(INDEX_HTML.contains("class=\"minimal-orb-rack"));
+        assert!(!INDEX_HTML.contains("function usesInlineStoryHand() {\n      return false;"));
         assert!(!INDEX_HTML.contains("data-player-concept=\"think\""));
         assert!(!INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("id=\"tertiary\""));

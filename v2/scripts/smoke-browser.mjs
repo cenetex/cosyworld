@@ -678,50 +678,50 @@ async function main() {
       initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.hasFourthCard,
       `the opening scene should expose at most three cards without a fourth Think card: ${JSON.stringify(initial)}`,
     );
-    const focused = await focusThinkableCard("opening scene");
-    await page.evaluate((handKey) => {
-      const button = [...document.querySelectorAll("#hand-rail .cmd[data-hand-key]")]
-        .find((candidate) => candidate.dataset.handKey === handKey);
-      button?.click();
-    }, focused.key);
-    await page.waitForFunction(() => {
-      const discard = document.querySelector("#action-modal-discard");
-      return document.querySelector("#action-modal")?.hidden === false
-        && document.querySelector("#action-modal .action-dialog")?.classList.contains("hand-card-mode")
-        && discard
-        && !discard.hidden
-        && !discard.disabled;
-    });
-    const modalLayout = await page.evaluate(() => {
+    await focusThinkableCard("opening scene");
+    const expanded = await page.evaluate(() => {
+      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const controlId = ["primary", "secondary", "tertiary"].find((id) => (
+        Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+      )) || "";
+      setStoryHandExpanded(true, visibleFocusedAction());
       const prompt = document.querySelector("footer.prompt");
-      const dialog = document.querySelector("#action-modal .action-dialog");
-      const art = document.querySelector("#action-modal-image");
+      const visibleSlots = [...document.querySelectorAll(".story-card-slot:not([hidden])")];
       return {
-        modalOpen: document.querySelector("#action-modal")?.hidden === false,
-        largeCard: dialog?.classList.contains("hand-card-mode")
-          && art?.getBoundingClientRect().height >= 240,
+        controlId,
         promptExpanded: prompt.classList.contains("hand-expanded"),
         handHeaderVisible: document.querySelector(".hand-header")?.getClientRects().length > 0,
         inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
-        cancel: document.querySelector("#action-modal-cancel")?.textContent?.trim() || "",
-        confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
-        discard: document.querySelector("#action-modal-discard")?.textContent?.trim() || "",
-        cancelVisible: document.querySelector("#action-modal-cancel")?.getClientRects().length > 0,
-        metaVisible: document.querySelector("#action-modal-meta")?.getClientRects().length > 0,
+        modalHidden: document.querySelector("#action-modal")?.hidden === true,
+        cardCount: visibleSlots.length,
+        inlineActions: visibleSlots.every((slot) => (
+          slot.querySelector("[data-hand-play]")?.getClientRects().length > 0
+            && slot.querySelector("[data-hand-discard]")?.getClientRects().length > 0
+        )),
+        imageLed: visibleSlots.every((slot) => {
+          const thumb = slot.querySelector(".cmd .thumb");
+          return Boolean(thumb && (
+            getComputedStyle(thumb).backgroundImage !== "none"
+              || thumb.querySelector("img")?.getAttribute("src")
+          ));
+        }),
+        squareCorners: visibleSlots.every((slot) => (
+          Number.parseFloat(getComputedStyle(slot).borderTopLeftRadius) === 0
+            && Number.parseFloat(getComputedStyle(slot.querySelector(".cmd")).borderTopLeftRadius) === 0
+        )),
       };
     });
     assert(
-      modalLayout.modalOpen
-        && modalLayout.largeCard
-        && !modalLayout.promptExpanded
-        && !modalLayout.handHeaderVisible
-        && !modalLayout.inspectorVisible
-        && modalLayout.cancel === "close"
-        && modalLayout.confirm === "play"
-        && modalLayout.discard === "discard"
-        && modalLayout.cancelVisible
-        && !modalLayout.metaVisible,
-      `tapping a card should open a larger card with Close, Play, and Discard: ${JSON.stringify(modalLayout)}`,
+      expanded.controlId
+        && expanded.promptExpanded
+        && expanded.handHeaderVisible
+        && !expanded.inspectorVisible
+        && expanded.modalHidden
+        && expanded.cardCount === initial.visibleKeys.length
+        && expanded.inlineActions
+        && expanded.imageLed
+        && expanded.squareCorners,
+      `the expanded Story Hand should show three sharp illustrated cards with inline Play and Discard: ${JSON.stringify(expanded)}`,
     );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
@@ -729,7 +729,7 @@ async function main() {
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator("#action-modal-discard").click(),
+      page.locator(`[data-hand-discard="${expanded.controlId}"]`).click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -742,6 +742,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ));
+    await page.evaluate(() => setStoryHandExpanded(false));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
@@ -749,7 +750,7 @@ async function main() {
       const statusStyle = getComputedStyle(status);
       const labels = [...prompt.querySelectorAll(".cmd-label-text")];
       const handRail = document.querySelector("#hand-rail");
-      const cards = [...handRail.querySelectorAll("button")]
+      const cards = [...handRail.querySelectorAll(".cmd")]
         .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.getBoundingClientRect());
       return {
@@ -760,7 +761,7 @@ async function main() {
         railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
         cardsFit: cards.length <= 3
           && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
-        cardsCompact: cards.every((rect) => rect.height <= 54),
+        cardsCompact: cards.every((rect) => rect.height <= 60),
         detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
           .every((node) => getComputedStyle(node).display === "none"),
         collapsed: !prompt.classList.contains("hand-expanded"),
@@ -778,10 +779,10 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
-        && layout.promptDisplay === "block"
+        && layout.promptDisplay === "grid"
         && layout.compactHandHeight <= 100
         && layout.railDisplay === "grid"
-        && layout.railColumns === current.visibleKeys.length
+        && layout.railColumns === 3
         && layout.cardsFit
         && layout.cardsCompact
         && layout.detailsHidden
@@ -791,10 +792,10 @@ async function main() {
         && layout.primaryLabelsFit
         && layout.statusWraps
         && layout.journaled,
-      `Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
+      `inline Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser Discard replaces one Story Hand card",
+      label: "inline Discard replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -4561,7 +4562,7 @@ async function main() {
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
           visibleHand,
           hasThirdCard: Boolean(document.querySelector("#tertiary")),
-          hasDiscardInModal: Boolean(document.querySelector("#action-modal-discard")),
+          hasInlineDiscard: document.querySelectorAll("[data-hand-discard]").length === 3,
           hasFourthCard: Boolean(document.querySelector("#shuffle")),
           semanticBindings,
           giveKindsBeforeRename,
@@ -4621,8 +4622,8 @@ async function main() {
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
     assert(
-      result.hasThirdCard && result.hasDiscardInModal && !result.hasFourthCard,
-      `the browser should provide three Story Hand slots with Discard in the card modal: ${JSON.stringify(result)}`,
+      result.hasThirdCard && result.hasInlineDiscard && !result.hasFourthCard,
+      `the browser should provide three Story Hand slots with inline Discard: ${JSON.stringify(result)}`,
     );
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -9991,33 +9992,35 @@ async function main() {
     );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await focusThinkableCard(label, preferredSlot);
-      await page.evaluate(() => openActionModal(visibleFocusedAction()));
       await page.waitForFunction(() => (
         actionBusy === false
           && refreshInFlight === null
-          && document.querySelector("#action-modal-discard")?.hidden === false
-          && document.querySelector("#action-modal-discard")?.disabled === false
       ));
       const before = await page.evaluate(() => {
         const entry = projectedHandEntryForAction(visibleFocusedAction());
         const think = entry?.think || {};
-        const control = document.querySelector("#action-modal-discard");
+        const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+        const controlId = ["primary", "secondary", "tertiary"].find((id) => (
+          Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+        )) || "";
+        setStoryHandExpanded(true, visibleFocusedAction());
+        const control = document.querySelector(`[data-hand-discard="${controlId}"]`);
         return {
           offerId: String(think.offer_id || ""),
           slot: String(think.slot || entry?.slot || ""),
           generation: Number(think.generation || 0),
-          controlId: control?.id || "",
+          controlId,
           visible: Boolean(control && getComputedStyle(control).display !== "none"),
           disabled: Boolean(control?.disabled),
-          ariaLabel: control?.getAttribute("aria-label") || "",
+          label: control?.textContent?.trim() || "",
         };
       });
       assert(
         before.offerId
-          && before.controlId === "action-modal-discard"
+          && ["primary", "secondary", "tertiary"].includes(before.controlId)
           && before.visible
           && !before.disabled
-          && /discard this .* card/i.test(before.ariaLabel),
+          && before.label.toLowerCase() === "discard",
         `${label} replacement must start from the focused card's certified Discard control: ${JSON.stringify(before)}`,
       );
       let response;
@@ -10028,7 +10031,7 @@ async function main() {
               && new URL(candidate.url()).pathname === "/commands"
               && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
           ), { timeout: 10_000 }),
-          page.locator("#action-modal-discard").click(),
+          page.locator(`[data-hand-discard="${before.controlId}"]`).click(),
         ]);
       } catch (error) {
         lastRejection = { before, error: String(error?.message || error) };
@@ -10347,11 +10350,7 @@ async function main() {
       document.querySelector("#brand")?.getAttribute("aria-expanded") === "true"
         && Boolean(document.querySelector(".account-panel"))
     ));
-    await page.locator('[data-menu-section="character"]').click();
-    await page.waitForFunction(() => (
-      document.querySelector('[data-menu-section="character"]')?.classList.contains("active")
-        && Boolean(document.querySelector(".account-panel"))
-    ));
+    await page.waitForFunction(() => Boolean(document.querySelector(".minimal-menu")));
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     return primaryText();
@@ -10361,11 +10360,9 @@ async function main() {
     if (await page.locator("#brand").getAttribute("aria-expanded") !== "true") {
       await page.locator("#brand").click();
     }
-    await page.waitForFunction(() => Boolean(document.querySelector(".account-panel")));
-    await page.locator('[data-menu-section="identity"]').click();
     await page.waitForFunction(() => (
-      document.querySelector('[data-menu-section="identity"]')?.classList.contains("active")
-        && document.querySelector("#account-panel-title")?.textContent?.trim() === "sign in & identity"
+      document.querySelector(".minimal-menu")
+        && document.querySelector("#account-panel-title")?.textContent?.trim() === "Player"
     ));
     await assertNoVisibleOverflow();
   }
@@ -12468,9 +12465,10 @@ async function main() {
     assert(
       await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
         && await page.locator("#shuffle").count() === 0
-        && await page.locator("#action-modal-discard").count() === 1
+        && await page.locator("[data-hand-discard]").count() === 3
+        && await page.locator("[data-hand-play]").count() === 3
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
-      "the browser room should expose only its three-card hand, with Discard in card details and no command entry or full-deck chooser",
+      "the browser room should expose only its three-card hand, with inline Play and Discard and no command entry or full-deck chooser",
     );
     assert(
       before.length >= 1 && before.length <= 3,
@@ -13046,64 +13044,46 @@ async function main() {
 
     await page.locator("#brand").click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
-    await page.locator('[data-menu-section="deck"]').click();
-    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "your pack");
-    const menuDeck = await page.evaluate(() => ({
-      sections: [...document.querySelectorAll('[data-menu-section]')].map((button) => ({
-        id: button.getAttribute("data-menu-section"),
-        label: button.textContent.trim(),
-      })),
+    await page.waitForFunction(() => document.querySelector(".minimal-menu"));
+    const menu = await page.evaluate(() => ({
       role: document.querySelector("#log")?.getAttribute("role") || "",
       label: document.querySelector("#log")?.getAttribute("aria-label") || "",
       heading: document.querySelector("#account-panel-title")?.textContent?.trim() || "",
       copy: document.querySelector(".account-panel")?.textContent?.replace(/\s+/g, " ").trim() || "",
-      iconCount: document.querySelectorAll(".menu-nav .ui-icon").length,
-      decorativeIcons: [...document.querySelectorAll(".menu-nav .ui-icon")]
-        .every((icon) => icon.getAttribute("aria-hidden") === "true"),
+      navigationCount: document.querySelectorAll(".menu-nav, [data-menu-section]").length,
+      panelCount: document.querySelectorAll(".account-panel").length,
+      slotCount: document.querySelectorAll(".minimal-menu-slot").length,
+      filledSlots: [...document.querySelectorAll(".minimal-menu-slot.filled img")].map((image) => ({
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+      })),
+      orbCount: document.querySelectorAll(".minimal-menu-orbs .minimal-orb-rack i").length,
+      rowLabels: [...document.querySelectorAll(".minimal-menu-row > span:first-child")]
+        .map((node) => node.textContent.trim()),
+      settingCount: document.querySelectorAll(".minimal-menu-settings input").length,
+      returnControl: document.querySelector("[data-menu-close]")?.textContent?.trim() || "",
+      squareCorners: [...document.querySelectorAll(".minimal-menu, .minimal-menu button, .minimal-menu input")]
+        .every((node) => Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) === 0),
       brandClientWidth: document.querySelector("#brand")?.clientWidth || 0,
       brandScrollWidth: document.querySelector("#brand")?.scrollWidth || 0,
     }));
-    assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
-      { id: "deck", label: "pack" },
-      { id: "character", label: "character" },
-      { id: "identity", label: "sign in / identity" },
-      { id: "world", label: "worlds & packs" },
-      { id: "journal", label: "journal" },
-      { id: "settings", label: "orbs & settings" },
-    ]), `${label}: Menu should separate pack, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your pack", `${label}: Pack should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.brandScrollWidth <= menuDeck.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menuDeck)}`);
-    assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /pack weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /prepared spells/i.test(menuDeck.copy) && /spent/i.test(menuDeck.copy), `${label}: Pack should explain weight, Loadout, charms, Prepared spells, and Spent cards: ${JSON.stringify(menuDeck)}`);
-    await page.locator('[data-menu-section="world"]').click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
-    const library = await page.evaluate(() => ({
-      role: document.querySelector("#log")?.getAttribute("role") || "",
-      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
-      live: document.querySelector("#log")?.hasAttribute("aria-live") || false,
-      roomHidden: getComputedStyle(document.querySelector(".room")).display === "none",
-      promptHidden: document.querySelector(".prompt")?.hidden || false,
-      heading: document.querySelector(".library-heading h2")?.textContent?.trim() || "",
-      intro: document.querySelector(".library-intro")?.textContent?.trim() || "",
-      featured: document.querySelector(".library-grid.featured") !== null,
-      packIconCount: document.querySelectorAll(".library-pack-name .ui-icon").length,
-      supportingDisclosure: document.querySelector(".library-system-packs") !== null,
-      packCountSummaries: [...document.querySelectorAll(".library-pack-counts")]
-        .map((node) => node.textContent.replace(/\s+/g, " ").trim()),
-    }));
-    assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
-    assert(library.heading === "Worlds" && /ordinary places are public and need no wallet/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
-    assert(library.featured && library.packIconCount > 0 && library.supportingDisclosure, `${label}: library should separate playable worlds from supporting packs: ${JSON.stringify(library)}`);
     assert(
-      library.packCountSummaries.some((summary) => /\d+ items · \d+ cards/.test(summary))
-        && library.packCountSummaries.some((summary) => /1 character path/.test(summary))
-        && library.packCountSummaries.some((summary) => /1 art asset/.test(summary))
-        && library.packCountSummaries.every((summary) => !/\d+ items · \d+ items|1 character paths|1 art assets/.test(summary)),
-      `${label}: library resource summaries should distinguish carried items from cards: ${JSON.stringify(library.packCountSummaries)}`,
+      menu.role === "region"
+        && menu.label === "Your avatar menu"
+        && menu.heading === "Player"
+        && menu.panelCount === 1
+        && menu.navigationCount === 0
+        && menu.slotCount === 4
+        && menu.orbCount === 5
+        && JSON.stringify(menu.rowLabels) === JSON.stringify(["World", "Identity"])
+        && menu.settingCount === 2
+        && menu.returnControl === "Return to chat"
+        && menu.squareCorners
+        && menu.filledSlots.every((image) => image.complete && image.naturalWidth > 0),
+      `${label}: Menu should be one sharp, image-led player panel: ${JSON.stringify(menu)}`,
     );
-
-    await page.locator('[data-menu-section="settings"]').click();
-    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "orbs & settings");
+    assert(menu.brandScrollWidth <= menu.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menu)}`);
+    assert(!/pack weight|prepared spells|ordinary places are public|story identity and growth/i.test(menu.copy), `${label}: the one-screen Menu should not revive the removed instruction pages: ${JSON.stringify(menu)}`);
     const preferenceBaseline = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.body).fontSize));
     await page.locator('[data-ui-setting="largeText"]').check();
     await page.locator('[data-ui-setting="reduceMotion"]').check();
@@ -13143,23 +13123,9 @@ async function main() {
         && preferencesReset.reduceMotionStored === "false",
       `${label}: accessibility preferences should be reversible: ${JSON.stringify(preferencesReset)}`,
     );
-    await page.locator("#brand").click();
-    await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open"));
-
-    await page.locator("#brand").click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
-    await page.locator('[data-menu-section="character"]').click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("account-mode"));
-    const account = await page.evaluate(() => ({
-      role: document.querySelector("#log")?.getAttribute("role") || "",
-      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
-      promptHidden: document.querySelector(".prompt")?.hidden || false,
-      heading: document.querySelector("#account-panel-title")?.tagName || "",
-    }));
-    assert(account.role === "region" && account.label === "Your avatar menu" && account.promptHidden && account.heading === "H2", `${label}: character should be a dedicated semantic panel: ${JSON.stringify(account)}`);
-    await page.locator("#brand").click();
+    await page.locator("[data-menu-close]").click();
     await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.getAttribute("role") === "log");
-    steps.push({ label, mobileNavigation: "visible", dialogs: "contained", panels: "semantic" });
+    steps.push({ label, mobileNavigation: "single-panel", dialogs: "contained", panels: "semantic" });
   }
 
   async function assertStatusBarDoesNotOverlayTranscript(label) {
@@ -13927,33 +13893,32 @@ async function main() {
     );
     steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
     await assertActionBarCapped("guest account inventory", 0);
-    await page.waitForFunction(() => (
-      document.querySelector(".account-panel")?.innerText
-        ?.includes("I listen for odd jobs nobody else wants.")
-    ), undefined, { timeout: 5_000 });
-    const guestSheetText = await page.locator(".account-panel").innerText();
-    assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
-    assert(/\blevel\s+1\b/i.test(guestSheetText) && !/\bclassless\b/i.test(guestSheetText), `the account sheet should show level 1 without a class label before class selection: ${guestSheetText}`);
-    assert(
-      guestSheetText.includes("journal") && guestSheetText.includes("relationships"),
-      `avatar sheet should expose the journal and authored relationship state: ${guestSheetText}`,
-    );
-    assert(
-      guestSheetText.includes("your first little moment is waiting")
-        && guestSheetText.includes("worn skill charms")
-        && guestSheetText.includes("find a skill charm, then wear it from Pack")
-        && guestSheetText.includes("someone new is waiting to meet you"),
-      `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
-    );
-    assert(!/quiet for now|nothing yet|no one yet|\bnone\b|\b\d+ of \d+\b|dev-wallet/i.test(guestSheetText), `avatar sheet should avoid cold empty-state and account shorthand: ${guestSheetText}`);
-    assert(!/wooden box|avatar bundle|keepsake|collection/i.test(guestSheetText), `the avatar sheet should omit retired collection copy: ${guestSheetText}`);
-    assert(guestSheetText.includes("story identity and growth"), `the avatar sheet should describe continuity naturally: ${guestSheetText}`);
-    assert(guestSheetText.includes("purpose") && !guestSheetText.includes("calling"), `avatar sheet should use purpose rather than Calling terminology: ${guestSheetText}`);
-    assert(await page.locator(".account-portrait[data-card-key]").count() === 1, "avatar sheet should make the generated portrait card visible");
+    const guestMenu = await page.evaluate(() => ({
+      playerName: document.querySelector(".minimal-menu-player strong")?.textContent?.trim() || "",
+      level: document.querySelector(".minimal-menu-level")?.textContent?.trim() || "",
+      portraitCount: document.querySelectorAll(".minimal-menu-avatar[data-card-key]").length,
+      slotCount: document.querySelectorAll(".minimal-menu-slot").length,
+      orbCount: document.querySelectorAll(".minimal-menu-orbs .minimal-orb-rack i").length,
+      copy: document.querySelector(".minimal-menu")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      purpose: String(state?.calling?.statement || ""),
+      avatar: (() => {
+        const actor = (state?.actors || []).find((candidate) => Number(candidate.id) === Number(actorId)) || null;
+        const card = cardForActor(actorId);
+        return {
+          name: actor?.name || card?.display_name || "",
+          blurb: card?.blurb || actor?.description || "",
+        };
+      })(),
+    }));
+    assert(guestMenu.purpose === "I listen for odd jobs nobody else wants.", `a classless new avatar should keep the safe default purpose: ${JSON.stringify(guestMenu)}`);
+    assert(guestMenu.playerName && guestMenu.level === "1", `the minimal Menu should show the current player and level: ${JSON.stringify(guestMenu)}`);
+    assert(guestMenu.portraitCount === 1, "the minimal Menu should show the generated portrait card");
+    assert(guestMenu.slotCount === 4 && guestMenu.orbCount === 5, `the minimal Menu should use equipment and Orb slots instead of explanatory copy: ${JSON.stringify(guestMenu)}`);
+    assert(!/journal|relationships|pack weight|prepared spells|story identity and growth|calling/i.test(guestMenu.copy), `the minimal Menu should leave narrative text to chat and the Journal: ${guestMenu.copy}`);
     const guestSheetHeight = await page.locator("#log").evaluate((node) => node.getBoundingClientRect().height);
-    assert(guestSheetHeight > 250, `mobile avatar sheet should use the available play area instead of a cramped transcript strip: ${guestSheetHeight}`);
-    const guestAvatarName = await page.locator(".account-identity-name").innerText();
-    const guestAvatarBlurb = await page.locator(".account-identity-blurb").innerText();
+    assert(guestSheetHeight > 250, `mobile Menu should use the available play area instead of a cramped transcript strip: ${guestSheetHeight}`);
+    const guestAvatarName = String(guestMenu.avatar?.name || guestMenu.playerName);
+    const guestAvatarBlurb = String(guestMenu.avatar?.blurb || "");
     assert(
       /\bI (?:like|prefer|want|dislike|avoid|hope|enjoy|am|notice|wonder|feel)\b/i.test(guestAvatarBlurb)
         && !guestAvatarBlurb.includes(guestAvatarName)
@@ -13967,7 +13932,7 @@ async function main() {
     await focusIdentityPanel();
     await page.waitForSelector(".account-panel [data-passkey-continue]");
     const identityText = await page.locator(".account-panel").innerText();
-    assert(identityText.includes("continue with passkey"), `the separate identity page should offer a durable sign-in path: ${identityText}`);
+    assert(/identity\s+sign in/i.test(identityText.replace(/\s+/g, " ")), `the minimal Menu should offer a durable sign-in path inline: ${identityText}`);
     await closeAccountInventory();
     assert((await page.locator("#brand").innerText()).toLowerCase() === "menu", "closed Menu toggle should visibly say menu");
     assert((await page.locator("#brand").getAttribute("aria-label")) === "Open Menu", "closed Menu toggle should announce that it opens");
@@ -13992,7 +13957,7 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     await focusIdentityPanel();
     const linkedIdentityText = await page.locator(".account-panel").innerText();
-    assert(linkedIdentityText.includes("linked avatars"), `signed identity should explain the optional avatar adapter: ${linkedIdentityText}`);
+    assert(/identity\s+passkey/i.test(linkedIdentityText.replace(/\s+/g, " ")), `signed identity should remain visible without opening another Menu page: ${linkedIdentityText}`);
     assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(linkedIdentityText), `signing a wallet must not expose retired ownership surfaces: ${linkedIdentityText}`);
     await page.evaluate(() => {
       localStorage.removeItem("cosyworld.wallet");
