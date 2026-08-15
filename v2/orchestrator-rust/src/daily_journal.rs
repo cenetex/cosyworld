@@ -424,9 +424,11 @@ async fn complete_daily_journal_page(
         {
             return Ok(());
         }
-        let mut action = CwAction::default();
-        action.kind = CW_ACTION_NONE;
-        action.actor_id = actor_id;
+        let action = CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..Default::default()
+        };
         let mut record = JournalRecord::new(action, runtime.next_seed_value())
             .into_actor_consequence(runtime.world.tick, Some(page.requested_event_seq));
         record
@@ -714,6 +716,55 @@ fn xml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_journal_is_image_only_and_keeps_source_context_hidden() {
+        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
+        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
+        assert!(INDEX_HTML.contains("function setJournalOpen"));
+        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
+        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
+        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
+        assert!(INDEX_HTML.contains("data-export-journal"));
+        assert!(
+            INDEX_HTML.contains("class=\"journal-internal-context\" hidden aria-hidden=\"true\"")
+        );
+        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
+        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
+        assert!(INDEX_HTML.contains("aria-label=\"Daily illustrated Journal pages\""));
+        assert!(!INDEX_HTML.contains("aria-label=\"Chronological story history\""));
+        assert!(!INDEX_HTML.contains("What the place felt like"));
+        assert!(!INDEX_HTML.contains("Still on my mind"));
+        assert!(INDEX_HTML.contains("explanation_opened"));
+        assert!(INDEX_HTML.contains("return_change_seen"));
+        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
+        assert!(INDEX_HTML.contains("function syncJournalRegions"));
+        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
+        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
+        assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
+        assert!(INDEX_HTML.contains("function firstThreadModel"));
+        assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
+        assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
+        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
+        assert!(!INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
+        assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
+        assert!(INDEX_HTML.contains("is still waiting to be found"));
+        assert!(INDEX_HTML.contains("room thread"));
+        assert!(INDEX_HTML.contains("Your first tale continues when you"));
+        assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
+        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
+        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
+        assert!(INDEX_HTML.contains("function renderJournalLog"));
+        assert!(INDEX_HTML.contains("function dailyJournalPagesForPresentation"));
+        assert!(INDEX_HTML.contains("String(page.rest_kind || \"\").toLowerCase() !== \"long\""));
+        assert!(INDEX_HTML.contains("const daily = new Map()"));
+        assert!(INDEX_HTML.contains("class=\"journal-page-illustration generated\""));
+        assert!(!INDEX_HTML.contains("painted after a long rest"));
+        assert!(!INDEX_HTML.contains("function journalEventHtml"));
+    }
 
     #[test]
     fn one_daily_artifact_identity_is_stable_per_actor_and_day() {

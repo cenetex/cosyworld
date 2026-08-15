@@ -43015,11 +43015,6 @@ mod tests {
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
         assert!(INDEX_HTML.contains("Shared room transcript"));
-        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
-        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
-        assert!(INDEX_HTML.contains("function setJournalOpen"));
-        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
-        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
         assert!(INDEX_HTML.contains("white-space: nowrap;"));
         assert!(!INDEX_HTML.contains("Why this matters"));
         assert!(INDEX_HTML.contains("eventIsStatusUpdate"));
@@ -43031,7 +43026,6 @@ mod tests {
         assert!(INDEX_HTML.contains("function ensureWorldView"));
         assert!(INDEX_HTML.contains("function worldChronicleHtml"));
         assert!(INDEX_HTML.contains("the world beyond"));
-        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("function deckPanelHtml"));
         assert!(INDEX_HTML.contains("[\"deck\", \"pack\"]"));
         assert!(INDEX_HTML.contains("[\"character\", \"character\"]"));
@@ -43052,21 +43046,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
-        assert!(INDEX_HTML.contains("data-export-journal"));
-        assert!(
-            INDEX_HTML.contains("class=\"journal-internal-context\" hidden aria-hidden=\"true\"")
-        );
-        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
-        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
-        assert!(INDEX_HTML.contains("aria-label=\"Daily illustrated Journal pages\""));
-        assert!(!INDEX_HTML.contains("aria-label=\"Chronological story history\""));
-        assert!(!INDEX_HTML.contains("What the place felt like"));
-        assert!(!INDEX_HTML.contains("Still on my mind"));
         assert!(INDEX_HTML.contains("/story/clock-presentations"));
-        assert!(INDEX_HTML.contains("explanation_opened"));
-        assert!(INDEX_HTML.contains("return_change_seen"));
-        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
-        assert!(INDEX_HTML.contains("function syncJournalRegions"));
         assert!(INDEX_HTML.contains("document.fonts?.addEventListener"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
@@ -43074,7 +43054,6 @@ mod tests {
             INDEX_HTML.contains(".filter((candidate) => candidate.type === \"clock.threshold\")")
         );
         assert!(INDEX_HTML.contains("Number(right.seq || 0) - Number(left.seq || 0)"));
-        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
         assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
@@ -43125,8 +43104,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-room-more"));
         assert!(!INDEX_HTML.contains("room-more"));
         assert!(INDEX_HTML.contains("id=\"room-log-toggle\""));
-        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
-        assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("class=\"topbar-actions\""));
         assert!(!INDEX_HTML.contains("class=\"room-title\""));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
@@ -43137,21 +43114,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("interior-exit"));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
-        assert!(INDEX_HTML.contains("function firstThreadModel"));
-        assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
-        assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
-        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
-        assert!(!INDEX_HTML.contains("data-story-action-key"));
-        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
-        assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
-        assert!(INDEX_HTML.contains("is still waiting to be found"));
-        assert!(INDEX_HTML.contains("room thread"));
-        assert!(INDEX_HTML.contains("Your first tale continues when you"));
-        assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
-        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
-        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
         assert!(!INDEX_HTML.contains("notice one little clue."));
         assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
         assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
@@ -43165,13 +43127,6 @@ mod tests {
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
-        assert!(INDEX_HTML.contains("function renderJournalLog"));
-        assert!(INDEX_HTML.contains("function dailyJournalPagesForPresentation"));
-        assert!(INDEX_HTML.contains("String(page.rest_kind || \"\").toLowerCase() !== \"long\""));
-        assert!(INDEX_HTML.contains("const daily = new Map()"));
-        assert!(INDEX_HTML.contains("class=\"journal-page-illustration generated\""));
-        assert!(!INDEX_HTML.contains("painted after a long rest"));
-        assert!(!INDEX_HTML.contains("function journalEventHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
