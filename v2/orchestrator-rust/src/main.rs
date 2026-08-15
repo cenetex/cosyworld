@@ -23029,94 +23029,6 @@ async fn fund_community_image(
     FundCommunityImageResponse::action(true, CW_OK, events)
 }
 
-async fn commit_chat_status(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    status: &str,
-    reason: &str,
-    caused_by_event_seq: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: Option<u64>,
-) -> Vec<EventView> {
-    let mut runtime = state.inner.lock().await;
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.caused_by_event_seq = caused_by_event_seq;
-    record.source_world_tick = source_world_tick;
-    record.observed_through_seq = observed_through_seq;
-    record.source_location_id = source_location_id;
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ChatStatus {
-            target_actor_id,
-            status: status.to_string(),
-            reason: reason.to_string(),
-        });
-    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
-        return Vec::new();
-    };
-    drop(runtime);
-    if commit_status == CW_OK {
-        broadcast_events(state, &events);
-        events
-    } else {
-        Vec::new()
-    }
-}
-
-async fn announce_chat_typing(
-    state: &AppState,
-    speaker_actor_id: u64,
-    listener_actor_id: u64,
-    caused_by_event_seq: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: Option<u64>,
-) {
-    let _ = commit_chat_status(
-        state,
-        speaker_actor_id,
-        listener_actor_id,
-        "typing",
-        "the next line is being composed",
-        caused_by_event_seq,
-        source_world_tick,
-        observed_through_seq,
-        source_location_id,
-    )
-    .await;
-}
-
-async fn complete_queued_orb_chat(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    plan: AvatarChatPlan,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-) -> Result<(), String> {
-    complete_queued_orb_chat_attempt(
-        state,
-        actor_id,
-        target_actor_id,
-        plan,
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        1,
-    )
-    .await
-}
-
 #[allow(clippy::too_many_arguments)]
 async fn complete_queued_orb_chat_attempt(
     state: &AppState,
@@ -23153,6 +23065,28 @@ async fn complete_queued_orb_chat_attempt(
         )?
     };
     if committed_lines.is_empty() {
+        let participants_can_continue = {
+            let runtime = state.inner.lock().await;
+            chat_participants_can_continue(&runtime, actor_id, target_actor_id, plan.location_id)
+        };
+        if !participants_can_continue {
+            tracing::info!(
+                actor_id,
+                target_actor_id,
+                location_id = plan.location_id,
+                "avatar chat ended cleanly before inference because a participant left the room"
+            );
+            return complete_chat_after_context_change(
+                state,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                plan.location_id,
+            )
+            .await;
+        }
         announce_chat_typing(
             state,
             actor_id,
@@ -23209,7 +23143,7 @@ async fn complete_queued_orb_chat_attempt(
         };
         let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
         let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
-        let committed = {
+        let (context_changed, committed) = {
             let mut runtime = state.inner.lock().await;
             if !chat_participants_can_continue(
                 &runtime,
@@ -23217,7 +23151,7 @@ async fn complete_queued_orb_chat_attempt(
                 target_actor_id,
                 plan.location_id,
             ) {
-                None
+                (true, None)
             } else {
                 let content_id = runtime.next_content_id_value();
                 let mut record = JournalRecord::new(
@@ -23241,12 +23175,44 @@ async fn complete_queued_orb_chat_attempt(
                     plan.location_id,
                     reasoning_trace.as_deref(),
                 );
-                match commit_journal_record(state, &mut runtime, record) {
+                let committed = match commit_journal_record(state, &mut runtime, record) {
                     Ok((CW_OK, events)) if !events.is_empty() => Some((content_id, events)),
                     _ => None,
-                }
+                };
+                (false, committed)
             }
         };
+
+        if context_changed {
+            tracing::info!(
+                actor_id,
+                target_actor_id,
+                location_id = plan.location_id,
+                "avatar chat ended cleanly after a participant left during inference"
+            );
+            record_ai_usage(
+                state,
+                Some(actor_id),
+                "avatar_chat",
+                "cosyworld_system",
+                usage_config.as_ref(),
+                "ok",
+                queue_event_id,
+                0,
+                None,
+                started_at.elapsed(),
+            );
+            return complete_chat_after_context_change(
+                state,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                plan.location_id,
+            )
+            .await;
+        }
 
         let Some((content_id, events)) = committed else {
             commit_chat_status(
@@ -23312,18 +23278,16 @@ async fn complete_queued_orb_chat_attempt(
                 location_id = plan.location_id,
                 "avatar chat ended cleanly after a participant left the room"
             );
-            let _ = commit_chat_status(
+            complete_chat_after_context_change(
                 state,
                 actor_id,
                 target_actor_id,
-                "completed",
-                "the conversation moved out of reach",
                 queue_event_id,
                 source_world_tick,
                 observed_through_seq,
-                Some(plan.location_id),
+                plan.location_id,
             )
-            .await;
+            .await?;
             return Ok(());
         }
         let config = state.ai_config.as_ref().as_ref();
