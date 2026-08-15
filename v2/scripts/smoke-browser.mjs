@@ -7816,7 +7816,7 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
-  async function assertWorldBeatExposureFollowsVisibleAuthoredProse() {
+  async function assertHiddenWorldBeatsNeverCountAsVisibleExposure() {
     const result = await page.evaluate(async () => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -7967,23 +7967,14 @@ async function main() {
         renderTimelines();
       }
     });
-    assert(result.callsWhileJournalClosed === 0, `a world beat hidden behind the closed Journal must not count as seen: ${JSON.stringify(result)}`);
-    assert(result.calls.length === 1, `one visible world beat should send one receipt: ${JSON.stringify(result)}`);
-    assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
-    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.callsWhileMenuHidden === 1, `a transcript hidden behind Menu must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileJournalClosed === 0, `a hidden world beat must not count as seen while Journal is closed: ${JSON.stringify(result)}`);
+    assert(result.calls.length === 0, `opening the image-only Journal must not expose or receipt hidden world beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 0, `repeat image-only Journal renders must not expose hidden beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 0, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 0, `a hidden Journal must not send exposure receipts: ${JSON.stringify(result)}`);
     assert(
-      result.receiptable
-        && !result.sourceSeqLeaked
-        && result.calls[0]?.exposure_id === "world-beat:v1:990500001",
-      `world-beat receipts should bind presentation v1 without exposing source sequences in production HTML: ${JSON.stringify(result)}`,
-    );
-    assert(result.visibleAuthoredText.includes("Rain thins into pearl-grey mist"), `a receipted beat must have authored prose on screen: ${JSON.stringify(result)}`);
-    assert(
-      result.calls[0]?.transport === "browser"
-        && Number(result.calls[0]?.actor_id) > 0
-        && Number(result.calls[0]?.state_revision) >= 990500001,
-      `browser receipt should name actor, transport, beat, and observed state revision: ${JSON.stringify(result)}`,
+      !result.receiptable && !result.sourceSeqLeaked && result.visibleAuthoredText === "",
+      `hidden world-beat evidence must create no prose row or source-sequence surface: ${JSON.stringify(result)}`,
     );
   }
 
@@ -8635,15 +8626,13 @@ async function main() {
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
-        && result.journalSummariesWrap
-        && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
-        && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
-      `system and discovery history should remain available as readable prose in the closed Journal: ${JSON.stringify(result)}`,
+        && result.journalRows.length === 0
+        && result.latestJournalRow === "",
+      `raw system and discovery history must not create Journal prose rows: ${JSON.stringify(result)}`,
     );
     assert(
-      result.roomLatest === result.latestJournalRow
-        && result.roomLatest === "Thimble Guest looks closely around The Cosy Cottage.",
-      `the room ticker should mirror the newest Journal event without duplicating chat: ${JSON.stringify(result)}`,
+      result.latestJournalRow === "",
+      `hidden room memory must not be promoted into a Journal row: ${JSON.stringify(result)}`,
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
@@ -8873,35 +8862,22 @@ async function main() {
       }]);
       renderTimelines();
       setJournalOpen(true);
-      syncJournalRowOverflow();
-      const storyRow = document.querySelector("#journal-log .journal-row.work");
-      if (storyRow?.classList.contains("is-overflowing")) storyRow.open = true;
+      const journalViewHtml = document.querySelector("#journal-view")?.innerHTML || "";
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
-        summary: storyRow?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
-        proseNodeCount: storyRow?.querySelectorAll(".journal-row-summary").length || 0,
-        detailBlockCount: storyRow?.querySelectorAll(".journal-row-detail").length || 0,
-        expandedWhiteSpace: storyRow
-          ? getComputedStyle(storyRow.querySelector(".journal-row-summary")).whiteSpace
-          : "",
+        emptyText: document.querySelector("#journal-log .journal-empty")?.textContent?.trim() || "",
+        rowCount: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
         sourceLeakCount: [...raw].filter((event) => (
-          storyRow?.innerHTML.includes(event.type)
-          || storyRow?.innerHTML.includes(`#${event.seq}`)
+          journalViewHtml.includes(event.type)
+          || journalViewHtml.includes(`#${event.seq}`)
         )).length,
       };
     }, result.text);
     assert(
-      evidence.latest === evidence.summary
-        && evidence.latest.startsWith("I rekindle")
-        && !evidence.latest.startsWith("Kit Featherstep"),
-      `a personal Journal should preserve the authored scene while writing the owner's action in first person: ${JSON.stringify(evidence)}`,
-    );
-    assert(
-      evidence.proseNodeCount === 1
-        && evidence.detailBlockCount === 0
-        && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
+      evidence.rowCount === 0
+        && evidence.emptyText.includes("No long-rest Journal page")
         && evidence.sourceLeakCount === 0,
-      `receipt evidence should render one complete prose node without duplicate detail or raw event identifiers: ${JSON.stringify(evidence)}`,
+      `semantic receipt evidence must stay hidden until a long-rest Journal page is generated: ${JSON.stringify(evidence)}`,
     );
     await page.setViewportSize({ width: 980, height: 820 });
     await page.screenshot({ path: evidencePath, fullPage: false });
@@ -8917,7 +8893,7 @@ async function main() {
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
     steps.push({
-      label: "Lantern Keeper semantic receipt",
+      label: "Lantern Keeper hidden receipt evidence",
       screenshot: evidencePath,
       groupedSourceEvents: result.beat.source_event_seqs.length,
     });
@@ -13344,8 +13320,8 @@ async function main() {
       };
     });
     assert(
-      room.latest.length > 8 && room.latest === room.latestJournalRow,
-      `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
+      room.latest.length > 8 && room.latestJournalRow === "",
+      `${label}: room memory may retain a hidden ticker value without restoring a Journal log row: ${JSON.stringify(room)}`,
     );
     assert(
       room.latestHidden && !room.latestVisible && room.latestHasTrack && !room.latestBelowTitle && !room.latestAriaLive,
@@ -13439,8 +13415,8 @@ async function main() {
           artifactId: leaf()?.dataset.journalArtifactId || "",
           day: leaf()?.dataset.journalDay || "",
           images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
-          rows: document.querySelectorAll("#journal-view .journal-row, #journal-view .journal-prose-row").length,
-          prose: document.querySelectorAll("#journal-view .journal-page-prose, #journal-view figcaption").length,
+          rows: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
+          prose: document.querySelectorAll("#journal-log .journal-page-prose, #journal-log figcaption").length,
           memoryVisible: visible(document.querySelector("#room-memory")),
           activityVisible: visible(document.querySelector("#journal-activity")),
           questionsVisible: visible(document.querySelector("#shared-questions")),
@@ -14448,7 +14424,7 @@ async function main() {
   await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
-  await assertWorldBeatExposureFollowsVisibleAuthoredProse();
+  await assertHiddenWorldBeatsNeverCountAsVisibleExposure();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCombatUsesDedicatedDockOutsideChat();
