@@ -217,6 +217,10 @@ bash scripts/backup-fly-v2.sh cosyworld primary
 flyctl deploy --remote-only --config fly.toml --strategy rolling
 ```
 
+The backup command waits up to ten minutes for the exact requested snapshot to
+reach `created`. Do not bypass it when Fly reports a slow `waiting` or `running`
+snapshot; a timeout leaves the current Machine untouched and blocks deployment.
+
 ---
 
 ## Monitoring

@@ -57,6 +57,7 @@ const volumeGuardPath = fileURLToPath(
 const backupScriptPath = fileURLToPath(
   new URL('../../scripts/backup-fly-v2.sh', import.meta.url)
 );
+const backupScript = readFileSync(backupScriptPath, 'utf8');
 
 const runVolumeGuard = (fakeFlyctl) => {
   const directory = mkdtempSync(join(tmpdir(), 'cosyworld-volume-guard-'));
@@ -290,6 +291,15 @@ describe('deploy workflow', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('allows queued Fly snapshots ten minutes to complete before failing closed', () => {
+    expect(backupScript).toContain(
+      'COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS:-600'
+    );
+    expect(backupScript).toContain(
+      'timed out waiting for Fly volume snapshot $snapshot_id to reach created'
+    );
   });
 
   it('recovers a verifiable new snapshot when flyctl create returns an empty successful response', () => {
