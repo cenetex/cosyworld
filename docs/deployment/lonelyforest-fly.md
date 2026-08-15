@@ -77,7 +77,11 @@ configured volume (`cosyworld_data` or `lonelyforest_data`), requires one
 attached volume, requests an on-demand Fly snapshot, and waits for that
 specific snapshot to reach `created`. The script is fail-closed and does not
 detach, replace, or destroy a volume. The resulting snapshot ID is printed in
-the workflow log for the rollback operator.
+the workflow log for the rollback operator. The default wait is ten minutes:
+Fly may accept a snapshot and leave it in `waiting` or `running` for several
+minutes during transient queueing, but a snapshot that never reaches `created`
+still blocks the deploy.
+
 Before Fly replaces the image, the Lonely Forest job runs
 `v2/scripts/check-lonelyforest-worldpacks.mjs`. It reads every
 required tenant's live `https://<host>/meta` identity and compares it with the
