@@ -160,15 +160,19 @@ pub(super) fn resident_supports_text_reply(actor_id: u64) -> bool {
 }
 
 pub(super) fn binding_supports_text_reply(binding: &SeedActorModelBinding) -> bool {
-    exact_actor_interaction_profile_for_actor(binding.actor_id, ActorInteractionKind::Talk)
-        .ok()
-        .flatten()
-        .is_some_and(|exact| {
-            exact.profile.ready_before_policy()
-                && exact.binding.requested_model_id == binding.requested_model_id
-                && exact.binding.canonical_slug == binding.canonical_slug
-        })
-        && PinnedModelSelection::from_actor_binding(binding, DataPolicyMode::Development).is_ok()
+    exact_actor_interaction_profile_for_binding(
+        binding.actor_id,
+        &binding.requested_model_id,
+        &binding.canonical_slug,
+        ActorInteractionKind::Talk,
+    )
+    .ok()
+    .flatten()
+    .is_some_and(|exact| {
+        exact.profile.ready_before_policy()
+            && exact.binding.requested_model_id == binding.requested_model_id
+            && exact.binding.canonical_slug == binding.canonical_slug
+    }) && PinnedModelSelection::from_actor_binding(binding, DataPolicyMode::Development).is_ok()
 }
 
 fn resident_image_binding(actor_id: u64) -> Option<&'static SeedActorModelBinding> {
@@ -183,16 +187,20 @@ fn resident_image_binding(actor_id: u64) -> Option<&'static SeedActorModelBindin
 }
 
 pub(super) fn binding_supports_image_interaction(binding: &SeedActorModelBinding) -> bool {
-    exact_actor_interaction_profile_for_actor(binding.actor_id, ActorInteractionKind::Illustrate)
-        .ok()
-        .flatten()
-        .is_some_and(|exact| {
-            exact.profile.ready_before_policy()
-                && exact.binding.requested_model_id == binding.requested_model_id
-                && exact.binding.canonical_slug == binding.canonical_slug
-        })
-        && PinnedModelSelection::from_actor_image_binding(binding, DataPolicyMode::Development)
-            .is_ok()
+    exact_actor_interaction_profile_for_binding(
+        binding.actor_id,
+        &binding.requested_model_id,
+        &binding.canonical_slug,
+        ActorInteractionKind::Illustrate,
+    )
+    .ok()
+    .flatten()
+    .is_some_and(|exact| {
+        exact.profile.ready_before_policy()
+            && exact.binding.requested_model_id == binding.requested_model_id
+            && exact.binding.canonical_slug == binding.canonical_slug
+    }) && PinnedModelSelection::from_actor_image_binding(binding, DataPolicyMode::Development)
+        .is_ok()
 }
 
 fn binding_uses_image_reply(binding: &SeedActorModelBinding) -> bool {
@@ -984,6 +992,20 @@ mod tests {
             .output_modalities
             .iter()
             .any(|value| value == "text"));
+    }
+
+    #[test]
+    fn every_hoppycat_model_resident_has_an_exact_text_reply_route() {
+        let bindings = serde_json::from_str::<Vec<SeedActorModelBinding>>(include_str!(
+            "../../content/hoppycat-archive/actor_model_bindings.json"
+        ))
+        .expect("Hoppycat actor model bindings");
+        assert_eq!(bindings.len(), 7);
+        assert!(bindings.iter().all(binding_supports_text_reply));
+
+        let mut changed = bindings[0].clone();
+        changed.canonical_slug = "anthropic/changed-canonical-slug".to_string();
+        assert!(!binding_supports_text_reply(&changed));
     }
 
     #[test]

@@ -1863,14 +1863,11 @@ mod tests {
         }
     }
 
-    fn hoppycat_fable_binding() -> crate::content_load::SeedActorModelBinding {
+    fn hoppycat_bindings() -> Vec<crate::content_load::SeedActorModelBinding> {
         serde_json::from_str::<Vec<crate::content_load::SeedActorModelBinding>>(include_str!(
             "../../content/hoppycat-archive/actor_model_bindings.json"
         ))
         .expect("Hoppycat actor model bindings")
-        .into_iter()
-        .find(|binding| binding.actor_id == 771_100)
-        .expect("Fable actor model binding")
     }
 
     fn gate(key: &str) -> SpeechGateContext {
@@ -1994,7 +1991,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_exact_actor_binding_never_falls_back_to_the_generic_pool() {
+    async fn hoppycat_exact_actor_bindings_never_fall_back_to_the_generic_pool() {
         let mut config = three_candidates(VoiceRoutingConfig {
             max_attempts: 3,
             hedge_width: 1,
@@ -2002,31 +1999,42 @@ mod tests {
             ..VoiceRoutingConfig::default()
         });
         config.base_url = "https://openrouter.ai/api/v1".to_string();
-        let binding = hoppycat_fable_binding();
-        let expected_model = binding.requested_model_id.clone();
-        let backend = MockBackend::with_outputs([
-            ("~anthropic/claude-fable-latest", "unanchored one", 0),
-            ("~anthropic/claude-fable-latest", "unanchored two", 0),
-            ("~anthropic/claude-fable-latest", "unanchored three", 0),
-        ]);
-        let mut exact_request = request("dialogue_resident_raw");
-        exact_request.model_binding = Some(binding);
-        let mut exact_gate = gate("hoppycat-fable-exhausted");
-        exact_gate.mode = SpeechMode::Raw;
-        exact_gate.anchors = vec!["teapot".to_string()];
+        let bindings = hoppycat_bindings();
+        assert_eq!(bindings.len(), 7);
+        for binding in bindings {
+            let expected_model = binding.requested_model_id.clone();
+            let backend = MockBackend::default();
+            backend.outputs.lock().unwrap().insert(
+                expected_model.clone(),
+                ["unanchored one", "unanchored two", "unanchored three"]
+                    .into_iter()
+                    .map(|text| MockOutput {
+                        text: text.to_string(),
+                        reasoning_trace: None,
+                        delay: Duration::ZERO,
+                        finish_reason: "stop".to_string(),
+                    })
+                    .collect(),
+            );
+            let mut exact_request = request("dialogue_resident_raw");
+            exact_request.model_binding = Some(binding);
+            let mut exact_gate = gate("hoppycat-exact-model-exhausted");
+            exact_gate.mode = SpeechMode::Raw;
+            exact_gate.anchors = vec!["teapot".to_string()];
 
-        let error = route_certified_voice_with(
-            &config,
-            None,
-            exact_request,
-            exact_gate,
-            Arc::new(backend.clone()),
-        )
-        .await
-        .expect_err("the exact model exhausts without substitution");
+            let error = route_certified_voice_with(
+                &config,
+                None,
+                exact_request,
+                exact_gate,
+                Arc::new(backend.clone()),
+            )
+            .await
+            .expect_err("the exact model exhausts without substitution");
 
-        assert_eq!(error.code(), "voice_candidates_exhausted");
-        assert_eq!(backend.requested_models(), vec![expected_model; 3]);
+            assert_eq!(error.code(), "voice_candidates_exhausted");
+            assert_eq!(backend.requested_models(), vec![expected_model; 3]);
+        }
     }
 
     #[test]
