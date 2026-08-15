@@ -3040,8 +3040,9 @@
       grid-template-columns: auto auto minmax(0, 1fr);
     }
     .action-actions.hand-card-actions {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .action-dialog.hand-card-mode .action-cancel,
     .action-dialog.hand-card-mode .action-discard,
     .action-dialog.hand-card-mode .action-confirm {
       min-height: 48px;
@@ -16756,8 +16757,9 @@
       renderRoomAvatarRail();
       $("action-modal-confirm").textContent = handCard ? "play" : actionConfirmLabel(action);
       const cancelButton = $("action-modal-cancel");
-      cancelButton.textContent = actionCancelLabel(action);
-      cancelButton.hidden = handCard;
+      cancelButton.textContent = handCard ? "close" : actionCancelLabel(action);
+      cancelButton.hidden = false;
+      cancelButton.setAttribute("aria-label", handCard ? `Close ${label} card` : cancelButton.textContent);
       const discardButton = $("action-modal-discard");
       const discardCertificate = projectedHandEntryForAction(action)?.think || null;
       const canDiscard = !state?.branch
@@ -16853,6 +16855,7 @@
       $("action-modal-eyebrow").textContent = "";
       $("action-modal-cancel").textContent = "not now";
       $("action-modal-cancel").hidden = false;
+      $("action-modal-cancel").removeAttribute("aria-label");
       $("action-modal-discard").hidden = true;
       $("action-modal-discard").disabled = false;
       $("action-modal-discard").closest(".action-actions")?.classList.remove("has-discard", "hand-card-actions");

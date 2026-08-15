@@ -703,6 +703,7 @@ async function main() {
         promptExpanded: prompt.classList.contains("hand-expanded"),
         handHeaderVisible: document.querySelector(".hand-header")?.getClientRects().length > 0,
         inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
+        cancel: document.querySelector("#action-modal-cancel")?.textContent?.trim() || "",
         confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
         discard: document.querySelector("#action-modal-discard")?.textContent?.trim() || "",
         cancelVisible: document.querySelector("#action-modal-cancel")?.getClientRects().length > 0,
@@ -715,11 +716,12 @@ async function main() {
         && !modalLayout.promptExpanded
         && !modalLayout.handHeaderVisible
         && !modalLayout.inspectorVisible
+        && modalLayout.cancel === "close"
         && modalLayout.confirm === "play"
         && modalLayout.discard === "discard"
-        && !modalLayout.cancelVisible
+        && modalLayout.cancelVisible
         && !modalLayout.metaVisible,
-      `tapping a card should open only a larger card with Play and Discard: ${JSON.stringify(modalLayout)}`,
+      `tapping a card should open a larger card with Close, Play, and Discard: ${JSON.stringify(modalLayout)}`,
     );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
@@ -13864,14 +13866,15 @@ async function main() {
     );
     assert(
       await page.locator("#action-modal-meta:visible").count() === 0
-        && await page.locator("#action-modal-confirm").innerText() === "play"
-        && await page.locator("#action-modal-discard").innerText() === "discard",
+        && await page.locator("#action-modal-cancel").textContent() === "close"
+        && await page.locator("#action-modal-confirm").textContent() === "play"
+        && await page.locator("#action-modal-discard").textContent() === "discard",
       "core arrival should use the focused card surface without a hand dashboard",
     );
-    await page.locator("#action-modal").click({ position: { x: 2, y: 2 } });
+    await page.locator("#action-modal-cancel").click();
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden]) .action-dialog.hand-card-mode");
-    assert(await page.locator("#action-modal-confirm").innerText() === "play", "the certified core arrival should play the classless traveler card");
+    assert(await page.locator("#action-modal-confirm").textContent() === "play", "the certified core arrival should play the classless traveler card");
     await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();

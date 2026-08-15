@@ -28,6 +28,9 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('openActionModal(action, { handCard: true });');
     expect(browser).toContain('dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);');
     expect(browser).toContain('$("action-modal-confirm").textContent = handCard ? "play"');
+    expect(browser).toContain('cancelButton.textContent = handCard ? "close"');
+    expect(browser).toContain('cancelButton.hidden = false;');
+    expect(browser).toContain('handCard ? `Close ${label} card`');
     expect(browser).toContain('discardButton.textContent = handCard ? "discard"');
     expect(browser).not.toContain("function travellingPartyHeaderHtml");
     expect(browser).not.toContain('writeStatus(`${statusActivity.label} · ${statusActivity.text}`');
