@@ -41,6 +41,7 @@ mod content_policy;
 mod content_registry;
 mod contributions;
 mod crafting;
+mod daily_journal;
 #[cfg(test)]
 mod delivery_matching_tests;
 mod discovery_pipeline;
@@ -161,6 +162,7 @@ use content_registry::*;
 use contributions::*;
 use cosyworld_orchestrator::card_policy::CardPolicyAction;
 use crafting::*;
+use daily_journal::*;
 use discovery_pipeline::*;
 use entity_context::*;
 use first_tale::*;
@@ -948,6 +950,12 @@ enum ProjectionMutation {
         free: bool,
         reason: String,
     },
+    UpdateDailyJournal {
+        update: DailyJournalRestUpdate,
+    },
+    PublishDailyJournalPage {
+        publication: DailyJournalPagePublication,
+    },
     StartTreasureObjective(projection_ledger::StartTreasureObjective),
     UpdateCardPolicyPreference {
         update: CardPolicyPreferenceUpdate,
@@ -1598,6 +1606,7 @@ struct RuntimeWorld {
     // bounded presentation projection and must never determine a certificate.
     hand_generations: BTreeMap<u64, u64>,
     story_hand_states: BTreeMap<u64, StoryHandActorState>,
+    daily_journals: BTreeMap<u64, AvatarDailyJournalState>,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
@@ -1627,6 +1636,8 @@ struct RuntimeSnapshot {
     hand_generations: BTreeMap<u64, u64>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     story_hand_states: BTreeMap<u64, StoryHandActorState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    daily_journals: BTreeMap<u64, AvatarDailyJournalState>,
 
     world_version: u32,
     tick: u64,
@@ -5164,7 +5175,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 19,
+            version: 20,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5174,6 +5185,7 @@ impl RuntimeSnapshot {
             action_journal_seq: runtime.action_journal_seq,
             hand_generations: runtime.hand_generations.clone(),
             story_hand_states: runtime.story_hand_states.clone(),
+            daily_journals: runtime.daily_journals.clone(),
 
             world_version: runtime.world.version,
             tick: runtime.world.tick,
@@ -5507,6 +5519,7 @@ impl RuntimeSnapshot {
             action_journal_seq: self.action_journal_seq,
             hand_generations,
             story_hand_states,
+            daily_journals: self.daily_journals,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
@@ -5931,6 +5944,7 @@ impl RuntimeWorld {
             action_journal_seq: 0,
             hand_generations: BTreeMap::new(),
             story_hand_states: BTreeMap::new(),
+            daily_journals: BTreeMap::new(),
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
@@ -9548,6 +9562,16 @@ impl RuntimeWorld {
                         action.actor_id,
                         (*slot, scene_key, replaces_offer_id, *free, reason),
                     ));
+                }
+                ProjectionMutation::UpdateDailyJournal { update } => {
+                    self.apply_daily_journal_rest_update(update);
+                }
+                ProjectionMutation::PublishDailyJournalPage { publication } => {
+                    if let Some(event) =
+                        self.apply_daily_journal_publication(action.actor_id, publication)
+                    {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::StartTreasureObjective(mutation) => {
                     if let Some(event) = mutation.apply(self, &ctx) {
@@ -42991,11 +43015,6 @@ mod tests {
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
         assert!(INDEX_HTML.contains("Shared room transcript"));
-        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
-        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
-        assert!(INDEX_HTML.contains("function setJournalOpen"));
-        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
-        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
         assert!(INDEX_HTML.contains("white-space: nowrap;"));
         assert!(!INDEX_HTML.contains("Why this matters"));
         assert!(INDEX_HTML.contains("eventIsStatusUpdate"));
@@ -43007,7 +43026,6 @@ mod tests {
         assert!(INDEX_HTML.contains("function ensureWorldView"));
         assert!(INDEX_HTML.contains("function worldChronicleHtml"));
         assert!(INDEX_HTML.contains("the world beyond"));
-        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("function deckPanelHtml"));
         assert!(INDEX_HTML.contains("[\"deck\", \"pack\"]"));
         assert!(INDEX_HTML.contains("[\"character\", \"character\"]"));
@@ -43028,19 +43046,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
-        assert!(INDEX_HTML.contains("data-export-journal"));
-        assert!(INDEX_HTML
-            .contains("id=\"shared-questions\" aria-label=\"Unresolved matters in this place\""));
-        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
-        assert!(INDEX_HTML.contains("role=\"progressbar\""));
-        assert!(INDEX_HTML.contains("id=\"journal-current-place\""));
-        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
         assert!(INDEX_HTML.contains("/story/clock-presentations"));
-        assert!(INDEX_HTML.contains("explanation_opened"));
-        assert!(INDEX_HTML.contains("return_change_seen"));
-        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
-        assert!(INDEX_HTML.contains("function syncJournalRegions"));
-        assert!(INDEX_HTML.contains("function syncJournalRowOverflow"));
         assert!(INDEX_HTML.contains("document.fonts?.addEventListener"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
@@ -43048,7 +43054,6 @@ mod tests {
             INDEX_HTML.contains(".filter((candidate) => candidate.type === \"clock.threshold\")")
         );
         assert!(INDEX_HTML.contains("Number(right.seq || 0) - Number(left.seq || 0)"));
-        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
         assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
@@ -43099,8 +43104,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-room-more"));
         assert!(!INDEX_HTML.contains("room-more"));
         assert!(INDEX_HTML.contains("id=\"room-log-toggle\""));
-        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
-        assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("class=\"topbar-actions\""));
         assert!(!INDEX_HTML.contains("class=\"room-title\""));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
@@ -43111,21 +43114,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("interior-exit"));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
-        assert!(INDEX_HTML.contains("function firstThreadModel"));
-        assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
-        assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
-        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
-        assert!(!INDEX_HTML.contains("data-story-action-key"));
-        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
-        assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
-        assert!(INDEX_HTML.contains("is still waiting to be found"));
-        assert!(INDEX_HTML.contains("room thread"));
-        assert!(INDEX_HTML.contains("Your first tale continues when you"));
-        assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
-        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
-        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
         assert!(!INDEX_HTML.contains("notice one little clue."));
         assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
         assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
@@ -43139,10 +43127,6 @@ mod tests {
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
-        assert!(INDEX_HTML.contains("function renderJournalLog"));
-        assert!(INDEX_HTML.contains("const beats = journalBeatsForPresentation()"));
-        assert!(INDEX_HTML.contains("headline.scrollWidth > headline.clientWidth + 2"));
-        assert!(!INDEX_HTML.contains("function journalEventHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));

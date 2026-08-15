@@ -7816,7 +7816,7 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
-  async function assertWorldBeatExposureFollowsVisibleAuthoredProse() {
+  async function assertHiddenWorldBeatsNeverCountAsVisibleExposure() {
     const result = await page.evaluate(async () => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -7967,23 +7967,14 @@ async function main() {
         renderTimelines();
       }
     });
-    assert(result.callsWhileJournalClosed === 0, `a world beat hidden behind the closed Journal must not count as seen: ${JSON.stringify(result)}`);
-    assert(result.calls.length === 1, `one visible world beat should send one receipt: ${JSON.stringify(result)}`);
-    assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
-    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.callsWhileMenuHidden === 1, `a transcript hidden behind Menu must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileJournalClosed === 0, `a hidden world beat must not count as seen while Journal is closed: ${JSON.stringify(result)}`);
+    assert(result.calls.length === 0, `opening the image-only Journal must not expose or receipt hidden world beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 0, `repeat image-only Journal renders must not expose hidden beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 0, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 0, `a hidden Journal must not send exposure receipts: ${JSON.stringify(result)}`);
     assert(
-      result.receiptable
-        && !result.sourceSeqLeaked
-        && result.calls[0]?.exposure_id === "world-beat:v1:990500001",
-      `world-beat receipts should bind presentation v1 without exposing source sequences in production HTML: ${JSON.stringify(result)}`,
-    );
-    assert(result.visibleAuthoredText.includes("Rain thins into pearl-grey mist"), `a receipted beat must have authored prose on screen: ${JSON.stringify(result)}`);
-    assert(
-      result.calls[0]?.transport === "browser"
-        && Number(result.calls[0]?.actor_id) > 0
-        && Number(result.calls[0]?.state_revision) >= 990500001,
-      `browser receipt should name actor, transport, beat, and observed state revision: ${JSON.stringify(result)}`,
+      !result.receiptable && !result.sourceSeqLeaked && result.visibleAuthoredText === "",
+      `hidden world-beat evidence must create no prose row or source-sequence surface: ${JSON.stringify(result)}`,
     );
   }
 
@@ -8635,15 +8626,13 @@ async function main() {
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
-        && result.journalSummariesWrap
-        && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
-        && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
-      `system and discovery history should remain available as readable prose in the closed Journal: ${JSON.stringify(result)}`,
+        && result.journalRows.length === 0
+        && result.latestJournalRow === "",
+      `raw system and discovery history must not create Journal prose rows: ${JSON.stringify(result)}`,
     );
     assert(
-      result.roomLatest === result.latestJournalRow
-        && result.roomLatest === "Thimble Guest looks closely around The Cosy Cottage.",
-      `the room ticker should mirror the newest Journal event without duplicating chat: ${JSON.stringify(result)}`,
+      result.latestJournalRow === "",
+      `hidden room memory must not be promoted into a Journal row: ${JSON.stringify(result)}`,
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
@@ -8873,35 +8862,22 @@ async function main() {
       }]);
       renderTimelines();
       setJournalOpen(true);
-      syncJournalRowOverflow();
-      const storyRow = document.querySelector("#journal-log .journal-row.work");
-      if (storyRow?.classList.contains("is-overflowing")) storyRow.open = true;
+      const journalViewHtml = document.querySelector("#journal-view")?.innerHTML || "";
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
-        summary: storyRow?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
-        proseNodeCount: storyRow?.querySelectorAll(".journal-row-summary").length || 0,
-        detailBlockCount: storyRow?.querySelectorAll(".journal-row-detail").length || 0,
-        expandedWhiteSpace: storyRow
-          ? getComputedStyle(storyRow.querySelector(".journal-row-summary")).whiteSpace
-          : "",
+        emptyText: document.querySelector("#journal-log .journal-empty")?.textContent?.trim() || "",
+        rowCount: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
         sourceLeakCount: [...raw].filter((event) => (
-          storyRow?.innerHTML.includes(event.type)
-          || storyRow?.innerHTML.includes(`#${event.seq}`)
+          journalViewHtml.includes(event.type)
+          || journalViewHtml.includes(`#${event.seq}`)
         )).length,
       };
     }, result.text);
     assert(
-      evidence.latest === evidence.summary
-        && evidence.latest.startsWith("I rekindle")
-        && !evidence.latest.startsWith("Kit Featherstep"),
-      `a personal Journal should preserve the authored scene while writing the owner's action in first person: ${JSON.stringify(evidence)}`,
-    );
-    assert(
-      evidence.proseNodeCount === 1
-        && evidence.detailBlockCount === 0
-        && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
+      evidence.rowCount === 0
+        && evidence.emptyText.includes("No long-rest Journal page")
         && evidence.sourceLeakCount === 0,
-      `receipt evidence should render one complete prose node without duplicate detail or raw event identifiers: ${JSON.stringify(evidence)}`,
+      `semantic receipt evidence must stay hidden until a long-rest Journal page is generated: ${JSON.stringify(evidence)}`,
     );
     await page.setViewportSize({ width: 980, height: 820 });
     await page.screenshot({ path: evidencePath, fullPage: false });
@@ -8917,7 +8893,7 @@ async function main() {
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
     steps.push({
-      label: "Lantern Keeper semantic receipt",
+      label: "Lantern Keeper hidden receipt evidence",
       screenshot: evidencePath,
       groupedSourceEvents: result.beat.source_event_seqs.length,
     });
@@ -13344,8 +13320,8 @@ async function main() {
       };
     });
     assert(
-      room.latest.length > 8 && room.latest === room.latestJournalRow,
-      `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
+      room.latest.length > 8 && room.latestJournalRow === "",
+      `${label}: room memory may retain a hidden ticker value without restoring a Journal log row: ${JSON.stringify(room)}`,
     );
     assert(
       room.latestHidden && !room.latestVisible && room.latestHasTrack && !room.latestBelowTitle && !room.latestAriaLive,
@@ -13402,480 +13378,61 @@ async function main() {
       document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "true"
       && document.querySelector("#journal-view")?.hidden === false
     ));
-    const journal = await page.evaluate((stateSignature) => {
+    const imageOnlyJournal = await page.evaluate(() => {
       const visible = (node) => Boolean(
         node
         && getComputedStyle(node).display !== "none"
         && getComputedStyle(node).visibility !== "hidden"
         && node.getClientRects().length
       );
-      const rows = [...document.querySelectorAll("#journal-view .journal-row")];
-      const summaries = rows.map((row) => row.querySelector(".journal-row-summary")).filter(Boolean);
-      const terminalRect = document.querySelector(".terminal")?.getBoundingClientRect();
-      const journalRect = document.querySelector("#journal-view")?.getBoundingClientRect();
-      const chatRect = document.querySelector("#log")?.getBoundingClientRect();
-      const journalStyle = getComputedStyle(document.querySelector("#journal-view"));
-      const regionNames = [...document.querySelectorAll("#journal-view .journal-region")]
-        .filter(visible)
-        .map((region) => {
-          const headingId = region.getAttribute("aria-labelledby") || "";
-          return document.getElementById(headingId)?.textContent?.trim() || "";
-        });
-      return {
-        expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
-        journalVisible: visible(document.querySelector("#journal-view")),
-        heroVisible: visible(document.querySelector("#room-hero")),
-        transcriptVisible: visible(document.querySelector("#log")),
-        promptVisible: visible(document.querySelector("footer.prompt")),
-        regionNames,
-        heading: document.querySelector(".journal-heading h2")?.textContent || "",
-        fontFamily: journalStyle.fontFamily,
-        rowCount: rows.length,
-        allCollapsed: rows.every((row) => !row.open),
-        currentPlaceExists: Boolean(document.querySelector("#journal-current-place")),
-        storyPageExists: Boolean(document.querySelector("#journal-story-history")),
-        noteExists: Boolean(document.querySelector("#journal-open-threads")),
-        semanticRows: rows.map((row) => {
-          const category = row.querySelector(".journal-row-label")?.textContent?.trim() || "";
-          const prose = row.querySelector(".journal-row-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
-          return {
-            category,
-            prose,
-            aria: row.getAttribute("aria-label")?.trim().replace(/\s+/g, " ") || "",
-          };
-        }),
-        summariesWrapped: summaries.every((node) => {
-          const style = getComputedStyle(node);
-          return style.whiteSpace === "normal"
-            && style.overflow === "visible";
-        }),
-        oneProseNodePerRow: rows.every((row) => (
-          row.querySelectorAll(".journal-row-summary").length === 1
-          && row.querySelectorAll(".journal-row-detail").length === 0
-        )),
-        chapterSummary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
-        pageLabel: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
-        pageTitle: document.querySelector("#journal-page-title")?.textContent?.trim() || "",
-        pageExists: Boolean(document.querySelector("#journal-log > .journal-page")),
-        visibleStoryBeats: document.querySelectorAll("#journal-log .journal-beat").length,
-        pageControls: document.querySelectorAll("#journal-page-nav button").length,
-        chapterHeadingVisible: (() => {
-          const heading = document.querySelector("#journal-story-history-heading")?.getBoundingClientRect();
-          const stream = document.querySelector("#journal-view .journal-stream")?.getBoundingClientRect();
-          return Boolean(heading && stream && heading.top >= stream.top && heading.bottom <= stream.bottom);
-        })(),
-        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i)?.[0] || "",
-        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i.test(document.querySelector("#journal-view")?.innerText || ""),
-        noDashboardChrome: document.querySelectorAll("#journal-view .shared-question-meter, #journal-view .shared-question-suggestions, #journal-view .update-pill").length === 0,
-        illustrationCount: document.querySelectorAll("#journal-view .journal-page-illustration img").length,
-        panesDoNotOverlap: Boolean(
-          journalRect
-          && chatRect
-          && (
-            window.innerWidth <= 900
-              ? journalRect.bottom <= chatRect.top + 0.5
-              : chatRect.right <= journalRect.left + 0.5
-          )
-        ),
-        insideTerminal: Boolean(
-          terminalRect
-          && journalRect
-          && journalRect.top >= terminalRect.top - 1
-          && journalRect.bottom <= terminalRect.bottom + 1
-        ),
-        fillsTerminal: Boolean(
-          terminalRect
-          && journalRect
-          && Math.abs(journalRect.top - terminalRect.top) <= 1
-          && Math.abs(journalRect.bottom - terminalRect.bottom) <= 1
-          && Math.abs(journalRect.left - terminalRect.left) <= 1
-          && Math.abs(journalRect.right - terminalRect.right) <= 1
-        ),
-        stateUnchanged: stateSignature === JSON.stringify({
-          sharedQuestions: state?.shared_questions,
-          roomMemory: state?.room_memory,
-          journalBeats: state?.journal_beats,
-          stateRevision: state?.state_revision,
-        }),
-      };
-    }, room.stateSignature);
-    assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
-    assert(
-      !journal.heroVisible
-        && !journal.transcriptVisible
-        && !journal.promptVisible
-        && journal.fillsTerminal,
-      `${label}: Journal should become the full reading surface and cover the room transcript and card selector: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.currentPlaceExists
-        && journal.storyPageExists
-        && journal.noteExists
-        && journal.rowCount >= 2,
-      `${label}: Journal should keep place, story, and loose-note semantics inside one reading leaf: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.allCollapsed
-        && journal.summariesWrapped
-        && journal.oneProseNodePerRow,
-      `${label}: Journal beats should begin as connected wrapped prose with one text node apiece: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.semanticRows.every(({ category, prose, aria }) => (
-        ["story", "discovery", "travel", "search", "relationship", "growth", "work", "item", "consequence"].includes(category)
-        && !["event", "tag"].includes(category)
-        && prose.length > 0
-        && /[.!?…]["')\]]*$/.test(prose)
-        && aria === prose
-        && !/->|Something changed|\b(?:journey|pathway)\.[a-z_]+|^(?:is now|shakes off)\b/i.test(prose)
-      )),
-      `${label}: every Journal sentence needs hidden semantic typing, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
-    );
-    assert(
-      /(?:My|.+?'s) Journal$/.test(journal.heading)
-        && /serif|georgia|cambria/i.test(journal.fontFamily)
-        && journal.pageExists
-        && journal.visibleStoryBeats <= 6
-        && journal.pageControls === 2
-        && journal.chapterHeadingVisible
-        && /^\d+ \/ \d+$/.test(journal.pageLabel)
-        && journal.pageTitle.length > 0
-        && /\.$/.test(journal.chapterSummary)
-        && journal.noRawDebugCopy
-        && journal.noDashboardChrome
-        && journal.illustrationCount <= 1
-        && journal.insideTerminal
-        && journal.fillsTerminal
-        && journal.stateUnchanged,
-      `${label}: Journal should read as a summarized, paged storybook without changing inference-facing state: ${JSON.stringify(journal)}`,
-    );
-
-    const beatDisclosure = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      if (!row || !summary || !headline || !marker) return { exists: false };
-
-      headline.textContent = "A brief note.";
-      syncJournalRowOverflow();
-      const short = {
-        overflowing: row.classList.contains("is-overflowing"),
-        markerVisible: getComputedStyle(marker).display !== "none",
-        tabIndex: summary.tabIndex,
-      };
-      summary.click();
-      short.openAfterClick = row.open;
-
-      const complete = "A deliberately complete Journal headline keeps going until it cannot fit on one visual line, so the disclosure is useful without replacing or inventing any prose.";
-      headline.textContent = complete;
-      syncJournalRowOverflow();
-      const long = {
-        overflowing: row.classList.contains("is-overflowing"),
-        markerVisible: getComputedStyle(marker).display !== "none",
-        tabIndex: summary.tabIndex,
-      };
-      summary.click();
-      long.openAfterClick = row.open;
-      long.sameCompleteHeadline = headline.textContent === complete;
-      long.expandedWhiteSpace = getComputedStyle(headline).whiteSpace;
-      long.proseNodeCount = row.querySelectorAll(".journal-row-summary").length;
-      long.detailBlockCount = row.querySelectorAll(".journal-row-detail").length;
-      renderJournalLog();
-      return { exists: true, short, long };
-    });
-    assert(
-      beatDisclosure.exists
-        && !beatDisclosure.short.overflowing
-        && !beatDisclosure.short.markerVisible
-        && beatDisclosure.short.tabIndex === -1
-        && !beatDisclosure.short.openAfterClick,
-      `${label}: a one-line Journal beat should have no disclosure affordance: ${JSON.stringify(beatDisclosure)}`,
-    );
-    assert(
-      !beatDisclosure.long.overflowing
-        && !beatDisclosure.long.markerVisible
-        && beatDisclosure.long.tabIndex === -1
-        && !beatDisclosure.long.openAfterClick
-        && beatDisclosure.long.sameCompleteHeadline
-        && beatDisclosure.long.expandedWhiteSpace === "normal"
-        && beatDisclosure.long.proseNodeCount === 1
-        && beatDisclosure.long.detailBlockCount === 0,
-      `${label}: long Journal prose should wrap in place without becoming a disclosure widget: ${JSON.stringify(beatDisclosure)}`,
-    );
-
-    const disclosureViewport = page.viewportSize();
-    await page.setViewportSize({ width: 1600, height: 900 });
-    const wideDisclosure = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      if (!row || !summary || !headline || !marker) return { exists: false };
-      row.classList.add("is-overflowing", "is-measuring-overflow");
-      const markerExcludedFromMeasurement = getComputedStyle(marker).display === "none";
-      row.classList.remove("is-overflowing", "is-measuring-overflow");
-      let chosen = "Elsie found the path.";
-      for (let index = 1; index <= 8; index += 1) {
-        const candidate = `Elsie found the path.${" It led toward the Old Oak Tree.".repeat(index)}`;
-        headline.textContent = candidate;
-        syncJournalRowOverflow();
-        if (row.classList.contains("is-overflowing")) break;
-        chosen = candidate;
-      }
-      headline.textContent = chosen;
-      syncJournalRowOverflow();
-      return {
-        exists: true,
-        prose: chosen,
-        overflowing: row.classList.contains("is-overflowing"),
-        tabIndex: summary.tabIndex,
-        markerExcludedFromMeasurement,
-      };
-    });
-    assert(
-      wideDisclosure.exists
-        && wideDisclosure.prose.length > 40
-        && !wideDisclosure.overflowing
-        && wideDisclosure.tabIndex === -1
-        && wideDisclosure.markerExcludedFromMeasurement,
-      `${label}: the responsive disclosure fixture should fit at a wide viewport: ${JSON.stringify(wideDisclosure)}`,
-    );
-    await page.setViewportSize({ width: 320, height: 760 });
-    await page.waitForFunction(() => (
-      getComputedStyle(document.querySelector("#journal-log .journal-row-summary")).whiteSpace === "normal"
-    ));
-    const narrowDisclosure = await page.evaluate((prose) => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      const collapsed = {
-        sameProse: headline?.textContent === prose,
-        overflowing: row?.classList.contains("is-overflowing") || false,
-        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
-        tabIndex: summary?.tabIndex,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-      };
-      summary?.click();
-      const expanded = {
-        open: row?.open || false,
-        sameProse: headline?.textContent === prose,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-        proseNodes: row?.querySelectorAll(".journal-row-summary").length || 0,
-      };
-      summary?.click();
-      const recollapsed = {
-        open: row?.open || false,
-        sameProse: headline?.textContent === prose,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-      };
-      return { collapsed, expanded, recollapsed };
-    }, wideDisclosure.prose);
-    assert(
-      narrowDisclosure.collapsed.sameProse
-        && !narrowDisclosure.collapsed.overflowing
-        && !narrowDisclosure.collapsed.markerVisible
-        && narrowDisclosure.collapsed.tabIndex === -1
-        && narrowDisclosure.collapsed.whiteSpace === "normal"
-        && !narrowDisclosure.expanded.open
-        && narrowDisclosure.expanded.sameProse
-        && narrowDisclosure.expanded.whiteSpace === "normal"
-        && narrowDisclosure.expanded.proseNodes === 1
-        && !narrowDisclosure.recollapsed.open
-        && narrowDisclosure.recollapsed.sameProse
-        && narrowDisclosure.recollapsed.whiteSpace === "normal",
-      `${label}: viewport resize should keep the same prose naturally wrapped with no disclosure chrome: ${JSON.stringify(narrowDisclosure)}`,
-    );
-    if (disclosureViewport) await page.setViewportSize(disclosureViewport);
-    await page.evaluate(() => renderJournalLog());
-
-    const textSizeFixture = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      if (!row || !summary || !headline) return { exists: false };
-      const previousPreference = localStorage.getItem("cosyworld.ui.largeText");
-      localStorage.setItem("cosyworld.ui.largeText", "false");
-      applyUiPreferences();
-      row.style.width = "700px";
-      headline.textContent = "Elsie discovered the rain-bright path home.";
-      const ruler = headline.cloneNode(true);
-      const headlineStyle = getComputedStyle(headline);
-      ruler.style.cssText = [
-        "position:fixed",
-        "left:-10000px",
-        "top:0",
-        "width:max-content",
-        "visibility:hidden",
-        "white-space:nowrap",
-        `font:${headlineStyle.font}`,
-      ].join(";");
-      document.body.append(ruler);
-      const normalTextWidth = ruler.getBoundingClientRect().width;
-      ruler.remove();
-      headline.style.width = `${Math.ceil(normalTextWidth + 3)}px`;
-      syncJournalRowOverflow();
-      window.__cosyJournalTextSizeFixture = { previousPreference };
-      return {
-        exists: true,
-        prose: headline.textContent,
-        normalOverflowing: row.classList.contains("is-overflowing"),
-        normalTabIndex: summary.tabIndex,
-      };
-    });
-    assert(
-      textSizeFixture.exists
-        && !textSizeFixture.normalOverflowing
-        && textSizeFixture.normalTabIndex === -1,
-      `${label}: the text-size fixture should begin as a non-overflowing row: ${JSON.stringify(textSizeFixture)}`,
-    );
-    await page.evaluate(() => {
-      localStorage.setItem("cosyworld.ui.largeText", "true");
-      applyUiPreferences();
-    });
-    await page.waitForFunction(() => document.body.classList.contains("large-text"));
-    const largeTextDisclosure = await page.evaluate((prose) => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      const result = {
-        sameProse: headline?.textContent === prose,
-        overflowing: row?.classList.contains("is-overflowing") || false,
-        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
-        tabIndex: summary?.tabIndex,
-      };
-      const previousPreference = window.__cosyJournalTextSizeFixture?.previousPreference;
-      if (previousPreference === null) {
-        localStorage.removeItem("cosyworld.ui.largeText");
-      } else {
-        localStorage.setItem("cosyworld.ui.largeText", previousPreference);
-      }
-      delete window.__cosyJournalTextSizeFixture;
-      row?.style.removeProperty("width");
-      headline?.style.removeProperty("width");
-      applyUiPreferences();
-      renderJournalLog();
-      return result;
-    }, textSizeFixture.prose);
-    assert(
-      largeTextDisclosure.sameProse
-        && !largeTextDisclosure.overflowing
-        && !largeTextDisclosure.markerVisible
-        && largeTextDisclosure.tabIndex === -1,
-      `${label}: larger-text preference should keep prose wrapped without adding disclosure controls: ${JSON.stringify(largeTextDisclosure)}`,
-    );
-
-    const rowContract = await page.evaluate(() => ({
-      rows: document.querySelectorAll("#journal-view .journal-prose-row").length,
-      proseNodes: document.querySelectorAll("#journal-view .journal-row-summary").length,
-      duplicateDetails: document.querySelectorAll("#journal-view .journal-row-detail").length,
-      actionControls: document.querySelectorAll("#journal-view button").length,
-    }));
-    assert(
-      rowContract.rows === rowContract.proseNodes
-        && rowContract.duplicateDetails === 0
-        && rowContract.actionControls === 2,
-      `${label}: every Journal row should contain one prose string, with only the two page-turn controls added: ${JSON.stringify(rowContract)}`,
-    );
-
-    const pagination = await page.evaluate(() => {
       const previousState = state;
       const previousPageIndex = journalPageIndex;
+      const imageUrl = document.querySelector("#location-image")?.src || "";
       try {
-        const categories = ["story", "travel", "discovery", "relationship", "work", "growth", "item"];
         state = {
           ...state,
-          journal_beats: Array.from({ length: 14 }, (_, index) => ({
-            id: `journal-beat:v1:test:${index + 1}`,
-            source_event_seqs: [700000 + index],
-            category: categories[index % categories.length],
-            headline: `Remembered story moment ${index + 1} changed the shared tale.`,
-            location_id: Number(state?.location?.id || 1),
-            ordering_seq: 700000 + index,
+          journal_beats: Array.from({ length: 12 }, (_, index) => ({
+            category: "story",
+            headline: `Raw hidden log ${index}`,
+            ordering_seq: index + 1,
           })),
-        };
-        journalPageIndex = -1;
-        renderJournalLog();
-        const snapshot = () => ({
-          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
-          rows: document.querySelectorAll("#journal-log .journal-beat").length,
-          summary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
-          previousDisabled: document.querySelector("#journal-page-previous")?.disabled,
-          nextDisabled: document.querySelector("#journal-page-next")?.disabled,
-        });
-        const latest = snapshot();
-        turnJournalPage(-1);
-        const middle = snapshot();
-        turnJournalPage(1);
-        const returned = snapshot();
-        return { latest, middle, returned };
-      } finally {
-        state = previousState;
-        journalPageIndex = previousPageIndex;
-        renderJournalLog();
-      }
-    });
-    assert(
-      pagination.latest.label === "3 / 3"
-        && pagination.latest.rows === 2
-        && !pagination.latest.previousDisabled
-        && pagination.latest.nextDisabled
-        && pagination.latest.summary.startsWith("This chapter has been shaped by")
-        && pagination.middle.label === "2 / 3"
-        && pagination.middle.rows === 6
-        && !pagination.middle.previousDisabled
-        && !pagination.middle.nextDisabled
-        && pagination.returned.label === "3 / 3",
-      `${label}: storybook pages should summarize the whole chapter and turn without showing a raw event wall: ${JSON.stringify(pagination)}`,
-    );
-
-    const restAuthoredPages = await page.evaluate(() => {
-      const previousState = state;
-      const previousPageIndex = journalPageIndex;
-      try {
-        const illustrationUrl = document.querySelector("#location-image")?.src || "";
-        state = {
-          ...state,
-          journal_beats: [],
-          journal_pages: [
-            {
-              page_index: 0,
-              artifact_id: "journal-leaf:test:short",
-              style_revision: "kit-field-hand/2",
-              rest_kind: "short",
-              title: "Rain at the window",
-              sentences: ["I stopped long enough to hear the rain change on the cottage roof."],
-            },
-            {
-              page_index: 1,
-              artifact_id: "journal-leaf:test:long",
-              style_revision: "kit-field-hand/2",
-              rest_kind: "long",
-              title: "The road after dusk",
-              sentences: ["I dreamed of the road remembering every lantern I relit."],
-              illustration_url: illustrationUrl,
-              illustration_alt: "A painted lantern road after rain.",
-            },
-          ],
+          room_memory: { summary: "Raw hidden room memory" },
+          journal: {
+            protocol: "cosyworld.daily-journal.v1",
+            pages: [
+              { actor_id: actorId, day_index: 20599, page_index: 0, artifact_id: "short-rest-hidden", rest_kind: "short", status: "ready", image_url: imageUrl },
+              { actor_id: actorId, day_index: 20600, page_index: 0, artifact_id: "daily-page-one", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "My first daily Journal page.", style_revision: "test/1" },
+              { actor_id: actorId, day_index: 20600, page_index: 1, artifact_id: "same-day-replacement", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "A duplicate day that must collapse.", style_revision: "test/1" },
+              { actor_id: actorId, day_index: 20601, page_index: 2, artifact_id: "daily-page-two", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "My second daily Journal page.", style_revision: "test/1" },
+            ],
+          },
         };
         journalPageIndex = -1;
         renderJournalLog();
         const leaf = () => document.querySelector("#journal-log > .journal-page");
-        const snapshot = () => ({
+        const latest = {
           label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
-          prose: document.querySelector("#journal-log .journal-row-summary")?.textContent?.trim() || "",
-          restKind: leaf()?.dataset.journalRestKind || "",
           artifactId: leaf()?.dataset.journalArtifactId || "",
-          styleRevision: leaf()?.dataset.journalStyleRevision || "",
-          illustrationCount: leaf()?.querySelectorAll(".journal-page-illustration.generated img").length || 0,
-          caption: leaf()?.querySelector("figcaption")?.textContent?.trim() || "",
-        });
-        const long = snapshot();
+          day: leaf()?.dataset.journalDay || "",
+          images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
+          rows: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
+          prose: document.querySelectorAll("#journal-log .journal-page-prose, #journal-log figcaption").length,
+          memoryVisible: visible(document.querySelector("#room-memory")),
+          activityVisible: visible(document.querySelector("#journal-activity")),
+          questionsVisible: visible(document.querySelector("#shared-questions")),
+          updatesVisible: visible(document.querySelector("#updates")),
+          heroVisible: visible(document.querySelector("#room-hero")),
+          transcriptVisible: visible(document.querySelector("#log")),
+          promptVisible: visible(document.querySelector("footer.prompt")),
+        };
         turnJournalPage(-1);
-        const short = snapshot();
-        return { long, short };
+        const earlier = {
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          artifactId: leaf()?.dataset.journalArtifactId || "",
+          day: leaf()?.dataset.journalDay || "",
+          images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
+        };
+        return { latest, earlier };
       } finally {
         state = previousState;
         journalPageIndex = previousPageIndex;
@@ -13883,19 +13440,24 @@ async function main() {
       }
     });
     assert(
-      restAuthoredPages.long.label === "2 / 2"
-        && restAuthoredPages.long.restKind === "long"
-        && restAuthoredPages.long.artifactId === "journal-leaf:test:long"
-        && restAuthoredPages.long.styleRevision === "kit-field-hand/2"
-        && restAuthoredPages.long.illustrationCount === 1
-        && restAuthoredPages.long.caption === "painted after a long rest"
-        && /dreamed of the road/i.test(restAuthoredPages.long.prose)
-        && restAuthoredPages.short.label === "1 / 2"
-        && restAuthoredPages.short.restKind === "short"
-        && restAuthoredPages.short.artifactId === "journal-leaf:test:short"
-        && restAuthoredPages.short.illustrationCount === 0
-        && /stopped long enough/i.test(restAuthoredPages.short.prose),
-      `${label}: short rests should accept durable prose leaves and long rests should add one versioned illustrated artifact: ${JSON.stringify(restAuthoredPages)}`,
+      imageOnlyJournal.latest.label === "2 / 2"
+        && imageOnlyJournal.latest.artifactId === "daily-page-two"
+        && imageOnlyJournal.latest.day === "20601"
+        && imageOnlyJournal.latest.images === 1
+        && imageOnlyJournal.latest.rows === 0
+        && imageOnlyJournal.latest.prose === 0
+        && !imageOnlyJournal.latest.memoryVisible
+        && !imageOnlyJournal.latest.activityVisible
+        && !imageOnlyJournal.latest.questionsVisible
+        && !imageOnlyJournal.latest.updatesVisible
+        && !imageOnlyJournal.latest.heroVisible
+        && !imageOnlyJournal.latest.transcriptVisible
+        && !imageOnlyJournal.latest.promptVisible
+        && imageOnlyJournal.earlier.label === "1 / 2"
+        && imageOnlyJournal.earlier.artifactId === "same-day-replacement"
+        && imageOnlyJournal.earlier.day === "20600"
+        && imageOnlyJournal.earlier.images === 1,
+      `${label}: Journal must render only one generated long-rest image per avatar-day while keeping short-rest and log context hidden: ${JSON.stringify(imageOnlyJournal)}`,
     );
 
     const growthThread = await page.evaluate(() => {
@@ -14862,7 +14424,7 @@ async function main() {
   await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
-  await assertWorldBeatExposureFollowsVisibleAuthoredProse();
+  await assertHiddenWorldBeatsNeverCountAsVisibleExposure();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCombatUsesDedicatedDockOutsideChat();
