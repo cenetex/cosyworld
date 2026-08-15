@@ -5838,6 +5838,7 @@
     let refreshAttemptId = 0;
     let recoveryRefreshAttemptId = 0;
     let actorSessionRenewalInFlight = null;
+    let actorSessionHandoffChecked = false;
     let actorSessionTerminal = false;
     let transientStatus = null;
     let actionBusy = false;
@@ -6349,10 +6350,21 @@
       }
     }
 
-    function rememberActorSession(response) {
+    function rememberActorSession(response, { allowHandoff = false } = {}) {
       const nextActorId = Number(response?.actor?.id || 0);
       const nextSession = String(response?.actor_session || "");
-      if (!nextActorId || nextActorId !== Number(actorId) || !nextSession) return false;
+      const currentActorId = Number(actorId);
+      const handoffFromActorId = Number(response?.previous_actor_id || 0);
+      const canAdoptHandoff = allowHandoff
+        && Boolean(response?.handoff)
+        && handoffFromActorId === currentActorId
+        && nextActorId !== currentActorId;
+      if (
+        !nextActorId
+        || (nextActorId !== currentActorId && !canAdoptHandoff)
+        || !nextSession
+      ) return false;
+      actorId = nextActorId;
       actorSession = nextSession;
       actorSessionExpiresAtUnix = Math.max(
         0,
@@ -6388,13 +6400,16 @@
           if (Number(result.status || 0) === 409) actorSessionTerminal = true;
           return { ok: false, renewed: false, status: Number(result.status || 0) };
         }
-        if (!rememberActorSession(result)) {
+        const handoff = Boolean(result?.handoff)
+          && Number(result?.previous_actor_id || 0) === requestedActorId;
+        if (!rememberActorSession(result, { allowHandoff: handoff })) {
           return { ok: false, renewed: false, status: 409 };
         }
-        if (result.renewed && stream) connectStream();
+        if ((result.renewed || handoff) && stream) connectStream();
         return {
           ok: true,
           renewed: Boolean(result.renewed),
+          handoff,
           status: Number(result.status || 0),
         };
       })();
@@ -6407,6 +6422,13 @@
 
     async function rotateActorSessionIfNeeded() {
       if (!actorId) return;
+      if (!actorSessionHandoffChecked) {
+        const checked = await renewActorSession();
+        if (checked.ok || [403, 409].includes(Number(checked.status || 0))) {
+          actorSessionHandoffChecked = true;
+        }
+        if (checked.handoff || !actorId) return;
+      }
       const now = Math.floor(Date.now() / 1000);
       if (
         actorSession

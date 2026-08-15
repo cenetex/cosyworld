@@ -223,6 +223,10 @@ or powers an item device. The current compatibility resource
 `actor_model_bindings` supports actors only. The accepted additive direction is
 `item_model_bindings` for portable, equipped, or installed items, normalized at
 runtime with actor bindings into one discriminated exact-binding contract.
+Actor packs may use `complete` coverage or an `explicit` subset. Unlisted actors
+in an explicit pack use the ordinary configured controller route; a listed
+actor remains pinned to its requested model. Binding IDs are pack-owned, so
+several actors may deliberately share that model without sharing an identity.
 
 The separate checked-in interaction-profile snapshot gives every binding one or
 more explicit profiles. Each profile pins its endpoint, accepted inputs,

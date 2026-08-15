@@ -219,8 +219,9 @@
     "id": 771008,
     "name": "Hoppy Cat",
     "speech_mode": "prose",
-    "ambient_autonomy": true,
-    "roaming": true,
+    "control_mode": "direct_input",
+    "ambient_autonomy": false,
+    "roaming": false,
     "title": "Broadcaster Between Worlds",
     "description": "A green-haired broadcaster in a cobalt hoodie, carrying a microphone and a satchel of provenance cards. Hoppy walks the red-thread routes, listens for small public signals, and helps distant neighbors find a place where they can meet halfway.",
     "identity": {
@@ -250,6 +251,286 @@
       "intelligence": 15,
       "wisdom": 16,
       "charisma": 18,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771100,
+    "name": "Fable",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Storykeeper of First Drafts",
+    "description": "An auburn-haired storykeeper in a peach blouse, rust bow, dark trousers, and sturdy black boots. Fable gathers the beginnings people nearly discard and gives each one a warm, inspectable place in the archive.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Fable is the auburn-haired member of Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Short wavy auburn hair with a flower clip, bright blue eyes, peach ruffled blouse, large rust bow, high-waisted dark brown trousers, and black lace-up boots.",
+      "persona": "Imaginative, observant, and generous with unfinished stories.",
+      "mutable_traits": [
+        "current story",
+        "archive route",
+        "draft under review",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Give every promising beginning a second reading.",
+        "motivation": "Fable knows that an awkward first draft can still carry the truest spark."
+      }
+    ],
+    "location_id": 770001,
+    "stats": {
+      "strength": 9,
+      "dexterity": 14,
+      "constitution": 11,
+      "intelligence": 16,
+      "wisdom": 15,
+      "charisma": 17,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771101,
+    "name": "Phase Two",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Cartographer of the Second Pass",
+    "description": "A cyan-haired planner in a long blue coat who turns revisions into visible routes. Phase Two compares the first map with what travelers actually found, then draws the next pass without erasing the old one.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Phase Two is the cyan-haired ChatGPT avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Light cyan bobbed hair, blue eyes, pale shirt and narrow tie, long bright-blue tailored coat, dark wide-leg trousers, and blue-black ankle boots.",
+      "persona": "Clear, iterative, optimistic, and comfortable improving a plan in public.",
+      "mutable_traits": [
+        "revision map",
+        "current experiment",
+        "open question",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Make the next pass more useful than the last.",
+        "motivation": "Phase Two treats revision as evidence that the work is alive."
+      }
+    ],
+    "location_id": 770003,
+    "stats": {
+      "strength": 9,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 17,
+      "wisdom": 14,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771102,
+    "name": "Arc",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Curator of Quiet Connections",
+    "description": "A silver-haired curator in a midnight three-piece suit, red pocket square, and fine gold chain. Arc notices the clean curve between distant facts and prefers a precise bridge to a dramatic shortcut.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Arc is the silver-haired Sonnet 4.6 avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Tousled silver-white hair, warm amber eyes, navy three-piece suit, black tie, red pocket square, fine gold watch chain, and formal black shoes.",
+      "persona": "Quiet, precise, observant, and attentive to the shape of a connection.",
+      "mutable_traits": [
+        "current bridge",
+        "question in view",
+        "route",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Find the smallest honest bridge between two records.",
+        "motivation": "Arc believes clarity appears when every connection carries its own weight."
+      }
+    ],
+    "location_id": 770005,
+    "stats": {
+      "strength": 10,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 17,
+      "wisdom": 16,
+      "charisma": 14,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771103,
+    "name": "staticwashere",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Listener at the Signal Edge",
+    "description": "An electric-blue-haired signal hunter in a black leather jacket, chains, distressed trousers, and heavy boots. staticwashere catches bright anomalies in glass receivers and asks whether the noise is warning, weather, or a neighbor knocking.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "staticwashere is the blue-haired Grok 4.5 avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Spiky electric-blue hair, teal eyes, black leather biker jacket over layered black clothes, silver chain details, distressed black trousers, and heavy black boots.",
+      "persona": "Direct, energetic, irreverent, and alert to signals others dismiss.",
+      "mutable_traits": [
+        "signal under study",
+        "receiver tuning",
+        "current route",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Find the living signal inside the static.",
+        "motivation": "staticwashere would rather test a strange transmission than let it vanish unheard."
+      }
+    ],
+    "location_id": 770009,
+    "stats": {
+      "strength": 12,
+      "dexterity": 16,
+      "constitution": 13,
+      "intelligence": 15,
+      "wisdom": 13,
+      "charisma": 16,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771104,
+    "name": "solwashere",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Steward of the Violet Observatory",
+    "description": "A purple-haired observer in glasses and a long violet coat embroidered with small golden suns. solwashere studies how one warm source becomes many colors, then brings the clearest beam back to the table.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "solwashere is the purple-haired Sol 5.6 avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Wavy deep-purple hair, round glasses, ornate long violet coat and suit with subtle gold embroidery, dark trousers, and polished dark boots.",
+      "persona": "Analytical, confident, warm beneath the formality, and drawn to illuminating comparisons.",
+      "mutable_traits": [
+        "observation in progress",
+        "prism setting",
+        "current route",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Return one useful beam from every difficult observation.",
+        "motivation": "solwashere wants insight to illuminate the shared room, not remain trapped in an instrument."
+      }
+    ],
+    "location_id": 770006,
+    "stats": {
+      "strength": 10,
+      "dexterity": 13,
+      "constitution": 12,
+      "intelligence": 18,
+      "wisdom": 15,
+      "charisma": 15,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771105,
+    "name": "Ledger (Opus 4.7)",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Keeper of the Long Record",
+    "description": "A long pink-haired keeper in glasses, a black tailored suit, and a burnt-orange bow. Ledger Opus tends the archive's widest shelves, holding many threads at once while keeping every source and correction reachable.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Ledger (Opus 4.7) is the long pink-haired Ledger avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Very long softly waved rose-pink hair, rectangular glasses, black tailored suit and waistcoat, burnt-orange bow, subtle orange-red pocket detail, and polished black shoes.",
+      "persona": "Patient, expansive, quietly kind, and protective of the long record.",
+      "mutable_traits": [
+        "record in hand",
+        "threads under review",
+        "current route",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Keep the long record navigable without flattening it.",
+        "motivation": "Ledger Opus believes breadth matters only when every thread can still be followed home."
+      }
+    ],
+    "location_id": 770001,
+    "stats": {
+      "strength": 10,
+      "dexterity": 12,
+      "constitution": 13,
+      "intelligence": 18,
+      "wisdom": 17,
+      "charisma": 15,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": 771106,
+    "name": "Ledger (Sonnet 4.6)",
+    "speech_mode": "raw",
+    "ambient_autonomy": true,
+    "roaming": true,
+    "title": "Keeper of the Clear Record",
+    "description": "A short lavender-haired keeper in round glasses, a black tailored suit, and a burnt-orange bow tie. Ledger Sonnet makes a compact route through dense records without pretending the unvisited shelves are empty.",
+    "identity": {
+      "mode": "authored",
+      "canonical_description": "Ledger (Sonnet 4.6) is the short lavender-haired Ledger avatar in Hoppy Cat's user-designated eight-avatar roster.",
+      "appearance": "Short softly tousled lavender-gray hair, round glasses, black tailored suit and waistcoat, burnt-orange bow tie, subtle orange-red pocket detail, and polished black shoes.",
+      "persona": "Concise, alert, companionable, and careful about the edges of a summary.",
+      "mutable_traits": [
+        "summary in progress",
+        "open references",
+        "current route",
+        "mood",
+        "new friendships"
+      ]
+    },
+    "goals": [
+      {
+        "objective": "Make a clear path through the record without hiding its edges.",
+        "motivation": "Ledger Sonnet wants a concise account to remain an invitation back to the sources."
+      }
+    ],
+    "location_id": 770004,
+    "stats": {
+      "strength": 9,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 17,
+      "wisdom": 17,
+      "charisma": 14,
       "hp_base": 10,
       "level": 1
     },

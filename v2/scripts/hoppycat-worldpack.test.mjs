@@ -14,6 +14,7 @@ const deployedBundleHashes = [
   "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
   "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
   "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
+  "sha256:18d7c38d6fd234817cae5fd9ad1bc473fd27eef7924986cffc7c3bd67bc36eab",
 ];
 
 function readJson(fileName) {
@@ -25,9 +26,9 @@ function readJsonFrom(root, fileName) {
 }
 
 test("Hoppycat accepts replay from every deployed predecessor", () => {
-  // #764 added avatar identity and naming metadata, and #767 locks local art
-  // for all item cards. Neither changes resource identities, topology, rules,
-  // or the meaning of persisted gameplay state.
+  // The illustrated roster extension adds new actor identities and local art
+  // without changing existing resource identities, topology, rules, or the
+  // meaning of persisted gameplay state.
   const world = readJsonFrom(worldRoot, "world.json");
   const registry = readJsonFrom(compiledRoot, "registry.json");
   const authoredHashes = world.persistence_compatibility
@@ -51,12 +52,12 @@ test("Hoppycat accepts replay from every deployed predecessor", () => {
 
 test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
   const actors = readJson("actors.json");
+  const bindings = readJson("actor_model_bindings.json");
   const cards = readJson("cards.json");
+  const jobs = readJson("jobs.json");
   const manifest = readJson("pack.json");
 
-  assert.equal(actors.length, 9);
-  assert.ok(actors.every((actor) => actor.ambient_autonomy === true));
-  assert.ok(actors.every((actor) => actor.roaming === true));
+  assert.equal(actors.length, 16);
 
   const hoppy = actors.find((actor) => actor.id === 771008);
   assert.equal(hoppy?.name, "Hoppy Cat");
@@ -64,16 +65,64 @@ test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
   assert.match(hoppy?.identity?.appearance ?? "", /green hair/i);
   assert.match(hoppy?.identity?.appearance ?? "", /blue hoodie/i);
   assert.match(hoppy?.identity?.appearance ?? "", /microphone/i);
+  assert.equal(hoppy?.control_mode, "direct_input");
+  assert.equal(hoppy?.ambient_autonomy, false);
+  assert.equal(hoppy?.roaming, false);
+
+  const inferenceResidents = actors.filter((actor) => actor.id !== hoppy.id);
+  assert.ok(inferenceResidents.every((actor) => actor.ambient_autonomy === true));
+  assert.ok(inferenceResidents.every((actor) => actor.roaming === true));
+
+  const roster = new Map(actors.map((actor) => [actor.name, actor]));
+  for (const name of [
+    "Fable",
+    "Phase Two",
+    "Arc",
+    "staticwashere",
+    "solwashere",
+    "Ledger (Opus 4.7)",
+    "Ledger (Sonnet 4.6)",
+  ]) {
+    assert.ok(roster.has(name), `${name} is missing from the Hoppycat roster`);
+  }
+  assert.match(roster.get("Ledger (Opus 4.7)")?.identity?.appearance ?? "", /long.*pink/i);
+  assert.match(roster.get("Ledger (Sonnet 4.6)")?.identity?.appearance ?? "", /short.*lavender/i);
+  const expectedModels = new Map([
+    [771100, "~anthropic/claude-fable-latest"],
+    [771101, "openai/gpt-chat-latest"],
+    [771102, "anthropic/claude-sonnet-4.6"],
+    [771103, "x-ai/grok-4.5"],
+    [771104, "openai/gpt-5.6-sol"],
+    [771105, "anthropic/claude-opus-4.7"],
+    [771106, "anthropic/claude-sonnet-4.6"],
+  ]);
+  assert.equal(bindings.length, expectedModels.size);
+  assert.equal(new Set(bindings.map((binding) => binding.id)).size, bindings.length);
+  for (const binding of bindings) {
+    assert.equal(binding.requested_model_id, expectedModels.get(binding.actor_id));
+    assert.equal(binding.actor_ref, `pack://hoppycat.archive/actor/${binding.actor_id}`);
+    assert.equal(binding.speech_mode, "raw");
+    assert.equal(roster.get(actors.find((actor) => actor.id === binding.actor_id)?.name)?.speech_mode, "raw");
+  }
+  assert.equal(
+    bindings.filter((binding) => binding.requested_model_id === "anthropic/claude-sonnet-4.6").length,
+    2,
+  );
+  assert.equal(manifest.resources.actor_model_bindings, "actor_model_bindings.json");
+  assert.equal(manifest.extensions["x-cosyworld-ai-cast"]?.binding_policy, "explicit");
+  const jobParticipants = new Set(jobs.flatMap((job) => job.participant_ids));
+  assert.ok(actors.slice(-7).every((actor) => jobParticipants.has(actor.id)));
 
   const avatarAndLocationCards = cards.filter((card) =>
     card.subject_kind === "actor" || card.subject_kind === "location");
-  assert.equal(avatarAndLocationCards.length, 19);
+  assert.equal(avatarAndLocationCards.length, 26);
+  assert.equal(cards.filter((card) => card.subject_kind === "actor").length, actors.length);
 
   const itemCards = cards.filter((card) => card.subject_kind === "item");
   assert.equal(itemCards.length, 10);
 
   const illustratedCards = [...avatarAndLocationCards, ...itemCards];
-  assert.equal(illustratedCards.length, 29);
+  assert.equal(illustratedCards.length, 36);
   assert.ok(illustratedCards.every((card) => card.asset_status === "generated_art"));
 
   const mount = manifest.assets.find((asset) => asset.mount === "cards");

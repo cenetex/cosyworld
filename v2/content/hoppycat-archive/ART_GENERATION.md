@@ -1,8 +1,11 @@
 # Hoppycat Card Art Direction
 
-All 29 card images are fixed local worldpack assets. The ten item images were
+All 36 card images are fixed local worldpack assets. The ten item images were
 generated with the built-in OpenAI image tool, reviewed as a set, resized to
-1024 by 1024, and stored as WebP files. They must not be regenerated at runtime.
+1024 by 1024, and stored as WebP files. The seven companion images were also
+generated with the built-in tool, reviewed against the user-supplied group
+reference, and stored as 1024 by 1536 WebP files. They must not be regenerated
+at runtime.
 
 ## Locked style references
 
@@ -10,6 +13,31 @@ generated with the built-in OpenAI image tool, reviewed as a set, resized to
 - `hoppycat-halfway-tea-garden.webp`: forest, lantern, red-thread, and star-map motifs.
 - `hoppycat-prism-foundry.webp`: glass, brass, jewel colors, and workshop materials.
 - `hoppycat-red-thread-spool.webp`: approved square item composition anchor.
+
+## Companion roster prompt set
+
+Use case: stylized-concept. Asset type: Hoppycat CosyWorld actor card art,
+vertical 2:3 portrait. Use the supplied group image only as a visual identity
+reference for the named figure; do not reproduce its social-media chrome,
+caption, starfield-only background, or any text. Preserve the figure's hair,
+face, proportions, outfit, and distinguishing accessories. Render exactly one
+complete, full-body character in a natural centered pose with generous edge
+padding. Match the locked Hoppycat finish: richly detailed painterly
+anime-storybook fantasy, warm amber lantern light against cobalt and
+forest-green dusk, subtle red-thread paths, and restrained star-map glints.
+Give each character a distinct world location suited to their role. No extra
+people, readable text, letters, numbers, logos, watermark, UI, border, card
+frame, cropped shoes, duplicate limbs, photorealism, or chibi proportions.
+
+| Card | Reference identity and scene |
+| --- | --- |
+| Fable | Leftmost figure: short wavy auburn hair and flower clip, peach ruffled blouse, rust bow, dark brown trousers, black lace-up boots; enchanted story archive. |
+| Phase Two | Second figure: light cyan bob, pale shirt and tie, long bright-blue coat, dark wide-leg trousers, blue-black boots; floating revision-map workshop. |
+| Arc | Fourth figure: tousled silver-white hair, navy three-piece suit, black tie, red pocket square, gold chain; moonlit archive bridge. |
+| staticwashere | Fifth figure: spiky electric-blue hair, black leather jacket and layered clothes, silver chains, distressed trousers, heavy boots; forest signal observatory. |
+| solwashere | Sixth figure: wavy deep-purple hair, round glasses, ornate violet coat and suit with gold embroidery; violet solar conservatory. |
+| Ledger (Opus 4.7) | Seventh figure: very long rose-pink hair, rectangular glasses, black tailored suit and waistcoat, burnt-orange bow; long-record hall. |
+| Ledger (Sonnet 4.6) | Rightmost figure: short lavender-gray hair, round glasses, black tailored suit and waistcoat, burnt-orange bow tie; compact record room. |
 
 ## Shared item prompt
 

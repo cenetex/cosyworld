@@ -17,6 +17,161 @@ pub(super) struct RenewAvatarSessionResponse {
     actor_session: Option<String>,
     actor_session_expires_at_unix: Option<u64>,
     renewed: bool,
+    handoff: bool,
+    previous_actor_id: Option<u64>,
+}
+
+fn initialize_avatar_session_handoff_schema(path: &Path) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS avatar_session_handoffs (
+            from_actor_id INTEGER PRIMARY KEY,
+            to_actor_id INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL,
+            consumed_count INTEGER NOT NULL DEFAULT 0,
+            last_consumed_at_ms INTEGER,
+            retired_at_ms INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_avatar_session_handoffs_target
+            ON avatar_session_handoffs(to_actor_id, retired_at_ms);",
+    )
+    .map_err(sqlite_error)
+}
+
+fn avatar_session_handoff_target(state: &AppState, from_actor_id: u64) -> io::Result<Option<u64>> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(None);
+    };
+    init_event_store(path)?;
+    initialize_avatar_session_handoff_schema(path)?;
+    let conn = open_event_store(path)?;
+    let target = conn
+        .query_row(
+            "SELECT to_actor_id
+             FROM avatar_session_handoffs
+             WHERE from_actor_id = ?1 AND retired_at_ms IS NULL",
+            params![from_actor_id as i64],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    Ok(target
+        .filter(|actor_id| *actor_id > 0)
+        .map(|actor_id| actor_id as u64))
+}
+
+fn exchange_actor_session_for_handoff(
+    state: &AppState,
+    previous_token: &str,
+    from_actor_id: u64,
+    to_actor_id: u64,
+) -> io::Result<(String, ActorSession)> {
+    let token = previous_token.trim();
+    if token.is_empty() || from_actor_id == to_actor_id {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "avatar session handoff is invalid",
+        ));
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "avatar session handoff requires a durable event store",
+        ));
+    };
+    init_event_store(path)?;
+    initialize_avatar_session_handoff_schema(path)?;
+
+    let mut sessions = state
+        .actor_sessions
+        .lock()
+        .map_err(|_| io::Error::other("actor session lock was poisoned"))?;
+    let new_token = random_hex(32);
+    let ttl = Duration::from_secs(30 * 24 * 60 * 60);
+    let now_unix = now_unix_secs();
+    let expires_at_unix = now_unix + ttl.as_secs();
+    let now = Instant::now();
+    if !sessions
+        .sessions
+        .get(token)
+        .is_some_and(|session| session.actor_id == from_actor_id && session.expires_at > now)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "source avatar session is no longer valid",
+        ));
+    }
+    let new_session = ActorSession {
+        actor_id: to_actor_id,
+        expires_at: now + ttl,
+        expires_at_unix,
+        last_seen_at: inactive_presence_seen_at(now),
+        explicitly_inactive: false,
+    };
+    let now_ms = now_millis() as i64;
+    let mut conn = open_event_store(path)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    let approved_target = tx
+        .query_row(
+            "SELECT to_actor_id
+             FROM avatar_session_handoffs
+             WHERE from_actor_id = ?1 AND retired_at_ms IS NULL",
+            params![from_actor_id as i64],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    if approved_target != Some(to_actor_id as i64) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "avatar session handoff is not approved",
+        ));
+    }
+    let retired = tx
+        .execute(
+            "DELETE FROM actor_sessions
+             WHERE session_token = ?1 AND actor_id = ?2 AND expires_at_unix > ?3",
+            params![token, from_actor_id as i64, now_unix as i64],
+        )
+        .map_err(sqlite_error)?;
+    if retired != 1 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "source avatar session is no longer valid",
+        ));
+    }
+    tx.execute(
+        "INSERT INTO actor_sessions
+            (session_token, actor_id, expires_at_unix, created_at_ms, updated_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?4)",
+        params![
+            &new_token,
+            to_actor_id as i64,
+            expires_at_unix as i64,
+            now_ms,
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.execute(
+        "UPDATE avatar_session_handoffs
+         SET consumed_count = consumed_count + 1,
+             last_consumed_at_ms = ?1,
+             updated_at_ms = ?1
+         WHERE from_actor_id = ?2 AND to_actor_id = ?3 AND retired_at_ms IS NULL",
+        params![now_ms, from_actor_id as i64, to_actor_id as i64],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+
+    sessions.sessions.remove(token);
+    sessions
+        .sessions
+        .insert(new_token.clone(), new_session.clone());
+    Ok((new_token, new_session))
 }
 
 fn actor_session_record(
@@ -75,6 +230,8 @@ pub(super) async fn renew_avatar_session(
             actor_session: None,
             actor_session_expires_at_unix: None,
             renewed: false,
+            handoff: false,
+            previous_actor_id: None,
         })
     };
     if !allow_actor_mutation(
@@ -110,14 +267,31 @@ pub(super) async fn renew_avatar_session(
     if existing_session.is_none() && !wallet_authorized {
         return rejected(403);
     }
-    if actor_is_suspended(&state, payload.actor_id) {
+    let handoff_target = if existing_session.is_some() {
+        match avatar_session_handoff_target(&state, payload.actor_id) {
+            Ok(target) => target,
+            Err(error) => {
+                warn!(
+                    "failed to load CosyWorld avatar session handoff for {}: {}",
+                    payload.actor_id, error
+                );
+                return rejected(500);
+            }
+        }
+    } else {
+        None
+    };
+    let effective_actor_id = handoff_target.unwrap_or(payload.actor_id);
+    if actor_is_suspended(&state, payload.actor_id)
+        || actor_is_suspended(&state, effective_actor_id)
+    {
         return rejected(403);
     }
 
     let actor = {
         let runtime = state.inner.lock().await;
         runtime
-            .actor_by_id(payload.actor_id)
+            .actor_by_id(effective_actor_id)
             .filter(|actor| runtime.client_actor_can_observe(actor.id))
             .map(|actor| runtime.actor_view(actor))
     };
@@ -127,16 +301,39 @@ pub(super) async fn renew_avatar_session(
         return rejected(409);
     };
 
-    let replaced_session = if payload.rotate {
+    let replaced_session = if payload.rotate && handoff_target.is_none() {
         existing_session.as_ref().map(|(token, _)| token.clone())
     } else {
         None
     };
     let (actor_session, actor_session_record, renewed) =
-        if let Some((token, session)) = existing_session.filter(|_| !payload.rotate) {
+        if let Some(target_actor_id) = handoff_target {
+            let Some((source_token, _)) = existing_session.as_ref() else {
+                return rejected(403);
+            };
+            match exchange_actor_session_for_handoff(
+                &state,
+                source_token,
+                payload.actor_id,
+                target_actor_id,
+            ) {
+                Ok(session) => (session.0, session.1, true),
+                Err(error) => {
+                    warn!(
+                        "failed to exchange CosyWorld avatar session from {} to {}: {}",
+                        payload.actor_id, target_actor_id, error
+                    );
+                    return rejected(if error.kind() == io::ErrorKind::PermissionDenied {
+                        403
+                    } else {
+                        500
+                    });
+                }
+            }
+        } else if let Some((token, session)) = existing_session.filter(|_| !payload.rotate) {
             (token, session, false)
         } else {
-            let (token, session) = issue_actor_session(&state, payload.actor_id);
+            let (token, session) = issue_actor_session(&state, effective_actor_id);
             (token, session, true)
         };
     if let Some(replaced_session) = replaced_session {
@@ -148,7 +345,7 @@ pub(super) async fn renew_avatar_session(
             return rejected(500);
         }
     }
-    record_daily_visit(&state, payload.actor_id);
+    record_daily_visit(&state, effective_actor_id);
     Json(RenewAvatarSessionResponse {
         ok: true,
         status: CW_OK,
@@ -156,6 +353,8 @@ pub(super) async fn renew_avatar_session(
         actor_session: Some(actor_session),
         actor_session_expires_at_unix: Some(actor_session_record.expires_at_unix),
         renewed,
+        handoff: handoff_target.is_some(),
+        previous_actor_id: handoff_target.map(|_| payload.actor_id),
     })
 }
 
@@ -331,6 +530,21 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_adopts_only_an_explicit_session_handoff() {
+        for contract in [
+            "let actorSessionHandoffChecked = false;",
+            "Number(response?.previous_actor_id || 0)",
+            "actorId = nextActorId;",
+            "rememberActorSession(result, { allowHandoff: handoff })",
+        ] {
+            assert!(
+                INDEX_HTML.contains(contract),
+                "missing browser contract: {contract}"
+            );
+        }
+    }
 
     fn insert_actor_presence_wallet_session(state: &AppState, token: &str, wallet_address: &str) {
         state
@@ -782,6 +996,111 @@ mod tests {
         assert!(!terminal.ok, "{terminal:?}");
         assert_eq!(terminal.status, 409);
         assert_eq!(state.inner.lock().await.world.actor_count, actor_count);
+    }
+
+    #[tokio::test]
+    async fn approved_avatar_session_handoff_atomically_moves_the_browser_to_its_authored_actor() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-avatar-session-handoff-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Temporary Browser Avatar",
+        );
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (source_session, _) = issue_actor_session(&state, 5000);
+        initialize_avatar_session_handoff_schema(&path).expect("initialize handoff schema");
+        let conn = open_event_store(&path).expect("open handoff event store");
+        let now_ms = now_millis() as i64;
+        conn.execute(
+            "INSERT INTO avatar_session_handoffs
+                (from_actor_id, to_actor_id, reason, created_at_ms, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?4)",
+            params![
+                5000_i64,
+                RATI_ACTOR_ID as i64,
+                "confirmed human identity",
+                now_ms,
+            ],
+        )
+        .expect("stage approved avatar handoff");
+        drop(conn);
+
+        let response = renew_avatar_session(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(RenewAvatarSessionRequest {
+                actor_id: 5000,
+                actor_session: Some(source_session.clone()),
+                wallet_session: None,
+                rotate: false,
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        assert!(response.renewed);
+        assert!(response.handoff);
+        assert_eq!(response.previous_actor_id, Some(5000));
+        assert_eq!(
+            response.actor.as_ref().map(|actor| actor.id),
+            Some(RATI_ACTOR_ID)
+        );
+        let target_session = response
+            .actor_session
+            .as_deref()
+            .expect("handoff returns a replacement credential");
+        assert_ne!(target_session, source_session);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &source_session),
+            None,
+            "the source credential must be retired",
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, target_session),
+            Some(RATI_ACTOR_ID),
+        );
+
+        let conn = open_event_store(&path).expect("reopen handoff event store");
+        let old_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM actor_sessions WHERE session_token = ?1",
+                params![source_session],
+                |row| row.get(0),
+            )
+            .expect("query retired source session");
+        let persisted_target: i64 = conn
+            .query_row(
+                "SELECT actor_id FROM actor_sessions WHERE session_token = ?1",
+                params![target_session],
+                |row| row.get(0),
+            )
+            .expect("query persisted target session");
+        let consumed_count: i64 = conn
+            .query_row(
+                "SELECT consumed_count FROM avatar_session_handoffs WHERE from_actor_id = ?1",
+                params![5000_i64],
+                |row| row.get(0),
+            )
+            .expect("query handoff audit count");
+        assert_eq!(old_count, 0);
+        assert_eq!(persisted_target, RATI_ACTOR_ID as i64);
+        assert_eq!(consumed_count, 1);
+        drop(conn);
+        drop(state);
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]

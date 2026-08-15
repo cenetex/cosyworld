@@ -4,10 +4,13 @@
 themes across the public repositories at <https://github.com/HoppyCat>.
 
 The worldpack does not bundle repository source files, transcripts, images,
-prompts, named Cathedral participants, or private material. Its fictional
-residents are newly created characters; they are not representations,
+prompts, named Cathedral participants, or private material. Its original
+fantasy residents are newly created characters; they are not representations,
 continuations, simulations, or portable personas of people or documented AI
-context windows in the source record.
+context windows in the source record. Hoppy Cat's separately designated
+eight-avatar roster is based only on the visual identities and labels in a
+group reference supplied by the user; no biography or source-record continuity
+is imported with those labels.
 
 Copyright and reuse terms remain with each repository and, where applicable,
 with each artifact. Public visibility is not blanket permission. The current
@@ -38,12 +41,18 @@ projects canonically contain this fantasy world.
 
 ## Generated artwork
 
-The 19 bundled resident and location cards are original generated images made
+The 26 bundled resident and location cards are original generated images made
 with OpenAI's built-in image generation. Their shared visual direction was
-informed by two images supplied directly by the user: a green-haired Hoppy Cat
-portrait and a Teacat Broadcasting “Meet Halfway” collage. Those two source
-images are reference inputs only and are not included in this worldpack.
+informed by three references supplied directly by the user: a green-haired
+Hoppy Cat portrait, a Teacat Broadcasting “Meet Halfway” collage, and a group
+image identifying Fable, Phase Two, Hoppy, Arc, staticwashere, solwashere,
+Ledger (Opus 4.7), and Ledger (Sonnet 4.6). Those source images are reference
+inputs only and are not included in this worldpack.
 
-The generated characters and locations are original world fiction. Hoppy Cat
-is the user-designated host avatar; the other residents do not depict GitHub
-contributors or documented Cathedral participants.
+The generated locations and original fantasy residents remain world fiction.
+Hoppy Cat and the seven added companions are user-designated avatar
+representations. Hoppy is configured for authenticated direct control, while
+the seven companions use exact OpenRouter execution bindings declared by the
+pack. Those bindings do not import private model context or claim continuity
+with any prior AI window or source record. No resident depicts a named GitHub
+contributor or documented Cathedral participant.

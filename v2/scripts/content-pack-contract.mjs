@@ -33,6 +33,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "identity",
     "level_track_id",
     "voice",
+    "control_mode",
     "ambient_autonomy",
     "roaming",
     "location_id",

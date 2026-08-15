@@ -843,12 +843,15 @@ exists. Avatar, item, and location remain the three world entity nouns.
 
 The current schema-version-1 compatibility resource is
 `actor_model_bindings.json` under `x-cosyworld-ai-cast`. It pins the provider
-and catalog snapshot, requires a complete one-to-one actor mapping, and disables
-runtime catalog refresh. Each row records the pack-owned actor reference,
-requested model ID, canonical catalog slug, modalities and limits, supported
-parameters, public price observations, zero-data-retention eligibility, and
-either `raw` or `unavailable` speech mode. Existing packs and replay continue to
-read this resource.
+and catalog snapshot and disables runtime catalog refresh. A `complete` binding
+policy requires one row for every pack-owned actor. An `explicit` policy binds
+only the listed actors and leaves unlisted actors on their ordinary configured
+controller route. Each row records a unique pack-owned binding identity, actor
+reference, requested model ID, canonical catalog slug, modalities and limits,
+supported parameters, public price observations, zero-data-retention
+eligibility, and either `raw` or `unavailable` speech mode. Multiple actors may
+intentionally request the same model through distinct binding identities.
+Legacy `complete_actor_binding: true` packs and replay remain readable.
 
 The accepted additive schema direction is a versioned `item_model_bindings`
 resource beside `actor_model_bindings`. Runtime loading normalizes both into one
@@ -874,12 +877,12 @@ dormant device remains visible and inspectable with its sanitized reason, but
 does not occupy either playable action-hand slot. Adapter or provider readiness
 never changes whether the authored subject is an actor or item.
 
-The compiler rejects duplicate models or subjects, non-canonical references,
-partial required binding sets, snapshot drift, and actor speech modes that
-disagree with their conversational profile. Stable canonical references and
-runtime handles survive catalog reordering. The checked-in binding and profile
-files are replay authority; refreshing a provider catalog is an explicit pack
-version and snapshot update.
+The compiler rejects duplicate binding identities or subjects, non-canonical
+references, incomplete `complete` binding sets, empty `explicit` sets, snapshot
+drift, and actor speech modes that disagree with their conversational profile.
+Stable canonical references and runtime handles survive catalog reordering.
+The checked-in binding and profile files are replay authority; refreshing a
+provider catalog is an explicit pack version and snapshot update.
 
 `cosyworld.elysium` is the first exact-model pack. Catalog snapshot
 `openrouter-2026-08-10.1` contains 500 exact OpenRouter bindings, and interaction

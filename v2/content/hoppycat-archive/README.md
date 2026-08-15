@@ -12,21 +12,23 @@ outside the fiction as provenance and design inputs.
 The authored pack includes:
 
 - 10 connected locations, from the Halfway Tea Garden to the Signal Jetty;
-- 9 original residents—including Hoppy Cat—and 3 player-avatar forms, origins, and callings;
+- 16 residents—including Hoppy Cat's eight-avatar roster—and 3 player-avatar forms, origins, and callings;
 - 10 portable story items with concrete quest uses;
 - 3 factions organized around record, rendering, and careful circulation;
 - 3 playable quests, 6 progress/danger clocks, and 3 active fronts;
-- 29 fixed generated-art cards covering every location, moving resident, and portable story item.
+- 36 fixed generated-art cards covering every location, moving resident, and portable story item.
 
 The pregenerated card files are the canonical Hoppycat visuals. Runtime card
 rendering resolves only these mounted local assets; new generation does not
 replace avatar, location, or item art. The shared item-art direction and prompt
 subjects are recorded in `ART_GENERATION.md`.
 
-Every authored resident has ambient autonomy and explicit roaming enabled. They
-can pursue useful goals first, then choose a legal adjacent route when idle;
-recent-route checks keep them from simply bouncing back and forth. Player
-avatars move through the same routes under player control.
+Hoppy Cat starts in direct-input mode at the Halfway Tea Garden. The other 15
+residents have ambient autonomy and explicit roaming enabled: they pursue useful
+goals first, then choose a legal adjacent route when idle, with recent-route
+checks keeping them from simply bouncing back and forth. Seven roster companions
+use pack-pinned OpenRouter models; the eight original fantasy residents keep the
+ordinary Cosyworld inference route.
 
 The primary quest is **Ring in February Third**. Players inspect a corrected
 record, plant one bounded context seed, choose an unfinished prism's final

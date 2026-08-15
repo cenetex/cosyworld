@@ -20434,8 +20434,7 @@ fn seed_actor_default_control_mode(actor_id: u64) -> ActorControlMode {
         .iter()
         .find(|actor| actor.id == actor_id)
     {
-        Some(actor) if actor.ambient_autonomy.unwrap_or(true) => ActorControlMode::LocalAi,
-        Some(_) => ActorControlMode::ReactiveAi,
+        Some(actor) => actor.authored_default_control_mode(),
         None => ActorControlMode::DirectInput,
     }
 }
