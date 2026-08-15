@@ -2433,6 +2433,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn browser_passkey_recovery_requires_an_explicit_replacement_choice() {
+        assert!(INDEX_HTML.contains("function passkeyServerRecordIsMissing(error)"));
+        assert!(INDEX_HTML.contains("Number(error?.status || 0) === 401"));
+        assert!(INDEX_HTML
+            .contains("String(error?.message || \"\") === \"passkey sign-in was not accepted\""));
+        assert!(INDEX_HTML.contains("passkeyRecoveryAvailable = true"));
+        assert!(INDEX_HTML.contains("data-passkey-recover"));
+        assert!(INDEX_HTML.contains("data-passkey-continue>try another passkey"));
+        assert!(INDEX_HTML.contains("Creating a replacement starts a new CosyWorld account"));
+        assert!(INDEX_HTML.contains("does not restore data held only by the missing account"));
+        assert!(INDEX_HTML.contains(
+            "runIdentityTask(\"Creating a replacement passkey.\", recoverWithReplacementPasskey)"
+        ));
+    }
+
+    #[test]
     fn usernames_are_stable_and_conservative() {
         assert_eq!(
             normalize_account_username("  Maple.Rook_7  ").as_deref(),
