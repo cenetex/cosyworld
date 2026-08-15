@@ -810,10 +810,15 @@ fn binding_has_ready_profile(
     } else {
         profile.interaction_kind()
     };
-    let exact = exact_actor_interaction_profile_for_actor(binding.actor_id, interaction_kind)
-        .ok()
-        .flatten()
-        .filter(|exact| exact.profile.ready_before_policy());
+    let exact = exact_actor_interaction_profile_for_binding(
+        binding.actor_id,
+        &binding.requested_model_id,
+        &binding.canonical_slug,
+        interaction_kind,
+    )
+    .ok()
+    .flatten()
+    .filter(|exact| exact.profile.ready_before_policy());
     let Some(exact) = exact else {
         return false;
     };
