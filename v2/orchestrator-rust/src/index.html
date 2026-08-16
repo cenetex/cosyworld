@@ -5926,13 +5926,30 @@
       border: 0;
       background: transparent;
       padding: 16px;
+      display: grid;
+      justify-items: center;
+      gap: 6px;
     }
-    .play-cue-kicker,
-    .play-cue strong,
-    .play-cue-direction { display: none; }
+    .play-cue-kicker {
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .play-cue strong {
+      color: var(--text);
+      font: 600 20px/1.2 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      text-wrap: balance;
+    }
     .play-cue-copy {
       color: var(--dim);
       font: 500 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+    }
+    .play-cue-direction {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
     }
     .economy-stat.orbs { gap: 7px; }
     .minimal-orb-rack {
@@ -6703,8 +6720,6 @@
     const chatOpeningTurnCount = 2;
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
-    let actionModalMode = "action";
-    let storyHandExpanded = false;
     let accountPanelPinned = false;
     let libraryPanelPinned = false;
     let openCardModalKey = "";
@@ -7377,6 +7392,7 @@
       const attemptId = ++refreshAttemptId;
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
+      const requestedActorId = actorId;
       await rotateActorSessionIfNeeded();
       const historyWasNeeded = !roomHistoryHydrated
         || pendingModelInteractionRehydrationRequired;
@@ -7983,6 +7999,8 @@
             });
         return [action, campaignAction];
       }
+
+      if (view.primary_action?.kind === "await_rescue") return [];
 
       const characterIdentity = view.character_identity || null;
       if (characterIdentity?.class_selection_ready && !characterIdentity?.class_id) {
@@ -14635,6 +14653,8 @@
 
     function quietRoomSceneHtml() {
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
+      const kicker = state?.combat ? "Your turn" : state?.journey ? "On the road" : hasAvatar ? "Your next move" : "Begin here";
+      const title = state?.combat ? "Choose your response" : state?.journey ? "How will you press on?" : hasAvatar ? "What will you do?" : "Begin your tale";
       const cue = state?.combat
         ? "The clash has the floor. Choose from your combat hand."
         : state?.journey
@@ -14642,7 +14662,8 @@
         : hasAvatar
           ? "Chat with someone here or explore the room."
         : "Begin a tale, then discover the room through play.";
-      return `<p class="chat-empty" role="note">${escapeHtml(cue)}</p>`;
+      const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
+      return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -17146,7 +17167,11 @@
     }
 
     function renderActionModalRows(action) {
-      const rows = actionModalRows(action)
+      const choiceDirectedTravel = [action?.intention, action?.label]
+        .some((value) => ["travel", "flee"].includes(String(value || "").toLowerCase()))
+        && Array.isArray(action?.choices)
+        && action.choices.length > 0;
+      const rows = (choiceDirectedTravel ? [] : actionModalRows(action))
         .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
       const meta = $("action-modal-meta");
       meta.innerHTML = rows.map(([key, value]) => {
@@ -19114,11 +19139,6 @@
     $("action-modal").addEventListener("click", (event) => {
       if (event.target.closest("[data-action-close]")) {
         event.preventDefault();
-        if (actionModalMode === "hand-card") {
-          closeActionModal();
-          void passHand();
-          return;
-        }
         if (actionConfirmAction?.creationStage === "origin") {
           setCreationModalStage(actionConfirmAction, "species");
           openActionModal(actionConfirmAction);
@@ -19346,12 +19366,6 @@
         return;
       }
       if (journalOpen) return;
-      if (storyHandExpanded && event.key === "Escape") {
-        event.preventDefault();
-        setStoryHandExpanded(false);
-        $("story-hand-toggle").focus();
-        return;
-      }
       const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
         && Boolean(event.target?.closest?.(".hand-rail .cmd"));
       if (
