@@ -2181,6 +2181,7 @@ fn public_state_keeps_the_action_hand_bounded() {
         "factions",
         "card_transactions",
         "inspector",
+        "journal_beats",
     ] {
         assert!(state.get(hidden).is_none(), "{hidden} must remain internal");
     }
@@ -2198,9 +2199,10 @@ fn public_state_keeps_the_action_hand_bounded() {
     assert!(state["action_hand"]["entries"]
         .as_array()
         .is_some_and(|entries| entries.len() <= 3));
-    assert!(state["journal_beats"]
+    assert_eq!(state["journal"]["protocol"], "cosyworld.daily-journal.v1");
+    assert!(state["journal"]["pages"]
         .as_array()
-        .is_some_and(|beats| beats.len() <= 60));
+        .is_some_and(|pages| pages.len() <= 32));
 
     let location = state["location"].as_object().expect("public location");
     for hidden in [
@@ -2264,11 +2266,20 @@ fn public_state_keeps_the_action_hand_bounded() {
         ] {
             assert!(offer.get(hidden).is_none(), "offer.{hidden} leaked");
         }
-        for hidden in ["label", "reason"] {
-            assert!(
-                offer["provider"].get(hidden).is_none(),
-                "offer.provider.{hidden} leaked"
-            );
+        assert!(
+            offer["provider"].get("label").is_none(),
+            "offer.provider.label leaked"
+        );
+        assert!(
+            offer["provider"]["reason"]
+                .as_str()
+                .is_some_and(|reason| !reason.is_empty()),
+            "the browser-rendered provider reason must remain public"
+        );
+        if let Some(source) = offer.get("source_collectible") {
+            for hidden in ["pack_id", "pack_version", "card_id", "provider_id"] {
+                assert!(source.get(hidden).is_none(), "offer source.{hidden} leaked");
+            }
         }
     }
     assert!(
@@ -2506,10 +2517,10 @@ fn same_kind_exact_offers_cover_a_bounded_rotation_in_wrap_order() {
             generations[slot_index] = generation;
             let hand = compose_story_hand_at(&pickup_offers, generations);
             seen.insert(hand.entries[slot_index].offer_id.clone());
-            for other_slot in 0..3 {
+            for (other_slot, initial_id) in initial_ids.iter().enumerate() {
                 if other_slot != slot_index {
                     assert_eq!(
-                        hand.entries[other_slot].offer_id, initial_ids[other_slot],
+                        &hand.entries[other_slot].offer_id, initial_id,
                         "rotating one slot preserves both other exact cards"
                     );
                 }

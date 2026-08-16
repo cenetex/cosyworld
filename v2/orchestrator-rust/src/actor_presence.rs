@@ -21,11 +21,31 @@ pub(super) struct RenewAvatarSessionResponse {
     previous_actor_id: Option<u64>,
 }
 
+fn initialize_avatar_session_handoff_schema(path: &Path) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS avatar_session_handoffs (
+            from_actor_id INTEGER PRIMARY KEY,
+            to_actor_id INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL,
+            consumed_count INTEGER NOT NULL DEFAULT 0,
+            last_consumed_at_ms INTEGER,
+            retired_at_ms INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_avatar_session_handoffs_target
+            ON avatar_session_handoffs(to_actor_id, retired_at_ms);",
+    )
+    .map_err(sqlite_error)
+}
+
 fn avatar_session_handoff_target(state: &AppState, from_actor_id: u64) -> io::Result<Option<u64>> {
     let Some(path) = state.event_store_path.as_deref() else {
         return Ok(None);
     };
     init_event_store(path)?;
+    initialize_avatar_session_handoff_schema(path)?;
     let conn = open_event_store(path)?;
     let target = conn
         .query_row(
@@ -62,6 +82,7 @@ fn exchange_actor_session_for_handoff(
         ));
     };
     init_event_store(path)?;
+    initialize_avatar_session_handoff_schema(path)?;
 
     let mut sessions = state
         .actor_sessions
@@ -358,6 +379,18 @@ impl RuntimeWorld {
             && self.actor_control_mode(actor_id).is_direct_input()
     }
 
+    pub(super) fn can_summon_avatar_for_rescue(&self, actor_id: u64) -> bool {
+        self.actor_by_id(actor_id).is_some_and(|actor| {
+            actor.kind == CW_ACTOR_HUMAN
+                && actor.status == CW_ACTOR_KNOCKED_OUT
+                && self.actor_control_mode(actor.id).is_direct_input()
+        }) && !self.avatar_rescue_predecessors.contains_key(&actor_id)
+            && !self
+                .avatar_rescue_predecessors
+                .values()
+                .any(|downed_actor_id| *downed_actor_id == actor_id)
+    }
+
     pub(super) fn avatar_lifecycle_primary_action(&self, actor_id: u64) -> Option<PrimaryAction> {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return Some(create_avatar_primary_action());
@@ -440,6 +473,16 @@ fn create_avatar_primary_action() -> PrimaryAction {
     }
 }
 
+pub(super) fn summon_avatar_primary_action() -> PrimaryAction {
+    PrimaryAction {
+        kind: "summon_avatar".to_string(),
+        label: "Summon a New Avatar".to_string(),
+        command: "summon avatar".to_string(),
+        disabled: false,
+        options: Vec::new(),
+    }
+}
+
 impl RuntimeWorld {
     pub(super) fn default_bondable_resident_with_presence(
         &self,
@@ -507,6 +550,21 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_adopts_only_an_explicit_session_handoff() {
+        for contract in [
+            "let actorSessionHandoffChecked = false;",
+            "Number(response?.previous_actor_id || 0)",
+            "actorId = nextActorId;",
+            "rememberActorSession(result, { allowHandoff: handoff })",
+        ] {
+            assert!(
+                INDEX_HTML.contains(contract),
+                "missing browser contract: {contract}"
+            );
+        }
+    }
 
     fn insert_actor_presence_wallet_session(state: &AppState, token: &str, wallet_address: &str) {
         state
@@ -979,6 +1037,7 @@ mod tests {
             .control_mode = ActorControlMode::DirectInput;
         let state = test_app_state(runtime, Some(path.clone()));
         let (source_session, _) = issue_actor_session(&state, 5000);
+        initialize_avatar_session_handoff_schema(&path).expect("initialize handoff schema");
         let conn = open_event_store(&path).expect("open handoff event store");
         let now_ms = now_millis() as i64;
         conn.execute(

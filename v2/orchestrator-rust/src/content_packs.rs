@@ -219,10 +219,18 @@ mod tests {
         assert_eq!(ruby.entry_location_id, Some(11));
         assert_eq!(ruby.locations.len(), 6);
         assert_eq!(ruby.asset_providers.len(), 2);
-        assert!(ruby
-            .asset_providers
-            .iter()
-            .any(|provider| provider.provider == "ruby-high.first-bell/assets"));
+        assert!(ruby.asset_providers.iter().all(|provider| {
+            provider.provider == "ruby-high.first-bell/assets"
+                && provider
+                    .cache_namespace
+                    .contains("ruby-high.first-bell@1.4.0")
+                && provider.content_hash.starts_with("sha256:")
+        }));
+        assert!(ruby.asset_providers.iter().any(|provider| {
+            provider.mount == "world-art"
+                && provider.public_prefix == "/assets/ruby-high/world"
+                && !provider.optional
+        }));
         assert_eq!(
             ruby.distribution
                 .as_ref()

@@ -490,6 +490,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
             ConcurrencyPolicy::TargetSerialized
         }
         CommandDispatch::PickUp { .. }
+        | CommandDispatch::NoticeActor { .. }
         | CommandDispatch::OpenThreshold { .. }
         | CommandDispatch::Drop { .. }
         | CommandDispatch::UseItem { .. }
@@ -1330,11 +1331,19 @@ pub(super) fn command_actor_turn_rejection(
     actor_id: u64,
     dispatch: &CommandDispatch,
 ) -> Option<RoomTurnView> {
+    // A certified Story Hand Think owns its ordered-scene validation in
+    // pass_action: the current actor spends the turn by committing the
+    // focused encounter's Pass alongside the per-slot replacement. Waiting
+    // actors and stale certificates are still rejected there before mutation.
+    if matches!(dispatch, CommandDispatch::Pass { .. }) {
+        return None;
+    }
     let offer_kind = match dispatch {
         CommandDispatch::Attack { .. } => "attack",
         CommandDispatch::Defend => "defend",
         CommandDispatch::Flee { .. } => "flee",
         CommandDispatch::OpenThreshold { .. } => "open",
+        CommandDispatch::NoticeActor { .. } => NOTICE_ACTOR_OFFER_KIND,
         CommandDispatch::Check => "check",
         CommandDispatch::Study => "study",
         CommandDispatch::Discover { procedure, .. } => match procedure.as_str() {

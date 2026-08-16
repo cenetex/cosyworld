@@ -875,6 +875,25 @@
       place-items: center;
       isolation: isolate;
     }
+    .room-avatar-transfer-marker {
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      z-index: 5;
+      width: 19px;
+      height: 19px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--terminal);
+      border-radius: 999px;
+      background: var(--amber);
+      color: #231b09;
+      pointer-events: none;
+    }
+    .room-avatar-transfer-marker .ui-icon {
+      width: 11px;
+      height: 11px;
+    }
     .combat-health-ring {
       --combat-hp-angle: 0deg;
       position: absolute;
@@ -2220,6 +2239,13 @@
       border-top: 1px solid var(--line);
       background: rgba(5, 8, 6, 0.98);
     }
+    .hand-header,
+    .hand-inspector {
+      display: none;
+    }
+    .hand-rail {
+      display: contents;
+    }
     /* Art that has not been generated yet. The image itself already falls back
        to the authored placeholder; this marks it as pending rather than final
        so it never reads as finished art. See issue #476. */
@@ -2329,12 +2355,6 @@
     .prompt.choice-mode {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .prompt.has-draw {
-      grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(64px, 86px);
-    }
-    .prompt.choice-mode.has-draw {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
     .prompt.single-action .cmd.primary {
       grid-column: 1 / -1;
     }
@@ -2401,29 +2421,6 @@
     }
     .cmd.secondary {
       color: var(--text);
-    }
-    .cmd.shuffle {
-      flex-direction: column;
-      justify-content: center;
-      text-align: center;
-      min-width: 86px;
-      gap: 2px;
-      padding: 5px;
-    }
-    .shuffle-glyph {
-      position: relative;
-      z-index: 2;
-      color: var(--cmd-accent);
-      font-size: 17px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      line-height: 0.7;
-    }
-    .cmd.shuffle .cmd-label {
-      position: relative;
-      z-index: 2;
-      font-size: 10px;
-      line-height: 1;
     }
     .cmd.suit-head { --cmd-accent: var(--suit-head); --cmd-accent-rgb: var(--suit-head-rgb); }
     .cmd.suit-heart { --cmd-accent: var(--suit-heart); --cmd-accent-rgb: var(--suit-heart-rgb); }
@@ -3028,7 +3025,8 @@
       outline: 2px solid rgba(101, 230, 138, 0.86);
       outline-offset: 2px;
     }
-    .action-cancel {
+    .action-cancel,
+    .action-discard {
       min-height: 40px;
       padding: 0 16px;
       border: 1px solid var(--line);
@@ -3038,38 +3036,46 @@
       font: inherit;
       font-weight: 800;
     }
-    .action-cancel:hover {
+    .action-cancel:hover,
+    .action-discard:hover {
       border-color: var(--line-strong);
       background: rgba(216, 247, 220, 0.06);
       color: var(--text);
     }
-    .action-cancel:focus-visible {
+    .action-cancel:focus-visible,
+    .action-discard:focus-visible {
       outline: 2px solid var(--amber);
       outline-offset: 2px;
     }
-    .action-cancel:disabled {
-      opacity: 0.42;
-      cursor: default;
+    .action-cancel[hidden] { display: none; }
+    .action-discard {
+      border-color: rgba(239, 201, 107, 0.42);
+      color: var(--amber);
     }
+    .action-discard[hidden] { display: none; }
     .action-actions {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       gap: 8px;
       padding: 18px;
     }
-    .action-dialog.hand-card-mode .action-actions {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      padding-top: 14px;
+    .action-actions.has-discard {
+      grid-template-columns: auto auto minmax(0, 1fr);
+    }
+    .action-actions.hand-card-actions {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .action-dialog.hand-card-mode .action-cancel,
+    .action-dialog.hand-card-mode .action-discard,
     .action-dialog.hand-card-mode .action-confirm {
       min-height: 48px;
-      border-color: rgba(var(--cmd-accent-rgb), 0.52);
-      color: var(--cmd-accent);
-      text-transform: lowercase;
+      font-size: 15px;
+      text-transform: uppercase;
     }
     .action-dialog.hand-card-mode .action-confirm {
-      background: rgba(var(--cmd-accent-rgb), 0.16);
+      border-color: rgba(var(--cmd-accent-rgb), 0.58);
+      background: rgba(var(--cmd-accent-rgb), 0.18);
+      color: var(--text);
     }
     .wallet-title {
       clear: both;
@@ -3824,10 +3830,6 @@
         padding: 3px;
         text-align: center;
       }
-      .cmd.shuffle {
-        flex: 0 0 72px;
-        min-width: 72px;
-      }
       .cmd-copy {
         flex: 1 1 auto;
         min-width: 0;
@@ -3993,6 +3995,7 @@
     .action-dialog,
     .action-confirm,
     .action-cancel,
+    .action-discard,
     .card-dialog,
     .card-close {
       border-radius: 4px;
@@ -4758,8 +4761,8 @@
       }
       .journal-page-nav { padding-inline: 14px; }
     }
-    /* The player Journal is a gallery of completed long-rest page images.
-       Activity, clocks, room memory, and source logs stay server-side input. */
+    /* The Journal is an image gallery. Legacy memory/activity nodes remain
+       available to internal renderers but never participate in its layout. */
     .journal-stream {
       display: grid;
       place-items: center;
@@ -4775,9 +4778,7 @@
     .journal-page::before {
       content: none;
     }
-    .journal-log {
-      display: block;
-    }
+    .journal-log { display: block; }
     .journal-page {
       min-height: 0;
       padding: 0;
@@ -4793,9 +4794,7 @@
       background: #d8c9a6;
       box-shadow: 0 24px 56px rgba(0, 0, 0, 0.48);
     }
-    .journal-page-illustration::after {
-      content: none;
-    }
+    .journal-page-illustration::after { content: none; }
     .journal-page-illustration img {
       display: block;
       width: 100%;
@@ -4809,15 +4808,9 @@
     .journal-page-illustration figcaption,
     .journal-page-heading,
     .journal-page-prose,
-    .journal-page-folio {
-      display: none;
-    }
-    .journal-page-nav {
-      padding: 14px 0 0;
-    }
-    .journal-page-nav[hidden] {
-      display: none;
-    }
+    .journal-page-folio { display: none; }
+    .journal-page-nav { padding: 14px 0 0; }
+    .journal-page-nav[hidden] { display: none; }
     .journal-page-nav button {
       color: #b9aa88;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -5202,6 +5195,7 @@
     }
     .action-confirm,
     .action-cancel,
+    .action-discard,
     .account-button {
       min-height: 44px;
     }
@@ -5256,9 +5250,7 @@
         white-space: normal;
       }
       .prompt,
-      .prompt.choice-mode,
-      .prompt.has-draw,
-      .prompt.choice-mode.has-draw {
+      .prompt.choice-mode {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
@@ -5273,6 +5265,7 @@
       .turn-banner {
         grid-column: 1 / -1;
       }
+      .prompt:not(.choice-mode) .cmd.tertiary,
       .prompt.single-action .cmd.primary {
         grid-column: 1 / -1;
         width: 100%;
@@ -5285,10 +5278,6 @@
         justify-content: flex-start;
         padding: 5px;
         text-align: left;
-      }
-      .cmd.shuffle {
-        width: 100%;
-        min-width: 0;
       }
       .cmd-copy {
         gap: 3px;
@@ -5399,637 +5388,314 @@
       }
     }
     @media (min-width: 600px) and (max-width: 900px) {
-      .prompt {
+      .prompt,
+      .prompt:not(.choice-mode) {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .prompt.has-draw {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-      .prompt.choice-mode,
-      .prompt.choice-mode.has-draw {
+      .prompt.choice-mode {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .prompt:not(.choice-mode) .cmd.tertiary {
+        grid-column: auto;
       }
       .cmd {
         min-height: 96px;
       }
     }
-
-    /* Playability upgrade: preserve the private-house mood while giving
-       controls, choices, and empty states an unmistakable hierarchy. */
-    :root {
-      --line: rgba(244, 239, 227, 0.24);
-      --line-strong: rgba(222, 194, 141, 0.48);
-      --text: #f7f1e5;
-      --dim: #c1b49e;
-      --faint: #8f8574;
-      --surface-raised: #211c15;
-      --surface-active: #302719;
-      --focus-ring: #f1d39a;
-    }
-    html,
-    body {
-      font-size: 16px;
-    }
-    :is(button, summary, a, input):focus-visible {
-      outline: 2px solid var(--focus-ring);
-      outline-offset: 3px;
-    }
-    .terminal {
-      border-color: var(--line-strong);
-    }
-    .log.room-mode,
-    .log.arrival-mode {
-      padding: clamp(24px, 5vh, 64px) clamp(18px, 6vw, 80px);
-      background:
-        radial-gradient(circle at 50% 42%, rgba(222, 194, 141, 0.09), transparent 35%),
-        #11100d;
-    }
-    .chat-empty.play-cue {
-      width: min(560px, 100%);
-      min-height: 188px;
-      margin: auto;
-      display: grid;
-      place-content: center;
-      justify-items: center;
-      gap: 8px;
-      padding: 28px;
-      border: 1px solid var(--line-strong);
-      border-radius: 10px;
-      background:
-        linear-gradient(180deg, rgba(222, 194, 141, 0.08), transparent 70%),
-        rgba(25, 22, 17, 0.88);
-      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
-      color: var(--dim);
-      text-align: center;
-    }
-    .play-cue-kicker,
-    .journal-empty-kicker {
-      color: var(--amber);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-    .play-cue strong,
-    .journal-empty strong {
-      color: var(--text);
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(23px, 3vw, 30px);
-      font-weight: 500;
-      line-height: 1.12;
-      text-wrap: balance;
-    }
-    .play-cue-copy {
-      max-width: 46ch;
-      color: var(--dim);
-      font-size: 15px;
-      line-height: 1.5;
-    }
-    .play-cue-direction {
-      margin-top: 5px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 750;
-    }
-    .prompt {
-      gap: 10px;
-      padding: 12px 16px calc(12px + var(--safe-bot));
-      border-top: 1px solid var(--line-strong);
-    }
-    .prompt.onboarding-mode {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .cmd {
-      min-height: 78px;
-      border-radius: 8px;
-      padding: 8px;
-      background: var(--surface-raised);
-      box-shadow: inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.56);
-    }
-    .cmd.primary {
-      border-color: rgba(var(--cmd-accent-rgb), 0.62);
-      background:
-        linear-gradient(110deg, rgba(var(--cmd-accent-rgb), 0.12), transparent 62%),
-        var(--surface-active);
-    }
-    .cmd:not(:disabled):hover {
-      border-color: rgba(var(--cmd-accent-rgb), 0.74);
-      background: var(--surface-active);
-    }
-    .cmd-kicker,
-    .cmd-meta,
-    .provider-call,
-    .story-call {
-      font-size: 11px;
-    }
-    .cmd-label {
-      font-size: 15px;
-      line-height: 1.2;
-    }
-    .detail {
-      color: var(--dim);
-      font-size: 13px;
-      line-height: 1.35;
-    }
-    .menu-nav {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .menu-nav button {
-      border-color: var(--line);
-      border-radius: 7px;
-      background: rgba(17, 16, 13, 0.72);
-    }
-    .menu-nav button.active {
-      border-color: var(--line-strong);
-      background: var(--surface-active);
-      box-shadow: inset 0 -3px 0 var(--amber);
-      color: var(--text);
-    }
-    .menu-nav button.menu-utility:not(.active) {
-      background: rgba(17, 16, 13, 0.42);
-    }
-    .account-panel {
-      border-color: var(--line-strong);
-      border-radius: 9px;
-      background: rgba(25, 22, 17, 0.92);
-    }
-    .account-title,
-    .library-heading {
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--line);
-    }
-    .library-intro,
-    .account-auth-lede,
-    .journal-tool p {
-      color: var(--dim);
-      font-size: 15px;
-      line-height: 1.5;
-    }
-    .account-button {
-      min-height: 46px;
-      padding: 8px 14px;
-      border-color: var(--line-strong);
-      border-radius: 7px;
-      background: var(--surface-active);
-      color: var(--text);
-    }
-    .account-button.secondary {
-      border-color: var(--line);
-      background: transparent;
-      color: var(--dim);
-    }
-    .account-button:not(:disabled):hover {
-      border-color: var(--amber);
-      color: var(--text);
-    }
-    .deck-summary {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .deck-stat {
-      min-height: 78px;
-      display: grid;
-      align-content: center;
-      gap: 3px;
-      border-color: var(--line);
-      border-radius: 7px;
-      padding: 12px;
-    }
-    .deck-stat strong {
-      font-size: 17px;
-      font-variant-numeric: tabular-nums;
-    }
-    .deck-stat small {
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    .deck-groups {
-      display: grid;
-      gap: 8px;
-    }
-    .deck-group,
-    .library-location-disclosure {
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: rgba(17, 16, 13, 0.42);
-    }
-    .deck-group > summary,
-    .library-location-disclosure > summary {
-      min-height: 48px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      gap: 9px;
-      align-items: center;
-      padding: 9px 12px;
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 750;
-      list-style: none;
-    }
-    .deck-group > summary::-webkit-details-marker,
-    .library-location-disclosure > summary::-webkit-details-marker {
-      display: none;
-    }
-    .deck-group > summary::after,
-    .library-location-disclosure > summary::after {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-right: 2px solid var(--amber);
-      border-bottom: 2px solid var(--amber);
-      transform: rotate(45deg);
-      transition: transform 160ms ease;
-    }
-    .deck-group[open] > summary::after,
-    .library-location-disclosure[open] > summary::after {
-      transform: rotate(225deg);
-    }
-    .deck-group > summary small,
-    .library-location-disclosure > summary small {
-      color: var(--dim);
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .deck-group-body {
-      border-top: 1px solid var(--line);
-      padding: 10px 12px;
-    }
-    .deck-group-body > :last-child,
-    .deck-group-body .deck-card-list:last-child {
-      margin-bottom: 0;
-    }
-    .deck-empty {
-      min-height: 52px;
-      display: flex;
-      align-items: center;
-      border: 1px dashed var(--line);
-      border-radius: 6px;
-      padding: 10px 12px;
-      color: var(--dim);
-    }
-    .library-location-disclosure {
-      margin-top: 4px;
-    }
-    .library-locations {
-      border-top: 1px solid var(--line);
-      padding: 9px 12px 11px;
-    }
-    .library-location {
-      min-height: 30px;
-      align-items: center;
-      font-size: 13px;
-    }
-    .library-location-state {
-      color: var(--dim);
-    }
-    .journal-tools-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-    .journal-tool,
-    .account-signin {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(17, 16, 13, 0.46);
-      padding: 16px;
-    }
-    .journal-tool.primary-tool {
-      border-color: var(--line-strong);
-      background: linear-gradient(135deg, rgba(222, 194, 141, 0.1), rgba(17, 16, 13, 0.5));
-    }
-    .journal-tool p,
-    .account-auth-lede,
-    .account-trust {
-      margin: 7px 0 12px;
-    }
-    .account-signin {
-      max-width: 680px;
-      margin-top: 14px;
-    }
-    .account-benefits {
-      display: grid;
-      gap: 7px;
-      margin: 0 0 16px;
-      padding: 0;
-      color: var(--text);
-      list-style: none;
-    }
-    .account-benefits li {
-      position: relative;
-      padding-left: 22px;
-    }
-    .account-benefits li::before {
-      content: "✓";
-      position: absolute;
-      left: 0;
-      color: var(--amber);
-      font-weight: 800;
-    }
-    .account-trust {
-      color: var(--faint);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .setting-row {
-      min-height: 64px;
-      border-color: var(--line);
-      padding: 10px 13px;
-    }
-    .setting-copy strong {
-      font-size: 15px;
-    }
-    .setting-copy small {
-      color: var(--dim);
-      font-size: 13px;
-      line-height: 1.4;
-    }
-    .setting-row input {
-      appearance: none;
-      width: 48px;
-      height: 28px;
-      margin: 0;
-      border: 1px solid var(--line-strong);
-      border-radius: 999px;
-      background: #11100d;
-      box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18);
-      cursor: pointer;
-      transition: background 160ms ease, border-color 160ms ease;
-    }
-    .setting-row input::before {
-      content: "";
-      display: block;
-      width: 20px;
-      height: 20px;
-      margin: 3px;
-      border-radius: 50%;
-      background: var(--dim);
-      transition: transform 160ms ease, background 160ms ease;
-    }
-    .setting-row input:checked {
-      border-color: var(--amber);
-      background: rgba(222, 194, 141, 0.2);
-    }
-    .setting-row input:checked::before {
-      transform: translateX(20px);
-      background: var(--amber);
-    }
-    .action-dialog.hand-card-mode .action-meta {
-      display: grid;
-    }
-    .action-row {
-      min-height: 38px;
-      align-items: center;
-      border-top-color: var(--line);
-    }
-    .action-row-key {
-      color: var(--amber);
-      font-size: 12px;
-    }
-    .action-choice {
-      min-height: 58px;
-      grid-template-columns: 22px minmax(0, 1fr);
-      align-items: center;
-      border-color: var(--line);
-      border-radius: 7px;
-      padding: 10px 12px;
-    }
-    .action-choice.active {
-      border-color: var(--amber);
-      background: rgba(222, 194, 141, 0.12);
-      box-shadow: inset 3px 0 0 var(--amber);
-    }
-    .action-choice input {
-      width: 20px;
-      height: 20px;
-      accent-color: var(--amber);
-    }
-    .action-choice-detail,
-    .action-summary {
-      color: var(--dim);
-      font-size: 14px;
-    }
-    .action-confirm {
-      border-color: var(--amber);
-      background: rgba(222, 194, 141, 0.16);
-      color: var(--text);
-    }
-    .action-confirm:focus-visible {
-      outline-color: var(--focus-ring);
-    }
-    .action-cancel {
-      border-color: var(--line);
-    }
-    .journal-empty {
-      min-height: min(58vh, 520px);
-      align-content: center;
-      gap: 9px;
-      border-color: var(--line-strong);
-      border-radius: 8px;
-      color: var(--dim);
-    }
-    .journal-empty > span:not(.journal-empty-kicker) {
-      max-width: 42ch;
-      font: 500 15px/1.55 ui-sans-serif, system-ui, sans-serif;
-    }
-    .journal-empty .account-button {
-      margin-top: 10px;
-      border-color: var(--line-strong);
-      background: var(--surface-active);
-      color: var(--text);
-    }
     @media (max-width: 900px) {
-      .menu-nav {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .account-panel {
-        padding: 12px;
-      }
-      .library-pack-copy,
-      .account-row,
-      .item-note {
-        font-size: 14px;
-        line-height: 1.5;
-      }
-    }
-    @media (max-width: 560px) {
-      .topbar {
-        gap: 3px;
-        padding-inline: max(5px, env(safe-area-inset-left, 0px));
-      }
-      .location-pill {
-        font-size: 14px;
-      }
-      .location-pill img {
-        width: 40px;
-        height: 28px;
-      }
-      .topbar-actions {
-        gap: 3px;
-      }
-      .room-log-toggle {
-        width: 44px;
-        min-width: 44px;
-        justify-content: center;
-        padding: 0;
-      }
-      .room-log-kicker {
-        position: absolute;
-        width: 1px;
-        height: 1px;
+      .prompt,
+      .prompt.choice-mode,
+      .prompt:not(.choice-mode) {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         overflow: hidden;
-        clip: rect(0, 0, 0, 0);
+        padding: 0 0 var(--safe-bot);
+      }
+      footer.prompt[hidden] {
+        display: none;
+      }
+      .prompt .turn-banner {
+        padding: 7px 8px 0;
+      }
+      .hand-header {
+        display: none;
+        border-bottom: 1px solid rgba(216, 247, 220, 0.09);
+      }
+      .hand-toggle {
+        width: 100%;
+        min-height: 34px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        background: transparent;
+        padding: 5px 10px;
+        text-align: left;
+      }
+      .hand-toggle:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: -2px;
+      }
+      .hand-toggle-title {
+        color: var(--amber);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .hand-toggle-status {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--dim);
+        font-size: 10px;
+        font-weight: 750;
+        text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .room-log-icon .ui-icon {
-        width: 20px;
-        height: 20px;
+      .hand-toggle-chevron {
+        color: var(--amber);
+        font-size: 15px;
+        line-height: 1;
+        transition: transform 160ms ease;
       }
-      .room-avatar-pfp {
-        width: 44px;
-        height: 44px;
+      .hand-rail {
+        --hand-card-count: 3;
+        display: grid;
+        grid-template-columns: repeat(var(--hand-card-count), minmax(0, 1fr));
+        gap: 5px;
+        padding: 6px 8px 7px;
       }
-      .room-avatar-frame {
-        width: 50px;
-        height: 50px;
-        flex-basis: 50px;
+      .prompt:not(.hand-expanded) .cmd {
+        width: 100%;
+        min-width: 0;
+        min-height: 52px;
+        height: 52px;
+        grid-column: auto;
+        gap: 5px;
+        justify-content: flex-start;
+        padding: 4px;
+        text-align: left;
       }
-      .log.room-mode,
-      .log.arrival-mode {
-        padding: 14px;
+      .prompt:not(.hand-expanded) .hand-rail .cmd.tertiary,
+      .prompt:not(.hand-expanded).single-action .hand-rail .cmd.primary {
+        grid-column: auto;
+        width: 100%;
       }
-      .chat-empty.play-cue {
-        min-height: 156px;
-        gap: 7px;
-        padding: 18px 16px;
+      .prompt:not(.hand-expanded) .cmd-copy {
+        align-content: center;
+        gap: 1px;
+        padding: 0 8px 0 2px;
       }
-      .play-cue strong {
-        font-size: 23px;
+      .prompt:not(.hand-expanded) .cmd-kicker {
+        overflow: hidden;
+        font-size: 8px;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .play-cue-copy {
-        font-size: 14px;
+      .prompt:not(.hand-expanded) .cmd-label {
+        display: block;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1.15;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .prompt,
-      .prompt.onboarding-mode,
-      .prompt.choice-mode,
-      .prompt.has-draw,
-      .prompt.choice-mode.has-draw {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 7px;
-        max-height: 43dvh;
+      .prompt:not(.hand-expanded) .cmd-label-text {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt:not(.hand-expanded) .cmd-label .ui-icon,
+      .prompt:not(.hand-expanded) .detail,
+      .prompt:not(.hand-expanded) .cmd-meta,
+      .prompt:not(.hand-expanded) .provider-call,
+      .prompt:not(.hand-expanded) .story-call,
+      .prompt:not(.hand-expanded) .collectible-mark {
+        display: none;
+      }
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.avatar,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.item,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.location {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+      }
+      .prompt.hand-expanded {
+        max-height: min(56dvh, 460px);
         overflow-y: auto;
         overscroll-behavior: contain;
-        padding: 8px max(8px, env(safe-area-inset-right, 0px))
-          calc(8px + var(--safe-bot)) max(8px, env(safe-area-inset-left, 0px));
       }
-      .turn-banner,
-      .prompt.single-action .cmd.primary {
-        grid-column: 1;
+      .prompt.hand-expanded .hand-header {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        background: rgba(17, 16, 13, 0.98);
       }
-      .cmd {
-        min-height: 78px;
-        padding: 8px;
+      .prompt.hand-expanded .hand-toggle-chevron {
+        transform: rotate(180deg);
       }
-      .cmd.has-copy .thumb {
-        width: 54px;
-        height: 54px;
-        flex-basis: 54px;
+      .prompt.hand-expanded .hand-rail {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 9px 14px 8px;
+        scroll-padding-inline: 14px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
       }
-      .cmd.has-copy .thumb.avatar {
-        width: 42px;
-        height: 58px;
-        flex-basis: 42px;
+      .prompt.hand-expanded .hand-rail::-webkit-scrollbar {
+        display: none;
       }
-      .cmd.has-copy .thumb.location {
-        width: 64px;
-        height: 44px;
-        flex-basis: 64px;
+      .prompt.hand-expanded .cmd {
+        flex: 0 0 calc(100% - 28px);
+        width: calc(100% - 28px);
+        min-width: 0;
+        min-height: 142px;
+        gap: 9px;
+        justify-content: flex-start;
+        padding: 9px;
+        text-align: left;
+        scroll-snap-align: center;
+        opacity: 0.66;
+        transition: border-color 140ms ease, opacity 140ms ease;
       }
-      .cmd-label {
-        font-size: 15px;
+      .prompt.hand-expanded .cmd[aria-current="true"] {
+        border-color: rgba(var(--cmd-accent-rgb), 0.78);
+        box-shadow:
+          inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.72),
+          0 0 0 1px rgba(var(--cmd-accent-rgb), 0.16);
+        opacity: 1;
       }
-      .detail {
-        font-size: 13px;
+      .prompt.hand-expanded .cmd-copy {
+        align-content: center;
+        gap: 4px;
+        padding: 0 14px 0 2px;
+      }
+      .prompt.hand-expanded .cmd-kicker {
+        font-size: 10px;
+      }
+      .prompt.hand-expanded .cmd-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        overflow: visible;
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 820;
+        line-height: 1.16;
+        white-space: normal;
+      }
+      .prompt.hand-expanded .cmd-label-text {
+        display: -webkit-box;
+        min-width: 0;
+        overflow: hidden;
+        white-space: normal;
+        -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
       }
-      .menu-nav button {
-        min-height: 48px;
-        padding: 7px 5px;
+      .prompt.hand-expanded .detail {
+        display: -webkit-box;
+        margin-top: 2px;
+        overflow: hidden;
+        font-size: 13px;
+        line-height: 1.3;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+      .prompt.hand-expanded :is(.cmd-meta, .provider-call, .story-call) {
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prompt.hand-expanded .cmd.has-copy .thumb,
+      .prompt.hand-expanded .cmd.has-copy .thumb.item,
+      .prompt.hand-expanded .cmd.has-copy .thumb.location {
+        width: 82px;
+        height: 72px;
+        flex: 0 0 82px;
+      }
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar {
+        width: 58px;
+        height: 78px;
+        flex-basis: 58px;
+      }
+      .prompt.hand-expanded .hand-inspector {
+        display: block;
+        border-top: 1px solid rgba(216, 247, 220, 0.09);
+      }
+      .prompt .hand-inspector[hidden] {
+        display: none;
+      }
+      .hand-inspector > .action-title {
+        padding: 8px 14px 0;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+      .hand-inspector > .action-summary {
+        padding: 4px 14px 0;
+        color: var(--dim);
         font-size: 12px;
+        line-height: 1.35;
       }
-      .deck-summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .hand-inspector > .action-meta,
+      .hand-inspector > .action-choice-list {
+        margin: 8px 14px 0;
       }
-      .deck-stat:first-child {
-        grid-column: 1 / -1;
+      .hand-inspector .action-row {
+        padding-top: 5px;
       }
-      .journal-tools-grid {
-        grid-template-columns: minmax(0, 1fr);
+      .hand-inspector .action-row-key,
+      .hand-inspector .action-row-value {
+        font-size: 11px;
       }
-      .journal-tool,
-      .account-signin {
-        padding: 14px;
-      }
-      .card-modal,
-      .action-modal {
-        place-items: end center;
-        padding: max(46px, env(safe-area-inset-top, 0px)) 0 0;
-      }
-      .card-dialog,
-      .action-dialog,
-      .action-dialog.hand-card-mode {
-        width: 100%;
-        max-width: none;
-        max-height: calc(100dvh - max(46px, env(safe-area-inset-top, 0px)));
-        border-right: 0;
-        border-bottom: 0;
-        border-left: 0;
-        border-radius: 14px 14px 0 0;
-        box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.48);
-      }
-      .card-dialog-scroll {
-        max-height: calc(100dvh - max(46px, env(safe-area-inset-top, 0px)));
-        padding: 14px max(14px, env(safe-area-inset-right, 0px))
-          calc(18px + var(--safe-bot)) max(14px, env(safe-area-inset-left, 0px));
-      }
-      .action-dialog.hand-card-mode .action-art img,
-      .action-art img {
-        min-height: 0;
-        max-height: 30dvh;
-        aspect-ratio: 16 / 8;
-        object-fit: cover;
-      }
-      .action-copy {
-        padding: 14px 16px 0;
-      }
-      .action-dialog.hand-card-mode .action-title {
-        font-size: 25px;
-      }
-      .action-meta,
-      .action-choice-list {
-        margin: 12px 16px 0;
-      }
-      .action-actions {
+      .hand-inspector .action-actions {
         position: sticky;
         bottom: 0;
-        z-index: 2;
-        grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-        padding: 12px 16px calc(12px + var(--safe-bot));
-        border-top: 1px solid var(--line);
-        background: rgba(25, 22, 17, 0.98);
-        box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.2);
+        z-index: 5;
+        gap: 7px;
+        padding: 10px 14px;
+        background: rgba(17, 16, 13, 0.98);
       }
-      .action-dialog.hand-card-mode .action-actions {
-        padding-top: 12px;
-      }
-      .journal-empty {
-        min-height: min(54vh, 460px);
-        padding: 24px 18px;
+      .hand-inspector .action-actions > button {
+        min-height: 42px;
+        padding-inline: 10px;
       }
     }
-
+    @media (max-width: 360px) {
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.avatar,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.item,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.location {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+      }
+      .prompt:not(.hand-expanded) .cmd-copy {
+        padding-right: 5px;
+      }
+      .prompt:not(.hand-expanded) .cmd-label {
+        font-size: 10px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hand-toggle-chevron,
+      .prompt.hand-expanded .cmd {
+        transition: none;
+      }
+    }
     /* Combat is a live game state, not a kind of chat. Keep the immediate
        result beside the encounter and disclose the deeper ledger on demand. */
     .combat-dock {
@@ -6233,9 +5899,8 @@
       .combat-history-toggle::before { content: "log"; font-size: 10px; }
     }
 
-    /* Card-table pass: the chat remains the stage; the hand and menu use
-       illustrated, square-edged physical-card geometry instead of soft UI
-       containers. */
+    /* Chat is the game table. Supporting controls use square, illustrated
+       card geometry and stay visually quiet beside the transcript. */
     .location-pill,
     .location-pill img,
     .room-hero,
@@ -6264,16 +5929,12 @@
     }
     .play-cue-kicker,
     .play-cue strong,
-    .play-cue-direction {
-      display: none;
-    }
+    .play-cue-direction { display: none; }
     .play-cue-copy {
       color: var(--dim);
       font: 500 13px/1.45 ui-sans-serif, system-ui, sans-serif;
     }
-    .economy-stat.orbs {
-      gap: 7px;
-    }
+    .economy-stat.orbs { gap: 7px; }
     .minimal-orb-rack {
       display: inline-flex;
       align-items: center;
@@ -6287,19 +5948,12 @@
       background: transparent;
       transform: rotate(45deg);
     }
-    .minimal-orb-rack i.filled {
-      background: var(--amber);
-    }
+    .minimal-orb-rack i.filled { background: var(--amber); }
     .minimal-orb-rack.tier-10 i.filled { background: #9eb6bf; }
     .minimal-orb-rack.tier-100 i.filled { background: #c3a7d5; }
     .minimal-orb-rack.tier-1000 i.filled { background: #efc96b; }
-    .minimal-orb-rack.compact {
-      gap: 3px;
-    }
-    .minimal-orb-rack.compact i {
-      width: 8px;
-      height: 8px;
-    }
+    .minimal-orb-rack.compact { gap: 3px; }
+    .minimal-orb-rack.compact i { width: 8px; height: 8px; }
 
     .prompt,
     .prompt.onboarding-mode,
@@ -6321,38 +5975,55 @@
       grid-column: 1;
       margin: 6px 8px 0;
     }
-    .story-hand-toggle {
+    .hand-header {
       width: 100%;
       min-height: 36px;
       display: none;
-      align-items: center;
-      justify-content: space-between;
       border: 0;
       border-bottom: 1px solid var(--line);
       background: transparent;
+    }
+    .prompt.hand-expanded .hand-header { display: block; }
+    .hand-toggle {
+      width: 100%;
+      min-height: 36px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      background: transparent;
       color: var(--dim);
       padding: 7px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .hand-toggle:hover,
+    .hand-toggle:focus-visible { color: var(--text); }
+    .hand-toggle-title {
+      color: inherit;
       font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      cursor: pointer;
     }
-    .story-hand-toggle:hover,
-    .story-hand-toggle:focus-visible {
-      color: var(--text);
-    }
-    .story-hand-count {
+    .hand-toggle-status {
       color: var(--amber);
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
       letter-spacing: 0.06em;
     }
-    .prompt.hand-expanded .story-hand-toggle {
-      display: flex;
+    .hand-toggle-chevron {
+      color: var(--amber);
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transform: none !important;
     }
-    .story-hand-cards {
+    .hand-rail {
       min-width: 0;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1px;
+      overflow: visible;
       padding: 7px;
       background: var(--line);
     }
@@ -6364,9 +6035,7 @@
       border: 1px solid rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.38);
       background: #11110d;
     }
-    .story-card-slot[hidden] {
-      display: none !important;
-    }
+    .story-card-slot[hidden] { display: none !important; }
     .story-card-actions {
       display: none;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -6382,21 +6051,14 @@
       font: 750 11px/1 ui-sans-serif, system-ui, sans-serif;
       cursor: pointer;
     }
-    .story-card-actions button + button {
-      border-left: 1px solid var(--line);
-    }
-    .story-card-actions .story-card-play {
-      color: var(--amber);
-    }
+    .story-card-actions button + button { border-left: 1px solid var(--line); }
+    .story-card-actions .story-card-play { color: var(--amber); }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
       background: rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.1);
       color: var(--text);
     }
-    .story-card-actions button:disabled {
-      opacity: 0.32;
-      cursor: default;
-    }
+    .story-card-actions button:disabled { opacity: 0.32; cursor: default; }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6414,18 +6076,14 @@
       padding: 0;
       text-align: left;
     }
-    .prompt .cmd[style*="display: none"] {
-      display: none !important;
-    }
+    .prompt .cmd[style*="display: none"] { display: none !important; }
     .prompt .cmd::before,
     .prompt .cmd::after,
     .prompt .collectible-mark,
     .prompt .cmd-symbols,
     .prompt .cmd-meta,
     .prompt .provider-call,
-    .prompt .story-call {
-      display: none !important;
-    }
+    .prompt .story-call { display: none !important; }
     .prompt .cmd .thumb,
     .prompt .cmd .thumb.location,
     .prompt .cmd .thumb.avatar,
@@ -6463,9 +6121,7 @@
       line-height: 1.12;
       white-space: normal;
     }
-    .prompt .cmd-label .ui-icon {
-      display: none;
-    }
+    .prompt .cmd-label .ui-icon { display: none; }
     .prompt .cmd-label-text {
       display: -webkit-box;
       overflow: hidden;
@@ -6473,22 +6129,26 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
-    .prompt .detail {
-      display: none;
-    }
-    .prompt.hand-expanded .story-hand-cards {
+    .prompt .detail { display: none; }
+    .prompt.hand-expanded .hand-rail {
       height: clamp(238px, 34dvh, 330px);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      overflow: visible;
       padding: 8px;
     }
     .prompt.hand-expanded .story-card-slot {
       grid-template-rows: minmax(0, 1fr) 42px;
     }
-    .prompt.hand-expanded .story-card-actions {
-      display: grid;
-    }
+    .prompt.hand-expanded .story-card-actions { display: grid; }
     .prompt.hand-expanded .cmd {
+      width: 100%;
+      min-width: 0;
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: minmax(104px, 1.2fr) minmax(86px, 0.8fr);
+      opacity: 1;
+      transition: none;
     }
     .prompt.hand-expanded .cmd .thumb,
     .prompt.hand-expanded .cmd .thumb.location,
@@ -6505,12 +6165,8 @@
       gap: 5px;
       padding: 9px 8px;
     }
-    .prompt.hand-expanded .cmd-kicker {
-      font-size: 9px;
-    }
-    .prompt.hand-expanded .cmd-label {
-      font-size: clamp(12px, 1.4vw, 16px);
-    }
+    .prompt.hand-expanded .cmd-kicker { font-size: 9px; }
+    .prompt.hand-expanded .cmd-label { font-size: clamp(12px, 1.4vw, 16px); }
     .prompt.hand-expanded .detail {
       display: -webkit-box;
       overflow: hidden;
@@ -6522,17 +6178,14 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
-    .prompt.onboarding-mode .story-hand-toggle,
-    .prompt.choice-mode .story-hand-toggle {
-      display: none;
-    }
-    .prompt.onboarding-mode .story-hand-cards,
-    .prompt.choice-mode .story-hand-cards {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    #shuffle {
-      display: none !important;
-    }
+    .hand-inspector { display: none !important; }
+    .prompt.onboarding-mode .hand-header,
+    .prompt.choice-mode .hand-header { display: none; }
+    .prompt.onboarding-mode .hand-rail,
+    .prompt.choice-mode .hand-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .prompt.onboarding-mode .story-card-actions,
+    .prompt.choice-mode .story-card-actions { display: none; }
+    #shuffle { display: none !important; }
 
     .account-panel.minimal-menu {
       width: min(820px, 100%);
@@ -6543,10 +6196,7 @@
       padding: 0;
       color: var(--text);
     }
-    .account-panel.minimal-menu * {
-      border-radius: 0 !important;
-      box-shadow: none !important;
-    }
+    .account-panel.minimal-menu * { border-radius: 0 !important; box-shadow: none !important; }
     .minimal-menu-heading {
       min-height: 42px;
       display: flex;
@@ -6583,11 +6233,7 @@
       padding: 14px 0;
       border-bottom: 1px solid var(--line);
     }
-    .minimal-menu-player > div {
-      min-width: 0;
-      display: grid;
-      gap: 3px;
-    }
+    .minimal-menu-player > div { min-width: 0; display: grid; gap: 3px; }
     .minimal-menu-player strong {
       overflow: hidden;
       font: 600 17px/1.15 Georgia, "Times New Roman", serif;
@@ -6612,16 +6258,8 @@
       color: var(--amber);
       font: 600 18px/1 Georgia, "Times New Roman", serif;
     }
-    .minimal-menu-avatar img {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: cover;
-    }
-    .minimal-menu-level {
-      color: var(--amber);
-      font: 600 14px/1 Georgia, "Times New Roman", serif;
-    }
+    .minimal-menu-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .minimal-menu-level { color: var(--amber); font: 600 14px/1 Georgia, "Times New Roman", serif; }
     .minimal-menu-orbs {
       min-height: 56px;
       display: grid;
@@ -6636,10 +6274,7 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
-    .minimal-menu-orbs strong {
-      color: var(--amber);
-      font-size: 10px;
-    }
+    .minimal-menu-orbs strong { color: var(--amber); font-size: 10px; }
     .minimal-menu-slots {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6662,9 +6297,7 @@
       font: 750 10px/1.2 ui-sans-serif, system-ui, sans-serif;
       cursor: pointer;
     }
-    .minimal-menu-slot:disabled {
-      cursor: default;
-    }
+    .minimal-menu-slot:disabled { cursor: default; }
     .minimal-menu-slot img {
       position: absolute;
       inset: 0;
@@ -6685,14 +6318,8 @@
       padding: 5px;
       text-align: center;
     }
-    .minimal-menu-slot b {
-      color: var(--line-strong);
-      font: 500 18px/1 Georgia, "Times New Roman", serif;
-    }
-    .minimal-menu-rows {
-      margin: 0 14px;
-      border-top: 1px solid var(--line);
-    }
+    .minimal-menu-slot b { color: var(--line-strong); font: 500 18px/1 Georgia, "Times New Roman", serif; }
+    .minimal-menu-rows { margin: 0 14px; border-top: 1px solid var(--line); }
     .minimal-menu-row {
       min-height: 54px;
       display: grid;
@@ -6744,76 +6371,34 @@
       font-size: 12px;
       cursor: pointer;
     }
-    .minimal-menu-settings label + label {
-      border-left: 1px solid var(--line);
-    }
-    .minimal-menu-settings input {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      accent-color: var(--amber);
-    }
+    .minimal-menu-settings label + label { border-left: 1px solid var(--line); }
+    .minimal-menu-settings input { width: 18px; height: 18px; margin: 0; accent-color: var(--amber); }
 
     @media (max-width: 560px) {
-      .topbar-actions .economy {
-        display: flex;
-      }
-      .economy-stat.orbs > strong {
-        font-size: 10px;
-      }
-      .prompt.hand-expanded .story-hand-cards {
-        height: 274px;
-        padding: 7px;
-      }
-      .prompt.hand-expanded .cmd {
-        grid-template-rows: 112px minmax(0, 1fr);
-      }
-      .prompt.hand-expanded .cmd-copy {
-        padding: 8px 6px;
-      }
-      .prompt.hand-expanded .cmd-label {
-        font-size: 12px;
-      }
-      .prompt.hand-expanded .detail {
-        font-size: 10px;
-        -webkit-line-clamp: 2;
-      }
-      .story-card-actions button {
-        min-height: 40px;
-        font-size: 10px;
-      }
-      .account-panel.minimal-menu {
-        border-right: 0;
-        border-left: 0;
-      }
+      .topbar-actions .economy { display: flex; }
+      .economy-stat.orbs > strong { font-size: 10px; }
+      .prompt.hand-expanded .hand-rail { height: 274px; padding: 7px; }
+      .prompt.hand-expanded .cmd { grid-template-rows: 112px minmax(0, 1fr); }
+      .prompt.hand-expanded .cmd-copy { padding: 8px 6px; }
+      .prompt.hand-expanded .cmd-label { font-size: 12px; }
+      .prompt.hand-expanded .detail { font-size: 10px; -webkit-line-clamp: 2; }
+      .story-card-actions button { min-height: 40px; font-size: 10px; }
+      .account-panel.minimal-menu { border-right: 0; border-left: 0; }
       .minimal-menu-player,
       .minimal-menu-orbs,
-      .minimal-menu-rows {
-        margin-inline: 10px;
-      }
+      .minimal-menu-rows { margin-inline: 10px; }
       .minimal-menu-slots,
-      .minimal-menu-settings {
-        margin: 10px;
-      }
-      .minimal-menu-slot {
-        min-height: 94px;
-      }
+      .minimal-menu-settings { margin: 10px; }
+      .minimal-menu-slot { min-height: 94px; }
     }
     @media (max-width: 350px) {
-      .minimal-orb-rack.compact i {
-        width: 7px;
-        height: 7px;
-      }
-      .prompt .cmd {
-        grid-template-columns: 44px minmax(0, 1fr);
-      }
+      .minimal-orb-rack.compact i { width: 7px; height: 7px; }
+      .prompt .cmd { grid-template-columns: 44px minmax(0, 1fr); }
       .prompt .cmd .thumb,
       .prompt .cmd .thumb.location,
       .prompt .cmd .thumb.avatar,
       .prompt .cmd .thumb.item,
-      .prompt .cmd .thumb.action-mini-card {
-        width: 44px;
-      }
+      .prompt .cmd .thumb.action-mini-card { width: 44px; }
       .prompt.hand-expanded .cmd {
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: 98px minmax(0, 1fr);
@@ -6822,12 +6407,8 @@
       .prompt.hand-expanded .cmd .thumb.location,
       .prompt.hand-expanded .cmd .thumb.avatar,
       .prompt.hand-expanded .cmd .thumb.item,
-      .prompt.hand-expanded .cmd .thumb.action-mini-card {
-        width: 100%;
-      }
-      .minimal-menu-slot {
-        min-height: 82px;
-      }
+      .prompt.hand-expanded .cmd .thumb.action-mini-card { width: 100%; }
+      .minimal-menu-slot { min-height: 82px; }
     }
   </style>
 </head>
@@ -6841,7 +6422,7 @@
       </button>
       <div class="topbar-actions">
         <span class="economy" id="economy" aria-label="Pack and Orb status"></span>
-        <button class="room-log-toggle" id="room-log-toggle" type="button" aria-label="Open Journal" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><strong class="room-log-count" id="journal-notification-count" aria-hidden="true" hidden>0</strong><span class="room-log-kicker">Journal</span></button>
+        <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><strong class="room-log-count" id="journal-notification-count" aria-hidden="true" hidden>0</strong><span class="room-log-kicker">Journal</span></button>
       </div>
     </header>
     <main class="terminal">
@@ -6857,7 +6438,7 @@
             <svg id="spatial-scene" viewBox="0 0 1000 230" aria-hidden="true"></svg>
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
-          </div>
+        </div>
         <section class="combat-dock" id="combat-dock" aria-label="Combat status" hidden>
           <header class="combat-dock-head">
             <div class="combat-dock-state"><span class="combat-dock-round" id="combat-dock-round"></span><strong class="combat-dock-turn" id="combat-dock-turn"></strong></div>
@@ -6904,10 +6485,14 @@
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
-      <button class="story-hand-toggle" id="story-hand-toggle" type="button" aria-expanded="false" aria-controls="story-hand-cards">
-        <span>Story Hand</span><span class="story-hand-count" id="story-hand-count">0 cards</span>
-      </button>
-      <div class="story-hand-cards" id="story-hand-cards">
+      <div class="hand-header">
+        <button class="hand-toggle" id="hand-toggle" type="button" aria-expanded="false" aria-controls="hand-rail">
+          <span class="hand-toggle-title">Story Hand</span>
+          <span class="hand-toggle-status" id="hand-toggle-status">3 cards</span>
+          <span class="hand-toggle-chevron" aria-hidden="true">Close</span>
+        </button>
+      </div>
+      <div class="hand-rail" id="hand-rail" role="group" aria-label="Cards in your hand">
         <article class="story-card-slot" data-story-card-slot="primary">
           <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
           <div class="story-card-actions" aria-label="First card actions">
@@ -6930,9 +6515,17 @@
           </div>
         </article>
       </div>
-      <button class="cmd shuffle card-control" id="shuffle" data-player-concept="think" data-analytics-event="action.think" aria-label="Think about replacing the focused Story Hand card">
-        <span class="shuffle-glyph" aria-hidden="true">↻</span><span class="cmd-label">think</span>
-      </button>
+      <section class="hand-inspector" id="hand-inspector" aria-label="Selected card details" hidden>
+        <h2 class="action-title" id="hand-title"></h2>
+        <div class="action-summary" id="hand-summary"></div>
+        <div class="action-meta" id="hand-meta"></div>
+        <div class="action-choice-list" id="hand-choices" hidden></div>
+        <div class="action-actions" id="hand-actions">
+          <button class="action-cancel" id="hand-close" type="button">close hand</button>
+          <button class="action-discard" id="hand-discard" type="button" data-analytics-event="action.discard" hidden>discard</button>
+          <button class="action-confirm" id="hand-confirm" type="button" data-analytics-event="action.confirm">choose</button>
+        </div>
+      </section>
     </footer>
   </div>
   <div class="card-modal" id="card-modal" hidden>
@@ -6965,6 +6558,7 @@
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <div class="action-actions">
         <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>not now</button>
+        <button class="action-discard" id="action-modal-discard" type="button" data-analytics-event="action.discard" hidden>discard</button>
         <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
       </div>
     </section>
@@ -7067,6 +6661,10 @@
     let playerPromotedHandKey = "";
     let handShuffleBusy = false;
     let handPassSubmission = null;
+    let storyHandExpanded = false;
+    let storyHandActiveKey = "";
+    let storyHandScrollPending = false;
+    let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
     let logEvents = [];
     let roomHistoryHydrated = false;
@@ -7716,7 +7314,7 @@
           .find((candidate) => candidate.id === selection.profileId) || null
         : null;
       const choiceId = selection?.choiceId || profile?.default_choice_id || null;
-      const payload = profile
+      const creationPayload = profile
         ? {
             character_creation_id: selection?.profileId || profile.id,
             ...(profile.schema_version === 2
@@ -7727,7 +7325,11 @@
               : { character_choice_id: choiceId }),
           }
         : { calling: selection?.calling || authoredCallingChoices[0].statement };
-      if (actorId) payload.actor_id = actorId;
+      const summonFromActorId = Number(selection?.summonFromActorId || 0);
+      const payload = {
+        ...creationPayload,
+        ...(summonFromActorId ? { summon_from_actor_id: summonFromActorId } : {}),
+      };
       const avatar = await post("/avatar", withAccess(payload));
       if (!avatar.ok || !avatar.actor?.id || !avatar.actor_session) {
         throw new Error(avatarFailureMessage(avatar));
@@ -7776,7 +7378,6 @@
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
       await rotateActorSessionIfNeeded();
-      const requestedActorId = actorId;
       const historyWasNeeded = !roomHistoryHydrated
         || pendingModelInteractionRehydrationRequired;
       let recentEventsRequest = historyWasNeeded ? fetchRecentEvents() : null;
@@ -8246,42 +7847,9 @@
     }
 
     function buildActions(view) {
-      if (view.primary_action?.kind === "create_rescuer") {
-        const actor = actorForId(actorId);
-        const action = {
-          offerKinds: ["create_rescuer"],
-          kind: "avatar-arrival",
-          label: "create rescuer",
-          detail: `bring a Rescue Draught to ${actor?.name || "your fallen avatar"}`,
-          command: "create rescuer",
-          focusKey: "create-rescuer",
-          card: cardForActor(actorId) || cardForLocation(view.location?.id),
-          shape: "avatar",
-          modalTitle: "send a rescuer",
-          modalSummary: "A new traveler will arrive carrying a one-use Rescue Draught. Reach the fallen avatar, revive them, then choose which of the two you will inhabit.",
-          effect: "the other living avatar remains in the world as an independent resident",
-          choices: authoredCallingChoices.map((choice) => ({
-            label: choice.label,
-            detail: choice.detail,
-            value: choice.statement,
-          })),
-          selectedChoice: authoredCallingChoices[0].statement,
-          busyLabel: "sending help",
-          busyDetail: "a rescuer is finding their way into the world…",
-        };
-        action.run = async () => {
-          if (!walletSession) {
-            const connected = await connectWallet();
-            if (!connected || !walletSession) return null;
-          }
-          return createAvatar({
-            calling: action.selectedChoice || authoredCallingChoices[0].statement,
-          });
-        };
-        return [action];
-      }
-      if (view.primary_action?.kind === "create_avatar") {
-        if (actorId && !actorSessionTerminal) {
+      const summoningAvatar = view.primary_action?.kind === "summon_avatar";
+      if (view.primary_action?.kind === "create_avatar" || summoningAvatar) {
+        if (!summoningAvatar && actorId && !actorSessionTerminal) {
           return [{
             kind: "avatar-reconnect",
             label: "reconnect",
@@ -8298,7 +7866,7 @@
             run: () => connectWallet(),
           }];
         }
-        const beginningAgain = Boolean(defeatTransition);
+        const beginningAgain = Boolean(defeatTransition) && !summoningAvatar;
         const creationProfile = (view.character_creation || [])[0] || null;
         const callingChoices = authoredCallingChoices.map((choice) => ({
           label: choice.label,
@@ -8319,21 +7887,29 @@
             priority: 0,
           },
           kind: "avatar-arrival",
-          label: beginningAgain ? "begin again" : "begin",
-          detail: beginningAgain
+          label: summoningAvatar ? "summon" : beginningAgain ? "begin again" : "begin",
+          detail: summoningAvatar
+            ? "bring a rescuer into the world"
+            : beginningAgain
             ? "make a new avatar"
             : "choose what draws you into the shared world",
-          command: "create avatar",
-          focusKey: "create-avatar",
+          command: summoningAvatar ? "summon avatar" : "create avatar",
+          focusKey: summoningAvatar ? "summon-avatar" : "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          modalTitle: beginningAgain
+          modalTitle: summoningAvatar
+            ? "summon a new traveler"
+            : beginningAgain
             ? "begin another tale"
             : "what draws you in?",
-          modalSummary: beginningAgain
+          modalSummary: summoningAvatar
+            ? "Your knocked-out avatar remains where they fell, with their identity and belongings. Choose who enters the world to attempt the rescue."
+            : beginningAgain
             ? "Choose the aspiration that draws your next avatar into the world."
             : "Choose an aspiration, then let deeds reveal what this avatar becomes known for.",
-          effect: "brings your new avatar into The Cosy Cottage",
+          effect: summoningAvatar
+            ? "creates one playable rescuer while your knocked-out avatar remains in the world"
+            : "brings your new avatar into The Cosy Cottage",
           choices: callingChoices,
           selectedChoice: authoredCallingChoices[0].statement,
           busyLabel: "arriving",
@@ -8341,6 +7917,7 @@
         };
         action.run = () => createAvatar({
           calling: action.selectedChoice || authoredCallingChoices[0].statement,
+          summonFromActorId: summoningAvatar ? actorId : 0,
         });
         if (!creationProfile) return [action];
 
@@ -8367,10 +7944,10 @@
             priority: 20,
           },
           kind: "campaign-avatar-arrival",
-          label: "campaign rules",
-          detail: `begin with ${creationProfile.name}`,
-          command: "create campaign avatar",
-          focusKey: `create-avatar:${creationProfile.id}`,
+          label: summoningAvatar ? "summon with campaign rules" : "campaign rules",
+          detail: `${summoningAvatar ? "summon" : "begin"} with ${creationProfile.name}`,
+          command: summoningAvatar ? "summon campaign avatar" : "create campaign avatar",
+          focusKey: `${summoningAvatar ? "summon" : "create"}-avatar:${creationProfile.id}`,
           card: cardForLocation(creationProfile.entry_location_id || view.location?.id),
           shape: "location",
           modalTitle: creationProfile.prompt || "what kind of campaign traveler arrives?",
@@ -8394,10 +7971,12 @@
               profileId: creationProfile.id,
               speciesId: campaignAction.selectedSpeciesId || creationProfile.default_species_id,
               originId: campaignAction.selectedOriginId || creationProfile.default_origin_id,
+              summonFromActorId: summoningAvatar ? actorId : 0,
             }
           : {
               profileId: creationProfile.id,
               choiceId: campaignAction.selectedChoice || creationProfile.default_choice_id,
+              summonFromActorId: summoningAvatar ? actorId : 0,
             });
         return [action, campaignAction];
       }
@@ -8457,7 +8036,10 @@
       }
 
       const turn = view.turn || {};
-      const options = new Set((view.primary_action?.options || []).map((option) => option.kind));
+      const options = new Set([
+        ...(view.primary_action?.options || []).map((option) => option.kind),
+        ...(view.action_hand?.entries || []).map((entry) => entry.kind),
+      ]);
       const economy = view.economy || {};
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
@@ -8811,6 +8393,30 @@
           }),
         });
       }
+      for (const offer of exactOfferVariants("notice_actor").filter(Boolean)) {
+        const targetId = Number(offer?.target?.id || 0);
+        const targetLabel = String(offer?.target?.label || "a nearby actor").trim();
+        if (!targetId) continue;
+        const noticeVerb = offerVerb(offer, "Notice");
+        built.push({
+          ...semanticAction(offer, "notice", `${noticeVerb} ${targetLabel}`),
+          label: noticeVerb.toLowerCase(),
+          detail: targetLabel,
+          command: offer.command || `notice ${targetLabel}`,
+          focusKey: `actor:${targetId}`,
+          focusKeys: [`actor:${targetId}`],
+          card: cardForActor(targetId),
+          shape: "avatar",
+          priority: Number(offer.rank || 52),
+          modalTitle: `${noticeVerb.toLowerCase()} ${targetLabel}`,
+          modalSummary: "Notice one disclosure-safe fact that is visibly true right now.",
+          effect: offer.effect,
+          run: () => action("/actions/notice", {
+            actor_id: actorId,
+            target_actor_id: targetId,
+          }),
+        });
+      }
       const journey = view.journey || null;
       const pathwayJourney = activePathwayJourney(view);
       const scoutOffers = (view.action_offers || []).filter((offer) => (
@@ -9038,6 +8644,40 @@
             card: cardForItem(item.id) || cardForActor(target.id), shape: "item", requestedGift: Boolean(target.economy?.request?.item_id === item.id),
             effect: offer.effect || `${actorLabel(target)} keeps ${item.name}.`, modalSummary: `Pass ${item.name} to ${actorLabel(target)}.`,
             run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: target.id }),
+          });
+        }
+      }
+      if (options.has("accept_transfer")) {
+        for (const offer of exactOfferVariants("accept_transfer")) {
+          if (!offer) continue;
+          const transfer = (view.safety?.incoming_offers || []).find((candidate) => (
+            String(candidate.id || "") === String(offer.claim_key || "")
+          ));
+          if (!transfer) continue;
+          const giver = actorTargets.find((actor) => (
+            Number(actor.id) === Number(transfer.offered_by_actor_id)
+          ));
+          const item = itemForId(Number(transfer.offered_item_id));
+          const giverName = giver ? actorLabel(giver) : (transfer.offered_by_actor_name || "another avatar");
+          const itemName = item?.name || transfer.offered_item_name || "the offered item";
+          built.push({
+            ...semanticAction(offer, "accept"),
+            label: "accept",
+            detail: `${itemName} from ${giverName}`,
+            command: `accept ${itemName} from ${giverName}`,
+            focusKey: `accept-transfer:${transfer.id}`,
+            focusKeys: [`actor:${transfer.offered_by_actor_id}`, `item:${transfer.offered_item_id}`],
+            card: cardForItem(transfer.offered_item_id) || cardForActor(transfer.offered_by_actor_id),
+            shape: "item",
+            priority: Number(offer.rank || 0),
+            modalTitle: `accept ${itemName}`,
+            modalSummary: `${giverName} offers this while you share the room.`,
+            effect: offer.effect || `${itemName} passes from ${giverName} to you`,
+            run: () => action("/actions/accept-transfer-offer", {
+              actor_id: actorId,
+              offer_id: transfer.id,
+              decision: "accept",
+            }),
           });
         }
       }
@@ -9704,6 +9344,7 @@
       }
       if (options.has("attack")) {
         for (const offer of exactOfferVariants("attack")) {
+          const declaringCombat = !view.combat;
           const attackRisk = String(offer?.risk || "");
           const attackMethodId = offer?.source_collectible?.kind === "item"
             ? Number(offer.source_collectible.instance_id || 0)
@@ -9721,13 +9362,18 @@
           const firstTargetLabel = actorLabel(firstTarget);
           const attackAction = {
             ...semanticAction(offer, "attack"),
-            label: "attack",
+            kind: declaringCombat ? "combat-declaration" : "combat-attack",
+            label: declaringCombat ? "confront" : "attack",
             detail: oneTarget
-              ? (attackRisk.includes("danger +1")
-                ? `${firstTargetLabel} · ${attackMethodName}, trouble draws near`
-                : `${firstTargetLabel} · ${attackMethodName}`)
+              ? (declaringCombat
+                ? `${firstTargetLabel} · declare combat`
+                : (attackRisk.includes("danger +1")
+                  ? `${firstTargetLabel} · ${attackMethodName}, trouble draws near`
+                  : `${firstTargetLabel} · ${attackMethodName}`))
               : "choose an opponent",
-            command: oneTarget ? `attack ${firstTargetLabel}` : "attack",
+            command: oneTarget
+              ? `${declaringCombat ? "confront" : "attack"} ${firstTargetLabel}`
+              : (declaringCombat ? "confront" : "attack"),
             focusKey: oneTarget
               ? `actor:${firstTarget.id}`
               : `attack:${attackTargets.map((actor) => actor.id).join("|")}`,
@@ -9735,12 +9381,16 @@
             card: cardForActor(firstTarget.id),
             shape: "avatar",
             targetName: oneTarget ? firstTargetLabel : "",
-            modalTitle: oneTarget ? undefined : "choose who to face",
-            modalSummary: oneTarget
-              ? undefined
+            modalTitle: oneTarget
+              ? (declaringCombat ? `confront ${firstTargetLabel}?` : undefined)
+              : "choose who to face",
+            modalSummary: declaringCombat
+              ? `Declare an encounter with ${oneTarget ? firstTargetLabel : "this opponent"}. No attack is made yet; ordinary advancement pauses while combat is active.`
+              : (oneTarget
+                ? undefined
               : (attackRisk.includes("danger +1")
                 ? "Choose who to confront. Trouble may draw nearer."
-                : "Choose who to confront."),
+                : "Choose who to confront.")),
             risk: offer?.risk,
             effect: offer?.effect,
             ...(oneTarget ? {} : {
@@ -9760,7 +9410,10 @@
             actor_id: actorId,
             target_actor_id: Number(attackAction.selectedChoice || firstTarget.id),
           });
-          attackAction.run = () => action("/actions/attack", attackAction.selectedPayload());
+          attackAction.run = () => action(
+            declaringCombat ? "/actions/declare-combat" : "/actions/attack",
+            attackAction.selectedPayload(),
+          );
           built.push(attackAction);
         }
       }
@@ -9922,39 +9575,6 @@
           });
         }
       });
-      const listenAttemptedHere = economy.listen_attempted_here === true;
-      const ambientCheckOffer = (view.action_offers || []).find((offer) => (
-        offer.kind === "check" && !offer.project
-      )) || null;
-      const listenHasFreshOutcome = !listenAttemptedHere
-        || Boolean(ambientCheckOffer)
-        || options.has("check");
-      const listenKnownUnattempted = economy.listen_attempted_here === false;
-      if ((options.has("check") || listenKnownUnattempted)
-          && listenHasFreshOutcome) {
-        const listenOffer = ambientCheckOffer;
-        const noticeVerb = offerVerb(listenOffer, "Notice");
-        built.push({
-          ...semanticAction(listenOffer, "notice"),
-          label: listenAttemptedHere ? `${noticeVerb.toLowerCase()} again` : noticeVerb.toLowerCase(),
-          detail: listenAttemptedHere ? "free" : "for a clue",
-          command: "listen",
-          focusKey: "check",
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: listenAttemptedHere ? 82 : Number(listenOffer?.rank || 60),
-          orbCost: 0,
-          modalTitle: listenAttemptedHere ? `${noticeVerb.toLowerCase()} once more` : noticeVerb.toLowerCase(),
-          modalSummary: listenAttemptedHere
-            ? "Notice another ambient lead. The room may have nothing new yet."
-            : "Receive one ambient lead from the room.",
-          effect: listenAttemptedHere
-            ? "the room may share another clue"
-            : "the room shares one clue it is ready to tell",
-          risk: listenAttemptedHere ? listenOffer?.risk : undefined,
-          run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
-        });
-      }
       if (options.has("influence")) {
         for (const influenceOffer of exactOfferVariants("influence")) {
           const targetId = Number(influenceOffer?.target?.id || 0);
@@ -10493,6 +10113,7 @@
         "/actions/move": ["move"],
         "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
+        "/actions/notice": ["notice_actor"],
         "/actions/open": ["open"],
         "/actions/check": ["check"],
         "/actions/study": ["study"],
@@ -10508,8 +10129,10 @@
         "/actions/drop": ["drop_item"],
         "/actions/give-item": ["give_item"],
         "/actions/trade-item": ["trade_item"],
+        "/actions/accept-transfer-offer": ["accept_transfer"],
         "/actions/theft": ["theft"],
         "/actions/craft": ["craft"],
+        "/actions/declare-combat": ["attack"],
         "/actions/attack": ["attack"],
         "/actions/defend": ["defend"],
         "/actions/prepare": ["prepare"],
@@ -10536,6 +10159,7 @@
       "/actions/move",
       "/actions/explore-path",
       "/actions/flee",
+      "/actions/notice",
       "/actions/open",
       "/actions/check",
       "/actions/study",
@@ -10547,8 +10171,10 @@
       "/actions/use-item",
       "/actions/give-item",
       "/actions/trade-item",
+      "/actions/accept-transfer-offer",
       "/actions/theft",
       "/actions/craft",
+      "/actions/declare-combat",
       "/actions/attack",
       "/actions/defend",
       "/actions/prepare",
@@ -10574,7 +10200,7 @@
         return Number(payload.item_id || 0);
       }
       if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
-      if (["/actions/chat", "/actions/model-interaction", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
+      if (["/actions/chat", "/actions/notice", "/actions/model-interaction", "/actions/declare-combat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
@@ -10661,7 +10287,7 @@
           ok: false,
           status: 409,
           events: [],
-          output: "That card is no longer in your Story Hand. Think or choose a current card.",
+          output: "That card is no longer in your Story Hand. Discard or choose a current card.",
         };
         setError(result.output);
         void queueRefresh();
@@ -10869,7 +10495,7 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        setError("That whole-hand redeal has retired. Focus one Story Hand card, then choose Think.");
+        setError("Whole-hand redeals have retired. Open the card you want to replace, then choose Discard.");
         return null;
       }
       const beforeOrbs = economyOrbCount();
@@ -11084,13 +10710,12 @@
 
     function sharedRoomTranscriptEvents(events) {
       const currentLocationId = Number(state?.location?.id || 0);
-      return (events || [])
-        .filter((event) => {
-          const eventLocationId = Number(event?.location_id || 0);
-          return eventIsChatTranscriptEvent(event)
-            && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
-        })
-        .slice(-40);
+      const visible = (events || []).filter((event) => {
+        const eventLocationId = Number(event?.location_id || 0);
+        return eventIsChatTranscriptEvent(event)
+          && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
+      });
+      return visible.slice(-40);
     }
 
     function narratedTranscriptEvents(events) {
@@ -11389,14 +11014,6 @@
       if (!panel) return;
       panel.hidden = activities.length === 0;
       panel.innerHTML = activities.map(journalActivityRowHtml).join("");
-      const statusNode = $("error");
-      // Journal activity stays in the Journal. Mirroring ordinary progress into
-      // a full-width status strip steals chat height and makes room history feel
-      // like interface chrome. The status strip is reserved for actionable
-      // errors and explicit transient feedback.
-      if (statusNode.dataset.statusSource === "journal") {
-        writeStatus("");
-      }
       syncJournalRegions();
     }
 
@@ -11417,8 +11034,9 @@
           changed = true;
           continue;
         }
-        if (!event || eventIsMuted(event) || seenSeq.has(event.seq)) continue;
-        seenSeq.add(event.seq);
+        const authoritativeSeq = Number(event?.seq || 0);
+        if (!event || eventIsMuted(event) || (authoritativeSeq > 0 && seenSeq.has(authoritativeSeq))) continue;
+        if (authoritativeSeq > 0) seenSeq.add(authoritativeSeq);
         if (resolvePendingChat(event)) {
           changed = true;
           chatProgressChanged = true;
@@ -12884,12 +12502,23 @@
       return `next ${nextName}`;
     }
 
+    function orbSlotPresentation(value) {
+      const total = Math.max(0, Math.floor(Number(value || 0)));
+      const tier = total >= 1000 ? 1000 : total >= 100 ? 100 : total >= 10 ? 10 : 1;
+      const filled = Math.min(5, tier === 1 ? total : Math.floor(total / tier));
+      const slots = Array.from({ length: 5 }, (_, index) => (
+        `<i class="${index < filled ? "filled" : ""}" aria-hidden="true"></i>`
+      )).join("");
+      return { total, tier, filled, slots };
+    }
+
     function renderEconomy() {
       const economy = state?.economy || {};
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
       const orbPresentation = orbSlotPresentation(orbs);
+      const tierLabel = orbPresentation.tier > 1 ? `<strong>×${orbPresentation.tier}</strong>` : "";
       const parts = [
-        `<span class="economy-stat orbs" aria-label="${orbs} Orbs"><span class="minimal-orb-rack compact tier-${orbPresentation.tier}" aria-hidden="true">${orbPresentation.slots}</span>${orbPresentation.tier > 1 ? `<strong>×${orbPresentation.tier}</strong>` : ""}</span>`,
+        `<span class="economy-stat orbs" aria-label="${orbs} Orbs">${iconSvg("orb")}<span class="minimal-orb-rack compact tier-${orbPresentation.tier}">${orbPresentation.slots}</span>${tierLabel}</span>`,
       ];
       const compact = window.matchMedia("(max-width: 900px)").matches;
       if (economyFlash) {
@@ -13150,8 +12779,24 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
+        const incomingGiftCount = (view.safety?.incoming_offers || []).filter((offer) => (
+          offer.kind === "gift" && Number(offer.offered_by_actor_id) === Number(actor.id)
+        )).length;
+        const outgoingGiftCount = (view.safety?.outgoing_offers || []).filter((offer) => (
+          offer.kind === "gift" && Number(offer.offered_to_actor_id) === Number(actor.id)
+        )).length;
+        const pendingGiftCount = incomingGiftCount + outgoingGiftCount;
+        const pendingGiftLabel = incomingGiftCount
+          ? `${incomingGiftCount} gift${incomingGiftCount === 1 ? "" : "s"} from ${actorLabel(actor)} waiting for your answer`
+          : outgoingGiftCount
+            ? `${outgoingGiftCount} gift${outgoingGiftCount === 1 ? "" : "s"} offered to ${actorLabel(actor)}`
+            : "";
         const ring = expeditionRingPresentation(actor, stateRevision);
-        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
+        const giftMarker = pendingGiftCount
+          ? `<span class="room-avatar-transfer-marker" aria-hidden="true">${iconSvg("gift")}</span>`
+          : "";
+        const accessibleLabel = [label, pendingGiftLabel].filter(Boolean).join(". ");
+        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}${pendingGiftCount ? " pending-transfer" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(accessibleLabel)}" aria-label="Open ${escapeAttr(accessibleLabel)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}${giftMarker}</span>`;
       }).join("");
     }
 
@@ -13192,49 +12837,49 @@
         const missed = outcome?.type === "combat.attack.miss" || (!outcome && event.success === false);
         return {
           icon: missed ? "◇" : knockout ? "!" : "✦",
-          summary: `${actor} → ${target}`,
+          summary: actor + " → " + target,
           detail: [method, mechanics].filter(Boolean).join(" · "),
-          result: missed ? "miss" : knockout ? "knockout" : damage > 0 ? `${damage} harm` : "hit",
+          result: missed ? "miss" : knockout ? "knockout" : damage > 0 ? damage + " harm" : "hit",
           resultKind: missed ? "miss" : knockout ? "critical" : "hit",
         };
       }
       if (type === "combat.encounter.started") {
-        return { ...base, icon: "⚔", summary: `${actor} faces ${target}`, detail: "The encounter begins", result: "start" };
+        return { ...base, icon: "⚔", summary: actor + " faces " + target, detail: "The encounter begins", result: "start" };
       }
       if (type === "combat.attack.hit") {
         const damage = Math.max(0, Number(event.damage || 0));
-        return { ...base, icon: "✦", summary: `${actor} hits ${target}`, detail: event.combat_method || event.item_name || "Attack", result: damage ? `${damage} harm` : "hit", resultKind: "hit" };
+        return { ...base, icon: "✦", summary: actor + " hits " + target, detail: event.combat_method || event.item_name || "Attack", result: damage ? damage + " harm" : "hit", resultKind: "hit" };
       }
       if (type === "combat.attack.miss") {
-        return { ...base, icon: "◇", summary: `${target} evades ${actor}`, detail: event.combat_method || event.item_name || "Attack", result: "miss", resultKind: "miss" };
+        return { ...base, icon: "◇", summary: target + " evades " + actor, detail: event.combat_method || event.item_name || "Attack", result: "miss", resultKind: "miss" };
       }
       if (type === "combat.knockout") {
-        return { ...base, icon: "!", summary: `${target} is knocked out`, detail: event.combat_method || event.item_name || `${actor}'s attack`, result: "knockout", resultKind: "critical" };
+        return { ...base, icon: "!", summary: target + " is knocked out", detail: event.combat_method || event.item_name || actor + "'s attack", result: "knockout", resultKind: "critical" };
       }
       if (type === "combat.dodge") {
-        return { ...base, icon: "↝", summary: `${actor} prepares to dodge`, detail: "Attacks have Disadvantage", result: "dodge" };
+        return { ...base, icon: "↝", summary: actor + " prepares to dodge", detail: "Attacks have Disadvantage", result: "dodge" };
       }
       if (type === "combat.defend") {
-        return { ...base, icon: "◇", summary: `${actor} holds their guard`, detail: "Waiting for an opening", result: "guard" };
+        return { ...base, icon: "◇", summary: actor + " holds their guard", detail: "Waiting for an opening", result: "guard" };
       }
       if (type === "combat.pass") {
-        return { ...base, icon: "→", summary: `${actor} passes`, detail: "The combat floor moves on", result: "pass" };
+        return { ...base, icon: "→", summary: actor + " passes", detail: "The combat floor moves on", result: "pass" };
       }
       if (type === "combat.need_time") {
-        return { ...base, icon: "…", summary: `${actor} needs more time`, detail: "The turn stays with them", result: "pause" };
+        return { ...base, icon: "…", summary: actor + " needs more time", detail: "The turn stays with them", result: "pause" };
       }
       if (type === "combat.flee.success") {
-        return { ...base, icon: "↗", summary: `${actor} escapes`, detail: `To ${event.destination_location_name || "safety"}`, result: "away" };
+        return { ...base, icon: "↗", summary: actor + " escapes", detail: "To " + (event.destination_location_name || "safety"), result: "away" };
       }
       if (type === "combat.encounter.resolved") {
         return { ...base, icon: "✦", summary: "The clash is over", detail: "The room settles again", result: "resolved", resultKind: "hit" };
       }
       if (type === "item.used") {
         const recovery = Number(event.damage || 0) < 0 ? Math.abs(Number(event.damage || 0)) : 0;
-        return { ...base, icon: "+", summary: `${actor} uses ${event.item_name || "an item"}`, detail: event.target_actor_name ? `On ${event.target_actor_name}` : "In the clash", result: recovery ? `+${recovery} HP` : "used", resultKind: recovery ? "hit" : "wait" };
+        return { ...base, icon: "+", summary: actor + " uses " + (event.item_name || "an item"), detail: event.target_actor_name ? "On " + event.target_actor_name : "In the clash", result: recovery ? "+" + recovery + " HP" : "used", resultKind: recovery ? "hit" : "wait" };
       }
       if (type === "magic.spell_cast") {
-        return { ...base, icon: "✧", summary: `${actor} casts ${event.item_name || "a spell"}`, detail: event.target_actor_name ? `Toward ${event.target_actor_name}` : "Its effect takes hold", result: "cast", resultKind: "hit" };
+        return { ...base, icon: "✧", summary: actor + " casts " + (event.item_name || "a spell"), detail: event.target_actor_name ? "Toward " + event.target_actor_name : "Its effect takes hold", result: "cast", resultKind: "hit" };
       }
       return {
         ...base,
@@ -13245,13 +12890,13 @@
     function combatBeatHtml(event, className) {
       const beat = combatBeatPresentation(event);
       const result = beat.result
-        ? `<span class="combat-beat-result ${escapeAttr(beat.resultKind)}">${escapeHtml(beat.result)}</span>`
+        ? '<span class="combat-beat-result ' + escapeAttr(beat.resultKind) + '">' + escapeHtml(beat.result) + "</span>"
         : "";
       const detail = beat.detail
-        ? `<span class="combat-beat-detail">${escapeHtml(beat.detail)}</span>`
+        ? '<span class="combat-beat-detail">' + escapeHtml(beat.detail) + "</span>"
         : "";
       const aria = [beat.summary, beat.detail, beat.result].filter(Boolean).join(". ");
-      return `<div class="${escapeAttr(className)}" data-combat-history-seq="${Number(event?.transcript_tail_seq || event?.seq || 0)}" aria-label="${escapeAttr(aria)}"><span class="combat-beat-icon" aria-hidden="true">${escapeHtml(beat.icon)}</span><span class="combat-beat-copy"><span class="combat-beat-summary">${escapeHtml(beat.summary)}</span>${detail}</span>${result}</div>`;
+      return '<div class="' + escapeAttr(className) + '" data-combat-history-seq="' + Number(event?.transcript_tail_seq || event?.seq || 0) + '" aria-label="' + escapeAttr(aria) + '"><span class="combat-beat-icon" aria-hidden="true">' + escapeHtml(beat.icon) + '</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(beat.summary) + "</span>" + detail + "</span>" + result + "</div>";
     }
 
     function renderCombatDock(view = state) {
@@ -13281,25 +12926,25 @@
       const round = Math.max(1, Number(combat.round || 1));
       const turnCopy = combat.is_current_actor || Number(combat.current_actor_id) === Number(actorId)
         ? "Your turn"
-        : `${currentActor}'s turn`;
-      $("combat-dock-round").textContent = `Round ${round}`;
+        : currentActor + "'s turn";
+      $("combat-dock-round").textContent = "Round " + round;
       $("combat-dock-turn").textContent = turnCopy;
       $("combat-history-count").textContent = String(beats.length);
       const latest = beats.at(-1);
       $("combat-latest").innerHTML = latest
         ? combatBeatHtml(latest, "combat-latest-inner")
-        : `<span class="combat-beat-icon" aria-hidden="true">…</span><span class="combat-beat-copy"><span class="combat-beat-summary">${escapeHtml(currentActor)} is choosing</span><span class="combat-beat-detail">The encounter state is up to date</span></span><span class="combat-beat-result wait">waiting</span>`;
+        : '<span class="combat-beat-icon" aria-hidden="true">…</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(currentActor) + ' is choosing</span><span class="combat-beat-detail">The encounter state is up to date</span></span><span class="combat-beat-result wait">waiting</span>';
       history.innerHTML = historicalBeats.length
         ? historicalBeats.map((event) => combatBeatHtml(event, "combat-history-row")).join("")
-        : `<p class="combat-history-empty">No earlier combat actions yet.</p>`;
+        : '<p class="combat-history-empty">No earlier combat actions yet.</p>';
       history.hidden = !combatHistoryOpen;
       toggle.setAttribute("aria-expanded", combatHistoryOpen ? "true" : "false");
-      toggle.setAttribute("aria-label", `${combatHistoryOpen ? "Hide" : "Show"} combat history, ${beats.length} ${beats.length === 1 ? "event" : "events"}`);
+      toggle.setAttribute("aria-label", (combatHistoryOpen ? "Hide" : "Show") + " combat history, " + beats.length + " " + (beats.length === 1 ? "event" : "events"));
       const latestBeat = latest ? combatBeatPresentation(latest) : null;
       dock.setAttribute("aria-label", [
-        `Combat, round ${round}`,
+        "Combat, round " + round,
         turnCopy,
-        latestBeat ? `Latest: ${latestBeat.summary}, ${latestBeat.result || latestBeat.detail}` : "No actions resolved yet",
+        latestBeat ? "Latest: " + latestBeat.summary + ", " + (latestBeat.result || latestBeat.detail) : "No actions resolved yet",
       ].join(". "));
       dock.hidden = false;
       if (combatHistoryOpen) history.scrollTop = history.scrollHeight;
@@ -13394,6 +13039,10 @@
     function setJournalOpen(open) {
       const closing = journalOpen && !open;
       const opening = !journalOpen && open;
+      if (opening) {
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
+      }
       if (closing) {
         for (const activity of currentJournalActivities()) {
           dismissedJournalActivityKeys.add(activity.key);
@@ -13971,8 +13620,7 @@
         const status = String(page?.status || "ready").toLowerCase();
         const pageActorId = Number(page?.actor_id || actorScope || 0);
         if (
-          !page
-          || String(page.rest_kind || "").toLowerCase() !== "long"
+          String(page.rest_kind || "").toLowerCase() !== "long"
           || !dayKey
           || !imageUrl
           || !["ready", "published"].includes(status)
@@ -14103,7 +13751,7 @@
       const pageCount = pages.length;
       const nav = $("journal-page-nav");
       if (!pageCount) {
-        panel.innerHTML = `<div class="journal-empty"><span class="journal-empty-kicker">Your Journal is waiting</span><strong>Rest paints the next page</strong><span>After a long rest, this space becomes an illustrated page from your tale.</span><button class="account-button secondary" type="button" data-journal-close>return to the room</button></div>`;
+        panel.innerHTML = `<div class="journal-empty">No long-rest Journal page has been painted yet.</div>`;
         nav.hidden = true;
         return;
       }
@@ -14493,7 +14141,7 @@
         return { kind: "hand", label: "hand", text: "Story Hand changed" };
       }
       if (event.type === "hand.thought") {
-        return { kind: "hand", label: "think", text: "one Story Hand card changed" };
+        return { kind: "hand", label: "discard", text: "one Story Hand card changed" };
       }
       if (event.type === "turn.ping_started") {
         const actor = event.actor_name || "someone";
@@ -14603,7 +14251,7 @@
       if (type === "exit.discovered") return "entrance";
       if (type === "encounter.reset") return "frontier";
       if (type === "hand.shuffled") return "hand";
-      if (type === "hand.thought") return "think";
+      if (type === "hand.thought") return "discard";
       if (type.startsWith("turn.")) return "turn";
       if (type === "job.contribution.resolved") return "approach";
       if (type === "clock.updated") return "clock";
@@ -14708,12 +14356,12 @@
 
     function menuNavHtml(active = menuSection) {
       const entries = [
-        ["deck", "pack", "Pack"],
-        ["character", "character", "Character"],
-        ["world", "worlds", "Worlds and packs"],
-        ["journal", "journal", "Journal"],
-        ["identity", "sign in", "Sign in and identity"],
-        ["settings", "settings", "Orbs and settings"],
+        ["deck", "pack"],
+        ["character", "character"],
+        ["identity", "sign in / identity"],
+        ["world", "worlds & packs"],
+        ["journal", "journal"],
+        ["settings", "orbs & settings"],
       ];
       const icons = {
         deck: "cards",
@@ -14741,11 +14389,6 @@
       const charges = ["spell", "consumable"].includes(String(card.role || "")) ? ` · ${Number(card.charges || 0)} use${Number(card.charges || 0) === 1 ? "" : "s"}` : "";
       const zone = card.zone === "carried" ? "pack" : (card.zone || "pack");
       return `<div class="deck-card"><div class="deck-card-copy"><strong>${escapeHtml(card.name || `Item ${card.id}`)}</strong><small>${escapeHtml(`${zone} · ${card.role || "generic"} · ${card.size || "small"} · ${deckWeightLabel(card.weight_tenths)}${charges}${skill}`)}</small></div>${actionHtml}</div>`;
-    }
-
-    function deckGroupHtml(title, body, summary = "", open = false) {
-      const summaryHtml = summary ? `<small>${escapeHtml(summary)}</small>` : "";
-      return `<details class="deck-group"${open ? " open" : ""}><summary><span>${escapeHtml(title)}</span>${summaryHtml}</summary><div class="deck-group-body">${body}</div></details>`;
     }
 
     function deckPanelHtml() {
@@ -14805,19 +14448,7 @@
       const exhaustedRows = exhaustedCards.length
         ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">spent</span>`)).join("")
         : `<div class="deck-empty">No cards are spent.</div>`;
-      const loadout = loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`;
-      const containerCards = containerRows || `<div class="deck-empty">No container cards are carried.</div>`;
-      const charmCards = `${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}`;
-      const spellCards = `<div class="item-note">Only prepared spells can be cast. Spent cards remain in your pack until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div>`;
-      const groups = [
-        deckGroupHtml("loadout", loadout, loadoutRows ? "ready" : "nothing equipped", true),
-        deckGroupHtml("pack", `<div class="deck-card-list">${carriedRows}</div>`, `${carried.length} carried`, true),
-        deckGroupHtml("containers", containerCards, `${containers.length} carried`),
-        deckGroupHtml("skill charms", charmCards, `${equipped.length} of ${slots} worn`),
-        deckGroupHtml("prepared spells", spellCards, `${preparedSpells.length} of ${spellSlots} ready`),
-        deckGroupHtml("spent", `<div class="deck-card-list">${exhaustedRows}</div>`, `${exhaustedCards.length} spent`),
-      ].join("");
-      return `<div class="account-title"><h2 id="account-panel-title">your pack</h2><span class="account-wallet">physical cards, carried with purpose</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>pack weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charms</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spells</small></div></div>${validation}${previews}<div class="deck-groups">${groups}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">your pack</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>pack weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spells</small></div></div>${validation}${previews}<div class="account-section-title">loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">prepared spells</div><div class="item-note">Only prepared spells can be cast. Spent cards remain in your pack until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">spent</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">pack</div><div class="deck-card-list">${carriedRows}</div>`;
     }
 
     function journalPanelHtml() {
@@ -14972,31 +14603,35 @@
       const actor = defeatTransition.actorName || "Your avatar";
       const opponent = defeatTransition.opponentName || "the danger";
       const knockedOut = defeatTransition.kind === "combat.knockout";
+      const canSummonRescuer = state?.primary_action?.kind === "summon_avatar";
       const kicker = knockedOut ? "knocked out" : "this tale has ended";
       const text = knockedOut
         ? `${actor} was knocked out by ${opponent}.`
         : `${actor} was defeated by ${opponent}.`;
       const cue = knockedOut
-        ? "Their body is still where it fell. Link your account, create a rescuer, and bring back the Rescue Draught."
+        ? canSummonRescuer
+          ? "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Summon one new traveler to attempt the rescue."
+          : "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Stay with them while help arrives."
         : "This avatar is gone. Any linked account and items are still here. Choose begin again below when you are ready.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
     function knockedOutObserverHtml() {
-      if (defeatTransition || state?.primary_action?.kind !== "create_rescuer") return "";
+      const rescueAction = state?.primary_action?.kind;
+      if (defeatTransition || !["await_rescue", "summon_avatar"].includes(rescueAction)) return "";
       const actor = actorForId(actorId);
       const name = actor?.name || "Your avatar";
       const text = `${name} is knocked out, but still present in this one shared world.`;
-      const cue = "Create a linked rescuer, carry their Rescue Draught here, then choose which living avatar you will inhabit.";
-      const aria = `rescue run. ${text} ${cue}`;
-      return `<div class="room-scene defeat-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">rescue run</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
+      const cue = rescueAction === "summon_avatar"
+        ? "You can observe the room or summon one new traveler to attempt the rescue. This identity, its bonds, belongings, and journal remain attached."
+        : "You can observe the room while another traveler brings help. This identity, its bonds, belongings, and journal remain attached.";
+      const aria = `awaiting rescue. ${text} ${cue}`;
+      return `<div class="room-scene defeat-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">awaiting rescue</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
     function quietRoomSceneHtml() {
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
-      const kicker = state?.combat ? "Your turn" : state?.journey ? "On the road" : hasAvatar ? "Your next move" : "Begin here";
-      const title = state?.combat ? "Choose your response" : state?.journey ? "How will you press on?" : hasAvatar ? "What will you do?" : "Begin your tale";
       const cue = state?.combat
         ? "The clash has the floor. Choose from your combat hand."
         : state?.journey
@@ -15004,8 +14639,7 @@
         : hasAvatar
           ? "Chat with someone here or explore the room."
         : "Begin a tale, then discover the room through play.";
-      const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
-      return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
+      return `<p class="chat-empty" role="note">${escapeHtml(cue)}</p>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -15037,16 +14671,6 @@
       if (knockout) pieces.push(`${target} is knocked out.`);
       const text = pieces.filter(Boolean).join(" ");
       return `<div class="line event scene-card combat" data-event-row data-combat-beat aria-label="${escapeAttr(`Combat beat. ${text}`)}"><span class="event-label" aria-hidden="true">⚔</span><span class="text">${escapeHtml(text)}</span></div>`;
-    }
-
-    function orbSlotPresentation(value) {
-      const total = Math.max(0, Math.floor(Number(value || 0)));
-      const tier = total >= 1000 ? 1000 : total >= 100 ? 100 : total >= 10 ? 10 : 1;
-      const filled = Math.min(5, tier === 1 ? total : Math.floor(total / tier));
-      const slots = Array.from({ length: 5 }, (_, index) => (
-        `<i class="${index < filled ? "filled" : ""}" aria-hidden="true"></i>`
-      )).join("");
-      return { total, tier, filled, slots };
     }
 
     function minimalMenuOrbHtml() {
@@ -15086,13 +14710,13 @@
         minimalMenuSlotHtml("Spell", preparedSpells[0]),
       ].join("");
       const worldName = String(worldView?.name || contentPacks?.world_name || "CosyWorld Core").trim();
-      const identityLabel = identity?.authenticated ? "Passkey" : "Sign in";
       const identityAction = identity?.authenticated
-        ? `<span class="minimal-menu-value">${escapeHtml(identityLabel)}</span>`
-        : `<button class="minimal-menu-inline-action" type="button" data-passkey-continue>${escapeHtml(identityLabel)}</button>`;
+        ? `<span class="minimal-menu-value">Passkey</span>`
+        : `<button class="minimal-menu-inline-action" type="button" data-passkey-continue>Sign in</button>`;
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
-      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1)}">${Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1)}</span></div>${minimalMenuOrbHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
+      const level = Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1);
+      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
     }
 
     function accountPanelHtml() {
@@ -15105,7 +14729,7 @@
         if (passkeyRecoveryAvailable) {
           return `<section class="account-section" aria-label="Passkey recovery"><div class="account-section-title">Passkey recovery</div><div class="item-note"><strong>This device has a passkey that CosyWorld no longer recognizes.</strong><br>Try another passkey if you have one. Creating a replacement starts a new CosyWorld account and does not restore data held only by the missing account.</div><div class="account-actions"><button class="account-button" type="button" data-passkey-recover>create replacement passkey</button><button class="account-button secondary" type="button" data-passkey-continue>try another passkey</button></div></section>`;
         }
-        return `<section class="account-section account-signin" aria-label="CosyWorld sign in"><div class="account-section-title">Keep your tale with you</div><p class="account-auth-lede">A passkey keeps your avatar, belongings, relationships, and Journal available across supported devices.</p><ul class="account-benefits"><li>No password to remember</li><li>Public play still works without a linked wallet</li><li>Your device confirms every sign-in</li></ul><div class="account-actions"><button class="account-button" type="button" data-passkey-continue>continue with passkey</button></div><p class="account-trust">CosyWorld stores the public credential, never your device's private key.</p></section>`;
+        return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-actions"><button class="account-button" type="button" data-passkey-continue>continue with passkey</button></div></section>`;
       }
       const passkeys = Array.isArray(identity.passkeys) ? identity.passkeys : [];
       const wallets = Array.isArray(identity.wallets) ? identity.wallets : [];
@@ -16056,7 +15680,7 @@
       if (event.type === "branch.resolved") return `finishes a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "hand.shuffled") return "changes their Story Hand.";
-      if (event.type === "hand.thought") return "thinks and changes one Story Hand card.";
+      if (event.type === "hand.thought") return "discards and replaces one Story Hand card.";
       if (event.type === "ability_check.rolled") return abilityCheckEventText(event);
       if (event.type === "study.resolved") {
         return event.content?.includes("yielded")
@@ -16828,7 +16452,6 @@
       if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
       const actorNumericId = Number(actor.id || 0);
       const downed = actorIsDownedForRail(actor);
-      const economyKnown = Boolean(actor?.economy);
       const giftAvailable = !downed && Boolean(transferActionForActor("give", actorNumericId));
       const careAvailable = actorNeedsHealing(actor) && Boolean(careActionForActor(actorNumericId));
       const incoming = (state?.safety?.incoming_offers || [])
@@ -16840,25 +16463,28 @@
       const offerHtml = [
         ...incoming.map((offer) => {
           const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          if (offer.kind === "gift") {
+            return `<div class="avatar-offer"><strong>gift waiting</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<small>Choose Accept from your hand, or leave the room.</small></div>`;
+          }
           return `<div class="avatar-offer"><strong>incoming ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="accept" data-transfer-offer-id="${escapeAttr(offer.id)}">accept</button><button class="account-button" type="button" data-transfer-offer-decision="decline" data-transfer-offer-id="${escapeAttr(offer.id)}">decline</button></div></div>`;
         }),
         ...outgoing.map((offer) => {
           const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          if (offer.kind === "gift") {
+            return `<div class="avatar-offer"><strong>gift offered</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<small>Waiting while you share this room.</small></div>`;
+          }
           return `<div class="avatar-offer"><strong>pending ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="withdraw" data-transfer-offer-id="${escapeAttr(offer.id)}">withdraw</button></div></div>`;
         }),
       ].join("");
       const muteVerb = actor.muted_by_you ? "unmute" : "mute";
       const blockVerb = actor.blocked_by_you ? "unblock" : "block";
-      const noticeButton = economyKnown || downed
-        ? ""
-        : `<button class="account-button avatar-icon-action" type="button" data-avatar-notice="${actorNumericId}">${iconSvg("notice")}<span>notice</span></button>`;
       const giftButton = giftAvailable
         ? `<button class="account-button avatar-icon-action" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}">${iconSvg("gift")}<span>gift</span></button>`
         : "";
       const careButton = careAvailable
         ? `<button class="account-button avatar-icon-action" type="button" data-avatar-care="${actorNumericId}">${iconSvg("utility")}<span>help</span></button>`
         : "";
-      const primaryActions = `${careButton}${noticeButton}${giftButton}`;
+      const primaryActions = `${careButton}${giftButton}`;
       return `${offerHtml}<div class="avatar-interactions" aria-label="Interactions with ${escapeAttr(actorLabel(actor))}">${primaryActions ? `<div class="avatar-action-strip">${primaryActions}</div>` : ""}${avatarKnownItemsHtml(actor, giftRequests)}<div class="avatar-safety-strip" aria-label="Safety controls"><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${iconSvg("mute")}<span>${muteVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${iconSvg("block")}<span>${blockVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-report="${actorNumericId}">${iconSvg("report")}<span>report</span></button></div></div>`;
     }
 
@@ -17608,6 +17234,7 @@
         && state?.primary_action?.kind !== "create_avatar"
         && (!state?.combat || state?.turn?.is_current_actor)
         && handCardThink(action)?.available
+        && handCardThink(action)?.offer_id
       );
     }
 
@@ -17619,28 +17246,75 @@
       );
     }
 
-    function setStoryHandExpanded(expanded, { focus = false } = {}) {
-      storyHandExpanded = Boolean(expanded && usesInlineStoryHand());
-      const prompt = document.querySelector(".prompt");
-      const toggle = $("story-hand-toggle");
-      prompt?.classList.toggle("hand-expanded", storyHandExpanded);
-      toggle?.setAttribute("aria-expanded", String(storyHandExpanded));
-      if (focus && storyHandExpanded) {
-        document.querySelector("[data-hand-play]:not(:disabled)")?.focus();
-      }
+    function storyHandKey(action) {
+      return String(action?.handKey || actionHandKey(action) || action?.focusKey || "");
     }
 
-    function renderStoryHandControls(visibleActions = []) {
+    function originalStoryHandAction(action) {
+      const index = Number(action?.actionIndex);
+      return Number.isInteger(index) && index >= 0 && index < actions.length
+        ? actions[index]
+        : action;
+    }
+
+    function storyHandRowsHtml(action) {
+      return actionModalRows(action)
+        .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim())
+        .map(([key, value]) => {
+          const label = String(key).trim();
+          const detail = String(value).trim();
+          const risk = /^watch for$/i.test(label) ? " risk" : "";
+          return `<div class="action-row${risk}" role="group" aria-label="${escapeAttr(label)}"><span class="action-row-key">${escapeHtml(label)}</span><span class="action-row-value">${escapeHtml(detail)}</span></div>`;
+        })
+        .join("");
+    }
+
+    function storyHandChoicesHtml(action) {
+      const choices = Array.isArray(action?.choices) ? action.choices : [];
+      if (!choices.length) return "";
+      const selected = action.selectedChoice || choices[0]?.value || "";
+      action.selectedChoice = selected;
+      return choices.map((choice, index) => {
+        const value = String(choice.value || "");
+        const active = value === String(selected);
+        const choiceAria = [choice.label || value, choice.detail || value].filter(Boolean).join(". ");
+        return `<label class="action-choice${active ? " active" : ""}" data-hand-choice-index="${index}"><input type="radio" name="hand-action-choice" value="${escapeAttr(value)}" aria-label="${escapeAttr(choiceAria)}"${active ? " checked" : ""} /><span class="action-choice-text"><span class="action-choice-label">${escapeHtml(choice.label || value)}</span><span class="action-choice-detail">${escapeHtml(choice.detail || value)}</span></span></label>`;
+      }).join("");
+    }
+
+    function renderStoryHandInspector(action) {
+      const inspector = $("hand-inspector");
+      inspector.hidden = true;
+      $("hand-title").textContent = "";
+      $("hand-summary").textContent = "";
+      $("hand-meta").innerHTML = "";
+      $("hand-choices").hidden = true;
+      $("hand-choices").innerHTML = "";
+    }
+
+    function scrollStoryHandCardIntoView(action, behavior = "smooth") {
+      if (!usesInlineStoryHand() || !storyHandExpanded || !action) return;
+      const rail = $("hand-rail");
+      const key = storyHandKey(action);
+      const card = [...rail.querySelectorAll(".cmd[data-hand-key]")]
+        .find((button) => String(button.dataset.handKey || "") === key);
+      if (!card) return;
+      const left = card.offsetLeft - Math.max(0, (rail.clientWidth - card.offsetWidth) / 2);
+      rail.scrollTo({ left, behavior });
+    }
+
+    function renderStoryHandChrome(visibleActions) {
       const prompt = document.querySelector(".prompt");
       const inline = usesInlineStoryHand();
-      const toggle = $("story-hand-toggle");
+      const expanded = inline && storyHandExpanded && !actionBusy && visibleActions.length > 0;
+      if (!expanded && storyHandExpanded && (!inline || !visibleActions.length || actionBusy)) {
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
+      }
+      prompt.classList.toggle("hand-expanded", expanded);
+      $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
       const count = visibleActions.length;
-      prompt?.classList.toggle("inline-hand", inline);
-      prompt?.classList.toggle("hand-expanded", inline && storyHandExpanded);
-      toggle.hidden = !inline || count === 0;
-      toggle.setAttribute("aria-expanded", String(inline && storyHandExpanded));
-      toggle.setAttribute("aria-label", storyHandExpanded ? "Close Story Hand" : `Open Story Hand, ${count} cards`);
-      $("story-hand-count").textContent = storyHandExpanded ? "Close" : `${count} ${count === 1 ? "card" : "cards"}`;
+      $("hand-toggle-status").textContent = expanded ? "Close" : `${count} ${count === 1 ? "card" : "cards"}`;
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
@@ -17648,26 +17322,66 @@
         const discard = document.querySelector(`[data-hand-discard="${id}"]`);
         slot.hidden = !action;
         if (!action) return;
-        const title = actionTitle(action);
-        play.disabled = !inline || Boolean(action.busy);
+        const original = originalStoryHandAction(action);
+        const title = actionTitle(original);
+        play.disabled = !inline || Boolean(original.busy);
         play.setAttribute("aria-label", `Play ${title}`);
-        discard.disabled = !inline || !canDiscardHandCard(action);
+        discard.disabled = !inline || !canDiscardHandCard(original) || handShuffleBusy;
         discard.setAttribute("aria-label", `Discard ${title}`);
         discard.title = discard.disabled
           ? "No replacement is available for this card right now."
           : `Discard ${title} and draw its replacement`;
       });
+      for (const button of $("hand-rail").querySelectorAll(".cmd")) button.removeAttribute("aria-current");
+      storyHandScrollPending = false;
+      renderStoryHandInspector(null);
+    }
+
+    function setStoryHandExpanded(expanded, action = null) {
+      if (!usesInlineStoryHand()) return false;
+      storyHandExpanded = Boolean(expanded);
+      if (storyHandExpanded) {
+        const visibleActions = actionBarActions();
+        const actionIndex = actions.indexOf(action);
+        const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex)
+          || visibleActions.find((candidate) => storyHandKey(candidate) === storyHandActiveKey)
+          || visibleActions[0]
+          || null;
+        if (selected) {
+          storyHandActiveKey = storyHandKey(selected);
+          focusIndex = selected.actionIndex;
+          focusedKey = originalStoryHandAction(selected)?.focusKey || "";
+          actionConfirmAction = originalStoryHandAction(selected);
+          storyHandScrollPending = true;
+        }
+      } else {
+        storyHandActiveKey = "";
+        actionConfirmAction = null;
+      }
+      renderCommands();
+      return true;
+    }
+
+    function activateStoryHandAction(action) {
+      if (!action || actionBusy) return;
+      if (!usesInlineStoryHand()) {
+        openActionModal(action, { handCard: true });
+        return;
+      }
+      const index = actions.indexOf(action);
+      if (index >= 0) focusIndex = index;
+      focusedKey = action.focusKey || actionHandKey(action) || "";
+      storyHandActiveKey = storyHandKey(action);
+      setStoryHandExpanded(true, action);
     }
 
     async function discardStoryHandCard(id) {
       const action = actionForButton(id);
-      if (!action || !canDiscardHandCard(action)) return;
+      if (!action || !canDiscardHandCard(action) || handShuffleBusy) return;
       const index = Number($(id)?.dataset?.actionIndex);
       if (Number.isInteger(index) && index >= 0) focusIndex = index;
       focusedKey = action.focusKey || actionHandKey(action) || "";
-      renderRoomAvatarRail();
-      renderCommands();
-      await passHand();
+      await discardActionCard(action);
     }
 
     function playStoryHandCard(id) {
@@ -17683,33 +17397,34 @@
       void runAction(action);
     }
 
-    function selectStoryHandCard(id) {
-      const action = actionForButton(id);
-      if (!action) return;
-      if (!usesInlineStoryHand()) {
-        openHandCardModal(action, Number($(id)?.dataset?.actionIndex));
-        return;
+    function selectStoryHandCardFromScroll() {
+      if (!usesInlineStoryHand() || !storyHandExpanded) return;
+      const rail = $("hand-rail");
+      const cards = [...rail.querySelectorAll(".cmd[data-action-index]")]
+        .filter((button) => getComputedStyle(button).display !== "none");
+      if (!cards.length) return;
+      const railCenter = rail.scrollLeft + rail.clientWidth / 2;
+      const card = cards.reduce((nearest, candidate) => {
+        const candidateCenter = candidate.offsetLeft + candidate.offsetWidth / 2;
+        const nearestCenter = nearest.offsetLeft + nearest.offsetWidth / 2;
+        return Math.abs(candidateCenter - railCenter) < Math.abs(nearestCenter - railCenter)
+          ? candidate
+          : nearest;
+      });
+      const action = actionForButton(card.id);
+      const key = String(card.dataset.handKey || "");
+      if (!action || !key || key === storyHandActiveKey) return;
+      storyHandActiveKey = key;
+      focusIndex = Number(card.dataset.actionIndex);
+      focusedKey = action.focusKey || "";
+      actionConfirmAction = action;
+      for (const button of cards) {
+        if (button === card) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
       }
-      const index = Number($(id)?.dataset?.actionIndex);
-      if (Number.isInteger(index) && index >= 0) focusIndex = index;
-      focusedKey = action.focusKey || actionHandKey(action) || "";
-      if (!storyHandExpanded) setStoryHandExpanded(true);
-      renderRoomAvatarRail();
-      renderCommands();
-    }
-
-    function openHandCardModal(action, actionIndex = null) {
-      if (!action) return;
-      const index = Number.isInteger(actionIndex)
-        ? actionIndex
-        : Number.isInteger(action.actionIndex)
-          ? action.actionIndex
-          : actions.indexOf(action);
-      if (index >= 0 && index < actions.length) {
-        focusIndex = index;
-        focusedKey = action.focusKey || actionHandKey(action) || "";
-      }
-      openActionModal(action, { handCard: true });
+      const index = cards.indexOf(card);
+      $("hand-toggle-status").textContent = `${index + 1} of ${cards.length} · swipe between cards`;
+      renderStoryHandInspector(action);
     }
 
     function openActionModal(action, { handCard = false } = {}) {
@@ -17720,42 +17435,59 @@
         return;
       }
       actionConfirmAction = action;
-      actionModalMode = handCard ? "hand-card" : "action";
       const dialog = $("action-modal").querySelector(".action-dialog");
       dialog.classList.remove("hand-card-mode", "travel-card-mode", ...actionCardAccentClasses);
       if (handCard) {
-        const accent = actionCardAccentClass(action);
-        dialog.classList.add("hand-card-mode", accent.className);
-        if (String(action?.intention || "").toLowerCase() === "travel") {
-          dialog.classList.add("travel-card-mode");
-        }
+        dialog.classList.add("hand-card-mode", actionCardAccentClass(action).className);
+        if (action.minimalTravelPresentation) dialog.classList.add("travel-card-mode");
       }
-      const label = actionTitle(action);
+      const label = action.modalTitle || actionTitle(action);
       const selectedChoice = Array.isArray(action?.choices)
         ? (action.choices.find((choice) => String(choice.value || "") === String(action.selectedChoice || "")) || action.choices[0])
         : null;
       syncActionChoicePreview(action, selectedChoice);
-      const suit = actionCardSuit(action);
-      const verb = String(action?.presentation?.verb || action?.label || "play").trim();
       const eyebrow = handCard
-        ? (String(action?.intention || "").toLowerCase() === "travel"
-          ? verb
-          : [actionCardSuitEmoji(suit), verb].filter(Boolean).join(" · "))
+        ? (action.minimalTravelPresentation
+          ? String(action?.presentation?.verb || action?.label || "travel").trim()
+          : [actionCardSuitEmoji(actionCardSuit(action)), String(action?.presentation?.verb || action?.label || "play").trim()]
+            .filter(Boolean)
+            .join(" · "))
         : String(action.modalEyebrow || "").trim();
       $("action-modal-eyebrow").textContent = eyebrow;
       $("action-modal-eyebrow").hidden = !eyebrow;
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
-      renderActionModalRows(action);
+      if (handCard) $("action-modal-meta").innerHTML = "";
+      else renderActionModalRows(action);
       renderActionChoices(action);
       renderRoomAvatarRail();
-      const discard = $("action-modal-cancel");
-      $("action-modal-confirm").textContent = actionConfirmLabel(action);
-      discard.textContent = handCard ? "discard" : actionCancelLabel(action);
-      discard.disabled = handCard && !canDiscardHandCard(action);
-      discard.title = handCard && !canDiscardHandCard(action)
-        ? "No replacement is available for this card right now."
-        : "";
+      $("action-modal-confirm").textContent = handCard && !action.minimalTravelPresentation
+        ? "play"
+        : actionConfirmLabel(action);
+      const cancelButton = $("action-modal-cancel");
+      cancelButton.textContent = handCard ? "close" : actionCancelLabel(action);
+      cancelButton.hidden = false;
+      cancelButton.setAttribute("aria-label", handCard ? `Close ${label} card` : cancelButton.textContent);
+      const discardButton = $("action-modal-discard");
+      const discardCertificate = projectedHandEntryForAction(action)?.think || null;
+      const canDiscard = !state?.branch
+        && actorId
+        && actorSession
+        && discardCertificate?.available
+        && discardCertificate?.offer_id
+        && (!state?.combat || state?.turn?.is_current_actor);
+      discardButton.hidden = handCard ? false : !canDiscard;
+      discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
+      discardButton.textContent = handCard ? "discard" : (discardCertificate?.free ? "discard · free" : "discard");
+      discardButton.setAttribute(
+        "aria-label",
+        canDiscard
+          ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
+          : "This Story Hand card cannot be discarded",
+      );
+      const actionButtons = discardButton.closest(".action-actions");
+      actionButtons?.classList.toggle("has-discard", Boolean(canDiscard) && !handCard);
+      actionButtons?.classList.toggle("hand-card-actions", handCard);
       openModal("action-modal", $("action-modal-confirm"));
     }
 
@@ -17830,9 +17562,11 @@
       $("action-modal-eyebrow").hidden = true;
       $("action-modal-eyebrow").textContent = "";
       $("action-modal-cancel").textContent = "not now";
-      $("action-modal-cancel").disabled = false;
-      $("action-modal-cancel").removeAttribute("title");
-      actionModalMode = "action";
+      $("action-modal-cancel").hidden = false;
+      $("action-modal-cancel").removeAttribute("aria-label");
+      $("action-modal-discard").hidden = true;
+      $("action-modal-discard").disabled = false;
+      $("action-modal-discard").closest(".action-actions")?.classList.remove("has-discard", "hand-card-actions");
       actionConfirmAction = null;
       renderRoomAvatarRail();
     }
@@ -17850,6 +17584,22 @@
       }
       closeActionModal();
       if (action) await runAction(action);
+    }
+
+    async function confirmStoryHandAction() {
+      const action = actionConfirmAction;
+      if (!action) return;
+      if (action?.creationStage === "species") {
+        action.selectedSpeciesId = action.selectedChoice;
+        setCreationModalStage(action, "origin");
+        renderStoryHandInspector(action);
+        return;
+      }
+      if (action?.creationStage === "origin") {
+        action.selectedOriginId = action.selectedChoice;
+      }
+      setStoryHandExpanded(false);
+      await runAction(action);
     }
 
     function fallbackCardImage(card) {
@@ -18470,6 +18220,11 @@
       const action = visible[next];
       focusIndex = action.actionIndex;
       focusedKey = action.focusKey || "";
+      if (usesInlineStoryHand() && storyHandExpanded) {
+        storyHandActiveKey = storyHandKey(action);
+        actionConfirmAction = originalStoryHandAction(action);
+        storyHandScrollPending = true;
+      }
       renderRoomAvatarRail();
       renderCommands();
       $((["primary", "secondary", "tertiary"])[next])?.focus();
@@ -18479,22 +18234,19 @@
       return [400, 409, 423].includes(Number(result.status || 0));
     }
 
-    async function passHand() {
+    async function discardActionCard(focused = visibleFocusedAction()) {
       if (handShuffleBusy
         || !actorId
         || !actorSession
         || state?.primary_action?.kind === "create_avatar") {
         return null;
       }
-      const button = $("shuffle");
       handShuffleBusy = true;
-      button.disabled = true;
       try {
-        const focused = visibleFocusedAction();
         const entry = projectedHandEntryForAction(focused);
         const think = entry?.think;
         if (!think?.available || !think?.offer_id) {
-          setError("Choose a Story Hand card that has another possibility, then Think again.");
+          setError("That Story Hand card has no other current possibility to discard into.");
           return null;
         }
         if (handPassSubmission?.offer_id !== think.offer_id) {
@@ -18532,17 +18284,20 @@
       }
     }
 
+    // Kept for transport/browser compatibility; the player-facing control is
+    // Discard on each card in the expanded Story Hand.
+    async function passHand(focused = visibleFocusedAction()) {
+      return discardActionCard(focused);
+    }
+
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary", "tertiary"];
-      const drawButton = $("shuffle");
       renderTurnPingPill();
       prompt.classList.toggle("onboarding-mode", state?.primary_action?.kind === "create_avatar");
       prompt.classList.toggle("single-action", actionBusy);
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
-        prompt.classList.remove("has-draw");
-        drawButton.style.display = "none";
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
@@ -18559,36 +18314,14 @@
           renderButton(id, null);
           $(id).style.display = "none";
         }
-        storyHandExpanded = false;
-        renderStoryHandControls([pendingAction || {}]);
+        renderStoryHandChrome([]);
+        $("hand-toggle-status").textContent = "action in progress";
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
       const visibleActions = actionBarActions().slice(0, handCapacity());
-      const focusedVisibleAction = visibleActions.find((action) => action.actionIndex === focusIndex)
-        || visibleActions[0]
-        || null;
-      const focusedThink = projectedHandEntryForAction(focusedVisibleAction)?.think || null;
-      const canDiscard = !state?.branch
-        && actorId
-        && actorSession
-        && state?.primary_action?.kind !== "create_avatar"
-        && (state?.action_hand?.entries || []).some((entry) => entry?.think?.available)
-        && (!state?.combat || state?.turn?.is_current_actor);
       prompt.classList.toggle("combat-mode", Boolean(state?.combat));
       prompt.classList.toggle("choice-mode", choiceMode);
-      prompt.classList.remove("has-draw");
-      drawButton.style.display = "none";
-      drawButton.disabled = handShuffleBusy || !canDiscard || !focusedThink?.available;
-      const thinkCost = focusedThink?.free ? "free" : "uses this turn";
-      const thinkSlot = String(focusedThink?.slot || focusedVisibleAction?.storyHandSlot || "focused");
-      drawButton.querySelector(".cmd-label").textContent = focusedThink?.free ? "think · free" : "think";
-      drawButton.setAttribute(
-        "aria-label",
-        focusedThink?.available
-          ? `Think: replace the ${thinkSlot} card; ${thinkCost}`
-          : `Think: the ${thinkSlot} card has no other current possibility`,
-      );
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
         const visibleAction = visibleActions[index]
@@ -18601,7 +18334,7 @@
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }
-      renderStoryHandControls(visibleActions);
+      renderStoryHandChrome(visibleActions);
     }
 
     function actionForButton(id) {
@@ -19207,25 +18940,6 @@
         openActionModal(careAction);
         return;
       }
-      const notice = event.target.closest("[data-avatar-notice]");
-      if (notice) {
-        event.preventDefault();
-        event.stopPropagation();
-        const targetActorId = Number(notice.getAttribute("data-avatar-notice") || 0);
-        if (!targetActorId) return;
-        notice.disabled = true;
-        action("/actions/check", {
-          actor_id: actorId,
-          target_actor_id: targetActorId,
-          ability: "wisdom",
-          dc: 12,
-        }).then(async () => {
-          await refresh();
-          const updated = cardForActor(targetActorId);
-          if (updated) openCardModal(updated);
-        });
-        return;
-      }
       const transfer = event.target.closest("[data-avatar-transfer]");
       if (transfer) {
         event.preventDefault();
@@ -19468,7 +19182,8 @@
       accountPanelPinned = forceOpen === null ? !accountPanelPinned : Boolean(forceOpen);
       if (accountPanelPinned) {
         libraryPanelPinned = false;
-        setStoryHandExpanded(false);
+        storyHandExpanded = false;
+        storyHandActiveKey = "";
       }
       render();
       return accountPanelPinned;
@@ -19487,22 +19202,25 @@
     }
 
     $("primary").addEventListener("click", () => {
-      selectStoryHandCard("primary");
+      const action = actionForButton("primary") || (state?.branch ? actions[0] : focusedAction());
+      if (action) activateStoryHandAction(action);
     });
 
     $("secondary").addEventListener("click", () => {
-      selectStoryHandCard("secondary");
+      const action = actionForButton("secondary") || (state?.branch ? actions[1] : null);
+      if (action) activateStoryHandAction(action);
     });
 
     $("tertiary").addEventListener("click", () => {
-      selectStoryHandCard("tertiary");
+      const action = actionForButton("tertiary");
+      if (action) activateStoryHandAction(action);
     });
 
-    $("story-hand-toggle").addEventListener("click", () => {
-      setStoryHandExpanded(!storyHandExpanded, { focus: !storyHandExpanded });
+    $("hand-toggle").addEventListener("click", () => {
+      setStoryHandExpanded(!storyHandExpanded, actionConfirmAction || visibleFocusedAction());
     });
 
-    $("story-hand-cards").addEventListener("click", (event) => {
+    $("hand-rail").addEventListener("click", (event) => {
       const play = event.target.closest("[data-hand-play]");
       if (play) {
         event.preventDefault();
@@ -19518,8 +19236,55 @@
       }
     });
 
-    $("shuffle").addEventListener("click", () => {
-      void passHand();
+    $("hand-close").addEventListener("click", (event) => {
+      event.preventDefault();
+      setStoryHandExpanded(false);
+      $("hand-toggle").focus();
+    });
+
+    $("hand-choices").addEventListener("change", (event) => {
+      const input = event.target.closest("input[name='hand-action-choice']");
+      if (!input || !actionConfirmAction) return;
+      const choice = input.closest("[data-hand-choice-index]");
+      const index = Number(choice?.dataset.handChoiceIndex || 0);
+      const selected = actionConfirmAction.choices?.[index];
+      if (!selected) return;
+      actionConfirmAction.selectedChoice = selected.value;
+      renderStoryHandInspector(actionConfirmAction);
+    });
+
+    $("hand-confirm").addEventListener("click", (event) => {
+      event.preventDefault();
+      void confirmStoryHandAction();
+    });
+
+    $("hand-discard").addEventListener("click", (event) => {
+      event.preventDefault();
+      const action = actionConfirmAction;
+      setStoryHandExpanded(false);
+      if (action) void discardActionCard(action);
+    });
+
+    $("hand-rail").addEventListener("scroll", () => {
+      if (storyHandScrollFrame !== null) return;
+      storyHandScrollFrame = window.requestAnimationFrame(() => {
+        storyHandScrollFrame = null;
+        selectStoryHandCardFromScroll();
+      });
+    }, { passive: true });
+
+    window.matchMedia("(max-width: 900px)").addEventListener("change", () => {
+      storyHandExpanded = false;
+      storyHandActiveKey = "";
+      actionConfirmAction = null;
+      renderCommands();
+    });
+
+    $("action-modal-discard").addEventListener("click", (event) => {
+      event.preventDefault();
+      const action = actionConfirmAction;
+      closeActionModal();
+      if (action) void discardActionCard(action);
     });
 
     document.addEventListener("keydown", (event) => {
@@ -19551,6 +19316,12 @@
         }
         return;
       }
+      if (storyHandExpanded && event.key === "Escape") {
+        event.preventDefault();
+        setStoryHandExpanded(false);
+        $("hand-toggle").focus();
+        return;
+      }
       if (libraryPanelPinned && event.key === "Escape") {
         event.preventDefault();
         toggleLibraryPanel(false);
@@ -19579,7 +19350,7 @@
         return;
       }
       const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
-        && Boolean(event.target?.closest?.(".actions .cmd"));
+        && Boolean(event.target?.closest?.(".hand-rail .cmd"));
       if (
         event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")
         && !actionArrow
@@ -19587,15 +19358,10 @@
       if (event.key === "Enter") {
         event.preventDefault();
         const action = state?.branch ? actions[0] : visibleFocusedAction();
-        if (action && usesInlineStoryHand()) {
-          if (storyHandExpanded) void runAction(action);
-          else setStoryHandExpanded(true, { focus: true });
-        } else if (action) {
-          openHandCardModal(action);
-        }
+        if (action) activateStoryHandAction(originalStoryHandAction(action));
       } else if (event.key === " ") {
         event.preventDefault();
-        if (state?.branch && actions[1]) openHandCardModal(actions[1], 1);
+        if (state?.branch && actions[1]) activateStoryHandAction(actions[1]);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         moveVisibleActionFocus(1);

@@ -97,6 +97,138 @@ pub(super) fn orb_chat_attempt_stage(stage: &str, attempt: u32) -> String {
     format!("{stage}:attempt:{}", attempt.max(1))
 }
 
+pub(super) async fn commit_chat_status(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    status: &str,
+    reason: &str,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: Option<u64>,
+) -> Vec<EventView> {
+    let mut runtime = state.inner.lock().await;
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.caused_by_event_seq = caused_by_event_seq;
+    record.source_world_tick = source_world_tick;
+    record.observed_through_seq = observed_through_seq;
+    record.source_location_id = source_location_id;
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ChatStatus {
+            target_actor_id,
+            status: status.to_string(),
+            reason: reason.to_string(),
+        });
+    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
+        return Vec::new();
+    };
+    drop(runtime);
+    if commit_status == CW_OK {
+        broadcast_events(state, &events);
+        events
+    } else {
+        Vec::new()
+    }
+}
+
+pub(super) async fn announce_chat_typing(
+    state: &AppState,
+    speaker_actor_id: u64,
+    listener_actor_id: u64,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: Option<u64>,
+) {
+    let _ = commit_chat_status(
+        state,
+        speaker_actor_id,
+        listener_actor_id,
+        "typing",
+        "the next line is being composed",
+        caused_by_event_seq,
+        source_world_tick,
+        observed_through_seq,
+        source_location_id,
+    )
+    .await;
+}
+
+async fn complete_queued_orb_chat(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    plan: AvatarChatPlan,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) -> Result<(), String> {
+    complete_queued_orb_chat_attempt(
+        state,
+        actor_id,
+        target_actor_id,
+        plan,
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        1,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn complete_chat_after_context_change(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: u64,
+) -> Result<(), String> {
+    let completed_already = {
+        let runtime = state.inner.lock().await;
+        orb_chat_status_already_committed(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            "completed",
+            source_location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+        )
+    };
+    if completed_already {
+        return Ok(());
+    }
+
+    let events = commit_chat_status(
+        state,
+        actor_id,
+        target_actor_id,
+        "completed",
+        "the conversation moved out of reach",
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        Some(source_location_id),
+    )
+    .await;
+    (!events.is_empty())
+        .then_some(())
+        .ok_or_else(|| "the ended conversation status could not be committed".to_string())
+}
+
 fn orb_chat_event_matches_job(
     event: &EventView,
     queue_event_id: Option<u64>,

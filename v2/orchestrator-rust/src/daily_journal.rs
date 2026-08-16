@@ -1,20 +1,10 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    io::Cursor,
-    net::SocketAddr,
-    path::Path,
-    sync::OnceLock,
-    time::Duration,
-};
+use std::{collections::BTreeMap, fs, path::Path, time::Duration};
 
 use axum::{
-    extract::{ConnectInfo, Path as AxumPath, State},
+    extract::{Path as AxumPath, State},
     http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
-    Json,
 };
-use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -25,20 +15,9 @@ const DAILY_JOURNAL_FEATURE: &str = "avatar_daily_journal";
 const DAILY_JOURNAL_PROMPT_VERSION: &str = "avatar-daily-journal-first-person-v1";
 const DAILY_JOURNAL_IMAGE_FEATURE: &str = "avatar_daily_journal_image";
 const DAILY_JOURNAL_IMAGE_PROMPT_VERSION: &str = "avatar-daily-journal-image-v1";
-const DAILY_JOURNAL_STYLE_REVISION: &str = "cosyworld-rest-keepsake/3";
+const DAILY_JOURNAL_STYLE_REVISION: &str = "cosyworld-hand-painted-page/2";
 const DAILY_JOURNAL_MAX_UPDATES: usize = 36;
 const DAILY_JOURNAL_MAX_PAGES: usize = 32;
-const DAILY_JOURNAL_ILLUSTRATION_COST_ORBS: i32 = 1;
-const DAILY_JOURNAL_MAX_REFERENCES: usize = 5;
-static DAILY_JOURNAL_ILLUSTRATION_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
-
-fn default_daily_journal_rest_kind() -> String {
-    "long".to_string()
-}
-
-fn default_daily_journal_illustration_status() -> String {
-    "available".to_string()
-}
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct AvatarDailyJournalState {
@@ -67,8 +46,6 @@ pub(super) struct DailyJournalPageState {
     pub(super) requested_event_seq: u64,
     pub(super) source_event_seqs: Vec<u64>,
     pub(super) hidden_updates: Vec<DailyJournalHiddenUpdate>,
-    #[serde(default = "default_daily_journal_rest_kind")]
-    pub(super) rest_kind: String,
     pub(super) status: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(super) entry: String,
@@ -76,16 +53,6 @@ pub(super) struct DailyJournalPageState {
     pub(super) image_content_type: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(super) image_digest: String,
-    #[serde(default = "default_daily_journal_illustration_status")]
-    pub(super) illustration_status: String,
-    #[serde(default)]
-    pub(super) illustration_funded: bool,
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub(super) illustration_intent_ids: BTreeSet<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(super) illustration_error_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(super) references: Vec<DailyJournalReference>,
     pub(super) style_revision: String,
     pub(super) prompt_version: String,
 }
@@ -100,16 +67,6 @@ pub(super) struct DailyJournalRestUpdate {
     pub(super) location_id: u64,
     pub(super) location_name: String,
     pub(super) updates: Vec<DailyJournalHiddenUpdate>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(super) references: Vec<DailyJournalReference>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(super) struct DailyJournalReference {
-    pub(super) kind: String,
-    pub(super) subject_id: u64,
-    pub(super) label: String,
-    pub(super) image_url: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -121,27 +78,6 @@ pub(super) struct DailyJournalPagePublication {
     pub(super) image_content_type: String,
     #[serde(default)]
     pub(super) image_digest: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(super) struct DailyJournalIllustrationPublication {
-    pub(super) artifact_id: String,
-    pub(super) status: String,
-    #[serde(default)]
-    pub(super) image_content_type: String,
-    #[serde(default)]
-    pub(super) image_digest: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(super) error_code: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct IllustrateDailyJournalRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    artifact_id: String,
-    intent_id: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -156,16 +92,8 @@ struct DailyJournalPageView {
     day_index: u64,
     page_index: usize,
     artifact_id: String,
-    rest_kind: String,
+    rest_kind: &'static str,
     status: String,
-    entry: String,
-    location_name: String,
-    references: Vec<DailyJournalReference>,
-    illustration_status: String,
-    illustration_cost_orbs: i32,
-    illustration_funded: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    illustration_error_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -215,7 +143,6 @@ impl RuntimeWorld {
                 text: format!("A quiet pause at {}.", compact_whitespace(&location_name)),
             });
         }
-        let references = self.daily_journal_references(actor_id, actor.location_id, &recent);
         Some(DailyJournalRestUpdate {
             day_index,
             rest_kind: if long_rest { "long" } else { "short" }.to_string(),
@@ -225,118 +152,7 @@ impl RuntimeWorld {
             location_id: actor.location_id,
             location_name: compact_whitespace(&location_name),
             updates,
-            references,
         })
-    }
-
-    fn daily_journal_reference(
-        &self,
-        viewer_actor_id: u64,
-        kind: &str,
-        subject_id: u64,
-    ) -> Option<DailyJournalReference> {
-        let card = match kind {
-            "actor" => {
-                let actor = self.actor_by_id(subject_id)?;
-                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
-                    name: format!("Avatar {subject_id}"),
-                    speech_mode: "prose".to_string(),
-                    title: "World Traveler".to_string(),
-                    description: String::new(),
-                });
-                self.decorate_community_art_card(
-                    card_for_actor(
-                        subject_id,
-                        &meta.name,
-                        &meta.title,
-                        &meta.description,
-                        actor.stats.level,
-                    ),
-                    kind,
-                    subject_id,
-                    Some(viewer_actor_id),
-                )
-            }
-            "item" => {
-                let item = self.item_by_id(subject_id)?;
-                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
-                    name: format!("Item {subject_id}"),
-                    description: "A found keepsake.".to_string(),
-                    skill_id: None,
-                    skill_bonus: 0,
-                    mechanics: None,
-                });
-                self.decorate_community_art_card(
-                    card_for_item(item.id, &meta.name, &meta.description),
-                    kind,
-                    subject_id,
-                    Some(viewer_actor_id),
-                )
-            }
-            "location" => {
-                let name = self.location_name(subject_id)?;
-                let meta = self.location_meta_for(subject_id);
-                self.decorate_community_art_card(
-                    self.decorate_generated_location_card(
-                        card_for_location(subject_id, &name, Some(&meta)),
-                        subject_id,
-                    ),
-                    kind,
-                    subject_id,
-                    Some(viewer_actor_id),
-                )
-            }
-            _ => return None,
-        };
-        let image_url = card.image_url?.trim().to_string();
-        if image_url.is_empty() {
-            return None;
-        }
-        Some(DailyJournalReference {
-            kind: kind.to_string(),
-            subject_id,
-            label: compact_whitespace(&card.display_name),
-            image_url,
-        })
-    }
-
-    fn daily_journal_references(
-        &self,
-        actor_id: u64,
-        current_location_id: u64,
-        recent: &[EventView],
-    ) -> Vec<DailyJournalReference> {
-        let mut references = Vec::new();
-        let mut seen = BTreeSet::new();
-        let mut push = |kind: &str, subject_id: u64| {
-            if references.len() >= DAILY_JOURNAL_MAX_REFERENCES
-                || !seen.insert((kind.to_string(), subject_id))
-            {
-                return;
-            }
-            if let Some(reference) = self.daily_journal_reference(actor_id, kind, subject_id) {
-                references.push(reference);
-            }
-        };
-
-        push("actor", actor_id);
-        push("location", current_location_id);
-        for event in recent.iter().rev() {
-            if let Some(item_id) = event.item_id.or(event.target_item_id) {
-                push("item", item_id);
-            }
-        }
-        if !references.iter().any(|reference| reference.kind == "item") {
-            for item in self.actor_held_items(actor_id) {
-                push("item", item.id);
-            }
-        }
-        for event in recent.iter().rev() {
-            if let Some(location_id) = event.destination_location_id.or(event.location_id) {
-                push("location", location_id);
-            }
-        }
-        references
     }
 
     pub(super) fn apply_daily_journal_rest_update(&mut self, update: &DailyJournalRestUpdate) {
@@ -357,18 +173,10 @@ impl RuntimeWorld {
             let excess = journal.hidden_updates.len() - DAILY_JOURNAL_MAX_UPDATES;
             journal.hidden_updates.drain(0..excess);
         }
-        if journal
-            .pages
-            .values()
-            .any(|page| page.requested_event_seq == update.observed_through_seq)
-        {
+        if update.rest_kind != "long" || journal.pages.contains_key(&update.day_index) {
             return;
         }
-        let artifact_id = daily_journal_artifact_id(
-            update.actor_id,
-            update.day_index,
-            update.observed_through_seq,
-        );
+        let artifact_id = daily_journal_artifact_id(update.actor_id, update.day_index);
         let hidden_updates = std::mem::take(&mut journal.hidden_updates);
         let mut source_event_seqs = hidden_updates
             .iter()
@@ -377,7 +185,7 @@ impl RuntimeWorld {
         source_event_seqs.sort_unstable();
         source_event_seqs.dedup();
         journal.pages.insert(
-            update.observed_through_seq,
+            update.day_index,
             DailyJournalPageState {
                 day_index: update.day_index,
                 artifact_id,
@@ -388,16 +196,10 @@ impl RuntimeWorld {
                 requested_event_seq: update.observed_through_seq,
                 source_event_seqs,
                 hidden_updates,
-                rest_kind: update.rest_kind.clone(),
                 status: "pending".to_string(),
                 entry: String::new(),
                 image_content_type: String::new(),
                 image_digest: String::new(),
-                illustration_status: "available".to_string(),
-                illustration_funded: false,
-                illustration_intent_ids: BTreeSet::new(),
-                illustration_error_code: None,
-                references: update.references.clone(),
                 style_revision: DAILY_JOURNAL_STYLE_REVISION.to_string(),
                 prompt_version: DAILY_JOURNAL_PROMPT_VERSION.to_string(),
             },
@@ -419,11 +221,7 @@ impl RuntimeWorld {
             .daily_journals
             .get_mut(&actor_id)?
             .pages
-            .values_mut()
-            .find(|page| {
-                page.day_index == publication.day_index
-                    && page.artifact_id == publication.artifact_id
-            })?;
+            .get_mut(&publication.day_index)?;
         if page.artifact_id != publication.artifact_id || page.status == "ready" {
             return None;
         }
@@ -445,97 +243,8 @@ impl RuntimeWorld {
         page.entry = entry;
         page.image_content_type = publication.image_content_type.clone();
         page.image_digest = publication.image_digest.clone();
-        if has_generated_image {
-            page.illustration_status = "ready".to_string();
-            page.illustration_funded = true;
-        }
         page.status = "ready".to_string();
         Some(self.append_async_job_event("journal.page.written", actor_id, None, None))
-    }
-
-    pub(super) fn apply_fund_daily_journal_illustration(
-        &mut self,
-        actor_id: u64,
-        artifact_id: &str,
-        intent_id: &str,
-        amount: i32,
-    ) -> Option<EventView> {
-        let page = self
-            .daily_journals
-            .get_mut(&actor_id)?
-            .pages
-            .values_mut()
-            .find(|page| page.artifact_id == artifact_id)?;
-        if page.status != "ready"
-            || page.entry.is_empty()
-            || page.illustration_status == "ready"
-            || !page.illustration_intent_ids.insert(intent_id.to_string())
-        {
-            return None;
-        }
-        if amount > 0 {
-            page.illustration_funded = true;
-        }
-        page.illustration_status = "generating".to_string();
-        page.illustration_error_code = None;
-        Some(self.append_async_job_event(
-            if amount > 0 {
-                "journal.illustration.funded"
-            } else {
-                "journal.illustration.retrying"
-            },
-            actor_id,
-            None,
-            Some(artifact_id.to_string()),
-        ))
-    }
-
-    pub(super) fn apply_daily_journal_illustration_publication(
-        &mut self,
-        actor_id: u64,
-        publication: &DailyJournalIllustrationPublication,
-    ) -> Option<EventView> {
-        let page = self
-            .daily_journals
-            .get_mut(&actor_id)?
-            .pages
-            .values_mut()
-            .find(|page| page.artifact_id == publication.artifact_id)?;
-        if page.illustration_status != "generating" {
-            return None;
-        }
-        if publication.status == "ready" {
-            if !matches!(
-                publication.image_content_type.as_str(),
-                "image/png" | "image/jpeg" | "image/webp" | "image/gif"
-            ) || publication.image_digest.len() != 64
-                || !publication
-                    .image_digest
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-            {
-                return None;
-            }
-            page.image_content_type = publication.image_content_type.clone();
-            page.image_digest = publication.image_digest.clone();
-            page.illustration_status = "ready".to_string();
-            page.illustration_error_code = None;
-        } else if publication.status == "failed" {
-            page.illustration_status = "failed".to_string();
-            page.illustration_error_code = publication.error_code.clone();
-        } else {
-            return None;
-        }
-        Some(self.append_async_job_event(
-            if publication.status == "ready" {
-                "journal.illustration.ready"
-            } else {
-                "journal.illustration.failed"
-            },
-            actor_id,
-            None,
-            Some(publication.artifact_id.clone()),
-        ))
     }
 
     pub(super) fn daily_journal_view(&self, actor_id: u64) -> DailyJournalView {
@@ -549,34 +258,17 @@ impl RuntimeWorld {
                     .enumerate()
                     .map(|(page_index, page)| {
                         let ready = page.status == "ready" && !page.entry.is_empty();
-                        let illustration_ready = ready
-                            && page.illustration_status == "ready"
-                            && !page.image_content_type.is_empty()
-                            && !page.image_digest.is_empty();
                         DailyJournalPageView {
                             actor_id,
                             day_index: page.day_index,
                             page_index,
                             artifact_id: page.artifact_id.clone(),
-                            rest_kind: page.rest_kind.clone(),
+                            rest_kind: "long",
                             status: page.status.clone(),
-                            entry: ready.then(|| page.entry.clone()).unwrap_or_default(),
-                            location_name: page.location_name.clone(),
-                            references: page.references.clone(),
-                            illustration_status: if illustration_ready {
-                                "ready".to_string()
-                            } else {
-                                page.illustration_status.clone()
-                            },
-                            illustration_cost_orbs: DAILY_JOURNAL_ILLUSTRATION_COST_ORBS,
-                            illustration_funded: page.illustration_funded,
-                            illustration_error_code: page.illustration_error_code.clone(),
-                            image_url: illustration_ready.then(|| daily_journal_image_url(page)),
-                            image_alt: illustration_ready.then(|| {
+                            image_url: ready.then(|| daily_journal_image_url(page)),
+                            image_alt: ready.then(|| {
                                 format!(
-                                    "A storybook illustration of {}'s memory at {}. Journal entry: {}",
-                                    page.avatar_name,
-                                    page.location_name,
+                                    "{}'s daily Journal, in their own words: {}",
                                     page.avatar_name, page.entry
                                 )
                             }),
@@ -732,9 +424,11 @@ async fn complete_daily_journal_page(
         {
             return Ok(());
         }
-        let mut action = CwAction::default();
-        action.kind = CW_ACTION_NONE;
-        action.actor_id = actor_id;
+        let action = CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..Default::default()
+        };
         let mut record = JournalRecord::new(action, runtime.next_seed_value())
             .into_actor_consequence(runtime.world.tick, Some(page.requested_event_seq));
         record
@@ -1022,6 +716,55 @@ fn xml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_journal_is_image_only_and_keeps_source_context_hidden() {
+        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
+        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
+        assert!(INDEX_HTML.contains("function setJournalOpen"));
+        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
+        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
+        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
+        assert!(INDEX_HTML.contains("data-export-journal"));
+        assert!(
+            INDEX_HTML.contains("class=\"journal-internal-context\" hidden aria-hidden=\"true\"")
+        );
+        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
+        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
+        assert!(INDEX_HTML.contains("aria-label=\"Daily illustrated Journal pages\""));
+        assert!(!INDEX_HTML.contains("aria-label=\"Chronological story history\""));
+        assert!(!INDEX_HTML.contains("What the place felt like"));
+        assert!(!INDEX_HTML.contains("Still on my mind"));
+        assert!(INDEX_HTML.contains("explanation_opened"));
+        assert!(INDEX_HTML.contains("return_change_seen"));
+        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
+        assert!(INDEX_HTML.contains("function syncJournalRegions"));
+        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
+        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
+        assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
+        assert!(INDEX_HTML.contains("function firstThreadModel"));
+        assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
+        assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
+        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
+        assert!(!INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
+        assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
+        assert!(INDEX_HTML.contains("is still waiting to be found"));
+        assert!(INDEX_HTML.contains("room thread"));
+        assert!(INDEX_HTML.contains("Your first tale continues when you"));
+        assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
+        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
+        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
+        assert!(INDEX_HTML.contains("function renderJournalLog"));
+        assert!(INDEX_HTML.contains("function dailyJournalPagesForPresentation"));
+        assert!(INDEX_HTML.contains("String(page.rest_kind || \"\").toLowerCase() !== \"long\""));
+        assert!(INDEX_HTML.contains("const daily = new Map()"));
+        assert!(INDEX_HTML.contains("class=\"journal-page-illustration generated\""));
+        assert!(!INDEX_HTML.contains("painted after a long rest"));
+        assert!(!INDEX_HTML.contains("function journalEventHtml"));
+    }
 
     #[test]
     fn one_daily_artifact_identity_is_stable_per_actor_and_day() {

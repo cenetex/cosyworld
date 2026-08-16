@@ -386,6 +386,35 @@ pub(super) fn exact_actor_interaction_profile_for_model(
     exact_profile_at(registry, index, kind)
 }
 
+/// Resolve an operational profile for an authored actor binding without
+/// weakening the exact-model contract. The capability snapshot is generated
+/// from one canonical actor per OpenRouter model, while worldpacks may bind
+/// that same audited model to their own actor ids. An actor-id match remains
+/// authoritative; model lookup is only allowed when the authored actor is not
+/// present in the snapshot, and the complete route identity must still match.
+pub(super) fn exact_actor_interaction_profile_for_binding(
+    actor_id: u64,
+    requested_model_id: &str,
+    canonical_slug: &str,
+    kind: ActorInteractionKind,
+) -> Result<Option<ExactActorInteractionProfile<'static>>, String> {
+    let registry = profile_registry()?;
+    let index = registry.by_actor_id.get(&actor_id).copied().or_else(|| {
+        registry
+            .by_requested_model_id
+            .get(requested_model_id)
+            .copied()
+    });
+    let Some(index) = index else {
+        return Ok(None);
+    };
+    Ok(exact_profile_at(registry, index, kind)?.filter(|exact| {
+        exact.binding.requested_model_id == requested_model_id
+            && exact.binding.route_model_id == requested_model_id
+            && exact.binding.canonical_slug == canonical_slug
+    }))
+}
+
 fn exact_profile_at(
     registry: &'static ActorInteractionProfileRegistry,
     index: usize,
@@ -463,6 +492,41 @@ mod tests {
         assert!(exact_actor_interaction_profile_for_actor(
             trinity.binding.actor_id,
             ActorInteractionKind::Illustrate,
+        )
+        .expect("profile registry")
+        .is_none());
+    }
+
+    #[test]
+    fn world_specific_actor_ids_can_reuse_only_an_exact_catalog_profile() {
+        let canonical = exact_actor_interaction_profile_for_binding(
+            u64::MAX,
+            "~anthropic/claude-fable-latest",
+            "~anthropic/claude-fable-latest",
+            ActorInteractionKind::Talk,
+        )
+        .expect("profile registry")
+        .expect("world-specific Fable Talk profile");
+        assert_eq!(
+            canonical.binding.requested_model_id,
+            "~anthropic/claude-fable-latest"
+        );
+        assert!(canonical.profile.ready_before_policy());
+
+        assert!(exact_actor_interaction_profile_for_binding(
+            u64::MAX,
+            "~anthropic/claude-fable-latest",
+            "anthropic/changed-canonical-slug",
+            ActorInteractionKind::Talk,
+        )
+        .expect("profile registry")
+        .is_none());
+
+        assert!(exact_actor_interaction_profile_for_binding(
+            canonical.binding.actor_id,
+            "openai/gpt-chat-latest",
+            "openai/gpt-chat-latest-20260505",
+            ActorInteractionKind::Talk,
         )
         .expect("profile registry")
         .is_none());

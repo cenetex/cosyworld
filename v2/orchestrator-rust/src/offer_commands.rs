@@ -158,6 +158,9 @@ fn dispatch_for_offer(
                 action: Box::new(action),
             })
             .map_err(|_| invalid()),
+        NOTICE_ACTOR_OFFER_KIND => Ok(CommandDispatch::NoticeActor {
+            target_actor_id: required_target_id(offer, "actor")?,
+        }),
         "check" => Ok(CommandDispatch::Check),
         "study" => Ok(CommandDispatch::Study),
         FOCUSED_NOTICE_OFFER_KIND

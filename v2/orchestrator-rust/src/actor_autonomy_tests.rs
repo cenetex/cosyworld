@@ -28,13 +28,13 @@ fn authored_control_mode_overrides_the_autonomy_default() {
     let mut actor = roaming_actor(Some(true), Some(true));
     actor.control_mode = Some(ActorControlMode::DirectInput);
     assert_eq!(
-        authored_actor_default_control_mode(&actor),
+        actor.authored_default_control_mode(),
         ActorControlMode::DirectInput
     );
 
     actor.control_mode = None;
     assert_eq!(
-        authored_actor_default_control_mode(&actor),
+        actor.authored_default_control_mode(),
         ActorControlMode::LocalAi
     );
 }

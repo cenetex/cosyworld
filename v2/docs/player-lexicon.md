@@ -73,6 +73,25 @@ accessibility concepts, routes, state projections, or worldpack requirements.
 - Never expose dotted event keys, source sequence numbers, payload delimiters,
   arrow movement, or “Something changed” as Journal copy.
 
+## Exploration action verbs
+
+[ADR 0012](../../docs/decisions/0012-notice-search-and-scout-targets.md)
+gives each exploration verb one target and one promise. These are actions, not
+new nouns in the player vocabulary.
+
+| Verb | Player target | Promise |
+| --- | --- | --- |
+| **Notice** | one nearby actor | reveal one new observable fact about that actor |
+| **Search** | the current place or one named physical feature | reveal one new physical-evidence fact; never a route or actor profile |
+| **Scout** | one geographic Lead or route | reveal the next authorized geographic step; never move |
+| **Study** | one already perceived subject | reveal one new interpretive fact |
+
+If no promised result exists, the server does not offer the action. Browser,
+terminal, and agent/API clients use the same server-authored offer and exact
+target. Obvious scene facts appear automatically; **Observe** and **Survey** are
+not separate actions. Notice is repeatable when a new fact becomes eligible and
+is never charged or refreshed by Rest.
+
 The public API keeps card presentation (`cards`, `card_id`) but has no
 `required_card_id`, Box/pack inventory, owned-card projection, NFT burn/open,
 or collection-materialization route. Related database names remain unchanged

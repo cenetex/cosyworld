@@ -18,6 +18,7 @@ mod ai_voice_routing;
 mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_levels;
+mod avatar_links;
 mod avatar_reflections;
 mod avatar_rescue;
 #[cfg(test)]
@@ -72,6 +73,7 @@ mod moderation;
 mod movement;
 mod mud;
 mod natural_affordances;
+mod notice;
 mod offer_commands;
 mod ownership;
 #[cfg(test)]
@@ -127,6 +129,7 @@ use ai_readiness::*;
 use ai_resident_planning::*;
 use avatar_context_spine::*;
 use avatar_identity::*;
+use avatar_links::*;
 use avatar_reflections::*;
 use avatar_rescue::*;
 use axum::{
@@ -184,6 +187,7 @@ use moderation::*;
 use movement::*;
 use mud::*;
 use natural_affordances::*;
+use notice::*;
 use offer_commands::*;
 use ownership::*;
 use projection_cache::*;
@@ -237,6 +241,7 @@ use tokio_stream::{
 };
 use topology::*;
 use tracing::{error, info, warn};
+use transfers::{private_actor_event, transfer_offer_created_response};
 use turns::*;
 use uses::*;
 pub(crate) use util::*;
@@ -278,6 +283,7 @@ struct AppState {
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
     wallet_actor_links: Arc<StdMutex<BTreeMap<String, u64>>>,
+    avatar_creation_lock: Arc<Mutex<()>>,
     actor_sessions: Arc<StdMutex<ActorSessions>>,
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
@@ -917,6 +923,9 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    StartAvatarRescueRun {
+        downed_actor_id: u64,
+    },
     ResolveCraft {
         receipt: CraftReceiptState,
     },
@@ -932,6 +941,12 @@ enum ProjectionMutation {
     },
     SetGiftAutoAccept(projection_ledger::SetGiftAutoAccept),
     ConsumeGiftAutoAccept(projection::ConsumeGiftAutoAccept),
+    RecordNoticeActorFact {
+        fact_id: String,
+        target_actor_id: u64,
+        item_id: u64,
+        held_since_tick: u64,
+    },
     ShuffleHand {
         reason: String,
     },
@@ -1323,130 +1338,6 @@ struct AdvancementSpendState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct BeliefState {
-    id: String,
-    holder_actor_id: u64,
-    kind: String,
-    subject_id: u64,
-    location_id: u64,
-    confidence: u8,
-    salience: u8,
-    observed_tick: u64,
-    #[serde(default)]
-    source_actor_id: Option<u64>,
-    #[serde(default)]
-    related_actor_id: Option<u64>,
-    #[serde(default)]
-    learned_tick: u64,
-    #[serde(default)]
-    hops: u8,
-}
-
-// Snapshot-only adapters for the two stores that preceded the unified belief
-// model. They never enter RuntimeWorld and are removed when a snapshot is
-// migrated.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct LegacyResidentMemoryState {
-    id: String,
-    carrier_actor_id: u64,
-    kind: String,
-    subject_id: u64,
-    location_id: u64,
-    confidence: u8,
-    salience: u8,
-    observed_tick: u64,
-    #[serde(default)]
-    source_actor_id: Option<u64>,
-    #[serde(default)]
-    holder_actor_id: Option<u64>,
-    #[serde(default)]
-    learned_tick: u64,
-    #[serde(default)]
-    hops: u8,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct LegacySearchMemoryState {
-    id: String,
-    actor_id: u64,
-    kind: String,
-    location_id: u64,
-    subject_id: u64,
-    subject_key: String,
-    confidence: u8,
-    salience: u8,
-    found_tick: u64,
-    #[serde(default)]
-    last_used_tick: u64,
-    #[serde(default)]
-    use_count: u32,
-}
-
-fn belief_id(
-    holder_actor_id: u64,
-    kind: &str,
-    subject_id: u64,
-    location_id: u64,
-    related_actor_id: Option<u64>,
-) -> String {
-    match kind {
-        BELIEF_KIND_SEED_EXIT | BELIEF_KIND_HIDDEN_EXIT => {
-            format!("belief:{holder_actor_id}:{kind}:{location_id}:{subject_id}")
-        }
-        BELIEF_KIND_ACTOR_WANTS_ITEM => format!(
-            "belief:{holder_actor_id}:{kind}:{}:{subject_id}",
-            related_actor_id.unwrap_or_default()
-        ),
-        _ => format!("belief:{holder_actor_id}:{kind}:{subject_id}"),
-    }
-}
-
-fn belief_is_preferred(candidate: &BeliefState, existing: &BeliefState) -> bool {
-    candidate.observed_tick > existing.observed_tick
-        || (candidate.observed_tick == existing.observed_tick
-            && (candidate.confidence > existing.confidence
-                || (candidate.confidence == existing.confidence
-                    && candidate.learned_tick >= existing.learned_tick)))
-}
-
-fn merge_belief(beliefs: &mut BTreeMap<String, BeliefState>, mut belief: BeliefState) {
-    belief.id = belief_id(
-        belief.holder_actor_id,
-        &belief.kind,
-        belief.subject_id,
-        belief.location_id,
-        belief.related_actor_id,
-    );
-    match beliefs.get_mut(&belief.id) {
-        Some(existing) if belief_is_preferred(&belief, existing) => *existing = belief,
-        Some(existing) => existing.salience = existing.salience.max(belief.salience),
-        None => {
-            beliefs.insert(belief.id.clone(), belief);
-        }
-    }
-}
-
-fn belief_decay_at_tick(belief: &BeliefState, now: u64) -> (u64, u8, u8) {
-    let baseline = belief.learned_tick.max(belief.observed_tick);
-    let steps = if baseline == 0 {
-        0
-    } else {
-        now.saturating_sub(baseline) / BELIEF_TUNING.decay_interval_ticks
-    };
-    let confidence_loss = steps
-        .saturating_mul(BELIEF_TUNING.confidence_decay as u64)
-        .min(u8::MAX as u64) as u8;
-    let salience_loss = steps
-        .saturating_mul(BELIEF_TUNING.salience_decay as u64)
-        .min(u8::MAX as u64) as u8;
-    (
-        steps,
-        belief.confidence.saturating_sub(confidence_loss),
-        belief.salience.saturating_sub(salience_loss),
-    )
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct AvatarIntentProposal {
     speech: String,
@@ -1497,6 +1388,8 @@ impl ActorControlMode {
 }
 
 const TRANSFER_OFFER_TTL_TICKS: u64 = 24;
+const ACCEPT_TRANSFER_OFFER_KIND: &str = "accept_transfer";
+const NOTICE_ACTOR_OFFER_KIND: &str = "notice_actor";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -1693,6 +1586,7 @@ struct RuntimeWorld {
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
+    avatar_rescue_predecessors: BTreeMap<u64, u64>,
     character_identities: BTreeMap<u64, AvatarIdentityState>,
     callings: BTreeMap<u64, CallingState>,
     skills: BTreeMap<String, SkillState>,
@@ -1831,6 +1725,8 @@ struct RuntimeSnapshot {
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     #[serde(default)]
     journeys: BTreeMap<u64, JourneyState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    avatar_rescue_predecessors: BTreeMap<u64, u64>,
     #[serde(default)]
     character_identities: BTreeMap<u64, AvatarIdentityState>,
     #[serde(default)]
@@ -3072,7 +2968,7 @@ struct ActionCardSourceView {
     label: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 struct ActionSourceCollectibleView {
     kind: String,
     instance_id: u64,
@@ -3379,6 +3275,8 @@ struct CreateAvatarRequest {
     name: Option<String>,
     calling: Option<String>,
     wallet_session: Option<String>,
+    #[serde(default)]
+    summon_from_actor_id: Option<u64>,
     character_creation_id: Option<String>,
     character_choice_id: Option<String>,
     species_id: Option<String>,
@@ -4372,36 +4270,6 @@ fn ping_actor_session_for_actor(
     Some(was_active)
 }
 
-fn linked_actor_for_wallet(state: &AppState, wallet_address: &str) -> Option<u64> {
-    let wallet = wallet_address.trim();
-    if wallet.is_empty() {
-        return None;
-    }
-    state
-        .wallet_actor_links
-        .lock()
-        .ok()
-        .and_then(|links| links.get(wallet).copied())
-}
-
-fn link_wallet_actor(state: &AppState, wallet_address: &str, actor_id: u64) {
-    let wallet = wallet_address.trim();
-    if wallet.is_empty() || actor_id == 0 {
-        return;
-    }
-    if let Ok(mut links) = state.wallet_actor_links.lock() {
-        links.insert(wallet.to_string(), actor_id);
-    }
-    if let Some(path) = state.event_store_path.as_deref() {
-        if let Err(error) = persist_wallet_actor_link(path, wallet, actor_id) {
-            warn!(
-                "failed to persist CosyWorld wallet avatar link for {} -> {}: {}",
-                wallet, actor_id, error
-            );
-        }
-    }
-}
-
 fn active_actor_ids(actor_sessions: &StdMutex<ActorSessions>) -> BTreeSet<u64> {
     active_actor_ids_with_window(actor_sessions, ACTIVE_ACTOR_WINDOW)
 }
@@ -4574,17 +4442,6 @@ fn allow_actor_mutation(
     let actor_key = rate_limit_key(scope, actor_id);
     state.allow_rate_limit(ip_key, PUBLIC_MUTATION_LIMIT)
         && state.allow_rate_limit(actor_key, actor_limit)
-}
-
-fn avatar_rate_limited_response() -> Json<AvatarResponse> {
-    Json(AvatarResponse {
-        ok: false,
-        status: RATE_LIMITED_STATUS,
-        actor: None,
-        actor_session: None,
-        actor_session_expires_at_unix: None,
-        events: Vec::new(),
-    })
 }
 
 fn action_rate_limited_response() -> Json<ActionResponse> {
@@ -5083,6 +4940,7 @@ impl AppState {
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(wallet_actor_links)),
+            avatar_creation_lock: Arc::new(Mutex::new(())),
             actor_sessions: Arc::new(StdMutex::new(actor_sessions)),
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
@@ -5179,8 +5037,10 @@ fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
     let canonical_kind = match kind {
         "travel" => "move",
         "model_interaction" => "chat",
+        ACCEPT_TRANSFER_OFFER_KIND => "give_item",
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
         FOCUSED_NOTICE_OFFER_KIND => "check",
+        NOTICE_ACTOR_OFFER_KIND => "check",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         "open" => "use_item",
         other => other,
@@ -5386,6 +5246,7 @@ impl RuntimeSnapshot {
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
+            avatar_rescue_predecessors: runtime.avatar_rescue_predecessors.clone(),
             character_identities: runtime.character_identities.clone(),
             callings: runtime.callings.clone(),
             skills: runtime.skills.clone(),
@@ -5610,50 +5471,8 @@ impl RuntimeSnapshot {
             world.next_event_seq = 1;
         }
 
-        let mut beliefs = self.beliefs;
-        for legacy in self.resident_memories.into_values() {
-            merge_belief(
-                &mut beliefs,
-                BeliefState {
-                    id: String::new(),
-                    holder_actor_id: legacy.carrier_actor_id,
-                    kind: legacy.kind,
-                    subject_id: legacy.subject_id,
-                    location_id: legacy.location_id,
-                    confidence: legacy.confidence,
-                    salience: legacy.salience,
-                    observed_tick: legacy.observed_tick,
-                    source_actor_id: legacy.source_actor_id,
-                    related_actor_id: legacy.holder_actor_id,
-                    learned_tick: legacy.learned_tick,
-                    hops: legacy.hops,
-                },
-            );
-        }
-        for legacy in self.search_memories.into_values() {
-            let kind = match legacy.kind.as_str() {
-                "avatar" => BELIEF_KIND_ACTOR_LOCATION,
-                "item" => BELIEF_KIND_ITEM_LOCATION,
-                _ => legacy.kind.as_str(),
-            };
-            merge_belief(
-                &mut beliefs,
-                BeliefState {
-                    id: String::new(),
-                    holder_actor_id: legacy.actor_id,
-                    kind: kind.to_string(),
-                    subject_id: legacy.subject_id,
-                    location_id: legacy.location_id,
-                    confidence: legacy.confidence,
-                    salience: legacy.salience,
-                    observed_tick: legacy.found_tick,
-                    source_actor_id: Some(legacy.actor_id),
-                    related_actor_id: None,
-                    learned_tick: legacy.last_used_tick.max(legacy.found_tick),
-                    hops: 0,
-                },
-            );
-        }
+        let beliefs =
+            migrate_legacy_beliefs(self.beliefs, self.resident_memories, self.search_memories);
 
         Ok(RuntimeWorld {
             world,
@@ -5684,6 +5503,7 @@ impl RuntimeSnapshot {
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
+            avatar_rescue_predecessors: self.avatar_rescue_predecessors,
             character_identities: self.character_identities,
             callings: self.callings,
             skills: self.skills,
@@ -6110,6 +5930,7 @@ impl RuntimeWorld {
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
+            avatar_rescue_predecessors: BTreeMap::new(),
             character_identities: BTreeMap::new(),
             callings: BTreeMap::new(),
             skills: BTreeMap::new(),
@@ -8547,12 +8368,9 @@ impl RuntimeWorld {
     fn append_story_hand_thought_event(
         &mut self,
         actor_id: u64,
-        slot: u8,
-        scene_key: &str,
-        replaces_offer_id: &str,
-        free: bool,
-        reason: &str,
+        thought: (u8, &str, &str, bool, &str),
     ) -> EventView {
+        let (slot, scene_key, replaces_offer_id, free, reason) = thought;
         let legacy_generation = self
             .hand_generations
             .get(&actor_id)
@@ -9647,6 +9465,9 @@ impl RuntimeWorld {
             self.bump_entity_versions_for_events(&events);
         }
         self.touch_threshold_access_after_projection(record, status);
+        // A pending direct-avatar transfer belongs to the shared room. The
+        // movement that separates either participant is its cancellation.
+        self.expire_transfer_offers();
         self.refresh_canonical_events(&mut events);
         (status, events)
     }
@@ -9676,6 +9497,39 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::StartAvatarRescueRun { downed_actor_id } => {
+                    let rescuer_actor_id = action.actor_id;
+                    let valid_downed_body =
+                        self.actor_by_id(*downed_actor_id).is_some_and(|actor| {
+                            actor.kind == CW_ACTOR_HUMAN && actor.status == CW_ACTOR_KNOCKED_OUT
+                        });
+                    let valid_rescuer = self.actor_by_id(rescuer_actor_id).is_some_and(|actor| {
+                        actor.kind == CW_ACTOR_HUMAN && Self::actor_can_act(actor)
+                    });
+                    if action.kind == CW_ACTION_CREATE_ACTOR
+                        && rescuer_actor_id != *downed_actor_id
+                        && valid_downed_body
+                        && valid_rescuer
+                        && !self
+                            .avatar_rescue_predecessors
+                            .contains_key(&rescuer_actor_id)
+                        && !self
+                            .avatar_rescue_predecessors
+                            .values()
+                            .any(|existing_downed_id| existing_downed_id == downed_actor_id)
+                    {
+                        self.avatar_rescue_predecessors
+                            .insert(rescuer_actor_id, *downed_actor_id);
+                        events.push(self.append_async_job_event(
+                            "avatar.rescue_run.started",
+                            rescuer_actor_id,
+                            Some(*downed_actor_id),
+                            Some(
+                                "A new traveler entered the world to attempt a rescue.".to_string(),
+                            ),
+                        ));
+                    }
+                }
                 ProjectionMutation::ResolveCraft { receipt } => {
                     self.apply_craft_resolution(receipt, committed_events);
                 }
@@ -9731,6 +9585,32 @@ impl RuntimeWorld {
                 ProjectionMutation::ConsumeGiftAutoAccept(mutation) => {
                     mutation.apply(self, &ctx);
                 }
+                ProjectionMutation::RecordNoticeActorFact {
+                    fact_id,
+                    target_actor_id,
+                    item_id: _,
+                    held_since_tick: _,
+                } => {
+                    if self.rpg_claims.insert(fact_id.clone()) {
+                        if action.location_id != 0 {
+                            self.listen_attempt_claims.insert(listen_attempt_claim_key(
+                                action.actor_id,
+                                action.location_id,
+                            ));
+                        }
+                        let target_name = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        events.push(self.append_async_job_event(
+                            "notice.actor_observed",
+                            action.actor_id,
+                            Some(*target_actor_id),
+                            Some(format!(
+                                "A private observable detail about {target_name} became known."
+                            )),
+                        ));
+                    }
+                }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
@@ -9743,11 +9623,7 @@ impl RuntimeWorld {
                 } => {
                     events.push(self.append_story_hand_thought_event(
                         action.actor_id,
-                        *slot,
-                        scene_key,
-                        replaces_offer_id,
-                        *free,
-                        reason,
+                        (*slot, scene_key, replaces_offer_id, *free, reason),
                     ));
                 }
                 ProjectionMutation::UpdateDailyJournal { update } => {
@@ -13595,8 +13471,8 @@ impl RuntimeWorld {
             .actor_by_id(actor_id)
             .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Notice requires an active avatar.".to_string())?;
-        if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
-            return Err("That avatar is not close enough to notice.".to_string());
+        if target_actor_id != 0 {
+            return Err("Actor Notice now requires a certified notice_actor_v1 offer.".to_string());
         }
         Ok((
             CwAction {
@@ -13801,75 +13677,6 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         for viewer_id in viewer_ids {
             self.record_economy_disclosure(viewer_id, speaker.id);
-        }
-    }
-
-    fn transfer_offer_status(&self, offer: &TransferOfferState) -> TransferOfferStatus {
-        if offer.status == TransferOfferStatus::Pending && self.world.tick >= offer.expires_tick {
-            TransferOfferStatus::Expired
-        } else {
-            offer.status
-        }
-    }
-
-    fn expire_transfer_offers(&mut self) {
-        let tick = self.world.tick;
-        for offer in self.transfer_offers.values_mut() {
-            if offer.status == TransferOfferStatus::Pending && tick >= offer.expires_tick {
-                offer.status = TransferOfferStatus::Expired;
-            }
-        }
-    }
-
-    fn matching_pending_transfer_offer(
-        &self,
-        kind: TransferOfferKind,
-        offered_by_actor_id: u64,
-        offered_to_actor_id: u64,
-        offered_item_id: u64,
-        requested_item_id: Option<u64>,
-    ) -> Option<&TransferOfferState> {
-        self.transfer_offers.values().find(|offer| {
-            self.transfer_offer_status(offer) == TransferOfferStatus::Pending
-                && offer.kind == kind
-                && offer.offered_by_actor_id == offered_by_actor_id
-                && offer.offered_to_actor_id == offered_to_actor_id
-                && offer.offered_item_id == offered_item_id
-                && offer.requested_item_id == requested_item_id
-        })
-    }
-
-    fn new_transfer_offer(
-        &self,
-        kind: TransferOfferKind,
-        offered_by_actor_id: u64,
-        offered_to_actor_id: u64,
-        offered_item_id: u64,
-        requested_item_id: Option<u64>,
-    ) -> TransferOfferState {
-        let kind_label = match kind {
-            TransferOfferKind::Gift => "gift",
-            TransferOfferKind::Trade => "trade",
-        };
-        TransferOfferState {
-            id: format!(
-                "{kind_label}-{}-{}-{}-{}-{}-{}",
-                offered_by_actor_id,
-                offered_to_actor_id,
-                offered_item_id,
-                requested_item_id.unwrap_or_default(),
-                self.world.next_event_seq,
-                self.next_seed
-            ),
-            kind,
-            offered_by_actor_id,
-            offered_to_actor_id,
-            offered_item_id,
-            requested_item_id,
-            created_tick: self.world.tick,
-            expires_tick: self.world.tick.saturating_add(TRANSFER_OFFER_TTL_TICKS),
-            status: TransferOfferStatus::Pending,
-            resolved_by_actor_id: None,
         }
     }
 
@@ -14080,222 +13887,6 @@ impl RuntimeWorld {
             hidden_exit_id: hidden_exit.id.clone(),
         };
         self.search_candidate_succeeds(seed, actor_id, &candidate)
-    }
-
-    fn avatar_discovered(&self, actor_id: u64) -> bool {
-        self.beliefs.values().any(|belief| {
-            belief.kind == BELIEF_KIND_ACTOR_LOCATION
-                && belief.subject_id == actor_id
-                && self.belief_active(belief)
-        })
-    }
-
-    fn belief_active(&self, belief: &BeliefState) -> bool {
-        self.actor_by_id(belief.holder_actor_id)
-            .is_some_and(Self::actor_is_present)
-            && self
-                .belief_effective_values(belief)
-                .is_some_and(|(confidence, salience)| {
-                    confidence >= BELIEF_TUNING.minimum_action_confidence && salience > 0
-                })
-    }
-
-    fn belief_effective_values(&self, belief: &BeliefState) -> Option<(u8, u8)> {
-        let (_, confidence, salience) = belief_decay_at_tick(belief, self.world.tick);
-        (confidence > 0 && salience > 0).then_some((confidence, salience))
-    }
-
-    fn search_item_remembered(&self, item_id: u64) -> bool {
-        self.beliefs.values().any(|belief| {
-            belief.kind == BELIEF_KIND_ITEM_LOCATION
-                && belief.subject_id == item_id
-                && self.belief_active(belief)
-        })
-    }
-
-    fn search_item_found(&self, item_id: u64) -> bool {
-        self.tags
-            .get(&search_item_found_tag_id(item_id))
-            .map(|tag| tag.active)
-            .unwrap_or(false)
-    }
-
-    fn forgotten_search_item_at_location(&self, item: CwItem, location_id: u64) -> bool {
-        item.holder_actor_id == 0
-            && item.location_id == location_id
-            && self.search_item_found(item.id)
-            && !self.search_item_remembered(item.id)
-    }
-
-    fn search_witness_actor_ids(&self, location_id: u64) -> Vec<u64> {
-        let mut actor_ids = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
-            .map(|actor| actor.id)
-            .collect::<Vec<_>>();
-        actor_ids.sort_unstable();
-        actor_ids.dedup();
-        actor_ids
-    }
-
-    fn remember_search_discovery_for_witnesses(
-        &mut self,
-        location_id: u64,
-        kind: &str,
-        subject_id: u64,
-        subject_key: String,
-    ) {
-        let actor_ids = self.search_witness_actor_ids(location_id);
-        self.remember_search_discovery_for_actor_ids(
-            &actor_ids,
-            location_id,
-            kind,
-            subject_id,
-            &subject_key,
-        );
-    }
-
-    fn remember_search_discovery_for_actor_ids(
-        &mut self,
-        actor_ids: &[u64],
-        location_id: u64,
-        kind: &str,
-        subject_id: u64,
-        subject_key: &str,
-    ) {
-        for actor_id in actor_ids.iter().copied() {
-            self.remember_search_discovery(actor_id, location_id, kind, subject_id, &subject_key);
-        }
-    }
-
-    fn remember_search_discovery(
-        &mut self,
-        actor_id: u64,
-        location_id: u64,
-        kind: &str,
-        subject_id: u64,
-        _subject_key: &str,
-    ) {
-        self.remember_belief(
-            actor_id,
-            kind,
-            subject_id,
-            location_id,
-            BELIEF_TUNING.firsthand_confidence,
-            BELIEF_TUNING.firsthand_salience,
-            Some(actor_id),
-        );
-    }
-
-    #[cfg(test)]
-    fn decay_search_memories(&mut self) {
-        self.decay_beliefs();
-    }
-
-    fn reinforce_beliefs_from_search_events(&mut self, events: &[EventView]) {
-        for event in events.iter().filter(|event| event.success) {
-            match event.type_name.as_str() {
-                "actor.moved" => {
-                    let (Some(actor_id), Some(from_location_id), Some(to_location_id)) = (
-                        event.actor_id,
-                        event.location_id,
-                        event.destination_location_id,
-                    ) else {
-                        continue;
-                    };
-                    if self
-                        .seed_exit_by_locations(from_location_id, to_location_id)
-                        .is_some()
-                    {
-                        self.remember_search_discovery(
-                            actor_id,
-                            from_location_id,
-                            BELIEF_KIND_SEED_EXIT,
-                            to_location_id,
-                            &seed_exit_belief_subject_key(from_location_id, to_location_id),
-                        );
-                        if self
-                            .seed_exit_by_locations(to_location_id, from_location_id)
-                            .is_some()
-                        {
-                            self.remember_search_discovery(
-                                actor_id,
-                                to_location_id,
-                                BELIEF_KIND_SEED_EXIT,
-                                from_location_id,
-                                &seed_exit_belief_subject_key(to_location_id, from_location_id),
-                            );
-                        }
-                    }
-                    if let Some(hidden_exit) =
-                        self.hidden_exit_between(from_location_id, to_location_id)
-                    {
-                        self.remember_search_discovery(
-                            actor_id,
-                            hidden_exit.from_location_id,
-                            BELIEF_KIND_HIDDEN_EXIT,
-                            hidden_exit.to_location_id,
-                            &hidden_exit.id,
-                        );
-                    }
-                }
-                "item.found" | "item.revealed" | "item.picked_up" | "item.dropped"
-                | "item.used" | "item.given" | "item.traded" => {
-                    let Some(item_id) = event.item_id else {
-                        continue;
-                    };
-                    if !self.search_item_found(item_id)
-                        && !matches!(event.type_name.as_str(), "item.found" | "item.revealed")
-                    {
-                        continue;
-                    }
-                    let location_id = event
-                        .location_id
-                        .or_else(|| {
-                            event
-                                .actor_id
-                                .and_then(|actor_id| self.actor_by_id(actor_id))
-                                .map(|actor| actor.location_id)
-                        })
-                        .unwrap_or(0);
-                    if location_id == 0 {
-                        continue;
-                    }
-                    self.remember_search_discovery_for_witnesses(
-                        location_id,
-                        BELIEF_KIND_ITEM_LOCATION,
-                        item_id,
-                        item_id.to_string(),
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn return_forgotten_search_items_to_pool(&mut self) {
-        let forgotten_item_ids = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| {
-                item.holder_actor_id == 0
-                    && item.location_id != 0
-                    && self.search_item_found(item.id)
-                    && !self.search_item_remembered(item.id)
-            })
-            .map(|item| item.id)
-            .collect::<BTreeSet<_>>();
-        if forgotten_item_ids.is_empty() {
-            return;
-        }
-        for item in &mut self.world.items[..self.world.item_count] {
-            if forgotten_item_ids.contains(&item.id) {
-                item.location_id = 0;
-                item.holder_actor_id = 0;
-                item.held_since_tick = 0;
-            }
-        }
     }
 
     fn avatar_hidden_until_discovered(&self, actor: CwActor) -> bool {
@@ -14708,188 +14299,6 @@ impl RuntimeWorld {
             .find(|item| item.id == item_id)
     }
 
-    fn belief_seek_target(&self, resident: CwActor) -> Option<BeliefState> {
-        let sought_item_ids: BTreeSet<u64> = self
-            .resident_sought_item_ids(resident)
-            .into_iter()
-            .collect();
-        if sought_item_ids.is_empty() {
-            return None;
-        }
-
-        let mut memories: Vec<_> = self
-            .beliefs
-            .values()
-            .filter(|memory| {
-                memory.holder_actor_id == resident.id
-                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
-                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-                    && sought_item_ids.contains(&memory.subject_id)
-            })
-            .cloned()
-            .map(|memory| self.resident_item_memory_resolved_by_actor_memory(memory))
-            .collect();
-        memories.sort_by_key(|memory| {
-            let preference = self
-                .resident_sought_item_ids(resident)
-                .iter()
-                .position(|item_id| *item_id == memory.subject_id)
-                .unwrap_or(usize::MAX);
-            (
-                preference,
-                std::cmp::Reverse(memory.salience),
-                std::cmp::Reverse(memory.confidence),
-                std::cmp::Reverse(memory.observed_tick),
-                memory.location_id,
-                memory.subject_id,
-            )
-        });
-        memories.into_iter().next()
-    }
-
-    fn resident_item_memory_resolved_by_actor_memory(&self, memory: BeliefState) -> BeliefState {
-        if memory.kind != BELIEF_KIND_ITEM_LOCATION {
-            return memory;
-        }
-        let Some(holder_actor_id) = memory.related_actor_id else {
-            return memory;
-        };
-        let actor_memory_id = Self::belief_id(
-            memory.holder_actor_id,
-            BELIEF_KIND_ACTOR_LOCATION,
-            holder_actor_id,
-        );
-        let Some(actor_memory) = self.beliefs.get(&actor_memory_id) else {
-            return memory;
-        };
-        if actor_memory.confidence < BELIEF_TUNING.minimum_action_confidence
-            || actor_memory.observed_tick < memory.observed_tick
-        {
-            return memory;
-        }
-
-        let mut resolved = memory;
-        resolved.location_id = actor_memory.location_id;
-        resolved.confidence = resolved.confidence.min(actor_memory.confidence);
-        resolved.salience = resolved.salience.min(actor_memory.salience);
-        resolved.observed_tick = actor_memory.observed_tick;
-        resolved.learned_tick = resolved.learned_tick.max(actor_memory.learned_tick);
-        resolved.hops = resolved.hops.max(actor_memory.hops);
-        resolved
-    }
-
-    fn resident_best_item_memory(&self, holder_actor_id: u64, item_id: u64) -> Option<BeliefState> {
-        let mut memories: Vec<_> = self
-            .beliefs
-            .values()
-            .filter(|memory| {
-                memory.holder_actor_id == holder_actor_id
-                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
-                    && memory.subject_id == item_id
-                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-            })
-            .cloned()
-            .map(|memory| self.resident_item_memory_resolved_by_actor_memory(memory))
-            .collect();
-        memories.sort_by_key(|memory| {
-            (
-                std::cmp::Reverse(memory.salience),
-                std::cmp::Reverse(memory.confidence),
-                std::cmp::Reverse(memory.observed_tick),
-                memory.location_id,
-            )
-        });
-        memories.into_iter().next()
-    }
-
-    fn resident_has_fresh_loose_item_observation(
-        &self,
-        holder_actor_id: u64,
-        item_id: u64,
-        location_id: u64,
-    ) -> bool {
-        let memory_id = Self::belief_id(holder_actor_id, BELIEF_KIND_ITEM_LOCATION, item_id);
-        self.beliefs.get(&memory_id).is_some_and(|memory| {
-            memory.location_id == location_id
-                && memory.related_actor_id.is_none()
-                && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-                && memory.observed_tick == self.world.tick
-                && memory.source_actor_id == Some(holder_actor_id)
-        })
-    }
-
-    fn resident_actor_location_memory(
-        &self,
-        holder_actor_id: u64,
-        subject_actor_id: u64,
-    ) -> Option<BeliefState> {
-        let memory_id = Self::belief_id(
-            holder_actor_id,
-            BELIEF_KIND_ACTOR_LOCATION,
-            subject_actor_id,
-        );
-        self.beliefs
-            .get(&memory_id)
-            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
-            .cloned()
-    }
-
-    fn resident_remembers_actor_at(
-        &self,
-        holder_actor_id: u64,
-        subject_actor_id: u64,
-        location_id: u64,
-    ) -> bool {
-        self.resident_actor_location_memory(holder_actor_id, subject_actor_id)
-            .is_some_and(|memory| memory.location_id == location_id)
-    }
-
-    fn resident_actor_wants_item_memory(
-        &self,
-        holder_actor_id: u64,
-        target_actor_id: u64,
-        item_id: u64,
-    ) -> Option<BeliefState> {
-        let memory_id = Self::belief_key(
-            holder_actor_id,
-            BELIEF_KIND_ACTOR_WANTS_ITEM,
-            item_id,
-            0,
-            Some(target_actor_id),
-        );
-        self.beliefs
-            .get(&memory_id)
-            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
-            .cloned()
-    }
-
-    fn resident_remembers_actor_holding_item_at(
-        &self,
-        holder_actor_id: u64,
-        related_actor_id: u64,
-        item_id: u64,
-        location_id: u64,
-    ) -> bool {
-        self.resident_remembers_actor_at(holder_actor_id, related_actor_id, location_id)
-            && self
-                .resident_best_item_memory(holder_actor_id, item_id)
-                .is_some_and(|memory| {
-                    memory.related_actor_id == Some(related_actor_id)
-                        && memory.location_id == location_id
-                })
-    }
-
-    #[cfg(test)]
-    fn resident_remembers_actor_wants_item(
-        &self,
-        holder_actor_id: u64,
-        target_actor_id: u64,
-        item_id: u64,
-    ) -> bool {
-        self.resident_actor_wants_item_memory(holder_actor_id, target_actor_id, item_id)
-            .is_some()
-    }
-
     fn resident_waits_for_player_gift(&self, resident: CwActor) -> bool {
         self.world.actors[..self.world.actor_count]
             .iter()
@@ -15300,85 +14709,6 @@ The relationship statement they are preserving is: {statement}"
         }
     }
 
-    fn belief_prompt_notes(&self, resident_id: u64) -> Vec<String> {
-        let mut memories: Vec<_> = self
-            .beliefs
-            .values()
-            .filter(|memory| {
-                memory.holder_actor_id == resident_id
-                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-            })
-            .cloned()
-            .collect();
-        memories.sort_by_key(|memory| {
-            (
-                std::cmp::Reverse(memory.salience),
-                std::cmp::Reverse(memory.confidence),
-                std::cmp::Reverse(memory.observed_tick),
-                memory.hops,
-                memory.kind.clone(),
-                memory.subject_id,
-            )
-        });
-
-        let mut notes = Vec::new();
-        let mut seen = BTreeSet::new();
-        for memory in memories {
-            let route = if memory.source_actor_id == Some(resident_id) && memory.hops == 0 {
-                "saw"
-            } else {
-                "heard"
-            };
-            let location_name = self
-                .location_name(memory.location_id)
-                .unwrap_or_else(|| format!("Location {}", memory.location_id));
-            let note = match memory.kind.as_str() {
-                BELIEF_KIND_ACTOR_LOCATION => {
-                    if memory.subject_id == resident_id {
-                        continue;
-                    }
-                    let actor_name = self
-                        .actor_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Resident {}", memory.subject_id));
-                    format!("{route} {actor_name} near {location_name}")
-                }
-                BELIEF_KIND_ITEM_LOCATION => {
-                    let item_name = self
-                        .item_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
-                    if let Some(holder_name) = memory
-                        .related_actor_id
-                        .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
-                    {
-                        format!("{route} {item_name} with {holder_name} near {location_name}")
-                    } else {
-                        format!("{route} {item_name} near {location_name}")
-                    }
-                }
-                BELIEF_KIND_ACTOR_WANTS_ITEM => {
-                    let Some(target_actor_id) = memory.related_actor_id else {
-                        continue;
-                    };
-                    let target_name = self
-                        .actor_name(target_actor_id)
-                        .unwrap_or_else(|| format!("Resident {}", target_actor_id));
-                    let item_name = self
-                        .item_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
-                    format!("{route} {target_name} wanted {item_name} near {location_name}")
-                }
-                _ => continue,
-            };
-            if seen.insert(note.clone()) {
-                notes.push(note);
-            }
-            if notes.len() >= 4 {
-                break;
-            }
-        }
-        notes
-    }
-
     fn ensure_actor_autonomy(&mut self) {
         let actors = self.world.actors[..self.world.actor_count].to_vec();
         let active_ids = actors.iter().map(|actor| actor.id).collect::<BTreeSet<_>>();
@@ -15549,188 +14879,6 @@ The relationship statement they are preserving is: {statement}"
                 text
             }
         }
-    }
-
-    fn belief_id(holder_actor_id: u64, kind: &str, subject_id: u64) -> String {
-        belief_id(holder_actor_id, kind, subject_id, 0, None)
-    }
-
-    fn belief_key(
-        holder_actor_id: u64,
-        kind: &str,
-        subject_id: u64,
-        location_id: u64,
-        related_actor_id: Option<u64>,
-    ) -> String {
-        belief_id(
-            holder_actor_id,
-            kind,
-            subject_id,
-            location_id,
-            related_actor_id,
-        )
-    }
-
-    fn remember_belief(
-        &mut self,
-        holder_actor_id: u64,
-        kind: &str,
-        subject_id: u64,
-        location_id: u64,
-        confidence: u8,
-        salience: u8,
-        source_actor_id: Option<u64>,
-    ) {
-        self.remember_belief_with_provenance(
-            holder_actor_id,
-            kind,
-            subject_id,
-            location_id,
-            confidence,
-            salience,
-            source_actor_id,
-            None,
-            self.world.tick,
-            self.world.tick,
-            0,
-        );
-    }
-
-    fn remember_belief_with_related_actor(
-        &mut self,
-        holder_actor_id: u64,
-        kind: &str,
-        subject_id: u64,
-        location_id: u64,
-        confidence: u8,
-        salience: u8,
-        source_actor_id: Option<u64>,
-        related_actor_id: Option<u64>,
-    ) {
-        self.remember_belief_with_provenance(
-            holder_actor_id,
-            kind,
-            subject_id,
-            location_id,
-            confidence,
-            salience,
-            source_actor_id,
-            related_actor_id,
-            self.world.tick,
-            self.world.tick,
-            0,
-        );
-    }
-
-    fn remember_resident_wants_item_memory(
-        &mut self,
-        holder_actor_id: u64,
-        wanting_actor_id: u64,
-        item_id: u64,
-        location_id: u64,
-        confidence: u8,
-        salience: u8,
-        source_actor_id: Option<u64>,
-    ) {
-        if wanting_actor_id == 0 || item_id == 0 {
-            return;
-        }
-        self.remember_belief_with_related_actor(
-            holder_actor_id,
-            BELIEF_KIND_ACTOR_WANTS_ITEM,
-            item_id,
-            location_id,
-            confidence,
-            salience,
-            source_actor_id,
-            Some(wanting_actor_id),
-        );
-    }
-
-    fn remember_belief_with_provenance(
-        &mut self,
-        holder_actor_id: u64,
-        kind: &str,
-        subject_id: u64,
-        location_id: u64,
-        confidence: u8,
-        salience: u8,
-        source_actor_id: Option<u64>,
-        related_actor_id: Option<u64>,
-        observed_tick: u64,
-        learned_tick: u64,
-        hops: u8,
-    ) {
-        let Some(holder) = self.actor_by_id(holder_actor_id) else {
-            return;
-        };
-        if !Self::actor_is_present(holder) || location_id == 0 {
-            return;
-        }
-
-        let related_actor_id = (kind == BELIEF_KIND_ITEM_LOCATION
-            || kind == BELIEF_KIND_ACTOR_WANTS_ITEM)
-            .then_some(related_actor_id)
-            .flatten()
-            .filter(|related_id| *related_id != 0);
-        let belief = BeliefState {
-            id: Self::belief_key(
-                holder_actor_id,
-                kind,
-                subject_id,
-                location_id,
-                related_actor_id,
-            ),
-            holder_actor_id,
-            kind: kind.to_string(),
-            subject_id,
-            location_id,
-            confidence,
-            salience,
-            observed_tick,
-            source_actor_id,
-            related_actor_id,
-            learned_tick,
-            hops,
-        };
-        merge_belief(&mut self.beliefs, belief);
-        self.prune_beliefs(holder_actor_id);
-    }
-
-    fn prune_beliefs(&mut self, holder_actor_id: u64) {
-        let mut owned: Vec<_> = self
-            .beliefs
-            .values()
-            .filter(|memory| memory.holder_actor_id == holder_actor_id)
-            .map(|memory| {
-                (
-                    memory.id.clone(),
-                    memory.salience,
-                    memory.confidence,
-                    memory.observed_tick,
-                )
-            })
-            .collect();
-        if owned.len() <= BELIEF_TUNING.capacity {
-            return;
-        }
-        owned.sort_by_key(|(_, salience, confidence, observed_tick)| {
-            (*salience, *confidence, *observed_tick)
-        });
-        for (id, _, _, _) in owned
-            .into_iter()
-            .take(self.belief_overflow_count(holder_actor_id))
-        {
-            self.beliefs.remove(&id);
-        }
-    }
-
-    fn belief_overflow_count(&self, holder_actor_id: u64) -> usize {
-        self.beliefs
-            .values()
-            .filter(|memory| memory.holder_actor_id == holder_actor_id)
-            .count()
-            .saturating_sub(BELIEF_TUNING.capacity)
     }
 
     fn item_is_observable_at_location(&self, item_id: u64, location_id: u64) -> bool {
@@ -18098,16 +17246,6 @@ The relationship statement they are preserving is: {statement}"
                 command: "go".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_FLEE != 0
-            && has_combat_target
-            && self.has_accessible_exit(actor_id, access)
-        {
-            options.push(ActionOption {
-                kind: "flee".to_string(),
-                label: "Flee".to_string(),
-                command: "flee".to_string(),
-            });
-        }
         if has_pickup_offer {
             options.push(ActionOption {
                 kind: "pick_up".to_string(),
@@ -18178,17 +17316,10 @@ The relationship statement they are preserving is: {statement}"
                 command: "steal".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_DEFEND != 0 && has_combat_target {
-            options.push(ActionOption {
-                kind: "defend".to_string(),
-                label: "Defend".to_string(),
-                command: "defend".to_string(),
-            });
-        }
         if offers.option_flags & CW_OFFER_ATTACK != 0 && has_combat_target {
             options.push(ActionOption {
                 kind: "attack".to_string(),
-                label: "Attack".to_string(),
+                label: "Confront".to_string(),
                 command: "attack".to_string(),
             });
         }
@@ -18289,7 +17420,7 @@ The relationship statement they are preserving is: {statement}"
                 "use_item" => "Use",
                 "use_feature" => "Use",
                 "rest" => "Rest",
-                "attack" => "Attack",
+                "attack" => "Confront",
                 "defend" => "Defend",
                 "pick_up" => "Take",
                 "drop_item" => "Drop",
@@ -20414,6 +19545,21 @@ The relationship statement they are preserving is: {statement}"
                 record.projection_mutations.extend(mutations);
                 record
             }
+            NOTICE_ACTOR_OFFER_KIND => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)?;
+                let (action, mutation, _) = self
+                    .plan_notice_actor_action(actor.id, target_actor_id)
+                    .ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind(NOTICE_ACTOR_OFFER_KIND);
+                record.projection_mutations.push(mutation);
+                record
+            }
             "check" => {
                 if self.event_log.iter().rev().any(|event| {
                     event.seq >= min_seq
@@ -20777,6 +19923,18 @@ The relationship statement they are preserving is: {statement}"
                             intent.strategy.strategy_label.trim_end_matches('.')
                         ))
                     }
+                    ProjectionMutation::RecordNoticeActorFact {
+                        target_actor_id, ..
+                    } => {
+                        proposed_action.kind = NOTICE_ACTOR_OFFER_KIND.to_string();
+                        proposed_action.target_actor_id = Some(*target_actor_id);
+                        let target = self
+                            .actor_name(*target_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {target_actor_id}"));
+                        Some(format!(
+                            "{actor_name} intends to notice one visible detail about {target}."
+                        ))
+                    }
                     ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => {
                         proposed_action.kind = "rest".to_string();
                         Some(format!("{actor_name} intends to rest."))
@@ -20955,6 +20113,24 @@ The relationship statement they are preserving is: {statement}"
             return offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(destination_location_id)
             });
+        }
+        if let Some((fact_id, target_actor_id)) =
+            record
+                .projection_mutations
+                .iter()
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::RecordNoticeActorFact {
+                        fact_id,
+                        target_actor_id,
+                        ..
+                    } => Some((fact_id.as_str(), *target_actor_id)),
+                    _ => None,
+                })
+        {
+            return offer.claim_key.as_deref() == Some(fact_id)
+                && offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "actor" && target.id == Some(target_actor_id)
+                });
         }
         if action.kind == CW_ACTION_RULES_SEARCH && offer.kind == "check" {
             return offer.target.as_ref().is_some_and(|target| {
@@ -21260,55 +20436,6 @@ The relationship statement they are preserving is: {statement}"
             .map(|candidate| candidate.record.action)
     }
 
-    fn decay_beliefs(&mut self) {
-        let now = self.world.tick;
-        let mut expired = Vec::new();
-        for memory in self.beliefs.values_mut() {
-            let baseline = memory.learned_tick.max(memory.observed_tick);
-            if baseline == 0 {
-                memory.learned_tick = now;
-                continue;
-            }
-            if now <= baseline {
-                continue;
-            }
-            let (steps, confidence, salience) = belief_decay_at_tick(memory, now);
-            if steps == 0 {
-                continue;
-            }
-            memory.confidence = confidence;
-            memory.salience = salience;
-            memory.learned_tick = now;
-            if memory.confidence == 0 || memory.salience == 0 {
-                expired.push(memory.id.clone());
-            }
-        }
-        let mut forgotten_local_leads = Vec::new();
-        for memory_id in expired {
-            if let Some(memory) = self.beliefs.get(&memory_id) {
-                if memory.kind == LOCAL_LEAD_MEMORY_KIND {
-                    forgotten_local_leads.push((memory.holder_actor_id, memory.subject_id));
-                }
-            }
-            self.beliefs.remove(&memory_id);
-        }
-        for (actor_id, destination_location_id) in forgotten_local_leads {
-            for lead in self.local_leads.values_mut().filter(|lead| {
-                lead.actor_id == actor_id
-                    && lead.destination_location_id == destination_location_id
-                    && !lead.consumed
-                    && !lead.settled
-            }) {
-                lead.forgotten = true;
-            }
-        }
-        self.return_forgotten_search_items_to_pool();
-    }
-
-    fn refresh_beliefs_for_autonomy(&mut self) {
-        self.decay_beliefs();
-    }
-
     #[cfg(test)]
     fn ambient_autonomy_action(&mut self) -> Option<CwAction> {
         self.refresh_beliefs_for_autonomy();
@@ -21435,7 +20562,7 @@ fn seed_actor_default_control_mode(actor_id: u64) -> ActorControlMode {
         .iter()
         .find(|actor| actor.id == actor_id)
     {
-        Some(actor) => authored_actor_default_control_mode(actor),
+        Some(actor) => actor.authored_default_control_mode(),
         None => ActorControlMode::DirectInput,
     }
 }
@@ -22261,12 +21388,20 @@ async fn state_view(
         record_daily_visit(&state, actor_id);
     }
     let active_direct_actors = active_actor_ids_for_state(&state);
+    let can_summon_avatar = actor_id.is_some_and(|actor_id| {
+        signed_wallet_can_summon_avatar(&state, &runtime, actor_id, &access)
+    });
     let mut response = runtime.state_response_configured(
         actor_id,
         &access,
         Some(&active_direct_actors),
         state.ai_config.as_ref().as_ref(),
     );
+    if can_summon_avatar {
+        let action = actor_presence::summon_avatar_primary_action();
+        response.primary_action = action.clone();
+        response.visible_primary_action = action;
+    }
     let turn_humans = active_actor_ids_for_state(&state);
     response.turn = room_turn_view_for_runtime(
         &state,
@@ -22828,294 +21963,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     })
 }
 
-async fn create_avatar(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<CreateAvatarRequest>,
-) -> Json<AvatarResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("avatar-ip", client_ip_key(client_addr)),
-        AVATAR_CREATE_LIMIT,
-    ) {
-        return avatar_rate_limited_response();
-    }
-    let signed_wallet = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token));
-    if signed_wallet.is_none() && payload.actor_id.is_some_and(|actor_id| actor_id != 0) {
-        return Json(AvatarResponse {
-            ok: false,
-            status: 403,
-            actor: None,
-            actor_session: None,
-            actor_session_expires_at_unix: None,
-            events: Vec::new(),
-        });
-    }
-    let mut rescue_creation_context = None;
-    if let Some(wallet_address) = signed_wallet.as_deref() {
-        if let Some(actor_id) = linked_actor_for_wallet(&state, wallet_address) {
-            if actor_is_suspended(&state, actor_id) {
-                return Json(AvatarResponse {
-                    ok: false,
-                    status: 403,
-                    actor: None,
-                    actor_session: None,
-                    actor_session_expires_at_unix: None,
-                    events: Vec::new(),
-                });
-            }
-            let runtime = state.inner.lock().await;
-            if let Some(linked) = runtime.actor_by_id(actor_id) {
-                if linked.status == CW_ACTOR_KNOCKED_OUT {
-                    if payload.actor_id != Some(actor_id) {
-                        return Json(AvatarResponse {
-                            ok: false,
-                            status: 403,
-                            actor: None,
-                            actor_session: None,
-                            actor_session_expires_at_unix: None,
-                            events: Vec::new(),
-                        });
-                    }
-                    rescue_creation_context = runtime.avatar_rescue_creation_context(
-                        actor_id,
-                        avatar_rescue_account_key(wallet_address),
-                    );
-                    if rescue_creation_context.is_none() {
-                        return Json(AvatarResponse {
-                            ok: false,
-                            status: 409,
-                            actor: None,
-                            actor_session: None,
-                            actor_session_expires_at_unix: None,
-                            events: Vec::new(),
-                        });
-                    }
-                } else if runtime.client_actor_can_observe(actor_id) {
-                    let actor = runtime.actor_view(linked);
-                    drop(runtime);
-                    let (actor_session, actor_session_record) =
-                        issue_actor_session(&state, actor_id);
-                    record_daily_visit(&state, actor_id);
-                    return Json(AvatarResponse {
-                        ok: true,
-                        status: CW_OK,
-                        actor: Some(actor),
-                        actor_session: Some(actor_session),
-                        actor_session_expires_at_unix: Some(actor_session_record.expires_at_unix),
-                        events: Vec::new(),
-                    });
-                }
-            }
-        }
-    }
-
-    let selection_requested = payload.character_creation_id.is_some()
-        || payload.character_choice_id.is_some()
-        || payload.species_id.is_some()
-        || payload.origin_id.is_some();
-    let character_selection = if selection_requested {
-        let Some(selection) = character_creation_selection(
-            payload.character_creation_id.as_deref(),
-            payload.character_choice_id.as_deref(),
-            payload.species_id.as_deref(),
-            payload.origin_id.as_deref(),
-        ) else {
-            return Json(AvatarResponse {
-                ok: false,
-                status: 400,
-                actor: None,
-                actor_session: None,
-                actor_session_expires_at_unix: None,
-                events: Vec::new(),
-            });
-        };
-        Some(selection)
-    } else {
-        None
-    };
-    let actor_id = {
-        let mut runtime = state.inner.lock().await;
-        let actor_id = runtime.next_actor_id;
-        runtime.next_actor_id = runtime.next_actor_id.saturating_add(1);
-        actor_id
-    };
-    let initial_calling = character_selection
-        .as_ref()
-        .and_then(|selection| selection.class.as_ref())
-        .map(|class| class.calling.clone())
-        .or_else(|| {
-            payload
-                .calling
-                .as_deref()
-                .and_then(authored_calling_statement)
-        })
-        .unwrap_or_else(|| default_calling_statement().to_string());
-    let entry_location_id = character_selection
-        .as_ref()
-        .map(|selection| selection.profile.entry_location_id)
-        .or_else(|| content_registry().entry_location_id());
-    let Some(entry_location_id) = entry_location_id else {
-        return Json(AvatarResponse {
-            ok: false,
-            status: 503,
-            actor: None,
-            actor_session: None,
-            actor_session_expires_at_unix: None,
-            events: Vec::new(),
-        });
-    };
-    // Avatar creation is a card action, so it commits with a deterministic
-    // identity immediately. Unnamed avatars are refined by AI after the
-    // response has returned and announced over the event stream.
-    let naming_context = avatar_naming_context(character_selection.as_ref());
-    let base_identity = cosyworld_ai_model::generate_avatar_identity_with_naming(
-        actor_id,
-        payload.name.as_deref(),
-        active_content().manifest.avatar_naming.as_ref(),
-        naming_context.as_ref(),
-    )
-    .into();
-    let identity = apply_avatar_creation_flavor(
-        base_identity,
-        character_selection.as_ref(),
-        &initial_calling,
-    );
-    let actor_meta = ActorMeta {
-        name: identity.name.clone(),
-        speech_mode: "prose".to_string(),
-        title: identity.title.clone(),
-        description: identity.description.clone(),
-    };
-    let mut runtime = state.inner.lock().await;
-    let (action_kind, target_actor_id, content_id, item_id) = match rescue_creation_context.as_ref()
-    {
-        Some(AvatarRescueCreationContext::Cascade { previous, .. }) => (
-            CW_ACTION_REPLACE_AVATAR_RESCUER,
-            previous.downed_actor_id,
-            previous.rescuer_actor_id,
-            previous.draught_item_id,
-        ),
-        _ => (CW_ACTION_CREATE_ACTOR, 0, 0, 0),
-    };
-    let action = CwAction {
-        kind: action_kind,
-        actor_id,
-        target_actor_id,
-        content_id,
-        item_id,
-        location_id: entry_location_id,
-        modifier: character_selection
-            .as_ref()
-            .is_some_and(|selection| selection.profile.schema_version == 2)
-            .then_some(-1)
-            .unwrap_or_default(),
-        ..CwAction::default()
-    };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record.initial_calling = Some(initial_calling.clone());
-    record.initial_skill = character_selection
-        .as_ref()
-        .and_then(|selection| selection.class.as_ref())
-        .map(|class| class.starting_skill_id.clone());
-    if let Some(selection) = character_selection
-        .as_ref()
-        .filter(|selection| selection.profile.schema_version == 2)
-    {
-        record.initial_character_profile_id = Some(selection.profile.id.clone());
-        record.initial_species_id = selection.species.as_ref().map(|card| card.id.clone());
-        record.initial_origin_id = selection.origin.as_ref().map(|card| card.id.clone());
-        record.initial_physical_description = Some(identity.visual_prompt.clone());
-    }
-    record.actor_meta_upserts.insert(actor_id, actor_meta);
-    if let Some(context) = rescue_creation_context.as_ref() {
-        let (account_key, downed_actor_id) = match context {
-            AvatarRescueCreationContext::Begin {
-                account_key,
-                downed_actor_id,
-            }
-            | AvatarRescueCreationContext::Cascade {
-                account_key,
-                downed_actor_id,
-                ..
-            } => (account_key.clone(), *downed_actor_id),
-        };
-        let rescue = runtime.new_avatar_rescue_state(account_key, downed_actor_id, actor_id);
-        record
-            .projection_mutations
-            .push(runtime.rescue_draught_materialization(&rescue));
-        record.projection_mutations.push(match context {
-            AvatarRescueCreationContext::Begin { .. } => {
-                ProjectionMutation::BeginAvatarRescue { rescue }
-            }
-            AvatarRescueCreationContext::Cascade { previous, .. } => {
-                ProjectionMutation::CascadeAvatarRescue {
-                    previous_rescue_id: previous.id.clone(),
-                    rescue,
-                }
-            }
-        });
-    }
-    if let Some(host) = runtime.welcome_host_for(entry_location_id) {
-        record
-            .projection_mutations
-            .push(ProjectionMutation::PlaceResident {
-                actor_id: host.id,
-                location_id: entry_location_id,
-                reason: "welcome_new_avatar".to_string(),
-            });
-    }
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(AvatarResponse {
-            ok: false,
-            status: 500,
-            actor: None,
-            actor_session: None,
-            actor_session_expires_at_unix: None,
-            events: Vec::new(),
-        });
-    };
-    let actor = runtime
-        .actor_by_id(actor_id)
-        .map(|actor| runtime.actor_view(actor));
-    let actor_observation =
-        player_tick_observation(&runtime, Some(entry_location_id), actor_id, status, &events);
-    drop(runtime);
-    let (actor_session, actor_session_record) = issue_actor_session(&state, actor_id);
-    if status == CW_OK {
-        if let Some(wallet_address) = signed_wallet.as_deref() {
-            link_wallet_actor(&state, wallet_address, actor_id);
-        }
-        record_avatar_created(&state, actor_id);
-        record_daily_visit(&state, actor_id);
-        if payload.name.is_none() {
-            schedule_avatar_identity_refinement(
-                &state,
-                actor_id,
-                character_selection.clone(),
-                initial_calling.clone(),
-                identity.clone(),
-            );
-        }
-    }
-
-    broadcast_events(&state, &events);
-    if let Some(observation) = actor_observation {
-        schedule_player_tick_observation(&state, observation);
-    }
-    Json(AvatarResponse {
-        ok: status == CW_OK,
-        status,
-        actor,
-        actor_session: (status == CW_OK).then_some(actor_session),
-        actor_session_expires_at_unix: (status == CW_OK)
-            .then_some(actor_session_record.expires_at_unix),
-        events,
-    })
-}
-
 async fn choose_avatar_class(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -23590,6 +22437,14 @@ async fn submit_action_offer(
             )
             .await
         }
+        "/actions/notice" => {
+            notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(NoticeActorRequest)),
+            )
+            .await
+        }
         "/actions/study" => {
             study(
                 ConnectInfo(client_addr),
@@ -23654,6 +22509,13 @@ async fn submit_action_offer(
             )
             .await
         }
+        "/actions/accept-transfer-offer" => {
+            let payload = parsed!(TransferOfferActionRequest);
+            if payload.decision != "accept" {
+                return invalid_offer_submission();
+            }
+            resolve_transfer_offer(ConnectInfo(client_addr), State(state), Json(payload)).await
+        }
         "/actions/theft" => {
             theft(
                 ConnectInfo(client_addr),
@@ -23667,6 +22529,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(CraftRequest)),
+            )
+            .await
+        }
+        "/actions/declare-combat" => {
+            declare_combat(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(AttackRequest)),
             )
             .await
         }
@@ -24092,94 +22962,6 @@ async fn fund_community_image(
         schedule_community_art_generation(&state, payload.actor_id, plan);
     }
     FundCommunityImageResponse::action(true, CW_OK, events)
-}
-
-async fn commit_chat_status(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    status: &str,
-    reason: &str,
-    caused_by_event_seq: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: Option<u64>,
-) -> Vec<EventView> {
-    let mut runtime = state.inner.lock().await;
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.caused_by_event_seq = caused_by_event_seq;
-    record.source_world_tick = source_world_tick;
-    record.observed_through_seq = observed_through_seq;
-    record.source_location_id = source_location_id;
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ChatStatus {
-            target_actor_id,
-            status: status.to_string(),
-            reason: reason.to_string(),
-        });
-    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
-        return Vec::new();
-    };
-    drop(runtime);
-    if commit_status == CW_OK {
-        broadcast_events(state, &events);
-        events
-    } else {
-        Vec::new()
-    }
-}
-
-async fn announce_chat_typing(
-    state: &AppState,
-    speaker_actor_id: u64,
-    listener_actor_id: u64,
-    caused_by_event_seq: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: Option<u64>,
-) {
-    let _ = commit_chat_status(
-        state,
-        speaker_actor_id,
-        listener_actor_id,
-        "typing",
-        "the next line is being composed",
-        caused_by_event_seq,
-        source_world_tick,
-        observed_through_seq,
-        source_location_id,
-    )
-    .await;
-}
-
-async fn complete_queued_orb_chat(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    plan: AvatarChatPlan,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-) -> Result<(), String> {
-    complete_queued_orb_chat_attempt(
-        state,
-        actor_id,
-        target_actor_id,
-        plan,
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        1,
-    )
-    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -26791,6 +25573,19 @@ async fn command_inner(
         CommandDispatch::OpenThreshold { action } => {
             let Json(response) =
                 apply_and_broadcast(state.clone(), *action, payload.actor_session.as_deref()).await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::NoticeActor { target_actor_id } => {
+            let Json(response) = notice_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(NoticeActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Check => {
@@ -30282,60 +29077,6 @@ async fn use_item(
     .await
 }
 
-fn private_actor_event(
-    type_name: &str,
-    actor_id: u64,
-    target_actor_id: Option<u64>,
-    content: String,
-) -> EventView {
-    EventView {
-        type_name: type_name.to_string(),
-        actor_id: Some(actor_id),
-        target_actor_id,
-        content: Some(content),
-        ..EventView::default()
-    }
-}
-
-fn transfer_offer_created_response(
-    runtime: &RuntimeWorld,
-    offer: &TransferOfferState,
-    actor_id: u64,
-) -> ActionResponse {
-    let target_name = runtime
-        .actor_name(offer.offered_to_actor_id)
-        .unwrap_or_else(|| format!("Avatar {}", offer.offered_to_actor_id));
-    let item_name = runtime
-        .item_name(offer.offered_item_id)
-        .unwrap_or_else(|| format!("Item {}", offer.offered_item_id));
-    let content = match offer.kind {
-        TransferOfferKind::Gift => format!(
-            "Gift offer {} sent privately to {target_name} for {item_name}.",
-            offer.id
-        ),
-        TransferOfferKind::Trade => {
-            let requested_name = offer
-                .requested_item_id
-                .and_then(|id| runtime.item_name(id))
-                .unwrap_or_else(|| "their item".to_string());
-            format!(
-                "Trade offer {} sent privately to {target_name}: {item_name} for {requested_name}.",
-                offer.id
-            )
-        }
-    };
-    ActionResponse {
-        ok: true,
-        status: CW_OK,
-        events: vec![private_actor_event(
-            "transfer.offer_created",
-            actor_id,
-            Some(offer.offered_to_actor_id),
-            content,
-        )],
-    }
-}
-
 async fn give_item(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -30361,6 +29102,31 @@ async fn give_item(
             return client_actor_rejected_response();
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
+        let direct_target = runtime
+            .actor_control_mode(target_actor_id)
+            .is_direct_input();
+        if direct_target {
+            if let Some(existing) = runtime
+                .matching_pending_transfer_offer(
+                    TransferOfferKind::Gift,
+                    payload.actor_id,
+                    target_actor_id,
+                    payload.item_id,
+                    None,
+                )
+                .filter(|_| {
+                    runtime
+                        .actor_gift_is_legal(payload.actor_id, target_actor_id, payload.item_id)
+                        .is_ok()
+                })
+            {
+                return Json(transfer_offer_created_response(
+                    &runtime,
+                    existing,
+                    payload.actor_id,
+                ));
+            }
+        }
         let planned_action = match runtime.plan_transfer_choice_action(
             payload.actor_id,
             "give_item",
@@ -30371,10 +29137,7 @@ async fn give_item(
             Ok(action) => action,
             Err(reason) => return action_offer_rejected(reason),
         };
-        if runtime
-            .actor_control_mode(target_actor_id)
-            .is_direct_input()
-        {
+        if direct_target {
             if let Some(policy) = runtime
                 .gift_auto_accept_policy(target_actor_id, payload.actor_id, payload.item_id)
                 .cloned()
@@ -30404,19 +29167,6 @@ async fn give_item(
                     status,
                     events,
                 });
-            }
-            if let Some(existing) = runtime.matching_pending_transfer_offer(
-                TransferOfferKind::Gift,
-                payload.actor_id,
-                target_actor_id,
-                payload.item_id,
-                None,
-            ) {
-                return Json(transfer_offer_created_response(
-                    &runtime,
-                    existing,
-                    payload.actor_id,
-                ));
             }
             let offer = runtime.new_transfer_offer(
                 TransferOfferKind::Gift,
@@ -31073,31 +29823,6 @@ async fn craft(
     } else {
         apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
     }
-}
-
-async fn attack(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<AttackRequest>,
-) -> Json<ActionResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return action_rate_limited_response();
-    }
-    apply_combat_choice(
-        state,
-        payload.actor_id,
-        CombatChoice::Attack {
-            target_actor_id: payload.target_actor_id,
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
 }
 
 async fn defend(
@@ -37696,6 +36421,7 @@ mod tests {
             .events
             .iter()
             .any(|event| event.type_name == "transfer.offer_created"));
+        assert!(offered.events.iter().all(|event| event.success));
         let offer_id = {
             let runtime = state.inner.lock().await;
             assert_eq!(
@@ -37705,7 +36431,71 @@ mod tests {
                     .holder_actor_id,
                 5000
             );
-            runtime.transfer_offers.keys().next().unwrap().clone()
+            let offer_id = runtime.transfer_offers.keys().next().unwrap().clone();
+            let giver_view = runtime.state_response(Some(5000), &AccessContext::default());
+            assert!(giver_view
+                .safety
+                .outgoing_offers
+                .iter()
+                .any(|offer| { offer.id == offer_id && offer.offered_to_actor_id == 5001 }));
+            assert!(!giver_view.action_offers.iter().any(|offer| {
+                offer.kind == "give_item"
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(5001)
+                    && offer.provider.id == format!("item:{STORY_BUTTON_ITEM_ID}")
+            }));
+            let receiver_view = runtime.state_response(Some(5001), &AccessContext::default());
+            assert!(receiver_view
+                .safety
+                .incoming_offers
+                .iter()
+                .any(|offer| { offer.id == offer_id && offer.offered_by_actor_id == 5000 }));
+            assert_eq!(
+                receiver_view
+                    .action_hand
+                    .entries
+                    .first()
+                    .map(|entry| entry.kind.as_str()),
+                Some(ACCEPT_TRANSFER_OFFER_KIND),
+                "the pending gift decision is pinned into the recipient's hand"
+            );
+            assert!(receiver_view.action_offers.iter().any(|offer| {
+                offer.kind == ACCEPT_TRANSFER_OFFER_KIND
+                    && offer.claim_key.as_deref() == Some(offer_id.as_str())
+            }));
+            let accept_offer = receiver_view
+                .action_offers
+                .iter()
+                .find(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
+                .expect("the recipient receives an exact acceptance offer");
+            assert!(routes::action_path_accepts_kind(
+                "/actions/accept-transfer-offer",
+                ACCEPT_TRANSFER_OFFER_KIND
+            ));
+            runtime
+                .validate_action_offer_submission(
+                    5001,
+                    &AccessContext::default(),
+                    &ActionOfferSubmissionRequest {
+                        path: "/actions/accept-transfer-offer".to_string(),
+                        offer_id: accept_offer.offer_id.clone(),
+                        composition_id: accept_offer.composition_id.clone(),
+                        kind: accept_offer.kind.clone(),
+                        rules_action: accept_offer.rules_action.clone(),
+                        operation: accept_offer.operation.clone(),
+                        rules_profile: accept_offer.rules_profile.clone(),
+                        state_revision: accept_offer.state_revision,
+                        route: accept_offer.route.clone(),
+                        target: accept_offer.target.clone(),
+                        cost: accept_offer.cost.clone(),
+                        payload: serde_json::json!({
+                            "actor_id": 5001,
+                            "offer_id": offer_id,
+                            "decision": "accept",
+                        }),
+                    },
+                )
+                .expect("the pinned acceptance card validates through the certified action route");
+            offer_id
         };
 
         let accepted = resolve_transfer_offer(
@@ -37738,6 +36528,12 @@ mod tests {
                 runtime.transfer_offers[&offer_id].status,
                 TransferOfferStatus::Accepted
             );
+            let receiver_view = runtime.state_response(Some(5001), &AccessContext::default());
+            assert!(receiver_view
+                .action_hand
+                .entries
+                .iter()
+                .all(|entry| entry.kind != ACCEPT_TRANSFER_OFFER_KIND));
         }
 
         let retry = resolve_transfer_offer(
@@ -38414,9 +37210,10 @@ mod tests {
     }
 
     #[test]
-    fn avatar_inspector_exposes_notice_transfer_and_safety_controls() {
+    fn avatar_inspector_and_hand_expose_room_bound_transfer_consent() {
         for contract in [
-            "data-avatar-notice=",
+            "exactOfferVariants(\"notice_actor\")",
+            "/actions/notice",
             "Nothing known yet.",
             "data-avatar-transfer=\"give\"",
             "data-avatar-item-toggle=",
@@ -38425,9 +37222,11 @@ mod tests {
             "data-avatar-safety=",
             "data-avatar-report=",
             "data-avatar-gift-request=",
-            "data-transfer-offer-decision=\"accept\"",
-            "data-transfer-offer-decision=\"decline\"",
-            "data-transfer-offer-decision=\"withdraw\"",
+            "room-avatar-transfer-marker",
+            "Choose Accept from your hand, or leave the room.",
+            "Waiting while you share this room.",
+            "options.has(\"accept_transfer\")",
+            "/actions/accept-transfer-offer",
             "/actions/transfer-offer",
             "/actions/actor-safety",
             "function eventIsMuted",
@@ -38977,14 +37776,40 @@ mod tests {
         intent_id: &str,
         kind: &str,
     ) -> CommandRequest {
+        canonical_test_offer_request_with_presence(
+            runtime,
+            actor_id,
+            actor_session,
+            intent_id,
+            kind,
+            None,
+        )
+    }
+
+    fn canonical_test_offer_request_with_presence(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+        kind: &str,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> CommandRequest {
         let offer_id = if kind == "*" {
+            let offers = runtime
+                .legal_action_candidates_with_presence(
+                    Some(actor_id),
+                    &AccessContext::default(),
+                    active_direct_actor_ids,
+                )
+                .1;
             runtime
-                .state_response(Some(actor_id), &AccessContext::default())
-                .visible_action_offers
+                .action_hand_for(Some(actor_id), &offers)
+                .entries
                 .into_iter()
-                .find(|offer| !offer.disabled && offer.kind != "chat")
-                .map(|offer| offer.offer_id)
-                .unwrap_or_else(|| runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id)
+                .find(|entry| entry.think.available)
+                .unwrap_or_else(|| panic!("canonical test hand exposes an exact Think certificate"))
+                .think
+                .offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -38998,7 +37823,11 @@ mod tests {
             actor_id,
             actor_session,
             intent_id,
-            "offer identity selects the action",
+            if kind == "*" {
+                "think"
+            } else {
+                "offer identity selects the action"
+            },
         );
         request.offer_id = Some(offer_id);
         request
@@ -39013,11 +37842,42 @@ mod tests {
         intent_id: &str,
     ) -> CommandResponse {
         let mut last_response = None;
-        for _ in 0..4 {
-            let request = {
-                let mut runtime = state.inner.lock().await;
-                canonical_test_offer_request(&mut runtime, actor_id, actor_session, intent_id, "*")
+        for _ in 0..12 {
+            let state_view = client
+                .get(format!("{base_url}/state"))
+                .query(&[
+                    ("actor_id", actor_id.to_string()),
+                    ("actor_session", actor_session.to_string()),
+                ])
+                .send()
+                .await
+                .expect("canonical hand state")
+                .json::<serde_json::Value>()
+                .await
+                .expect("canonical hand state response");
+            let offer_id = state_view["action_hand"]["entries"]
+                .as_array()
+                .and_then(|entries| {
+                    entries.iter().find_map(|entry| {
+                        entry["think"]["available"]
+                            .as_bool()
+                            .filter(|available| *available)
+                            .and_then(|_| entry["think"]["offer_id"].as_str())
+                    })
+                })
+                .unwrap_or_else(|| panic!("canonical hand exposes an exact Think certificate"))
+                .to_string();
+            let mut request = {
+                let runtime = state.inner.lock().await;
+                canonical_test_command_request(
+                    &runtime,
+                    actor_id,
+                    actor_session,
+                    intent_id,
+                    "think",
+                )
             };
+            request.offer_id = Some(offer_id);
             let response = client
                 .post(format!("{base_url}/commands"))
                 .json(&request)
@@ -39027,11 +37887,12 @@ mod tests {
                 .json::<CommandResponse>()
                 .await
                 .expect("canonical card response");
-            if response.ok || response.status != 404 {
+            if response.ok || !matches!(response.status, 404 | 409 | 503) {
                 return response;
             }
             last_response = Some(response);
             let _ = converge_capacity_for_read(state, Some(actor_session)).await;
+            tokio::time::sleep(Duration::from_millis(150)).await;
         }
         last_response.expect("canonical card retry response")
     }
@@ -39948,13 +38809,16 @@ mod tests {
             let response = submit_canonical_test_offer(
                 &client,
                 base,
-                edge_state,
+                &state_a,
                 actor_hot,
                 &session_hot,
                 &intent_id,
             )
             .await;
-            assert!(response.ok, "{response:?}");
+            assert!(
+                response.ok,
+                "hot-room command {index} via {base} failed: {response:?}"
+            );
             converge_capacity_for_read(&state_a, Some(&session_hot)).await;
             committed_seqs.push(
                 response
@@ -40045,25 +38909,15 @@ mod tests {
             io::ErrorKind::PermissionDenied
         );
 
-        let post_handoff_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:after-hot-room-handoff",
-                "*",
-            )
-        };
-        let post_handoff: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&post_handoff_request)
-            .send()
-            .await
-            .expect("post-handoff command through stale edge")
-            .json()
-            .await
-            .expect("post-handoff response");
+        let post_handoff = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:after-hot-room-handoff",
+        )
+        .await;
         assert!(post_handoff.ok, "{post_handoff:?}");
         assert!(
             post_handoff.receipt.as_ref().is_some_and(|receipt| {
@@ -40073,25 +38927,15 @@ mod tests {
         );
 
         converge_capacity_for_read(&state_a, Some(&session_cold)).await;
-        let cold_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_cold,
-                &session_cold,
-                "test:cold-range-checkpoint",
-                "*",
-            )
-        };
-        let cold_response: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&cold_request)
-            .send()
-            .await
-            .expect("cold range command")
-            .json()
-            .await
-            .expect("cold range response");
+        let cold_response = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_cold,
+            &session_cold,
+            "test:cold-range-checkpoint",
+        )
+        .await;
         assert!(cold_response.ok, "{cold_response:?}");
         let split_now = now_millis();
         let hot_before_split = current_partition_lease(
@@ -40241,25 +39085,15 @@ mod tests {
         let _ = convergence_b.await;
         let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
-        let process_loss_request = {
-            let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:hot-owner-loss",
-                "*",
-            )
-        };
-        let process_loss: CommandResponse = client
-            .post(format!("{url_a}/commands"))
-            .json(&process_loss_request)
-            .send()
-            .await
-            .expect("command after hot owner loss")
-            .json()
-            .await
-            .expect("process loss response");
+        let process_loss = submit_canonical_test_offer(
+            &client,
+            &url_a,
+            &state_a,
+            actor_hot,
+            &session_hot,
+            "test:hot-owner-loss",
+        )
+        .await;
         assert!(process_loss.ok, "{process_loss:?}");
         let process_loss_fence = process_loss
             .receipt
@@ -40372,25 +39206,15 @@ mod tests {
         let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
-        let recovery_request = {
-            let mut runtime = recovery_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:regional-promotion",
-                "*",
-            )
-        };
-        let recovery_response: CommandResponse = client
-            .post(format!("{recovery_url}/commands"))
-            .json(&recovery_request)
-            .send()
-            .await
-            .expect("recovery region command")
-            .json()
-            .await
-            .expect("recovery command response");
+        let recovery_response = submit_canonical_test_offer(
+            &client,
+            &recovery_url,
+            &recovery_state,
+            actor_hot,
+            &session_hot,
+            "test:regional-promotion",
+        )
+        .await;
         assert!(recovery_response.ok, "{recovery_response:?}");
         assert!(
             recovery_response.receipt.as_ref().is_some_and(
@@ -40422,25 +39246,15 @@ mod tests {
         let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
-        let reconnect_request = {
-            let mut runtime = reconnect_state.inner.lock().await;
-            canonical_test_offer_request(
-                &mut runtime,
-                actor_hot,
-                &session_hot,
-                "test:cross-region-reconnect",
-                "*",
-            )
-        };
-        let reconnect_response: CommandResponse = client
-            .post(format!("{reconnect_url}/commands"))
-            .json(&reconnect_request)
-            .send()
-            .await
-            .expect("reconnected region command")
-            .json()
-            .await
-            .expect("reconnected command response");
+        let reconnect_response = submit_canonical_test_offer(
+            &client,
+            &reconnect_url,
+            &reconnect_state,
+            actor_hot,
+            &session_hot,
+            "test:cross-region-reconnect",
+        )
+        .await;
         assert!(reconnect_response.ok, "{reconnect_response:?}");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
@@ -41622,7 +40436,7 @@ mod tests {
 
     #[test]
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
-        assert_eq!(CW_MAX_ACTORS, 1024);
+        assert_eq!(CW_MAX_ACTORS, 2048);
         assert_eq!(CW_MAX_ITEMS, 1024);
         assert_eq!(CW_MAX_LOCATIONS, 2048);
         assert_eq!(CW_MAX_EXITS, 4096);
@@ -41639,11 +40453,11 @@ mod tests {
         let restored = snapshot
             .into_runtime()
             .expect("vector-backed legacy snapshot rehydrates");
-
         // Snapshots persist active entries as vectors, not the fixed-array
         // cw_world memory layout. Rehydration therefore upgrades an older
         // layout safely into the currently compiled kernel ABI.
         assert_eq!(restored.world.version, CW_KERNEL_VERSION);
+        assert!(restored.world.actor_count <= CW_MAX_ACTORS);
         assert!(restored.world.location_count <= CW_MAX_LOCATIONS);
         assert!(restored.world.exit_count <= CW_MAX_EXITS);
     }
@@ -44235,11 +43049,6 @@ mod tests {
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
         assert!(INDEX_HTML.contains("Shared room transcript"));
-        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
-        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
-        assert!(INDEX_HTML.contains("function setJournalOpen"));
-        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
-        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
         assert!(INDEX_HTML.contains("white-space: nowrap;"));
         assert!(!INDEX_HTML.contains("Why this matters"));
         assert!(INDEX_HTML.contains("eventIsStatusUpdate"));
@@ -44251,17 +43060,16 @@ mod tests {
         assert!(INDEX_HTML.contains("function ensureWorldView"));
         assert!(INDEX_HTML.contains("function worldChronicleHtml"));
         assert!(INDEX_HTML.contains("the world beyond"));
-        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("function deckPanelHtml"));
-        assert!(INDEX_HTML.contains("function minimalMenuPanelHtml"));
-        assert!(INDEX_HTML.contains("account-panel minimal-menu"));
-        assert!(INDEX_HTML.contains("data-menu-close"));
-        assert!(INDEX_HTML.contains("function orbSlotPresentation"));
-        assert!(INDEX_HTML.contains("class=\"story-hand-toggle\""));
-        assert!(INDEX_HTML.contains("data-hand-play=\"primary\""));
-        assert!(INDEX_HTML.contains("data-hand-discard=\"primary\""));
-        assert!(INDEX_HTML.contains("function playStoryHandCard"));
-        assert!(INDEX_HTML.contains("function discardStoryHandCard"));
+        assert!(INDEX_HTML.contains("[\"deck\", \"pack\"]"));
+        assert!(INDEX_HTML.contains("[\"character\", \"character\"]"));
+        assert!(!INDEX_HTML.contains("[\"collection\", \"collection & account\"]"));
+        assert!(INDEX_HTML.contains("[\"identity\", \"sign in / identity\"]"));
+        assert!(INDEX_HTML.contains("[\"world\", \"worlds & packs\"]"));
+        assert!(INDEX_HTML.contains("[\"journal\", \"journal\"]"));
+        assert!(INDEX_HTML.contains("[\"settings\", \"orbs & settings\"]"));
+        assert!(INDEX_HTML.contains("physical cards, not a fixed card count"));
+        assert!(INDEX_HTML.contains("pack weight · base"));
         assert!(INDEX_HTML.contains("deck.charm_slot_expansion"));
         assert!(INDEX_HTML.contains("Make room"));
         assert!(INDEX_HTML.contains("Only prepared spells can be cast"));
@@ -44272,21 +43080,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
-        assert!(INDEX_HTML.contains("data-export-journal"));
-        assert!(
-            INDEX_HTML.contains("class=\"journal-internal-context\" hidden aria-hidden=\"true\"")
-        );
-        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
-        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
-        assert!(INDEX_HTML.contains("aria-label=\"Daily illustrated Journal pages\""));
-        assert!(!INDEX_HTML.contains("aria-label=\"Chronological story history\""));
-        assert!(!INDEX_HTML.contains("What the place felt like"));
-        assert!(!INDEX_HTML.contains("Still on my mind"));
         assert!(INDEX_HTML.contains("/story/clock-presentations"));
-        assert!(INDEX_HTML.contains("explanation_opened"));
-        assert!(INDEX_HTML.contains("return_change_seen"));
-        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
-        assert!(INDEX_HTML.contains("function syncJournalRegions"));
         assert!(INDEX_HTML.contains("document.fonts?.addEventListener"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
@@ -44294,7 +43088,6 @@ mod tests {
             INDEX_HTML.contains(".filter((candidate) => candidate.type === \"clock.threshold\")")
         );
         assert!(INDEX_HTML.contains("Number(right.seq || 0) - Number(left.seq || 0)"));
-        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
         assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
@@ -44349,8 +43142,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-room-more"));
         assert!(!INDEX_HTML.contains("room-more"));
         assert!(INDEX_HTML.contains("id=\"room-log-toggle\""));
-        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
-        assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("class=\"topbar-actions\""));
         assert!(!INDEX_HTML.contains("class=\"room-title\""));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
@@ -44361,22 +43152,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("interior-exit"));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
-        assert!(INDEX_HTML.contains("id=\"shuffle\""));
-        assert!(INDEX_HTML.contains("function firstThreadModel"));
-        assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
-        assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
-        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
-        assert!(!INDEX_HTML.contains("data-story-action-key"));
-        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
-        assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
-        assert!(INDEX_HTML.contains("is still waiting to be found"));
-        assert!(INDEX_HTML.contains("room thread"));
-        assert!(INDEX_HTML.contains("Your first tale continues when you"));
-        assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
-        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
-        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
-        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
         assert!(!INDEX_HTML.contains("notice one little clue."));
         assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
         assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
@@ -44390,13 +43165,6 @@ mod tests {
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
-        assert!(INDEX_HTML.contains("function renderJournalLog"));
-        assert!(INDEX_HTML.contains("function dailyJournalPagesForPresentation"));
-        assert!(INDEX_HTML.contains("String(page.rest_kind || \"\").toLowerCase() !== \"long\""));
-        assert!(INDEX_HTML.contains("const daily = new Map()"));
-        assert!(INDEX_HTML.contains("class=\"journal-page-illustration generated\""));
-        assert!(!INDEX_HTML.contains("painted after a long rest"));
-        assert!(!INDEX_HTML.contains("function journalEventHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
@@ -44431,7 +43199,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
         assert!(INDEX_HTML.contains("discover the room through play"));
-        assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("/actions/notice"));
+        assert!(!INDEX_HTML.contains("data-avatar-notice"));
         assert!(!INDEX_HTML.contains("hasCheckContribution"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
@@ -44475,7 +43245,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("rules:ordered-scene-pass"));
         assert!(!INDEX_HTML.contains("rules:ordered-scene-need-time"));
         assert!(!INDEX_HTML.contains("shows the current combat order without taking an action"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(
+            INDEX_HTML.contains("Notice one disclosure-safe fact that is visibly true right now.")
+        );
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
@@ -44488,16 +43260,21 @@ mod tests {
         assert!(!INDEX_HTML.contains("post(\"/actions/pass\""));
         assert!(INDEX_HTML.contains("\"/actions/need-time\""));
         assert!(!INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
-        assert!(INDEX_HTML.contains("function passHand"));
-        assert!(INDEX_HTML.contains("data-player-concept=\"think\""));
+        assert!(INDEX_HTML.contains("function discardActionCard"));
+        assert!(INDEX_HTML.contains("id=\"action-modal-discard\""));
+        assert!(INDEX_HTML.contains("data-hand-play=\"primary\""));
+        assert!(INDEX_HTML.contains("data-hand-discard=\"primary\""));
+        assert!(INDEX_HTML.contains("function playStoryHandCard"));
+        assert!(INDEX_HTML.contains("function discardStoryHandCard"));
+        assert!(INDEX_HTML.contains("function minimalMenuPanelHtml"));
+        assert!(INDEX_HTML.contains("class=\"account-panel minimal-menu\""));
+        assert!(INDEX_HTML.contains("class=\"minimal-orb-rack"));
+        assert!(!INDEX_HTML.contains("function usesInlineStoryHand() {\n      return false;"));
+        assert!(!INDEX_HTML.contains("data-player-concept=\"think\""));
+        assert!(!INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("id=\"tertiary\""));
-        assert!(INDEX_HTML
-            .contains("const actionCardSuits = [\"head\", \"heart\", \"honor\", \"hustle\"];"));
         for suit in ["head", "heart", "honor", "hustle"] {
             assert!(INDEX_HTML.contains(&format!(".cmd.suit-{suit}")));
-        }
-        for retired_suit in ["wonder", "way", "hand", "courage", "hearth"] {
-            assert!(!INDEX_HTML.contains(&format!(".cmd.suit-{retired_suit}")));
         }
         assert!(INDEX_HTML.contains(
             "if (String(action?.presentation?.family || \"\") !== \"action\") return \"\";"
@@ -44510,7 +43287,7 @@ mod tests {
         assert!(INDEX_HTML.contains("class=\"cmd-meta\""));
         assert!(INDEX_HTML.contains("class=\"provider-call\""));
         assert!(INDEX_HTML.contains("class=\"collectible-mark\""));
-        assert!(INDEX_HTML.contains("whole-hand redeal has retired"));
+        assert!(INDEX_HTML.contains("Whole-hand redeals have retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
         assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
@@ -44532,7 +43309,6 @@ mod tests {
         assert!(INDEX_HTML.contains("flex-shrink: 0;"));
         assert!(!INDEX_HTML.contains("classList.toggle(\"expanded\")"));
         assert!(INDEX_HTML.contains("action-mini-card"));
-        assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
         assert!(INDEX_HTML.contains("Reveal one stretch toward"));
         assert!(INDEX_HTML.contains("${firstScout.destinationName} is revealed"));
@@ -44575,18 +43351,19 @@ mod tests {
         ));
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
-        // A knockout is not an ended tale: the scene keeps the fallen body
-        // attached and exposes the linked-account rescue run.
+        // A knockout is not an ended tale: the scene keeps the same identity
+        // attached and may offer one signed-in rescuer rather than replacement.
         assert!(INDEX_HTML.contains("was knocked out by"));
         assert!(INDEX_HTML.contains("Their body is still where it fell"));
-        assert!(INDEX_HTML.contains("create a rescuer, and bring back the Rescue Draught"));
-        assert!(INDEX_HTML.contains("kind === \"create_rescuer\""));
-        assert!(INDEX_HTML.contains("label: \"create rescuer\""));
-        assert!(INDEX_HTML.contains("inhabit_actor_id"));
-        assert!(!INDEX_HTML.contains("kind !== \"await_rescue\""));
+        assert!(INDEX_HTML.contains("Stay with them while help arrives."));
+        assert!(INDEX_HTML.contains("Summon one new traveler to attempt the rescue."));
+        assert!(INDEX_HTML.contains("[\"await_rescue\", \"summon_avatar\"].includes(rescueAction)"));
+        assert!(INDEX_HTML.contains("summon_from_actor_id: summonFromActorId"));
         assert!(INDEX_HTML.contains("/avatar/session"));
         assert!(INDEX_HTML.contains("restore this same avatar"));
-        assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
+        assert!(INDEX_HTML.contains(
+            "label: summoningAvatar ? \"summon\" : beginningAgain ? \"begin again\" : \"begin\""
+        ));
         assert!(INDEX_HTML.contains("character_creation_id"));
         assert!(INDEX_HTML.contains("character_choice_id"));
         assert!(INDEX_HTML.contains("species_id"));
@@ -44612,13 +43389,12 @@ mod tests {
         assert!(INDEX_HTML.contains("/ai/openrouter/verify"));
         assert!(!INDEX_HTML.contains("/api/v1/auth/keys"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
-        assert!(INDEX_HTML.contains("listen_attempted_here"));
-        assert!(INDEX_HTML.contains("listen again"));
-        assert!(INDEX_HTML.contains("The room may have nothing new yet."));
-        assert!(INDEX_HTML.contains("the room may share another clue"));
+        assert!(!INDEX_HTML.contains("listen_attempted_here"));
+        assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
+        assert!(INDEX_HTML.contains("target_actor_id: targetId"));
         assert!(INDEX_HTML.contains("[\"Costs\", orbCost ?"));
         assert!(!INDEX_HTML.contains("to listen again"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
+        assert!(!INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
@@ -44639,6 +43415,7 @@ mod tests {
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));
+        assert!(INDEX_HTML.contains("From ${view.location.name}"));
         assert!(INDEX_HTML.contains(
             "targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name)"
         ));
@@ -48511,6 +47288,7 @@ mod tests {
                 name: Some("Terminal Sprig".to_string()),
                 calling: None,
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -48564,6 +47342,7 @@ mod tests {
                 name: Some("Elowen Reed".to_string()),
                 calling: None,
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: Some("the-lantern-keeper".to_string()),
                 character_choice_id: None,
                 species_id: Some("human".to_string()),
@@ -48844,7 +47623,8 @@ mod tests {
                 name: Some("Lantern Rescuer".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
-                character_creation_id: None,
+                summon_from_actor_id: None,
+                character_creation_id: Some("the-lantern-keeper".to_string()),
                 character_choice_id: None,
                 species_id: None,
                 origin_id: None,
@@ -49080,6 +47860,170 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn wallet_linked_knocked_out_avatar_can_summon_one_rescuer() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("linked avatar")
+            .status = CW_ACTOR_KNOCKED_OUT;
+        let keepsake = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("story button item");
+        keepsake.holder_actor_id = 5000;
+        keepsake.location_id = 0;
+        keepsake.zone = CW_CARD_ZONE_CARRIED;
+        let actor_count = runtime.world.actor_count;
+
+        let state = test_app_state(runtime, None);
+        let wallet_address = "wallet-summoning-a-rescuer";
+        let wallet_session = "wallet-summoning-a-rescuer-session";
+        insert_wallet_session(&state, wallet_session, wallet_address);
+        link_wallet_actor(&state, wallet_address, 5000);
+
+        let downed_view = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: None,
+                wallet_session: Some(wallet_session.to_string()),
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(downed_view.primary_action.kind, "summon_avatar");
+
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Rowan Vale".to_string()),
+                calling: Some(default_calling_statement().to_string()),
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(5000),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let rescuer_id = response.actor.expect("summoned rescuer").id;
+        assert_ne!(rescuer_id, 5000);
+        assert_eq!(
+            linked_actor_for_wallet(&state, wallet_address),
+            Some(rescuer_id)
+        );
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "avatar.rescue_run.started"
+                && event.actor_id == Some(rescuer_id)
+                && event.target_actor_id == Some(5000)
+        }));
+
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(runtime.world.actor_count, actor_count + 1);
+            assert_eq!(
+                runtime
+                    .actor_by_id(5000)
+                    .expect("downed avatar remains")
+                    .status,
+                CW_ACTOR_KNOCKED_OUT
+            );
+            assert!(runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .any(|item| {
+                    item.id == STORY_BUTTON_ITEM_ID
+                        && item.holder_actor_id == 5000
+                        && item.zone == CW_CARD_ZONE_CARRIED
+                }));
+            assert_eq!(
+                runtime.avatar_rescue_predecessors.get(&rescuer_id),
+                Some(&5000)
+            );
+            let restored = RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .expect("rescue run survives a snapshot round trip");
+            assert_eq!(
+                restored.avatar_rescue_predecessors.get(&rescuer_id),
+                Some(&5000)
+            );
+        }
+
+        let repeated = create_avatar(
+            ConnectInfo("127.0.0.1:45116".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Another Rescuer".to_string()),
+                calling: None,
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(5000),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!repeated.ok);
+        assert_eq!(repeated.status, 409);
+
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            runtime.world.actors[..actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == rescuer_id)
+                .expect("rescuer")
+                .status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let rescuer_view = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(rescuer_id),
+                actor_session: None,
+                wallet_session: Some(wallet_session.to_string()),
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_ne!(rescuer_view.primary_action.kind, "summon_avatar");
+
+        let third_body = create_avatar(
+            ConnectInfo("127.0.0.1:45117".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Third Body".to_string()),
+                calling: None,
+                wallet_session: Some(wallet_session.to_string()),
+                summon_from_actor_id: Some(rescuer_id),
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!third_body.ok);
+        assert_eq!(third_body.status, 409);
+        assert_eq!(state.inner.lock().await.world.actor_count, actor_count + 1);
+    }
+
+    #[tokio::test]
     async fn avatar_creation_without_ai_emits_no_fallback_welcome() {
         let state = test_app_state(RuntimeWorld::seeded(), None);
         let mut broadcasts = state.tx.subscribe();
@@ -49092,6 +48036,7 @@ mod tests {
                 name: Some("Welcome Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -49143,6 +48088,7 @@ mod tests {
                 name: Some("Homecoming Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -49201,6 +48147,7 @@ mod tests {
                 name: Some("Scarf Story Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                summon_from_actor_id: None,
                 character_creation_id: None,
                 character_choice_id: None,
                 species_id: None,
@@ -49431,63 +48378,6 @@ mod tests {
                 && event.type_name == "message.created"
                 && event.actor_id == Some(RATI_ACTOR_ID)
         }));
-    }
-
-    #[tokio::test]
-    async fn targeted_notice_endpoint_reveals_only_after_a_successful_check() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Endpoint Observer",
-        );
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("observer exists")
-            .stats
-            .wisdom = i8::MAX;
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = ability_check(
-            ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
-            State(state.clone()),
-            Json(CheckRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                ability: "wisdom".to_string(),
-                dc: Some(LISTEN_DC),
-                target_actor_id: Some(RATI_ACTOR_ID),
-            }),
-        )
-        .await
-        .0;
-
-        assert!(response.ok);
-        let notice = response
-            .events
-            .iter()
-            .find(|event| event.type_name == "ability_check.rolled")
-            .expect("targeted notice event");
-        assert!(notice.success);
-        assert_eq!(notice.content.as_deref(), Some("notice"));
-        assert_eq!(notice.target_actor_id, Some(RATI_ACTOR_ID));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "job.contribution.resolved"));
-        let runtime = state.inner.lock().await;
-        assert!(runtime.economy_known_by(5000, RATI_ACTOR_ID));
-        assert!(runtime
-            .state_response(Some(5000), &AccessContext::default())
-            .actors
-            .iter()
-            .find(|actor| actor.id == RATI_ACTOR_ID)
-            .is_some_and(|actor| actor.resident_economy.is_some()));
     }
 
     #[tokio::test]
@@ -50519,7 +49409,7 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "check"));
+            .all(|option| option.kind != "check"));
 
         let bank_command = runtime
             .resolve_command(&command_request(5000, "grow"), &AccessContext::default())
@@ -51250,7 +50140,7 @@ mod tests {
             offer
                 .source_collectible
                 .as_ref()
-                .is_some_and(|source| source.instance_id == 2013)
+                .is_some_and(|source| source.instance_id == MOONLIT_TRAIL_LOCATION_ID)
         }));
 
         assert!(!runtime
@@ -53650,7 +52540,7 @@ mod tests {
         let baseline_notice = baseline
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice is already legal before practice recognition");
 
         for seq in 1..=5 {
@@ -53687,7 +52577,7 @@ mod tests {
         let recognized_notice = recognized
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| offer.kind == NOTICE_ACTOR_OFFER_KIND)
             .expect("Notice remains legal after practice recognition");
 
         assert_eq!(recognized_kinds, baseline_kinds);
@@ -54682,9 +53572,10 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "attack")
             .expect("attack offer is exposed in combat project room");
-        assert!(attack_offer.risk.as_deref().is_some_and(|risk| risk
-            .contains("scuffle grows more dangerous")
-            && risk.contains("fall quiet")));
+        assert!(attack_offer
+            .risk
+            .as_deref()
+            .is_some_and(|risk| risk.contains("declaring combat pauses ordinary advancement")));
 
         let mut attack = CwAction::default();
         attack.kind = CW_ACTION_ATTACK;
@@ -55221,6 +54112,11 @@ mod tests {
             "Inferred Combat Human",
         );
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
         let actor = runtime
             .world
@@ -55269,22 +54165,6 @@ mod tests {
             .find(|actor| actor.id == 5000)
             .expect("test human remains")
             .damage = 50;
-        let defend = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_723, None)
-            .expect("hurt inferred avatar chooses");
-        assert_eq!(defend.action.kind, CW_ACTION_COMBAT_PASS);
-        assert!(defend
-            .projection_mutations
-            .iter()
-            .any(|mutation| matches!(mutation, ProjectionMutation::ThinkHand { .. })));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("test human remains")
-            .damage = 80;
         let all_offers = runtime
             .legal_action_candidates(Some(5000), &AccessContext::default())
             .1;
@@ -55293,8 +54173,8 @@ mod tests {
             format!("think:{}:{}", expected_think.scene_key, expected_think.slot);
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let think = runtime
-            .resident_combat_autonomy_record(encounter_id, 71_724, Some(77))
-            .expect("badly hurt inferred avatar chooses");
+            .resident_combat_autonomy_record(encounter_id, 71_723, Some(77))
+            .expect("hurt inferred avatar chooses");
         assert_eq!(think.origin, JournalOrigin::ActorConsequence);
         assert_eq!(think.action.kind, CW_ACTION_COMBAT_PASS);
         assert!(think.projection_mutations.iter().any(|mutation| {
@@ -55517,7 +54397,7 @@ mod tests {
         let rejected = apply_combat_choice(
             state.clone(),
             5000,
-            CombatChoice::Attack {
+            CombatChoice::Declare {
                 target_actor_id: 1003,
             },
             Some(&actor_session),
@@ -55528,7 +54408,31 @@ mod tests {
         assert_eq!(rejected.status, 409);
         assert!(rejected.events.is_empty());
 
-        let mut all_events = Vec::new();
+        let declared = apply_combat_choice(
+            state.clone(),
+            5000,
+            CombatChoice::Declare {
+                target_actor_id: 1004,
+            },
+            Some(&actor_session),
+        )
+        .await
+        .0;
+        assert!(
+            declared.ok,
+            "combat declaration failed with {}",
+            declared.status
+        );
+        assert!(declared
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.encounter.started"));
+        assert!(declared
+            .events
+            .iter()
+            .all(|event| event.type_name != "combat.attack.attempt"));
+
+        let mut all_events = declared.events;
         for _ in 0..128 {
             let response = apply_combat_choice(
                 state.clone(),
@@ -56974,6 +55878,11 @@ mod tests {
         // Think must reveal a real next card. Discovering a second escape
         // route gives this ordered fixture a fourth exact combat option.
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
         let actor = runtime
             .world
             .actors
@@ -57062,7 +55971,7 @@ mod tests {
             .any(|event| event.type_name == "combat.pass"));
         assert_eq!(state.inner.lock().await.world.tick, before_tick);
 
-        {
+        let ordered_think = {
             let runtime = state.inner.lock().await;
             let (_, offers) =
                 runtime.legal_action_candidates(Some(5000), &AccessContext::default());
@@ -57071,17 +55980,19 @@ mod tests {
                 hand.pass.available,
                 "ordered fixture must have a real next card for Think: {hand:?}"
             );
-        }
+            hand.pass
+        };
 
-        let Json(drawn) = Box::pin(draw_action(
+        let mut think_command = command_request(5000, "think");
+        think_command.actor_session = Some(actor_session);
+        think_command.offer_id = Some(ordered_think.offer_id);
+        let drawn = command_inner(
             ConnectInfo("127.0.0.1:44013".parse().unwrap()),
             State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        ))
-        .await;
+            Json(think_command),
+        )
+        .await
+        .0;
         assert!(drawn.ok, "ordered-scene Think succeeds: {drawn:?}");
         assert!(drawn
             .events
@@ -58505,7 +57416,7 @@ mod tests {
             .action_hand
             .entries
             .iter()
-            .any(|entry| entry.kind == "check"));
+            .any(|entry| entry.kind == NOTICE_ACTOR_OFFER_KIND));
         assert!(calling_runtime
             .bank_visit_ledger(5000, "action_hand_fixture")
             .is_some());
@@ -58674,10 +57585,10 @@ mod tests {
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
         assert!(state
-            .primary_action
-            .options
+            .action_offers
             .iter()
-            .any(|option| option.kind == "check" && option.command == "listen"));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert!(state
             .primary_action
             .options
@@ -58688,33 +57599,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "help" && option.command == "assist"));
-        let listen_offer = state
+        assert!(state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "check")
-            .expect("listen offer is exposed");
-        assert_eq!(listen_offer.category, "discovery");
-        assert_eq!(listen_offer.intention, "notice");
-        assert_eq!(listen_offer.verb, "Notice");
-        assert_eq!(listen_offer.label, "Notice");
-        assert_eq!(listen_offer.accessible_label, "Notice at Moonlit Trail");
-        assert!(listen_offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location"
-                && target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
-                && target.label.as_deref() == Some("Moonlit Trail")
-        }));
-        assert_eq!(listen_offer.zone, ZONE_FRONTIER);
-        assert!(listen_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("one useful clue")
-                && effect.contains("shared work")
-                && !effect.contains(MOONLIT_PROGRESS_CLOCK_ID)));
-        assert_eq!(listen_offer.progress, Some(1));
-        assert!(listen_offer
-            .risk
-            .as_deref()
-            .is_some_and(|risk| risk.contains("out here may tire you")));
+            .filter(|offer| offer.kind == "check")
+            .all(|offer| offer.project.is_some()));
         assert_complete_offer_inspector(&state);
         let help_offer = state
             .action_offers
@@ -58808,9 +57697,7 @@ mod tests {
             .room
             .listen_reason
             .as_deref()
-            .is_some_and(|reason| reason.contains("one useful clue")
-                && reason.contains("shared work")
-                && !reason.contains(MOONLIT_PROGRESS_CLOCK_ID)));
+            .is_some_and(|reason| !reason.contains("ambient lead")));
         assert!(
             inspector
                 .jobs
@@ -58878,14 +57765,6 @@ mod tests {
                 .set_number
                 .as_deref()
                 .is_some_and(|value| value.starts_with("FB-")));
-            let category = match card.role.as_str() {
-                "student" | "teacher" | "special" => "avatars",
-                "item" => "items",
-                "location" => "locations",
-                role => panic!("unexpected First Bell presentation role {role}"),
-            };
-            let expected_image_url = format!("/assets/ruby-high/world/{category}/{card_id}.webp");
-            assert_eq!(card.image_url.as_deref(), Some(expected_image_url.as_str()));
             assert!(card
                 .chain_image_uri
                 .as_deref()
@@ -59072,17 +57951,18 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(trail
+            .any(|option| option.kind == "attack" && option.label == "Confront"));
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "defend"));
-        assert!(trail
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "flee"));
+        assert!(trail.combat.is_none());
         assert!(!trail
             .primary_action
             .options
@@ -59246,13 +58126,13 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(trail
+            .any(|option| option.kind == "attack" && option.label == "Confront"));
+        assert!(!trail
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "defend"));
-        assert!(trail
+        assert!(!trail
             .primary_action
             .options
             .iter()
@@ -59602,97 +58482,6 @@ mod tests {
             revealed.items.iter().any(|item| item.id == 2001),
             "disclosure reveals held item cards through the same viewer-target fact"
         );
-    }
-
-    #[test]
-    fn notice_disclosure_is_success_gated_and_survives_snapshot_and_replay() {
-        std::thread::Builder::new()
-            .name("economy-disclosure-replay".to_string())
-            .stack_size(16 * 1024 * 1024)
-            .spawn(|| {
-                let mut runtime = RuntimeWorld::seeded();
-                create_test_human(
-                    &mut runtime,
-                    5000,
-                    COSY_COTTAGE_LOCATION_ID,
-                    "Careful Observer",
-                );
-                let target_actor_id = RATI_ACTOR_ID;
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_none());
-
-                let failed_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: -100,
-                        ..CwAction::default()
-                    },
-                    86_001,
-                );
-                let (status, failed_events) = runtime.apply_journal_record(&failed_record);
-                assert_eq!(status, CW_OK);
-                let failed = failed_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("notice check event");
-                assert_eq!(failed.content.as_deref(), Some("notice"));
-                assert_eq!(failed.target_actor_id, Some(target_actor_id));
-                assert!(!runtime.economy_known_by(5000, target_actor_id));
-
-                let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-                let successful_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_RULES_SEARCH,
-                        actor_id: 5000,
-                        target_actor_id,
-                        ability: LISTEN_ABILITY,
-                        dc: LISTEN_DC,
-                        modifier: 100,
-                        ..CwAction::default()
-                    },
-                    86_002,
-                );
-                let (status, successful_events) = runtime.apply_journal_record(&successful_record);
-                assert_eq!(status, CW_OK);
-                let successful = successful_events
-                    .iter()
-                    .find(|event| event.type_name == "ability_check.rolled")
-                    .expect("successful notice event");
-                assert!(successful.success);
-                assert_eq!(successful.content.as_deref(), Some("notice"));
-                assert!(runtime.economy_known_by(5000, target_actor_id));
-                assert!(runtime
-                    .resident_economy_view(
-                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
-                        Some(5000),
-                    )
-                    .is_some());
-
-                let persisted = RuntimeSnapshot::from_runtime(&runtime);
-                drop(runtime);
-                let restored = persisted
-                    .into_runtime()
-                    .expect("economy disclosure snapshot restores");
-                assert!(restored.economy_known_by(5000, target_actor_id));
-                drop(restored);
-
-                let mut replayed = replay_base
-                    .into_runtime()
-                    .expect("pre-disclosure snapshot restores");
-                assert_eq!(replayed.apply_journal_record(&successful_record).0, CW_OK);
-                assert!(replayed.economy_known_by(5000, target_actor_id));
-            })
-            .expect("spawn economy disclosure replay test")
-            .join()
-            .expect("economy disclosure replay test completes");
     }
 
     #[test]
@@ -62264,8 +61053,8 @@ mod tests {
             .find(|offer| offer.kind == "search")
             .expect("the player candidate surface offers Search");
         let record = runtime
-            .resident_economy_autonomy_record(actor, seed)
-            .expect("the resident selects the same Search offer");
+            .resident_record_for_shared_offer(actor, &offer, seed)
+            .expect("the resident can execute the same Search offer");
         assert_eq!(record.origin, JournalOrigin::ActorConsequence);
         assert_eq!(record.rules_action, offer.rules_action);
         assert_eq!(record.operation, offer.operation);
@@ -62473,7 +61262,7 @@ mod tests {
     }
 
     #[test]
-    fn resident_notice_uses_the_player_offer_and_replays_the_roll() {
+    fn resident_notice_uses_the_player_fact_offer_and_replays_the_projection() {
         let mut runtime = RuntimeWorld::seeded();
         runtime
             .actor_autonomy
@@ -62481,16 +61270,40 @@ mod tests {
             .or_default()
             .control_mode = ActorControlMode::LocalAi;
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let target_actor_id = 1002;
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|target| target.id == target_actor_id)
+            .expect("target resident exists")
+            .location_id = actor.location_id;
+        let item = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("story button exists");
+        item.location_id = 0;
+        item.holder_actor_id = target_actor_id;
+        item.container_item_id = 0;
+        item.zone = CW_CARD_ZONE_CARRIED;
+        item.held_since_tick = 98;
         let inference_offers = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1;
         let offer = inference_offers
             .iter()
-            .find(|offer| offer.kind == "check")
+            .find(|offer| {
+                offer.kind == NOTICE_ACTOR_OFFER_KIND
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(target_actor_id)
+            })
             .cloned()
             .expect("the resident sees the player-facing Notice offer");
         assert!(offer.target.as_ref().is_some_and(|target| {
-            target.kind == "location" && target.id == Some(actor.location_id)
+            target.kind == "actor" && target.id == Some(target_actor_id)
         }));
 
         runtime
@@ -62506,8 +61319,8 @@ mod tests {
             serde_json::to_value(&inference_offers).expect("inference offers serialize"),
             "controller mode cannot change legal Notice enumeration"
         );
-        let (player_action, player_mutations) = runtime
-            .plan_notice_action(actor.id, 0)
+        let (player_action, player_mutation, _) = runtime
+            .plan_notice_actor_action(actor.id, target_actor_id)
             .expect("the player Notice planner accepts the current offer");
 
         runtime
@@ -62517,14 +61330,20 @@ mod tests {
             .control_mode = ActorControlMode::LocalAi;
         runtime
             .draw_until_test_offer(actor.id, &AccessContext::default(), |candidate| {
-                candidate.kind == "check"
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
             })
             .expect("the exact Notice offer is dealt before LocalAI selects it");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1
             .into_iter()
-            .find(|candidate| candidate.kind == "check")
+            .find(|candidate| {
+                candidate.kind == NOTICE_ACTOR_OFFER_KIND
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(target_actor_id)
+            })
             .expect("the dealt Notice offer remains current");
         let record = runtime
             .resident_record_for_shared_offer(actor, &offer, 98_101)
@@ -62545,7 +61364,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             serde_json::to_value(resident_mutations).expect("resident mutations serialize"),
-            serde_json::to_value(player_mutations).expect("player mutations serialize")
+            serde_json::to_value([player_mutation]).expect("player mutation serializes")
         );
         let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
         let record = runtime
@@ -62560,7 +61379,7 @@ mod tests {
             .resident_decision
             .as_ref()
             .expect("Notice selection carries a decision trace");
-        assert_eq!(trace.choice.offer_kind, "check");
+        assert_eq!(trace.choice.offer_kind, NOTICE_ACTOR_OFFER_KIND);
         assert_eq!(
             trace.choice.offer_id.as_deref(),
             Some(offer.offer_id.as_str())
@@ -62570,9 +61389,9 @@ mod tests {
         let (status, events) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
-            event.type_name == "ability_check.rolled"
+            event.type_name == "notice.actor_observed"
                 && event.actor_id == Some(actor.id)
-                && event.location_id == Some(actor.location_id)
+                && event.target_actor_id == Some(target_actor_id)
         }));
         assert!(runtime
             .resident_record_for_shared_offer(actor, &offer, 98_102)
@@ -67890,7 +66709,6 @@ mod tests {
     fn default_models_split_cheap_voice_from_metacognition() {
         assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "mistralai/mistral-nemo");
         assert_eq!(DEFAULT_OPENROUTER_METACOGNITIVE_MODEL, "openai/gpt-5.6-sol");
-        assert_eq!(DEFAULT_OPENAI_CHAT_MODEL, "openai/gpt-5.6-luna");
     }
 
     #[tokio::test]

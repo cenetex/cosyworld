@@ -606,7 +606,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt .cmd:not(#shuffle):visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt .cmd:visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -627,9 +627,17 @@ async function main() {
       const thinkable = actionBarActions().filter((action) => (
         projectedHandEntryForAction(action)?.think?.available === true
       ));
-      const candidate = thinkable.find((action) => (
-        !slot || projectedHandEntryForAction(action)?.slot === slot
-      )) || (!slot ? thinkable[0] : null);
+      const slotOrder = ["story", "self", "anchor"];
+      const candidate = slot
+        ? thinkable.find((action) => projectedHandEntryForAction(action)?.slot === slot)
+        : [...thinkable].sort((left, right) => {
+          const leftEntry = projectedHandEntryForAction(left);
+          const rightEntry = projectedHandEntryForAction(right);
+          return Number(leftEntry?.think?.generation || 0)
+            - Number(rightEntry?.think?.generation || 0)
+            || slotOrder.indexOf(String(leftEntry?.slot || ""))
+              - slotOrder.indexOf(String(rightEntry?.slot || ""));
+        })[0];
       if (!candidate) return null;
       focusIndex = candidate.actionIndex;
       focusedKey = actionHandKey(candidate);
@@ -643,21 +651,77 @@ async function main() {
     return focused;
   }
 
+  async function storyHandRotationSlots() {
+    return page.evaluate(() => (state?.action_hand?.entries || []).flatMap((entry) => (
+      entry?.think?.available === true
+        ? Array.from(
+          { length: Math.max(0, Number(entry.replacement_count || 0)) },
+          () => String(entry.slot || ""),
+        ).filter(Boolean)
+        : []
+    )));
+  }
+
   async function assertBrowserDrawReachesEveryLegalAction() {
     const handSnapshot = () => page.evaluate(() => ({
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
-        .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
+        .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.dataset.handKey)
         .filter(Boolean),
       eventSeq: Math.max(0, ...logEvents
         .filter((event) => event.type === "hand.thought")
         .map((event) => Number(event.seq || 0))),
-      drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
+      hasFourthCard: Boolean(document.querySelector("#shuffle")),
     }));
     const initial = await handSnapshot();
     assert(
-      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.drawVisible,
-      `the opening scene should expose its finite hand without a separate Think control: ${JSON.stringify(initial)}`,
+      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.hasFourthCard,
+      `the opening scene should expose at most three cards without a fourth Think card: ${JSON.stringify(initial)}`,
+    );
+    await focusThinkableCard("opening scene");
+    const expanded = await page.evaluate(() => {
+      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const controlId = ["primary", "secondary", "tertiary"].find((id) => (
+        Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+      )) || "";
+      setStoryHandExpanded(true, visibleFocusedAction());
+      const prompt = document.querySelector("footer.prompt");
+      const visibleSlots = [...document.querySelectorAll(".story-card-slot:not([hidden])")];
+      return {
+        controlId,
+        promptExpanded: prompt.classList.contains("hand-expanded"),
+        handHeaderVisible: document.querySelector(".hand-header")?.getClientRects().length > 0,
+        inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
+        modalHidden: document.querySelector("#action-modal")?.hidden === true,
+        cardCount: visibleSlots.length,
+        inlineActions: visibleSlots.every((slot) => (
+          slot.querySelector("[data-hand-play]")?.getClientRects().length > 0
+            && slot.querySelector("[data-hand-discard]")?.getClientRects().length > 0
+        )),
+        imageLed: visibleSlots.every((slot) => {
+          const thumb = slot.querySelector(".cmd .thumb");
+          return Boolean(thumb && (
+            getComputedStyle(thumb).backgroundImage !== "none"
+              || thumb.querySelector("img")?.getAttribute("src")
+          ));
+        }),
+        squareCorners: visibleSlots.every((slot) => (
+          Number.parseFloat(getComputedStyle(slot).borderTopLeftRadius) === 0
+            && Number.parseFloat(getComputedStyle(slot.querySelector(".cmd")).borderTopLeftRadius) === 0
+        )),
+      };
+    });
+    assert(
+      expanded.controlId
+        && expanded.promptExpanded
+        && expanded.handHeaderVisible
+        && !expanded.inspectorVisible
+        && expanded.modalHidden
+        && expanded.cardCount === initial.visibleKeys.length
+        && expanded.inlineActions
+        && expanded.imageLed
+        && expanded.squareCorners,
+      `the expanded Story Hand should show three sharp illustrated cards with inline Play and Discard: ${JSON.stringify(expanded)}`,
     );
     await focusThinkableCard("opening scene");
     const discardControl = await page.evaluate(() => {
@@ -675,7 +739,7 @@ async function main() {
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator(`[data-hand-discard="${discardControl}"]`).click(),
+      page.locator(`[data-hand-discard="${expanded.controlId}"]`).click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -683,24 +747,36 @@ async function main() {
       receipt.ok && Number(drawEvent?.seq || 0) > initial.eventSeq,
       `Think should commit a newer hand.thought event: ${JSON.stringify(receipt)}`,
     );
-    await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && document.querySelector("#action-modal")?.hidden === true
+    ));
+    await page.evaluate(() => setStoryHandExpanded(false));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
-      const draw = document.querySelector("#shuffle");
-      const rect = draw.getBoundingClientRect();
       const status = document.querySelector("#error");
       const statusStyle = getComputedStyle(status);
       const labels = [...prompt.querySelectorAll(".cmd-label-text")];
-      const visibleButtons = [...prompt.querySelectorAll(".story-card-slot:not([hidden])")]
+      const handRail = document.querySelector("#hand-rail");
+      const cards = [...handRail.querySelectorAll(".cmd")]
+        .filter((button) => getComputedStyle(button).display !== "none")
         .map((button) => button.getBoundingClientRect());
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
-        promptColumns: getComputedStyle(prompt).gridTemplateColumns.split(" ").filter(Boolean).length,
-        drawFits: rect.left >= 0 && rect.right <= window.innerWidth,
+        compactHandHeight: handRail.getBoundingClientRect().height,
+        railDisplay: getComputedStyle(handRail).display,
+        railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
+        cardsFit: cards.length <= 3
+          && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
+        cardsCompact: cards.every((rect) => rect.height <= 60),
+        detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
+          .every((node) => getComputedStyle(node).display === "none"),
+        collapsed: !prompt.classList.contains("hand-expanded"),
+        modalHidden: document.querySelector("#action-modal")?.hidden === true,
         documentFits: document.documentElement.scrollWidth <= window.innerWidth,
-        buttonsFit: visibleButtons.every((box) => box.left >= 0 && box.right <= window.innerWidth),
         primaryLabelsFit: labels.every((label) => label.scrollHeight <= label.clientHeight + 1),
         statusWraps: statusStyle.whiteSpace === "normal"
           && statusStyle.textOverflow === "clip"
@@ -714,17 +790,22 @@ async function main() {
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
         && layout.promptDisplay === "grid"
-        && layout.promptColumns === 1
-        && layout.drawFits
+        && layout.compactHandHeight <= 100
+        && layout.railDisplay === "grid"
+        && layout.railColumns === 3
+        && layout.cardsFit
+        && layout.cardsCompact
+        && layout.detailsHidden
+        && layout.collapsed
+        && layout.modalHidden
         && layout.documentFits
-        && layout.buttonsFit
         && layout.primaryLabelsFit
         && layout.statusWraps
         && layout.journaled,
-      `Think should replace one Story Hand card without opening the offer queue: ${JSON.stringify({ initial, current, layout })}`,
+      `inline Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser Think replaces one Story Hand card",
+      label: "inline Discard replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -773,7 +854,7 @@ async function main() {
             lead_location_id: 1,
             instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
-        }, [{ label: "notice", intention: "notice", target: { id: 1 }, focusKey: "check", command: "listen" }]),
+        }, [{ label: "notice", intention: "notice", target: { id: 1001, label: "Rati" }, focusKey: "actor:1001", command: "notice Rati" }]),
         missedListenWithOtherAdvancementStep: firstThreadModel({
           primary_action: { kind: "search" },
           first_tale: {
@@ -891,6 +972,16 @@ async function main() {
         welcomingListenWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "search" }] },
+          action_offers: [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }],
+          action_hand: {
+            entries: [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }],
+          },
           economy: { listen_attempted_here: false },
           ledger: { unbanked_count: 1, unbanked_marks: [{ category: "witness" }] },
           turn: { enabled: false, is_current_actor: true },
@@ -1208,7 +1299,7 @@ async function main() {
     // The floor is preserved by dealing a waiting player no bypass action at
     // all, which is stricter than the previous single observational card.
     assert(guide.arrivalActions.length === 0, `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits, dealing no bypass card: ${JSON.stringify(guide)}`);
-    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
+    assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.length === 0, `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 0, `ordinary ordered-scene waiting should preserve the combat floor without a timer card: ${JSON.stringify(guide)}`);
     assert(
@@ -1374,22 +1465,32 @@ async function main() {
     }, needles);
   }
 
-  async function zeroOrbActionLabels(listenRewardClaimable) {
-    return page.evaluate((claimable) => {
+  async function zeroOrbActionLabels(factAvailable) {
+    return page.evaluate((available) => {
       const previousState = state;
       const previousActorId = actorId;
       const fakeState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
           kind: "chat",
-          options: [{ kind: "chat" }, { kind: "check" }],
+          options: [{ kind: "chat" }],
+        },
+        action_offers: available ? [{
+          offer_id: "core:1:notice-rati",
+          kind: "notice_actor",
+          command: "notice Rati",
+          target: { kind: "actor", id: 1001, label: "Rati" },
+          provider: { kind: "actor", id: "actor:1001", priority: 40 },
+        }] : [],
+        action_hand: {
+          entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
         },
         economy: {
           orbs: 0,
           can_chat_with_orbs: false,
-          listen_cost_orbs: claimable ? 0 : 1,
-          listen_reward_claimable: claimable,
-          listen_attempted_here: !claimable,
+          listen_cost_orbs: available ? 0 : 1,
+          listen_reward_claimable: available,
+          listen_attempted_here: !available,
           openrouter_connected: false,
         },
         actors: [
@@ -1423,7 +1524,7 @@ async function main() {
         state = previousState;
         actorId = previousActorId;
       }
-    }, listenRewardClaimable);
+    }, factAvailable);
   }
 
   async function assertFreeActionsIgnoreOrbBalance() {
@@ -1433,8 +1534,8 @@ async function main() {
     assert(!claimableLabels.includes("connect ai"), `free actions should not offer Connect AI as a command: ${JSON.stringify(claimableActions)}`);
     const exhaustedActions = await zeroOrbActionLabels(false);
     const exhaustedLabels = exhaustedActions.map((action) => action.label);
-    assert(!exhaustedLabels.includes("notice"), `a claimed first clue should become repeat Notice: ${JSON.stringify(exhaustedActions)}`);
-    assert(exhaustedActions.some((action) => action.label === "notice again" && action.detail === "free"), `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice"), `Notice should disappear when no certified fact remains: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice again"), `ambient repeat Notice must not be reconstructed from stale economy fields: ${JSON.stringify(exhaustedActions)}`);
     const travelActions = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -1622,11 +1723,11 @@ async function main() {
           shape: "location",
         });
         renderButton("secondary", {
-          label: "listen",
-          detail: "Homeroom",
-          command: "listen",
-          card: cardForLocation(11),
-          shape: "location",
+          label: "notice",
+          detail: "Rati",
+          command: "notice Rati",
+          card: cardForActor(1001),
+          shape: "avatar",
         });
         const labels = [...document.querySelectorAll("footer.prompt .cmd-label")]
           .map((node) => {
@@ -1679,9 +1780,9 @@ async function main() {
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
     const travelLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "travel");
     assert(travelLabel, `travel should remain visible as the exact route verb: ${JSON.stringify(result)}`);
-    const listenLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "listen");
-    assert(listenLabel, `listen should remain visible as the exact action verb: ${JSON.stringify(result)}`);
-    for (const label of [travelLabel, listenLabel]) {
+    const noticeLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "notice");
+    assert(noticeLabel, `Notice should remain visible as the exact action verb: ${JSON.stringify(result)}`);
+    for (const label of [travelLabel, noticeLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
     }
   }
@@ -1693,13 +1794,9 @@ async function main() {
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
-          kind: "check",
-          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "move" }],
         },
-        action_offers: [{
-          kind: "check",
-          risk: "repeat listening on the frontier can leave you tired",
-        }],
         economy: {
           orbs: 0,
           can_chat_with_orbs: true,
@@ -1716,10 +1813,20 @@ async function main() {
         cards: { actors: {}, items: {}, locations: {} },
         access: {},
       };
-      const actionsFor = (attempted, economyPatch = {}) => {
+      const actionsFor = (available, economyPatch = {}) => {
         const fakeState = {
           ...baseState,
-          economy: { ...baseState.economy, listen_attempted_here: attempted, ...economyPatch },
+          action_offers: available ? [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }] : [],
+          action_hand: {
+            entries: available ? [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }] : [],
+          },
+          economy: { ...baseState.economy, listen_attempted_here: !available, ...economyPatch },
         };
         state = fakeState;
         actorId = 5000;
@@ -1736,30 +1843,20 @@ async function main() {
       };
       try {
         return {
-          fresh: actionsFor(false),
-          repeat: actionsFor(true),
-          stalePaidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
+          fresh: actionsFor(true),
+          exhausted: actionsFor(false),
+          staleLegacy: actionsFor(false, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
         };
       } finally {
         state = previousState;
         actorId = previousActorId;
       }
     });
-    assert(result.fresh[0]?.label === "notice", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
-    assert(result.repeat[0]?.label !== "notice again", `repeat Notice should not stay the default action: ${JSON.stringify(result)}`);
-    assert(result.repeat.some((action) => action.label === "chat"), `free Chat should remain available beside repeat Notice when the server exposes an eligible resident: ${JSON.stringify(result)}`);
-    const repeatIndex = result.repeat.findIndex((action) => action.label === "notice again");
-    assert(repeatIndex > 0 && result.repeat[repeatIndex]?.detail === "free", `free repeat Notice should remain available without hijacking the primary action: ${JSON.stringify(result)}`);
-    const stalePaidRepeat = result.stalePaidRepeat.find((action) => action.label === "notice again");
-    assert(stalePaidRepeat?.detail === "free" && stalePaidRepeat?.compactLabel === "notice again", `repeat Notice should stay free even when stale state reports a legacy cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.title === "notice once more", `repeat confirmation should keep the Notice verb: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.summary === "Notice another ambient lead. The room may have nothing new yet.", `repeat confirmation should explain its uncertain outcome without an Orb charge: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.rows?.some((row) => row[0] === "Costs"), `repeat Notice should never display an Orb cost: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "What may happen" && row[1] === "the room may share another clue"), `repeat confirmation should describe its possible reward plainly: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "Watch for" && row[1] === "listening again may tire you"), `repeat confirmation should preserve its gentle fatigue warning: ${JSON.stringify(result)}`);
-    assert(stalePaidRepeat?.confirm === "notice again", `repeat confirmation button should match the card: ${JSON.stringify(result)}`);
-    assert(!JSON.stringify(stalePaidRepeat).includes("to listen again"), `repeat listen should not repeat its own verb: ${JSON.stringify(result)}`);
-    assert(!stalePaidRepeat?.detail.includes("/"), `repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
+    const freshNotice = result.fresh.find((action) => action.label === "notice");
+    assert(freshNotice?.detail === "Rati" && freshNotice?.command === "notice Rati", `certified actor Notice should name its exact target: ${JSON.stringify(result)}`);
+    assert(result.exhausted.some((action) => action.label === "chat"), `free Chat should remain when no Notice fact is eligible: ${JSON.stringify(result)}`);
+    assert(!result.exhausted.some((action) => action.label === "notice" || action.label === "notice again"), `Notice should disappear after its certified fact is exhausted: ${JSON.stringify(result)}`);
+    assert(!result.staleLegacy.some((action) => action.label === "notice" || action.label === "notice again"), `stale legacy cost and attempt fields must not recreate Notice: ${JSON.stringify(result)}`);
   }
 
   async function assertCalmRoomSearchDoesNotHijackPrimary() {
@@ -1772,12 +1869,27 @@ async function main() {
           kind: "chat",
           options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
         },
-        action_offers: [{
-          offer_id: "move:rain-soft-garden",
-          kind: "move",
-          target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
-          provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
-        }],
+        action_offers: [
+          {
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          },
+          {
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
+        ],
+        action_hand: {
+          entries: [
+            { offer_id: "core:1:notice-rati", kind: "notice_actor" },
+            { offer_id: "move:rain-soft-garden", kind: "move" },
+          ],
+        },
         economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
         search_available: true,
         room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
@@ -1823,8 +1935,8 @@ async function main() {
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);
-    assert(travel?.title === "Rain-Soft Garden", `Travel confirmation should use the destination as its heading: ${JSON.stringify(result)}`);
-    assert(travel?.summary === "From The Cosy Cottage.", `Travel confirmation should add origin context without repeating the destination: ${JSON.stringify(result)}`);
+    assert(travel?.title === "Begin route to Rain-Soft Garden", `Travel confirmation should lead with the route action and destination: ${JSON.stringify(result)}`);
+    assert(!travel?.summary, `Travel confirmation should omit redundant origin prose when no waypoint needs naming: ${JSON.stringify(result)}`);
     assert(travel?.rows?.some((row) => row[1] === "you arrive in Rain-Soft Garden"), `Travel confirmation should explain where the player ends up: ${JSON.stringify(result)}`);
   }
 
@@ -1942,7 +2054,7 @@ async function main() {
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
     assert(chatIndex >= 0, `optional feature fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
-    assert(listenAgainIndex > travelIndex && result[listenAgainIndex]?.detail === "free", `repeat Notice should remain available without outranking concrete travel: ${JSON.stringify(result)}`);
+    assert(listenAgainIndex === -1, `ambient repeat Notice must stay absent from the feature surface: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
       assert(result[useIndex]?.command === "use Story Button on Scarf Basket", `feature use should remain focusable when the server exposes it: ${JSON.stringify(result)}`);
@@ -3712,7 +3824,7 @@ async function main() {
           story: singleButton?.querySelector(".story-call")?.textContent?.trim() || "",
           aria: singleButton?.getAttribute("aria-label") || "",
         };
-        openActionModal(single);
+        openActionModal(single, { handCard: true });
         const singleModal = {
           title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
           summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
@@ -3831,7 +3943,7 @@ async function main() {
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
-  async function assertChatActivityStaysInJournal() {
+  async function assertChatActivityStaysOutOfStatusSurface() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
@@ -3941,7 +4053,7 @@ async function main() {
         && result.initial.statusText === ""
         && result.initial.segments === 2
         && result.initial.filled === 2,
-      `Chat progress should stay in the Journal without adding room chrome: ${JSON.stringify(result)}`,
+      `Chat progress should remain in the Journal without consuming transcript space: ${JSON.stringify(result)}`,
     );
     assert(
       result.initiative.roundHandled
@@ -3949,7 +4061,7 @@ async function main() {
         && result.initiative.segments === 3
         && result.initiative.filled === 1
         && result.initiative.text === "",
-      `initiative chat/pass events should advance Journal segments: ${JSON.stringify(result)}`,
+      `initiative chat/pass events should advance Journal segments without adding status chrome: ${JSON.stringify(result)}`,
     );
     assert(
       result.opened.statusCleared
@@ -4287,7 +4399,16 @@ async function main() {
             provider: { kind: "rules", id: "trade", priority: 20 },
             target: { kind: "item", id: 2002, label: "Dewbright Button" },
           },
-          { offer_id: "check", kind: "check", verb: "Notice", rank: 30, provider: { kind: "rules", id: "check", priority: 30 } },
+          {
+            id: "notice_actor_v1:5000:1001",
+            offer_id: "notice",
+            kind: "notice_actor",
+            verb: "Notice",
+            command: "notice Rati",
+            rank: 30,
+            provider: { kind: "actor", id: "actor:1001", priority: 30 },
+            target: { kind: "actor", id: 1001, label: "Rati" },
+          },
           { offer_id: "move", kind: "move", verb: "Travel", rank: 40, provider: { kind: "rules", id: "move", priority: 40 } },
         ],
         action_hand: {
@@ -4308,9 +4429,9 @@ async function main() {
             },
             {
               slot: "anchor",
-              offer_id: "check",
-              kind: "check",
-              provider: { kind: "rules", id: "check", priority: 30 },
+              offer_id: "notice",
+              kind: "notice_actor",
+              provider: { kind: "actor", id: "actor:1001", priority: 30 },
               think: { available: true, free: false, slot: "anchor", offer_id: "think:story-hand-test:anchor" },
             },
           ],
@@ -4364,7 +4485,7 @@ async function main() {
       actorId = 5000;
       actorSession = "story-hand-test";
       actions = buildActions(fakeState);
-      handKeys = ["check", "exit:2"];
+      handKeys = ["notice", "exit:2"];
       discardedHandKeys = [];
       focusedKey = "";
       focusIndex = 0;
@@ -4375,7 +4496,7 @@ async function main() {
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
-        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt .cmd")]
             .filter((button) => getComputedStyle(button).display !== "none")
             .map((button) => {
               const label = button.querySelector(".cmd-label")?.cloneNode(true);
@@ -4451,7 +4572,8 @@ async function main() {
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
           visibleHand,
           hasThirdCard: Boolean(document.querySelector("#tertiary")),
-          hasShuffleCard: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
+          hasInlineDiscard: document.querySelectorAll("[data-hand-discard]").length === 3,
+          hasFourthCard: Boolean(document.querySelector("#shuffle")),
           semanticBindings,
           giveKindsBeforeRename,
           giveKindsAfterRename,
@@ -4509,7 +4631,10 @@ async function main() {
     );
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
-    assert(result.hasThirdCard && !result.hasShuffleCard, `the browser should provide three Story Hand slots without a separate Think control: ${JSON.stringify(result)}`);
+    assert(
+      result.hasThirdCard && result.hasInlineDiscard && !result.hasFourthCard,
+      `the browser should provide three Story Hand slots with inline Discard: ${JSON.stringify(result)}`,
+    );
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -4616,10 +4741,120 @@ async function main() {
     });
     assert(result.direct.chips === 1 && result.direct.requests === 1 && result.direct.trades === 1, `a disclosed direct-player item should become one icon with exact consent actions: ${JSON.stringify(result)}`);
     assert(result.inference.chips === 1 && result.inference.requests === 0 && result.inference.steals === 1, `an inference-held item must not expose the invalid direct-player request route: ${JSON.stringify(result)}`);
-    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 1, `unknown holdings must stay hidden behind Notice: ${JSON.stringify(result)}`);
+    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 0, `unknown holdings must stay hidden without an inspector Notice shortcut: ${JSON.stringify(result)}`);
     assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
     assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
     assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
+  }
+
+  async function assertHumanGiftHandoffUsesRecipientHandAndAvatarRail() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      try {
+        const gift = {
+          id: "gift-5000-5001-2005",
+          kind: "gift",
+          offered_by_actor_id: 5000,
+          offered_by_actor_name: "Giver",
+          offered_to_actor_id: 5001,
+          offered_to_actor_name: "Receiver",
+          offered_item_id: 2005,
+          offered_item_name: "Story Button",
+        };
+        const certificate = {
+          offer_id: "core:17:accept_transfer:gift-5000-5001-2005",
+          id: "accept_transfer:gift-5000-5001-2005",
+          kind: "accept_transfer",
+          claim_key: gift.id,
+          rank: 0,
+          verb: "Accept",
+          label: "Accept Story Button from Giver",
+          effect: "Story Button passes from Giver to you",
+          target: { kind: "actor", id: 5000, label: "Giver" },
+          provider: { kind: "pending_gift", id: `transfer:${gift.id}`, label: "Story Button" },
+        };
+        const baseState = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          actors: [
+            { id: 5000, name: "Giver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+            { id: 5001, name: "Receiver", status: "active", control_mode: "direct_input", stats: { level: 1 } },
+          ],
+          items: [{ id: 2005, name: "Story Button", holder_actor_id: 5000 }],
+          exits: [],
+          room_features: [],
+          cards: { actors: {}, items: {}, locations: {} },
+          economy: {},
+          ledger: {},
+          primary_action: { options: [] },
+          action_offers: [],
+          action_hand: { entries: [] },
+          safety: { incoming_offers: [], outgoing_offers: [], gift_auto_accepts: [] },
+        };
+
+        actorId = 5001;
+        state = {
+          ...baseState,
+          action_offers: [certificate],
+          action_hand: { entries: [{ offer_id: certificate.offer_id, kind: certificate.kind }] },
+          safety: { ...baseState.safety, incoming_offers: [gift] },
+        };
+        actions = buildActions(state);
+        const accept = actions.find((candidate) => candidate.focusKey === `accept-transfer:${gift.id}`);
+        const receiverRail = document.createElement("div");
+        receiverRail.innerHTML = roomAvatarRailHtml(state);
+        const giverFrame = [...receiverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Giver.")
+        ));
+
+        actorId = 5000;
+        state = {
+          ...baseState,
+          safety: { ...baseState.safety, outgoing_offers: [gift] },
+        };
+        const giverRail = document.createElement("div");
+        giverRail.innerHTML = roomAvatarRailHtml(state);
+        const receiverFrame = [...giverRail.querySelectorAll(".room-avatar-frame")].find((frame) => (
+          frame.querySelector("button")?.getAttribute("title")?.startsWith("Receiver.")
+        ));
+
+        return {
+          accept: accept ? {
+            label: accept.label,
+            detail: accept.detail,
+            command: accept.command,
+            focusKeys: accept.focusKeys,
+          } : null,
+          receiverSeesGiverMarker: Boolean(giverFrame?.querySelector(".room-avatar-transfer-marker")),
+          receiverGiverLabel: giverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+          giverSeesReceiverMarker: Boolean(receiverFrame?.querySelector(".room-avatar-transfer-marker")),
+          giverReceiverLabel: receiverFrame?.querySelector("button")?.getAttribute("aria-label") || "",
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+      }
+    });
+    assert(
+      result.accept?.label === "accept"
+        && result.accept.detail === "Story Button from Giver"
+        && result.accept.command === "accept Story Button from Giver"
+        && result.accept.focusKeys.includes("actor:5000")
+        && result.accept.focusKeys.includes("item:2005"),
+      `a pending human gift should become the recipient's exact Accept card: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.receiverSeesGiverMarker
+        && result.receiverGiverLabel.includes("gift from Giver waiting for your answer"),
+      `the recipient should see the pending-gift marker on the giver: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.giverSeesReceiverMarker
+        && result.giverReceiverLabel.includes("gift offered to Receiver"),
+      `the giver should see the pending-gift marker on the recipient: ${JSON.stringify(result)}`,
+    );
   }
 
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
@@ -5751,6 +5986,8 @@ async function main() {
       const previousActorId = actorId;
       const baseState = {
         location: { id: 3, name: "Moonlit Trail" },
+        combat: { encounter_id: "combat-potion-test" },
+        turn: { is_current_actor: true },
         primary_action: {
           kind: "attack",
           options: [{ kind: "use_item" }, { kind: "attack" }, { kind: "defend" }],
@@ -5894,6 +6131,8 @@ async function main() {
       const previousActorId = actorId;
       const fakeState = {
         location: { id: 3, name: "Moonlit Trail" },
+        combat: { encounter_id: "combat-copy-test" },
+        turn: { is_current_actor: true },
         primary_action: {
           kind: "attack",
           options: [{ kind: "attack" }, { kind: "defend" }],
@@ -7611,7 +7850,7 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
-  async function assertWorldBeatExposureFollowsVisibleAuthoredProse() {
+  async function assertHiddenWorldBeatsNeverCountAsVisibleExposure() {
     const result = await page.evaluate(async () => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -7762,23 +8001,14 @@ async function main() {
         renderTimelines();
       }
     });
-    assert(result.callsWhileJournalClosed === 0, `a world beat hidden behind the closed Journal must not count as seen: ${JSON.stringify(result)}`);
-    assert(result.calls.length === 1, `one visible world beat should send one receipt: ${JSON.stringify(result)}`);
-    assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
-    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.callsWhileMenuHidden === 1, `a transcript hidden behind Menu must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileJournalClosed === 0, `a hidden world beat must not count as seen while Journal is closed: ${JSON.stringify(result)}`);
+    assert(result.calls.length === 0, `opening the image-only Journal must not expose or receipt hidden world beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 0, `repeat image-only Journal renders must not expose hidden beats: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 0, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 0, `a hidden Journal must not send exposure receipts: ${JSON.stringify(result)}`);
     assert(
-      result.receiptable
-        && !result.sourceSeqLeaked
-        && result.calls[0]?.exposure_id === "world-beat:v1:990500001",
-      `world-beat receipts should bind presentation v1 without exposing source sequences in production HTML: ${JSON.stringify(result)}`,
-    );
-    assert(result.visibleAuthoredText.includes("Rain thins into pearl-grey mist"), `a receipted beat must have authored prose on screen: ${JSON.stringify(result)}`);
-    assert(
-      result.calls[0]?.transport === "browser"
-        && Number(result.calls[0]?.actor_id) > 0
-        && Number(result.calls[0]?.state_revision) >= 990500001,
-      `browser receipt should name actor, transport, beat, and observed state revision: ${JSON.stringify(result)}`,
+      !result.receiptable && !result.sourceSeqLeaked && result.visibleAuthoredText === "",
+      `hidden world-beat evidence must create no prose row or source-sequence surface: ${JSON.stringify(result)}`,
     );
   }
 
@@ -7823,6 +8053,182 @@ async function main() {
       result[3]?.scene === "The Hearthwardens' lantern-song carries farther today.",
       `authored faction prose should remain intact: ${JSON.stringify(result)}`,
     );
+  }
+
+  async function assertCombatUsesDedicatedDockOutsideChat() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        logEvents: logEvents.slice(),
+        seenSeq: [...seenSeq],
+        actorId,
+        state,
+        accountPanelPinned,
+        libraryPanelPinned,
+        pendingChats: pendingChats.slice(),
+        renderedChatTailKey,
+        defeatTransition,
+        combatHistoryOpen,
+        combatHistoryEncounterId,
+      };
+      const message = (seq, content) => ({
+        seq,
+        type: "message.created",
+        actor_id: 1001,
+        actor_name: "Rati",
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content,
+      });
+      const combatEvent = (seq, type, extra = {}) => ({
+        seq,
+        type,
+        actor_id: 5000,
+        actor_name: "Lantern Stitch",
+        target_actor_id: 1004,
+        target_actor_name: "Coach",
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content_id: 77,
+        ...extra,
+      });
+      const events = [
+        message(990600001, "Keep the lantern between you and the dark."),
+        combatEvent(990600002, "combat.encounter.started"),
+        combatEvent(990600003, "combat.attack.attempt", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          raw_roll: 14,
+          modifier: 3,
+          total: 17,
+          dc: 13,
+        }),
+        combatEvent(990600004, "combat.attack.hit", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          damage: 4,
+          current_hp: 1,
+        }),
+        message(990600005, "I am still here. Breathe."),
+        combatEvent(990600006, "combat.dodge"),
+        combatEvent(990600007, "combat.flee.success", {
+          destination_location_name: "The Cosy Cottage",
+        }),
+        combatEvent(990600008, "combat.encounter.resolved"),
+      ];
+      const signature = (entries) => entries.map((event) => ({
+        type: event.type,
+        seq: Number(event.seq || 0),
+        tail: Number(event.transcript_tail_seq || event.seq || 0),
+        outcome: event.combat_outcome?.type || "",
+      }));
+      try {
+        actorId = 5000;
+        state = {
+          ...state,
+          location: { ...(state?.location || {}), id: 3, name: "Moonlit Trail" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", status: "active", control_mode: "direct_input" },
+            { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
+            { id: 1004, name: "Coach", status: "active", control_mode: "local_ai" },
+          ],
+          combat: {
+            encounter_id: 77,
+            round: 2,
+            current_actor_id: 5000,
+            current_actor_name: "Lantern Stitch",
+            is_current_actor: true,
+            participants: [],
+          },
+        };
+        accountPanelPinned = false;
+        libraryPanelPinned = false;
+        pendingChats = [];
+        defeatTransition = null;
+        logEvents = events.slice();
+        seenSeq.clear();
+        for (const event of events) seenSeq.add(event.seq);
+        renderedChatTailKey = "";
+        combatHistoryOpen = true;
+        combatHistoryEncounterId = 77;
+        const beforeReconnect = signature(combatEventsForPresentation(logEvents));
+        renderCombatDock();
+        renderLog();
+        const transcript = $("log");
+        const dock = $("combat-dock");
+        const history = $("combat-history");
+        const rendered = {
+          label: transcript.getAttribute("aria-label") || "",
+          chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
+          combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
+          eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
+          dockHidden: dock.hidden,
+          dockRound: $("combat-dock-round").textContent.trim(),
+          dockTurn: $("combat-dock-turn").textContent.trim(),
+          dockLatest: $("combat-latest").textContent.trim().replace(/\s+/g, " "),
+          historyHidden: history.hidden,
+          historyRows: history.querySelectorAll(".combat-history-row").length,
+          historyText: history.textContent.trim().replace(/\s+/g, " "),
+        };
+        rebuildLog(events);
+        const afterReconnect = signature(combatEventsForPresentation(logEvents));
+
+        logEvents = Array.from({ length: 40 }, (_, index) => message(
+          990601000 + index,
+          "A deliberately long transcript line " + (index + 1) + " keeps the reader's chosen place stable while another public beat arrives.",
+        ));
+        renderedChatTailKey = "";
+        renderLog();
+        const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
+        transcript.scrollTop = 0;
+        logEvents.push(combatEvent(990601100, "combat.dodge"));
+        renderCombatDock();
+        renderLog();
+        const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
+
+        return {
+          beforeReconnect,
+          afterReconnect,
+          rendered,
+          preservedReaderPosition,
+        };
+      } finally {
+        logEvents = previous.logEvents;
+        seenSeq.clear();
+        for (const seq of previous.seenSeq) seenSeq.add(seq);
+        actorId = previous.actorId;
+        state = previous.state;
+        accountPanelPinned = previous.accountPanelPinned;
+        libraryPanelPinned = previous.libraryPanelPinned;
+        pendingChats = previous.pendingChats;
+        renderedChatTailKey = previous.renderedChatTailKey;
+        defeatTransition = previous.defeatTransition;
+        combatHistoryOpen = previous.combatHistoryOpen;
+        combatHistoryEncounterId = previous.combatHistoryEncounterId;
+        renderTimelines();
+      }
+    });
+    assert(result.rendered.label === "Shared room transcript", "combat should keep the ordinary speech transcript mounted: " + JSON.stringify(result));
+    assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), "speech from before and during combat should remain ordered and visible: " + JSON.stringify(result));
+    assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", "combat system output must not be rendered as dialogue: " + JSON.stringify(result));
+    assert(!result.rendered.dockHidden
+      && result.rendered.dockRound === "Round 2"
+      && result.rendered.dockTurn === "Your turn"
+      && !result.rendered.historyHidden
+      && result.rendered.historyRows === 4, "active combat should expose one compact latest result with optional bounded earlier history: " + JSON.stringify(result));
+    assert(
+      result.rendered.historyText.includes("Ashwood Practice Blade")
+        && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
+        && result.rendered.historyText.includes("4 harm"),
+      "the grouped dock beat should retain method, Attribute, arithmetic, harm, and outcome: " + JSON.stringify(result),
+    );
+    assert(/prepares to dodge/.test(result.rendered.historyText), "Dodge needs compact combat-history feedback: " + JSON.stringify(result));
+    assert(/clash is over/i.test(result.rendered.dockLatest) && /Cosy Cottage/.test(result.rendered.historyText), "escape and resolution need immediate combat feedback: " + JSON.stringify(result));
+    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), "reconnect should reconstruct the same grouped combat-history ordering: " + JSON.stringify(result));
+    assert(result.preservedReaderPosition, "new combat beats must not move a reader's chosen place in chat: " + JSON.stringify(result));
   }
 
   async function assertWorldResetClearsTranscriptAndResidentRepeatsCollapse() {
@@ -8010,220 +8416,6 @@ async function main() {
     assert(result.detectsServerTimelineRewind && result.acceptsForwardTimeline, `a reconnect should replace rewound server history without mistaking a forward timeline for a reset: ${JSON.stringify(result)}`);
     assert(result.afterTravelReceipt?.applied && result.afterTravelReceipt.pendingCount === 0 && result.afterTravelReceipt.events.length === 1 && result.afterTravelReceipt.events[0]?.content === "new room history", `a live travel receipt should clear pending chat and replace the old room transcript: ${JSON.stringify(result)}`);
     assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
-  }
-
-  async function assertCombatUsesDedicatedDockOutsideChat() {
-    const result = await page.evaluate(() => {
-      const previous = {
-        logEvents: logEvents.slice(),
-        seenSeq: [...seenSeq],
-        actorId,
-        state,
-        accountPanelPinned,
-        libraryPanelPinned,
-        pendingChats: pendingChats.slice(),
-        renderedChatTailKey,
-        defeatTransition,
-        combatHistoryOpen,
-        combatHistoryEncounterId,
-      };
-      const message = (seq, actorIdValue, actorName, content) => ({
-        seq,
-        type: "message.created",
-        actor_id: actorIdValue,
-        actor_name: actorName,
-        location_id: 3,
-        location_name: "Moonlit Trail",
-        content,
-      });
-      const combatEvent = (seq, type, extra = {}) => ({
-        seq,
-        type,
-        actor_id: 5000,
-        actor_name: "Lantern Stitch",
-        target_actor_id: 1004,
-        target_actor_name: "Coach",
-        location_id: 3,
-        location_name: "Moonlit Trail",
-        content_id: 77,
-        ...extra,
-      });
-      const events = [
-        message(990600001, 1001, "Rati", "Keep the lantern between you and the dark."),
-        combatEvent(990600002, "combat.encounter.started"),
-        combatEvent(990600003, "combat.attack.attempt", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-          raw_roll: 14,
-          modifier: 3,
-          total: 17,
-          dc: 13,
-        }),
-        combatEvent(990600004, "combat.attack.hit", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-          damage: 4,
-          current_hp: 1,
-        }),
-        combatEvent(990600005, "combat.knockout", {
-          success: true,
-          combat_method: "Ashwood Practice Blade",
-          item_name: "Ashwood Practice Blade",
-          ability: "Strength",
-          damage: 4,
-          current_hp: 1,
-        }),
-        message(990600006, 1001, "Rati", "I am still here. Breathe."),
-        combatEvent(990600007, "combat.dodge"),
-        combatEvent(990600008, "combat.defend"),
-        combatEvent(990600009, "item.used", {
-          item_name: "Hearth Tonic",
-          target_actor_name: "Lantern Stitch",
-          damage: -2,
-        }),
-        combatEvent(990600010, "magic.spell_cast", {
-          item_name: "Mothlight",
-          target_actor_name: "Coach",
-        }),
-        combatEvent(990600011, "combat.flee.success", {
-          destination_location_name: "The Cosy Cottage",
-        }),
-        combatEvent(990600012, "combat.encounter.resolved"),
-      ];
-      const signature = (entries) => entries.map((event) => ({
-        type: event.type,
-        seq: Number(event.seq || 0),
-        tail: Number(event.transcript_tail_seq || event.seq || 0),
-        outcome: event.combat_outcome?.type || "",
-        knockout: event.combat_knockout?.type || "",
-      }));
-      try {
-        actorId = 5000;
-        state = {
-          ...state,
-          location: { ...(state?.location || {}), id: 3, name: "Moonlit Trail" },
-          actors: [
-            { id: 5000, name: "Lantern Stitch", status: "active", control_mode: "direct_input" },
-            { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
-            { id: 1004, name: "Coach", status: "knocked_out", control_mode: "local_ai" },
-          ],
-          combat: {
-            encounter_id: 77,
-            round: 2,
-            current_actor_id: 5000,
-            current_actor_name: "Lantern Stitch",
-            is_current_actor: true,
-            participants: [],
-          },
-        };
-        accountPanelPinned = false;
-        libraryPanelPinned = false;
-        pendingChats = [];
-        defeatTransition = null;
-        logEvents = events.slice();
-        seenSeq.clear();
-        for (const event of events) seenSeq.add(event.seq);
-        renderedChatTailKey = "";
-        combatHistoryOpen = true;
-        combatHistoryEncounterId = 77;
-        const beforeReconnect = signature(combatEventsForPresentation(logEvents));
-        renderCombatDock();
-        renderLog();
-        const transcript = $("log");
-        const dock = $("combat-dock");
-        const history = $("combat-history");
-        const rendered = {
-          label: transcript.getAttribute("aria-label") || "",
-          chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
-          combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
-          eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
-          dockHidden: dock.hidden,
-          dockRound: $("combat-dock-round").textContent.trim(),
-          dockTurn: $("combat-dock-turn").textContent.trim(),
-          dockLatest: $("combat-latest").textContent.trim().replace(/\s+/g, " "),
-          historyHidden: history.hidden,
-          historyRows: history.querySelectorAll(".combat-history-row").length,
-          historyText: history.textContent.trim().replace(/\s+/g, " "),
-        };
-        defeatTransition = {
-          actorName: "Lantern Stitch",
-          opponentName: "Coach",
-          kind: "combat.knockout",
-          eventSeq: 990600005,
-        };
-        renderLog();
-        rendered.defeatKeepsTranscript = transcript.querySelectorAll(".line.chat").length === 2
-          && transcript.querySelectorAll("[data-combat-beat], .line.event").length === 0
-          && !dock.hidden
-          && Boolean(transcript.querySelector(".defeat-scene"));
-        defeatTransition = null;
-
-        rebuildLog(events);
-        const afterReconnect = signature(combatEventsForPresentation(logEvents));
-
-        logEvents = Array.from({ length: 40 }, (_, index) => message(
-          990601000 + index,
-          index % 2 ? 1001 : 5000,
-          index % 2 ? "Rati" : "Lantern Stitch",
-          `A deliberately long transcript line ${index + 1} keeps the reader's chosen place stable while another public beat arrives.`,
-        ));
-        renderedChatTailKey = "";
-        renderLog();
-        const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
-        transcript.scrollTop = 0;
-        logEvents.push(combatEvent(990601100, "combat.defend"));
-        renderCombatDock();
-        renderLog();
-        const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
-
-        return {
-          beforeReconnect,
-          afterReconnect,
-          rendered,
-          overflow,
-          preservedReaderPosition,
-        };
-      } finally {
-        logEvents = previous.logEvents;
-        seenSeq.clear();
-        for (const seq of previous.seenSeq) seenSeq.add(seq);
-        actorId = previous.actorId;
-        state = previous.state;
-        accountPanelPinned = previous.accountPanelPinned;
-        libraryPanelPinned = previous.libraryPanelPinned;
-        pendingChats = previous.pendingChats;
-        renderedChatTailKey = previous.renderedChatTailKey;
-        defeatTransition = previous.defeatTransition;
-        combatHistoryOpen = previous.combatHistoryOpen;
-        combatHistoryEncounterId = previous.combatHistoryEncounterId;
-        renderTimelines();
-      }
-    });
-    assert(result.rendered.label === "Shared room transcript", `combat should keep the ordinary speech transcript mounted: ${JSON.stringify(result)}`);
-    assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), `speech from before and during combat should remain ordered and visible: ${JSON.stringify(result)}`);
-    assert(result.rendered.defeatKeepsTranscript, `a player Knockout transition should append without replacing room speech or the dedicated combat dock: ${JSON.stringify(result)}`);
-    assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", `combat system output must not be rendered as dialogue: ${JSON.stringify(result)}`);
-    assert(!result.rendered.dockHidden
-      && result.rendered.dockRound === "Round 2"
-      && result.rendered.dockTurn === "Your turn"
-      && !result.rendered.historyHidden
-      && result.rendered.historyRows === 7, `active combat should expose one compact latest result with optional bounded earlier history: ${JSON.stringify(result)}`);
-    assert(
-      result.rendered.historyText.includes("Ashwood Practice Blade")
-        && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
-        && result.rendered.historyText.includes("4 harm")
-        && result.rendered.historyText.includes("knockout"),
-      `the grouped dock beat should retain method, Attribute, arithmetic, harm, and outcome: ${JSON.stringify(result)}`,
-    );
-    assert(/prepares to dodge/.test(result.rendered.historyText) && /holds their guard/.test(result.rendered.historyText), `Dodge and Defend need compact combat-history feedback: ${JSON.stringify(result)}`);
-    assert(/Hearth Tonic/.test(result.rendered.historyText) && /Mothlight/.test(result.rendered.historyText), `combat item and spell actions need compact history feedback: ${JSON.stringify(result)}`);
-    assert(/clash is over/i.test(result.rendered.dockLatest) && /Cosy Cottage/.test(result.rendered.historyText), `escape and resolution need immediate combat feedback: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), `reconnect should reconstruct the same grouped combat-history ordering: ${JSON.stringify(result)}`);
-    assert(result.preservedReaderPosition, `new combat beats must not move a reader's chosen place in chat: ${JSON.stringify(result)}`);
   }
 
   async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
@@ -8468,15 +8660,13 @@ async function main() {
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
-        && result.journalSummariesWrap
-        && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
-        && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
-      `system and discovery history should remain available as readable prose in the closed Journal: ${JSON.stringify(result)}`,
+        && result.journalRows.length === 0
+        && result.latestJournalRow === "",
+      `raw system and discovery history must not create Journal prose rows: ${JSON.stringify(result)}`,
     );
     assert(
-      result.roomLatest === result.latestJournalRow
-        && result.roomLatest === "Thimble Guest looks closely around The Cosy Cottage.",
-      `the room ticker should mirror the newest Journal event without duplicating chat: ${JSON.stringify(result)}`,
+      result.latestJournalRow === "",
+      `hidden room memory must not be promoted into a Journal row: ${JSON.stringify(result)}`,
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
@@ -8706,35 +8896,22 @@ async function main() {
       }]);
       renderTimelines();
       setJournalOpen(true);
-      syncJournalRowOverflow();
-      const storyRow = document.querySelector("#journal-log .journal-row.work");
-      if (storyRow?.classList.contains("is-overflowing")) storyRow.open = true;
+      const journalViewHtml = document.querySelector("#journal-view")?.innerHTML || "";
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
-        summary: storyRow?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
-        proseNodeCount: storyRow?.querySelectorAll(".journal-row-summary").length || 0,
-        detailBlockCount: storyRow?.querySelectorAll(".journal-row-detail").length || 0,
-        expandedWhiteSpace: storyRow
-          ? getComputedStyle(storyRow.querySelector(".journal-row-summary")).whiteSpace
-          : "",
+        emptyText: document.querySelector("#journal-log .journal-empty")?.textContent?.trim() || "",
+        rowCount: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
         sourceLeakCount: [...raw].filter((event) => (
-          storyRow?.innerHTML.includes(event.type)
-          || storyRow?.innerHTML.includes(`#${event.seq}`)
+          journalViewHtml.includes(event.type)
+          || journalViewHtml.includes(`#${event.seq}`)
         )).length,
       };
     }, result.text);
     assert(
-      evidence.latest === evidence.summary
-        && evidence.latest.startsWith("I rekindle")
-        && !evidence.latest.startsWith("Kit Featherstep"),
-      `a personal Journal should preserve the authored scene while writing the owner's action in first person: ${JSON.stringify(evidence)}`,
-    );
-    assert(
-      evidence.proseNodeCount === 1
-        && evidence.detailBlockCount === 0
-        && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
+      evidence.rowCount === 0
+        && evidence.emptyText.includes("No long-rest Journal page")
         && evidence.sourceLeakCount === 0,
-      `receipt evidence should render one complete prose node without duplicate detail or raw event identifiers: ${JSON.stringify(evidence)}`,
+      `semantic receipt evidence must stay hidden until a long-rest Journal page is generated: ${JSON.stringify(evidence)}`,
     );
     await page.setViewportSize({ width: 980, height: 820 });
     await page.screenshot({ path: evidencePath, fullPage: false });
@@ -8750,7 +8927,7 @@ async function main() {
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
     steps.push({
-      label: "Lantern Keeper semantic receipt",
+      label: "Lantern Keeper hidden receipt evidence",
       screenshot: evidencePath,
       groupedSourceEvents: result.beat.source_event_seqs.length,
     });
@@ -9607,7 +9784,7 @@ async function main() {
         && /On Road to Emmaus, from the way back to Emmaus\. Stretch 2 of 4\. 2 travellers\. next Figshade Bend\./i.test(result.journeyPresentation.pathwayLabel)
         && result.journeyPresentation.chatLabel === "Travelling party chat"
         && result.journeyPresentation.chatHeading === "",
-      `an active journey should keep one illustrated tracker without a duplicate chat heading: ${JSON.stringify(result)}`,
+      `an active journey should keep one illustrated tracker without a second chat heading: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
@@ -9676,7 +9853,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let candidates = [];
     for (let draw = 0; draw < Math.min(attempts, deckSize); draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9720,7 +9897,7 @@ async function main() {
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9816,6 +9993,13 @@ async function main() {
         && after.slot === before.slot
         && after.generation === before.generation + 1
     );
+    const reconciledAsOrderedSceneAdvance = (before, after) => (
+      before.offerId.includes(":ordered:")
+        && after.offerId.includes(":ordered:")
+        && after.offerId !== before.offerId
+        && after.slot === before.slot
+        && after.generation === 0
+    );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await focusThinkableCard(label, preferredSlot);
       await page.waitForFunction(() => (
@@ -9829,8 +10013,7 @@ async function main() {
         const controlId = ["primary", "secondary", "tertiary"].find((id) => (
           Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
         )) || "";
-        setStoryHandExpanded(true);
-        renderCommands();
+        setStoryHandExpanded(true, visibleFocusedAction());
         const control = document.querySelector(`[data-hand-discard="${controlId}"]`);
         return {
           offerId: String(think.offer_id || ""),
@@ -9848,7 +10031,7 @@ async function main() {
           && before.visible
           && !before.disabled
           && before.label.toLowerCase() === "discard",
-        `${label} replacement must start from the focused card's Discard control: ${JSON.stringify(before)}`,
+        `${label} replacement must start from the focused card's certified Discard control: ${JSON.stringify(before)}`,
       );
       let response;
       try {
@@ -9875,10 +10058,12 @@ async function main() {
       const request = response.request().postDataJSON();
       const thinkEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
       if (receipt.ok === true) {
+        const orderedScene = before.offerId.includes(":ordered:");
         assert(
           request?.command === "think"
             && String(request?.offer_id || "") === before.offerId
-            && Number(thinkEvent?.seq || 0) > 0,
+            && Number(thinkEvent?.seq || 0) > 0
+            && (!orderedScene || (receipt.events || []).some((event) => event.type === "combat.pass")),
           `${label} must commit the focused card's exact Think certificate: ${JSON.stringify({ before, request, receipt })}`,
         );
         await page.waitForFunction(() => (
@@ -9889,8 +10074,9 @@ async function main() {
         await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
         const after = await currentThinkState(before.slot);
         assert(
-          reconciledAsOneSlotAdvance(before, after),
-          `${label} successful Think should advance exactly one slot generation: ${JSON.stringify({ before, request, after, receipt })}`,
+          reconciledAsOneSlotAdvance(before, after)
+            || reconciledAsOrderedSceneAdvance(before, after),
+          `${label} successful Think should advance one slot or commit a fresh ordered-scene hand: ${JSON.stringify({ before, request, after, receipt })}`,
         );
         return;
       }
@@ -9921,7 +10107,7 @@ async function main() {
     ));
     if (!inspectIsLegal) return null;
 
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     const drawLimit = deckSize;
     let lastHand = [];
     for (let draw = 0; draw < drawLimit; draw += 1) {
@@ -10015,11 +10201,28 @@ async function main() {
         const label = String(action?.label || "").toLowerCase();
         if (!["move", "travel", "scout", "flee"].includes(intention) && label !== "flee") return false;
         const choiceText = (action.choices || []).map((choice) => `${choice.label || ""} ${choice.detail || ""}`);
-        const matchesDestination = [action.detail, action.command, action.card?.display_name, action.card?.title, ...choiceText]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(destination);
+        const directionalEndpoint = String(action?.detail || "")
+          .split(/\bto\s+/i)
+          .at(-1)
+          ?.trim();
+        const structuredTargets = [
+          action?.target?.label,
+          action?.pathwayDirection?.endpointName,
+          directionalEndpoint,
+          ...(action.choices || []).map((choice) => choice.label),
+        ].filter(Boolean).map((target) => String(target).toLowerCase());
+        const journeyEndpoint = String(state?.journey?.destination_name || "").toLowerCase();
+        const journeyNext = String(state?.journey?.next_location_name || "").toLowerCase();
+        const continuesRequestedJourney = journeyEndpoint === destination
+          && journeyNext
+          && structuredTargets.some((target) => target.includes(journeyNext));
+        const matchesDestination = continuesRequestedJourney || (structuredTargets.length > 0
+          ? structuredTargets.some((target) => target.includes(destination))
+          : [action.detail, action.command, action.card?.display_name, action.card?.title, ...choiceText]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(destination));
         if (!matchesDestination) return false;
         if (intention !== "scout") return true;
         if (!(action.choices || []).length) return true;
@@ -10070,8 +10273,8 @@ async function main() {
       };
     }, needle);
     let last = null;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
-    for (let attempt = 1; attempt <= deckSize; attempt += 1) {
+    const rotationSlots = await storyHandRotationSlots();
+    for (let attempt = 0; attempt <= rotationSlots.length; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
       const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
@@ -10095,8 +10298,11 @@ async function main() {
         return primary;
       }
       last = { result, primary };
-      if (attempt < deckSize) {
-        await passCertifiedHandForDraw(`route ${text} draw ${attempt}`);
+      if (attempt < rotationSlots.length) {
+        await passCertifiedHandForDraw(
+          `route ${text} draw ${attempt + 1}`,
+          rotationSlots[attempt],
+        );
       }
     }
     if (
@@ -10187,9 +10393,11 @@ async function main() {
 
   async function confirmActionModalIfOpen() {
     await page.waitForTimeout(75);
-    if (!(await actionModalIsOpen())) return false;
-    await page.locator("#action-modal-confirm").click();
-    return true;
+    if (await actionModalIsOpen()) {
+      await page.locator("#action-modal-confirm").click();
+      return true;
+    }
+    return false;
   }
 
   async function clickPrimary(label, { allowStale = false } = {}) {
@@ -10471,7 +10679,7 @@ async function main() {
     let lastHand = [];
     let lastScene = {};
     let staleAttempts = 0;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 8)));
+    const deckSize = await fetchInspectableDeckSize();
     for (let draw = 0; draw < deckSize;) {
       await page.waitForFunction(() => (
         actionBusy === false
@@ -10633,6 +10841,29 @@ async function main() {
     });
   }
 
+  async function fetchInspectableDeckSize() {
+    const result = await page.evaluate(async () => {
+      const actorId = localStorage.getItem("cosyworld.actorId");
+      const actorSession = localStorage.getItem("cosyworld.actorSession");
+      const params = new URLSearchParams({
+        actor_id: actorId,
+        actor_session: actorSession,
+      });
+      const response = await fetch(`/inspect?${params}`);
+      const inspection = await response.json();
+      return {
+        ok: response.ok,
+        status: response.status,
+        deckSize: (inspection.actions || []).length,
+      };
+    });
+    assert(
+      result.ok && result.deckSize > 0,
+      `inspector should expose the bounded developer action deck: ${JSON.stringify(result)}`,
+    );
+    return result.deckSize;
+  }
+
   async function reconcileActionHand() {
     await page.waitForFunction(() => (
       actionBusy === false && refreshInFlight === null
@@ -10687,7 +10918,7 @@ async function main() {
     throw new Error(`expected location ${name}, found ${current.location?.name || "unknown"}: ${JSON.stringify(current.journey || null)}`);
   }
 
-  async function travelTo(name) {
+  async function travelTo(name, pathwaySearchDepth = 0) {
     const current = await fetchCurrentState();
     const destinationIsDirect = (current.exits || []).some((exit) => (
       exit.destination_location_name === name
@@ -10718,6 +10949,11 @@ async function main() {
     await confirmRouteTo(name, `${route.includes("flee") ? "flee" : (searchingPathway ? "search" : "travel")} ${name}`);
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     const journeyAtStart = await fetchCurrentState();
+    if (!journeyAtStart.journey && String(journeyAtStart.location?.name || "") !== name) {
+      assert(pathwaySearchDepth < 3, `Route toward ${name} should move or reveal a travel card within three replans`);
+      await travelTo(name, pathwaySearchDepth + 1);
+      return;
+    }
     const segmentedJourney = Boolean(journeyAtStart.journey);
     const journeyDestinationId = Number(journeyAtStart.journey?.destination_location_id || 0);
     let pathwayActions = 0;
@@ -10785,9 +11021,7 @@ async function main() {
         await page.evaluate(() => refresh());
         continue;
       }
-      const journeyDeckSize = await page.evaluate(() => (
-        Math.max(1, Number(state?.action_hand?.offer_queue_size || 1))
-      ));
+      const journeyDeckSize = await fetchInspectableDeckSize();
       for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
         await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
         focusedJourneyStep = await focusJourneyStep();
@@ -10879,6 +11113,14 @@ async function main() {
         !arrived.journey && Number(arrived.location?.id || 0) === journeyDestinationId,
         `segmented route to ${name} should finish at its original destination id: ${JSON.stringify({ journeyDestinationId, location: arrived.location, journey: arrived.journey })}`,
       );
+    }
+    await page.waitForTimeout(500);
+    const settled = await fetchCurrentState();
+    if (String(settled.location?.name || "") !== name) {
+      assert(pathwaySearchDepth < 3, `Route toward ${name} should settle within three replans: ${JSON.stringify({ location: settled.location, journey: settled.journey })}`);
+      await reconcileActionHand();
+      await travelTo(name, pathwaySearchDepth + 1);
+      return;
     }
     await waitForLocation(name);
   }
@@ -11125,71 +11367,70 @@ async function main() {
     });
   }
 
-  async function exerciseFrontierRecovery() {
-    assert((await currentLocation()) === "Moonlit Trail", "frontier recovery should begin on Moonlit Trail");
-    const startingState = await fetchCurrentState();
-    if ((startingState.tags || []).some((tag) => tag.label === "tired")) {
-      const startingRestAvailable = await page.evaluate(() => (
-        actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-      ));
-      if (!startingRestAvailable) {
-        await leaveTrailTo("Rain-Soft Garden");
-      }
-      const startingRest = await drawPrimaryMatching("pre-existing frontier rest", ["rest", "feel fresh"]);
-      steps.push({ label: "pre-existing frontier rest", primary: startingRest, location: await currentLocation() });
-      await clickPrimary("pre-existing frontier rest");
-      await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-      if ((await currentLocation()) !== "Moonlit Trail") await travelTo("Moonlit Trail");
-    }
-    let firstListenCommitted = startingState.economy?.listen_attempted_here === true;
-    if (firstListenCommitted) {
+  async function exerciseFrontierObservation() {
+    assert((await currentLocation()) === "Moonlit Trail", "frontier observation should begin on Moonlit Trail");
+    const noticeAvailability = await page.evaluate(() => ({
+      offers: (state?.action_offers || [])
+        .filter((offer) => offer.kind === "notice_actor" && offer.disabled !== true)
+        .map((offer) => ({
+          offerId: offer.offer_id,
+          target: offer.target?.label || "",
+        })),
+    }));
+    if (noticeAvailability.offers.length === 0) {
       steps.push({
-        label: "frontier notice already attempted",
+        label: "frontier actor notice facts exhausted",
         location: await currentLocation(),
       });
+      return;
     }
-    for (let attempt = 1; attempt <= 3 && !firstListenCommitted; attempt += 1) {
-      const firstListen = await drawPrimaryMatching("first frontier notice", ["notice", "for a clue"]);
-      steps.push({ label: "first frontier notice", primary: firstListen, location: await currentLocation(), attempt });
-      await clickPrimary("first frontier notice");
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
-      firstListenCommitted = (await fetchCurrentState()).economy?.listen_attempted_here === true;
-    }
-    assert(firstListenCommitted, "the first frontier Notice should commit before drawing its free repeat");
-    const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "free"]);
-    steps.push({ label: "tiring frontier notice", primary: repeatNotice, location: await currentLocation() });
-    await clickActionMatching("tiring frontier notice", ["notice", "free"]);
+    const noticeCard = await drawPrimaryMatching(
+      "frontier actor notice",
+      ["notice", "reveals one disclosure-safe observable fact"],
+    );
+    const before = await page.evaluate(() => ({
+      actorId: Number(actorId || 0),
+      eventSeq: logEvents.reduce((latest, event) => Math.max(latest, Number(event.seq) || 0), 0),
+      ledger: {
+        banked: Number(state?.ledger?.banked_count || 0),
+        unbanked: Number(state?.ledger?.unbanked_count || 0),
+      },
+      tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+    }));
+    assert(!before.tired, `frontier Notice should begin from a fresh actor: ${JSON.stringify(before)}`);
+    steps.push({ label: "frontier actor notice", primary: noticeCard, location: await currentLocation() });
+    await clickPrimary("frontier actor notice");
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const tiredState = await fetchCurrentState();
-    if (!(tiredState.tags || []).some((tag) => tag.label === "tired")) {
-      steps.push({ label: "frontier notice stayed fresh", location: await currentLocation() });
-      return;
-    }
-    const restAlreadyAvailable = await page.evaluate(() => (
-      actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-    ));
-    if (!restAlreadyAvailable) {
-      await leaveTrailTo("Rain-Soft Garden");
-      steps.push({ label: "frontier recovery walk", location: await currentLocation() });
-    }
-
-    const restCard = await drawPrimaryMatching("frontier rest", ["rest", "feel fresh"]);
-    steps.push({ label: "immediate frontier recovery", primary: restCard, location: await currentLocation() });
+    const after = await page.evaluate((starting) => {
+      const events = logEvents.filter((event) => Number(event.seq || 0) > starting.eventSeq);
+      return {
+        observations: events.filter((event) => (
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === starting.actorId
+        )).length,
+        rolled: events.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: events.some((event) => (
+          event.type === "ledger.marked" || event.type === "ledger.banked"
+        )),
+        ledger: {
+          banked: Number(state?.ledger?.banked_count || 0),
+          unbanked: Number(state?.ledger?.unbanked_count || 0),
+        },
+        tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+      };
+    }, before);
     assert(
-      restCard.toLowerCase().startsWith("rest feel fresh"),
-      `Rest should become the first card as soon as frontier listening leaves you tired: ${restCard}`,
-    );
-    steps.push({ label: "frontier rest", primary: restCard, location: await currentLocation() });
-    await clickPrimary("frontier rest");
-    await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
-    const rested = await fetchCurrentState();
-    assert(
-      !(rested.tags || []).some((tag) => tag.label === "tired"),
-      `Rest should leave the avatar feeling fresh again: ${JSON.stringify(rested.tags)}`,
+      after.observations === 1
+        && after.rolled === false
+        && after.touchedGrowth === false
+        && after.ledger.banked === before.ledger.banked
+        && after.ledger.unbanked === before.ledger.unbanked
+        && after.tired === false,
+      `frontier Notice should remain one truthful, non-tiring observation: ${JSON.stringify({ before, after })}`,
     );
   }
 
@@ -11200,9 +11441,60 @@ async function main() {
     await waitForLocation(name);
   }
 
+  async function fleeViaDealtCard(label) {
+    const focused = await page.evaluate(() => {
+      const visible = actionBarActions();
+      const dealt = visible.find((action) => (
+        String(action?.intention || "").toLowerCase() === "flee"
+          || String(action?.label || "").toLowerCase() === "flee"
+      ));
+      if (!dealt) return null;
+      const route = actions[dealt.actionIndex];
+      const choice = (route.choices || [])[0] || null;
+      if (choice) route.selectedChoice = choice.value;
+      focusIndex = dealt.actionIndex;
+      focusedKey = choice ? `exit:${choice.value}` : actionHandKey(route);
+      return {
+        handKey: actionHandKey(route),
+        offerIds: (route.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
+        routeIdentity: choice ? String(choice.value || "") : "",
+        destinationLocationId: Number(route.selectedPayload?.()?.destination_location_id || 0),
+      };
+    });
+    if (!focused) return null;
+    focusedSelectionIdentity = focused;
+    useFocusedActionOnNextClick = true;
+    const escaped = await commitFocusedCertifiedAction(label, {
+      choiceValue: focused.routeIdentity,
+      expectedDestinationId: focused.destinationLocationId,
+    });
+    if (!escaped.ok) return null;
+    const location = await currentLocation();
+    assert(location !== "Moonlit Trail", `${label} should leave the combat room`);
+    return location;
+  }
+
   async function leaveTrailTo(name) {
     await travelTo(name);
     assert((await currentLocation()) === name, `${name} should be reached after leaving Moonlit Trail`);
+  }
+
+  async function clearMoonlitCombatFloor(label) {
+    assert((await currentLocation()) === "Moonlit Trail", `${label} should begin on Moonlit Trail`);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const current = await fetchCurrentState();
+      if (!current.combat) return;
+      const dealtEscape = await fleeViaDealtCard(`${label} dealt escape`);
+      if (!dealtEscape) await leaveTrailTo("Rain-Soft Garden");
+      steps.push({ label, attempt, location: await currentLocation() });
+      await travelPathTo("Moonlit Trail");
+    }
+    const current = await fetchCurrentState();
+    assert(
+      !current.combat,
+      `${label} should clear the authoritative combat encounter: ${JSON.stringify({ combat: current.combat, offers: current.action_offers })}`,
+    );
   }
 
   async function takeItem(name, { allowResidentClaim = false } = {}) {
@@ -11277,8 +11569,8 @@ async function main() {
           return { kind: "loose", location: location.name };
         }
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).some((heldId) => (
-            Number(heldId) === Number(expectedId)
+          (actor.economy?.held_items || []).some((heldItem) => (
+            Number(heldItem.item_id) === Number(expectedId)
           ))
         ));
         if (holder) {
@@ -11339,15 +11631,14 @@ async function main() {
       const handOfferIds = new Set((state?.action_hand?.entries || [])
         .map((entry) => String(entry?.offer_id || ""))
         .filter(Boolean));
-      const previousRollSeq = Math.max(0, ...roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === currentActorId
-        ))
-        .map((entry) => Number(entry.seq || 0)));
+      const exactOffer = (state?.action_offers || []).find((offer) =>
+        (focused?.offerIds || []).includes(offer.offer_id)) || null;
       return {
         actorId: currentActorId,
-        previousRollSeq,
+        targetActorId: Number(exactOffer?.target?.id || 0),
+        previousEventSeq: logEvents.reduce((latest, event) => (
+          Math.max(latest, Number(event.seq) || 0)
+        ), 0),
         focused: focused && {
           label: compactActionLabel(focused),
           intention: focused.intention,
@@ -11359,75 +11650,42 @@ async function main() {
     });
     assert(
       noticeBefore.actorId > 0
+        && noticeBefore.targetActorId > 0
         && noticeBefore.focused?.intention === "notice"
         && noticeBefore.focused?.isCertified === true,
       `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
     );
     await clickPrimary("notice");
-    await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    await page.waitForFunction(({ actorId: currentActorId, previousRollSeq }) => (
-      roomMemoryModel().recent.some((entry) => (
-        entry.kind === "roll"
-          && Number(entry.actorId || 0) === Number(currentActorId)
-          && Number(entry.seq || 0) > Number(previousRollSeq)
-          && String(entry.text || "").trim().length > 0
-      ))
-    ), noticeBefore);
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      // A resident reply is asynchronous: intent inference, then dialogue
-      // inference, then the authored chat delay. Re-enabling the primary button
-      // does not mean the line has landed, so wait for it rather than sampling
-      // the log the instant the action completes.
-      await page
-        .waitForFunction(() => [...document.querySelectorAll("#log > *")].some((node) => (
-          node.classList.contains("chat")
-          && node.classList.contains("avatar")
-          && !node.classList.contains("you")
-        )), { timeout: 45000 })
-        .catch(() => {});
-    }
-    const scene = await page.evaluate(({ actorId: currentActorId, previousRollSeq }) => {
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && state?.first_tale?.phase === "follow_lead"
+    ));
+    const scene = await page.evaluate(({ actorId: currentActorId, targetActorId, previousEventSeq }) => {
       const rows = [...document.querySelectorAll("#log > *")];
-      // Chat rows are classified you/avatar/world; there is no longer an "npc"
-      // class. A resident reply is any avatar row that is not the player's.
-      const reply = rows.findLast((node) => (
-        node.classList.contains("chat")
-        && node.classList.contains("avatar")
-        && !node.classList.contains("you")
-      ));
-      const noticeRoll = roomMemoryModel().recent
-        .filter((entry) => (
-          entry.kind === "roll"
-            && Number(entry.actorId || 0) === Number(currentActorId)
-            && Number(entry.seq || 0) > Number(previousRollSeq)
-        ))
-        .sort((left, right) => Number(left.seq || 0) - Number(right.seq || 0))
-        .at(-1) || null;
+      const newEvents = logEvents.filter((event) => Number(event.seq || 0) > Number(previousEventSeq));
       return {
-        residentReply: reply?.textContent?.trim().replace(/\s+/g, " ") || "",
-        roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        noticeRoll: noticeRoll && {
-          seq: Number(noticeRoll.seq || 0),
-          actorId: Number(noticeRoll.actorId || 0),
-          kind: noticeRoll.kind,
-          label: noticeRoll.label,
-          text: noticeRoll.text,
-        },
+        observed: newEvents.some((event) =>
+          event.type === "notice.actor_observed"
+            && Number(event.actor_id || 0) === Number(currentActorId)
+            && Number(event.target_actor_id || 0) === Number(targetActorId)),
+        rolled: newEvents.some((event) => event.type === "ability_check.rolled"),
+        touchedGrowth: newEvents.some((event) =>
+          event.type === "ledger.marked" || event.type === "ledger.banked"),
+        ledger: state?.ledger || {},
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
         nonChatRows: rows.filter((node) => node.classList.contains("line") && !node.classList.contains("chat")).length,
       };
     }, noticeBefore);
     assert(scene.eventRows === 0 && scene.nonChatRows === 0, `Notice outcomes should stay out of group chat: ${JSON.stringify(scene)}`);
     assert(
-      scene.noticeRoll?.seq > noticeBefore.previousRollSeq
-        && scene.noticeRoll?.actorId === noticeBefore.actorId
-        && scene.noticeRoll?.kind === "roll"
-        && String(scene.noticeRoll?.text || "").trim().length > 0,
-      `the room Log should retain this actor's new Notice roll without depending on success or failure prose: ${JSON.stringify({ noticeBefore, scene })}`,
+      scene.observed === true
+        && scene.rolled === false
+        && scene.touchedGrowth === false
+        && Number(scene.ledger?.banked_count || 0) === 0
+        && Number(scene.ledger?.unbanked_count || 0) === 0,
+      `actor Notice should record one generic observation without a roll or growth mutation: ${JSON.stringify({ noticeBefore, scene })}`,
     );
-    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
-      assert(scene.residentReply.length > 0, `group chat should retain the resident's spoken reply: ${JSON.stringify(scene)}`);
-    }
     await assertActionBarCapped("notice action bar");
   }
 
@@ -11472,7 +11730,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
+    const deckSize = await fetchInspectableDeckSize();
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       result = await page.evaluate((residentName) => {
@@ -11511,6 +11769,11 @@ async function main() {
       if (result.ok) break;
       if (stopWhen && await stopWhen()) return null;
       if (draw + 1 < deckSize) {
+        const canThink = await page.evaluate(() => actionBarActions().some((action) => (
+          projectedHandEntryForAction(action)?.slot === "self"
+            && projectedHandEntryForAction(action)?.think?.available === true
+        )));
+        if (!canThink && stopWhen) return null;
         await passCertifiedHandForDraw(`find ${name} gift`, "self");
       }
     }
@@ -11556,7 +11819,9 @@ async function main() {
       const world = await fetch(`/world?${params}`).then((worldResponse) => worldResponse.json());
       const target = (world.locations || []).flatMap((location) => location.actors || [])
         .find((actor) => Number(actor.id || 0) === Number(targetActorId));
-      return (target?.economy?.held_item_ids || []).some((heldId) => Number(heldId) === Number(itemId));
+      return (target?.economy?.held_items || []).some((heldItem) => (
+        Number(heldItem.item_id) === Number(itemId)
+      ));
     }, submission);
     if (!transferVerified) {
       steps.push({
@@ -11756,10 +12021,16 @@ async function main() {
       holder: transferReceipt.target_actor_name || `actor:${transferReceipt.target_actor_id}`,
     });
     await page.evaluate(() => refresh());
-    const settledPlacement = await worldItemPlacement(itemName, placement.targetItemId);
+    const stillHeldByPlayer = await page.evaluate(({ expectedName, expectedId }) => {
+      const currentActorId = Number(actorId || 0);
+      const projected = (state?.items || []).find((item) => (
+        Number(item.id || 0) === Number(expectedId) || item.name === expectedName
+      ));
+      return Number(projected?.holder_actor_id || 0) === currentActorId;
+    }, { expectedName: itemName, expectedId: placement.targetItemId });
     assert(
-      settledPlacement && settledPlacement.kind !== "player",
-      `${itemName} should leave the player's hand after its item.given receipt: ${JSON.stringify(settledPlacement)}`,
+      !stillHeldByPlayer,
+      `${itemName} should leave the player's public inventory after its item.given receipt`,
     );
   }
 
@@ -11791,7 +12062,9 @@ async function main() {
             for (const item of expected) {
               if (
                 resident.kind === "npc"
-                && (resident.economy?.held_item_ids || []).includes(item.itemId)
+                && (resident.economy?.held_items || []).some((heldItem) => (
+                  Number(heldItem.item_id) === Number(item.itemId)
+                ))
               ) {
                 const claim = { ...item, actualResidentName: resident.name, location: location.name };
                 if (resident.name === item.residentName) held.push(claim);
@@ -11924,7 +12197,9 @@ async function main() {
             (location.actors || []).some((resident) => (
               expected.some((item) => (
                 resident.name === item.residentName
-                  && (resident.economy?.held_item_ids || []).includes(Number(item.itemId))
+                  && (resident.economy?.held_items || []).some((heldItem) => (
+                    Number(heldItem.item_id) === Number(item.itemId)
+                  ))
               ))
             ))
           ));
@@ -12049,10 +12324,10 @@ async function main() {
   async function assertFirstBellCatalogAssetsAvailable() {
     const assets = await page.evaluate(async () => {
       const urls = [
-        "/assets/cards/lyra.png",
-        "/assets/cards/rati.png",
-        "/assets/cards/item-lab-flask.png",
-        "/assets/cards/location-library.png",
+        "/assets/ruby-high/world/avatars/lyra.webp",
+        "/assets/ruby-high/world/avatars/rati.webp",
+        "/assets/ruby-high/world/items/item-lab-flask.webp",
+        "/assets/ruby-high/world/locations/location-library.webp",
       ];
       const statuses = [];
       for (const url of urls) {
@@ -12061,7 +12336,7 @@ async function main() {
       }
       return statuses;
     });
-    assert(assets.every((status) => status.ok && status.contentType.startsWith("image/")), `First Bell card asset fetch failed: ${JSON.stringify(assets)}`);
+    assert(assets.every((status) => status.ok && status.contentType.includes("image/webp")), `First Bell world art fetch failed: ${JSON.stringify(assets)}`);
   }
 
   async function assertHolyLandCatalogAssetsAvailable() {
@@ -12116,16 +12391,14 @@ async function main() {
     const trail = world.locations.find((location) => location.name === "Moonlit Trail");
     const cottageExits = (cottage?.exits || []).map((exit) => exit.destination_location_name).sort();
     const requiredCottageExits = ["Homeroom", "Mossbell Inn", "Rain-Soft Garden"];
-    const allowedCottageExits = new Set(["Bethlehem", ...requiredCottageExits]);
     assert(cottage?.public && cottage.accessible, "Cottage should be public in world projection");
     assert(
       cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
       "Cottage projection should include the current avatar when accessible",
     );
     assert(
-      requiredCottageExits.every((destination) => cottageExits.includes(destination))
-        && cottageExits.every((destination) => allowedCottageExits.has(destination)),
-      `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
+      requiredCottageExits.every((destination) => cottageExits.includes(destination)),
+      `Cottage should preserve every curated map entry point alongside living-world discoveries: ${JSON.stringify(cottageExits)}`,
     );
     assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
     assert(!library, "Library should stay hidden until its path is found");
@@ -12207,9 +12480,11 @@ async function main() {
     const before = await visibleCommandButtons();
     assert(
       await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
-        && await page.locator("#shuffle").count() === 1
+        && await page.locator("#shuffle").count() === 0
+        && await page.locator("[data-hand-discard]").count() === 3
+        && await page.locator("[data-hand-play]").count() === 3
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
-      "the browser room should expose only its dealt action hand and Think, without command entry or a full-deck chooser",
+      "the browser room should expose only its three-card hand, with inline Play and Discard and no command entry or full-deck chooser",
     );
     assert(
       before.length >= 1 && before.length <= 3,
@@ -12243,10 +12518,9 @@ async function main() {
         await queueRefresh();
         while (refreshInFlight) await refreshInFlight;
         const target = actorForId(targetActorId);
-        const reporter = actorForId(actorId);
         return {
           targetName: target?.name || "",
-          reporterVersion: Number(reporter?.entity_version || 0),
+          reporterVersion: Number(state?.command_context?.actor_version || 0),
         };
       }, nearbyActor.id);
       assert(
@@ -12345,12 +12619,10 @@ async function main() {
               && new URL(response.url()).pathname.startsWith("/actions/")
           ));
           await other.locator("#primary").click();
-          if (!(await other.locator("#action-modal:not([hidden])").count())) {
-            await other.locator('[data-hand-play="primary"]:visible').click();
-          }
-          if (await other.locator("#action-modal:not([hidden])").count()) {
-            await other.locator("#action-modal-confirm").click();
-          }
+          await other.waitForFunction(() => (
+            !document.querySelector("#action-modal")?.hidden
+          ));
+          await other.locator("#action-modal-confirm").click();
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
@@ -12383,8 +12655,10 @@ async function main() {
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
       assert(firstTaleStart.primary.toLowerCase().startsWith("head suit, notice"), `second player should enter through a welcoming Head · Notice card: ${JSON.stringify(firstTaleStart)}`);
-      await playOtherPrimary("second-player Notice", () => (
-        actionBusy === false
+      const firstNotice = await playOtherPrimary("second-player Notice", () => (
+        state?.first_tale?.phase === "follow_lead"
+        && state?.first_tale?.trace_event_seq == null
+        && actionBusy === false
         && document.querySelector("#action-modal")?.hidden === true
       ));
       const afterFirstListen = await other.evaluate(() => ({
@@ -12404,14 +12678,20 @@ async function main() {
           && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
-      assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
+      assert(
+        !/earned one|\+1/i.test(afterFirstListen.economy)
+          && !(firstNotice.events || []).some((event) => (
+            event.type === "ledger.marked" || event.type === "ledger.banked"
+          )),
+        `actor Notice should advance the lead without its receipt mutating growth: ${JSON.stringify({ afterFirstListen, events: firstNotice.events })}`,
+      );
       const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
         afterFirstListen.currentActorId === sharedTurnOwner
           && afterFirstListen.firstTale?.phase === "follow_lead"
           && /Rain-Soft Garden/i.test(afterFirstListen.guide)
           && !/your first tale is yours/i.test(afterFirstListen.guide),
-        `automatic discovery settlement should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+        `truthful observation should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
         label: "waiting player shared-world lead",
@@ -13044,8 +13324,8 @@ async function main() {
       };
     });
     assert(
-      room.latest.length > 8 && room.latest === room.latestJournalRow,
-      `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
+      room.latest.length > 8 && room.latestJournalRow === "",
+      `${label}: room memory may retain a hidden ticker value without restoring a Journal log row: ${JSON.stringify(room)}`,
     );
     assert(
       room.latestHidden && !room.latestVisible && room.latestHasTrack && !room.latestBelowTitle && !room.latestAriaLive,
@@ -13124,48 +13404,10 @@ async function main() {
           journal: {
             protocol: "cosyworld.daily-journal.v1",
             pages: [
-              {
-                actor_id: actorId,
-                day_index: 20599,
-                page_index: 0,
-                artifact_id: "short-rest-hidden",
-                rest_kind: "short",
-                status: "ready",
-                image_url: imageUrl,
-              },
-              {
-                actor_id: actorId,
-                day_index: 20600,
-                page_index: 0,
-                artifact_id: "daily-page-one",
-                rest_kind: "long",
-                status: "ready",
-                image_url: imageUrl,
-                image_alt: "My first daily Journal page.",
-                style_revision: "test/1",
-              },
-              {
-                actor_id: actorId,
-                day_index: 20600,
-                page_index: 1,
-                artifact_id: "same-day-replacement",
-                rest_kind: "long",
-                status: "ready",
-                image_url: imageUrl,
-                image_alt: "A duplicate day that must collapse.",
-                style_revision: "test/1",
-              },
-              {
-                actor_id: actorId,
-                day_index: 20601,
-                page_index: 2,
-                artifact_id: "daily-page-two",
-                rest_kind: "long",
-                status: "ready",
-                image_url: imageUrl,
-                image_alt: "My second daily Journal page.",
-                style_revision: "test/1",
-              },
+              { actor_id: actorId, day_index: 20599, page_index: 0, artifact_id: "short-rest-hidden", rest_kind: "short", status: "ready", image_url: imageUrl },
+              { actor_id: actorId, day_index: 20600, page_index: 0, artifact_id: "daily-page-one", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "My first daily Journal page.", style_revision: "test/1" },
+              { actor_id: actorId, day_index: 20600, page_index: 1, artifact_id: "same-day-replacement", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "A duplicate day that must collapse.", style_revision: "test/1" },
+              { actor_id: actorId, day_index: 20601, page_index: 2, artifact_id: "daily-page-two", rest_kind: "long", status: "ready", image_url: imageUrl, image_alt: "My second daily Journal page.", style_revision: "test/1" },
             ],
           },
         };
@@ -13177,8 +13419,8 @@ async function main() {
           artifactId: leaf()?.dataset.journalArtifactId || "",
           day: leaf()?.dataset.journalDay || "",
           images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
-          rows: document.querySelectorAll("#journal-view .journal-row, #journal-view .journal-prose-row").length,
-          prose: document.querySelectorAll("#journal-view .journal-page-prose, #journal-view figcaption").length,
+          rows: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
+          prose: document.querySelectorAll("#journal-log .journal-page-prose, #journal-log figcaption").length,
           memoryVisible: visible(document.querySelector("#room-memory")),
           activityVisible: visible(document.querySelector("#journal-activity")),
           questionsVisible: visible(document.querySelector("#shared-questions")),
@@ -13220,436 +13462,6 @@ async function main() {
         && imageOnlyJournal.earlier.day === "20600"
         && imageOnlyJournal.earlier.images === 1,
       `${label}: Journal must render only one generated long-rest image per avatar-day while keeping short-rest and log context hidden: ${JSON.stringify(imageOnlyJournal)}`,
-    );
-
-    if (false) {
-    const journal = await page.evaluate((stateSignature) => {
-      const visible = (node) => Boolean(
-        node
-        && getComputedStyle(node).display !== "none"
-        && getComputedStyle(node).visibility !== "hidden"
-        && node.getClientRects().length
-      );
-      const rows = [...document.querySelectorAll("#journal-view .journal-row")];
-      const summaries = rows.map((row) => row.querySelector(".journal-row-summary")).filter(Boolean);
-      const terminalRect = document.querySelector(".terminal")?.getBoundingClientRect();
-      const journalRect = document.querySelector("#journal-view")?.getBoundingClientRect();
-      const chatRect = document.querySelector("#log")?.getBoundingClientRect();
-      const journalStyle = getComputedStyle(document.querySelector("#journal-view"));
-      const regionNames = [...document.querySelectorAll("#journal-view .journal-region")]
-        .filter(visible)
-        .map((region) => {
-          const headingId = region.getAttribute("aria-labelledby") || "";
-          return document.getElementById(headingId)?.textContent?.trim() || "";
-        });
-      return {
-        expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
-        journalVisible: visible(document.querySelector("#journal-view")),
-        heroVisible: visible(document.querySelector("#room-hero")),
-        transcriptVisible: visible(document.querySelector("#log")),
-        promptVisible: visible(document.querySelector("footer.prompt")),
-        regionNames,
-        heading: document.querySelector(".journal-heading h2")?.textContent || "",
-        fontFamily: journalStyle.fontFamily,
-        rowCount: rows.length,
-        allCollapsed: rows.every((row) => !row.open),
-        currentPlaceExists: Boolean(document.querySelector("#journal-current-place")),
-        storyPageExists: Boolean(document.querySelector("#journal-story-history")),
-        noteExists: Boolean(document.querySelector("#journal-open-threads")),
-        semanticRows: rows.map((row) => {
-          const category = row.querySelector(".journal-row-label")?.textContent?.trim() || "";
-          const prose = row.querySelector(".journal-row-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
-          return {
-            category,
-            prose,
-            aria: row.getAttribute("aria-label")?.trim().replace(/\s+/g, " ") || "",
-          };
-        }),
-        summariesWrapped: summaries.every((node) => {
-          const style = getComputedStyle(node);
-          return style.whiteSpace === "normal"
-            && style.overflow === "visible";
-        }),
-        oneProseNodePerRow: rows.every((row) => (
-          row.querySelectorAll(".journal-row-summary").length === 1
-          && row.querySelectorAll(".journal-row-detail").length === 0
-        )),
-        chapterSummary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
-        pageLabel: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
-        pageTitle: document.querySelector("#journal-page-title")?.textContent?.trim() || "",
-        pageExists: Boolean(document.querySelector("#journal-log > .journal-page")),
-        visibleStoryBeats: document.querySelectorAll("#journal-log .journal-beat").length,
-        pageControls: document.querySelectorAll("#journal-page-nav button").length,
-        chapterHeadingVisible: (() => {
-          const heading = document.querySelector("#journal-story-history-heading")?.getBoundingClientRect();
-          const stream = document.querySelector("#journal-view .journal-stream")?.getBoundingClientRect();
-          return Boolean(heading && stream && heading.top >= stream.top && heading.bottom <= stream.bottom);
-        })(),
-        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i)?.[0] || "",
-        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i.test(document.querySelector("#journal-view")?.innerText || ""),
-        noDashboardChrome: document.querySelectorAll("#journal-view .shared-question-meter, #journal-view .shared-question-suggestions, #journal-view .update-pill").length === 0,
-        illustrationCount: document.querySelectorAll("#journal-view .journal-page-illustration img").length,
-        panesDoNotOverlap: Boolean(
-          journalRect
-          && chatRect
-          && (
-            window.innerWidth <= 900
-              ? journalRect.bottom <= chatRect.top + 0.5
-              : chatRect.right <= journalRect.left + 0.5
-          )
-        ),
-        insideTerminal: Boolean(
-          terminalRect
-          && journalRect
-          && journalRect.top >= terminalRect.top - 1
-          && journalRect.bottom <= terminalRect.bottom + 1
-        ),
-        fillsTerminal: Boolean(
-          terminalRect
-          && journalRect
-          && Math.abs(journalRect.top - terminalRect.top) <= 1
-          && Math.abs(journalRect.bottom - terminalRect.bottom) <= 1
-          && Math.abs(journalRect.left - terminalRect.left) <= 1
-          && Math.abs(journalRect.right - terminalRect.right) <= 1
-        ),
-        stateUnchanged: stateSignature === JSON.stringify({
-          sharedQuestions: state?.shared_questions,
-          roomMemory: state?.room_memory,
-          journalBeats: state?.journal_beats,
-          stateRevision: state?.state_revision,
-        }),
-      };
-    }, room.stateSignature);
-    assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
-    assert(
-      !journal.heroVisible
-        && !journal.transcriptVisible
-        && !journal.promptVisible
-        && journal.fillsTerminal,
-      `${label}: Journal should become the full reading surface and cover the room transcript and card selector: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.currentPlaceExists
-        && journal.storyPageExists
-        && journal.noteExists
-        && journal.rowCount >= 2,
-      `${label}: Journal should keep place, story, and loose-note semantics inside one reading leaf: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.allCollapsed
-        && journal.summariesWrapped
-        && journal.oneProseNodePerRow,
-      `${label}: Journal beats should begin as connected wrapped prose with one text node apiece: ${JSON.stringify(journal)}`,
-    );
-    assert(
-      journal.semanticRows.every(({ category, prose, aria }) => (
-        ["story", "discovery", "travel", "search", "relationship", "growth", "work", "item", "consequence"].includes(category)
-        && !["event", "tag"].includes(category)
-        && prose.length > 0
-        && /[.!?…]["')\]]*$/.test(prose)
-        && aria === prose
-        && !/->|Something changed|\b(?:journey|pathway)\.[a-z_]+|^(?:is now|shakes off)\b/i.test(prose)
-      )),
-      `${label}: every Journal sentence needs hidden semantic typing, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
-    );
-    assert(
-      /(?:My|.+?'s) Journal$/.test(journal.heading)
-        && /serif|georgia|cambria/i.test(journal.fontFamily)
-        && journal.pageExists
-        && journal.visibleStoryBeats <= 6
-        && journal.pageControls === 2
-        && journal.chapterHeadingVisible
-        && /^\d+ \/ \d+$/.test(journal.pageLabel)
-        && journal.pageTitle.length > 0
-        && /\.$/.test(journal.chapterSummary)
-        && journal.noRawDebugCopy
-        && journal.noDashboardChrome
-        && journal.illustrationCount <= 1
-        && journal.insideTerminal
-        && journal.fillsTerminal
-        && journal.stateUnchanged,
-      `${label}: Journal should read as a summarized, paged storybook without changing inference-facing state: ${JSON.stringify(journal)}`,
-    );
-
-    const beatDisclosure = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      if (!row || !summary || !headline || !marker) return { exists: false };
-
-      headline.textContent = "A brief note.";
-      syncJournalRowOverflow();
-      const short = {
-        overflowing: row.classList.contains("is-overflowing"),
-        markerVisible: getComputedStyle(marker).display !== "none",
-        tabIndex: summary.tabIndex,
-      };
-      summary.click();
-      short.openAfterClick = row.open;
-
-      const complete = "A deliberately complete Journal headline keeps going until it cannot fit on one visual line, so the disclosure is useful without replacing or inventing any prose.";
-      headline.textContent = complete;
-      syncJournalRowOverflow();
-      const long = {
-        overflowing: row.classList.contains("is-overflowing"),
-        markerVisible: getComputedStyle(marker).display !== "none",
-        tabIndex: summary.tabIndex,
-      };
-      summary.click();
-      long.openAfterClick = row.open;
-      long.sameCompleteHeadline = headline.textContent === complete;
-      long.expandedWhiteSpace = getComputedStyle(headline).whiteSpace;
-      long.proseNodeCount = row.querySelectorAll(".journal-row-summary").length;
-      long.detailBlockCount = row.querySelectorAll(".journal-row-detail").length;
-      renderJournalLog();
-      return { exists: true, short, long };
-    });
-    assert(
-      beatDisclosure.exists
-        && !beatDisclosure.short.overflowing
-        && !beatDisclosure.short.markerVisible
-        && beatDisclosure.short.tabIndex === -1
-        && !beatDisclosure.short.openAfterClick,
-      `${label}: a one-line Journal beat should have no disclosure affordance: ${JSON.stringify(beatDisclosure)}`,
-    );
-    assert(
-      !beatDisclosure.long.overflowing
-        && !beatDisclosure.long.markerVisible
-        && beatDisclosure.long.tabIndex === -1
-        && !beatDisclosure.long.openAfterClick
-        && beatDisclosure.long.sameCompleteHeadline
-        && beatDisclosure.long.expandedWhiteSpace === "normal"
-        && beatDisclosure.long.proseNodeCount === 1
-        && beatDisclosure.long.detailBlockCount === 0,
-      `${label}: long Journal prose should wrap in place without becoming a disclosure widget: ${JSON.stringify(beatDisclosure)}`,
-    );
-
-    const disclosureViewport = page.viewportSize();
-    await page.setViewportSize({ width: 1600, height: 900 });
-    const wideDisclosure = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      if (!row || !summary || !headline || !marker) return { exists: false };
-      row.classList.add("is-overflowing", "is-measuring-overflow");
-      const markerExcludedFromMeasurement = getComputedStyle(marker).display === "none";
-      row.classList.remove("is-overflowing", "is-measuring-overflow");
-      let chosen = "Elsie found the path.";
-      for (let index = 1; index <= 8; index += 1) {
-        const candidate = `Elsie found the path.${" It led toward the Old Oak Tree.".repeat(index)}`;
-        headline.textContent = candidate;
-        syncJournalRowOverflow();
-        if (row.classList.contains("is-overflowing")) break;
-        chosen = candidate;
-      }
-      headline.textContent = chosen;
-      syncJournalRowOverflow();
-      return {
-        exists: true,
-        prose: chosen,
-        overflowing: row.classList.contains("is-overflowing"),
-        tabIndex: summary.tabIndex,
-        markerExcludedFromMeasurement,
-      };
-    });
-    assert(
-      wideDisclosure.exists
-        && wideDisclosure.prose.length > 40
-        && !wideDisclosure.overflowing
-        && wideDisclosure.tabIndex === -1
-        && wideDisclosure.markerExcludedFromMeasurement,
-      `${label}: the responsive disclosure fixture should fit at a wide viewport: ${JSON.stringify(wideDisclosure)}`,
-    );
-    await page.setViewportSize({ width: 320, height: 760 });
-    await page.waitForFunction(() => (
-      getComputedStyle(document.querySelector("#journal-log .journal-row-summary")).whiteSpace === "normal"
-    ));
-    const narrowDisclosure = await page.evaluate((prose) => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      const collapsed = {
-        sameProse: headline?.textContent === prose,
-        overflowing: row?.classList.contains("is-overflowing") || false,
-        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
-        tabIndex: summary?.tabIndex,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-      };
-      summary?.click();
-      const expanded = {
-        open: row?.open || false,
-        sameProse: headline?.textContent === prose,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-        proseNodes: row?.querySelectorAll(".journal-row-summary").length || 0,
-      };
-      summary?.click();
-      const recollapsed = {
-        open: row?.open || false,
-        sameProse: headline?.textContent === prose,
-        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
-      };
-      return { collapsed, expanded, recollapsed };
-    }, wideDisclosure.prose);
-    assert(
-      narrowDisclosure.collapsed.sameProse
-        && !narrowDisclosure.collapsed.overflowing
-        && !narrowDisclosure.collapsed.markerVisible
-        && narrowDisclosure.collapsed.tabIndex === -1
-        && narrowDisclosure.collapsed.whiteSpace === "normal"
-        && !narrowDisclosure.expanded.open
-        && narrowDisclosure.expanded.sameProse
-        && narrowDisclosure.expanded.whiteSpace === "normal"
-        && narrowDisclosure.expanded.proseNodes === 1
-        && !narrowDisclosure.recollapsed.open
-        && narrowDisclosure.recollapsed.sameProse
-        && narrowDisclosure.recollapsed.whiteSpace === "normal",
-      `${label}: viewport resize should keep the same prose naturally wrapped with no disclosure chrome: ${JSON.stringify(narrowDisclosure)}`,
-    );
-    if (disclosureViewport) await page.setViewportSize(disclosureViewport);
-    await page.evaluate(() => renderJournalLog());
-
-    const textSizeFixture = await page.evaluate(() => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      if (!row || !summary || !headline) return { exists: false };
-      const previousPreference = localStorage.getItem("cosyworld.ui.largeText");
-      localStorage.setItem("cosyworld.ui.largeText", "false");
-      applyUiPreferences();
-      row.style.width = "700px";
-      headline.textContent = "Elsie discovered the rain-bright path home.";
-      const ruler = headline.cloneNode(true);
-      const headlineStyle = getComputedStyle(headline);
-      ruler.style.cssText = [
-        "position:fixed",
-        "left:-10000px",
-        "top:0",
-        "width:max-content",
-        "visibility:hidden",
-        "white-space:nowrap",
-        `font:${headlineStyle.font}`,
-      ].join(";");
-      document.body.append(ruler);
-      const normalTextWidth = ruler.getBoundingClientRect().width;
-      ruler.remove();
-      headline.style.width = `${Math.ceil(normalTextWidth + 3)}px`;
-      syncJournalRowOverflow();
-      window.__cosyJournalTextSizeFixture = { previousPreference };
-      return {
-        exists: true,
-        prose: headline.textContent,
-        normalOverflowing: row.classList.contains("is-overflowing"),
-        normalTabIndex: summary.tabIndex,
-      };
-    });
-    assert(
-      textSizeFixture.exists
-        && !textSizeFixture.normalOverflowing
-        && textSizeFixture.normalTabIndex === -1,
-      `${label}: the text-size fixture should begin as a non-overflowing row: ${JSON.stringify(textSizeFixture)}`,
-    );
-    await page.evaluate(() => {
-      localStorage.setItem("cosyworld.ui.largeText", "true");
-      applyUiPreferences();
-    });
-    await page.waitForFunction(() => document.body.classList.contains("large-text"));
-    const largeTextDisclosure = await page.evaluate((prose) => {
-      const row = document.querySelector("#journal-log .journal-beat");
-      const summary = row?.querySelector(":scope > summary");
-      const headline = summary?.querySelector(".journal-row-summary");
-      const marker = row?.querySelector(".journal-row-marker");
-      const result = {
-        sameProse: headline?.textContent === prose,
-        overflowing: row?.classList.contains("is-overflowing") || false,
-        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
-        tabIndex: summary?.tabIndex,
-      };
-      const previousPreference = window.__cosyJournalTextSizeFixture?.previousPreference;
-      if (previousPreference === null) {
-        localStorage.removeItem("cosyworld.ui.largeText");
-      } else {
-        localStorage.setItem("cosyworld.ui.largeText", previousPreference);
-      }
-      delete window.__cosyJournalTextSizeFixture;
-      row?.style.removeProperty("width");
-      headline?.style.removeProperty("width");
-      applyUiPreferences();
-      renderJournalLog();
-      return result;
-    }, textSizeFixture.prose);
-    assert(
-      largeTextDisclosure.sameProse
-        && !largeTextDisclosure.overflowing
-        && !largeTextDisclosure.markerVisible
-        && largeTextDisclosure.tabIndex === -1,
-      `${label}: larger-text preference should keep prose wrapped without adding disclosure controls: ${JSON.stringify(largeTextDisclosure)}`,
-    );
-
-    const rowContract = await page.evaluate(() => ({
-      rows: document.querySelectorAll("#journal-view .journal-prose-row").length,
-      proseNodes: document.querySelectorAll("#journal-view .journal-row-summary").length,
-      duplicateDetails: document.querySelectorAll("#journal-view .journal-row-detail").length,
-      actionControls: document.querySelectorAll("#journal-view button").length,
-    }));
-    assert(
-      rowContract.rows === rowContract.proseNodes
-        && rowContract.duplicateDetails === 0
-        && rowContract.actionControls === 2,
-      `${label}: every Journal row should contain one prose string, with only the two page-turn controls added: ${JSON.stringify(rowContract)}`,
-    );
-
-    const pagination = await page.evaluate(() => {
-      const previousState = state;
-      const previousPageIndex = journalPageIndex;
-      try {
-        const categories = ["story", "travel", "discovery", "relationship", "work", "growth", "item"];
-        state = {
-          ...state,
-          journal_beats: Array.from({ length: 14 }, (_, index) => ({
-            id: `journal-beat:v1:test:${index + 1}`,
-            source_event_seqs: [700000 + index],
-            category: categories[index % categories.length],
-            headline: `Remembered story moment ${index + 1} changed the shared tale.`,
-            location_id: Number(state?.location?.id || 1),
-            ordering_seq: 700000 + index,
-          })),
-        };
-        journalPageIndex = -1;
-        renderJournalLog();
-        const snapshot = () => ({
-          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
-          rows: document.querySelectorAll("#journal-log .journal-beat").length,
-          summary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
-          previousDisabled: document.querySelector("#journal-page-previous")?.disabled,
-          nextDisabled: document.querySelector("#journal-page-next")?.disabled,
-        });
-        const latest = snapshot();
-        turnJournalPage(-1);
-        const middle = snapshot();
-        turnJournalPage(1);
-        const returned = snapshot();
-        return { latest, middle, returned };
-      } finally {
-        state = previousState;
-        journalPageIndex = previousPageIndex;
-        renderJournalLog();
-      }
-    });
-    assert(
-      pagination.latest.label === "3 / 3"
-        && pagination.latest.rows === 2
-        && !pagination.latest.previousDisabled
-        && pagination.latest.nextDisabled
-        && pagination.latest.summary.startsWith("This chapter has been shaped by")
-        && pagination.middle.label === "2 / 3"
-        && pagination.middle.rows === 6
-        && !pagination.middle.previousDisabled
-        && !pagination.middle.nextDisabled
-        && pagination.returned.label === "3 / 3",
-      `${label}: storybook pages should summarize the whole chapter and turn without showing a raw event wall: ${JSON.stringify(pagination)}`,
     );
 
     const restAuthoredPages = await page.evaluate(() => {
@@ -13821,7 +13633,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && [...document.querySelectorAll("footer.prompt button")]
+        && [...document.querySelectorAll("footer.prompt .cmd")]
           .some((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
     ));
     await assertNoVisibleOverflow();
@@ -13844,7 +13656,7 @@ async function main() {
       const roomCopy = document.querySelector("#location-copy");
       const roomLogToggle = document.querySelector("#room-log-toggle");
       const transcript = document.querySelector("#log");
-      const buttons = [...document.querySelectorAll("footer.prompt button")]
+      const buttons = [...document.querySelectorAll("footer.prompt .cmd")]
         .filter(visible)
         .map((button) => {
           const thumb = button.querySelector(".thumb");
@@ -14118,7 +13930,7 @@ async function main() {
       `guest first card should ask only for core identity and aspiration: ${openingPrimaryAria}`,
     );
     await page.locator("#primary").click();
-    await page.waitForSelector("#action-modal:not([hidden])");
+    await page.waitForSelector("#action-modal:not([hidden]) .action-dialog.hand-card-mode");
     assert(await page.locator("#action-modal-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
     const coreOpeningSummary = await page.locator("#action-modal-summary").innerText();
     assert(
@@ -14126,17 +13938,17 @@ async function main() {
         && coreOpeningSummary.includes("deeds reveal"),
       `core arrival should leave identity to later deeds: ${coreOpeningSummary}`,
     );
-    const coreOpeningRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
-      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
-    ));
     assert(
-      coreOpeningRows.length === 0,
-      `core arrival should keep its expanded description to one sentence: ${JSON.stringify(coreOpeningRows)}`,
+      await page.locator("#action-modal-meta:visible").count() === 0
+        && await page.locator("#action-modal-cancel").textContent() === "close"
+        && await page.locator("#action-modal-confirm").textContent() === "play"
+        && await page.locator("#action-modal-discard").textContent() === "discard",
+      "core arrival should use the focused card surface without a hand dashboard",
     );
     await page.locator("#action-modal-cancel").click();
     await page.locator("#primary").click();
-    await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-confirm").innerText() === "begin", "the certified core arrival should begin the classless traveler");
+    await page.waitForSelector("#action-modal:not([hidden]) .action-dialog.hand-card-mode");
+    assert(await page.locator("#action-modal-confirm").textContent() === "play", "the certified core arrival should play the classless traveler card");
     await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -14173,6 +13985,7 @@ async function main() {
       slotCount: document.querySelectorAll(".minimal-menu-slot").length,
       orbCount: document.querySelectorAll(".minimal-menu-orbs .minimal-orb-rack i").length,
       copy: document.querySelector(".minimal-menu")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      purpose: String(state?.calling?.statement || ""),
       avatar: (() => {
         const actor = (state?.actors || []).find((candidate) => Number(candidate.id) === Number(actorId)) || null;
         const card = cardForActor(actorId);
@@ -14182,6 +13995,7 @@ async function main() {
         };
       })(),
     }));
+    assert(guestMenu.purpose === "I listen for odd jobs nobody else wants.", `a classless new avatar should keep the safe default purpose: ${JSON.stringify(guestMenu)}`);
     assert(guestMenu.playerName && guestMenu.level === "1", `the minimal Menu should show the current player and level: ${JSON.stringify(guestMenu)}`);
     assert(guestMenu.portraitCount === 1, "the minimal Menu should show the generated portrait card");
     assert(guestMenu.slotCount === 4 && guestMenu.orbCount === 5, `the minimal Menu should use equipment and Orb slots instead of explanatory copy: ${JSON.stringify(guestMenu)}`);
@@ -14650,11 +14464,12 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
-  await assertChatActivityStaysInJournal();
+  await assertChatActivityStaysOutOfStatusSurface();
   await assertChoicePreviewFollowsSelectedCard();
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDealtInStoryHand();
   await assertAvatarItemsUseDisclosureAndExactActions();
+  await assertHumanGiftHandoffUsesRecipientHandAndAvatarRail();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
   await assertCharmSlotExpansionIsDemandDriven();
   await assertBondSurfacesAsCompactRelationshipAction();
@@ -14680,7 +14495,7 @@ async function main() {
   await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
-  await assertWorldBeatExposureFollowsVisibleAuthoredProse();
+  await assertHiddenWorldBeatsNeverCountAsVisibleExposure();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCombatUsesDedicatedDockOutsideChat();
@@ -14853,7 +14668,6 @@ async function main() {
     return {
       phase: continuation.phase || "",
       destinationLocationId: Number(continuation.destination_location_id || 0),
-      jobId: String(continuation.job_id || ""),
       instruction: String(continuation.instruction || ""),
       advancingOfferId: String(continuation.advancing_offer_id || ""),
       guideActionKey: String(guide?.actionKey || ""),
@@ -14864,7 +14678,6 @@ async function main() {
   assert(
     lanternHandoff.phase === "travel"
       && lanternHandoff.destinationLocationId === 800
-      && lanternHandoff.jobId === ""
       && /Wayside Lantern Inn/i.test(lanternHandoff.instruction)
       && lanternHandoff.advancingOfferId
       && lanternHandoff.handOfferIds.includes(lanternHandoff.advancingOfferId)
@@ -15022,6 +14835,7 @@ async function main() {
     await deliverGardenItems();
     await discoverRoute("Moonlit Trail");
     await travelTo("Moonlit Trail");
+    await clearMoonlitCombatFloor("clear combat floor before Moonlit search");
     const hearthstonePlacement = await page.evaluate(async () => {
       const currentActorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
       const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
@@ -15034,7 +14848,7 @@ async function main() {
         const loose = (location.items || []).find((item) => item.name === "Hearthstone Tag");
         if (loose) return { location: location.name, holder: "" };
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).includes(2006)
+          (actor.economy?.held_items || []).some((heldItem) => Number(heldItem.item_id) === 2006)
         ));
         if (holder) return { location: location.name, holder: holder.name };
       }
@@ -15060,25 +14874,7 @@ async function main() {
       await travelTo("Rain-Soft Garden");
     }
     await travelTo("Moonlit Trail");
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const combatBlocksProject = await page.evaluate(() => (
-        (state?.action_offers || []).some((offer) => offer.kind === "flee")
-          && !(state?.action_offers || []).some((offer) => (
-            offer?.project?.id === "moonlit-trail:quiet-the-echo"
-          ))
-      ));
-      if (!combatBlocksProject) break;
-      await leaveTrailTo("Rain-Soft Garden");
-      steps.push({ label: "clear combat floor before Moonlit project", attempt });
-      await travelTo("Moonlit Trail");
-    }
-    const projectFloorReady = await page.evaluate(() => (
-      !(state?.action_offers || []).some((offer) => offer.kind === "flee")
-        || (state?.action_offers || []).some((offer) => (
-          offer?.project?.id === "moonlit-trail:quiet-the-echo"
-        ))
-    ));
-    assert(projectFloorReady, "the Moonlit project should begin only after its combat floor is resolved");
+    await clearMoonlitCombatFloor("clear combat floor before Moonlit project");
     const moonlitProjectStatus = async () => {
       const current = await fetchCurrentState();
       const progress = (current.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
@@ -15105,7 +14901,7 @@ async function main() {
           && document.querySelector("#action-modal")?.hidden === true
       ), null, { timeout: 35_000 });
       const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-      const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
+      const deckSize = await fetchInspectableDeckSize();
       let lastHand = [];
       let combatResets = 0;
       for (let draw = 0; draw < deckSize; draw += 1) {
@@ -15135,6 +14931,7 @@ async function main() {
                 deckSize: Number(state?.action_hand?.offer_queue_size || 0),
                 generation: Number(state?.action_hand?.generation || 0),
               },
+              combat: state?.combat || null,
               hand: visible.map((candidate) => {
                 const source = actions[candidate.actionIndex];
                 return {
@@ -15176,13 +14973,9 @@ async function main() {
           return result.text;
         }
         lastHand = result;
-        const combatOnlyHand = result.hand.length > 0
-          && result.hand.every((entry) => entry.text.startsWith("flee "));
-        if (combatOnlyHand && combatResets < 3) {
+        if (result.combat && combatResets < 3) {
           combatResets += 1;
-          await leaveTrailTo("Rain-Soft Garden");
-          steps.push({ label: "clear combat floor during Moonlit project draw", attempt: combatResets });
-          await travelTo("Moonlit Trail");
+          await clearMoonlitCombatFloor("clear combat floor during Moonlit project draw");
           draw -= 1;
           continue;
         }
@@ -15330,16 +15123,22 @@ async function main() {
       }
       if (!featureUseCommitted) {
         const needsRest = await page.evaluate(() => (
-          actions.some((action) => String(action.label || "").toLowerCase() === "rest")
+          (state?.tags || []).some((tag) => tag.label === "tired")
             && !actions.some((action) => String(action.label || "").toLowerCase() === "help")
         ));
         if (needsRest) {
+          if ((await currentLocation()) === "Moonlit Trail") {
+            await leaveTrailTo("Rain-Soft Garden");
+          }
           const restBeforeHelp = await drawPrimaryMatching(
             "rest before project help",
             ["rest", "feel fresh"],
             projectAdvancedBeyond(projectFilledBeforePrimer),
           );
           if (restBeforeHelp) await clickPrimary("rest before helping project");
+          if ((await currentLocation()) !== "Moonlit Trail") {
+            await travelTo("Moonlit Trail");
+          }
           progressPrimer = "rest then safe help";
         }
         const legacyProjectHelpAvailable = await page.evaluate(() => actions.some((action) => (
@@ -15452,9 +15251,7 @@ async function main() {
           }
         }
         if (!featureUseCommitted) {
-          const primerDeckSize = await page.evaluate(() => (
-            Math.max(1, Number(state?.action_hand?.offer_queue_size || 1))
-          ));
+          const primerDeckSize = await fetchInspectableDeckSize();
           for (let draw = 1; draw <= primerDeckSize && !featureUseCommitted; draw += 1) {
             const beforePass = await moonlitProjectStatus();
             featureUseCommitted = beforePass.completed
@@ -15842,11 +15639,7 @@ async function main() {
       );
       await travelTo("Moonlit Trail");
     }
-    await exerciseFrontierRecovery();
-    const frontierJourney = await fetchCurrentState();
-    if (frontierJourney.journey?.destination_name) {
-      await travelTo(frontierJourney.journey.destination_name);
-    }
+    await exerciseFrontierObservation();
     if ((await currentLocation()) !== "Rain-Soft Garden") {
       await leaveTrailTo("Rain-Soft Garden");
     }
@@ -15870,7 +15663,7 @@ async function main() {
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
         const holder = (location.actors || []).find((actor) => (
-          (actor.economy?.held_item_ids || []).includes(2004)
+          (actor.economy?.held_items || []).some((heldItem) => Number(heldItem.item_id) === 2004)
         ));
         if (holder) return { name: holder.name, location: location.name };
       }
@@ -16018,7 +15811,9 @@ async function main() {
         for (const item of expectedItems) {
           if (
             resident.name === item.resident
-              && (resident.economy?.held_item_ids || []).includes(item.itemId)
+              && (resident.economy?.held_items || []).some((heldItem) => (
+                Number(heldItem.item_id) === Number(item.itemId)
+              ))
           ) {
             residentItemState.push({
               type: "item.held",
@@ -16064,7 +15859,7 @@ async function main() {
       branchEvents,
       fleeEvents,
       trailExitEvents,
-      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+      buttons: [...document.querySelectorAll("footer.prompt .cmd")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean),

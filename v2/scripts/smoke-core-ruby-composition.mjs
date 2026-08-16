@@ -263,12 +263,47 @@ function stateUrl(baseUrl, actorId, actorSession) {
   return `${baseUrl}/state?${query}`;
 }
 
+function inspectUrl(baseUrl, actorId, actorSession) {
+  const query = new URLSearchParams({
+    actor_id: String(actorId),
+    actor_session: actorSession,
+  });
+  return `${baseUrl}/inspect?${query}`;
+}
+
+async function fetchInspectableState(baseUrl, actorId, actorSession) {
+  const [state, inspection] = await Promise.all([
+    fetchJson(stateUrl(baseUrl, actorId, actorSession)),
+    fetchJson(inspectUrl(baseUrl, actorId, actorSession)),
+  ]);
+  const internalActions = new Map(
+    (inspection.actions || []).map((action) => [action.offer_id, action]),
+  );
+  return {
+    ...state,
+    action_offers: (state.action_offers || []).map((offer) => ({
+      ...(internalActions.get(offer.offer_id) || {}),
+      ...offer,
+    })),
+    action_hand: {
+      ...(state.action_hand || {}),
+      deck_size: (inspection.actions || []).length,
+    },
+    __inspection: inspection,
+  };
+}
+
+function inspectedRulesContext(state) {
+  return (state?.__inspection?.actions || [])
+    .map((action) => action.composition_trace?.rules_context)
+    .find((context) => context !== undefined) ?? null;
+}
+
 function offerEnvelope(state, actorId, offerId) {
-  const actor = state.actors?.find((candidate) => candidate.id === actorId) ?? {};
   return {
     world_id: state.world_id ?? "world://cosyworld/official",
     intent_id: `smoke:offer:${actorId}:${createHash("sha256").update(offerId).digest("hex")}`,
-    actor_ref: actor.canonical_ref ?? "",
+    actor_ref: state.command_context?.actor_ref ?? "",
     observed: {},
     last_world_seq: Number(state.world_seq ?? 0),
   };
@@ -296,12 +331,15 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState, des
   let state = initialState;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     if (!state || attempt > 0) {
-      state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+      state = await fetchInspectableState(baseUrl, actorId, actorSession);
     }
-    const entries = state.action_hand?.entries || [];
-    const pass = entries.find((entry) => entry.slot === desiredSlot && entry.think?.available)?.think
-      || entries.find((entry) => entry.think?.available)?.think;
-    assert(pass?.offer_id, `a Story Hand card must expose Think: ${JSON.stringify(state.action_hand)}`);
+    const thinkEntries = (state.action_hand?.entries || [])
+      .filter((entry) => entry.think?.available && entry.think.offer_id)
+      .sort((left, right) =>
+        Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
+          || left.slot.localeCompare(right.slot));
+    const pass = thinkEntries[0]?.think ?? state.action_hand?.pass;
+    assert(pass?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
     const response = await fetch(`${baseUrl}/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -326,16 +364,18 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState, des
 }
 
 async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
-  let state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-  const deckSize = Math.max(1, Number(state.action_hand?.offer_queue_size) || 1);
-  for (let attempt = 0; attempt < deckSize; attempt += 1) {
+  let state = await fetchInspectableState(baseUrl, actorId, actorSession);
+  const boundedThinks = Math.max(
+    1,
+    (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
+  );
+  for (let attempt = 0; attempt < boundedThinks; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
-    const desired = (state.action_offers || []).find((candidate) => predicate(candidate));
-    await passCurrentHand(baseUrl, actorId, actorSession, state, storyHandSlotForOffer(desired));
-    state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    await passCurrentHand(baseUrl, actorId, actorSession, state);
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
   }
   throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);
 }
@@ -413,9 +453,8 @@ async function submitOffer(
 }
 
 async function discoverExit(baseUrl, actorId, actorSession, destinationLocationId) {
-  await commandExactOffer(baseUrl, actorId, actorSession, "listen");
   for (let attempt = 0; attempt < 32; attempt += 1) {
-    const state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    const state = await fetchInspectableState(baseUrl, actorId, actorSession);
     if (state.exits?.some((exit) =>
       exit.destination_location_id === destinationLocationId
       && exit.accessible === true
@@ -436,11 +475,12 @@ async function assertContext(baseUrl, actorId, actorSession, state, {
   sourceCard,
 }) {
   assert(state.location?.name === location, `expected ${location}: ${JSON.stringify(state.location)}`);
+  const rulesContext = inspectedRulesContext(state);
   assert(
-    state.rules_context?.location_pack_id === locationPack
-      && state.rules_context?.selected_by_pack_id === selectedBy
-      && state.rules_context?.capability_id === capability,
-    `wrong rules context at ${location}: ${JSON.stringify(state.rules_context)}`,
+    rulesContext?.location_pack_id === locationPack
+      && rulesContext?.selected_by_pack_id === selectedBy
+      && rulesContext?.capability_id === capability,
+    `wrong rules context at ${location}: ${JSON.stringify(rulesContext)}`,
   );
   const contextOffer = await drawExactOffer(
     baseUrl,
@@ -493,7 +533,7 @@ async function main() {
     assert(created.ok && created.actor?.id && created.actor_session, JSON.stringify(created));
     const actorId = created.actor.id;
     const actorSession = created.actor_session;
-    const sourceCottage = await fetchJson(stateUrl(source.baseUrl, actorId, actorSession));
+    const sourceCottage = await fetchInspectableState(source.baseUrl, actorId, actorSession);
     await assertContext(source.baseUrl, actorId, actorSession, sourceCottage, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
@@ -545,7 +585,7 @@ async function main() {
       `wrong mounted packs: ${JSON.stringify(first.meta.worldpack?.packs)}`,
     );
 
-    const cottage = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    const cottage = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     await assertContext(first.baseUrl, actorId, actorSession, cottage, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
@@ -592,7 +632,7 @@ async function main() {
           && event.content?.includes("scene composition changed")),
       `tampered composition certificate did not fail closed: ${JSON.stringify(rejectedTravel)}`,
     );
-    const afterRejectedTravel = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    const afterRejectedTravel = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     assert(
       afterRejectedTravel.location?.id === cottage.location.id
         && afterRejectedTravel.world_seq === travelOffer.state_revision,
@@ -622,13 +662,13 @@ async function main() {
       `wrong Core → Ruby transition: ${firstTransition.content}`,
     );
 
-    const homeroom = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    const homeroom = await fetchInspectableState(first.baseUrl, actorId, actorSession);
     await assertContext(first.baseUrl, actorId, actorSession, homeroom, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     const worldSeqBeforeRestart = homeroom.world_seq;
@@ -640,13 +680,13 @@ async function main() {
       second.output.some((line) => line.includes("loaded journal checkpoint")),
       `restart did not use the journal checkpoint: ${second.output.slice(-40).join("")}`,
     );
-    const replayed = await fetchJson(stateUrl(second.baseUrl, actorId, actorSession));
+    const replayed = await fetchInspectableState(second.baseUrl, actorId, actorSession);
     await assertContext(second.baseUrl, actorId, actorSession, replayed, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     assert(
@@ -670,7 +710,7 @@ async function main() {
       returnedCore.events?.some((event) => event.type === "rules_context.changed"),
       `Ruby → Core transition missing: ${JSON.stringify(returnedCore.events)}`,
     );
-    const returned = await fetchJson(stateUrl(second.baseUrl, actorId, actorSession));
+    const returned = await fetchInspectableState(second.baseUrl, actorId, actorSession);
     await assertContext(second.baseUrl, actorId, actorSession, returned, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
@@ -737,7 +777,7 @@ async function main() {
           || pack.id === "cosyworld.composition.core-ruby"),
       `Ruby or its bridge remained mounted: ${JSON.stringify(coreOnly.meta.worldpack)}`,
     );
-    const whileUnmounted = await fetchJson(stateUrl(coreOnly.baseUrl, actorId, actorSession));
+    const whileUnmounted = await fetchInspectableState(coreOnly.baseUrl, actorId, actorSession);
     await assertContext(coreOnly.baseUrl, actorId, actorSession, whileUnmounted, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
@@ -799,7 +839,7 @@ async function main() {
       remounted.output.some((line) => line.includes("loaded journal checkpoint")),
       `remounted restart did not use the journal checkpoint: ${remounted.output.slice(-40).join("")}`,
     );
-    const afterRemount = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
+    const afterRemount = await fetchInspectableState(remounted.baseUrl, actorId, actorSession);
     await assertContext(remounted.baseUrl, actorId, actorSession, afterRemount, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
@@ -825,13 +865,13 @@ async function main() {
       "remount did not restore the discovered Ruby bridge identity",
     );
     await move(remounted.baseUrl, actorId, actorSession, 11);
-    const restoredHomeroom = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
+    const restoredHomeroom = await fetchInspectableState(remounted.baseUrl, actorId, actorSession);
     await assertContext(remounted.baseUrl, actorId, actorSession, restoredHomeroom, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
       capability: "ruby-high.first-bell/rules",
-      offerVerb: "Tune in",
+      offerVerb: "Notice",
       sourceCard: "location-homeroom",
     });
     console.log(JSON.stringify({

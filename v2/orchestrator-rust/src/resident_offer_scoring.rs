@@ -15,6 +15,7 @@ impl RuntimeWorld {
                     "search"
                         | "craft"
                         | "influence"
+                        | NOTICE_ACTOR_OFFER_KIND
                         | "check"
                         | "explore_path"
                         | "open"
@@ -164,6 +165,7 @@ impl RuntimeWorld {
                 "move" => (60, RESIDENT_DEFAULT_ITEM_SCORE),
                 "open" => (55, RESIDENT_DEFAULT_ITEM_SCORE),
                 "search" => (65, 0),
+                NOTICE_ACTOR_OFFER_KIND => (64, 0),
                 FOCUSED_NOTICE_OFFER_KIND => (64, 0),
                 DISCOVERY_SEARCH_OFFER_KIND => (65, 0),
                 DISCOVERY_STUDY_OFFER_KIND => (66, 0),

@@ -740,6 +740,18 @@ pub(super) struct SeedActorContent {
     pub(super) relationship: Option<SeedRelationshipContent>,
 }
 
+impl SeedActorContent {
+    pub(super) fn authored_default_control_mode(&self) -> ActorControlMode {
+        self.control_mode.unwrap_or_else(|| {
+            if self.ambient_autonomy.unwrap_or(true) {
+                ActorControlMode::LocalAi
+            } else {
+                ActorControlMode::ReactiveAi
+            }
+        })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SeedActorIdentityContent {

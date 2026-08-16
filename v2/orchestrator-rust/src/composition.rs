@@ -11,6 +11,7 @@ fn submitted_payload_target_key(path: &str, target: &ActionTargetView) -> Option
         ("/actions/use-item", "feature") => "location_id",
         (
             "/actions/chat"
+            | "/actions/notice"
             | "/actions/model-interaction"
             | "/actions/attack"
             | "/actions/give-item"
@@ -130,6 +131,13 @@ fn submitted_stable_offer_payload_matches(
                 && submitted_payload_u64(payload, "target_actor_id") == target_actor_id.parse().ok()
                 && submitted_payload_u64(payload, "target_item_id") == target_item_id.parse().ok()
         }
+        ACCEPT_TRANSFER_OFFER_KIND => {
+            let Some(offer_id) = offer.id.strip_prefix("accept_transfer:") else {
+                return false;
+            };
+            payload.get("offer_id").and_then(serde_json::Value::as_str) == Some(offer_id)
+                && payload.get("decision").and_then(serde_json::Value::as_str) == Some("accept")
+        }
         "use_item"
             if submission.path == "/actions/use-item" && offer.id.starts_with("use_item:") =>
         {
@@ -159,11 +167,13 @@ fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | NOTICE_ACTOR_OFFER_KIND
             | "model_interaction"
             | "influence"
             | "attack"
             | "defend"
             | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
             | "create_bond"
             | "resolve_bond"
     )
@@ -791,9 +801,12 @@ impl RuntimeWorld {
         offers = self.expand_job_contribution_offers(actor_id, offers);
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
+        offers.extend(self.pending_transfer_acceptance_offers(actor_id));
         offers = self.expand_route_action_offers(actor_id, access, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
         offers.extend(self.discovery_action_offers(actor_id));
+        offers.retain(|offer| offer.kind != "check" || offer.project.is_some());
+        offers.extend(self.notice_actor_action_offers(actor_id));
         if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
             let mut unavailable = self.ranked_offer_from_parts(
                 "rest",
@@ -979,6 +992,73 @@ impl RuntimeWorld {
             return 84;
         }
         action_offer_rank(kind)
+    }
+
+    fn notice_actor_action_offers(&self, actor_id: u64) -> Vec<RankedActionOffer> {
+        self.notice_actor_facts(actor_id)
+            .into_iter()
+            .map(|fact| {
+                let target = ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(fact.target_actor_id),
+                    label: Some(fact.target_name.clone()),
+                };
+                let mut offer = self.ranked_offer_from_parts(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    "Notice",
+                    &format!("notice {}", fact.target_name),
+                    action_offer_rank(NOTICE_ACTOR_OFFER_KIND),
+                    false,
+                    None,
+                    Some(target),
+                    None,
+                    None,
+                    Some(format!(
+                        "reveals one disclosure-safe observable fact about {}",
+                        fact.target_name
+                    )),
+                    Some(fact.fact_id.clone()),
+                    "one nearby visible actor has one unresolved disclosure-safe fact",
+                );
+                let legacy_id = format!("notice_actor_v1:{}", fact.fact_id);
+                offer.id = legacy_id.clone();
+                offer.offer_id = format!(
+                    "{}:{}:{}",
+                    offer.rules_profile, offer.state_revision, legacy_id
+                );
+                let binding = resolved_action_binding(NOTICE_ACTOR_OFFER_KIND)
+                    .expect("notice_actor must resolve through the SRD search binding");
+                let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+                let source_collectible = self.location_source_collectible(actor_id);
+                offer.composition_trace = self.action_composition_trace(
+                    location_id,
+                    offer.state_revision,
+                    &binding,
+                    ActionCompositionContributions {
+                        source_card_instances: source_collectible.clone().into_iter().collect(),
+                        target: offer.target.clone(),
+                        applied_reskins: Vec::new(),
+                        contextual_offers: Vec::new(),
+                    },
+                );
+                offer.source_collectible = source_collectible;
+                offer.source = "visible_actor+observable_fact".to_string();
+                offer.accessible_label = self.action_offer_accessible_label(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    &offer.verb,
+                    &offer.label,
+                    offer.target.as_ref(),
+                    None,
+                );
+                offer.provider = self.action_offer_provider(
+                    NOTICE_ACTOR_OFFER_KIND,
+                    actor_id,
+                    offer.target.as_ref(),
+                    None,
+                );
+                offer
+            })
+            .collect()
     }
 
     pub(super) fn ranked_offer_from_parts(
@@ -1184,7 +1264,7 @@ impl RuntimeWorld {
 
         if let Some(calling) = self.callings.get(&actor_id) {
             let calling_matches = match kind {
-                "check" => calling_matches_listen(&calling.statement),
+                "check" | NOTICE_ACTOR_OFFER_KIND => calling_matches_listen(&calling.statement),
                 "search" => calling_matches_inspect(&calling.statement),
                 "explore_path" | "move" => calling_statement_is_explorer(&calling.statement),
                 _ => false,
@@ -1208,6 +1288,21 @@ impl RuntimeWorld {
                 format!("From {}", project.label),
                 50,
             );
+        }
+
+        if kind == NOTICE_ACTOR_OFFER_KIND {
+            if let Some(target_actor_id) = target.and_then(|target| target.id) {
+                let target_name = self
+                    .actor_name(target_actor_id)
+                    .unwrap_or_else(|| format!("Actor {target_actor_id}"));
+                return action_provider(
+                    "actor",
+                    format!("actor:{target_actor_id}"),
+                    target_name,
+                    "One nearby visible actor has a detail you can truthfully observe",
+                    40,
+                );
+            }
         }
 
         if let Some(actor) = actor {
@@ -1257,6 +1352,9 @@ impl RuntimeWorld {
     }
 
     pub(super) fn action_offer_verb(&self, kind: &str, actor_id: u64) -> String {
+        if kind == "attack" && self.active_combat_encounter_for_actor(actor_id).is_none() {
+            return "Confront".to_string();
+        }
         if kind == "model_interaction" {
             return self
                 .model_interaction_offer_profile(actor_id)
@@ -1509,7 +1607,9 @@ impl RuntimeWorld {
     ) -> Option<ActionSourceCollectibleView> {
         let source_item = match kind {
             "cast_spell" => self.default_spell_card(actor_id),
-            "attack" => self.authoritative_combat_weapon_item(actor_id),
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_some() => {
+                self.authoritative_combat_weapon_item(actor_id)
+            }
             "use_item" | "use_feature" => self
                 .actor_held_items(actor_id)
                 .into_iter()
@@ -1854,6 +1954,10 @@ impl RuntimeWorld {
     pub(super) fn action_offer_risk(&self, kind: &str, actor_id: u64) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_none() => Some(
+                "declaring combat pauses ordinary advancement until the encounter resolves or you escape"
+                    .to_string(),
+            ),
             "attack"
                 if self
                     .active_danger_clock_id_for_location(actor.location_id)
@@ -1948,6 +2052,10 @@ impl RuntimeWorld {
     ) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "attack" if self.active_combat_encounter_for_actor(actor_id).is_none() => self
+                .combat_job_for_actor(actor_id, None)
+                .and_then(|(_, target_id)| self.actor_name(target_id))
+                .map(|name| format!("declares an encounter with {name}; no attack is made yet")),
             "attack" => Some(self.combat_method_effect(actor_id)),
             "chat" => self
                 .default_chat_target(actor_id)
@@ -2277,6 +2385,7 @@ pub(super) fn action_offer_requires_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | NOTICE_ACTOR_OFFER_KIND
             | "model_interaction"
             | "influence"
             | "attack"
@@ -2286,6 +2395,7 @@ pub(super) fn action_offer_requires_target(kind: &str) -> bool {
             | "use_item"
             | "use_feature"
             | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
             | "trade_item"
             | "search"
             | "study"
@@ -2331,6 +2441,7 @@ pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> boo
     matches!(
         offer.kind.as_str(),
         "check"
+            | NOTICE_ACTOR_OFFER_KIND
             | "search"
             | FOCUSED_NOTICE_OFFER_KIND
             | DISCOVERY_SEARCH_OFFER_KIND
@@ -2514,24 +2625,23 @@ fn compose_story_hand_with_pin(
     let entries = slot_pools
         .iter()
         .enumerate()
-        .filter_map(|(slot_index, pool)| {
-            (!pool.is_empty()).then(|| {
-                let generation = slot_generations[slot_index];
-                let progression_locked = slot_index == 0 && progression_pin.is_some();
-                story_hand_entry(
-                    pool[if progression_locked {
-                        0
-                    } else {
-                        generation % pool.len()
-                    }],
-                    slot_index,
-                    if progression_locked {
-                        0
-                    } else {
-                        pool.len().saturating_sub(1)
-                    },
-                )
-            })
+        .filter(|(_, pool)| !pool.is_empty())
+        .map(|(slot_index, pool)| {
+            let generation = slot_generations[slot_index];
+            let progression_locked = slot_index == 0 && progression_pin.is_some();
+            story_hand_entry(
+                pool[if progression_locked {
+                    0
+                } else {
+                    generation % pool.len()
+                }],
+                slot_index,
+                if progression_locked {
+                    0
+                } else {
+                    pool.len().saturating_sub(1)
+                },
+            )
         })
         .collect::<Vec<_>>();
     let generation = slot_generations
@@ -2622,13 +2732,37 @@ impl RuntimeWorld {
         story_state: &StoryHandActorState,
     ) -> ActionHandView {
         let actor_id_value = actor_id.unwrap_or_default();
+        // Ordered scenes must never deal a card that their command boundary
+        // will reject. Chat remains concurrent; every other dealt card must
+        // be one of the focused encounter's exact actions for the turn owner.
+        let focused_offers = actor_id
+            .filter(|actor_id| focused_encounter_for_actor(self, *actor_id).is_some())
+            .map(|actor_id| {
+                offers
+                    .iter()
+                    .filter(|offer| {
+                        offer.kind == "chat"
+                            || focused_encounter_offer_context(self, actor_id, &offer.kind)
+                                .is_some()
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            });
+        let offers = focused_offers.as_deref().unwrap_or(offers);
         let slot_generations_u64 = story_state.slot_generations;
         let slot_generations = slot_generations_u64
             .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX));
         let mut progression_offer = None;
         let mut progression_offer_ids = BTreeSet::new();
         if let Some(actor_id) = actor_id {
-            if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
+            if let Some(accept_offer) = offers
+                .iter()
+                .filter(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
+                .min_by(|left, right| left.id.cmp(&right.id))
+            {
+                progression_offer_ids.insert(accept_offer.offer_id.clone());
+                progression_offer = Some(accept_offer);
+            } else if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
                 progression_offer_ids.insert(journey_offer.offer_id.clone());
                 progression_offer = Some(journey_offer);
             } else {
@@ -2760,11 +2894,13 @@ impl RuntimeWorld {
                 .to_string();
             self.append_story_hand_thought_event(
                 actor_id,
-                target_slot as u8,
-                &scene_key,
-                &replaces_offer_id,
-                false,
-                "test_draw",
+                (
+                    target_slot as u8,
+                    &scene_key,
+                    &replaces_offer_id,
+                    false,
+                    "test_draw",
+                ),
             );
         }
         None
@@ -2773,6 +2909,7 @@ impl RuntimeWorld {
 
 pub(super) fn action_offer_rank(kind: &str) -> u16 {
     match kind {
+        ACCEPT_TRANSFER_OFFER_KIND => 0,
         "give_item" => 10,
         "open" => 18,
         "use_item" | "use_feature" => 20,
@@ -2786,6 +2923,7 @@ pub(super) fn action_offer_rank(kind: &str) -> u16 {
         "help" => 49,
         "flee" => 50,
         FOCUSED_NOTICE_OFFER_KIND => 52,
+        NOTICE_ACTOR_OFFER_KIND => 52,
         DISCOVERY_SEARCH_OFFER_KIND => 53,
         DISCOVERY_STUDY_OFFER_KIND => 54,
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND => 55,
@@ -2812,6 +2950,7 @@ pub(super) fn practice_category_matches_offer(category: &str, kind: &str) -> boo
                 | "search"
                 | "check"
                 | FOCUSED_NOTICE_OFFER_KIND
+                | NOTICE_ACTOR_OFFER_KIND
                 | DISCOVERY_SEARCH_OFFER_KIND
                 | DISCOVERY_SCOUT_OFFER_KIND
                 | "open"
@@ -2844,11 +2983,13 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
         "search" => "inspect",
         "explore_path" => "scout",
         FOCUSED_NOTICE_OFFER_KIND => "notice",
+        NOTICE_ACTOR_OFFER_KIND => "notice",
         DISCOVERY_SEARCH_OFFER_KIND => "inspect",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         DISCOVERY_SCOUT_OFFER_KIND => "scout",
         "move" => "travel",
         "model_interaction" => "illustrate",
+        ACCEPT_TRANSFER_OFFER_KIND => "accept",
         "open" => "open",
         "work" | "help" => "contribute",
         _ => kind,
@@ -2916,9 +3057,8 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
         "notice" | "inspect" | "search" | "study" | "scout" | "listen" | "find_resonance"
         | "rank_echoes" => Some("head"),
         "travel" | "go" | "cross" | "return" | "route" | "routes" => Some("hustle"),
-        "chat" | "speak" | "echo" | "befriend" | "remember" | "influence" | "give" | "trade" => {
-            Some("heart")
-        }
+        "chat" | "speak" | "echo" | "befriend" | "remember" | "influence" | "give" | "accept"
+        | "trade" => Some("heart"),
         "take" | "drop" | "use" | "open" | "craft" | "prepare" | "work" | "help" | "finish"
         | "illustrate" => Some("hustle"),
         "attack" | "defend" | "flee" | "rescue" | "steal" => Some("honor"),
@@ -2938,9 +3078,13 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
             | DISCOVERY_STUDY_OFFER_KIND
             | DISCOVERY_SCOUT_OFFER_KIND => "head",
             "move" => "hustle",
-            "chat" | "influence" | "give_item" | "trade_item" | "create_bond" | "resolve_bond" => {
-                "heart"
-            }
+            "chat"
+            | "influence"
+            | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
+            | "trade_item"
+            | "create_bond"
+            | "resolve_bond" => "heart",
             "pick_up" | "drop_item" | "use_item" | "use_feature" | "open" | "craft" | "prepare"
             | "work" | "help" => "hustle",
             "attack" | "defend" | "flee" | "theft" => "honor",
@@ -3033,6 +3177,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         "search" => "Inspect",
         "explore_path" => "Scout",
         FOCUSED_NOTICE_OFFER_KIND => "Notice",
+        NOTICE_ACTOR_OFFER_KIND => "Notice",
         DISCOVERY_SEARCH_OFFER_KIND => "Search",
         DISCOVERY_STUDY_OFFER_KIND => "Study",
         DISCOVERY_SCOUT_OFFER_KIND => "Scout",
@@ -3056,6 +3201,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         "prepare" => "Prepare",
         "pick_up" => "Take",
         "drop_item" => "Drop",
+        ACCEPT_TRANSFER_OFFER_KIND => "Accept",
         "rest" => "Rest",
         "train_skill" => "Practice",
         "revise_calling" => "Evolve",
@@ -3110,11 +3256,18 @@ pub(super) fn action_offer_category(kind: &str) -> &'static str {
         "create_avatar" => "system",
         "move" | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
-        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
+        "pick_up"
+        | "drop_item"
+        | "use_item"
+        | "use_feature"
+        | "give_item"
+        | ACCEPT_TRANSFER_OFFER_KIND
+        | "trade_item"
         | "open" => "inventory",
         "craft" => "craft",
         "chat" | "model_interaction" | "help" | "create_bond" | "resolve_bond" => "social",
         "check"
+        | NOTICE_ACTOR_OFFER_KIND
         | "search"
         | FOCUSED_NOTICE_OFFER_KIND
         | DISCOVERY_SEARCH_OFFER_KIND
@@ -3153,6 +3306,7 @@ mod tests {
             ("check", "notice", None, "head"),
             ("move", "travel", None, "hustle"),
             ("chat", "chat", None, "heart"),
+            (ACCEPT_TRANSFER_OFFER_KIND, "accept", None, "heart"),
             ("craft", "craft", None, "hustle"),
             ("attack", "attack", None, "honor"),
             ("rest", "rest", None, "heart"),

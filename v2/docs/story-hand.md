@@ -12,7 +12,7 @@ source or target of an action.
 | Suit | Meaning | Typical exact verbs |
 | --- | --- | --- |
 | **Head** | Learn, notice, interpret, or reveal. | Notice, Inspect, Search, Study, Scout, Listen, Find resonance, Rank echoes |
-| **Heart** | Relate, communicate, exchange, recover, or grow. | Chat, Speak, Befriend, Remember, Give, Trade, Rest, Train, Evolve |
+| **Heart** | Relate, communicate, exchange, recover, or grow. | Chat, Speak, Befriend, Remember, Give, Accept, Trade, Rest, Train, Evolve |
 | **Honor** | Face immediate danger or protect someone from it. | Attack, Defend, Flee, Rescue, Steal |
 | **Hustle** | Move, manipulate, make, prepare, or contribute. | Travel, Take, Drop, Use, Open, Craft, Prepare, Work, Help, Finish, Illustrate |
 
@@ -36,16 +36,19 @@ is selected. The queues remain disjoint, so advancing one slot cannot move
 another. First-tale and journey guarantees are inserted into the Story queue,
 not layered over the completed hand.
 
-## Think
+## Discard
 
-Think replaces the focused card, never the whole hand. Every replaceable entry
-contains its own certificate with actor, scene, state revision, slot, slot
-generation, and exact replaced offer.
+Discard replaces the selected card, never the whole hand. It lives inside that
+card's detail modal rather than occupying a fourth hand slot. Every replaceable
+entry contains its own certificate with actor, scene, state revision, slot,
+slot generation, and exact replaced offer. The journal and wire format retain
+the historical `ThinkHand` name for replay compatibility; clients present it as
+Discard.
 
-- The first Think after entering a safe scene is free.
-- Later Thinks in that scene consume the turn.
-- Think always consumes the turn in risky, dangerous, and ordered scenes.
-- A slot with no other current possibility cannot be Thought about.
+- The first Discard after entering a safe scene is free.
+- Later Discards in that scene consume the turn.
+- Discard always consumes the turn in risky, dangerous, and ordered scenes.
+- A slot with no other current possibility does not show Discard.
 - Moving to another scene resets the slot counters and safe-scene allowance.
 
 The hidden deterministic structure is an **Offer queue**, not a player deck.
@@ -70,7 +73,8 @@ client-inferred `utility` or `danger` type.
 
 The compact card face reads in this order: suit and verb, title/target, effect,
 cost and risk, source, then art. Suit controls the main colour. Rarity is only a
-small collectible mark.
+small collectible mark. On mobile the footer never renders more than the three
+Story Hand cards.
 
 ## Player vocabulary
 

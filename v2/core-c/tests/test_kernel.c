@@ -37,12 +37,13 @@ static cw_gate *test_find_gate(cw_world *world, cw_id gate_id) {
 }
 
 static void test_kernel_capacities_are_runtime_sized(void) {
-  assert(CW_MAX_ACTORS >= 1024u);
+  /* A world mounting every authored pack seeds 589 actors, 580 locations, and
+   * 1269 exits. Keep at least another seed's worth of room for generated
+   * residents and pathway descendants while the world is live. */
+  assert(CW_MAX_ACTORS >= 1178u);
   assert(CW_MAX_ITEMS >= 1024u);
-  /* A world mounting every authored pack seeds 555 locations and 1151 exits,
-   * and generated pathway descendants grow both while the world is live. */
-  assert(CW_MAX_LOCATIONS >= 1110u);
-  assert(CW_MAX_EXITS >= 2302u);
+  assert(CW_MAX_LOCATIONS >= 1160u);
+  assert(CW_MAX_EXITS >= 2538u);
   assert(CW_MAX_EXITS >= CW_MAX_LOCATIONS);
   assert(CW_MAX_EVENTS >= 128u);
   assert(CW_MAX_EVOLUTION_TRACKS >= 128u);
@@ -50,7 +51,7 @@ static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_GATE_CLAIMS >= 128u);
   /* The world is one flat struct handed across the ABI. Keep it small enough
    * to stay comfortable on a 2 MB worker stack even when built unoptimized. */
-  assert(sizeof(cw_world) <= 320000u);
+  assert(sizeof(cw_world) <= 340000u);
 }
 
 static void test_seed_and_chat(void) {

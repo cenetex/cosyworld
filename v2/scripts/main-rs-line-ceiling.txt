@@ -259,4 +259,21 @@
 # main as a thin async entry point without changing boot or shutdown order.
 # 67709 -> 67675: move canonical entity-version conflict coverage beside the
 # canonical identity seam while adding typed stale-observation responses.
-67616
+# 67586 -> 66712: move unified belief types, keys, writes, pruning, decay,
+# lookup/resolution, search reinforcement, and legacy migration into
+# residents/memory.rs. Room observation, disproved-memory cleanup, movement
+# observation, gossip, and belief projection remain for the sequential #324.
+# 66712 -> 66670: move the complete actor Notice fact contract, endpoint, and
+# focused replay/staleness tests into notice.rs; keep canonical capacity tests
+# on their stable certified Pass card instead of unrelated gameplay offers.
+# 66670 -> 66854: integrate the Story Hand's persisted per-slot Think state,
+# public presentation envelope, projection event, and cross-surface regression
+# contracts at the existing runtime/snapshot/HTTP boundaries, including the
+# command-boundary ordered-scene regression. Hand composition, policy, commands,
+# autonomous selection, and their focused tests remain in the owning modules;
+# this is a reviewed integration exception, not a new root-owned gameplay system.
+# 66864 -> 66856: move attack and explicit combat-declaration handlers into
+# combat.rs while separating declaration from the first attack.
+# 66856 -> 66855: route authored actor control-mode defaults through the
+# content loader while keeping avatar-session handoff persistence in its module.
+66781

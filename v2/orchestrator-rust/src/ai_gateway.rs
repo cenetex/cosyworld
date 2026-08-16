@@ -2801,7 +2801,7 @@ async fn request_image_generation_with_selection(
                 }
             }]);
         }
-        add_exact_binding_zdr_constraint(&mut payload, &selection);
+        add_exact_binding_zdr_constraint(&mut payload, selection);
         if selection.candidate().supported_parameters().seed {
             let digest = Sha256::digest(context_hash.as_bytes());
             payload["seed"] = json!(u32::from_be_bytes(

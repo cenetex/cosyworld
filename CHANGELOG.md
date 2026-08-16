@@ -1,9 +1,35 @@
 # Changelog
 
-## 1.0.21 — 2026-08-12
+## 1.0.26 — 2026-08-13
+
+- Declare the live official-world bundle replay-compatible with the additive
+  Ruby High population and art update, preserving its journal and checkpoint
+  across deployment.
+
+## 1.0.25 — 2026-08-13
+
+- Double the deterministic kernel's actor capacity so one world can absorb all
+  authored residents and the existing live populations with growth headroom.
+
+## 1.0.24 — 2026-08-13
+
+- Populate Ruby High with autonomous students and teachers, usable school
+  items, and local borderless presentation art for every First Bell card.
+
+## 1.0.23 — 2026-08-12
 
 - Restrict the browser state projection to an explicit public allowlist, load
   room history separately, and validate action details on the server.
+
+## 1.0.22 — 2026-08-12
+
+- Move pending human gift consent into the recipient's action hand, mark the
+  corresponding room avatars, and cancel the offer when either player leaves.
+
+## 1.0.21 — 2026-08-12
+
+- Redesign Travel confirmation around the destination and route context, with
+  compact neutral and primary actions instead of repetitive copy and controls.
 
 ## 1.0.20 — 2026-08-12
 

@@ -60,7 +60,9 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
     expect(index).toContain('aria-label="Open current location card"');
     expect(index).toContain('aria-label="Close card details"');
     expect(index).toContain("supported linked avatars");
-    expect(index).toContain("portable account, optional linked avatars");
+    expect(index).toContain('<span>Identity</span>${identityAction}');
+    expect(index).toContain('data-passkey-continue>Sign in</button>');
+    expect(index).toContain('class="minimal-menu-value">Passkey</span>');
   });
 
   it("removes the retired collection and wallet-gate surface", () => {
@@ -81,8 +83,11 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
     expect(index).not.toContain('id="all-actions-title">all actions</h2>');
     expect(index).not.toContain("data-all-action-index");
     expect(index).not.toContain('data-player-concept="action-menu"');
-    expect(index).toContain('data-player-concept="think"');
-    expect(index).toContain('aria-label="Think about replacing the focused Story Hand card"');
+    expect(index).not.toContain('data-player-concept="think"');
+    expect(index).toContain('id="action-modal-discard"');
+    expect(index).toContain('data-hand-discard="primary"');
+    expect(index).toContain('data-hand-play="primary"');
+    expect(index).toContain('`Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card;');
     expect(index).toContain('command: "think"');
     expect(index).not.toContain('command: "pass"');
   });

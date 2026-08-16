@@ -579,11 +579,12 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
     let records_think = record.projection_mutations.iter().any(|mutation| {
         matches!(mutation, ProjectionMutation::ThinkHand { reason, .. } if reason == "player_think")
     });
-    if !matches!(
-        record.origin,
-        JournalOrigin::PlayerCard | JournalOrigin::Speech
-    ) && !(record.origin == JournalOrigin::PlayerControl && records_think)
-    {
+    let records_story_action = match record.origin {
+        JournalOrigin::PlayerCard | JournalOrigin::Speech => true,
+        JournalOrigin::PlayerControl => records_think,
+        _ => false,
+    };
+    if !records_story_action {
         return Ok(());
     }
     let pass_window = pass_metric_window(conn, &player_ref, &session_ref)?;

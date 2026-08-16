@@ -76,8 +76,9 @@ pack-specific reskin, but the binding below cannot change.
 | Procedure | Player verb | Contract |
 | --- | --- | --- |
 | `scene_notice_v1` | no button; the scene simply shows it | Free on arrival or relevant state change. Publish obvious exits, creatures, objects, landmark cues, sensory Signs, and perceivable Hazard tells. Never roll and never consume played time. |
-| `focused_notice_v2` | **Notice** | Spend one turn to resolve one broad, authored sensory Lead or stateful safety/environment result. Offer it only while an unresolved result exists. Under Pressure, a check avoids a named consequence; it never decides whether stocked truth exists. |
-| `search_v2` | **Search** | Spend one turn exhaustively examining one named local physical target. A safe Search is certain. It may reveal a frozen item, mechanism, secret feature, actor trace, or evidence, but never opens, Takes, equips, or moves through the result. |
+| `focused_notice_v2` | legacy **Notice** only | Preserve broad environmental Notice records for replay and compatibility. New offers do not use this procedure. |
+| `notice_actor_v1` | **Notice** | Spend one turn observing one nearby visible actor. Reveal exactly one eligible unresolved viewer-scoped observable fact; otherwise withhold the offer. |
+| `search_v2` | **Search** | Spend one turn exhaustively examining the current location or one named local physical feature. A safe Search is certain. It may reveal a frozen item, mechanism, trace, or evidence, but never a route, actor profile, Open, Take, equip, or Travel result. |
 | `study_v2` | **Study** | Spend one turn interpreting an already perceived target. Reveal requirements, operation, provenance, meaning, or a better method. Study cannot materialize physical truth. |
 | `scout_v2` | **Scout** | Spend played time pursuing one exact geographic Lead from a legal Anchor or along its active foray. Reveal only the authorized next segment or target. Scout never moves the actor; **Travel** is a separate commit. |
 | `travel_v1` | **Travel** | Move through one revealed route whose Gate permits this actor or expedition. Travel does not stock, reveal, or secure a destination. |
@@ -87,7 +88,9 @@ pack-specific reskin, but the binding below cannot change.
 
 `Inspect` is approved copy only when it binds to `search_v2` for physical
 examination or `study_v2` for interpretation. It is not a third resolver.
-`Listen` and `Tune In` may reskin focused Notice. `Head To` may reskin Travel.
+`Head To` may reskin Travel. Observe and Survey are not additional actions.
+[ADR 0012](0012-notice-search-and-scout-targets.md) is authoritative for the
+Notice, Search, Scout, and empty-result contracts.
 
 The currently journaled route procedure is named `scout_v1`: it uses the
 legacy Search action and an `explore_path` projection mutation to reveal one
@@ -96,8 +99,10 @@ the honest no-movement result but adds an exact Lead, Anchor/active-foray
 evidence, descriptor versions, and no-null-commit law. New code must use a new
 append-only action or procedure version rather than reinterpret `scout_v1`.
 
-The `discovery-procedure-v2` runtime implements `focused_notice_v2`,
-`search_v2`, `study_v2`, and `scout_v2` as one slot-bound pipeline. A pack
+The shipped `discovery-procedure-v2` runtime implements `focused_notice_v2`,
+`search_v2`, `study_v2`, and `scout_v2` as one slot-bound pipeline. Under ADR
+0012, `focused_notice_v2` becomes compatibility-only and new actor Notice uses
+`notice_actor_v1` after the #725 fact contract lands. A pack
 catalog freezes the receipt, claim scope, stocked result, and any pressure
 consequence before an offer is projected. Browser, terminal, API, and
 inference controllers select that same offer and receipt. A safe Search
@@ -105,8 +110,8 @@ commits without an ability roll; under Pressure the roll only avoids the
 already-frozen consequence. The discovery projection records a Lead or Reveal
 and cannot Open, Travel, Take, equip, materialize, or award the result.
 Snapshots and journal records preserve the frozen claim, and exact retries or
-replay cannot roll or publish it twice. Legacy Search, Study, and `scout_v1`
-records retain their original meanings.
+replay cannot roll or publish it twice. Legacy Search, Study, broad Notice, and
+`scout_v1` records retain their original meanings.
 
 ### Shared discovery progression
 

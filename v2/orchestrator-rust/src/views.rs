@@ -126,7 +126,10 @@ impl Serialize for RankedActionOffer {
         out.serialize_field("intention", &self.intention)?;
         out.serialize_field("presentation", &presentation)?;
         if let Some(source) = &self.source_collectible {
-            out.serialize_field("source_collectible", source)?;
+            out.serialize_field(
+                "source_collectible",
+                &PublicActionSourceCollectibleView(source),
+            )?;
         }
         if let Some(method) = &self.threshold_method {
             out.serialize_field("threshold_method", &PublicThresholdMethodView(method))?;
@@ -204,14 +207,16 @@ impl Serialize for PublicDiscoveryOfferView<'_> {
     }
 }
 
-impl Serialize for ActionSourceCollectibleView {
+struct PublicActionSourceCollectibleView<'a>(&'a ActionSourceCollectibleView);
+
+impl Serialize for PublicActionSourceCollectibleView<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let mut out = serializer.serialize_struct("ActionSourceCollectibleView", 2)?;
-        out.serialize_field("kind", &self.kind)?;
-        out.serialize_field("instance_id", &self.instance_id)?;
+        out.serialize_field("kind", &self.0.kind)?;
+        out.serialize_field("instance_id", &self.0.instance_id)?;
         out.end()
     }
 }
@@ -223,9 +228,10 @@ impl Serialize for PublicActionProviderView<'_> {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ActionProviderView", 3)?;
+        let mut out = serializer.serialize_struct("ActionProviderView", 4)?;
         out.serialize_field("kind", &self.0.kind)?;
         out.serialize_field("id", &self.0.id)?;
+        out.serialize_field("reason", &self.0.reason)?;
         out.serialize_field("priority", &self.0.priority)?;
         out.end()
     }
@@ -774,7 +780,7 @@ impl Serialize for StateResponse {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("StateResponse", 37)?;
+        let mut out = serializer.serialize_struct("StateResponse", 36)?;
         out.serialize_field("world_id", &self.world_id)?;
         out.serialize_field("world_epoch", &self.world_epoch)?;
         out.serialize_field("world_seq", &self.world_seq)?;
@@ -824,7 +830,6 @@ impl Serialize for StateResponse {
             out.serialize_field("branch", value)?;
         }
         out.serialize_field("safety", &PublicActorSafetyView(&self.safety))?;
-        out.serialize_field("journal_beats", &self.journal_beats)?;
         out.serialize_field("journal", &self.journal)?;
         out.serialize_field("room_memory", &self.room_memory)?;
         out.serialize_field("primary_action", &self.visible_primary_action)?;
@@ -2595,6 +2600,7 @@ impl Serialize for BondView {
 pub(super) struct InspectorView {
     pub(super) location_id: u64,
     pub(super) practice: Option<ActorPracticeView>,
+    pub(super) first_tale_question: Option<String>,
     pub(super) room: RoomInspectorView,
     pub(super) suggested_action: Option<ActionInspectorView>,
     pub(super) actions: Vec<ActionInspectorView>,
@@ -3569,7 +3575,48 @@ impl RuntimeWorld {
         }
         if let Some(viewer_actor_id) = client_actor_id {
             if !self.economy_known_by(viewer_actor_id, resident.id) {
-                return None;
+                let noticed_items = self.noticed_actor_items(viewer_actor_id, resident.id);
+                if noticed_items.is_empty() {
+                    return None;
+                }
+                let resident_name = self
+                    .actor_name(resident.id)
+                    .unwrap_or_else(|| format!("Avatar {}", resident.id));
+                let held_item_ids = noticed_items.iter().map(|item| item.id).collect::<Vec<_>>();
+                let held_items = noticed_items
+                    .into_iter()
+                    .map(|item| {
+                        let item_name = self
+                            .item_name(item.id)
+                            .unwrap_or_else(|| format!("Item {}", item.id));
+                        ResidentHeldItemView {
+                            item_id: item.id,
+                            disposition: "noticed".to_string(),
+                            reason: format!("{resident_name} is visibly carrying {item_name}."),
+                            keep_score: 0,
+                            available_actions: Vec::new(),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                return Some(ResidentEconomyView {
+                    inventory_count: held_item_ids.len(),
+                    held_item_ids,
+                    held_items,
+                    inventory_capacity: 0,
+                    carried_weight_tenths: 0,
+                    carrying_capacity_tenths: 0,
+                    desired_item_ids: Vec::new(),
+                    sought_item_ids: Vec::new(),
+                    sought_items: Vec::new(),
+                    attached_item_ids: Vec::new(),
+                    seeking_item_id: None,
+                    seeking_location_id: None,
+                    seeking_location_name: None,
+                    request: None,
+                    trade_offer: None,
+                    trade_stance: None,
+                    motive: String::new(),
+                });
             }
         }
         let held_items_raw = self.actor_held_items(resident.id);
@@ -5026,6 +5073,9 @@ impl RuntimeWorld {
         InspectorView {
             location_id,
             practice: actor_id.and_then(|id| self.actor_practice_view(id)),
+            first_tale_question: actor_id
+                .and_then(|id| self.first_tale_view(id))
+                .map(|first_tale| first_tale.question),
             room: RoomInspectorView {
                 name: self
                     .location_name(location_id)

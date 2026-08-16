@@ -87,6 +87,15 @@ Adopted direction (2026-07-19), superseding the one-hand/one-floor simplificatio
 5. **Items persist and crafting grows the world.** Use, craft, and evolution may exhaust, attune, rename, tag, recharge, unlock, mint, transform, or create cards, but authored inputs are not silently deleted. A crafted key can open a doorway, a lantern can wake a route, and a relic can anchor a location or project. Recipes declare both their card output and the world capacity, desire, route, or story possibility they add.
 6. **Evolution is public arrangement.** Evolution requirements are placement patterns across explicit zones: a charm equipped by Skull, a thread left at the Silver Milepost, a bell carried into the Garden. Patterns compile from a closed vocabulary of existing cards, reachable places, valid zones, and present residents; the kernel checks them against real shared state. Completion is a public ceremony, and placers and witnesses earn Journal credit.
 
+Player-established places are durable for the life of the current canonical
+world. Restart, replay, recovery, and return visits do not remove them. A
+deliberate world renewal starts a new world and does not silently restore the
+prior world's generated places or fixtures; historical records may remain
+readable but grant no live authority.
+[ADR 0013](docs/decisions/0013-generated-places-are-world-scoped.md) records
+this boundary, so current copy says **establish** rather than promising an
+unqualified “lasting” fixture.
+
 The old phrases “one hand” and “one floor” may survive as scene copy or a deliberately constrained rules variant. They are not storage, ownership, or composition laws. Scarcity comes from authored supply, carrying constraints, typed slots, exhaustion, access, and meaningful placement—not from pretending a deck contains one card.
 
 ## Users

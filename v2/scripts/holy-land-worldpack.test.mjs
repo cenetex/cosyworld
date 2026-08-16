@@ -148,6 +148,20 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
   );
 });
 
+test("the official world accepts the live pre-Ruby High population epoch", () => {
+  // #790 adds authored Ruby High residents, items, cards, and presentation art
+  // without changing any existing canonical IDs or journal action semantics.
+  // Production remained on this exact predecessor hash when the additive
+  // bundle was merged, so the release must preserve its journal and checkpoint.
+  const compatible =
+    officialWorld.persistence_compatibility.replay_compatible_bundle_hashes;
+  assert.ok(
+    compatible.includes(
+      "sha256:955e562292235ee87d68fbc16457f89fad70102c9bb71556e26814e8f461f8bc",
+    ),
+  );
+});
+
 test("Bethlehem accepts every declared production replay epoch", () => {
   // #669 changed only authored voice text and prompt presentation: the world,
   // resource identities, rules profile, pack versions, and persisted-state

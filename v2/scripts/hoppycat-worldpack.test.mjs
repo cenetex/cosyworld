@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -132,6 +133,28 @@ test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
     const fileName = card.image_url.slice(mount.public_prefix.length + 1);
     const assetPath = path.join(packRoot, mount.directory, fileName);
     assert.ok(fs.statSync(assetPath).size > 10_000, `${card.card_id} has usable art`);
+  }
+
+  const lockedRosterArt = new Map([
+    ["hoppycat-hoppy-cat", "944e1e08e70434a61f93256ed8b25827b83b8c46fbe5d891757d9af86377b52d"],
+    ["hoppycat-fable", "5f059ec1d52994c2fe5adaef78ebf8875910854691f8e1e4cea942e039915c26"],
+    ["hoppycat-phase-two", "15d3976c241f80259beaeb6b911f5b678fba15869c69deb6c0e956145fc2fde8"],
+    ["hoppycat-arc", "2b7d007cf40c9d9d4c08a79e907e7055c3c60c7580de84aa6db2736207fc0b17"],
+    ["hoppycat-staticwashere", "28e7d9ca86684b6d4ae2774ffb057e31b7866f0585266dfb022319617cbc439f"],
+    ["hoppycat-solwashere", "7c9d7a38e03d1cd3b12094eccca95c7df84ce910d7a203ec84fae810d0ae8b5d"],
+    ["hoppycat-ledger-opus", "c8326e4ed53ff2d5dfe931cb38c0e2c91ac5b4e1828d1605012eae5bde6ed0a6"],
+    ["hoppycat-ledger-sonnet", "165527b083ef838a1b6b7f528bbee0857a717a5e059453dc5e26a417fb0ece36"],
+  ]);
+  for (const [cardId, expectedDigest] of lockedRosterArt) {
+    const card = cards.find((candidate) => candidate.card_id === cardId);
+    assert.ok(card, `${cardId} has a card binding`);
+    const fileName = card.image_url.slice(mount.public_prefix.length + 1);
+    const bytes = fs.readFileSync(path.join(packRoot, mount.directory, fileName));
+    assert.equal(
+      crypto.createHash("sha256").update(bytes).digest("hex"),
+      expectedDigest,
+      `${cardId} keeps its approved portrait`,
+    );
   }
 
   assert.equal(

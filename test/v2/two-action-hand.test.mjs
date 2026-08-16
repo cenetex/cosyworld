@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("three-slot Story Hand", () => {
-  it("keeps Story, Self, and Anchor visible and moves targeted certified Think behind each card's Discard action", () => {
+  it("keeps Story, Self, and Anchor visible with inline Play and Discard", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -20,17 +20,24 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
     expect(browser).toContain('id="tertiary"');
-    expect(browser).toContain('id="shuffle"');
-    expect(browser).toContain('data-player-concept="think"');
-    expect(browser).toContain('aria-label="Think about replacing the focused Story Hand card"');
-    expect(browser).toContain('#shuffle { display: none !important; }');
-    expect(browser).toContain('function openHandCardModal(action, actionIndex = null)');
-    expect(browser).toContain('$("action-modal-confirm").textContent = actionConfirmLabel(action)');
-    expect(browser).toContain('discard.textContent = handCard ? "discard"');
-    expect(browser).not.toContain('class="party-channel-heading"');
+    expect(browser).not.toContain('id="shuffle"');
+    expect(browser).not.toContain('data-player-concept="think"');
+    expect(browser).toContain('data-hand-play="primary"');
+    expect(browser).toContain('data-hand-discard="primary"');
+    expect(browser).toContain('data-hand-play="secondary"');
+    expect(browser).toContain('data-hand-discard="tertiary"');
+    expect(browser).toContain("function playStoryHandCard(id)");
+    expect(browser).toContain("async function discardStoryHandCard(id)");
+    expect(browser).toContain('prompt.classList.toggle("hand-expanded", expanded);');
+    expect(browser).not.toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
+    expect(browser).toContain('if (!usesInlineStoryHand()) {');
+    expect(browser).toContain('openActionModal(action, { handCard: true });');
+    expect(browser).toContain('setStoryHandExpanded(true, action);');
+    expect(browser).toContain('discardStoryHandCard(discard.getAttribute("data-hand-discard") || "")');
+    expect(browser).not.toContain("function travellingPartyHeaderHtml");
     expect(browser).not.toContain('writeStatus(`${statusActivity.label} · ${statusActivity.text}`');
     expect(browser).toContain('const buttonIds = ["primary", "secondary", "tertiary"];');
-    expect(browser).toContain('async function passHand()');
+    expect(browser).toContain('async function discardActionCard(focused = visibleFocusedAction())');
     expect(browser).toContain('const think = entry?.think;');
     expect(browser).toContain('command: "think"');
     expect(browser).toContain('postResult("/commands", withAccess({');
@@ -38,7 +45,14 @@ describe("three-slot Story Hand", () => {
     expect(browser).not.toContain("advanceHandPage");
     expect(browser).not.toContain("drawNextHandCard");
     expect(browser).toContain('event.type === "hand.thought"');
+    expect(browser).toContain('Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return state\?\.branch \? 2 : Number\(state\?\.action_hand\?\.capacity \|\| 3\);\s+\}/);
+  });
+
+  it("declares combat before offering an attack", () => {
+    expect(browser).toContain('const declaringCombat = !view.combat;');
+    expect(browser).toContain('declaringCombat ? "/actions/declare-combat" : "/actions/attack"');
+    expect(browser).toContain('No attack is made yet; ordinary advancement pauses while combat is active.');
   });
 
   it("keeps same-kind Search and Scout targets bound to their dealt certificates", () => {
@@ -64,14 +78,17 @@ describe("three-slot Story Hand", () => {
     );
 
     expect(routeBlock).toContain(
-      "? (firstPathwayDirection?.endpointName || firstExit.destination_location_name)",
+      "const routeDestinationName = firstPathwayDirection?.endpointName || firstExit.destination_location_name",
     );
     expect(routeBlock).toContain("destinationOnlyCardAriaLabel: destinationOnlyCardLabel");
+    expect(routeBlock).toContain("`Begin route to ${routeDestinationName}`");
+    expect(routeBlock).toContain("minimalTravelPresentation: onePath && !searchingPathway && !fleeing");
     expect(routeBlock).not.toContain("conciseRouteLabel");
     expect(cardRenderBlock).toContain(
       'String(action?.intention || "").toLowerCase() === "travel"',
     );
     expect(cardRenderBlock).toContain('? "Travel"');
+    expect(cardRenderBlock).toContain('const visibleCostText = minimalTravelCard && !orbCost ? "" : costText');
   });
 
   it("shows suit emojis instead of suit names on action cards", () => {

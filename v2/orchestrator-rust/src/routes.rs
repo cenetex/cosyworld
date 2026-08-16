@@ -21,6 +21,7 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
                 | DISCOVERY_SCOUT_OFFER_KIND
         ),
         "/actions/flee" => kind == "flee",
+        "/actions/notice" => kind == NOTICE_ACTOR_OFFER_KIND,
         "/actions/check" => kind == "check",
         "/actions/study" => kind == "study",
         "/actions/influence" => kind == "influence",
@@ -30,8 +31,10 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
         "/actions/give-item" => kind == "give_item",
         "/actions/trade-item" => kind == "trade_item",
+        "/actions/accept-transfer-offer" => kind == ACCEPT_TRANSFER_OFFER_KIND,
         "/actions/theft" => kind == "theft",
         "/actions/craft" => kind == "craft",
+        "/actions/declare-combat" => kind == "attack",
         "/actions/attack" => kind == "attack",
         "/actions/defend" => kind == "defend",
         "/actions/prepare" => kind == "prepare",
@@ -246,6 +249,7 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(legacy_action_requires_certificate),
         )
         .route("/actions/check", post(legacy_action_requires_certificate))
+        .route("/actions/notice", post(legacy_action_requires_certificate))
         .route("/actions/study", post(legacy_action_requires_certificate))
         .route(
             "/actions/influence",
@@ -274,6 +278,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/request-gift", post(request_gift_auto_accept))
         .route("/actions/theft", post(legacy_action_requires_certificate))
         .route("/actions/craft", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/declare-combat",
+            post(legacy_action_requires_certificate),
+        )
         .route("/actions/attack", post(legacy_action_requires_certificate))
         .route("/actions/defend", post(legacy_action_requires_certificate))
         .route("/actions/prepare", post(legacy_action_requires_certificate))
