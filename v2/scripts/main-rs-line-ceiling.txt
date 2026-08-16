@@ -315,4 +315,11 @@
 # helpers (append_event_store, now_millis, now_seed, load/save_snapshot), and
 # the moved pub(super) room_memory fns via the `use super::*;` glob. Pure,
 # behavior-preserving; no test count or assertion changed.
-65394
+# 65394 -> 65212: move 10 autonomy RuntimeWorld methods (ensure_actor_autonomy,
+# observe_player_tick_for_autonomy, replenish_ambient_autonomy_credits,
+# autonomy_allows_action, record_autonomous_action,
+# player_tick_already_has_autonomous_result, ambient_actor, ambient_line,
+# ambient_autonomy_action, ambient_autonomy_record) from main.rs into
+# actor_presence.rs as `impl crate::RuntimeWorld` pub(crate) methods.
+# #[cfg(test)] attributes preserved. Pure, behavior-preserving.
+65212
