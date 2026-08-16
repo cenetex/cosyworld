@@ -5956,6 +5956,7 @@
     .prompt,
     .prompt.onboarding-mode,
     .prompt.choice-mode,
+    .prompt:not(.choice-mode),
     .prompt.has-draw,
     .prompt.choice-mode.has-draw {
       display: grid;
@@ -5969,6 +5970,7 @@
       border-top: 1px solid var(--line-strong);
       background: #0a0b08;
     }
+    footer.prompt[hidden] { display: none; }
     .turn-banner {
       grid-column: 1;
       margin: 6px 8px 0;
