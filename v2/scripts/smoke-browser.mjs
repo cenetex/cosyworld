@@ -14027,12 +14027,23 @@ async function main() {
     );
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     await focusIdentityPanel();
-    const linkedIdentityText = await page.locator(".account-panel").innerText();
+    const linkedIdentity = await page.evaluate(() => ({
+      text: document.querySelector(".account-panel")?.innerText || "",
+      walletSessionActive: Boolean(
+        walletSession
+          && localStorage.getItem("cosyworld.walletSession") === walletSession,
+      ),
+      passkeyAuthenticated: Boolean(identity?.authenticated),
+    }));
     assert(
-      /identity\s+sign in/i.test(linkedIdentityText.replace(/\s+/g, " ")),
-      `wallet discovery must remain separate from durable passkey sign-in: ${linkedIdentityText}`,
+      linkedIdentity.walletSessionActive && !linkedIdentity.passkeyAuthenticated,
+      `a signed wallet capability must remain distinct from a passkey account: ${JSON.stringify(linkedIdentity)}`,
     );
-    assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(linkedIdentityText), `signing a wallet must not expose retired ownership surfaces: ${linkedIdentityText}`);
+    assert(
+      /identity\s+sign in/i.test(linkedIdentity.text.replace(/\s+/g, " ")),
+      `wallet-only identity should keep offering durable passkey sign-in inline: ${JSON.stringify(linkedIdentity)}`,
+    );
+    assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(linkedIdentity.text), `signing a wallet must not expose retired ownership surfaces: ${linkedIdentity.text}`);
     await page.evaluate(() => {
       localStorage.removeItem("cosyworld.wallet");
       localStorage.removeItem("cosyworld.walletSession");
