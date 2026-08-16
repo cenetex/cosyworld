@@ -287,4 +287,14 @@
 # _entry_for_event[_at_location], _label, _kind, _log_text[_at_location],
 # _text) from main.rs into room_memory.rs as pub(super) free functions. Pure,
 # behavior-preserving extraction; tests remain in main.rs for this slice.
-66694
+# 66694 -> 66264: move the room-memory view/chapter/cache/atmosphere cluster
+# (room_memory_view_for_state, load_current_room_memory_chapter_for_state,
+# _prompt_chapters, _summary_entries_since, latest_room_memory_listen_seq,
+# event_is_room_memory_listen, current_room_memory_day_index,
+# load_room_memory_prior_chapters_for_state, cache_room_memory_summary,
+# fallback_room_memory_view/_summary, room_atmosphere_sentence, first_sentence,
+# atmospheric_*_beat, split_case_insensitive, complete_sentence,
+# sentence_fragment, ROOM_MEMORY_DAY_MS, ROOM_MEMORY_PRIOR_CHAPTER_LIMIT)
+# from main.rs into room_memory.rs. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+66264
