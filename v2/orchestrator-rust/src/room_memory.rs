@@ -1450,4 +1450,695 @@ mod tests {
         ));
         assert!(!retries.contains_key(&key));
     }
+    #[test]
+    fn fallback_room_memory_reads_as_atmospheric_room_story_with_prior_memory() {
+        let runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let prior = vec![RoomMemoryChapter {
+            day_index: 20_600,
+            latest_seq: 42,
+            summary: "Moss Lantern found the Dewbright Button and promised Rati a small kindness."
+                .to_string(),
+            source: "llm".to_string(),
+        }];
+        let entries = vec![
+            RoomMemoryEntryView {
+                seq: 43,
+                actor_id: Some(5000),
+                kind: "chat".to_string(),
+                label: "Moss Lantern".to_string(),
+                text: "I can look for Moonwool Thread if that would help.".to_string(),
+            },
+            RoomMemoryEntryView {
+                seq: 44,
+                actor_id: Some(5000),
+                kind: "bond".to_string(),
+                label: "friendship".to_string(),
+                text: "Moss Lantern grew closer to Rati".to_string(),
+            },
+        ];
+
+        let summary = fallback_room_memory_summary(&location, &entries, &prior);
+        let lowered = summary.to_lowercase();
+
+        assert!(summary.starts_with("A warm room of firelight"));
+        assert!(summary.contains("Moss Lantern"));
+        assert!(summary.contains("Moss Lantern said"));
+        assert!(summary.contains("Moss Lantern grew closer to Rati"));
+        assert!(!summary.contains("Today in"));
+        assert!(!summary.contains("Log:"));
+        assert!(!summary.contains("Chat:"));
+        assert!(!summary.contains("Earlier chapter"));
+        assert!(!summary.contains("Dewbright Button"));
+        assert!(!lowered.contains("ledger"));
+        assert!(!lowered.contains("roll"));
+        assert!(!lowered.contains("advancement"));
+        assert!(!lowered.contains("summary"));
+    }
+
+    #[test]
+    fn room_memory_copy_only_removes_a_leading_you() {
+        assert_eq!(
+            room_memory_text(Some("You followed what draws you by listening closely.")).as_deref(),
+            Some("followed what draws you by listening closely.")
+        );
+        assert_eq!(
+            room_memory_text(Some("Rati noticed you listening closely.")).as_deref(),
+            Some("Rati noticed you listening closely.")
+        );
+    }
+
+    #[test]
+    fn room_memory_log_entries_exclude_chat_messages() {
+        let entries = room_memory_entries(
+            COSY_COTTAGE_LOCATION_ID,
+            &[
+                EventView {
+                    seq: 2,
+                    type_name: "item.picked_up".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    item_name: Some("Dewbright Button".to_string()),
+                    ..EventView::default()
+                },
+                EventView {
+                    seq: 1,
+                    type_name: "message.created".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    content: Some("I can look for Moonwool Thread.".to_string()),
+                    ..EventView::default()
+                },
+            ],
+        );
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, "item");
+        assert!(entries[0].text.contains("Dewbright Button"));
+    }
+
+    #[test]
+    fn room_memory_log_entries_exclude_unknown_system_events() {
+        for type_name in [
+            "avatar.refined",
+            "pathway.refined",
+            "community_art.funded",
+            "community_art.ready",
+        ] {
+            let event = EventView {
+                type_name: type_name.to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                ..EventView::default()
+            };
+            assert!(
+                room_memory_entry_for_event(&event).is_none(),
+                "{type_name} must not become player-facing room memory"
+            );
+        }
+
+        assert!(
+            room_memory_entry_for_event(&EventView {
+                type_name: "hand.shuffled".to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                ..EventView::default()
+            })
+            .is_some(),
+            "known story-facing events remain available"
+        );
+    }
+
+    #[test]
+    fn room_memory_chance_and_clock_entries_use_story_language() {
+        let listen = EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            total: Some(16),
+            dc: Some(12),
+            ..EventView::default()
+        };
+        let clash = EventView {
+            type_name: "combat.attack.attempt".to_string(),
+            success: false,
+            actor_name: Some("Moss Lantern".to_string()),
+            target_actor_name: Some("Moonlit Echo".to_string()),
+            total: Some(7),
+            dc: Some(13),
+            ..EventView::default()
+        };
+        let notice = EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            target_actor_name: Some("Rati".to_string()),
+            content: Some("notice".to_string()),
+            total: Some(16),
+            dc: Some(12),
+            ..EventView::default()
+        };
+        let clock = EventView {
+            type_name: "clock.updated".to_string(),
+            success: true,
+            clock_label: Some("Quiet the Moonlit Trail".to_string()),
+            clock_filled: Some(2),
+            clock_segments: Some(4),
+            clock_delta: Some(1),
+            ..EventView::default()
+        };
+
+        assert_eq!(
+            room_memory_log_text(&listen).as_deref(),
+            Some("Moss Lantern checked carefully, and the room answered")
+        );
+        assert_eq!(
+            room_memory_log_text(&clash).as_deref(),
+            Some("Moss Lantern met empty air, while Moonlit Echo slipped clear")
+        );
+        assert_eq!(
+            room_memory_log_text(&notice).as_deref(),
+            Some("Moss Lantern noticed what Rati carries and seeks")
+        );
+        assert_eq!(
+            room_memory_log_text(&clock).as_deref(),
+            Some("Quiet the Moonlit Trail draws closer")
+        );
+        for text in [&listen, &notice, &clash, &clock]
+            .into_iter()
+            .filter_map(room_memory_log_text)
+        {
+            assert!(!text.contains("roll"));
+            assert!(!text.contains("/4"));
+            assert!(!text.contains("DC"));
+        }
+    }
+    #[test]
+    fn room_memory_purpose_entries_hide_calling_model_language() {
+        let entries = room_memory_entries(
+            COSY_COTTAGE_LOCATION_ID,
+            &[EventView {
+                seq: 1,
+                type_name: "calling.set".to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                content: Some("I listen for odd jobs.:chosen_calling".to_string()),
+                ..EventView::default()
+            }],
+        );
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, "calling");
+        assert_eq!(entries[0].label, "purpose");
+        assert_eq!(
+            entries[0].text,
+            "Moss Lantern chose a purpose: I listen for odd jobs"
+        );
+        assert!(!entries[0].text.contains("Calling"));
+        assert_eq!(
+            atmospheric_room_memory_beat(&entries[0]).as_deref(),
+            Some("Moss Lantern chose a purpose: I listen for odd jobs.")
+        );
+    }
+
+    #[test]
+    fn room_memory_headlines_name_actor_action_and_outcome() {
+        let cases = [
+            (
+                EventView {
+                    type_name: "actor.moved".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_name: Some("Rain-Soft Garden".to_string()),
+                    destination_location_name: Some("The Cosy Cottage".to_string()),
+                    ..EventView::default()
+                },
+                "Moss Lantern arrived at The Cosy Cottage.",
+            ),
+            (
+                EventView {
+                    type_name: "ledger.banked".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    ..EventView::default()
+                },
+                "Moss Lantern grew from what happened.",
+            ),
+            (
+                EventView {
+                    type_name: "bond.deepened".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    target_actor_name: Some("Rati".to_string()),
+                    ..EventView::default()
+                },
+                "Moss Lantern grew closer to Rati.",
+            ),
+            (
+                EventView {
+                    type_name: "bond.created".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    target_actor_name: Some("Gust".to_string()),
+                    ..EventView::default()
+                },
+                "Moss Lantern became friends with Gust.",
+            ),
+            (
+                EventView {
+                    type_name: "item.given".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    target_actor_name: Some("Skull".to_string()),
+                    item_name: Some("Watch Bell".to_string()),
+                    ..EventView::default()
+                },
+                "Moss Lantern gave Watch Bell to Skull.",
+            ),
+            (
+                EventView {
+                    type_name: "clock.updated".to_string(),
+                    success: true,
+                    clock_label: Some("Quiet the Moonlit Trail".to_string()),
+                    clock_filled: Some(2),
+                    clock_segments: Some(4),
+                    clock_delta: Some(1),
+                    ..EventView::default()
+                },
+                "Quiet the Moonlit Trail draws closer.",
+            ),
+            (
+                EventView {
+                    type_name: "item.crafted".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    content: Some(
+                        "Bank the Cottage Hearth: Hearth Tonic met Story Button.".to_string(),
+                    ),
+                    ..EventView::default()
+                },
+                "Moss Lantern completed Bank the Cottage Hearth: Hearth Tonic met Story Button.",
+            ),
+        ];
+
+        for (event, expected) in cases {
+            let entry = room_memory_entry_for_event(&event).expect("room memory entry");
+            assert_eq!(
+                atmospheric_room_memory_beat(&entry).as_deref(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn room_memory_describes_travel_from_the_room_being_viewed() {
+        let science_class_location_id = 10;
+        let event = EventView {
+            seq: 7,
+            type_name: "actor.moved".to_string(),
+            success: true,
+            actor_name: Some("Rati".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some("The Cosy Cottage".to_string()),
+            destination_location_id: Some(science_class_location_id),
+            destination_location_name: Some("Science Class".to_string()),
+            ..EventView::default()
+        };
+
+        let cottage = room_memory_entry_for_event_at_location(&event, COSY_COTTAGE_LOCATION_ID)
+            .expect("Cottage departure memory");
+        let science = room_memory_entry_for_event_at_location(&event, science_class_location_id)
+            .expect("Science Class arrival memory");
+
+        assert_eq!(cottage.text, "Rati left for Science Class");
+        assert_eq!(science.text, "Rati arrived at Science Class");
+        assert_eq!(
+            atmospheric_room_memory_beat(&cottage).as_deref(),
+            Some("Rati left for Science Class.")
+        );
+        assert_eq!(
+            atmospheric_room_memory_beat(&science).as_deref(),
+            Some("Rati arrived at Science Class.")
+        );
+    }
+
+    #[test]
+    fn room_memory_search_entries_hide_projection_bookkeeping() {
+        let entries = room_memory_entries(
+            COSY_COTTAGE_LOCATION_ID,
+            &[
+                EventView {
+                    seq: 3,
+                    type_name: "tag.applied".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    location_name: Some("The Cosy Cottage".to_string()),
+                    tag_label: Some("found Story Button".to_string()),
+                    content: Some("search_location".to_string()),
+                    ..EventView::default()
+                },
+                EventView {
+                    seq: 2,
+                    type_name: "location.searched".to_string(),
+                    success: true,
+                    actor_id: Some(5000),
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    location_name: Some("The Cosy Cottage".to_string()),
+                    content: Some(
+                        "location:1:Search observes the The Cosy Cottage card.:search_location"
+                            .to_string(),
+                    ),
+                    ..EventView::default()
+                },
+                EventView {
+                    seq: 1,
+                    type_name: "item.found".to_string(),
+                    success: true,
+                    actor_id: Some(5000),
+                    actor_name: Some("Moss Lantern".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    location_name: Some("The Cosy Cottage".to_string()),
+                    item_name: Some("Story Button".to_string()),
+                    ..EventView::default()
+                },
+            ],
+        );
+
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|entry| entry.actor_id == Some(5000)));
+        assert_eq!(entries[0].kind, "item");
+        assert_eq!(entries[0].text, "Moss Lantern found Story Button");
+        assert_eq!(entries[1].kind, "search");
+        assert_eq!(
+            entries[1].text,
+            "Moss Lantern looked closely around The Cosy Cottage"
+        );
+        assert!(entries.iter().all(|entry| !entry.text.contains("card")));
+        assert!(entries
+            .iter()
+            .all(|entry| !entry.text.contains("search_location")));
+        assert!(entries
+            .iter()
+            .all(|entry| !entry.text.contains("gained found")));
+        assert_eq!(
+            atmospheric_item_beat("Moss Lantern found Story Button"),
+            "Moss Lantern found Story Button"
+        );
+        assert_eq!(
+            atmospheric_search_beat("A way to Homeroom becomes clear"),
+            "A path to Homeroom opened"
+        );
+    }
+
+    #[test]
+    fn room_memory_feature_search_names_the_feature_without_a_grammar_tag() {
+        let entries = room_memory_entries(
+            COSY_COTTAGE_LOCATION_ID,
+            &[
+                EventView {
+                    seq: 2,
+                    type_name: "tag.applied".to_string(),
+                    success: true,
+                    actor_id: Some(5000),
+                    actor_name: Some("Pip Maple".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    tag_label: Some("searched Scarf Basket".to_string()),
+                    content: Some("search_feature".to_string()),
+                    ..EventView::default()
+                },
+                EventView {
+                    seq: 1,
+                    type_name: "feature.searched".to_string(),
+                    success: true,
+                    actor_id: Some(5000),
+                    actor_name: Some("Pip Maple".to_string()),
+                    location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                    location_name: Some("The Cosy Cottage".to_string()),
+                    content: Some(
+                        "Scarf Basket:Under the top skein is a round notch.:search_feature"
+                            .to_string(),
+                    ),
+                    ..EventView::default()
+                },
+            ],
+        );
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, "Pip Maple looked closely at Scarf Basket");
+        assert!(!entries[0].text.contains("became searched"));
+    }
+
+    #[test]
+    fn room_memory_summary_advances_only_when_room_is_listened_to() {
+        let runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let state = test_app_state(runtime, None);
+        let item_before_listen = EventView {
+            seq: 10,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Dewbright Button".to_string()),
+            ..EventView::default()
+        };
+        let listen = EventView {
+            seq: 11,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(16),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        let item_after_listen = EventView {
+            seq: 12,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Moonwool Thread".to_string()),
+            ..EventView::default()
+        };
+
+        let quiet_view =
+            room_memory_view_for_state(&state, &location, &[item_before_listen.clone()]);
+        assert_eq!(quiet_view.summary, room_atmosphere_sentence(&location));
+
+        let listened_view =
+            room_memory_view_for_state(&state, &location, &[listen.clone(), item_before_listen]);
+        assert!(listened_view
+            .summary
+            .contains("Moss Lantern checked carefully, and the room answered"));
+
+        let after_item_view =
+            room_memory_view_for_state(&state, &location, &[item_after_listen, listen]);
+        assert_eq!(after_item_view.summary, listened_view.summary);
+        assert!(after_item_view
+            .latest
+            .as_ref()
+            .is_some_and(|entry| entry.text.contains("Moonwool Thread")));
+    }
+
+    #[test]
+    fn room_memory_listen_uses_event_store_log_since_previous_summary() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-room-memory-since-summary-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let state = test_app_state(runtime, Some(path.clone()));
+        let day_index = current_room_memory_day_index();
+        let old_item = EventView {
+            seq: 1,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Old Button".to_string()),
+            ..EventView::default()
+        };
+        let previous_listen = EventView {
+            seq: 2,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(14),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        let new_item = EventView {
+            seq: 3,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("New Charm".to_string()),
+            ..EventView::default()
+        };
+        let latest_listen = EventView {
+            seq: 4,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(18),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        append_event_store(
+            &path,
+            &[old_item, previous_listen, new_item, latest_listen.clone()],
+        )
+        .expect("append room memory events");
+        upsert_room_memory_chapter(
+            &path,
+            COSY_COTTAGE_LOCATION_ID,
+            day_index,
+            2,
+            "Earlier firelight remembered the old button.",
+            "llm",
+        )
+        .expect("persist previous room memory chapter");
+
+        let view = room_memory_view_for_state(&state, &location, &[latest_listen]);
+        assert!(view.summary.contains("New Charm"));
+        assert!(!view.summary.contains("Old Button"));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn room_memory_chapters_persist_prior_days_in_order() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-room-memory-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        upsert_room_memory_chapter(
+            &path,
+            COSY_COTTAGE_LOCATION_ID,
+            20_600,
+            12,
+            "The cottage learned that Moss Lantern carried rain on their sleeve.",
+            "llm",
+        )
+        .expect("persist first chapter");
+        upsert_room_memory_chapter(
+            &path,
+            COSY_COTTAGE_LOCATION_ID,
+            20_601,
+            18,
+            "Rati listened as the room turned toward Moonwool Thread.",
+            "fallback",
+        )
+        .expect("persist second chapter");
+        upsert_room_memory_chapter(
+            &path,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            20_601,
+            19,
+            "The garden kept its own rain-bright discovery.",
+            "llm",
+        )
+        .expect("persist other room chapter");
+
+        let prior = load_room_memory_prior_chapters(&path, COSY_COTTAGE_LOCATION_ID, 20_602, 8)
+            .expect("load prior chapters");
+        assert_eq!(
+            prior
+                .iter()
+                .map(|chapter| chapter.day_index)
+                .collect::<Vec<_>>(),
+            vec![20_600, 20_601]
+        );
+        assert_eq!(prior[0].source, "llm");
+        assert!(prior[1].summary.contains("Moonwool Thread"));
+
+        let before_second =
+            load_room_memory_prior_chapters(&path, COSY_COTTAGE_LOCATION_ID, 20_601, 8)
+                .expect("load before second day");
+        assert_eq!(before_second.len(), 1);
+        assert_eq!(before_second[0].day_index, 20_600);
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn recent_room_lines_survive_global_event_churn_and_snapshot_round_trip() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.push_projected_event(EventView {
+            seq: 10_000,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Library Guest".to_string()),
+            location_id: Some(12),
+            location_name: Some("Library".to_string()),
+            content: Some("Keep the blue margin note.".to_string()),
+            ..EventView::default()
+        });
+        for seq in 10_001..=10_600 {
+            runtime.push_projected_event(EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_id: Some(1001),
+                actor_name: Some("Rati".to_string()),
+                location_id: Some(1),
+                location_name: Some("The Cosy Cottage".to_string()),
+                content: Some(format!("busy cottage line {seq}")),
+                ..EventView::default()
+            });
+        }
+
+        assert_eq!(runtime.event_log.len(), 512);
+        assert!(runtime
+            .event_log
+            .iter()
+            .all(|event| event.location_id != Some(12)));
+        assert_eq!(
+            runtime.recent_room_lines(12, 8),
+            vec!["Library Guest: Keep the blue margin note."]
+        );
+        assert_eq!(
+            runtime
+                .recent_room_lines(1, RECENT_ROOM_LINE_CAPACITY + 10)
+                .len(),
+            RECENT_ROOM_LINE_CAPACITY
+        );
+
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-room-lines-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        runtime
+            .save_snapshot(&path)
+            .expect("save room-line snapshot");
+        let restored = RuntimeWorld::load_snapshot(&path).expect("restore room-line snapshot");
+        assert_eq!(
+            restored.recent_room_lines(12, 8),
+            vec!["Library Guest: Keep the blue margin note."]
+        );
+        assert_eq!(
+            restored
+                .recent_room_lines(1, RECENT_ROOM_LINE_CAPACITY + 10)
+                .len(),
+            RECENT_ROOM_LINE_CAPACITY
+        );
+        let _ = fs::remove_file(path);
+    }
 }
