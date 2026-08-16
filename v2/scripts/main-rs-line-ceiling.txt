@@ -297,4 +297,11 @@
 # sentence_fragment, ROOM_MEMORY_DAY_MS, ROOM_MEMORY_PRIOR_CHAPTER_LIMIT)
 # from main.rs into room_memory.rs. Pure, behavior-preserving; tests stay in
 # main.rs for this slice.
-66264
+# 66264 -> 66162: move the room-memory chapter persistence functions
+# (upsert_room_memory_chapter, load_room_memory_chapter,
+# load_room_memory_prior_chapters) from main.rs into room_memory.rs. They
+# reach shared sqlite helpers (init_event_store, open_event_store,
+# sqlite_error, params!, OptionalExtension, now_millis, trim_to_chars) via the
+# existing `use super::*;` glob. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+66162

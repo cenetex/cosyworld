@@ -1270,3 +1270,106 @@ pub(super) fn sentence_fragment(value: &str) -> String {
         .trim_end_matches(&['.', '!', '?'][..])
         .to_string()
 }
+
+// --- moved from main.rs: room-memory chapter persistence ---
+pub(super) fn upsert_room_memory_chapter(
+    path: &Path,
+    location_id: u64,
+    day_index: u64,
+    latest_seq: u64,
+    summary: &str,
+    source: &str,
+) -> io::Result<()> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    conn.execute(
+        "INSERT INTO room_memory_chapters
+            (location_id, day_index, latest_seq, summary, source, updated_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(location_id, day_index) DO UPDATE SET
+            latest_seq = excluded.latest_seq,
+            summary = excluded.summary,
+            source = excluded.source,
+            updated_at_ms = excluded.updated_at_ms",
+        params![
+            location_id as i64,
+            day_index as i64,
+            latest_seq as i64,
+            trim_to_chars(summary, 900),
+            source,
+            now_millis() as i64
+        ],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+pub(super) fn load_room_memory_chapter(
+    path: &Path,
+    location_id: u64,
+    day_index: u64,
+) -> io::Result<Option<RoomMemoryChapter>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    conn.query_row(
+        "SELECT day_index, latest_seq, summary, source
+         FROM room_memory_chapters
+         WHERE location_id = ?1 AND day_index = ?2",
+        params![location_id as i64, day_index as i64],
+        |row| {
+            Ok(RoomMemoryChapter {
+                day_index: row.get::<_, i64>(0)?.max(0) as u64,
+                latest_seq: row.get::<_, i64>(1)?.max(0) as u64,
+                summary: row.get(2)?,
+                source: row.get(3)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)
+}
+
+pub(super) fn load_room_memory_prior_chapters(
+    path: &Path,
+    location_id: u64,
+    before_day_index: u64,
+    limit: usize,
+) -> io::Result<Vec<RoomMemoryChapter>> {
+    if limit == 0 || before_day_index == 0 {
+        return Ok(Vec::new());
+    }
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT day_index, latest_seq, summary, source
+             FROM room_memory_chapters
+             WHERE location_id = ?1 AND day_index < ?2
+             ORDER BY day_index DESC
+             LIMIT ?3",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![
+                location_id as i64,
+                before_day_index as i64,
+                limit.min(24) as i64
+            ],
+            |row| {
+                Ok(RoomMemoryChapter {
+                    day_index: row.get::<_, i64>(0)?.max(0) as u64,
+                    latest_seq: row.get::<_, i64>(1)?.max(0) as u64,
+                    summary: row.get(2)?,
+                    source: row.get(3)?,
+                })
+            },
+        )
+        .map_err(sqlite_error)?;
+    let mut chapters = Vec::new();
+    for row in rows {
+        chapters.push(row.map_err(sqlite_error)?);
+    }
+    chapters.reverse();
+    Ok(chapters)
+}
