@@ -69,7 +69,7 @@ pub(super) async fn create_avatar(
         return avatar_rate_limited_response();
     }
     let _creation_guard = state.avatar_creation_lock.lock().await;
-    let summon_from_actor_id = payload.summon_from_actor_id;
+    let summon_from_actor_id = payload.summon_from_actor_id.or(payload.actor_id);
     let signed_wallet = payload
         .wallet_session
         .as_deref()
@@ -84,6 +84,7 @@ pub(super) async fn create_avatar(
             events: Vec::new(),
         });
     }
+    let mut rescue_creation_context = None;
     if let Some(wallet_address) = signed_wallet.as_deref() {
         if let Some(actor_id) = linked_actor_for_wallet(&state, wallet_address) {
             if actor_is_suspended(&state, actor_id) {
@@ -98,9 +99,21 @@ pub(super) async fn create_avatar(
             }
             let runtime = state.inner.lock().await;
             if let Some(downed_actor_id) = summon_from_actor_id {
-                if actor_id != downed_actor_id
-                    || !runtime.can_summon_avatar_for_rescue(downed_actor_id)
-                {
+                if actor_id != downed_actor_id {
+                    return Json(AvatarResponse {
+                        ok: false,
+                        status: 409,
+                        actor: None,
+                        actor_session: None,
+                        actor_session_expires_at_unix: None,
+                        events: Vec::new(),
+                    });
+                }
+                rescue_creation_context = runtime.avatar_rescue_creation_context(
+                    actor_id,
+                    avatar_rescue_account_key(wallet_address),
+                );
+                if rescue_creation_context.is_none() {
                     return Json(AvatarResponse {
                         ok: false,
                         status: 409,
@@ -217,9 +230,22 @@ pub(super) async fn create_avatar(
         description: identity.description.clone(),
     };
     let mut runtime = state.inner.lock().await;
+    let (action_kind, target_actor_id, content_id, item_id) = match rescue_creation_context.as_ref()
+    {
+        Some(AvatarRescueCreationContext::Cascade { previous, .. }) => (
+            CW_ACTION_REPLACE_AVATAR_RESCUER,
+            previous.downed_actor_id,
+            previous.rescuer_actor_id,
+            previous.draught_item_id,
+        ),
+        _ => (CW_ACTION_CREATE_ACTOR, 0, 0, 0),
+    };
     let action = CwAction {
-        kind: CW_ACTION_CREATE_ACTOR,
+        kind: action_kind,
         actor_id,
+        target_actor_id,
+        content_id,
+        item_id,
         location_id: entry_location_id,
         modifier: character_selection
             .as_ref()
@@ -243,25 +269,35 @@ pub(super) async fn create_avatar(
         record.initial_origin_id = selection.origin.as_ref().map(|card| card.id.clone());
         record.initial_physical_description = Some(identity.visual_prompt.clone());
     }
-    if let Some(downed_actor_id) = summon_from_actor_id {
-        let summon_is_still_valid = signed_wallet.as_deref().is_some_and(|wallet_address| {
-            linked_actor_for_wallet(&state, wallet_address) == Some(downed_actor_id)
-        }) && runtime.can_summon_avatar_for_rescue(downed_actor_id);
-        if !summon_is_still_valid {
-            return Json(AvatarResponse {
-                ok: false,
-                status: 409,
-                actor: None,
-                actor_session: None,
-                actor_session_expires_at_unix: None,
-                events: Vec::new(),
-            });
-        }
+    record.actor_meta_upserts.insert(actor_id, actor_meta);
+    if let Some(context) = rescue_creation_context.as_ref() {
+        let (account_key, downed_actor_id) = match context {
+            AvatarRescueCreationContext::Begin {
+                account_key,
+                downed_actor_id,
+            }
+            | AvatarRescueCreationContext::Cascade {
+                account_key,
+                downed_actor_id,
+                ..
+            } => (account_key.clone(), *downed_actor_id),
+        };
+        let rescue = runtime.new_avatar_rescue_state(account_key, downed_actor_id, actor_id);
         record
             .projection_mutations
-            .push(ProjectionMutation::StartAvatarRescueRun { downed_actor_id });
+            .push(runtime.rescue_draught_materialization(&rescue));
+        record.projection_mutations.push(match context {
+            AvatarRescueCreationContext::Begin { .. } => {
+                ProjectionMutation::BeginAvatarRescue { rescue }
+            }
+            AvatarRescueCreationContext::Cascade { previous, .. } => {
+                ProjectionMutation::CascadeAvatarRescue {
+                    previous_rescue_id: previous.id.clone(),
+                    rescue,
+                }
+            }
+        });
     }
-    record.actor_meta_upserts.insert(actor_id, actor_meta);
     if let Some(host) = runtime.welcome_host_for(entry_location_id) {
         record
             .projection_mutations

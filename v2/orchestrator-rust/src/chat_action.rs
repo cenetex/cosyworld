@@ -185,50 +185,6 @@ async fn complete_queued_orb_chat(
     .await
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn complete_chat_after_context_change(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: u64,
-) -> Result<(), String> {
-    let completed_already = {
-        let runtime = state.inner.lock().await;
-        orb_chat_status_already_committed(
-            &runtime,
-            actor_id,
-            target_actor_id,
-            "completed",
-            source_location_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-        )
-    };
-    if completed_already {
-        return Ok(());
-    }
-
-    let events = commit_chat_status(
-        state,
-        actor_id,
-        target_actor_id,
-        "completed",
-        "the conversation moved out of reach",
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        Some(source_location_id),
-    )
-    .await;
-    (!events.is_empty())
-        .then_some(())
-        .ok_or_else(|| "the ended conversation status could not be committed".to_string())
-}
-
 fn orb_chat_event_matches_job(
     event: &EventView,
     queue_event_id: Option<u64>,

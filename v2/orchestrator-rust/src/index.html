@@ -2359,6 +2359,8 @@
       grid-column: 1 / -1;
     }
     .prompt[hidden] { display: none; }
+    /* Thinking about a replacement belongs to the opened card as Discard. */
+    #shuffle { display: none !important; }
     .cmd {
       --cmd-accent: var(--card-control);
       --cmd-accent-rgb: var(--card-control-rgb);
@@ -5924,13 +5926,30 @@
       border: 0;
       background: transparent;
       padding: 16px;
+      display: grid;
+      justify-items: center;
+      gap: 6px;
     }
-    .play-cue-kicker,
-    .play-cue strong,
-    .play-cue-direction { display: none; }
+    .play-cue-kicker {
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .play-cue strong {
+      color: var(--text);
+      font: 600 20px/1.2 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      text-wrap: balance;
+    }
     .play-cue-copy {
       color: var(--dim);
       font: 500 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+    }
+    .play-cue-direction {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
     }
     .economy-stat.orbs { gap: 7px; }
     .minimal-orb-rack {
@@ -5956,7 +5975,6 @@
     .prompt,
     .prompt.onboarding-mode,
     .prompt.choice-mode,
-    .prompt:not(.choice-mode),
     .prompt.has-draw,
     .prompt.choice-mode.has-draw {
       display: grid;
@@ -5970,7 +5988,6 @@
       border-top: 1px solid var(--line-strong);
       background: #0a0b08;
     }
-    footer.prompt[hidden] { display: none; }
     .turn-banner {
       grid-column: 1;
       margin: 6px 8px 0;
@@ -9286,26 +9303,37 @@
           ));
           for (const candidate of useCandidates) {
             const { item, target, targetName, offer } = candidate;
-            built.push({
+            const rescueUse = item.name === "Rescue Draught"
+              && target.status === "knocked_out";
+            const useAction = {
               ...semanticAction(offer, "use"), label: "use", detail: `${item.name} on ${targetName}`,
               command: offer.command || `use ${item.name} on ${targetName}`,
               focusKey: `use:${item.id}:${target.id}`, focusKeys: [`item:${item.id}`, `actor:${target.id}`],
               card: cardForItem(item.id), shape: "item", useChoiceKind: "care", itemName: item.name,
               priority: candidate.requested ? 10 : undefined, targetName, targetActorId: target.id,
               modalTitle: target.id === actorId ? `use ${item.name}` : `help ${targetName} with ${item.name}`,
-              modalSummary: target.id === actorId ? `Use ${item.name} and catch your breath.` : `Use ${item.name} to help ${targetName}.`,
-              effect: candidate.reason || `${targetName} may feel steadier`,
+              modalSummary: rescueUse
+                ? `Revive ${targetName}, then choose which living avatar remains yours.`
+                : target.id === actorId ? `Use ${item.name} and catch your breath.` : `Use ${item.name} to help ${targetName}.`,
+              effect: rescueUse
+                ? "the avatar you do not choose becomes an independent resident"
+                : candidate.reason || `${targetName} may feel steadier`,
               selectedPayload: () => ({
                 actor_id: actorId,
                 item_id: item.id,
                 target_actor_id: target.id,
+                ...(rescueUse ? { inhabit_actor_id: Number(useAction.selectedChoice || actorId) } : {}),
               }),
-              run: () => action("/actions/use-item", {
-                actor_id: actorId,
-                item_id: item.id,
-                target_actor_id: target.id,
-              }),
-            });
+            };
+            if (rescueUse) {
+              useAction.choices = [
+                { label: `continue as ${actorLabel(actorForId(actorId))}`, detail: `${targetName} becomes an independent resident`, value: actorId },
+                { label: `continue as ${targetName}`, detail: `${actorLabel(actorForId(actorId))} becomes an independent resident`, value: target.id },
+              ];
+              useAction.selectedChoice = actorId;
+            }
+            useAction.run = () => action("/actions/use-item", useAction.selectedPayload());
+            built.push(useAction);
           }
         }
       }
@@ -10091,6 +10119,9 @@
     function avatarFailureMessage(result = {}) {
       const status = Number(result.status || 0);
       if (status === 429) return "Avatar creation is moving too quickly. Try again in a moment.";
+      if (status === 403 && state?.primary_action?.kind === "create_rescuer") {
+        return "Link the account that owns this fallen avatar before creating its rescuer.";
+      }
       if (status === 403) return "That avatar cannot be used right now.";
       if (status === 502) return "AI could not shape that avatar.";
       return "Avatar could not be generated.";
@@ -10301,6 +10332,16 @@
         if (recovery.ok && recovery.renewed) result = await submit();
       }
       pushEvents(result.events || []);
+      const rescueCompletion = (result.events || []).find((event) => (
+        event?.type === "avatar.rescue.completed"
+      ));
+      if (
+        result.ok
+        && Number(rescueCompletion?.content_id || 0)
+        && Number(rescueCompletion.content_id) !== Number(actorId)
+      ) {
+        actorSessionHandoffChecked = false;
+      }
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
       } else {
@@ -13030,7 +13071,10 @@
         journalNotifications = [];
         dismissFirstTalePayoff();
       }
-      if (opening) journalPageIndex = -1;
+      if (opening) {
+        journalPageIndex = -1;
+        setStoryHandExpanded(false);
+      }
       journalOpen = Boolean(open);
       if (opening) renderJournalLog({ pageTurn: true });
       syncJournalMode();
@@ -14348,11 +14392,12 @@
         journal: "journal",
         settings: "settings",
       };
-      return `<nav class="menu-nav" aria-label="Menu sections">${entries.map(([id, label]) => {
+      return `<nav class="menu-nav" aria-label="Menu sections">${entries.map(([id, label, accessibleLabel]) => {
         const worldPackAttrs = id === "world"
           ? ' data-player-concept="world-pack" data-analytics-event="world_pack.library.open"'
           : "";
-        return `<button type="button" class="${id === active ? "active" : ""}" data-menu-section="${id}"${worldPackAttrs}>${iconSvg(icons[id])}<span>${label}</span></button>`;
+        const tier = ["identity", "settings"].includes(id) ? " menu-utility" : "";
+        return `<button type="button" class="${id === active ? "active" : ""}${tier}" aria-label="${escapeAttr(accessibleLabel)}" data-menu-section="${id}"${worldPackAttrs}>${iconSvg(icons[id])}<span>${label}</span></button>`;
       }).join("")}</nav>`;
     }
 
@@ -14428,7 +14473,7 @@
     }
 
     function journalPanelHtml() {
-      return `<div class="account-title"><h2 id="account-panel-title">journal</h2><span class="account-wallet">portable tale</span></div><div class="library-intro">Export the events visible to this avatar as JSON. The export includes current access credentials only in the request, never in the file.</div><div class="account-actions"><button class="account-button" type="button" data-export-journal>export journal</button></div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">journal</h2><span class="account-wallet">your illustrated, portable tale</span></div><div class="journal-tools-grid"><section class="journal-tool primary-tool"><div class="account-section-title">Read your Journal</div><p>Return to the illustrated pages painted after each long rest.</p><button class="account-button" type="button" data-open-journal>read journal</button></section><section class="journal-tool"><div class="account-section-title">Keep a copy</div><p>Export the events visible to this avatar as JSON. Access credentials are used only for the request and are never included in the file.</p><button class="account-button secondary" type="button" data-export-journal>export journal</button></section></div>`;
     }
 
     function settingsPanelHtml() {
@@ -14485,7 +14530,7 @@
       }).join("");
       const remaining = Math.max(0, locations.length - 6);
       const locationList = shownLocations
-        ? `<div class="library-locations">${shownLocations}${remaining ? `<div class="library-location"><span>and ${remaining} more</span></div>` : ""}</div>`
+        ? `<details class="library-location-disclosure"><summary>Places in this world <small>${locations.length}</small></summary><div class="library-locations">${shownLocations}${remaining ? `<div class="library-location"><span>and ${remaining} more</span></div>` : ""}</div></details>`
         : "";
       const dependencies = Array.isArray(pack.dependencies) && pack.dependencies.length
         ? ` · depends on ${pack.dependencies.map(shortPackName).join(", ")}`
@@ -14608,6 +14653,8 @@
 
     function quietRoomSceneHtml() {
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
+      const kicker = state?.combat ? "Your turn" : state?.journey ? "On the road" : hasAvatar ? "Your next move" : "Begin here";
+      const title = state?.combat ? "Choose your response" : state?.journey ? "How will you press on?" : hasAvatar ? "What will you do?" : "Begin your tale";
       const cue = state?.combat
         ? "The clash has the floor. Choose from your combat hand."
         : state?.journey
@@ -14615,7 +14662,8 @@
         : hasAvatar
           ? "Chat with someone here or explore the room."
         : "Begin a tale, then discover the room through play.";
-      return `<p class="chat-empty" role="note">${escapeHtml(cue)}</p>`;
+      const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
+      return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -16826,11 +16874,23 @@
     }
 
     function actionTitle(action) {
-      if (action?.modalTitle) return String(action.modalTitle);
-      if (["notice", "inspect", "scout", "travel"].includes(String(action?.intention || ""))) {
-        return String(action?.accessibleLabel || action?.label || "action").toLowerCase();
-      }
+      const modalTitle = String(action?.modalTitle || "").trim();
+      const intention = String(action?.intention || "").toLowerCase();
       const label = String(action?.label || action?.command || "action").toLowerCase();
+      if (modalTitle && ![intention, label].includes(modalTitle.toLowerCase())) return modalTitle;
+      if (["notice", "inspect", "scout", "travel"].includes(intention)) {
+        const accessible = String(action?.accessibleLabel || "").trim();
+        const target = String(
+          action?.target?.label
+          || action?.targetName
+          || action?.card?.display_name
+          || (intention === "travel" ? "" : state?.location?.name)
+          || "",
+        ).trim();
+        if (accessible && accessible.toLowerCase() !== intention) return accessible.toLowerCase();
+        return target ? `${intention} ${target}`.toLowerCase() : String(action?.label || intention).toLowerCase();
+      }
+      if (modalTitle) return modalTitle;
       if (label === "evolve") return action?.choices?.length ? "choose how to evolve" : "evolve";
       if (label === "nudge" || label === "ping") {
         const currentName = String(state?.turn?.current_actor_name || action?.detail || "them")
@@ -17107,9 +17167,11 @@
     }
 
     function renderActionModalRows(action) {
-      const showConversationDetails = ["orb-chat", "advancement-bond", "choose-class"]
-        .includes(String(action?.kind || ""));
-      const rows = (showConversationDetails ? actionModalRows(action) : [])
+      const choiceDirectedTravel = [action?.intention, action?.label]
+        .some((value) => ["travel", "flee"].includes(String(value || "").toLowerCase()))
+        && Array.isArray(action?.choices)
+        && action.choices.length > 0;
+      const rows = (choiceDirectedTravel ? [] : actionModalRows(action))
         .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
       const meta = $("action-modal-meta");
       meta.innerHTML = rows.map(([key, value]) => {
@@ -18260,6 +18322,7 @@
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary", "tertiary"];
       renderTurnPingPill();
+      prompt.classList.toggle("onboarding-mode", state?.primary_action?.kind === "create_avatar");
       prompt.classList.toggle("single-action", actionBusy);
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
@@ -18785,6 +18848,12 @@
       if (event.target.closest("[data-export-journal]")) {
         event.preventDefault();
         exportJournal().catch((error) => setError(String(error.message || error)));
+        return;
+      }
+      if (event.target.closest("[data-open-journal]")) {
+        event.preventDefault();
+        toggleAccountPanel(false);
+        setJournalOpen(true);
         return;
       }
       const passkeyContinue = event.target.closest("[data-passkey-continue]");
@@ -19324,6 +19393,12 @@
     $("journal-page-previous").addEventListener("click", () => turnJournalPage(-1));
     $("journal-page-next").addEventListener("click", () => turnJournalPage(1));
     $("journal-view").addEventListener("click", (event) => {
+      if (event.target.closest("[data-journal-close]")) {
+        event.preventDefault();
+        setJournalOpen(false);
+        $("room-log-toggle").focus();
+        return;
+      }
       const summary = event.target.closest(".journal-prose-row > summary");
       if (summary && !summary.parentElement?.classList.contains("is-overflowing")) {
         event.preventDefault();

@@ -309,7 +309,25 @@ function offerEnvelope(state, actorId, offerId) {
   };
 }
 
-async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
+function storyHandSlotForOffer(offer = {}) {
+  const presentation = offer.presentation || {};
+  const suit = String(presentation.suit || "");
+  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
+  const intention = String(offer.intention || "");
+  const effect = String(offer.effect || "").toLowerCase();
+  const hustleIsMovement = suit === "hustle" && (
+    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
+    || offer.kind === "move"
+    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
+  );
+  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
+      || suit === "honor" || hustleIsMovement) return "story";
+  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
+      || suit === "heart") return "self";
+  return "anchor";
+}
+
+async function passCurrentHand(baseUrl, actorId, actorSession, initialState, desiredSlot = "") {
   let state = initialState;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     if (!state || attempt > 0) {
@@ -328,7 +346,7 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
       body: JSON.stringify({
         actor_id: actorId,
         actor_session: actorSession,
-        command: "pass",
+        command: "think",
         offer_id: pass.offer_id,
         envelope: offerEnvelope(state, actorId, pass.offer_id),
       }),

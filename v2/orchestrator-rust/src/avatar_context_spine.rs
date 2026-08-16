@@ -887,7 +887,6 @@ impl RuntimeWorld {
         candidates
     }
 
-    #[cfg(test)]
     pub(crate) fn ambient_reply_plan(&self) -> Option<AvatarReplyPlan> {
         let npc = self.ambient_actor()?;
         let npc_meta = self.actors.get(&npc.id);

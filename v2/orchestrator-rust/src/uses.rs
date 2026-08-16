@@ -251,6 +251,9 @@ impl RuntimeWorld {
         if !needs_healing {
             return false;
         }
+        if let Some(rescue) = self.active_avatar_rescue_for_downed(target.id) {
+            return actor.id == rescue.rescuer_actor_id;
+        }
         if target.id == actor.id {
             return true;
         }

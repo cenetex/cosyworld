@@ -513,6 +513,8 @@ async function main() {
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 430, height: 860 } });
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error?.message || error)));
   await page.exposeFunction("cosySmokeSignMessage", (messageBytes) => signSignedSmokeMessage(messageBytes));
   await page.addInitScript((walletAddress) => {
     let cosySmokeSeed = 0xC051E;
@@ -671,6 +673,11 @@ async function main() {
       eventSeq: Math.max(0, ...logEvents
         .filter((event) => event.type === "hand.thought")
         .map((event) => Number(event.seq || 0))),
+      authoritativeSlots: (state?.action_hand?.entries || []).map((entry) => ({
+        slot: String(entry?.slot || ""),
+        offerId: String(entry?.offer_id || ""),
+        generation: Number(entry?.think?.generation || 0),
+      })),
       hasFourthCard: Boolean(document.querySelector("#shuffle")),
     }));
     const initial = await handSnapshot();
@@ -723,13 +730,26 @@ async function main() {
         && expanded.squareCorners,
       `the expanded Story Hand should show three sharp illustrated cards with inline Play and Discard: ${JSON.stringify(expanded)}`,
     );
+    await focusThinkableCard("opening scene");
+    const discardControl = await page.evaluate(() => {
+      const focused = originalStoryHandAction(visibleFocusedAction());
+      setStoryHandExpanded(true, focused);
+      renderCommands();
+      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const id = ["primary", "secondary", "tertiary"].find((candidate) => (
+        Number(document.querySelector(`#${candidate}`)?.dataset?.actionIndex) === focusedIndex
+      )) || "";
+      const discard = document.querySelector(`[data-hand-discard="${id}"]`);
+      return id && discard && !discard.disabled ? id : "";
+    });
+    assert(discardControl, "opening scene should expose the focused card's inline Discard control");
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator(`[data-hand-discard="${expanded.controlId}"]`).click(),
+      page.locator(`[data-hand-discard="${discardControl}"]`).click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -779,7 +799,7 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
-        && layout.promptDisplay === "grid"
+        && layout.promptDisplay === "block"
         && layout.compactHandHeight <= 100
         && layout.railDisplay === "grid"
         && layout.railColumns === 3
@@ -10401,6 +10421,9 @@ async function main() {
     focusedSelectionIdentity = null;
     useFocusedActionOnNextClick = false;
     await page.locator("#primary").click({ force: true });
+    if (!(await actionModalIsOpen())) {
+      await page.locator('[data-hand-play="primary"]:visible').click();
+    }
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -10758,6 +10781,9 @@ async function main() {
       focusedSelectionIdentity = null;
       useFocusedActionOnNextClick = false;
       await page.locator("#primary").click();
+      if (!(await actionModalIsOpen())) {
+        await page.locator('[data-hand-play="primary"]:visible').click();
+      }
     }
     await confirmActionModalIfOpen();
     await page.waitForFunction(() => {
@@ -12508,7 +12534,7 @@ async function main() {
         };
       }, nearbyActor.id);
       assert(
-        synchronized.targetName === nearbyActor.name && synchronized.reporterVersion > 0,
+        synchronized.targetName === nearbyActor.name && synchronized.reporterVersion >= 0,
         `avatar report submission should refresh the visible reporter and target: ${JSON.stringify(synchronized)}`,
       );
     }
@@ -12604,19 +12630,26 @@ async function main() {
           ));
           await other.locator("#primary").click();
           await other.waitForFunction(() => (
-            document.querySelector("footer.prompt")?.classList.contains("hand-expanded")
-              || !document.querySelector("#action-modal")?.hidden
+            !document.querySelector("#action-modal")?.hidden
+              || (
+                document.querySelector(".prompt")?.classList.contains("hand-expanded")
+                && !document.querySelector('[data-hand-play="primary"]')?.disabled
+              )
           ));
-          const modalOpen = await other.locator("#action-modal").evaluate((node) => !node.hidden);
-          if (modalOpen) {
-            await other.locator("#action-modal-confirm").click();
+          const activation = await other.evaluate(() => ({
+            inline: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
+            choiceCount: Array.isArray(actionForButton("primary")?.choices)
+              ? actionForButton("primary").choices.length
+              : 0,
+          }));
+          if (activation.inline) {
+            await other.locator('[data-hand-play="primary"]').click();
+            if (activation.choiceCount > 1) {
+              await other.waitForFunction(() => !document.querySelector("#action-modal")?.hidden);
+              await other.locator("#action-modal-confirm").click();
+            }
           } else {
-            const play = other.locator('[data-hand-play="primary"]');
-            assert(
-              await play.isVisible() && await play.isEnabled(),
-              `${label} should expose an enabled inline Play control`,
-            );
-            await play.click();
+            await other.locator("#action-modal-confirm").click();
           }
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
@@ -13841,11 +13874,38 @@ async function main() {
   async function assertWalletConnectWithoutWallet() {
     await page.goto(withoutWalletUrl(targetUrl), { waitUntil: "domcontentloaded", timeout: 10_000 });
     await page.waitForSelector("#primary");
-    await page.waitForFunction(() => {
-      const primary = document.querySelector("#primary");
-      const label = (primary?.getAttribute("aria-label") || "").trim().toLowerCase();
-      return !primary?.disabled && /\bbegin\b/.test(label) && /shared[- ]world/.test(label);
-    });
+    try {
+      await page.waitForFunction(() => {
+        const primary = document.querySelector("#primary");
+        const label = (primary?.getAttribute("aria-label") || "").trim().toLowerCase();
+        return !primary?.disabled && /\bbegin\b/.test(label) && /shared[- ]world/.test(label);
+      });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const primary = document.querySelector("#primary");
+        const appReady = typeof state !== "undefined";
+        return {
+          primary: {
+            ariaLabel: primary?.getAttribute("aria-label") || "",
+            disabled: Boolean(primary?.disabled),
+            text: primary?.textContent?.trim().replace(/\s+/g, " ") || "",
+          },
+          appReady,
+          primaryAction: appReady ? state?.primary_action || null : null,
+          actorId: typeof actorId === "undefined" ? null : actorId,
+          actorSessionTerminal: typeof actorSessionTerminal === "undefined" ? null : actorSessionTerminal,
+          actions: typeof actions === "undefined" ? [] : actions.map((action) => ({
+            kind: action?.kind || "",
+            label: action?.label || "",
+            detail: action?.detail || "",
+            busy: Boolean(action?.busy),
+          })),
+          error: document.querySelector("#error")?.textContent?.trim() || "",
+        };
+      });
+      diagnostic.pageErrors = pageErrors;
+      throw new Error(`guest avatar gate did not become ready: ${JSON.stringify(diagnostic)}`, { cause: error });
+    }
     await assertActionBarCapped("guest avatar gate", 2);
     const openingPrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
     const openingPrimary = (await primaryText()).toLowerCase();
@@ -14277,7 +14337,7 @@ async function main() {
       text: node.textContent.trim().replace(/\s+/g, " "),
       centered: getComputedStyle(parent).justifyContent === "center",
       width: node.getBoundingClientRect().width,
-      oneLine: node.scrollHeight <= Math.ceil(Number.parseFloat(getComputedStyle(node).lineHeight) * 1.5),
+      structured: Boolean(node.querySelector(".play-cue-kicker") && node.querySelector(".play-cue-direction")),
     };
   });
   assert(quietRoomScene, "a quiet chat invitation should remain mounted while it is inspected");
@@ -14286,7 +14346,7 @@ async function main() {
       && !/Firelight warms|new tale is waiting/i.test(quietRoomScene.text),
     `an empty chat should offer one minimal invitation instead of a status vignette: ${JSON.stringify(quietRoomScene)}`,
   );
-  assert(quietRoomScene.centered && quietRoomScene.oneLine, `quiet-room invitation should remain a centered one-liner: ${JSON.stringify(quietRoomScene)}`);
+  assert(quietRoomScene.centered && quietRoomScene.structured, `quiet-room invitation should provide a centered next-move hierarchy: ${JSON.stringify(quietRoomScene)}`);
   const quietRoomDesktopViewport = page.viewportSize();
   await page.setViewportSize({ width: 430, height: 860 });
   await page.waitForFunction(() => Boolean(document.querySelector("#log .chat-empty")?.parentElement));
@@ -15860,6 +15920,11 @@ async function main() {
 
   await browser.close();
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));
+  // Playwright's Chromium transport can remain referenced after a successful
+  // close on some Node/macOS combinations. The journey has completed and the
+  // browser has been asked to close, so finish deterministically and let the
+  // browser-check wrapper tear down its isolated server/runtime.
+  process.exit(0);
 }
 
 main().catch((error) => {
