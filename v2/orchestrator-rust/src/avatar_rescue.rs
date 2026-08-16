@@ -444,16 +444,14 @@ impl RuntimeWorld {
         }
         self.avatar_rescues
             .insert(rescue.id.clone(), rescue.clone());
+        self.avatar_rescue_predecessors
+            .insert(rescue.rescuer_actor_id, rescue.downed_actor_id);
         self.rpg_claims.insert(claim_key);
-        vec![self.append_deck_event(
-            "avatar.rescue.started",
+        vec![self.append_async_job_event(
+            "avatar.rescue_run.started",
             rescue.rescuer_actor_id,
-            Some(rescue.draught_item_id),
-            format!(
-                "A rescuer entered the world carrying a draught for {}.",
-                self.actor_name(rescue.downed_actor_id)
-                    .unwrap_or_else(|| format!("Avatar {}", rescue.downed_actor_id))
-            ),
+            Some(rescue.downed_actor_id),
+            Some("A new traveler entered the world to attempt a rescue.".to_string()),
         )]
     }
 
@@ -508,6 +506,8 @@ impl RuntimeWorld {
         previous.resolved_tick = Some(self.world.tick);
         self.avatar_rescues
             .insert(rescue.id.clone(), rescue.clone());
+        self.avatar_rescue_predecessors
+            .insert(rescue.rescuer_actor_id, rescue.downed_actor_id);
         self.rpg_claims.insert(claim_key);
         vec![self.append_deck_event(
             "avatar.rescue.cascaded",

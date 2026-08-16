@@ -276,4 +276,8 @@
 # combat.rs while separating declaration from the first attack.
 # 66856 -> 66855: route authored actor control-mode defaults through the
 # content loader while keeping avatar-session handoff persistence in its module.
-66781
+# 66781 -> 67298: integrate the linked-avatar rescue lifecycle at the existing
+# request, replay, session-handoff, and browser contract boundaries. Rescue
+# state and rules remain extracted in avatar_rescue.rs; the increase is focused
+# end-to-end replay and double-knockout regression coverage in the root harness.
+67298

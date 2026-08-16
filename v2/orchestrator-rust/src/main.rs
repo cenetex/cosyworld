@@ -20567,16 +20567,6 @@ fn seed_actor_default_control_mode(actor_id: u64) -> ActorControlMode {
     }
 }
 
-fn authored_actor_default_control_mode(actor: &SeedActorContent) -> ActorControlMode {
-    actor.control_mode.unwrap_or_else(|| {
-        if actor.ambient_autonomy.unwrap_or(true) {
-            ActorControlMode::LocalAi
-        } else {
-            ActorControlMode::ReactiveAi
-        }
-    })
-}
-
 fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
     evolution_track_item_ids(actor_id)
         .map(|items| items.contains(&item_id))
@@ -47769,6 +47759,7 @@ mod tests {
             State(state.clone()),
             Json(CreateAvatarRequest {
                 actor_id: Some(5000),
+                summon_from_actor_id: None,
                 name: Some("First Rescuer".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
@@ -47807,6 +47798,7 @@ mod tests {
             State(state.clone()),
             Json(CreateAvatarRequest {
                 actor_id: Some(first_rescuer_id),
+                summon_from_actor_id: None,
                 name: Some("Second Rescuer".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
@@ -47905,6 +47897,7 @@ mod tests {
             ConnectInfo("127.0.0.1:45115".parse().expect("client address")),
             State(state.clone()),
             Json(CreateAvatarRequest {
+                actor_id: None,
                 name: Some("Rowan Vale".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: Some(wallet_session.to_string()),
@@ -47965,6 +47958,7 @@ mod tests {
             ConnectInfo("127.0.0.1:45116".parse().expect("client address")),
             State(state.clone()),
             Json(CreateAvatarRequest {
+                actor_id: None,
                 name: Some("Another Rescuer".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
@@ -48000,12 +47994,13 @@ mod tests {
         )
         .await
         .0;
-        assert_ne!(rescuer_view.primary_action.kind, "summon_avatar");
+        assert_eq!(rescuer_view.primary_action.kind, "summon_avatar");
 
         let third_body = create_avatar(
             ConnectInfo("127.0.0.1:45117".parse().expect("client address")),
             State(state.clone()),
             Json(CreateAvatarRequest {
+                actor_id: None,
                 name: Some("Third Body".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
@@ -48018,9 +48013,12 @@ mod tests {
         )
         .await
         .0;
-        assert!(!third_body.ok);
-        assert_eq!(third_body.status, 409);
-        assert_eq!(state.inner.lock().await.world.actor_count, actor_count + 1);
+        assert!(third_body.ok, "{third_body:?}");
+        assert_eq!(third_body.status, CW_OK);
+        assert!(third_body.events.iter().any(|event| {
+            event.type_name == "combat.death" && event.target_actor_id == Some(5000)
+        }));
+        assert_eq!(state.inner.lock().await.world.actor_count, actor_count + 2);
     }
 
     #[tokio::test]

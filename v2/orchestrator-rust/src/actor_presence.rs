@@ -380,15 +380,25 @@ impl RuntimeWorld {
     }
 
     pub(super) fn can_summon_avatar_for_rescue(&self, actor_id: u64) -> bool {
-        self.actor_by_id(actor_id).is_some_and(|actor| {
+        let downed_direct_avatar = self.actor_by_id(actor_id).is_some_and(|actor| {
             actor.kind == CW_ACTOR_HUMAN
                 && actor.status == CW_ACTOR_KNOCKED_OUT
                 && self.actor_control_mode(actor.id).is_direct_input()
-        }) && !self.avatar_rescue_predecessors.contains_key(&actor_id)
-            && !self
-                .avatar_rescue_predecessors
-                .values()
-                .any(|downed_actor_id| *downed_actor_id == actor_id)
+        });
+        if !downed_direct_avatar {
+            return false;
+        }
+        if self
+            .avatar_rescues
+            .values()
+            .any(|rescue| rescue.status == "active" && rescue.rescuer_actor_id == actor_id)
+        {
+            return true;
+        }
+        !self
+            .avatar_rescues
+            .values()
+            .any(|rescue| rescue.status == "active" && rescue.downed_actor_id == actor_id)
     }
 
     pub(super) fn avatar_lifecycle_primary_action(&self, actor_id: u64) -> Option<PrimaryAction> {
