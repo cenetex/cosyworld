@@ -5994,44 +5994,48 @@
     }
     .hand-header {
       width: 100%;
-      min-height: 36px;
+      min-height: 42px;
       display: none;
       border: 0;
       border-bottom: 1px solid var(--line);
-      background: transparent;
+      background:
+        linear-gradient(90deg, rgba(222, 194, 141, 0.06), transparent 30%, transparent 70%, rgba(222, 194, 141, 0.04)),
+        #0d0e0a;
     }
     .prompt.hand-expanded .hand-header { display: block; }
     .hand-toggle {
       width: 100%;
-      min-height: 36px;
+      min-height: 42px;
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       border: 0;
       background: transparent;
       color: var(--dim);
-      padding: 7px 12px;
+      padding: 8px 16px;
       text-align: left;
       cursor: pointer;
     }
     .hand-toggle:hover,
     .hand-toggle:focus-visible { color: var(--text); }
     .hand-toggle-title {
-      color: inherit;
-      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.12em;
+      color: var(--text);
+      font: 850 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
     }
     .hand-toggle-status {
-      color: var(--amber);
-      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.06em;
+      min-width: 0;
+      color: var(--dim);
+      font: 700 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     .hand-toggle-chevron {
       color: var(--amber);
-      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.08em;
+      font: 850 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       transform: none !important;
     }
@@ -6039,43 +6043,94 @@
       min-width: 0;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
+      gap: 7px;
       overflow: visible;
-      padding: 7px;
-      background: var(--line);
+      padding: 8px;
+      background:
+        radial-gradient(circle at 50% -30%, rgba(222, 194, 141, 0.09), transparent 52%),
+        #090a07;
     }
     .story-card-slot {
+      --slot-accent: var(--card-control);
+      --slot-accent-rgb: var(--card-control-rgb);
       min-width: 0;
       overflow: hidden;
       display: grid;
       grid-template-rows: minmax(0, 1fr);
-      border: 1px solid rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.38);
-      background: #11110d;
+      position: relative;
+      isolation: isolate;
+      border: 1px solid rgba(var(--slot-accent-rgb), 0.58);
+      outline: 1px solid rgba(244, 239, 227, 0.07);
+      outline-offset: -4px;
+      background:
+        linear-gradient(145deg, rgba(var(--slot-accent-rgb), 0.1), transparent 42%),
+        #12120e;
+      box-shadow: 0 9px 24px rgba(0, 0, 0, 0.3);
     }
+    .story-card-slot:has(> .cmd.suit-head) {
+      --slot-accent: var(--suit-head);
+      --slot-accent-rgb: var(--suit-head-rgb);
+    }
+    .story-card-slot:has(> .cmd.suit-heart) {
+      --slot-accent: var(--suit-heart);
+      --slot-accent-rgb: var(--suit-heart-rgb);
+    }
+    .story-card-slot:has(> .cmd.suit-honor) {
+      --slot-accent: var(--suit-honor);
+      --slot-accent-rgb: var(--suit-honor-rgb);
+    }
+    .story-card-slot:has(> .cmd.suit-hustle) {
+      --slot-accent: var(--suit-hustle);
+      --slot-accent-rgb: var(--suit-hustle-rgb);
+    }
+    .prompt.hand-expanded .story-card-slot::after {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      z-index: 4;
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border: 1px solid rgba(var(--slot-accent-rgb), 0.76);
+      background: rgba(8, 9, 6, 0.82);
+      color: var(--slot-accent);
+      font: 800 9px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.04em;
+    }
+    .prompt.hand-expanded .story-card-slot[data-story-card-slot="primary"]::after { content: "I"; }
+    .prompt.hand-expanded .story-card-slot[data-story-card-slot="secondary"]::after { content: "II"; }
+    .prompt.hand-expanded .story-card-slot[data-story-card-slot="tertiary"]::after { content: "III"; }
     .story-card-slot[hidden] { display: none !important; }
     .story-card-actions {
       display: none;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      border-top: 1px solid var(--line);
+      border-top: 1px solid rgba(var(--slot-accent-rgb), 0.42);
+      background: rgba(7, 8, 5, 0.58);
     }
     .story-card-actions button {
       min-width: 0;
-      min-height: 42px;
+      min-height: 46px;
       border: 0;
       background: transparent;
       color: var(--dim);
       padding: 7px 4px;
-      font: 750 11px/1 ui-sans-serif, system-ui, sans-serif;
+      font: 820 10px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       cursor: pointer;
     }
-    .story-card-actions button + button { border-left: 1px solid var(--line); }
-    .story-card-actions .story-card-play { color: var(--amber); }
+    .story-card-actions button + button { border-left: 1px solid rgba(var(--slot-accent-rgb), 0.28); }
+    .story-card-actions .story-card-play {
+      background: rgba(var(--slot-accent-rgb), 0.12);
+      color: var(--slot-accent);
+    }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
-      background: rgba(var(--cmd-accent-rgb, var(--card-control-rgb)), 0.1);
+      background: rgba(var(--slot-accent-rgb), 0.2);
       color: var(--text);
     }
-    .story-card-actions button:disabled { opacity: 0.32; cursor: default; }
+    .story-card-actions button:disabled { opacity: 0.5; cursor: default; }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6148,22 +6203,25 @@
     }
     .prompt .detail { display: none; }
     .prompt.hand-expanded .hand-rail {
-      height: clamp(238px, 34dvh, 330px);
+      height: auto;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
+      gap: clamp(8px, 1.2vw, 14px);
       overflow: visible;
-      padding: 8px;
+      padding: clamp(10px, 1.5vw, 16px);
     }
     .prompt.hand-expanded .story-card-slot {
-      grid-template-rows: minmax(0, 1fr) 42px;
+      height: clamp(326px, 49dvh, 438px);
+      grid-template-rows: minmax(0, 1fr) 46px;
     }
     .prompt.hand-expanded .story-card-actions { display: grid; }
     .prompt.hand-expanded .cmd {
       width: 100%;
       min-width: 0;
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: minmax(104px, 1.2fr) minmax(86px, 0.8fr);
+      grid-template-rows: clamp(174px, 27dvh, 232px) minmax(0, 1fr);
+      gap: 0;
+      padding: 0;
       opacity: 1;
       transition: none;
     }
@@ -6175,25 +6233,63 @@
       width: 100%;
       height: 100%;
       border-right: 0;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid rgba(var(--cmd-accent-rgb), 0.46);
+      background-position: center 42%;
+    }
+    .prompt.hand-expanded .cmd .thumb.avatar { background-position: center 22%; }
+    .prompt.hand-expanded .cmd .thumb::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background:
+        linear-gradient(180deg, rgba(4, 5, 3, 0.02) 55%, rgba(4, 5, 3, 0.48)),
+        linear-gradient(90deg, rgba(4, 5, 3, 0.26), transparent 7%, transparent 93%, rgba(4, 5, 3, 0.26));
+      pointer-events: none;
+    }
+    .prompt.hand-expanded .cmd .thumb::after {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      z-index: 2;
+      border: 1px solid rgba(244, 239, 227, 0.34);
+      outline: 1px solid rgba(var(--cmd-accent-rgb), 0.28);
+      outline-offset: 2px;
+      pointer-events: none;
     }
     .prompt.hand-expanded .cmd-copy {
       align-content: start;
-      gap: 5px;
-      padding: 9px 8px;
+      gap: 7px;
+      padding: 13px 13px 10px;
     }
-    .prompt.hand-expanded .cmd-kicker { font-size: 9px; }
-    .prompt.hand-expanded .cmd-label { font-size: clamp(12px, 1.4vw, 16px); }
+    .prompt.hand-expanded .cmd-kicker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--cmd-accent);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+    }
+    .prompt.hand-expanded .cmd-kicker::after {
+      content: "";
+      height: 1px;
+      flex: 1 1 auto;
+      background: linear-gradient(90deg, rgba(var(--cmd-accent-rgb), 0.52), transparent);
+    }
+    .prompt.hand-expanded .cmd-label {
+      font-size: clamp(17px, 1.75vw, 22px);
+      line-height: 1.08;
+    }
     .prompt.hand-expanded .detail {
       display: -webkit-box;
       overflow: hidden;
       color: var(--dim);
-      font-size: 11px;
-      font-weight: 500;
-      line-height: 1.28;
+      font-size: clamp(11px, 1.05vw, 13px);
+      font-weight: 560;
+      line-height: 1.38;
       white-space: normal;
       -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
     }
     .hand-inspector { display: none !important; }
     .prompt.onboarding-mode .hand-header,
@@ -6394,12 +6490,38 @@
     @media (max-width: 560px) {
       .topbar-actions .economy { display: flex; }
       .economy-stat.orbs > strong { font-size: 10px; }
-      .prompt.hand-expanded .hand-rail { height: 274px; padding: 7px; }
-      .prompt.hand-expanded .cmd { grid-template-rows: 112px minmax(0, 1fr); }
-      .prompt.hand-expanded .cmd-copy { padding: 8px 6px; }
-      .prompt.hand-expanded .cmd-label { font-size: 12px; }
-      .prompt.hand-expanded .detail { font-size: 10px; -webkit-line-clamp: 2; }
-      .story-card-actions button { min-height: 40px; font-size: 10px; }
+      .prompt.hand-expanded .hand-rail {
+        height: auto;
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 10px 18px 14px;
+        scroll-padding-inline: 18px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: none;
+      }
+      .prompt.hand-expanded .hand-rail::-webkit-scrollbar { display: none; }
+      .prompt.hand-expanded .story-card-slot {
+        height: clamp(316px, 60dvh, 410px);
+        flex: 0 0 calc(100% - 36px);
+        scroll-snap-align: center;
+      }
+      .prompt.hand-expanded .cmd { grid-template-rows: clamp(146px, 28dvh, 190px) minmax(0, 1fr); }
+      .prompt.hand-expanded .cmd.has-copy .thumb,
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar,
+      .prompt.hand-expanded .cmd.has-copy .thumb.item,
+      .prompt.hand-expanded .cmd.has-copy .thumb.location,
+      .prompt.hand-expanded .cmd.has-copy .thumb.action-mini-card {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        flex: none;
+      }
+      .prompt.hand-expanded .cmd-copy { padding: 12px 11px 9px; }
+      .prompt.hand-expanded .cmd-label { font-size: 18px; }
+      .prompt.hand-expanded .detail { font-size: 11px; -webkit-line-clamp: 3; }
+      .story-card-actions button { min-height: 46px; font-size: 10px; }
       .account-panel.minimal-menu { border-right: 0; border-left: 0; }
       .minimal-menu-player,
       .minimal-menu-orbs,
@@ -6418,7 +6540,7 @@
       .prompt .cmd .thumb.action-mini-card { width: 44px; }
       .prompt.hand-expanded .cmd {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: 98px minmax(0, 1fr);
+        grid-template-rows: clamp(138px, 27dvh, 172px) minmax(0, 1fr);
       }
       .prompt.hand-expanded .cmd .thumb,
       .prompt.hand-expanded .cmd .thumb.location,
@@ -9119,7 +9241,10 @@
           const groupedExits = routeGroup.exits;
           const firstExit = groupedExits[0];
           const onePath = groupedExits.length === 1;
-          const firstPathwayDirection = pathwayDirectionForExit(firstExit, pathwayJourney);
+          // A journey exists at its origin before the pathway progress stage is
+          // active. Travel cards still represent the journey endpoint there,
+          // rather than the first generated waypoint.
+          const firstPathwayDirection = pathwayDirectionForExit(firstExit, journey);
           const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
           const routeOffer = routeOffers.find((offer) => (
@@ -9222,7 +9347,7 @@
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
               choices: groupedExits.map((exit) => {
-                const direction = pathwayDirectionForExit(exit, pathwayJourney);
+                const direction = pathwayDirectionForExit(exit, journey);
                 return {
                   label: direction ? `toward ${direction.endpointName}` : (exit.route_label || exit.destination_location_name),
                   detail: direction
@@ -9246,7 +9371,7 @@
             : (searchingPathway ? "searching" : "travelling");
           routeAction.busyDetail = () => {
             const selectedExit = selectedRouteExit();
-            const selectedDirection = pathwayDirectionForExit(selectedExit, pathwayJourney);
+            const selectedDirection = pathwayDirectionForExit(selectedExit, journey);
             if (selectedDirection) return `following the path toward ${selectedDirection.endpointName}…`;
             if (fleeing) return `hurrying toward ${selectedExit.destination_location_name}…`;
             if (searchingPathway) return `finding the path toward ${selectedExit.destination_location_name}…`;
@@ -17342,7 +17467,7 @@
       prompt.classList.toggle("hand-expanded", expanded);
       $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
       const count = visibleActions.length;
-      $("hand-toggle-status").textContent = expanded ? "Close" : `${count} ${count === 1 ? "card" : "cards"}`;
+      $("hand-toggle-status").textContent = `${count} ${count === 1 ? "card" : "cards"}`;
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);

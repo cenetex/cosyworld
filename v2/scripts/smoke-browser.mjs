@@ -694,6 +694,8 @@ async function main() {
       setStoryHandExpanded(true, visibleFocusedAction());
       const prompt = document.querySelector("footer.prompt");
       const visibleSlots = [...document.querySelectorAll(".story-card-slot:not([hidden])")];
+      const artRects = visibleSlots.map((slot) => slot.querySelector(".cmd .thumb")?.getBoundingClientRect());
+      const commandRects = visibleSlots.map((slot) => slot.querySelector(".cmd")?.getBoundingClientRect());
       return {
         controlId,
         promptExpanded: prompt.classList.contains("hand-expanded"),
@@ -712,6 +714,18 @@ async function main() {
               || thumb.querySelector("img")?.getAttribute("src")
           ));
         }),
+        fullWidthArtwork: artRects.every((rect, index) => (
+          rect && commandRects[index] && Math.abs(rect.width - commandRects[index].width) < 2
+        )),
+        consistentArtwork: artRects.every((rect) => (
+          rect
+            && Math.abs(rect.width - artRects[0].width) < 2
+            && Math.abs(rect.height - artRects[0].height) < 2
+        )),
+        framed: visibleSlots.every((slot) => (
+          getComputedStyle(slot).borderTopStyle === "solid"
+            && getComputedStyle(slot).outlineStyle === "solid"
+        )),
         squareCorners: visibleSlots.every((slot) => (
           Number.parseFloat(getComputedStyle(slot).borderTopLeftRadius) === 0
             && Number.parseFloat(getComputedStyle(slot.querySelector(".cmd")).borderTopLeftRadius) === 0
@@ -727,6 +741,9 @@ async function main() {
         && expanded.cardCount === initial.visibleKeys.length
         && expanded.inlineActions
         && expanded.imageLed
+        && expanded.fullWidthArtwork
+        && expanded.consistentArtwork
+        && expanded.framed
         && expanded.squareCorners,
       `the expanded Story Hand should show three sharp illustrated cards with inline Play and Discard: ${JSON.stringify(expanded)}`,
     );
@@ -9462,6 +9479,35 @@ async function main() {
         },
       });
       const travelling = travellingActions.find((action) => action.focusKey === "exit:100001");
+      const originTravelActions = buildActions({
+        ...base,
+        action_offers: [...nonScoutOffers, moveOffer(100000, "Dappled Heather Run")],
+        exits: [{
+          destination_location_id: 100000,
+          destination_location_name: "Dappled Heather Run",
+          route_label: "Unmarked way from Rain-Soft Garden to Moonlit Trail",
+          direction: "east",
+          distance: 1,
+          accessible: true,
+          locked: false,
+        }],
+        journey: {
+          origin_location_id: 2,
+          origin_name: "Rain-Soft Garden",
+          destination_location_id: 3,
+          destination_name: "Moonlit Trail",
+          current_step: 0,
+          total_steps: 3,
+          steps_remaining: 3,
+          on_pathway: false,
+          explorer: true,
+          previous_location_id: null,
+          previous_location_name: null,
+          next_location_id: 100000,
+          next_location_name: "Dappled Heather Run",
+        },
+      });
+      const originTravel = originTravelActions.find((action) => action.focusKey === "exit:100000");
       const backtrackingActions = buildActions({
         ...base,
         action_offers: [...nonScoutOffers, moveOffer(2, "Rain-Soft Garden")],
@@ -9696,6 +9742,12 @@ async function main() {
           modalSummary: travelling?.modalSummary,
           direction: travelling?.pathwayDirection,
         },
+        originTravel: {
+          detail: originTravel?.detail,
+          accessibleLabel: originTravel?.accessibleLabel,
+          destinationOnlyCardLabel: originTravel?.destinationOnlyCardLabel,
+          direction: originTravel?.pathwayDirection,
+        },
         backtracking: {
           label: backtracking?.label,
           detail: backtracking?.detail,
@@ -9754,6 +9806,14 @@ async function main() {
         && result.travelling.direction?.endpointName === "Moonlit Trail"
         && result.travellingActionCount > 1,
       `a revealed adjacent interior segment should present endpoint direction instead of its waypoint name: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.originTravel.detail === "toward Moonlit Trail"
+        && result.originTravel.accessibleLabel === "Travel toward Moonlit Trail"
+        && result.originTravel.destinationOnlyCardLabel === "Moonlit Trail"
+        && result.originTravel.direction?.side === "forward"
+        && result.originTravel.direction?.endpointId === 3,
+      `the first Travel card should present the final journey destination instead of its next path segment: ${JSON.stringify(result)}`,
     );
     assert(
       result.backtracking.label === "travel"
@@ -14489,6 +14549,7 @@ async function main() {
   await assertRoomSummaryStaysFlatAndMechanical();
   await assertGapRecoveryStatusClears();
   await assertStatusBarDoesNotOverlayTranscript("mobile status row");
+  await assertJourneyCardContract();
   await assertJournalModeContract("mobile Journal");
   await assertJournalTickerLayout();
   await assertUiAccessibilityContract("mobile accessibility and navigation");
@@ -14502,7 +14563,6 @@ async function main() {
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
-  await assertJourneyCardContract();
   await assertHumanActionRequiresActorSession();
   await assertSeedArtAvailable();
   await assertFirstBellCatalogAssetsAvailable();
