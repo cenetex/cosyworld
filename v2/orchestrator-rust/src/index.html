@@ -7491,6 +7491,9 @@
       if (!replay || !Array.isArray(replay.events)) {
         throw new Error("Room history received an invalid /events response.");
       }
+      if (Number.isSafeInteger(replay.next_after)) {
+        streamReplayFloorSeq = Math.max(streamReplayFloorSeq, replay.next_after);
+      }
       return replay;
     }
 

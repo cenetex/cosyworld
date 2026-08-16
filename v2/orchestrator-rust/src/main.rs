@@ -47,6 +47,7 @@ mod daily_journal;
 mod delivery_matching_tests;
 mod discovery_pipeline;
 mod entity_context;
+mod event_replay_store;
 mod first_tale;
 mod first_tale_presentations;
 mod generated_places;
@@ -167,6 +168,9 @@ use crafting::*;
 use daily_journal::*;
 use discovery_pipeline::*;
 use entity_context::*;
+use event_replay_store::{
+    insert_world_events, insert_world_events_strict, read_event_store_tail_for_locations,
+};
 use first_tale::*;
 use first_tale_presentations::*;
 use generated_places::*;
@@ -21647,19 +21651,25 @@ async fn events_view(
     if let Some(path) = state.event_store_path.as_deref() {
         let stored = if query.after.is_some() {
             read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)
+                .map(|events| (events, through_seq))
         } else {
-            read_event_store(path, None, MAX_EVENT_STORE_SCAN)
+            read_event_store_tail_for_locations(path, &visible_locations, through_seq, replay_limit)
         };
         match stored {
-            Ok(events) => {
+            Ok((events, stored_through_seq)) => {
                 state.record_event_store_read_success();
-                return Json(event_replay_response(
+                let mut response = event_replay_response(
                     events,
                     query.after,
                     through_seq,
                     replay_limit,
                     &visible_locations,
-                ));
+                );
+                if query.after.is_none() {
+                    response.next_after = stored_through_seq;
+                    response.caught_up = stored_through_seq >= through_seq;
+                }
+                return Json(response);
             }
             Err(error) => {
                 state.record_event_store_read_failure(&error);
@@ -21717,10 +21727,6 @@ fn event_replay_response(
     }
 
     if after.is_none() {
-        let next_after = raw_events
-            .last()
-            .map(|event| event.seq)
-            .unwrap_or(through_seq);
         let visible = raw_events
             .into_iter()
             .filter(|event| event_visible_to_locations(event, visible_locations))
@@ -21729,9 +21735,9 @@ fn event_replay_response(
             world_id: OFFICIAL_WORLD_ID.to_string(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
             events: tail_event_replay(visible, replay_limit),
-            next_after,
+            next_after: through_seq,
             through_seq,
-            caught_up: next_after >= through_seq,
+            caught_up: true,
         };
     }
 
@@ -33910,7 +33916,7 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
 
 /// Schema version stamped after DDL runs. Bump it when a table is added so
 /// existing stores self-heal once on their next initialization.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 4;
+const EVENT_STORE_SCHEMA_VERSION: i64 = 5;
 
 /// Ensures the schema exists without taking its write lock on steady-state
 /// commits. Missing, replaced, and older stores rerun the idempotent DDL.
@@ -33951,6 +33957,8 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
             world_id TEXT NOT NULL DEFAULT 'world://cosyworld/official',
             world_epoch INTEGER NOT NULL DEFAULT 1,
             event_type TEXT NOT NULL,
+            location_id INTEGER,
+            destination_location_id INTEGER,
             payload_json TEXT NOT NULL,
             created_at_ms INTEGER NOT NULL
         );
@@ -34156,6 +34164,26 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
         "world_epoch",
         "ALTER TABLE world_events ADD COLUMN world_epoch INTEGER NOT NULL DEFAULT 1",
     )?;
+    ensure_sqlite_column(
+        &conn,
+        "world_events",
+        "location_id",
+        "ALTER TABLE world_events ADD COLUMN location_id INTEGER",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "world_events",
+        "destination_location_id",
+        "ALTER TABLE world_events ADD COLUMN destination_location_id INTEGER",
+    )?;
+    conn.execute(
+        "UPDATE world_events SET
+            location_id = json_extract(payload_json, '$.location_id'),
+            destination_location_id = json_extract(payload_json, '$.destination_location_id')
+         WHERE location_id IS NULL AND destination_location_id IS NULL",
+        [],
+    )
+    .map_err(sqlite_error)?;
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_world_events_canonical_identity
          ON world_events(world_id, world_epoch, seq)",
@@ -34166,6 +34194,13 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_world_events_canonical_type_seq
          ON world_events(world_id, world_epoch, event_type, seq)",
         [],
+    )
+    .map_err(sqlite_error)?;
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_world_events_canonical_location_seq
+            ON world_events(world_id, world_epoch, location_id, seq);
+         CREATE INDEX IF NOT EXISTS idx_world_events_canonical_destination_seq
+            ON world_events(world_id, world_epoch, destination_location_id, seq);",
     )
     .map_err(sqlite_error)?;
     init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
@@ -34913,79 +34948,6 @@ fn append_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
         )?;
     }
     tx.commit().map_err(sqlite_error)?;
-    Ok(())
-}
-
-fn insert_world_events(conn: &Connection, events: &[EventView]) -> io::Result<()> {
-    let mut stmt = conn
-        .prepare(
-            "INSERT OR IGNORE INTO world_events
-             (seq, world_id, world_epoch, event_type, payload_json, created_at_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        )
-        .map_err(sqlite_error)?;
-    let now = now_millis();
-    for event in events.iter().filter(|event| event.seq > 0) {
-        if event.world_id != OFFICIAL_WORLD_ID || event.world_epoch != OFFICIAL_WORLD_EPOCH {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "world event does not belong to the active canonical epoch",
-            ));
-        }
-        let mut persisted = event.clone();
-        persisted.refresh_content_context();
-        let payload = serde_json::to_string(&persisted)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        stmt.execute(params![
-            event.seq as i64,
-            event.world_id,
-            event.world_epoch as i64,
-            event.type_name,
-            payload,
-            now as i64,
-        ])
-        .map_err(sqlite_error)?;
-    }
-    Ok(())
-}
-
-fn insert_world_events_strict(conn: &Connection, events: &[EventView]) -> io::Result<()> {
-    let mut stmt = conn
-        .prepare(
-            "INSERT INTO world_events
-             (seq, world_id, world_epoch, event_type, payload_json, created_at_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        )
-        .map_err(sqlite_error)?;
-    let now = now_millis();
-    for event in events.iter().filter(|event| event.seq > 0) {
-        if event.world_id != OFFICIAL_WORLD_ID || event.world_epoch != OFFICIAL_WORLD_EPOCH {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "world event does not belong to the active canonical epoch",
-            ));
-        }
-        let mut persisted = event.clone();
-        persisted.refresh_content_context();
-        let payload = serde_json::to_string(&persisted)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        let inserted = stmt
-            .execute(params![
-                event.seq as i64,
-                event.world_id,
-                event.world_epoch as i64,
-                event.type_name,
-                payload,
-                now as i64,
-            ])
-            .map_err(sqlite_error)?;
-        if inserted != 1 {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                format!("canonical world event {} already exists", event.seq),
-            ));
-        }
-    }
     Ok(())
 }
 
