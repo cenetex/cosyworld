@@ -12901,6 +12901,17 @@ async function main() {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const selector = ".shell,.topbar,.terminal,.room,.room-log-toggle,.journal-view,.journal-heading,.journal-stream,.journal-row,.journal-row-summary,.room-memory,.room-avatar-pfp,.chat-pfp,.updates,.log,.line,.speaker,.text,.status,.prompt,.cmd,.thumb,.location-pill";
+      const hasScrollableAncestor = (node, axis) => {
+        for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor);
+          const overflowStyle = axis === "x" ? style.overflowX : style.overflowY;
+          if (!["auto", "scroll"].includes(overflowStyle)) continue;
+          const scrollSize = axis === "x" ? ancestor.scrollWidth : ancestor.scrollHeight;
+          const clientSize = axis === "x" ? ancestor.clientWidth : ancestor.clientHeight;
+          if (scrollSize > clientSize + 1) return true;
+        }
+        return false;
+      };
       return [...document.querySelectorAll(selector)]
         .filter((node) => {
           const style = getComputedStyle(node);
@@ -12911,7 +12922,8 @@ async function main() {
           const rect = node.getBoundingClientRect();
           return {
             selector: node.id ? `#${node.id}` : node.className || node.tagName,
-            inScrollableLog: Boolean(node.closest("#log, .journal-stream")),
+            inHorizontalScroller: hasScrollableAncestor(node, "x"),
+            inVerticalScroller: hasScrollableAncestor(node, "y"),
             left: rect.left,
             right: rect.right,
             top: rect.top,
@@ -12921,9 +12933,8 @@ async function main() {
           };
         })
         .find((rect) => (
-          rect.left < -1
-          || rect.right > viewportWidth + 1
-          || (!rect.inScrollableLog && (rect.top < -1 || rect.bottom > viewportHeight + 1))
+          (!rect.inHorizontalScroller && (rect.left < -1 || rect.right > viewportWidth + 1))
+          || (!rect.inVerticalScroller && (rect.top < -1 || rect.bottom > viewportHeight + 1))
         ));
     });
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);

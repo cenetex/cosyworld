@@ -168,8 +168,19 @@ jobs:
           pandoc --version
           epubcheck --version
 
+      - name: Restore Playwright browsers
+        id: publication-playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium system dependencies
+        run: npx playwright install-deps chromium
+
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        if: steps.publication-playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
 
       - name: Build and validate the guide
         run: npm run docs:dm-guide:check
