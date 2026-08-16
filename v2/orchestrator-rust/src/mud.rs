@@ -63,7 +63,7 @@ pub(crate) struct ResolvedCommand {
 #[derive(Clone, Debug)]
 pub(crate) enum CommandDispatch {
     Pass {
-        offer_id: String,
+        think: ActionHandPassView,
     },
     Read {
         output: String,
@@ -275,7 +275,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
     match verb {
         "l" | "look" | "examine" | "inspect" => "look",
         "search" | "find" => "search",
-        "i" | "inv" | "inventory" | "deck" => "inventory",
+        "i" | "inv" | "inventory" | "deck" | "pack" => "inventory",
         "who" | "where" => "who",
         "go" | "move" | "travel" => "go",
         "open" | "unlock" | "unseal" => "open",
@@ -318,7 +318,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "unwear" | "unequip" | "remove" => "unwear",
         "wield" | "sling" => "equip-item",
         "unwield" | "unsling" => "unequip-item",
-        "stow" | "pack" => "stow",
+        "stow" => "stow",
         "unstow" | "unpack" => "unstow",
         "skill" | "train" | "practice" => "skill",
         "bond" | "relationship" | "friendship" => "bond",
@@ -499,7 +499,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         return "That choice got lost before the room could answer. Try once more.".to_string();
     }
     match &resolved.dispatch {
-        CommandDispatch::Pass { .. } => "That Pass is no longer current. Refresh the scene.",
+        CommandDispatch::Pass { .. } => "That Think is no longer current. Refresh the scene.",
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
         CommandDispatch::Scout { .. } => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
@@ -545,19 +545,19 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         }
         CommandDispatch::Rest => "You are already fresh enough to keep going.",
         CommandDispatch::UnlockCharmSlot => {
-            "That loadout need changed. Check Deck & Loadout for a specific charm."
+            "That loadout need changed. Check Pack & Loadout for a specific charm."
         }
         CommandDispatch::SetCharmEquipped { .. } => {
-            "That charm loadout changed while you were choosing. Check your carried deck."
+            "That charm loadout changed while you were choosing. Check your Pack."
         }
         CommandDispatch::SetSpellPrepared { .. } => {
-            "That spell loadout changed while you were choosing. Check your spell deck."
+            "That spell loadout changed while you were choosing. Check Prepared spells."
         }
         CommandDispatch::SetItemEquipped { .. } => {
-            "That equipment slot changed while you were choosing. Check your deck."
+            "That equipment slot changed while you were choosing. Check your Pack."
         }
         CommandDispatch::SetItemContained { .. } => {
-            "Those container contents changed while you were choosing. Check your deck."
+            "Those container contents changed while you were choosing. Check your Pack."
         }
         CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
         CommandDispatch::Chat { .. } => "That conversation is no longer within reach.",
@@ -823,7 +823,8 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
         | "transfer.offer_unchanged"
         | "gift.requested"
         | "actor.safety_changed" => event.content.clone(),
-        "hand.shuffled" => Some("You draw a new hand.".to_string()),
+        "hand.shuffled" => Some("Your Story Hand changes.".to_string()),
+        "hand.thought" => Some("You Think and replace one card.".to_string()),
         "feature.searched" => Some(format!(
             "You search {}.",
             event_content_part(event, 0).unwrap_or("a room feature")
@@ -967,11 +968,11 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.item_name.as_deref().unwrap_or("a skill charm")
         )),
         "spell.prepared" => Some(format!(
-            "You prepare {} in your spell deck.",
+            "You prepare {} in Prepared spells.",
             event.item_name.as_deref().unwrap_or("a spell card")
         )),
         "spell.unprepared" => Some(format!(
-            "You remove {} from your prepared spell deck.",
+            "You remove {} from Prepared spells.",
             event.item_name.as_deref().unwrap_or("a spell card")
         )),
         "item.equipped" => Some(format!(
@@ -1367,7 +1368,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, pack, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1453,7 +1454,7 @@ impl RuntimeWorld {
                         action: None,
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Deck & Loadout offers bracelet space only when every current slot is full, you carry a specific unworn charm, earned advancement is ready, and the bracelet is below its cap.".to_string(),
+                            output: "Pack & Loadout offers bracelet space only when every current slot is full, you carry a specific unworn charm, earned advancement is ready, and the bracelet is below its cap.".to_string(),
                         },
                     });
                 };
@@ -2812,7 +2813,7 @@ impl RuntimeWorld {
                 action: None,
                 dispatch: CommandDispatch::Disabled {
                     status: 400,
-                    output: "Free redeal retired. Use the current Think/Pass certificate to commit this hand.".to_string(),
+                    output: "Whole-hand redeals are retired. Use Think on the card you want to replace.".to_string(),
                 },
             }),
             "bank" => {
@@ -3248,7 +3249,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that one yet. Try help, look, search, who, go, take, give, chat, listen, practice, purpose, friendship, remember, rest, pass, need time, or more.",
+                "I do not know that one yet. Try help, look, search, who, go, take, give, chat, listen, practice, purpose, friendship, remember, rest, think, need time, or pack.",
             )),
         }
     }
@@ -3576,20 +3577,20 @@ impl RuntimeWorld {
             .map(|item| item.name.clone())
             .collect::<Vec<_>>();
         let carried = if items.is_empty() {
-            "Your carried deck is empty.".to_string()
+            "Your Pack is empty.".to_string()
         } else {
             let capacity = deck.carrying_capacity_tenths;
             let weight = deck.carried_weight_tenths;
             let carried = command_list_or_none(&items);
             if capacity > 0 && weight >= capacity {
                 format!(
-                    "You carry {carried}. Your carried deck is at {:.1}/{:.1} lb.",
+                    "Your Pack holds {carried}. It is at {:.1}/{:.1} lb.",
                     weight as f64 / 10.0,
                     capacity as f64 / 10.0
                 )
             } else {
                 format!(
-                    "You carry {carried} ({:.1}/{:.1} lb).",
+                    "Your Pack holds {carried} ({:.1}/{:.1} lb).",
                     weight as f64 / 10.0,
                     capacity as f64 / 10.0
                 )
@@ -3624,10 +3625,10 @@ impl RuntimeWorld {
         let exhausted = if exhausted_summary.is_empty() {
             String::new()
         } else {
-            format!(" Exhausted: {exhausted_summary}.")
+            format!(" Spent: {exhausted_summary}.")
         };
         format!(
-            "{carried} Bracelet: {}/{} charm slots ({charm_summary}). Spell deck: {}/{} prepared ({prepared_summary}).{exhausted}",
+            "{carried} Bracelet: {}/{} charm slots ({charm_summary}). Prepared spells: {}/{} ({prepared_summary}).{exhausted}",
             deck.equipped_charms.len(),
             deck.bracelet_slots,
             deck.prepared_spell_cards.len(),

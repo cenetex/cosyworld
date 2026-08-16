@@ -1406,6 +1406,120 @@ mod tests {
             .any(|event| event.type_name == "message.created"));
     }
 
+    #[tokio::test]
+    async fn moving_during_opening_inference_completes_chat_without_a_false_failure() {
+        let inference_started = Arc::new(Notify::new());
+        let inference_released = Arc::new(Notify::new());
+        let released = Arc::new(AtomicU8::new(0));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let inference_started = inference_started.clone();
+                let inference_released = inference_released.clone();
+                let released = released.clone();
+                move |Json(_request): Json<serde_json::Value>| {
+                    let inference_started = inference_started.clone();
+                    let inference_released = inference_released.clone();
+                    let released = released.clone();
+                    async move {
+                        inference_started.notify_one();
+                        while released.load(AtomicOrdering::SeqCst) == 0 {
+                            inference_released.notified().await;
+                        }
+                        Json(serde_json::json!({
+                            "model": "test-chat-model",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": {
+                                    "content": "I found a quiet minute. How is the cottage treating you?"
+                                }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind moving Chat inference server");
+        let address = listener
+            .local_addr()
+            .expect("moving Chat inference server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
+        let plan = {
+            let mut runtime = state.inner.lock().await;
+            create_test_human(
+                &mut runtime,
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                "Inference Tester",
+            );
+            runtime
+                .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+                .expect("co-present inference resident is a Chat target")
+        };
+
+        let worker_state = state.clone();
+        let worker = tokio::spawn(async move {
+            complete_queued_orb_chat(
+                &worker_state,
+                5000,
+                RATI_ACTOR_ID,
+                plan,
+                Some(71),
+                Some(10),
+                Some(70),
+            )
+            .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), inference_started.notified())
+            .await
+            .expect("opening inference starts");
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            runtime.world.actors[..actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == 5000)
+                .expect("Chat initiator exists")
+                .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        }
+        released.store(1, AtomicOrdering::SeqCst);
+        inference_released.notify_waiters();
+
+        tokio::time::timeout(Duration::from_secs(10), worker)
+            .await
+            .expect("moved Chat worker finishes")
+            .expect("moved Chat worker joins")
+            .expect("moving ends the queued Chat cleanly");
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.completed"
+                && event.caused_by_event_seq == Some(71)
+                && event.content.as_deref() == Some("the conversation moved out of reach")
+        }));
+        assert!(!runtime.event_log.iter().any(|event| {
+            matches!(event.type_name.as_str(), "chat.retrying" | "chat.failed")
+                && event.caused_by_event_seq == Some(71)
+        }));
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created" && event.caused_by_event_seq == Some(71)
+        }));
+        drop(runtime);
+        server.abort();
+    }
+
     /// The scripted exchange the fake provider plays back, in order. Turn
     /// selection reads the transcript already in the prompt rather than a call
     /// counter, because voice routing asks the provider more than once per

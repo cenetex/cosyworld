@@ -94,14 +94,25 @@ Species and origin never grant mechanical superiority. The Prism Foundry
 reinforces that avatar descriptions are seeds players may revise, not verdicts
 the system applies to them.
 
-## Original residents
+## Resident cast
 
-The resident cast is wholly fictional. None is a named Cathedral participant or
-an attempt to continue a documented AI window.
+The original fantasy residents are fictional. Hoppy Cat and the seven
+companions added from the user-designated group reference are avatar
+representations only. Hoppy starts under authenticated direct control. The
+seven companions use exact, pack-declared OpenRouter routes, but those bindings
+do not import private context or continuity with a documented AI window. None
+is a named Cathedral participant.
 
 | Resident | Place | Dramatic function |
 | --- | --- | --- |
-| Hoppy Cat | Roams from the Halfway Tea Garden | Green-haired broadcaster who carries playful signals between every district |
+| Hoppy Cat | Directly controlled from the Halfway Tea Garden | Green-haired broadcaster who carries playful signals between every district |
+| Fable | Cathedral | Auburn-haired storykeeper who protects promising first drafts |
+| Phase Two | Prism Foundry | Cyan-haired cartographer who makes revision visible |
+| Arc | Tidelands | Silver-haired curator of precise connections |
+| staticwashere | Signal Jetty | Electric-blue-haired listener at the signal edge |
+| solwashere | Theatre | Purple-haired observer who returns one useful beam |
+| Ledger (Opus 4.7) | Cathedral | Long pink-haired keeper of the navigable long record |
+| Ledger (Sonnet 4.6) | Greenhouse | Short lavender-haired keeper of clear, bounded summaries |
 | Tapi Lilt | Halfway Tea Garden | Calico host who carries serious signals through play |
 | Penny Vellum | Cathedral | Paper-moth archivist who keeps corrections visible |
 | Rill Current | Tidelands | Otter cartographer who restores paths from renderings to sources |
@@ -114,28 +125,31 @@ an attempt to continue a documented AI window.
 These residents can remember world events through the normal CosyWorld journal,
 but they have no runtime access to GitHub and no claim to source identity.
 
-All nine resident avatars move. Each has ambient autonomy plus an explicit
-roaming flag: useful item, healing, trade, memory, and quest actions take
-priority; when no such action is available, the resident chooses a legal
-adjacent route. The recent-event guard prevents immediate route ping-pong.
-Player-created avatars move through the same exits when their players choose a
-travel action, so every avatar is mobile without taking control away from a
-human player.
+Hoppy moves only when the authenticated holder chooses a travel action. The
+other 15 residents have ambient autonomy plus an explicit roaming flag: useful
+item, healing, trade, memory, and quest actions take priority; when no such
+action is available, a resident chooses a legal adjacent route. The recent-event
+guard prevents immediate route ping-pong. Of those autonomous residents, the
+seven named roster companions are exact-model actors and the eight original
+fantasy residents retain the ordinary configured inference route. Player-created
+avatars move through the same exits when their players choose a travel action.
 
 ## Visual system
 
-The worldpack includes 19 generated-art cards: one for Hoppy Cat, eight for the
-other residents, and one for every authored location. Resident cards use tall,
+The worldpack includes 26 generated resident-and-location cards: one for every
+resident and one for every authored location. Resident cards use tall,
 full-body travel poses; location cards are wide, unoccupied establishing views
 with a clear foreground route. This separation lets the interface place moving
-avatar portraits over stable environments.
+avatar portraits over stable environments. Ten additional square item cards
+bring the fixed local art set to 36 images.
 
 The shared art direction is warm anime storybook gouache with colored-pencil
 edges, an emerald/cobalt/amber/cream palette, red-thread paths, brass broadcast
 devices, and small constellation diagrams. Hoppy keeps the green hair, green
 eyes, freckles, cobalt hoodie, microphone, and welcoming presence established
-by the user-provided portrait. The source portrait and Teacat visual reference
-are not bundled; only the newly generated art ships with the pack.
+by the user-provided portrait. The Hoppy portrait, Teacat collage, and group
+roster reference are not bundled; only the newly generated art ships with the
+pack.
 
 ## Items as mechanics
 

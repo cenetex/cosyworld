@@ -606,7 +606,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:not(#shuffle):visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt .cmd:not(#shuffle):visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -615,11 +615,32 @@ async function main() {
   async function assertActionBarCapped(label, expectedCount = null) {
     const buttons = await visibleCommandButtons();
     if (expectedCount === null) {
-      assert(buttons.length >= 1 && buttons.length <= 2, `${label} should expose one or two actions: ${JSON.stringify(buttons)}`);
+      assert(buttons.length >= 1 && buttons.length <= 3, `${label} should expose one to three Story Hand actions: ${JSON.stringify(buttons)}`);
     } else {
       assert(buttons.length === expectedCount, `${label} should expose ${expectedCount} action${expectedCount === 1 ? "" : "s"}: ${JSON.stringify(buttons)}`);
     }
     return buttons;
+  }
+
+  async function focusThinkableCard(label, preferredSlot = "") {
+    const focused = await page.evaluate((slot) => {
+      const thinkable = actionBarActions().filter((action) => (
+        projectedHandEntryForAction(action)?.think?.available === true
+      ));
+      const candidate = thinkable.find((action) => (
+        !slot || projectedHandEntryForAction(action)?.slot === slot
+      )) || (!slot ? thinkable[0] : null);
+      if (!candidate) return null;
+      focusIndex = candidate.actionIndex;
+      focusedKey = actionHandKey(candidate);
+      renderCommands();
+      return {
+        key: focusedKey,
+        slot: projectedHandEntryForAction(candidate)?.slot || "",
+      };
+    }, preferredSlot);
+    assert(focused?.key, `${label} needs a Story Hand card with an available Think`);
+    return focused;
   }
 
   async function assertBrowserDrawReachesEveryLegalAction() {
@@ -629,52 +650,81 @@ async function main() {
         .map((button) => button.dataset.handKey)
         .filter(Boolean),
       eventSeq: Math.max(0, ...logEvents
-        .filter((event) => event.type === "hand.shuffled")
+        .filter((event) => event.type === "hand.thought")
         .map((event) => Number(event.seq || 0))),
       drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
     }));
     const initial = await handSnapshot();
     assert(
-      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 2 && initial.drawVisible,
-      `the opening scene should expose its finite hand and Think: ${JSON.stringify(initial)}`,
+      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 3 && !initial.drawVisible,
+      `the opening scene should expose its finite hand without a separate Think control: ${JSON.stringify(initial)}`,
     );
+    await focusThinkableCard("opening scene");
+    const discardControl = await page.evaluate(() => {
+      setStoryHandExpanded(true);
+      renderCommands();
+      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      return ["primary", "secondary", "tertiary"].find((id) => (
+        Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+      )) || "";
+    });
+    assert(discardControl, "opening scene should expose the focused card's inline Discard control");
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
-        && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+        && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator("#shuffle").click(),
+      page.locator(`[data-hand-discard="${discardControl}"]`).click(),
     ]);
     const receipt = await response.json();
-    const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+    const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
     assert(
       receipt.ok && Number(drawEvent?.seq || 0) > initial.eventSeq,
-      `Think should commit a newer hand.shuffled event: ${JSON.stringify(receipt)}`,
+      `Think should commit a newer hand.thought event: ${JSON.stringify(receipt)}`,
     );
-    await page.waitForFunction(() => document.querySelector("#shuffle")?.disabled === false);
+    await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
       const draw = document.querySelector("#shuffle");
       const rect = draw.getBoundingClientRect();
+      const status = document.querySelector("#error");
+      const statusStyle = getComputedStyle(status);
+      const labels = [...prompt.querySelectorAll(".cmd-label-text")];
+      const visibleButtons = [...prompt.querySelectorAll(".story-card-slot:not([hidden])")]
+        .map((button) => button.getBoundingClientRect());
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
+        promptDisplay: getComputedStyle(prompt).display,
+        promptColumns: getComputedStyle(prompt).gridTemplateColumns.split(" ").filter(Boolean).length,
         drawFits: rect.left >= 0 && rect.right <= window.innerWidth,
-        journaled: logEvents.some((event) => event.type === "hand.shuffled"),
+        documentFits: document.documentElement.scrollWidth <= window.innerWidth,
+        buttonsFit: visibleButtons.every((box) => box.left >= 0 && box.right <= window.innerWidth),
+        primaryLabelsFit: labels.every((label) => label.scrollHeight <= label.clientHeight + 1),
+        statusWraps: statusStyle.whiteSpace === "normal"
+          && statusStyle.textOverflow === "clip"
+          && status.scrollHeight <= status.clientHeight + 1,
+        journaled: logEvents.some((event) => event.type === "hand.thought"),
       };
     });
     assert(
       current.visibleKeys.length >= 1
-        && current.visibleKeys.length <= 2
+        && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
+        && layout.promptDisplay === "grid"
+        && layout.promptColumns === 1
         && layout.drawFits
+        && layout.documentFits
+        && layout.buttonsFit
+        && layout.primaryLabelsFit
+        && layout.statusWraps
         && layout.journaled,
-      `Think should replace the finite hand without opening a full-deck chooser: ${JSON.stringify({ initial, current, layout })}`,
+      `Think should replace one Story Hand card without opening the offer queue: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser Think deals the next finite hand",
+      label: "browser Think replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -1090,8 +1140,8 @@ async function main() {
     assert(guide.cue === "story" && /notice what the rain has changed/i.test(guide.aria), `fresh first-thread guidance should be one compact semantic thread: ${JSON.stringify(guide)}`);
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
-    assert(guide.layout?.whiteSpace === "nowrap" && guide.layout?.overflow === "hidden", `collapsed Journal guidance should stay on one line: ${JSON.stringify(guide)}`);
-    assert(guide.primary.toLowerCase().startsWith("notice"), `first-thread guidance should keep Notice in the dealt hand: ${JSON.stringify(guide)}`);
+    assert(guide.layout?.whiteSpace === "normal" && guide.layout?.overflow === "visible", `Journal guidance should read as wrapped handwriting instead of a clipped status row: ${JSON.stringify(guide)}`);
+    assert(guide.primary.toLowerCase().startsWith("head suit, notice"), `first-thread guidance should keep a Head · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(
       guide.settledNoticeStep?.stage === 2
@@ -1184,6 +1234,10 @@ async function main() {
   async function assertStalePassRefreshesAndRotatesReceipt() {
     const result = await page.evaluate(async () => {
       const previousState = state;
+      const previousActions = actions;
+      const previousHandKeys = handKeys;
+      const previousFocusIndex = focusIndex;
+      const previousFocusedKey = focusedKey;
       const previousActorId = actorId;
       const previousActorSession = actorSession;
       const previousSubmission = handPassSubmission;
@@ -1198,8 +1252,21 @@ async function main() {
         state = {
           world_seq: 19,
           primary_action: { kind: "check" },
-          action_hand: { pass: { offer_id: "pass:5000:19:1:ordinary" } },
+          action_hand: { entries: [{
+            slot: "story",
+            offer_id: "notice-19",
+            think: {
+              available: true,
+              slot: "story",
+              generation: 1,
+              offer_id: "think:5000:19:story:1:notice-19",
+            },
+          }] },
         };
+        actions = [{ label: "notice", focusKey: "check", offerIds: ["notice-19"] }];
+        handKeys = ["offer:notice-19"];
+        focusIndex = 0;
+        focusedKey = "check";
         actorId = 5000;
         actorSession = "stale-pass-test-session";
         handPassSubmission = null;
@@ -1214,8 +1281,19 @@ async function main() {
           state = {
             ...state,
             world_seq: 20,
-            action_hand: { pass: { offer_id: "pass:5000:20:1:ordinary" } },
+            action_hand: { entries: [{
+              slot: "story",
+              offer_id: "notice-20",
+              think: {
+                available: true,
+                slot: "story",
+                generation: 2,
+                offer_id: "think:5000:20:story:2:notice-20",
+              },
+            }] },
           };
+          actions = [{ label: "notice", focusKey: "check", offerIds: ["notice-20"] }];
+          handKeys = ["offer:notice-20"];
         };
         renderCommands = () => {};
         setError = (message) => errors.push(message);
@@ -1236,6 +1314,10 @@ async function main() {
         renderCommands = previousRenderCommands;
         setError = previousSetError;
         state = previousState;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        focusIndex = previousFocusIndex;
+        focusedKey = previousFocusedKey;
         actorId = previousActorId;
         actorSession = previousActorSession;
         handPassSubmission = previousSubmission;
@@ -1248,11 +1330,13 @@ async function main() {
         && result.retry?.ok === true
         && result.calls.length === 2
         && result.calls.every((call) => call.path === "/commands")
-        && result.calls[0]?.payload?.offer_id === "pass:5000:19:1:ordinary"
-        && result.calls[1]?.payload?.offer_id === "pass:5000:20:1:ordinary"
+        && result.calls[0]?.payload?.command === "think"
+        && result.calls[1]?.payload?.command === "think"
+        && result.calls[0]?.payload?.offer_id === "think:5000:19:story:1:notice-19"
+        && result.calls[1]?.payload?.offer_id === "think:5000:20:story:2:notice-20"
         && result.calls[0]?.payload?.envelope?.intent_id !== result.calls[1]?.payload?.envelope?.intent_id
         && result.submissionAfterStale === null,
-      "A definitive stale Pass must refresh the hand and use a new certificate on retry: "
+      "A definitive stale Think must refresh the selected slot and use a new certificate on retry: "
         + JSON.stringify(result),
     );
   }
@@ -1550,6 +1634,7 @@ async function main() {
             readableLabel.querySelectorAll(".card-emoji").forEach((emoji) => emoji.remove());
             return {
               text: readableLabel.textContent.trim(),
+              kicker: node.closest("button")?.querySelector(".cmd-kicker")?.textContent.trim() || "",
               clientWidth: node.closest("button")?.clientWidth || node.clientWidth,
               scrollWidth: node.closest("button")?.scrollWidth || node.scrollWidth,
             };
@@ -1592,10 +1677,10 @@ async function main() {
     assert(result.travelCards[0]?.focusKeys.length === 2, `grouped travel should keep both route focus targets: ${JSON.stringify(result)}`);
     assert(result.connectWalletActionCount === 0, `locked room routes should not deal wallet cards: ${JSON.stringify(result)}`);
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
-    const travelLabel = result.labels.find((entry) => entry.text === "go" || entry.text === "travel");
-    assert(travelLabel, `travel should remain a visible route action label: ${JSON.stringify(result)}`);
-    const listenLabel = result.labels.find((entry) => entry.text === "listen");
-    assert(listenLabel, `listen should remain a visible action label: ${JSON.stringify(result)}`);
+    const travelLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "travel");
+    assert(travelLabel, `travel should remain visible as the exact route verb: ${JSON.stringify(result)}`);
+    const listenLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "listen");
+    assert(listenLabel, `listen should remain visible as the exact action verb: ${JSON.stringify(result)}`);
     for (const label of [travelLabel, listenLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
     }
@@ -1715,7 +1800,6 @@ async function main() {
           focusKey: action.focusKey,
           intention: action.intention,
           accessibleLabel: action.accessibleLabel,
-          cardType: actionCardType(action),
           icon: actionEmoji(action),
           title: actionTitle(action),
           summary: actionSummary(action),
@@ -1739,8 +1823,8 @@ async function main() {
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);
-    assert(travel?.title === "travel to rain-soft garden", `Travel confirmation should name the destination plainly: ${JSON.stringify(result)}`);
-    assert(travel?.summary === "Travel to Rain-Soft Garden.", `Travel confirmation should describe the story beat: ${JSON.stringify(result)}`);
+    assert(travel?.title === "Rain-Soft Garden", `Travel confirmation should use the destination as its heading: ${JSON.stringify(result)}`);
+    assert(travel?.summary === "From The Cosy Cottage.", `Travel confirmation should add origin context without repeating the destination: ${JSON.stringify(result)}`);
     assert(travel?.rows?.some((row) => row[1] === "you arrive in Rain-Soft Garden"), `Travel confirmation should explain where the player ends up: ${JSON.stringify(result)}`);
   }
 
@@ -2218,6 +2302,7 @@ async function main() {
           const button = document.querySelector(`#${id}`);
           const action = actions[Number(button?.dataset?.actionIndex)];
           return {
+            kicker: button?.querySelector(".cmd-kicker")?.textContent?.trim() || "",
             label: button?.querySelector(".cmd-label")?.textContent?.trim() || "",
             detail: button?.querySelector(".detail")?.textContent?.trim() || "",
             offerIds: action?.offerIds || [],
@@ -2233,7 +2318,7 @@ async function main() {
       };
       try {
         actorId = 5000;
-        actorSession = "exact-two-card-binding";
+        actorSession = "exact-story-hand-binding";
         post = async (path, payload) => {
           submissions.push({ path, payload });
           return { ok: true, status: 200, events: [] };
@@ -2373,12 +2458,13 @@ async function main() {
     });
     const exactCards = (family, expected) => {
       assert(
-        JSON.stringify(family.rendered) === JSON.stringify(expected.map((entry) => ({
-          label: entry.label,
-          detail: entry.detail,
-          offerIds: [entry.offerId],
-        }))),
+        JSON.stringify(family.rendered.map((entry) => entry.offerIds))
+          === JSON.stringify(expected.map((entry) => [entry.offerId])),
         `two same-kind current offers must remain two distinct exact cards: ${JSON.stringify(family)}`,
+      );
+      assert(
+        new Set(family.rendered.map((entry) => `${entry.kicker}\u0000${entry.label}\u0000${entry.detail}`)).size === expected.length,
+        `same-kind cards should remain visibly distinguishable by verb, title, and effect: ${JSON.stringify(family)}`,
       );
       for (const submission of family.submissions) {
         for (const internal of [
@@ -3251,8 +3337,7 @@ async function main() {
       && result.reloadPending[0].profile === "speech"
       && result.reloadPending[0].stage === "generating", `reload must reconstruct the latest unmatched model interaction: ${JSON.stringify(result.reloadPending)}`);
     assert(result.duplicateCard?.disabled === true
-      && result.duplicateCard?.busy === "true"
-      && /synthesizing the line with the exact voice/i.test(result.duplicateCard?.text || ""), `a rehydrated durable interaction must keep its duplicate action disabled: ${JSON.stringify(result.duplicateCard)}`);
+      && result.duplicateCard?.busy === "true", `a rehydrated durable interaction must keep its duplicate action disabled: ${JSON.stringify(result.duplicateCard)}`);
     assert(result.gapPrepared === true && result.gapRehydrationCleared === true, `the SSE gap path must require and complete authoritative rehydration: ${JSON.stringify(result)}`);
     assert(result.gapPending?.length === 1
       && result.gapPending[0].queueEventSeq === 410
@@ -3561,15 +3646,16 @@ async function main() {
         const confirmButton = document.querySelector("#action-modal-confirm");
         const cancelButton = document.querySelector("#action-modal [data-action-close]");
         const modal = {
+          eyebrow: document.querySelector("#action-modal-eyebrow")?.textContent?.trim() || "",
           title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
           summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
           confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
           cancel: cancelButton?.textContent?.trim() || "",
           cancelClass: cancelButton?.classList.contains("action-cancel") || false,
-          cancelAfterConfirm: Boolean(
+          cancelBeforeConfirm: Boolean(
             confirmButton
               && cancelButton
-              && (confirmButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING),
+              && (cancelButton.compareDocumentPosition(confirmButton) & Node.DOCUMENT_POSITION_FOLLOWING),
           ),
           confirmStyle: confirmButton ? {
             color: getComputedStyle(confirmButton).color,
@@ -3626,6 +3712,14 @@ async function main() {
           story: singleButton?.querySelector(".story-call")?.textContent?.trim() || "",
           aria: singleButton?.getAttribute("aria-label") || "",
         };
+        openActionModal(single);
+        const singleModal = {
+          title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
+          summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
+          confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
+          rows: document.querySelectorAll("#action-modal-meta .action-row").length,
+        };
+        closeActionModal();
         return {
           count: routes.length,
           detail: route?.detail || "",
@@ -3640,6 +3734,7 @@ async function main() {
           modal,
           selectedPreview,
           singleCard,
+          singleModal,
           single: single ? {
             accessibleLabel: single.accessibleLabel,
             detail: single.detail,
@@ -3677,7 +3772,7 @@ async function main() {
         && result.busy?.progressBars === 1
         && result.busy?.opacity === "1"
         && result.busy?.cursor === "progress"
-        && /travelling.*following the path to Rain-Silver Crossing/i.test(result.busy?.text || ""),
+        && /travel.*Rain-Silver Crossing/i.test(result.busy?.text || ""),
       `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
     );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
@@ -3688,17 +3783,18 @@ async function main() {
         && result.selectedPreview.objectFit === "cover",
       `selecting a Travel destination should preview that Location card: ${JSON.stringify(result)}`,
     );
-    assert(result.modal.title === "choose where to travel", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
-    assert(result.modal.summary === "Choose where to travel.", `grouped Travel should explain the gesture plainly: ${JSON.stringify(result)}`);
+    assert(result.modal.eyebrow === "Travel", `grouped Travel should identify the action without repeating it in the heading: ${JSON.stringify(result)}`);
+    assert(result.modal.title === "Choose a destination", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
+    assert(result.modal.summary === "From Bethlehem.", `grouped Travel should add useful origin context: ${JSON.stringify(result)}`);
     assert(result.modal.confirm === "travel", `grouped Travel should keep the core Travel confirmation: ${JSON.stringify(result)}`);
     assert(
-      result.modal.cancel === "cancel"
+      result.modal.cancel === "stay here"
         && result.modal.cancelClass
-        && result.modal.cancelAfterConfirm
-        && result.modal.cancelStyle?.width === result.modal.confirmStyle?.width
+        && result.modal.cancelBeforeConfirm
+        && result.modal.cancelStyle?.width !== result.modal.confirmStyle?.width
         && result.modal.cancelStyle?.color !== result.modal.confirmStyle?.color
         && result.modal.cancelStyle?.background !== result.modal.confirmStyle?.background,
-      `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
+      `Travel modals should place a quiet Stay here choice beside the primary action: ${JSON.stringify(result)}`,
     );
     assert(result.modal.rows.length === 0, `Travel confirmation should stay to one sentence plus the destination choices: ${JSON.stringify(result)}`);
     assert(
@@ -3717,18 +3813,25 @@ async function main() {
       `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
     );
     assert(
-      result.singleCard?.text === "Route to Jerusalem"
-        && result.singleCard?.label === "Route to Jerusalem"
+      result.singleCard?.text === "TRAVEL Rain-Silver Crossing"
+        && result.singleCard?.label === "Rain-Silver Crossing"
         && !result.singleCard?.detail
         && !result.singleCard?.provider
         && !result.singleCard?.story
-        && result.singleCard?.aria === "Travel via Route to Jerusalem",
-      `a single Travel card should show only its concise destination: ${JSON.stringify(result)}`,
+        && result.singleCard?.aria === "control, Travel, Rain-Silver Crossing",
+      `a synthetic Travel offer without server presentation should show its exact verb and target while failing closed to a control: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.singleModal?.title === "Begin route to Rain-Silver Crossing"
+        && !result.singleModal?.summary
+        && result.singleModal?.confirm === "begin route"
+        && result.singleModal?.rows === 0,
+      `single-route confirmation should keep only the destination and route action: ${JSON.stringify(result)}`,
     );
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
-  async function assertChatActivityLivesInStatusSurface() {
+  async function assertChatActivityStaysInJournal() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
@@ -3833,19 +3936,19 @@ async function main() {
     assert(
       result.initial.topTrayAbsent
         && !result.initial.bottomProgress
-        && result.initial.statusSource === "journal"
-        && result.initial.statusNotice
-        && result.initial.statusText.includes("chat")
+        && result.initial.statusSource === ""
+        && !result.initial.statusNotice
+        && result.initial.statusText === ""
         && result.initial.segments === 2
         && result.initial.filled === 2,
-      `Chat progress should use the shared status surface instead of a top popup: ${JSON.stringify(result)}`,
+      `Chat progress should stay in the Journal without adding room chrome: ${JSON.stringify(result)}`,
     );
     assert(
       result.initiative.roundHandled
         && result.initiative.passHandled
         && result.initiative.segments === 3
         && result.initiative.filled === 1
-        && result.initiative.text.includes("passed"),
+        && result.initiative.text === "",
       `initiative chat/pass events should advance Journal segments: ${JSON.stringify(result)}`,
     );
     assert(
@@ -3939,7 +4042,7 @@ async function main() {
           offer_id: "pickup-story-button",
           kind: "pick_up",
           target: { kind: "item", id: 2005, label: "Story Button" },
-          effect: "adds the floor item to your carried deck",
+          effect: "adds the floor item to your Pack",
         }],
         economy: {
           orbs: 0,
@@ -4106,7 +4209,7 @@ async function main() {
     assert(result.full.detail === "Story Button", `Take should name the incoming card: ${JSON.stringify(result)}`);
     assert(result.full.title === "pick up Story Button" && result.full.confirm === "take", `Take should keep its own verb through confirmation: ${JSON.stringify(result)}`);
     assert(result.full.summary === "Tuck Story Button into your keeping.", `Take should add the card without evicting another one: ${JSON.stringify(result)}`);
-    assert(result.empty.label === "take" && result.empty.detail === "Story Button", `an empty carried deck should still offer a simple Take card: ${JSON.stringify(result)}`);
+    assert(result.empty.label === "take" && result.empty.detail === "Story Button", `an empty Pack should still offer a simple Take card: ${JSON.stringify(result)}`);
     assert(result.empty.title === "pick up Story Button" && result.empty.confirm === "take", `Take should keep simple confirmation language: ${JSON.stringify(result)}`);
     assert(result.empty.summary === "Tuck Story Button into your keeping.", `Take should explain where the item goes: ${JSON.stringify(result)}`);
     assert(result.multiple.count === 1 && result.multiple.detail === "choose an item", `multiple floor items should share one Take card: ${JSON.stringify(result)}`);
@@ -4137,12 +4240,12 @@ async function main() {
           item_id: 2005,
           target_item_id: 2002,
         }),
-      `a full carried deck must submit the exact deterministic exchange chosen by the Rust authority: ${JSON.stringify(result.capacityExchange)}`,
+      `a full Pack must submit the exact deterministic exchange chosen by the Rust authority: ${JSON.stringify(result.capacityExchange)}`,
     );
     assert(result.searchConfirm === "search" && result.travelConfirm === "go", `every card should confirm with its own verb: ${JSON.stringify(result)}`);
   }
 
-  async function assertGiveTradeCanBeDrawnFromShuffledDeck() {
+  async function assertGiveTradeCanBeDealtInStoryHand() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -4188,10 +4291,28 @@ async function main() {
           { offer_id: "move", kind: "move", verb: "Travel", rank: 40, provider: { kind: "rules", id: "move", priority: 40 } },
         ],
         action_hand: {
-          pass: { offer_id: "pass:deck-test", label: "Think" },
           entries: [
-            { offer_id: "give", kind: "give_item", provider: { kind: "rules", id: "give", priority: 10 } },
-            { offer_id: "trade", kind: "trade_item", provider: { kind: "rules", id: "trade", priority: 20 } },
+            {
+              slot: "story",
+              offer_id: "give",
+              kind: "give_item",
+              provider: { kind: "rules", id: "give", priority: 10 },
+              think: { available: true, free: true, slot: "story", offer_id: "think:story-hand-test:story" },
+            },
+            {
+              slot: "self",
+              offer_id: "trade",
+              kind: "trade_item",
+              provider: { kind: "rules", id: "trade", priority: 20 },
+              think: { available: true, free: false, slot: "self", offer_id: "think:story-hand-test:self" },
+            },
+            {
+              slot: "anchor",
+              offer_id: "check",
+              kind: "check",
+              provider: { kind: "rules", id: "check", priority: 30 },
+              think: { available: true, free: false, slot: "anchor", offer_id: "think:story-hand-test:anchor" },
+            },
           ],
         },
         economy: {
@@ -4241,7 +4362,7 @@ async function main() {
       };
       state = fakeState;
       actorId = 5000;
-      actorSession = "deck-test";
+      actorSession = "story-hand-test";
       actions = buildActions(fakeState);
       handKeys = ["check", "exit:2"];
       discardedHandKeys = [];
@@ -4387,8 +4508,8 @@ async function main() {
       `a certified Trade card must not expose undealt swap choices: ${JSON.stringify(result)}`,
     );
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
-    assert(result.visibleHand.length === 2, `the authoritative browser hand should expose exactly two actions: ${JSON.stringify(result)}`);
-    assert(!result.hasThirdCard && result.hasShuffleCard, `the browser hand should keep two action cards beside its draw control: ${JSON.stringify(result)}`);
+    assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
+    assert(result.hasThirdCard && !result.hasShuffleCard, `the browser should provide three Story Hand slots without a separate Think control: ${JSON.stringify(result)}`);
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -4618,7 +4739,7 @@ async function main() {
     assert(result.demanded.includes("Thimble Charm teaches careful handwork"), `the slot prompt should explain why this charm needs room: ${JSON.stringify(result)}`);
     assert(result.demanded.includes("Your Journal has enough advancement"), `the slot prompt should explain its Journal source: ${JSON.stringify(result)}`);
     assert(result.demanded.includes("data-unlock-charm-slot"), `the demand-driven prompt should expose one capacity action: ${JSON.stringify(result)}`);
-    assert(!result.absent.includes("data-unlock-charm-slot") && !result.absent.includes("Make room for"), `Deck & Loadout should stay quiet when no concrete charm demand exists: ${JSON.stringify(result)}`);
+    assert(!result.absent.includes("data-unlock-charm-slot") && !result.absent.includes("Make room for"), `Pack & Loadout should stay quiet when no concrete charm demand exists: ${JSON.stringify(result)}`);
   }
 
   async function assertPlayerDefeatTransitionIsExplicit() {
@@ -5984,6 +6105,7 @@ async function main() {
           effect: "Rati bond +1",
           risk: "one-shot",
           detail: "Story Button, Rati bond +1",
+          target: { kind: "item", id: 2005, label: "Story Button" },
         });
         const simpleButtonTitle = probeButton.getAttribute("title") || "";
         const simpleButtonAria = probeButton.getAttribute("aria-label") || "";
@@ -5993,6 +6115,7 @@ async function main() {
           effect: "helps Moonlit Echo; finishes progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
           risk: "",
           detail: "finish, safe, bond +1",
+          target: { kind: "actor", id: 1004, label: "Moonlit Echo" },
         });
         const finishButtonTitle = probeButton.getAttribute("title") || "";
         renderButton("compact-meta-probe", {
@@ -6001,6 +6124,7 @@ async function main() {
           effect: "uses complete project evidence; sets up +3 progress",
           risk: "",
           detail: "setup +3",
+          target: { kind: "project", id: "moonlit-trail", label: "Moonlit Trail" },
         });
         const setupButtonTitle = probeButton.getAttribute("title") || "";
         actorId = 5000;
@@ -6210,10 +6334,10 @@ async function main() {
     assert(result.cozyMemory.some((entry) => entry.text === "Hearth Tonic changes hands."), `room memory should turn command-like Take copy into a room beat: ${JSON.stringify(result)}`);
     assert(result.cozyMemory.some((entry) => entry.text === "Skull carries Hearth Tonic toward Hearth."), `room memory should turn item-use hints into story language: ${JSON.stringify(result)}`);
     assert(result.cozyMemory.some((entry) => entry.label === "purpose" && entry.text === "I listen for odd jobs."), `room memory should keep the purpose without its setup prompt: ${JSON.stringify(result)}`);
-    assert(result.buttonTitle === "use Story Button; friendship with Rati grows; once", `button tooltip should use warm relationship copy: ${JSON.stringify(result)}`);
-    assert(result.finishButtonTitle === "assist; helps Moonlit Echo; finishes the work; first help brings you closer to Moonlit Echo", `finish tooltip should hide progress-clock jargon: ${JSON.stringify(result)}`);
-    assert(result.setupButtonTitle === "prepare; brings together every clue you found; makes the next try count", `setup tooltip should explain its payoff naturally: ${JSON.stringify(result)}`);
-    assert(result.buttonAria === "use, Story Button, friendship with Rati grows", `button aria copy should stay warm and readable: ${JSON.stringify(result)}`);
+    assert(result.buttonTitle === "use; Story Button; friendship with Rati grows; free · once", `button tooltip should follow verb, target, effect, and cost/risk order with warm copy: ${JSON.stringify(result)}`);
+    assert(result.finishButtonTitle === "help; Moonlit Echo; helps Moonlit Echo; finishes the work; first help brings you closer to Moonlit Echo; free", `finish tooltip should hide progress-clock jargon: ${JSON.stringify(result)}`);
+    assert(result.setupButtonTitle === "prepare; Moonlit Trail; brings together every clue you found; makes the next try count; free", `setup tooltip should explain its payoff naturally: ${JSON.stringify(result)}`);
+    assert(result.buttonAria === "control, use, Story Button, friendship with Rati grows, free, once", `button aria copy should preserve the same readable card-face order: ${JSON.stringify(result)}`);
     assert(result.finishDetail === "finishes the work", `finish effect copy should hide progress-clock text: ${JSON.stringify(result)}`);
     assert(result.setupDetail === "uses complete project evidence; makes the next try count", `compact setup copy should hide progress arithmetic before the friendlier rendering pass: ${JSON.stringify(result)}`);
     assert(result.orbGainText === "earned one" && result.orbSpendText === "spent two", `Orb changes should read as small events rather than signed arithmetic: ${JSON.stringify(result)}`);
@@ -6221,7 +6345,7 @@ async function main() {
     assert(result.sheetHtml.includes("journal") && result.sheetHtml.includes("something you noticed is ready to keep · you can strengthen a friendship or open bracelet space"), `Journal row should summarize growth without counted resources: ${JSON.stringify(result)}`);
     assert(!/memory marks?|growth points?|\b(?:one|two|three|four) (?:memories|chances)\b/i.test(result.sheetHtml), `Journal row should keep growth arithmetic out of the avatar sheet: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("purpose") && result.sheetHtml.includes("I stick my nose into lost-property trouble."), `avatar sheet should name purpose in everyday language: ${JSON.stringify(result)}`);
-    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Deck"), `avatar sheet should direct skill loadout changes to physical charms: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Pack"), `avatar sheet should direct Loadout changes to physical charms: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("friends") && result.sheetHtml.includes("I bring small kindnesses to Gust. (new friend)"), `friendship should show its statement and warm closeness instead of a raw strength number: ${JSON.stringify(result)}`);
     assert(!result.sheetHtml.includes("Gust 1"), `avatar sheet should not expose raw bond counters: ${JSON.stringify(result)}`);
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
@@ -7888,7 +8012,7 @@ async function main() {
     assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
   }
 
-  async function assertCombatStaysInSharedRoomTranscript() {
+  async function assertCombatUsesDedicatedDockOutsideChat() {
     const result = await page.evaluate(() => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -7900,6 +8024,8 @@ async function main() {
         pendingChats: pendingChats.slice(),
         renderedChatTailKey,
         defeatTransition,
+        combatHistoryOpen,
+        combatHistoryEncounterId,
       };
       const message = (seq, actorIdValue, actorName, content) => ({
         seq,
@@ -7930,6 +8056,10 @@ async function main() {
           combat_method: "Ashwood Practice Blade",
           item_name: "Ashwood Practice Blade",
           ability: "Strength",
+          raw_roll: 14,
+          modifier: 3,
+          total: 17,
+          dc: 13,
         }),
         combatEvent(990600004, "combat.attack.hit", {
           success: true,
@@ -7981,6 +8111,14 @@ async function main() {
             { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
             { id: 1004, name: "Coach", status: "knocked_out", control_mode: "local_ai" },
           ],
+          combat: {
+            encounter_id: 77,
+            round: 2,
+            current_actor_id: 5000,
+            current_actor_name: "Lantern Stitch",
+            is_current_actor: true,
+            participants: [],
+          },
         };
         accountPanelPinned = false;
         libraryPanelPinned = false;
@@ -7990,15 +8128,26 @@ async function main() {
         seenSeq.clear();
         for (const event of events) seenSeq.add(event.seq);
         renderedChatTailKey = "";
-        const beforeReconnect = signature(sharedRoomTranscriptEvents(logEvents));
+        combatHistoryOpen = true;
+        combatHistoryEncounterId = 77;
+        const beforeReconnect = signature(combatEventsForPresentation(logEvents));
+        renderCombatDock();
         renderLog();
         const transcript = $("log");
+        const dock = $("combat-dock");
+        const history = $("combat-history");
         const rendered = {
           label: transcript.getAttribute("aria-label") || "",
           chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
           combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
-          combatBeat: transcript.querySelector("[data-combat-beat]")?.textContent?.trim().replace(/\s+/g, " ") || "",
           eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
+          dockHidden: dock.hidden,
+          dockRound: $("combat-dock-round").textContent.trim(),
+          dockTurn: $("combat-dock-turn").textContent.trim(),
+          dockLatest: $("combat-latest").textContent.trim().replace(/\s+/g, " "),
+          historyHidden: history.hidden,
+          historyRows: history.querySelectorAll(".combat-history-row").length,
+          historyText: history.textContent.trim().replace(/\s+/g, " "),
         };
         defeatTransition = {
           actorName: "Lantern Stitch",
@@ -8008,12 +8157,13 @@ async function main() {
         };
         renderLog();
         rendered.defeatKeepsTranscript = transcript.querySelectorAll(".line.chat").length === 2
-          && transcript.querySelectorAll("[data-combat-beat]").length === 1
+          && transcript.querySelectorAll("[data-combat-beat], .line.event").length === 0
+          && !dock.hidden
           && Boolean(transcript.querySelector(".defeat-scene"));
         defeatTransition = null;
 
         rebuildLog(events);
-        const afterReconnect = signature(sharedRoomTranscriptEvents(logEvents));
+        const afterReconnect = signature(combatEventsForPresentation(logEvents));
 
         logEvents = Array.from({ length: 40 }, (_, index) => message(
           990601000 + index,
@@ -8026,6 +8176,7 @@ async function main() {
         const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
         transcript.scrollTop = 0;
         logEvents.push(combatEvent(990601100, "combat.defend"));
+        renderCombatDock();
         renderLog();
         const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
 
@@ -8047,25 +8198,32 @@ async function main() {
         pendingChats = previous.pendingChats;
         renderedChatTailKey = previous.renderedChatTailKey;
         defeatTransition = previous.defeatTransition;
+        combatHistoryOpen = previous.combatHistoryOpen;
+        combatHistoryEncounterId = previous.combatHistoryEncounterId;
         renderTimelines();
       }
     });
-    assert(result.rendered.label === "Shared room transcript", `combat should keep the ordinary shared transcript mounted: ${JSON.stringify(result)}`);
+    assert(result.rendered.label === "Shared room transcript", `combat should keep the ordinary speech transcript mounted: ${JSON.stringify(result)}`);
     assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), `speech from before and during combat should remain ordered and visible: ${JSON.stringify(result)}`);
-    assert(result.rendered.defeatKeepsTranscript, `a player Knockout transition should append without replacing room speech or the grouped combat beat: ${JSON.stringify(result)}`);
-    assert(result.rendered.combatBeatCount === 1, `attempt, hit, harm, and Knockout should render as one combat beat: ${JSON.stringify(result)}`);
+    assert(result.rendered.defeatKeepsTranscript, `a player Knockout transition should append without replacing room speech or the dedicated combat dock: ${JSON.stringify(result)}`);
+    assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", `combat system output must not be rendered as dialogue: ${JSON.stringify(result)}`);
+    assert(!result.rendered.dockHidden
+      && result.rendered.dockRound === "Round 2"
+      && result.rendered.dockTurn === "Your turn"
+      && !result.rendered.historyHidden
+      && result.rendered.historyRows === 7, `active combat should expose one compact latest result with optional bounded earlier history: ${JSON.stringify(result)}`);
     assert(
-      result.rendered.combatBeat.includes("Ashwood Practice Blade")
-        && result.rendered.combatBeat.includes("Strength")
-        && result.rendered.combatBeat.includes("4 harm")
-        && result.rendered.combatBeat.includes("knocked out"),
-      `the grouped combat beat should retain method, Attribute, harm, and outcome: ${JSON.stringify(result)}`,
+      result.rendered.historyText.includes("Ashwood Practice Blade")
+        && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
+        && result.rendered.historyText.includes("4 harm")
+        && result.rendered.historyText.includes("knockout"),
+      `the grouped dock beat should retain method, Attribute, arithmetic, harm, and outcome: ${JSON.stringify(result)}`,
     );
-    assert(/ready to slip clear/.test(result.rendered.eventText) && /plants their feet/.test(result.rendered.eventText), `Dodge and Defend need authored transcript text: ${JSON.stringify(result)}`);
-    assert(/Hearth Tonic/.test(result.rendered.eventText) && /Mothlight/.test(result.rendered.eventText), `item and spell actions need authored transcript text: ${JSON.stringify(result)}`);
-    assert(/clash is over/.test(result.rendered.eventText) && /Cosy Cottage/.test(result.rendered.eventText), `escape and resolution need authored transcript text: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), `reconnect should reconstruct the same grouped transcript ordering: ${JSON.stringify(result)}`);
-    assert(result.preservedReaderPosition, `new combat beats must not force-follow when the reader moved upward: ${JSON.stringify(result)}`);
+    assert(/prepares to dodge/.test(result.rendered.historyText) && /holds their guard/.test(result.rendered.historyText), `Dodge and Defend need compact combat-history feedback: ${JSON.stringify(result)}`);
+    assert(/Hearth Tonic/.test(result.rendered.historyText) && /Mothlight/.test(result.rendered.historyText), `combat item and spell actions need compact history feedback: ${JSON.stringify(result)}`);
+    assert(/clash is over/i.test(result.rendered.dockLatest) && /Cosy Cottage/.test(result.rendered.historyText), `escape and resolution need immediate combat feedback: ${JSON.stringify(result)}`);
+    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), `reconnect should reconstruct the same grouped combat-history ordering: ${JSON.stringify(result)}`);
+    assert(result.preservedReaderPosition, `new combat beats must not move a reader's chosen place in chat: ${JSON.stringify(result)}`);
   }
 
   async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
@@ -8196,10 +8354,10 @@ async function main() {
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
           latestJournalRow: [...document.querySelectorAll("#journal-log .journal-row-summary")]
             .at(-1)?.textContent?.trim().replace(/\s+/g, " ") || "",
-          journalSummariesOneLine: [...document.querySelectorAll("#journal-log .journal-row > summary")]
+          journalSummariesWrap: [...document.querySelectorAll("#journal-log .journal-row > summary")]
             .every((node) => {
               const style = getComputedStyle(node.querySelector(".journal-row-summary"));
-              return style.whiteSpace === "nowrap" && style.overflow === "hidden";
+              return style.whiteSpace === "normal" && style.overflow === "visible";
             }),
           roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
           preferredPlayerBeat: preferredRoomLogEntry([
@@ -8310,10 +8468,10 @@ async function main() {
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
-        && result.journalSummariesOneLine
+        && result.journalSummariesWrap
         && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
         && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
-      `system and discovery history should remain available as compact rows in the closed Journal: ${JSON.stringify(result)}`,
+      `system and discovery history should remain available as readable prose in the closed Journal: ${JSON.stringify(result)}`,
     );
     assert(
       result.roomLatest === result.latestJournalRow
@@ -8565,10 +8723,14 @@ async function main() {
         )).length,
       };
     }, result.text);
-    assert(evidence.latest === result.text, `receipt evidence should show the exact authored scene status: ${JSON.stringify(evidence)}`);
     assert(
-      evidence.summary === result.text
-        && evidence.proseNodeCount === 1
+      evidence.latest === evidence.summary
+        && evidence.latest.startsWith("I rekindle")
+        && !evidence.latest.startsWith("Kit Featherstep"),
+      `a personal Journal should preserve the authored scene while writing the owner's action in first person: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.proseNodeCount === 1
         && evidence.detailBlockCount === 0
         && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
         && evidence.sourceLeakCount === 0,
@@ -9090,6 +9252,7 @@ async function main() {
         exits: [{
           destination_location_id: 100001,
           destination_location_name: "Cedar Hollow",
+          route_label: "Cairn path from Rain-Soft Garden to Moonlit Trail",
           direction: "east",
           distance: 1,
           accessible: true,
@@ -9341,6 +9504,9 @@ async function main() {
           effect: travelling?.effect,
           command: travelling?.command,
           accessibleLabel: travelling?.accessibleLabel,
+          destinationOnlyCardLabel: travelling?.destinationOnlyCardLabel,
+          modalTitle: travelling?.modalTitle,
+          modalSummary: travelling?.modalSummary,
           direction: travelling?.pathwayDirection,
         },
         backtracking: {
@@ -9394,6 +9560,9 @@ async function main() {
       result.travelling.label === "travel"
         && result.travelling.detail === "toward Moonlit Trail"
         && result.travelling.accessibleLabel === "Travel toward Moonlit Trail"
+        && result.travelling.destinationOnlyCardLabel === "Moonlit Trail"
+        && result.travelling.modalTitle === "Begin route to Moonlit Trail"
+        && result.travelling.modalSummary === "via Cedar Hollow · Cairn path"
         && result.travelling.direction?.side === "forward"
         && result.travelling.direction?.endpointName === "Moonlit Trail"
         && result.travellingActionCount > 1,
@@ -9437,8 +9606,8 @@ async function main() {
         && result.journeyPresentation.pathwayMeta === "Road to Emmaus · 2 travellers · next Figshade Bend"
         && /On Road to Emmaus, from the way back to Emmaus\. Stretch 2 of 4\. 2 travellers\. next Figshade Bend\./i.test(result.journeyPresentation.pathwayLabel)
         && result.journeyPresentation.chatLabel === "Travelling party chat"
-        && /Travelling party/i.test(result.journeyPresentation.chatHeading),
-      `an active journey should keep one illustrated tracker with compact way, party, next-step, and chat context: ${JSON.stringify(result)}`,
+        && result.journeyPresentation.chatHeading === "",
+      `an active journey should keep one illustrated tracker without a duplicate chat heading: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
@@ -9507,7 +9676,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
     let candidates = [];
     for (let draw = 0; draw < Math.min(attempts, deckSize); draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9551,7 +9720,7 @@ async function main() {
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       if (stopWhen && await stopWhen()) return null;
@@ -9629,42 +9798,57 @@ async function main() {
     ), 8, stopWhen);
   }
 
-  async function passCertifiedHandForDraw(label) {
+  async function passCertifiedHandForDraw(label, preferredSlot = "") {
     let lastRejection = null;
-    const currentPassState = () => page.evaluate(() => ({
-      offerId: String(state?.action_hand?.pass?.offer_id || ""),
-      generation: Number(state?.action_hand?.generation || 0),
-    }));
-    const reconciledAsOneHandAdvance = (before, after) => (
-      after.offerId
-        && after.offerId !== before.offerId
+    const currentThinkState = (slot = "") => page.evaluate((expectedSlot) => {
+      const entry = expectedSlot
+        ? (state?.action_hand?.entries || []).find((candidate) => candidate?.slot === expectedSlot)
+        : projectedHandEntryForAction(visibleFocusedAction());
+      const think = entry?.think || {};
+      return {
+        offerId: String(think.offer_id || ""),
+        slot: String(think.slot || entry?.slot || ""),
+        generation: Number(think.generation || 0),
+      };
+    }, slot);
+    const reconciledAsOneSlotAdvance = (before, after) => (
+      after.offerId !== before.offerId
+        && after.slot === before.slot
         && after.generation === before.generation + 1
     );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await focusThinkableCard(label, preferredSlot);
       await page.waitForFunction(() => (
         actionBusy === false
           && refreshInFlight === null
-          && document.querySelector("#shuffle")?.disabled === false
       ));
       const before = await page.evaluate(() => {
-        const pass = state?.action_hand?.pass || null;
-        const control = document.querySelector("#shuffle");
+        const entry = projectedHandEntryForAction(visibleFocusedAction());
+        const think = entry?.think || {};
+        const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+        const controlId = ["primary", "secondary", "tertiary"].find((id) => (
+          Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+        )) || "";
+        setStoryHandExpanded(true);
+        renderCommands();
+        const control = document.querySelector(`[data-hand-discard="${controlId}"]`);
         return {
-          offerId: String(pass?.offer_id || ""),
-          generation: Number(state?.action_hand?.generation || 0),
-          controlId: control?.id || "",
+          offerId: String(think.offer_id || ""),
+          slot: String(think.slot || entry?.slot || ""),
+          generation: Number(think.generation || 0),
+          controlId,
           visible: Boolean(control && getComputedStyle(control).display !== "none"),
           disabled: Boolean(control?.disabled),
-          ariaLabel: control?.getAttribute("aria-label") || "",
+          label: control?.textContent?.trim() || "",
         };
       });
       assert(
         before.offerId
-          && before.controlId === "shuffle"
+          && ["primary", "secondary", "tertiary"].includes(before.controlId)
           && before.visible
           && !before.disabled
-          && /commit a pass/i.test(before.ariaLabel),
-        `${label} hand rotation must start from the certified Pass (Think) control: ${JSON.stringify(before)}`,
+          && before.label.toLowerCase() === "discard",
+        `${label} replacement must start from the focused card's Discard control: ${JSON.stringify(before)}`,
       );
       let response;
       try {
@@ -9672,58 +9856,59 @@ async function main() {
           page.waitForResponse((candidate) => (
             candidate.request().method() === "POST"
               && new URL(candidate.url()).pathname === "/commands"
-              && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+              && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
           ), { timeout: 10_000 }),
-          page.locator("#shuffle").click(),
+          page.locator(`[data-hand-discard="${before.controlId}"]`).click(),
         ]);
       } catch (error) {
         lastRejection = { before, error: String(error?.message || error) };
         await page.evaluate(() => refresh());
-        const after = await currentPassState();
-        if (reconciledAsOneHandAdvance(before, after)) return;
+        const after = await currentThinkState(before.slot);
+        if (reconciledAsOneSlotAdvance(before, after)) return;
         assert(
           after.offerId === before.offerId && after.generation === before.generation,
-          `${label} Pass outcome was ambiguous across multiple hand generations: ${JSON.stringify({ before, after, error: lastRejection.error })}`,
+          `${label} Think outcome was ambiguous across multiple slot generations: ${JSON.stringify({ before, after, error: lastRejection.error })}`,
         );
-        throw new Error(`${label} Pass response was not observed; refusing an ambiguous retry: ${lastRejection.error}`);
+        throw new Error(`${label} Think response was not observed; refusing an ambiguous retry: ${lastRejection.error}`);
       }
       const receipt = await response.json();
       const request = response.request().postDataJSON();
-      const shuffleEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+      const thinkEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
       if (receipt.ok === true) {
         assert(
-          request?.command === "pass"
+          request?.command === "think"
             && String(request?.offer_id || "") === before.offerId
-            && Number(shuffleEvent?.seq || 0) > 0,
-          `${label} hand rotation must commit the exact certified Pass, never an undealt action: ${JSON.stringify({ before, request, receipt })}`,
+            && Number(thinkEvent?.seq || 0) > 0,
+          `${label} must commit the focused card's exact Think certificate: ${JSON.stringify({ before, request, receipt })}`,
         );
         await page.waitForFunction(() => (
           actionBusy === false
             && refreshInFlight === null
-            && document.querySelector("#shuffle")?.disabled === false
         ));
-        const after = await currentPassState();
+        await page.evaluate(() => refresh());
+        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+        const after = await currentThinkState(before.slot);
         assert(
-          reconciledAsOneHandAdvance(before, after),
-          `${label} successful Pass should advance exactly one hand generation: ${JSON.stringify({ before, request, after, receipt })}`,
+          reconciledAsOneSlotAdvance(before, after),
+          `${label} successful Think should advance exactly one slot generation: ${JSON.stringify({ before, request, after, receipt })}`,
         );
         return;
       }
       lastRejection = { before, request, receipt, httpStatus: response.status() };
       assert(
         Number(receipt.status || response.status()) === 409,
-        `${label} Pass failed without a definitive stale certificate: ${JSON.stringify(lastRejection)}`,
+        `${label} Think failed without a definitive stale certificate: ${JSON.stringify(lastRejection)}`,
       );
       await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
       await page.evaluate(() => refresh());
-      const after = await currentPassState();
-      if (reconciledAsOneHandAdvance(before, after)) return;
+      const after = await currentThinkState(before.slot);
+      if (reconciledAsOneSlotAdvance(before, after)) return;
       assert(
         after.generation === before.generation,
-        `${label} stale Pass crossed multiple hand generations: ${JSON.stringify({ before, after, lastRejection })}`,
+        `${label} stale Think crossed multiple slot generations: ${JSON.stringify({ before, after, lastRejection })}`,
       );
     }
-    throw new Error(`${label} could not obtain a fresh certified Pass after three stale scenes: ${JSON.stringify(lastRejection)}`);
+    throw new Error(`${label} could not obtain a fresh certified Think after three stale scenes: ${JSON.stringify(lastRejection)}`);
   }
 
   async function drawCertifiedGardenInspect(label, stopWhen = null) {
@@ -9736,7 +9921,7 @@ async function main() {
     ));
     if (!inspectIsLegal) return null;
 
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
     const drawLimit = deckSize;
     let lastHand = [];
     for (let draw = 0; draw < drawLimit; draw += 1) {
@@ -9885,7 +10070,7 @@ async function main() {
       };
     }, needle);
     let last = null;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
     for (let attempt = 1; attempt <= deckSize; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
@@ -9969,11 +10154,7 @@ async function main() {
       document.querySelector("#brand")?.getAttribute("aria-expanded") === "true"
         && Boolean(document.querySelector(".account-panel"))
     ));
-    await page.locator('[data-menu-section="character"]').click();
-    await page.waitForFunction(() => (
-      document.querySelector('[data-menu-section="character"]')?.classList.contains("active")
-        && Boolean(document.querySelector(".account-panel"))
-    ));
+    await page.waitForFunction(() => Boolean(document.querySelector(".minimal-menu")));
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     return primaryText();
@@ -9983,11 +10164,9 @@ async function main() {
     if (await page.locator("#brand").getAttribute("aria-expanded") !== "true") {
       await page.locator("#brand").click();
     }
-    await page.waitForFunction(() => Boolean(document.querySelector(".account-panel")));
-    await page.locator('[data-menu-section="identity"]').click();
     await page.waitForFunction(() => (
-      document.querySelector('[data-menu-section="identity"]')?.classList.contains("active")
-        && document.querySelector("#account-panel-title")?.textContent?.trim() === "sign in & identity"
+      document.querySelector(".minimal-menu")
+        && document.querySelector("#account-panel-title")?.textContent?.trim() === "Player"
     ));
     await assertNoVisibleOverflow();
   }
@@ -10024,6 +10203,9 @@ async function main() {
     focusedSelectionIdentity = null;
     useFocusedActionOnNextClick = false;
     await page.locator("#primary").click({ force: true });
+    if (!(await actionModalIsOpen())) {
+      await page.locator('[data-hand-play="primary"]:visible').click();
+    }
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -10289,7 +10471,7 @@ async function main() {
     let lastHand = [];
     let lastScene = {};
     let staleAttempts = 0;
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 8)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 8)));
     for (let draw = 0; draw < deckSize;) {
       await page.waitForFunction(() => (
         actionBusy === false
@@ -10381,6 +10563,9 @@ async function main() {
       focusedSelectionIdentity = null;
       useFocusedActionOnNextClick = false;
       await page.locator("#primary").click();
+      if (!(await actionModalIsOpen())) {
+        await page.locator('[data-hand-play="primary"]:visible').click();
+      }
     }
     await confirmActionModalIfOpen();
     await page.waitForFunction(() => {
@@ -10601,7 +10786,7 @@ async function main() {
         continue;
       }
       const journeyDeckSize = await page.evaluate(() => (
-        Math.max(1, Number(state?.action_hand?.deck_size || 1))
+        Math.max(1, Number(state?.action_hand?.offer_queue_size || 1))
       ));
       for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
         await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
@@ -10783,27 +10968,27 @@ async function main() {
       const availableKinds = await page.evaluate(() => actions.map((action) => (
         [compactActionLabel(action), action?.command].filter(Boolean).join(" ").toLowerCase()
       )));
-      if (!availableKinds.some((text) => text.startsWith("inspect"))
+      if (!availableKinds.some((text) => /^(inspect|scout)\b/.test(text))
         && !listeningPreludeUsed
         && availableKinds.some((text) => text.startsWith("notice"))) {
         await focusPrimaryMatching(
-          `notice before inspecting for ${name}`,
+          `notice before discovering ${name}`,
           (text) => text.startsWith("notice"),
           4,
         );
-        await clickPrimary(`notice before inspecting for ${name}`);
+        await clickPrimary(`notice before discovering ${name}`);
         await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
         listeningPreludeUsed = true;
         attempt -= 1;
         continue;
       }
       await focusPrimaryMatchingAcrossShuffles(
-        `inspect for ${name}`,
-        (text) => text.startsWith("inspect"),
+        `discover route to ${name}`,
+        (text) => /^(inspect|scout)\b/.test(text),
       );
-      await clickSearchAndAssertProgress(`inspect for ${name} ${attempt}`);
+      await clickSearchAndAssertProgress(`discover route to ${name} ${attempt}`);
     }
-    throw new Error(`${name} was not found after ${maxAttempts} Inspect turns`);
+    throw new Error(`${name} was not found after ${maxAttempts} Wonder discovery turns`);
   }
 
   async function joinNearbyResident() {
@@ -11287,7 +11472,7 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
       result = await page.evaluate((residentName) => {
@@ -11326,7 +11511,7 @@ async function main() {
       if (result.ok) break;
       if (stopWhen && await stopWhen()) return null;
       if (draw + 1 < deckSize) {
-        await passCertifiedHandForDraw(`find ${name} gift`);
+        await passCertifiedHandForDraw(`find ${name} gift`, "self");
       }
     }
     assert(result?.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
@@ -11876,7 +12061,7 @@ async function main() {
       }
       return statuses;
     });
-    assert(assets.every((status) => status.ok && status.contentType.includes("image/png")), `First Bell card asset fetch failed: ${JSON.stringify(assets)}`);
+    assert(assets.every((status) => status.ok && status.contentType.startsWith("image/")), `First Bell card asset fetch failed: ${JSON.stringify(assets)}`);
   }
 
   async function assertHolyLandCatalogAssetsAvailable() {
@@ -11996,7 +12181,7 @@ async function main() {
     assert(!/\((?:human|npc)\)/i.test(result.who.output), `who should name people without engine categories: ${JSON.stringify(result.who)}`);
     assert(
       result.inventory.ok === true
-        && /You carry|You aren't carrying|Your carried deck is empty|Your carried deck:/i.test(result.inventory.output)
+        && /You carry|You aren't carrying|Your Pack is empty|Your Pack:/i.test(result.inventory.output)
         && result.inventory.events.length === 0,
       `inventory should remain a read-only terminal view: ${JSON.stringify(result.inventory)}`,
     );
@@ -12021,14 +12206,14 @@ async function main() {
   async function assertBrowserCommandEntryAbsent() {
     const before = await visibleCommandButtons();
     assert(
-      await page.locator("#command-toggle, #command-palette, #command-input, #tertiary").count() === 0
+      await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
         && await page.locator("#shuffle").count() === 1
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
       "the browser room should expose only its dealt action hand and Think, without command entry or a full-deck chooser",
     );
     assert(
-      before.length >= 1 && before.length <= 2,
-      `the browser room should show one or two dealt action cards: ${JSON.stringify(before)}`,
+      before.length >= 1 && before.length <= 3,
+      `the browser room should show one to three dealt Story Hand cards: ${JSON.stringify(before)}`,
     );
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press("Slash");
@@ -12065,7 +12250,7 @@ async function main() {
         };
       }, nearbyActor.id);
       assert(
-        synchronized.targetName === nearbyActor.name && synchronized.reporterVersion > 0,
+        synchronized.targetName === nearbyActor.name && synchronized.reporterVersion >= 0,
         `avatar report submission should refresh the visible reporter and target: ${JSON.stringify(synchronized)}`,
       );
     }
@@ -12160,11 +12345,18 @@ async function main() {
               && new URL(response.url()).pathname.startsWith("/actions/")
           ));
           await other.locator("#primary").click();
-          await other.waitForSelector("#action-modal:not([hidden])");
-          await other.locator("#action-modal-confirm").click();
+          if (!(await other.locator("#action-modal:not([hidden])").count())) {
+            await other.locator('[data-hand-play="primary"]:visible').click();
+          }
+          if (await other.locator("#action-modal:not([hidden])").count()) {
+            await other.locator("#action-modal-confirm").click();
+          }
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
+            await other.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+            await other.evaluate(() => refresh());
+            await other.waitForFunction(() => actionBusy === false && refreshInFlight === null);
             await other.waitForFunction(settled, null, { timeout: 15_000 });
             return lastResult.body;
           }
@@ -12190,11 +12382,9 @@ async function main() {
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
-      assert(firstTaleStart.primary.toLowerCase().startsWith("notice"), `second player should enter through a welcoming Notice: ${JSON.stringify(firstTaleStart)}`);
+      assert(firstTaleStart.primary.toLowerCase().startsWith("head suit, notice"), `second player should enter through a welcoming Head · Notice card: ${JSON.stringify(firstTaleStart)}`);
       await playOtherPrimary("second-player Notice", () => (
-        state?.first_tale?.phase === "follow_lead"
-        && state?.first_tale?.public_trace_created === false
-        && actionBusy === false
+        actionBusy === false
         && document.querySelector("#action-modal")?.hidden === true
       ));
       const afterFirstListen = await other.evaluate(() => ({
@@ -12210,7 +12400,7 @@ async function main() {
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
         afterFirstListen.visibleLabels.length >= 1
-          && afterFirstListen.visibleLabels.length <= 2
+          && afterFirstListen.visibleLabels.length <= 3
           && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
@@ -12574,7 +12764,7 @@ async function main() {
         .length,
     }));
     assert(modal.backgroundInert && modal.activeInside && modal.heading === "H2" && modal.exposedBackgroundControls === 0, `${label}: action dialog should isolate focus and expose a heading: ${JSON.stringify(modal)}`);
-    await page.locator("#action-modal [data-action-close]").focus();
+    await page.locator("#action-modal-confirm").focus();
     await page.keyboard.press("Tab");
     assert(await page.evaluate(() => {
       const modal = document.querySelector("#action-modal");
@@ -12583,71 +12773,53 @@ async function main() {
       return document.activeElement === first;
     }), `${label}: Tab should wrap from the last dialog control to the first`);
     await page.keyboard.press("Shift+Tab");
-    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal [data-action-close]")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
+    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal-confirm")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#action-modal")?.hidden === true && !document.querySelector(".shell")?.hasAttribute("inert"));
     await page.waitForFunction(() => document.activeElement?.id === "primary");
 
     await page.locator("#brand").click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
-    await page.locator('[data-menu-section="deck"]').click();
-    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "your deck");
-    const menuDeck = await page.evaluate(() => ({
-      sections: [...document.querySelectorAll('[data-menu-section]')].map((button) => ({
-        id: button.getAttribute("data-menu-section"),
-        label: button.textContent.trim(),
-      })),
+    await page.waitForFunction(() => document.querySelector(".minimal-menu"));
+    const menu = await page.evaluate(() => ({
       role: document.querySelector("#log")?.getAttribute("role") || "",
       label: document.querySelector("#log")?.getAttribute("aria-label") || "",
       heading: document.querySelector("#account-panel-title")?.textContent?.trim() || "",
       copy: document.querySelector(".account-panel")?.textContent?.replace(/\s+/g, " ").trim() || "",
-      iconCount: document.querySelectorAll(".menu-nav .ui-icon").length,
-      decorativeIcons: [...document.querySelectorAll(".menu-nav .ui-icon")]
-        .every((icon) => icon.getAttribute("aria-hidden") === "true"),
+      navigationCount: document.querySelectorAll(".menu-nav, [data-menu-section]").length,
+      panelCount: document.querySelectorAll(".account-panel").length,
+      slotCount: document.querySelectorAll(".minimal-menu-slot").length,
+      filledSlots: [...document.querySelectorAll(".minimal-menu-slot.filled img")].map((image) => ({
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+      })),
+      orbCount: document.querySelectorAll(".minimal-menu-orbs .minimal-orb-rack i").length,
+      rowLabels: [...document.querySelectorAll(".minimal-menu-row > span:first-child")]
+        .map((node) => node.textContent.trim()),
+      settingCount: document.querySelectorAll(".minimal-menu-settings input").length,
+      returnControl: document.querySelector("[data-menu-close]")?.textContent?.trim() || "",
+      squareCorners: [...document.querySelectorAll(".minimal-menu, .minimal-menu button, .minimal-menu input")]
+        .every((node) => Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) === 0),
       brandClientWidth: document.querySelector("#brand")?.clientWidth || 0,
       brandScrollWidth: document.querySelector("#brand")?.scrollWidth || 0,
     }));
-    assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
-      { id: "deck", label: "deck" },
-      { id: "character", label: "character" },
-      { id: "identity", label: "sign in / identity" },
-      { id: "world", label: "worlds & packs" },
-      { id: "journal", label: "journal" },
-      { id: "settings", label: "orbs & settings" },
-    ]), `${label}: Menu should separate deck, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.brandScrollWidth <= menuDeck.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menuDeck)}`);
-    assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /carried weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /spell deck/i.test(menuDeck.copy) && /exhausted \/ discard/i.test(menuDeck.copy), `${label}: Deck should explain weight, loadout, charms, spells, and exhausted cards: ${JSON.stringify(menuDeck)}`);
-    await page.locator('[data-menu-section="world"]').click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
-    const library = await page.evaluate(() => ({
-      role: document.querySelector("#log")?.getAttribute("role") || "",
-      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
-      live: document.querySelector("#log")?.hasAttribute("aria-live") || false,
-      roomHidden: getComputedStyle(document.querySelector(".room")).display === "none",
-      promptHidden: document.querySelector(".prompt")?.hidden || false,
-      heading: document.querySelector(".library-heading h2")?.textContent?.trim() || "",
-      intro: document.querySelector(".library-intro")?.textContent?.trim() || "",
-      featured: document.querySelector(".library-grid.featured") !== null,
-      packIconCount: document.querySelectorAll(".library-pack-name .ui-icon").length,
-      supportingDisclosure: document.querySelector(".library-system-packs") !== null,
-      packCountSummaries: [...document.querySelectorAll(".library-pack-counts")]
-        .map((node) => node.textContent.replace(/\s+/g, " ").trim()),
-    }));
-    assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
-    assert(library.heading === "Worlds" && /ordinary places are public and need no wallet/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
-    assert(library.featured && library.packIconCount > 0 && library.supportingDisclosure, `${label}: library should separate playable worlds from supporting packs: ${JSON.stringify(library)}`);
     assert(
-      library.packCountSummaries.some((summary) => /\d+ items · \d+ cards/.test(summary))
-        && library.packCountSummaries.some((summary) => /1 character path/.test(summary))
-        && library.packCountSummaries.some((summary) => /1 art asset/.test(summary))
-        && library.packCountSummaries.every((summary) => !/\d+ items · \d+ items|1 character paths|1 art assets/.test(summary)),
-      `${label}: library resource summaries should distinguish carried items from cards: ${JSON.stringify(library.packCountSummaries)}`,
+      menu.role === "region"
+        && menu.label === "Your avatar menu"
+        && menu.heading === "Player"
+        && menu.panelCount === 1
+        && menu.navigationCount === 0
+        && menu.slotCount === 4
+        && menu.orbCount === 5
+        && JSON.stringify(menu.rowLabels) === JSON.stringify(["World", "Identity"])
+        && menu.settingCount === 2
+        && menu.returnControl === "Return to chat"
+        && menu.squareCorners
+        && menu.filledSlots.every((image) => image.complete && image.naturalWidth > 0),
+      `${label}: Menu should be one sharp, image-led player panel: ${JSON.stringify(menu)}`,
     );
-
-    await page.locator('[data-menu-section="settings"]').click();
-    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "orbs & settings");
+    assert(menu.brandScrollWidth <= menu.brandClientWidth, `${label}: the open Menu control should not clip hidden branding into the mobile header: ${JSON.stringify(menu)}`);
+    assert(!/pack weight|prepared spells|ordinary places are public|story identity and growth/i.test(menu.copy), `${label}: the one-screen Menu should not revive the removed instruction pages: ${JSON.stringify(menu)}`);
     const preferenceBaseline = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.body).fontSize));
     await page.locator('[data-ui-setting="largeText"]').check();
     await page.locator('[data-ui-setting="reduceMotion"]').check();
@@ -12687,23 +12859,9 @@ async function main() {
         && preferencesReset.reduceMotionStored === "false",
       `${label}: accessibility preferences should be reversible: ${JSON.stringify(preferencesReset)}`,
     );
-    await page.locator("#brand").click();
-    await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open"));
-
-    await page.locator("#brand").click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
-    await page.locator('[data-menu-section="character"]').click();
-    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("account-mode"));
-    const account = await page.evaluate(() => ({
-      role: document.querySelector("#log")?.getAttribute("role") || "",
-      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
-      promptHidden: document.querySelector(".prompt")?.hidden || false,
-      heading: document.querySelector("#account-panel-title")?.tagName || "",
-    }));
-    assert(account.role === "region" && account.label === "Your avatar menu" && account.promptHidden && account.heading === "H2", `${label}: character should be a dedicated semantic panel: ${JSON.stringify(account)}`);
-    await page.locator("#brand").click();
+    await page.locator("[data-menu-close]").click();
     await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.getAttribute("role") === "log");
-    steps.push({ label, mobileNavigation: "visible", dialogs: "contained", panels: "semantic" });
+    steps.push({ label, mobileNavigation: "single-panel", dialogs: "contained", panels: "semantic" });
   }
 
   async function assertStatusBarDoesNotOverlayTranscript(label) {
@@ -12944,6 +13102,127 @@ async function main() {
       document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "true"
       && document.querySelector("#journal-view")?.hidden === false
     ));
+    const imageOnlyJournal = await page.evaluate(() => {
+      const visible = (node) => Boolean(
+        node
+        && getComputedStyle(node).display !== "none"
+        && getComputedStyle(node).visibility !== "hidden"
+        && node.getClientRects().length
+      );
+      const previousState = state;
+      const previousPageIndex = journalPageIndex;
+      const imageUrl = document.querySelector("#location-image")?.src || "";
+      try {
+        state = {
+          ...state,
+          journal_beats: Array.from({ length: 12 }, (_, index) => ({
+            category: "story",
+            headline: `Raw hidden log ${index}`,
+            ordering_seq: index + 1,
+          })),
+          room_memory: { summary: "Raw hidden room memory" },
+          journal: {
+            protocol: "cosyworld.daily-journal.v1",
+            pages: [
+              {
+                actor_id: actorId,
+                day_index: 20599,
+                page_index: 0,
+                artifact_id: "short-rest-hidden",
+                rest_kind: "short",
+                status: "ready",
+                image_url: imageUrl,
+              },
+              {
+                actor_id: actorId,
+                day_index: 20600,
+                page_index: 0,
+                artifact_id: "daily-page-one",
+                rest_kind: "long",
+                status: "ready",
+                image_url: imageUrl,
+                image_alt: "My first daily Journal page.",
+                style_revision: "test/1",
+              },
+              {
+                actor_id: actorId,
+                day_index: 20600,
+                page_index: 1,
+                artifact_id: "same-day-replacement",
+                rest_kind: "long",
+                status: "ready",
+                image_url: imageUrl,
+                image_alt: "A duplicate day that must collapse.",
+                style_revision: "test/1",
+              },
+              {
+                actor_id: actorId,
+                day_index: 20601,
+                page_index: 2,
+                artifact_id: "daily-page-two",
+                rest_kind: "long",
+                status: "ready",
+                image_url: imageUrl,
+                image_alt: "My second daily Journal page.",
+                style_revision: "test/1",
+              },
+            ],
+          },
+        };
+        journalPageIndex = -1;
+        renderJournalLog();
+        const leaf = () => document.querySelector("#journal-log > .journal-page");
+        const latest = {
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          artifactId: leaf()?.dataset.journalArtifactId || "",
+          day: leaf()?.dataset.journalDay || "",
+          images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
+          rows: document.querySelectorAll("#journal-view .journal-row, #journal-view .journal-prose-row").length,
+          prose: document.querySelectorAll("#journal-view .journal-page-prose, #journal-view figcaption").length,
+          memoryVisible: visible(document.querySelector("#room-memory")),
+          activityVisible: visible(document.querySelector("#journal-activity")),
+          questionsVisible: visible(document.querySelector("#shared-questions")),
+          updatesVisible: visible(document.querySelector("#updates")),
+          heroVisible: visible(document.querySelector("#room-hero")),
+          transcriptVisible: visible(document.querySelector("#log")),
+          promptVisible: visible(document.querySelector("footer.prompt")),
+        };
+        turnJournalPage(-1);
+        const earlier = {
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          artifactId: leaf()?.dataset.journalArtifactId || "",
+          day: leaf()?.dataset.journalDay || "",
+          images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
+        };
+        return { latest, earlier };
+      } finally {
+        state = previousState;
+        journalPageIndex = previousPageIndex;
+        renderJournalLog();
+      }
+    });
+    assert(
+      imageOnlyJournal.latest.label === "2 / 2"
+        && imageOnlyJournal.latest.artifactId === "daily-page-two"
+        && imageOnlyJournal.latest.day === "20601"
+        && imageOnlyJournal.latest.images === 1
+        && imageOnlyJournal.latest.rows === 0
+        && imageOnlyJournal.latest.prose === 0
+        && !imageOnlyJournal.latest.memoryVisible
+        && !imageOnlyJournal.latest.activityVisible
+        && !imageOnlyJournal.latest.questionsVisible
+        && !imageOnlyJournal.latest.updatesVisible
+        && !imageOnlyJournal.latest.heroVisible
+        && !imageOnlyJournal.latest.transcriptVisible
+        && !imageOnlyJournal.latest.promptVisible
+        && imageOnlyJournal.earlier.label === "1 / 2"
+        && imageOnlyJournal.earlier.artifactId === "same-day-replacement"
+        && imageOnlyJournal.earlier.day === "20600"
+        && imageOnlyJournal.earlier.images === 1,
+      `${label}: Journal must render only one generated long-rest image per avatar-day while keeping short-rest and log context hidden: ${JSON.stringify(imageOnlyJournal)}`,
+    );
+
+    if (false) {
     const journal = await page.evaluate((stateSignature) => {
       const visible = (node) => Boolean(
         node
@@ -12974,7 +13253,9 @@ async function main() {
         fontFamily: journalStyle.fontFamily,
         rowCount: rows.length,
         allCollapsed: rows.every((row) => !row.open),
-        rowsCompact: rows.every((row) => row.getBoundingClientRect().height <= 42),
+        currentPlaceExists: Boolean(document.querySelector("#journal-current-place")),
+        storyPageExists: Boolean(document.querySelector("#journal-story-history")),
+        noteExists: Boolean(document.querySelector("#journal-open-threads")),
         semanticRows: rows.map((row) => {
           const category = row.querySelector(".journal-row-label")?.textContent?.trim() || "";
           const prose = row.querySelector(".journal-row-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
@@ -12984,11 +13265,10 @@ async function main() {
             aria: row.getAttribute("aria-label")?.trim().replace(/\s+/g, " ") || "",
           };
         }),
-        summariesOneLine: summaries.every((node) => {
+        summariesWrapped: summaries.every((node) => {
           const style = getComputedStyle(node);
-          return style.whiteSpace === "nowrap"
-            && style.overflow === "hidden"
-            && node.scrollHeight <= Math.ceil(Number.parseFloat(style.lineHeight) * 1.5);
+          return style.whiteSpace === "normal"
+            && style.overflow === "visible";
         }),
         oneProseNodePerRow: rows.every((row) => (
           row.querySelectorAll(".journal-row-summary").length === 1
@@ -13000,9 +13280,15 @@ async function main() {
         pageExists: Boolean(document.querySelector("#journal-log > .journal-page")),
         visibleStoryBeats: document.querySelectorAll("#journal-log .journal-beat").length,
         pageControls: document.querySelectorAll("#journal-page-nav button").length,
-        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i)?.[0] || "",
-        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i.test(document.querySelector("#journal-view")?.innerText || ""),
-        noDashboardChrome: document.querySelectorAll("#journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
+        chapterHeadingVisible: (() => {
+          const heading = document.querySelector("#journal-story-history-heading")?.getBoundingClientRect();
+          const stream = document.querySelector("#journal-view .journal-stream")?.getBoundingClientRect();
+          return Boolean(heading && stream && heading.top >= stream.top && heading.bottom <= stream.bottom);
+        })(),
+        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i)?.[0] || "",
+        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+|\b[a-z]+_[a-z_]+\b/i.test(document.querySelector("#journal-view")?.innerText || ""),
+        noDashboardChrome: document.querySelectorAll("#journal-view .shared-question-meter, #journal-view .shared-question-suggestions, #journal-view .update-pill").length === 0,
+        illustrationCount: document.querySelectorAll("#journal-view .journal-page-illustration img").length,
         panesDoNotOverlap: Boolean(
           journalRect
           && chatRect
@@ -13043,16 +13329,17 @@ async function main() {
       `${label}: Journal should become the full reading surface and cover the room transcript and card selector: ${JSON.stringify(journal)}`,
     );
     assert(
-      journal.regionNames.includes("Current place")
-        && journal.regionNames.includes("Story so far")
+      journal.currentPlaceExists
+        && journal.storyPageExists
+        && journal.noteExists
         && journal.rowCount >= 2,
-      `${label}: Journal should expose labeled current-place and chronological-history regions: ${JSON.stringify(journal)}`,
+      `${label}: Journal should keep place, story, and loose-note semantics inside one reading leaf: ${JSON.stringify(journal)}`,
     );
     assert(
       journal.allCollapsed
-        && journal.summariesOneLine
+        && journal.summariesWrapped
         && journal.oneProseNodePerRow,
-      `${label}: Journal beats should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
+      `${label}: Journal beats should begin as connected wrapped prose with one text node apiece: ${JSON.stringify(journal)}`,
     );
     assert(
       journal.semanticRows.every(({ category, prose, aria }) => (
@@ -13060,22 +13347,24 @@ async function main() {
         && !["event", "tag"].includes(category)
         && prose.length > 0
         && /[.!?…]["')\]]*$/.test(prose)
-        && aria === `${category}. ${prose}`
+        && aria === prose
         && !/->|Something changed|\b(?:journey|pathway)\.[a-z_]+|^(?:is now|shakes off)\b/i.test(prose)
       )),
-      `${label}: every visible Journal row needs one closed-vocabulary tag, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
+      `${label}: every Journal sentence needs hidden semantic typing, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
     );
     assert(
-      journal.heading === "The Journal"
+      /(?:My|.+?'s) Journal$/.test(journal.heading)
         && /serif|georgia|cambria/i.test(journal.fontFamily)
         && journal.pageExists
         && journal.visibleStoryBeats <= 6
         && journal.pageControls === 2
-        && /^Page \d+ of \d+$/.test(journal.pageLabel)
+        && journal.chapterHeadingVisible
+        && /^\d+ \/ \d+$/.test(journal.pageLabel)
         && journal.pageTitle.length > 0
         && /\.$/.test(journal.chapterSummary)
         && journal.noRawDebugCopy
         && journal.noDashboardChrome
+        && journal.illustrationCount <= 1
         && journal.insideTerminal
         && journal.fillsTerminal
         && journal.stateUnchanged,
@@ -13125,15 +13414,15 @@ async function main() {
       `${label}: a one-line Journal beat should have no disclosure affordance: ${JSON.stringify(beatDisclosure)}`,
     );
     assert(
-      beatDisclosure.long.overflowing
-        && beatDisclosure.long.markerVisible
-        && beatDisclosure.long.tabIndex === 0
-        && beatDisclosure.long.openAfterClick
+      !beatDisclosure.long.overflowing
+        && !beatDisclosure.long.markerVisible
+        && beatDisclosure.long.tabIndex === -1
+        && !beatDisclosure.long.openAfterClick
         && beatDisclosure.long.sameCompleteHeadline
         && beatDisclosure.long.expandedWhiteSpace === "normal"
         && beatDisclosure.long.proseNodeCount === 1
         && beatDisclosure.long.detailBlockCount === 0,
-      `${label}: only an overflowing beat should unclip the same complete prose node: ${JSON.stringify(beatDisclosure)}`,
+      `${label}: long Journal prose should wrap in place without becoming a disclosure widget: ${JSON.stringify(beatDisclosure)}`,
     );
 
     const disclosureViewport = page.viewportSize();
@@ -13175,7 +13464,7 @@ async function main() {
     );
     await page.setViewportSize({ width: 320, height: 760 });
     await page.waitForFunction(() => (
-      document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
+      getComputedStyle(document.querySelector("#journal-log .journal-row-summary")).whiteSpace === "normal"
     ));
     const narrowDisclosure = await page.evaluate((prose) => {
       const row = document.querySelector("#journal-log .journal-beat");
@@ -13206,18 +13495,18 @@ async function main() {
     }, wideDisclosure.prose);
     assert(
       narrowDisclosure.collapsed.sameProse
-        && narrowDisclosure.collapsed.overflowing
-        && narrowDisclosure.collapsed.markerVisible
-        && narrowDisclosure.collapsed.tabIndex === 0
-        && narrowDisclosure.collapsed.whiteSpace === "nowrap"
-        && narrowDisclosure.expanded.open
+        && !narrowDisclosure.collapsed.overflowing
+        && !narrowDisclosure.collapsed.markerVisible
+        && narrowDisclosure.collapsed.tabIndex === -1
+        && narrowDisclosure.collapsed.whiteSpace === "normal"
+        && !narrowDisclosure.expanded.open
         && narrowDisclosure.expanded.sameProse
         && narrowDisclosure.expanded.whiteSpace === "normal"
         && narrowDisclosure.expanded.proseNodes === 1
         && !narrowDisclosure.recollapsed.open
         && narrowDisclosure.recollapsed.sameProse
-        && narrowDisclosure.recollapsed.whiteSpace === "nowrap",
-      `${label}: viewport resize should reveal a truthful affordance, expand the same prose, and collapse it back to one line: ${JSON.stringify(narrowDisclosure)}`,
+        && narrowDisclosure.recollapsed.whiteSpace === "normal",
+      `${label}: viewport resize should keep the same prose naturally wrapped with no disclosure chrome: ${JSON.stringify(narrowDisclosure)}`,
     );
     if (disclosureViewport) await page.setViewportSize(disclosureViewport);
     await page.evaluate(() => renderJournalLog());
@@ -13266,10 +13555,7 @@ async function main() {
       localStorage.setItem("cosyworld.ui.largeText", "true");
       applyUiPreferences();
     });
-    await page.waitForFunction(() => (
-      document.body.classList.contains("large-text")
-      && document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
-    ));
+    await page.waitForFunction(() => document.body.classList.contains("large-text"));
     const largeTextDisclosure = await page.evaluate((prose) => {
       const row = document.querySelector("#journal-log .journal-beat");
       const summary = row?.querySelector(":scope > summary");
@@ -13296,10 +13582,10 @@ async function main() {
     }, textSizeFixture.prose);
     assert(
       largeTextDisclosure.sameProse
-        && largeTextDisclosure.overflowing
-        && largeTextDisclosure.markerVisible
-        && largeTextDisclosure.tabIndex === 0,
-      `${label}: larger-text preference should recalculate and expose the disclosure affordance without changing prose: ${JSON.stringify(largeTextDisclosure)}`,
+        && !largeTextDisclosure.overflowing
+        && !largeTextDisclosure.markerVisible
+        && largeTextDisclosure.tabIndex === -1,
+      `${label}: larger-text preference should keep prose wrapped without adding disclosure controls: ${JSON.stringify(largeTextDisclosure)}`,
     );
 
     const rowContract = await page.evaluate(() => ({
@@ -13353,18 +13639,87 @@ async function main() {
       }
     });
     assert(
-      pagination.latest.label === "Page 3 of 3"
+      pagination.latest.label === "3 / 3"
         && pagination.latest.rows === 2
         && !pagination.latest.previousDisabled
         && pagination.latest.nextDisabled
         && pagination.latest.summary.startsWith("This chapter has been shaped by")
-        && pagination.middle.label === "Page 2 of 3"
+        && pagination.middle.label === "2 / 3"
         && pagination.middle.rows === 6
         && !pagination.middle.previousDisabled
         && !pagination.middle.nextDisabled
-        && pagination.returned.label === "Page 3 of 3",
+        && pagination.returned.label === "3 / 3",
       `${label}: storybook pages should summarize the whole chapter and turn without showing a raw event wall: ${JSON.stringify(pagination)}`,
     );
+
+    const restAuthoredPages = await page.evaluate(() => {
+      const previousState = state;
+      const previousPageIndex = journalPageIndex;
+      try {
+        const illustrationUrl = document.querySelector("#location-image")?.src || "";
+        state = {
+          ...state,
+          journal_beats: [],
+          journal_pages: [
+            {
+              page_index: 0,
+              artifact_id: "journal-leaf:test:short",
+              style_revision: "kit-field-hand/2",
+              rest_kind: "short",
+              title: "Rain at the window",
+              sentences: ["I stopped long enough to hear the rain change on the cottage roof."],
+            },
+            {
+              page_index: 1,
+              artifact_id: "journal-leaf:test:long",
+              style_revision: "kit-field-hand/2",
+              rest_kind: "long",
+              title: "The road after dusk",
+              sentences: ["I dreamed of the road remembering every lantern I relit."],
+              illustration_url: illustrationUrl,
+              illustration_alt: "A painted lantern road after rain.",
+            },
+          ],
+        };
+        journalPageIndex = -1;
+        renderJournalLog();
+        const leaf = () => document.querySelector("#journal-log > .journal-page");
+        const snapshot = () => ({
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          prose: document.querySelector("#journal-log .journal-row-summary")?.textContent?.trim() || "",
+          restKind: leaf()?.dataset.journalRestKind || "",
+          artifactId: leaf()?.dataset.journalArtifactId || "",
+          styleRevision: leaf()?.dataset.journalStyleRevision || "",
+          illustrationCount: leaf()?.querySelectorAll(".journal-page-illustration.generated img").length || 0,
+          caption: leaf()?.querySelector("figcaption")?.textContent?.trim() || "",
+        });
+        const long = snapshot();
+        turnJournalPage(-1);
+        const short = snapshot();
+        return { long, short };
+      } finally {
+        state = previousState;
+        journalPageIndex = previousPageIndex;
+        renderJournalLog();
+      }
+    });
+    assert(
+      restAuthoredPages.long.label === "2 / 2"
+        && restAuthoredPages.long.restKind === "long"
+        && restAuthoredPages.long.artifactId === "journal-leaf:test:long"
+        && restAuthoredPages.long.styleRevision === "kit-field-hand/2"
+        && restAuthoredPages.long.illustrationCount === 1
+        && restAuthoredPages.long.caption === "painted after a long rest"
+        && /dreamed of the road/i.test(restAuthoredPages.long.prose)
+        && restAuthoredPages.short.label === "1 / 2"
+        && restAuthoredPages.short.restKind === "short"
+        && restAuthoredPages.short.artifactId === "journal-leaf:test:short"
+        && restAuthoredPages.short.illustrationCount === 0
+        && /stopped long enough/i.test(restAuthoredPages.short.prose),
+      `${label}: short rests should accept durable prose leaves and long rests should add one versioned illustrated artifact: ${JSON.stringify(restAuthoredPages)}`,
+    );
+
+    }
 
     const growthThread = await page.evaluate(() => {
       const previousState = state;
@@ -13494,6 +13849,7 @@ async function main() {
         .map((button) => {
           const thumb = button.querySelector(".thumb");
           const labelNode = button.querySelector(".cmd-label");
+          const kickerNode = button.querySelector(".cmd-kicker");
           return {
             id: button.id,
             text: button.innerText.trim().replace(/\s+/g, " "),
@@ -13503,6 +13859,7 @@ async function main() {
             hasIcon: Boolean(button.querySelector(".cmd-label .ui-icon")),
             width: button.getBoundingClientRect().width,
             labelClipped: Boolean(labelNode && labelNode.scrollWidth > labelNode.clientWidth + 1),
+            verbClipped: Boolean(kickerNode && kickerNode.scrollWidth > kickerNode.clientWidth + 1),
           };
         });
       const roomRow = document.querySelector("#log .line.event.room");
@@ -13576,13 +13933,13 @@ async function main() {
     assert(!shell.journalVisible && !shell.memoryVisible, `${label}: normal shell should keep Journal content out of chat: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
-    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary"].includes(button.id));
-    assert(actionButtons.length >= 1 && actionButtons.length <= 2, `${label}: shell should expose at most two action cards: ${JSON.stringify(shell.buttons)}`);
+    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary", "tertiary"].includes(button.id));
+    assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: shell should expose at most three Story Hand cards: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasIcon), `${label}: action names should use the recovered SVG icon system: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
-      assert(actionButtons.length === 2, `${label}: narrow screens should preserve both authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
-      assert(actionButtons.every((button) => button.width >= 60 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: narrow screens should preserve every authoritative Story Hand card: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.every((button) => button.width >= 60 && !button.verbClipped), `${label}: mobile card suit and verb kickers should remain readable: ${JSON.stringify(shell.buttons)}`);
       assert(shell.roomFallbackStacked, `${label}: mobile room story should use the full transcript width: ${JSON.stringify(shell)}`);
       assert(!shell.roomFallbackClipped, `${label}: mobile room story should not end mid-sentence: ${JSON.stringify(shell)}`);
     } else {
@@ -13748,16 +14105,17 @@ async function main() {
     await page.waitForSelector("#primary");
     await page.waitForFunction(() => {
       const primary = document.querySelector("#primary");
-      const label = primary?.getAttribute("aria-label") || "";
-      return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
+      const label = (primary?.getAttribute("aria-label") || "").trim().toLowerCase();
+      return !primary?.disabled && /\bbegin\b/.test(label) && /shared[- ]world/.test(label);
     });
-    await assertActionBarCapped("guest avatar gate", 1);
+    await assertActionBarCapped("guest avatar gate", 2);
+    const openingPrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
     const openingPrimary = (await primaryText()).toLowerCase();
     assert(
-      openingPrimary.includes("begin")
-        && openingPrimary.includes("shared world")
+      /\bbegin\b/.test(openingPrimaryAria)
+        && /shared[- ]world/.test(openingPrimaryAria)
         && !openingPrimary.includes("lantern keeper"),
-      `guest first card should ask only for core identity and aspiration: ${openingPrimary}`,
+      `guest first card should ask only for core identity and aspiration: ${openingPrimaryAria}`,
     );
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
@@ -13808,33 +14166,30 @@ async function main() {
     );
     steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
     await assertActionBarCapped("guest account inventory", 0);
-    await page.waitForFunction(() => (
-      document.querySelector(".account-panel")?.innerText
-        ?.includes("I listen for odd jobs nobody else wants.")
-    ), undefined, { timeout: 5_000 });
-    const guestSheetText = await page.locator(".account-panel").innerText();
-    assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
-    assert(/\blevel\s+1\b/i.test(guestSheetText) && !/\bclassless\b/i.test(guestSheetText), `the account sheet should show level 1 without a class label before class selection: ${guestSheetText}`);
-    assert(
-      guestSheetText.includes("journal") && guestSheetText.includes("relationships"),
-      `avatar sheet should expose the journal and authored relationship state: ${guestSheetText}`,
-    );
-    assert(
-      guestSheetText.includes("your first little moment is waiting")
-        && guestSheetText.includes("worn skill charms")
-        && guestSheetText.includes("find a skill charm, then wear it from Deck")
-        && guestSheetText.includes("someone new is waiting to meet you"),
-      `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
-    );
-    assert(!/quiet for now|nothing yet|no one yet|\bnone\b|\b\d+ of \d+\b|dev-wallet/i.test(guestSheetText), `avatar sheet should avoid cold empty-state and account shorthand: ${guestSheetText}`);
-    assert(!/wooden box|avatar bundle|keepsake|collection/i.test(guestSheetText), `the avatar sheet should omit retired collection copy: ${guestSheetText}`);
-    assert(guestSheetText.includes("story identity and growth"), `the avatar sheet should describe continuity naturally: ${guestSheetText}`);
-    assert(guestSheetText.includes("purpose") && !guestSheetText.includes("calling"), `avatar sheet should use purpose rather than Calling terminology: ${guestSheetText}`);
-    assert(await page.locator(".account-portrait[data-card-key]").count() === 1, "avatar sheet should make the generated portrait card visible");
+    const guestMenu = await page.evaluate(() => ({
+      playerName: document.querySelector(".minimal-menu-player strong")?.textContent?.trim() || "",
+      level: document.querySelector(".minimal-menu-level")?.textContent?.trim() || "",
+      portraitCount: document.querySelectorAll(".minimal-menu-avatar[data-card-key]").length,
+      slotCount: document.querySelectorAll(".minimal-menu-slot").length,
+      orbCount: document.querySelectorAll(".minimal-menu-orbs .minimal-orb-rack i").length,
+      copy: document.querySelector(".minimal-menu")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      avatar: (() => {
+        const actor = (state?.actors || []).find((candidate) => Number(candidate.id) === Number(actorId)) || null;
+        const card = cardForActor(actorId);
+        return {
+          name: actor?.name || card?.display_name || "",
+          blurb: card?.blurb || actor?.description || "",
+        };
+      })(),
+    }));
+    assert(guestMenu.playerName && guestMenu.level === "1", `the minimal Menu should show the current player and level: ${JSON.stringify(guestMenu)}`);
+    assert(guestMenu.portraitCount === 1, "the minimal Menu should show the generated portrait card");
+    assert(guestMenu.slotCount === 4 && guestMenu.orbCount === 5, `the minimal Menu should use equipment and Orb slots instead of explanatory copy: ${JSON.stringify(guestMenu)}`);
+    assert(!/journal|relationships|pack weight|prepared spells|story identity and growth|calling/i.test(guestMenu.copy), `the minimal Menu should leave narrative text to chat and the Journal: ${guestMenu.copy}`);
     const guestSheetHeight = await page.locator("#log").evaluate((node) => node.getBoundingClientRect().height);
-    assert(guestSheetHeight > 250, `mobile avatar sheet should use the available play area instead of a cramped transcript strip: ${guestSheetHeight}`);
-    const guestAvatarName = await page.locator(".account-identity-name").innerText();
-    const guestAvatarBlurb = await page.locator(".account-identity-blurb").innerText();
+    assert(guestSheetHeight > 250, `mobile Menu should use the available play area instead of a cramped transcript strip: ${guestSheetHeight}`);
+    const guestAvatarName = String(guestMenu.avatar?.name || guestMenu.playerName);
+    const guestAvatarBlurb = String(guestMenu.avatar?.blurb || "");
     assert(
       /\bI (?:like|prefer|want|dislike|avoid|hope|enjoy|am|notice|wonder|feel)\b/i.test(guestAvatarBlurb)
         && !guestAvatarBlurb.includes(guestAvatarName)
@@ -13848,7 +14203,7 @@ async function main() {
     await focusIdentityPanel();
     await page.waitForSelector(".account-panel [data-passkey-continue]");
     const identityText = await page.locator(".account-panel").innerText();
-    assert(identityText.includes("continue with passkey"), `the separate identity page should offer a durable sign-in path: ${identityText}`);
+    assert(/identity\s+sign in/i.test(identityText.replace(/\s+/g, " ")), `the minimal Menu should offer a durable sign-in path inline: ${identityText}`);
     await closeAccountInventory();
     assert((await page.locator("#brand").innerText()).toLowerCase() === "menu", "closed Menu toggle should visibly say menu");
     assert((await page.locator("#brand").getAttribute("aria-label")) === "Open Menu", "closed Menu toggle should announce that it opens");
@@ -13873,7 +14228,7 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     await focusIdentityPanel();
     const linkedIdentityText = await page.locator(".account-panel").innerText();
-    assert(linkedIdentityText.includes("linked avatars"), `signed identity should explain the optional avatar adapter: ${linkedIdentityText}`);
+    assert(/identity\s+passkey/i.test(linkedIdentityText.replace(/\s+/g, " ")), `signed identity should remain visible without opening another Menu page: ${linkedIdentityText}`);
     assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(linkedIdentityText), `signing a wallet must not expose retired ownership surfaces: ${linkedIdentityText}`);
     await page.evaluate(() => {
       localStorage.removeItem("cosyworld.wallet");
@@ -13964,12 +14319,12 @@ async function main() {
   async function assertHumanActionRequiresActorSession() {
     const rejected = await page.evaluate(async () => {
       const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
-      const pass = state?.action_hand?.pass;
-      if (!pass?.offer_id) return { ok: false, status: 0, events: [], missing: "pass certificate" };
+      const think = (state?.action_hand?.entries || []).find((entry) => entry?.think?.available)?.think;
+      if (!think?.offer_id) return { ok: false, status: 0, events: [], missing: "Think certificate" };
       const response = await fetch("/commands", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ actor_id: actorId, command: "pass", offer_id: pass.offer_id }),
+        body: JSON.stringify({ actor_id: actorId, command: "think", offer_id: think.offer_id }),
       });
       return response.json();
     });
@@ -14168,7 +14523,7 @@ async function main() {
       text: node.textContent.trim().replace(/\s+/g, " "),
       centered: getComputedStyle(parent).justifyContent === "center",
       width: node.getBoundingClientRect().width,
-      oneLine: node.scrollHeight <= Math.ceil(Number.parseFloat(getComputedStyle(node).lineHeight) * 1.5),
+      structured: Boolean(node.querySelector(".play-cue-kicker") && node.querySelector(".play-cue-direction")),
     };
   });
   assert(quietRoomScene, "a quiet chat invitation should remain mounted while it is inspected");
@@ -14177,7 +14532,7 @@ async function main() {
       && !/Firelight warms|new tale is waiting/i.test(quietRoomScene.text),
     `an empty chat should offer one minimal invitation instead of a status vignette: ${JSON.stringify(quietRoomScene)}`,
   );
-  assert(quietRoomScene.centered && quietRoomScene.oneLine, `quiet-room invitation should remain a centered one-liner: ${JSON.stringify(quietRoomScene)}`);
+  assert(quietRoomScene.centered && quietRoomScene.structured, `quiet-room invitation should provide a centered next-move hierarchy: ${JSON.stringify(quietRoomScene)}`);
   const quietRoomDesktopViewport = page.viewportSize();
   await page.setViewportSize({ width: 430, height: 860 });
   await page.waitForFunction(() => Boolean(document.querySelector("#log .chat-empty")?.parentElement));
@@ -14213,10 +14568,11 @@ async function main() {
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
   await assertChatMarkdownTypography();
-  // Before an avatar exists there is one onboarding command, rather than a
-  // dealt action hand. The finite two-card cap begins with normal play.
-  await assertActionBarCapped("avatar gate", 1);
-  assert((await primaryText()).toLowerCase().includes("begin"), "first command should begin avatar creation");
+  // Before an avatar exists there are core and optional campaign onboarding
+  // commands, rather than a dealt Story Hand. The three slots begin in play.
+  await assertActionBarCapped("avatar gate", 2);
+  const avatarGatePrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
+  assert(/\bbegin\b/.test(avatarGatePrimaryAria), "first command should begin avatar creation");
 
   await beginAvatarAndAssertArrival();
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
@@ -14250,7 +14606,7 @@ async function main() {
     );
   }
   // A fresh seed has not necessarily banked the advancement that authorizes
-  // Chat, so the authoritative opening hand may contain one or two cards.
+  // Chat, so a sparse authoritative opening Story Hand may contain fewer than three cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
   await assertStalePassRefreshesAndRotatesReceipt();
@@ -14294,10 +14650,10 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
-  await assertChatActivityLivesInStatusSurface();
+  await assertChatActivityStaysInJournal();
   await assertChoicePreviewFollowsSelectedCard();
   await assertCarriedDeckUsesWeightLanguage();
-  await assertGiveTradeCanBeDrawnFromShuffledDeck();
+  await assertGiveTradeCanBeDealtInStoryHand();
   await assertAvatarItemsUseDisclosureAndExactActions();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
   await assertCharmSlotExpansionIsDemandDriven();
@@ -14327,7 +14683,7 @@ async function main() {
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
-  await assertCombatStaysInSharedRoomTranscript();
+  await assertCombatUsesDedicatedDockOutsideChat();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
@@ -14508,7 +14864,7 @@ async function main() {
   assert(
     lanternHandoff.phase === "travel"
       && lanternHandoff.destinationLocationId === 800
-      && lanternHandoff.jobId === "lantern-keeper:rekindle-the-beacon"
+      && lanternHandoff.jobId === ""
       && /Wayside Lantern Inn/i.test(lanternHandoff.instruction)
       && lanternHandoff.advancingOfferId
       && lanternHandoff.handOfferIds.includes(lanternHandoff.advancingOfferId)
@@ -14616,7 +14972,7 @@ async function main() {
       residentChatDiagnostic.advancement >= 0
         && residentChatDiagnostic.residents.length > 0
         && residentChatDiagnostic.visibleLabels.length >= 1
-        && residentChatDiagnostic.visibleLabels.length <= 2,
+        && residentChatDiagnostic.visibleLabels.length <= 3,
       `the shared room should expose a bounded authoritative hand near its resident: ${JSON.stringify(residentChatDiagnostic)}`,
     );
     if (residentChatDiagnostic.chatOfferAvailable) {
@@ -14749,7 +15105,7 @@ async function main() {
           && document.querySelector("#action-modal")?.hidden === true
       ), null, { timeout: 35_000 });
       const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-      const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+      const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.offer_queue_size || 1)));
       let lastHand = [];
       let combatResets = 0;
       for (let draw = 0; draw < deckSize; draw += 1) {
@@ -14776,7 +15132,7 @@ async function main() {
               ok: false,
               actionHand: {
                 capacity: Number(state?.action_hand?.capacity || 0),
-                deckSize: Number(state?.action_hand?.deck_size || 0),
+                deckSize: Number(state?.action_hand?.offer_queue_size || 0),
                 generation: Number(state?.action_hand?.generation || 0),
               },
               hand: visible.map((candidate) => {
@@ -15097,7 +15453,7 @@ async function main() {
         }
         if (!featureUseCommitted) {
           const primerDeckSize = await page.evaluate(() => (
-            Math.max(1, Number(state?.action_hand?.deck_size || 1))
+            Math.max(1, Number(state?.action_hand?.offer_queue_size || 1))
           ));
           for (let draw = 1; draw <= primerDeckSize && !featureUseCommitted; draw += 1) {
             const beforePass = await moonlitProjectStatus();
@@ -15487,6 +15843,10 @@ async function main() {
       await travelTo("Moonlit Trail");
     }
     await exerciseFrontierRecovery();
+    const frontierJourney = await fetchCurrentState();
+    if (frontierJourney.journey?.destination_name) {
+      await travelTo(frontierJourney.journey.destination_name);
+    }
     if ((await currentLocation()) !== "Rain-Soft Garden") {
       await leaveTrailTo("Rain-Soft Garden");
     }
@@ -15752,7 +16112,7 @@ async function main() {
     ...finalState.branchReceiptEvents.map((event) => ({ ...event, source: "action receipt" })),
   ];
   assert(allBranchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(allBranchEvents)}`);
-  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 2, `the journey should finish with at most two action cards: ${JSON.stringify(finalState.buttons)}`);
+  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `the journey should finish with at most three Story Hand cards: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);

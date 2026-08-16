@@ -14,8 +14,8 @@ vocabulary or appear in ordinary state.
 
 | Concept | Player-facing noun | Ownership and authority | Lifecycle | Primary affordance |
 | --- | --- | --- | --- | --- |
-| A verb offered by the action controller | **action** | The engine derives legal actions from authoritative room state. A player chooses one; it is not owned or collected. | Replaced when room state changes; exactly two are dealt at a time. | Command-shaped button in the two-action hand; `data-player-concept="action"`. |
-| The voluntary end-of-hand control | **Think** (ordinary) / **Pass** (focused turn) | The engine certifies the actor, scene/focus, state revision, and hand generation before accepting it. It is not an entitlement or a free redeal. | Consumes one turn, journals the next deterministic hand, and becomes stale when the scene changes. | Third hand control; `data-player-concept="pass"`. |
+| A verb offered by the action controller | **action** | The engine derives legal actions and their four-suit presentation from authoritative room state. A player chooses one; it is not owned or collected. | Replaced when room state changes; the Story, Self, and Anchor slots are selected independently. | Command-shaped button in the Story Hand; `data-player-concept="action"`. |
+| The focused-card replacement control | **Think** | The engine certifies the actor, scene/focus, state revision, exact slot, slot generation, and replaced offer. It is not a whole-hand redeal. | Free once after entering a safe scene; otherwise consumes one turn. Only the chosen slot advances, and the certificate becomes stale when the scene changes. | Story Hand control; `data-player-concept="think"`. |
 | A visual or interaction representation | **card** | A card projects an actor, item, location, spell, or action. It never owns or replaces its subject and cannot create authority from art or text. | Reprojects from canonical state; historical art/provenance may remain inspectable. | Illustrated subject/action surface; target `data-player-concept="card"`. |
 | A supported NFT-backed actor association | **linked avatar** | A protected adapter verifies one allowlisted asset and binds it to one durable autonomous actor. Wallet custody grants association, not command authority, power, items, rewards, or access. | First link creates one binding; later links and transfers recover the same actor and history. | Linked-avatar roster/chronicle; target `data-player-concept="linked-avatar"`. |
 | A physical thing in the shared world | **item** | Custody and location come from the canonical world. A wallet cannot spawn, reclaim, or duplicate it. | May be found, carried, equipped, traded, dropped, installed, consumed, lost, or stolen under world rules. | Item card/inspector plus exact world actions; `data-player-concept="item"`. |
@@ -85,7 +85,7 @@ Target interactive surfaces expose the same concept nouns through
 
 | Event | Meaning |
 | --- | --- |
-| `action.select`, `action.confirm`, `action.pass` | choose, confirm, or Think/Pass through the two suggestions |
+| `action.select`, `action.confirm`, `action.think` | choose, confirm, or replace one focused Story Hand card |
 | `card.open` | inspect the presentation of one world subject |
 | `linked_avatar.open`, `linked_avatar.link` | inspect or initiate the protected linked-avatar flow |
 | `world_pack.library.open` | open the mounted World Library |

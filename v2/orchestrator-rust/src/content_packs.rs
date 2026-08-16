@@ -218,11 +218,11 @@ mod tests {
         assert_eq!(ruby.kind, "world");
         assert_eq!(ruby.entry_location_id, Some(11));
         assert_eq!(ruby.locations.len(), 6);
-        assert_eq!(ruby.asset_providers.len(), 1);
-        assert_eq!(
-            ruby.asset_providers[0].provider,
-            "ruby-high.first-bell/assets"
-        );
+        assert_eq!(ruby.asset_providers.len(), 2);
+        assert!(ruby
+            .asset_providers
+            .iter()
+            .any(|provider| provider.provider == "ruby-high.first-bell/assets"));
         assert_eq!(
             ruby.distribution
                 .as_ref()

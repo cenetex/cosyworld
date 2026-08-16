@@ -596,7 +596,7 @@ fn runtime_ready_for_lantern_finale() -> (RuntimeWorld, Vec<u64>) {
 }
 
 #[test]
-fn lantern_question_projects_two_truthful_suggestions_and_replays_danger_memory() {
+fn lantern_question_projects_three_truthful_suggestions_and_replays_danger_memory() {
     let actor_id = 9_850;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(&mut runtime, actor_id, 800, "Road Reader");
@@ -620,7 +620,7 @@ fn lantern_question_projects_two_truthful_suggestions_and_replays_danger_memory(
     );
     assert!(!initial_question.danger_situation.is_empty());
     assert!(!initial_question.danger_consequence.is_empty());
-    assert_eq!(initial_question.suggested_actions.len(), 2);
+    assert_eq!(initial_question.suggested_actions.len(), 3);
     assert_eq!(
         initial_question
             .suggested_actions

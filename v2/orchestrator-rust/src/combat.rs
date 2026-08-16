@@ -642,11 +642,11 @@ impl RuntimeWorld {
             .1
             .into_iter()
             .filter(action_offer_is_reachable)
-            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
             .collect::<Vec<_>>();
         let hand = self.action_hand_for(Some(actor_id), &offers);
         let offers = offers
             .into_iter()
+            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
             .filter(|offer| {
                 hand.entries
                     .iter()
@@ -674,13 +674,21 @@ impl RuntimeWorld {
                 seed,
             )
             .into_actor_consequence(self.world.tick, caused_by_event_seq);
-            // Combat residents pass through the finite hand; they do not get a
-            // separate, free draw/redeal capability.
+            // Combat residents pass the ordered floor and Think about one
+            // exact Story Hand card; they never receive a whole-hand redeal.
             record.bind_offer_kind("pass");
             record.source_location_id = Some(actor.location_id);
+            let think = hand.pass;
+            let slot = STORY_HAND_SLOTS
+                .iter()
+                .position(|candidate| *candidate == think.slot)?;
             record
                 .projection_mutations
-                .push(ProjectionMutation::ShuffleHand {
+                .push(ProjectionMutation::ThinkHand {
+                    slot: u8::try_from(slot).ok()?,
+                    scene_key: think.scene_key,
+                    replaces_offer_id: think.replaces_offer_id,
+                    free: false,
                     reason: "resident_combat_pass".to_string(),
                 });
             return Some(

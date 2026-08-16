@@ -327,16 +327,52 @@ impl RuntimeWorld {
         candidates
     }
 
-    #[cfg(test)]
+    fn fairest_top_resident_candidate(
+        &self,
+        candidates: Vec<ResidentAutonomyCandidate>,
+    ) -> Option<ResidentAutonomyCandidate> {
+        let best = candidates.first()?;
+        let best_rank = best.rank;
+        let best_score = best.score;
+        let oldest_action_seq = candidates
+            .iter()
+            .take_while(|candidate| candidate.rank == best_rank && candidate.score == best_score)
+            .map(|candidate| {
+                self.actor_autonomy
+                    .get(&candidate.actor_id)
+                    .map(|autonomy| autonomy.last_acted_event_seq)
+                    .unwrap_or_default()
+            })
+            .min()
+            .unwrap_or_default();
+        candidates
+            .into_iter()
+            .take_while(|candidate| candidate.rank == best_rank && candidate.score == best_score)
+            .find(|candidate| {
+                self.actor_autonomy
+                    .get(&candidate.actor_id)
+                    .map(|autonomy| autonomy.last_acted_event_seq)
+                    .unwrap_or_default()
+                    == oldest_action_seq
+            })
+    }
+
     pub(super) fn best_resident_economy_autonomy_candidate(
         &mut self,
         seed: u64,
     ) -> Option<ResidentAutonomyCandidate> {
         let actor_ids = self.resident_economy_autonomy_candidate_ids();
-        let candidates = self.resident_autonomy_candidates_for_ids(&actor_ids, seed);
-        candidates
+        let candidates = self
+            .resident_autonomy_candidates_for_ids(&actor_ids, seed)
             .into_iter()
-            .next()
+            .filter(|candidate| {
+                self.autonomy_allows_action(
+                    candidate.record.action.actor_id,
+                    candidate.record.action.kind,
+                )
+            })
+            .collect::<Vec<_>>();
+        self.fairest_top_resident_candidate(candidates)
             .map(|candidate| self.attach_resident_decision_trace(candidate))
     }
 
@@ -357,6 +393,44 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ambient_ties_prefer_the_resident_waiting_longest() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.ensure_actor_autonomy();
+        runtime
+            .actor_autonomy
+            .get_mut(&RATI_ACTOR_ID)
+            .expect("Rati autonomy")
+            .last_acted_event_seq = 90;
+        runtime
+            .actor_autonomy
+            .get_mut(&WHISKERWIND_ACTOR_ID)
+            .expect("Gust autonomy")
+            .last_acted_event_seq = 0;
+        let candidate = |actor_id| ResidentAutonomyCandidate {
+            actor_id,
+            rank: 60,
+            score: 0,
+            record: JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id,
+                    destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                1,
+            ),
+        };
+
+        let selected = runtime
+            .fairest_top_resident_candidate(vec![
+                candidate(RATI_ACTOR_ID),
+                candidate(WHISKERWIND_ACTOR_ID),
+            ])
+            .expect("one tied resident is selected");
+        assert_eq!(selected.actor_id, WHISKERWIND_ACTOR_ID);
+    }
 
     fn establish_practice(runtime: &mut RuntimeWorld, actor_id: u64, category: DeedCategory) {
         for seq in 1..=5 {

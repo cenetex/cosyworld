@@ -1,10 +1,11 @@
 //! Fast, deterministic ranking across every currently legal card.
 //!
 //! The deployed model scores each card independently with shared weights. The
-//! runtime ranks the complete legal deck, then maps that ranking onto the
-//! authoritative two-card hand. The top card is playable when shown; ranks two
-//! and three are playable only when their integer score ties the top score.
-//! Otherwise the adapter emits `DRAW` and reranks the next hand.
+//! runtime ranks the complete legal offer queue, then maps that ranking onto the
+//! authoritative Story, Self, and Anchor slots. The top card is playable when
+//! shown; ranks two and three are playable only when their integer score ties
+//! the top score. Otherwise the legacy adapter name `DRAW` means Think about
+//! one exact slot, then rerank its replacement.
 
 mod ranker;
 mod synthetic;

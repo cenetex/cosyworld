@@ -551,10 +551,17 @@ impl CapabilityRegistrySnapshot {
         provider: &str,
         model: &str,
     ) -> Result<Self, RegistryError> {
-        Self::from_document(CapabilityRegistryDocument {
-            schema_version: REGISTRY_SCHEMA_VERSION,
-            snapshot_version: snapshot_version.into(),
-            declared: vec![DeclaredModelCandidate {
+        Self::legacy_split(snapshot_version, provider, model, model)
+    }
+
+    pub(crate) fn legacy_split(
+        snapshot_version: impl Into<String>,
+        provider: &str,
+        voice_model: &str,
+        metacognitive_model: &str,
+    ) -> Result<Self, RegistryError> {
+        let candidate =
+            |model: &str, capabilities: BTreeSet<ModelCapability>| DeclaredModelCandidate {
                 requested_model_id: model.to_string(),
                 provider: provider.to_string(),
                 concrete_model: Some(ConcreteModelIdentity {
@@ -579,13 +586,31 @@ impl CapabilityRegistrySnapshot {
                 data_policy: DataPolicyEligibility::default(),
                 prompt_adapter: PromptAdapterRef::default(),
                 sampling: SamplingDefaults::default(),
-                capabilities: BTreeSet::from([
+                capabilities,
+                observations: CandidateObservations::default(),
+            };
+        let declared = if voice_model == metacognitive_model {
+            vec![candidate(
+                voice_model,
+                BTreeSet::from([
                     ModelCapability::Voice,
                     ModelCapability::IntentJson,
                     ModelCapability::WorldContent,
                 ]),
-                observations: CandidateObservations::default(),
-            }],
+            )]
+        } else {
+            vec![
+                candidate(voice_model, BTreeSet::from([ModelCapability::Voice])),
+                candidate(
+                    metacognitive_model,
+                    BTreeSet::from([ModelCapability::IntentJson, ModelCapability::WorldContent]),
+                ),
+            ]
+        };
+        Self::from_document(CapabilityRegistryDocument {
+            schema_version: REGISTRY_SCHEMA_VERSION,
+            snapshot_version: snapshot_version.into(),
+            declared,
             discovered: Vec::new(),
         })
     }
@@ -2308,6 +2333,40 @@ mod tests {
             attribution.data_policy,
             DataPolicyEligibility::default(),
             "unknown legacy policy remains truthful metadata"
+        );
+    }
+
+    #[test]
+    fn split_legacy_registry_keeps_voice_out_of_metacognitive_routing() {
+        let legacy = CapabilityRegistrySnapshot::legacy_split(
+            "legacy-openrouter-split-v1",
+            "openrouter",
+            "mistralai/mistral-nemo",
+            "openai/gpt-5.6-sol",
+        )
+        .expect("split legacy fallback registry");
+
+        assert_eq!(legacy.candidate_count(), 2);
+        assert_eq!(legacy.pool_len(ModelCapability::Voice), 1);
+        assert_eq!(legacy.pool_len(ModelCapability::IntentJson), 1);
+        assert_eq!(legacy.pool_len(ModelCapability::WorldContent), 1);
+        assert_eq!(
+            legacy
+                .pin(ModelCapability::Voice, None, DataPolicyMode::Development)
+                .expect("voice pin")
+                .requested_model_id(),
+            "mistralai/mistral-nemo"
+        );
+        assert_eq!(
+            legacy
+                .pin(
+                    ModelCapability::IntentJson,
+                    None,
+                    DataPolicyMode::Development
+                )
+                .expect("planner pin")
+                .requested_model_id(),
+            "openai/gpt-5.6-sol"
         );
     }
 

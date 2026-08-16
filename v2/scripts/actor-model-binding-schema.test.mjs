@@ -47,9 +47,9 @@ test("accepts a complete exact OpenRouter actor binding", () => {
   assert.deepEqual(actorModelBindingValidationErrors(manifest, [actor], [binding]), []);
 });
 
-test("rejects duplicate models and actor bindings", () => {
+test("rejects duplicate binding identities and actor bindings", () => {
   const errors = actorModelBindingValidationErrors(manifest, [actor], [binding, binding]);
-  assert(errors.some((error) => error.includes("repeats model")));
+  assert(errors.some((error) => error.includes("repeats binding")));
   assert(errors.some((error) => error.includes("repeats actor")));
 });
 
@@ -57,6 +57,32 @@ test("rejects a cast with an unbound actor", () => {
   const extra = { ...actor, id: 652002 };
   const errors = actorModelBindingValidationErrors(manifest, [actor, extra], [binding]);
   assert(errors.some((error) => error.includes("binds 1 of 2 actors")));
+});
+
+test("accepts an explicit partial cast and shared requested model routes", () => {
+  const explicitManifest = structuredClone(manifest);
+  delete explicitManifest.extensions["x-cosyworld-ai-cast"].complete_actor_binding;
+  explicitManifest.extensions["x-cosyworld-ai-cast"].binding_policy = "explicit";
+  const second = { ...actor, id: 652002 };
+  const secondBinding = {
+    ...binding,
+    id: "cosyworld.test/second-example-binding",
+    actor_id: second.id,
+    actor_ref: `pack://${manifest.id}/actor/${second.id}`,
+  };
+
+  assert.deepEqual(
+    actorModelBindingValidationErrors(explicitManifest, [actor, second], [binding]),
+    [],
+  );
+  assert.deepEqual(
+    actorModelBindingValidationErrors(
+      explicitManifest,
+      [actor, second],
+      [binding, secondBinding],
+    ),
+    [],
+  );
 });
 
 test("requires non-text models to be explicitly unavailable", () => {

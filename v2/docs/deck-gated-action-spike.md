@@ -5,10 +5,11 @@ ship. Proposed identity: `cosyworld.variant/deck-gated-ordinary-actions/0`.
 
 When this historical spike was written, the default `cosyworld.srd5/1` mode
 was described as a projection CCG with a three-card suggestion hand. That
-baseline is superseded: the live mode now deals two certified action offers,
-and certified Think/Pass consumes a turn to rotate them. This spike still asks
-what would happen if a different draw constrained ordinary actions as well as
-prepared Magic cards.
+baseline is superseded: the live mode now deals the server-authored Story,
+Self, and Anchor slots. Think replaces exactly one chosen card, free once on
+entering a safe scene and turn-consuming thereafter (and always in ordered or
+dangerous scenes). This spike still asks what would happen if a different draw
+constrained ordinary actions as well as Prepared spells.
 
 ## Prototype rules
 

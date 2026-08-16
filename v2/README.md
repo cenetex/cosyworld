@@ -143,8 +143,8 @@ The Rust orchestrator currently owns:
 - Actor/item/location/content labels.
 - Native calls into the local Rust model for deterministic avatar identity and speech sanitizer behavior that can also run in WASM; dialogue is generated only through configured AI inference.
 - Card projections for visible actors, items, and locations.
-- Rules-bound legal-action envelopes, deterministic ranked two-card hands plus
-  certified Think/Pass rotation, composition traces, and stale/tampered
+- Rules-bound legal-action envelopes, a deterministic three-slot Story Hand
+  with exact per-card Think certificates, composition traces, and stale/tampered
   submission rejection.
 - Read-only legacy item-materialization migration receipts and possession
   provenance. No materialize or Collection-return mutation remains; the
@@ -290,13 +290,13 @@ http://127.0.0.1:3102/?reset=1
 
 `reset=1` clears the browser's remembered avatar, calls the dev-gated `/dev/reset` endpoint when enabled, removes the reset flag from the URL, reseeds the world, clears the SQLite action journal/event feed, and returns the player to the explicit `Create Avatar` gate. Without `COSYWORLD_ENABLE_DEV_RESET=1`, the query still clears only the local browser avatar so a tester can start a new human without resetting the shared server.
 
-The avatar gate begins with an immediate character question and carries that answer through the visible game as the avatar's purpose. A quiet transcript frames `a new tale is waiting`; the completed Begin lands as a visible arrival beat and arms the first resident heartbeat. The new avatar sheet describes moments and people still ahead, calls a local session a `local tale`, and reports the carried deck by physical weight rather than a fixed card count.
+The avatar gate begins with an immediate character question and carries that answer through the visible game as the avatar's purpose. A quiet transcript frames `a new tale is waiting`; the completed Begin lands as a visible arrival beat and arms the first resident heartbeat. The new avatar sheet describes moments and people still ahead, calls a local session a `local tale`, and reports the Pack by physical weight rather than a fixed card count.
 
 The browser frames onboarding as `Your first tale`: Notice a clue, watch the Journal settle the earned growth in that same action, then keep exploring or use advancement through a relevant character surface. Chat starts a short system-funded exchange with an eligible nearby resident; Befriend spends one advancement point to begin a friendship and opens a resident picker when several eligible new friends are nearby. Advancement never creates a charm, skill, spell, or weapon card. Remember handles mature friendships separately.
 
 Multi-target verbs stay compact: Take, Use, Give, Trade, Attack, and Chat put legal targets inside one card instead of duplicating hand slots. Long connections remain ordinary segmented geography—Search reveals one adjacent pathway and Travel enters it. Player-facing copy describes story outcomes rather than exposing raw d20, damage, HP, or clock arithmetic. The collapsed room `LOG` names who did what and what changed; the expanded history preserves the audited sequence. That log is also supplied to resident inference, so a delayed reply can refer to cards played and changes that happened in the channel instead of inventing an isolated conversation.
 
-Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, stay and act, or Think/Pass. During an active journey the browser gives that actor a provisional travelling-party treatment with a destination, evolving way name, segmented progress bar, co-present faces, and a travelling-party label over the room transcript. This remains orientation rather than shared-party authority: `JourneyState` is actor-scoped, the faces are not certified Company members, conversation is still room-scoped, and every actor moves independently. [ADR 0009](../docs/decisions/0009-companies-ventures-formations-and-shared-travel.md) defines the accepted replacement—consensual Company membership, a shared Venture, Formation and readiness, vehicles as independent world objects, atomic departure for the ready subset, detachments, and honest route/voyage/Delve progress. Destinations remain places (`Emmaus`); connective names such as `Road to Emmaus` belong to the way system, whose current traffic-derived presentation grows from unmarked way through track, cairn path, trail, road, avenue, and highway. ADR 0009 requires a future replay-compatible revision to distinguish wear, wayfinding, construction, maintenance, and normalized use rather than letting raw per-edge traffic stand in for every kind of development. Each revealed waypoint atomically joins the authoritative room and simulation projections as risky frontier with three derived milestones: a durable fixture earns Anchor, an actor-causal physical delivery earns Connection, and three non-repeatable contributions from at least two avatars earn Settlement. Settlement opens a bounded building proposal, extended only by revealed natural features; it does not create a sanctuary or construct anything. `choice` keeps the policy and alternatives in Journal, while `support`, `choose`, and explicit delegation write one-line Journal events through a replayable governed-choice state machine; selection preserves every support record and never depends on controller kind, title, Calling, or practice. The browser uses authored location art; the unfinished pathway/dungeon SVG renderer is not part of play.
+Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, stay and act, or Think about one focused card. During an active journey the browser gives that actor a provisional travelling-party treatment with a destination, evolving way name, segmented progress bar, co-present faces, and a travelling-party label over the room transcript. This remains orientation rather than shared-party authority: `JourneyState` is actor-scoped, the faces are not certified Company members, conversation is still room-scoped, and every actor moves independently. [ADR 0009](../docs/decisions/0009-companies-ventures-formations-and-shared-travel.md) defines the accepted replacement—consensual Company membership, a shared Venture, Formation and readiness, vehicles as independent world objects, atomic departure for the ready subset, detachments, and honest route/voyage/Delve progress. Destinations remain places (`Emmaus`); connective names such as `Road to Emmaus` belong to the way system, whose current traffic-derived presentation grows from unmarked way through track, cairn path, trail, road, avenue, and highway. ADR 0009 requires a future replay-compatible revision to distinguish wear, wayfinding, construction, maintenance, and normalized use rather than letting raw per-edge traffic stand in for every kind of development. Each revealed waypoint atomically joins the authoritative room and simulation projections as risky frontier with three derived milestones: a durable fixture earns Anchor, an actor-causal physical delivery earns Connection, and three non-repeatable contributions from at least two avatars earn Settlement. Settlement opens a bounded building proposal, extended only by revealed natural features; it does not create a sanctuary or construct anything. `choice` keeps the policy and alternatives in Journal, while `support`, `choose`, and explicit delegation write one-line Journal events through a replayable governed-choice state machine; selection preserves every support record and never depends on controller kind, title, Calling, or practice. The browser uses authored location art; the unfinished pathway/dungeon SVG renderer is not part of play.
 
 A governed selection now claims one major footprint and opens a shared construction question rather than completing a building; completion installs only pack-authored capabilities, leaves natural features intact, creates no passive cargo, and exposes its clocks, empty reward caches, recipe tags, and bounded follow-up work to avatars through room state without adding main-page panels.
 
@@ -304,13 +304,13 @@ Authored search reveal percentages are real per-attempt thresholds. Candidates
 are checked in deterministic priority order, and when every roll misses the
 search reveals nothing rather than forcing the first hidden candidate.
 
-The scene hand never deals a standalone growth-settlement or generic bracelet card. A successful Notice records and settles its earned marks in one authoritative action while leaving ordinary discovery reachable. Deck & Loadout exposes `Make room for <Charm>` only when the current bracelet is full, that specific unworn charm is carried, earned advancement is ready, and the slot cap has not been reached. Spending opens one slot without creating or equipping the charm. The room stays chat-first; the `Journal` button beside the location name opens a warm storybook view. It separates the current place and open threads from paged story history, and begins the history with a concise deterministic chapter summary composed from the same authoritative beats rather than an AI retelling or raw event log.
+The Story Hand never deals a standalone growth-settlement or generic bracelet card. A successful Notice records and settles its earned marks in one authoritative action while leaving ordinary discovery reachable. Pack & Loadout exposes `Make room for <Charm>` only when the current bracelet is full, that specific unworn charm is carried, earned advancement is ready, and the slot cap has not been reached. Spending opens one slot without creating or equipping the charm. The room stays chat-first; the `Journal` button beside the location name opens an image-only daily Journal. Short rests append private Journaler context, while the first hearth/long rest for an avatar on a UTC day publishes at most one first-person generated page image. Raw events, room memory, open threads, meters, and growth sheets never render in the book.
 
-The planned rest-bound authored-page model—one sentence per short rest, one full page per long rest, with three short rests per waking cycle—is specified in [Rest-bound Journal pages](docs/rest-bound-journal-pages.md).
+The durable cadence, Journaler voice, image projection, and replay rules are specified in [Daily Journal Images](docs/journal-storybook-pages.md).
 
 Generated avatar titles are short portable card epithets rather than room descriptions. Model-added suffixes such as `at The Cosy Cottage` are removed on creation and when older profiles are replayed, so arrival copy names the room once and the title still makes sense after travel. Identity generation asks for a small fondness, harmless habit, and gentle curiosity; a server-side tone guard repairs titles, descriptions, visual prompts, and older profiles that drift into grudges, ravenous scheming, hostility, cruelty, or villain language.
 
-After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative two-card hand. The server-authored first-tale projection is the only story guide that may pin and label a matching scene card.
+After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative Story Hand. The server-authored first-tale projection is the only story guide that may pin and label a matching Story card.
 
 Choice-bearing cards keep one confirmation flow while making the selected option feel concrete. Avatar, Item, Location, Give, Trade, Travel, Take, Attack, friendship, and mixed Use choices carry their corresponding cards; selecting another option immediately swaps the preview and accessible image name. Portrait and square art use a contained preview instead of being cropped into the wide action frame.
 
@@ -353,8 +353,12 @@ COSYWORLD_AI_API_KEY=... COSYWORLD_AI_MODEL=openai/gpt-5.6-luna cargo run
 OpenRouter works too:
 
 ```sh
-OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=openai/gpt-5.6-luna cargo run
+OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=mistralai/mistral-nemo cargo run
 ```
+
+OpenRouter development defaults keep avatar voice on the small Mistral Nemo
+route while `intent_json` and `world_content` use `openai/gpt-5.6-sol`.
+Override the higher-power lane with `OPENROUTER_METACOGNITIVE_MODEL`.
 
 OpenRouter readiness begins with an immediate bounded `/key` probe and is
 reported without balances or secrets at `/meta.ai.readiness`. HTTP 401/402
@@ -615,11 +619,14 @@ The default client is JRPG-style button mode:
 ```text
 [Enter] primary contextual action
 [Space] secondary contextual action, when present
-[P]     Think/Pass (skip turn and deal two new cards)
+[P]     Think (replace the focused card; free once on entering a safe scene)
 [Q]     quit
 ```
 
-The client presents the two dealt certified cards in server order, including every authored action kind. Playing a card or choosing the certificate-bound Think/Pass control consumes one turn and deals the next hand. `/commands` remains a narrow text convenience for room inspection, reporting, and safety; state-changing scene play requires a current offered certificate.
+The client presents the server-authored Story, Self, and Anchor slots. Each action has one of four suits—Head, Heart, Honor, or Hustle—plus an exact verb, source, state, provenance, cost, risk, and effect. Think replaces only the focused slot: the first Think after entering a safe scene is free, while later Thinks and every Think in a risky or ordered scene consume the turn. `/commands` remains a narrow text convenience for room inspection, reporting, and safety; state-changing scene play requires a current offered certificate.
+
+See [Story Hand](docs/story-hand.md) for the complete suit meanings, slot rules,
+presentation contract, and player vocabulary.
 
 Normal play prefers concrete room verbs such as `Take`, `Use`, `Notice`, `Inspect`, `Scout`, `Travel`, `Contribute`, `Flee`, or `Chat` from the ranked action-offer list. Notice receives an ambient lead, Inspect names the thing being examined, Scout names a destination while revealing only its next route segment, Travel moves there, and Contribute groups every authored Work, Help, Check, Study, or Use Item strategy in one project slot. Every choice submits its exact strategy ID through the same route; the server derives the ability, DC, or item from worldpack content. Each offer carries typed metadata for UI/tooling: semantic intention, pack-authored verb, target, accessible label, project and progress-clock identity, category, cost, risk, effect, claim key, source, zone, rank, and disabled-state. Packs may replace the displayed vocabulary without changing those stable semantic roles. Empty group chats render a quiet room vignette instead of a debug placeholder or synthetic log row.
 
@@ -781,7 +788,7 @@ Locations are live channels:
 - `/events` uses the same current-room boundary. Wallet/card entitlements do not widen replay into other rooms, and clients cannot traverse the world graph through event history.
 - Human presence in `/state` is filtered to the current actor plus recently touched actor sessions in that room, with the temporary focused-turn-holder exception used by MUD room rosters.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
-- When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Journal settlement is part of successful discovery rather than a separate waiting-room card. Loadout changes live in Deck & Loadout and do not take the shared room turn. The gentle Nudge / I'm here handoff remains beside scene choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
+- When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Journal settlement is part of successful discovery rather than a separate waiting-room card. Loadout changes live in Pack & Loadout and do not take the shared room turn. The gentle Nudge / I'm here handoff remains beside scene choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
 - The browser appends only `message.created` speech and dice-call pills to group chat. Combat outcomes and other matching live events refresh state, remain in the location's Journal, and may appear as dismissible important alerts. Lantern Keeper actions additionally end in one persisted `story.receipt`.
 - An active Lantern Keeper scene promotes one shared question outside the Journal with fiction-first situation text, exact progress and danger meters, the completion change, the current danger beat, and its fill consequence. Its rationale list is derived from the same two-entry authoritative action hand as the playable cards; screen-reader labels say `suggestion 1 of 2` and `suggestion 2 of 2`, never count the larger legal offer set. Browser, `look`, CLI reconnect, stale-offer refresh, journal replay, success, and failure all project the same question state. Once either clock resolves it, the live task bars retire to a concise public memory naming its contributors.
 - The Lantern Keeper's light and darkness clocks directly declare their own justified fill effects. Each terminal fill journals exactly one authoritative job outcome and one authored `story.receipt`; retry, reconnect, and journal replay cannot duplicate either. Official worldpack validation requires both direct declarations, their expected completed/failed status, and an authored reason, and rejects a missing, tag-only, or duplicate lifecycle source without imposing the Lantern contract on other pack compositions.
@@ -818,7 +825,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
 - `POST /avatar/session`
-- `POST /commands` for read controls and certified Think/Pass
+- `POST /commands` for read controls and certified per-card Think
 - `POST /presence/ping`
 - `POST /presence/leave`
 - `POST /story/world-beat-exposures`
@@ -836,7 +843,7 @@ state, disabled mutation flags, and read-only migration receipt counts. Verified
 linked-avatar actor receipts are counted separately because the retained actor
 adapter is not the retired general item bridge.
 `POST /actions/submit` is the canonical scene-mutation gateway. Callers send
-the authenticated actor handle and an exact offer from the current two-card
+the authenticated actor handle and an exact offer from the current Story
 hand. The offer payload includes its stable envelope:
 
 ```json
@@ -892,10 +899,10 @@ rendered; terminal and agent clients acknowledge after presentation with
 `cli` or `agent` transport.
 
 Listen, Study, Travel, item, social, work, and combat choices all enter through
-`POST /actions/submit`, which revalidates the current two-card hand, offer
+`POST /actions/submit`, which revalidates the current Story Hand, offer
 identity, rules binding, target, collectible source, and state revision before
-dispatch. A current Think/Pass certificate submitted to `POST /commands` rotates
-to the next two cards and consumes one turn. There are no direct mechanical
+dispatch. A current Think certificate submitted to `POST /commands` replaces
+its exact Story, Self, or Anchor card. It is free once per safe scene and otherwise consumes one turn. There are no direct mechanical
 compatibility routes.
 
 The deterministic `cosyworld.combat/4` protocol includes NPC initiative and
@@ -985,8 +992,8 @@ curl -s -X POST http://127.0.0.1:3102/avatar \
 
 ```sh
 curl -s http://127.0.0.1:3102/state?actor_id=5000
-# Submit the returned action_hand.pass.offer_id to /commands with its
-# canonical envelope; uncertified direct hand cycling is refused.
+# Focus one action_hand.entries card and submit its think.offer_id to /commands
+# with its canonical envelope; uncertified whole-hand cycling is refused.
 ```
 
 ## Verify

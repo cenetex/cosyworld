@@ -301,7 +301,13 @@ typedef enum {
   CW_ACTION_FOCUSED_NOTICE_V2 = 35,
   CW_ACTION_SEARCH_V2 = 36,
   CW_ACTION_STUDY_V2 = 37,
-  CW_ACTION_SCOUT_V2 = 38
+  CW_ACTION_SCOUT_V2 = 38,
+  /* Linked-account rescue completion atomically consumes the birth draught,
+     revives the fallen avatar, and releases the unchosen body as a resident. */
+  CW_ACTION_COMPLETE_AVATAR_RESCUE = 39,
+  /* A second knockout during a rescue window kills the oldest body and
+     creates the next rescuer in one replayable transition. */
+  CW_ACTION_REPLACE_AVATAR_RESCUER = 40
 } cw_action_kind;
 
 typedef enum {
@@ -356,7 +362,10 @@ typedef enum {
   CW_EVENT_FOCUSED_NOTICE_COMMITTED = 47,
   CW_EVENT_SEARCH_COMMITTED = 48,
   CW_EVENT_STUDY_COMMITTED = 49,
-  CW_EVENT_SCOUT_COMMITTED = 50
+  CW_EVENT_SCOUT_COMMITTED = 50,
+  CW_EVENT_AVATAR_RESCUE_COMPLETED = 51,
+  CW_EVENT_AVATAR_RELEASED = 52,
+  CW_EVENT_COMBAT_DEATH = 53
 } cw_event_type;
 
 typedef enum {

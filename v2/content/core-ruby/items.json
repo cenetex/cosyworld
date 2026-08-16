@@ -263,5 +263,77 @@
       "theft_policy": "eligible_when_carried"
     },
     "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2110,
+    "name": "Hall Pass",
+    "description": "A red Ruby High hall pass that turns stepping out and returning ready into an ordinary part of learning.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 11,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": 2111,
+    "name": "Flashcards",
+    "description": "A ring of handwritten study cards, revised often enough that the crossed-out answers have become useful too.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 11,
+    "role": "generic",
+    "weight_tenths": 2,
+    "size": "small",
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": 2112,
+    "name": "Library Card",
+    "description": "A green Ruby High library card that carries the quiet promise that a better source may still be on the next shelf.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 12,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": 2113,
+    "name": "Lab Flask",
+    "description": "A clean glass flask marked for observations first and guesses second.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 10,
+    "role": "tool",
+    "weight_tenths": 3,
+    "size": "small",
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": 2114,
+    "name": "Lunch Tray",
+    "description": "A red cafeteria tray with enough room for lunch, a trade, and one rumor that should probably be checked.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 13,
+    "role": "generic",
+    "weight_tenths": 8,
+    "size": "medium",
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": 2115,
+    "name": "Notebook",
+    "description": "An open school notebook full of lists, diagrams, questions, and evidence that unfinished thoughts still count.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 14,
+    "role": "generic",
+    "weight_tenths": 3,
+    "size": "small",
+    "pack_id": "ruby-high.first-bell"
   }
 ]

@@ -4,7 +4,7 @@
     "premise": "The forest is caught in February Second, and the belfry can welcome tomorrow only through continuity that remains sourced, bounded, revisable, and consensual.",
     "stakes": "A perfect-sounding story could ring the bell sooner while quietly erasing corrections, self-authorship, and the right to pause.",
     "location_ids": [770000, 770001, 770002, 770003, 770004, 770005, 770006],
-    "participant_ids": [771000, 771001, 771002, 771003, 771004, 771007],
+    "participant_ids": [771000, 771001, 771002, 771003, 771004, 771007, 771100, 771101, 771102, 771105, 771106],
     "progress_clock_id": "hoppycat.february-third",
     "danger_clock_id": "hoppycat.perfect-copy",
     "status": "active",
@@ -31,7 +31,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -50,7 +50,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -69,7 +69,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -88,7 +88,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -107,7 +107,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ]
   },
@@ -116,7 +116,7 @@
     "premise": "Mira’s ninth drawer contains a commission everyone loves and nobody has begun: make one small impossible thing and send it beyond the forest.",
     "stakes": "Care may harden into endless preparation, or excitement may launch the work without consent, context, or a return path.",
     "location_ids": [770007, 770008, 770009],
-    "participant_ids": [771005, 771006],
+    "participant_ids": [771005, 771006, 771101, 771103],
     "progress_clock_id": "hoppycat.impossible-thing",
     "danger_clock_id": "hoppycat.perpetual-draft",
     "status": "active",
@@ -143,7 +143,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -162,7 +162,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -181,7 +181,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ]
   },
@@ -190,7 +190,7 @@
     "premise": "A beautiful play has reached the Theatre of Settled Light without the living route that distinguishes record, event, and invention.",
     "stakes": "The play’s emotional force may harden into false provenance if it circulates before a path home is restored.",
     "location_ids": [770000, 770005, 770006],
-    "participant_ids": [771000, 771001, 771002, 771005],
+    "participant_ids": [771000, 771001, 771002, 771005, 771100, 771102, 771104, 771105, 771106],
     "progress_clock_id": "hoppycat.living-footnote",
     "danger_clock_id": "hoppycat.rendering-adrift",
     "status": "active",
@@ -217,7 +217,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -236,7 +236,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       },
       {
         "version": 1,
@@ -255,7 +255,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.3.2"
+        "pack_version": "0.4.0"
       }
     ]
   }

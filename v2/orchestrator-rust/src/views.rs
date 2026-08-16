@@ -117,12 +117,14 @@ impl Serialize for RankedActionOffer {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("RankedActionOffer", 22)?;
+        let presentation = action_card_presentation(self).map_err(serde::ser::Error::custom)?;
+        let mut out = serializer.serialize_struct("RankedActionOffer", 23)?;
         out.serialize_field("id", &self.id)?;
         out.serialize_field("offer_id", &self.offer_id)?;
         out.serialize_field("composition_id", &self.composition_id)?;
         out.serialize_field("kind", &self.kind)?;
         out.serialize_field("intention", &self.intention)?;
+        out.serialize_field("presentation", &presentation)?;
         if let Some(source) = &self.source_collectible {
             out.serialize_field("source_collectible", source)?;
         }
@@ -234,7 +236,11 @@ impl Serialize for ActionHandView {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ActionHandView", 3)?;
+        let mut out = serializer.serialize_struct("ActionHandView", 7)?;
+        out.serialize_field("schema_version", &self.schema_version)?;
+        out.serialize_field("capacity", &self.capacity)?;
+        out.serialize_field("offer_queue_size", &self.deck_size)?;
+        out.serialize_field("think_available", &self.draw_available)?;
         out.serialize_field("generation", &self.generation)?;
         out.serialize_field("pass", &self.pass)?;
         out.serialize_field("entries", &self.entries)?;
@@ -247,11 +253,17 @@ impl Serialize for ActionHandPassView {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ActionHandPassView", 4)?;
+        let mut out = serializer.serialize_struct("ActionHandPassView", 10)?;
         out.serialize_field("offer_id", &self.offer_id)?;
         out.serialize_field("label", &self.label)?;
         out.serialize_field("state_revision", &self.state_revision)?;
         out.serialize_field("scene_key", &self.scene_key)?;
+        out.serialize_field("slot", &self.slot)?;
+        out.serialize_field("replaces_offer_id", &self.replaces_offer_id)?;
+        out.serialize_field("free", &self.free)?;
+        out.serialize_field("consumes_turn", &self.consumes_turn)?;
+        out.serialize_field("generation", &self.generation)?;
+        out.serialize_field("available", &self.available)?;
         out.end()
     }
 }
@@ -267,10 +279,15 @@ impl Serialize for ActionHandEntryView {
             id: &'a str,
         }
 
-        let mut out = serializer.serialize_struct("ActionHandEntryView", 4)?;
+        let mut out = serializer.serialize_struct("ActionHandEntryView", 9)?;
         out.serialize_field("offer_id", &self.offer_id)?;
         out.serialize_field("kind", &self.kind)?;
         out.serialize_field("intention", &self.intention)?;
+        out.serialize_field("slot", &self.slot)?;
+        out.serialize_field("suit", &self.suit)?;
+        out.serialize_field("verb", &self.verb)?;
+        out.serialize_field("think", &self.think)?;
+        out.serialize_field("replacement_count", &self.replacement_count)?;
         out.serialize_field(
             "provider",
             &ProviderIdentity {
@@ -734,6 +751,7 @@ pub(super) struct StateResponse {
     // clients load the same bounded, visibility-filtered history from /events.
     pub(super) recent_events: Vec<EventView>,
     pub(super) journal_beats: Vec<JournalBeatView>,
+    pub(super) journal: DailyJournalView,
     pub(super) room_memory: RoomMemoryView,
     #[allow(dead_code)]
     pub(super) primary_action: PrimaryAction,
@@ -756,7 +774,7 @@ impl Serialize for StateResponse {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("StateResponse", 36)?;
+        let mut out = serializer.serialize_struct("StateResponse", 37)?;
         out.serialize_field("world_id", &self.world_id)?;
         out.serialize_field("world_epoch", &self.world_epoch)?;
         out.serialize_field("world_seq", &self.world_seq)?;
@@ -807,6 +825,7 @@ impl Serialize for StateResponse {
         }
         out.serialize_field("safety", &PublicActorSafetyView(&self.safety))?;
         out.serialize_field("journal_beats", &self.journal_beats)?;
+        out.serialize_field("journal", &self.journal)?;
         out.serialize_field("room_memory", &self.room_memory)?;
         out.serialize_field("primary_action", &self.visible_primary_action)?;
         out.serialize_field("action_offers", &self.visible_action_offers)?;
@@ -1237,7 +1256,7 @@ fn journal_grouped_beat(
     }
 }
 
-fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
+pub(super) fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
     let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
     let mut chronological = events
         .iter()
@@ -4041,6 +4060,9 @@ impl RuntimeWorld {
             safety: self.actor_safety_view(client_actor_id),
             recent_events,
             journal_beats,
+            journal: client_actor_id
+                .map(|id| self.daily_journal_view(id))
+                .unwrap_or_else(|| self.daily_journal_view(0)),
             room_memory,
             primary_action,
             visible_primary_action,
@@ -4935,9 +4957,9 @@ impl RuntimeWorld {
         {
             "The action has no active project in the current scene.".to_string()
         } else if !offer.ranked_hand_eligible {
-            "Rest is legal here, but nothing currently needs recovery, so it stays outside the two-card browser hand.".to_string()
+            "Rest is legal here, but nothing currently needs recovery, so it stays outside the Story Hand.".to_string()
         } else {
-            "This legal action ranks outside the current two-card hand.".to_string()
+            "This legal action is waiting in the current Offer queue.".to_string()
         };
         ActionOfferDecisionView {
             offer_id: offer.offer_id.clone(),

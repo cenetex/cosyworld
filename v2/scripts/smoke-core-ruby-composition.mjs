@@ -274,21 +274,41 @@ function offerEnvelope(state, actorId, offerId) {
   };
 }
 
-async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
+function storyHandSlotForOffer(offer = {}) {
+  const presentation = offer.presentation || {};
+  const suit = String(presentation.suit || "");
+  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
+  const intention = String(offer.intention || "");
+  const effect = String(offer.effect || "").toLowerCase();
+  const hustleIsMovement = suit === "hustle" && (
+    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
+    || offer.kind === "move"
+    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
+  );
+  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
+      || suit === "honor" || hustleIsMovement) return "story";
+  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
+      || suit === "heart") return "self";
+  return "anchor";
+}
+
+async function passCurrentHand(baseUrl, actorId, actorSession, initialState, desiredSlot = "") {
   let state = initialState;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     if (!state || attempt > 0) {
       state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
     }
-    const pass = state.action_hand?.pass;
-    assert(pass?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
+    const entries = state.action_hand?.entries || [];
+    const pass = entries.find((entry) => entry.slot === desiredSlot && entry.think?.available)?.think
+      || entries.find((entry) => entry.think?.available)?.think;
+    assert(pass?.offer_id, `a Story Hand card must expose Think: ${JSON.stringify(state.action_hand)}`);
     const response = await fetch(`${baseUrl}/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         actor_id: actorId,
         actor_session: actorSession,
-        command: "pass",
+        command: "think",
         offer_id: pass.offer_id,
         envelope: offerEnvelope(state, actorId, pass.offer_id),
       }),
@@ -307,13 +327,14 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
 
 async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
   let state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-  const deckSize = Math.max(1, Number(state.action_hand?.deck_size) || 1);
+  const deckSize = Math.max(1, Number(state.action_hand?.offer_queue_size) || 1);
   for (let attempt = 0; attempt < deckSize; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
-    await passCurrentHand(baseUrl, actorId, actorSession, state);
+    const desired = (state.action_offers || []).find((candidate) => predicate(candidate));
+    await passCurrentHand(baseUrl, actorId, actorSession, state, storyHandSlotForOffer(desired));
     state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
   }
   throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);

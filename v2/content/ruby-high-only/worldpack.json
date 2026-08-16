@@ -590,7 +590,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:9f7bdd6feb0d5e42ff063ac34e01293cfe0b6e17dc143c6435ea120b72572b30",
+  "bundle_hash": "sha256:afb25243bf9ca27daf209332b02100810fe958a736eefe394bec8521d02ce37f",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -754,7 +754,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable public school world, card catalog, and First Bell experience.",
-      "version": "1.3.7",
+      "version": "1.4.0",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -827,11 +827,11 @@
         "source_url": "https://ruby-high.ai"
       },
       "resource_counts": {
-        "actors": 0,
+        "actors": 9,
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 1,
-        "items": 0,
+        "items": 6,
         "locations": 6,
         "exits": 16,
         "hidden_exits": 0,
@@ -841,14 +841,14 @@
         "jobs": 0,
         "action_vocabulary": 1,
         "fronts": 0,
-        "cards": 6,
+        "cards": 21,
         "card_bindings": 0,
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 6,
         "external_cards": 24,
-        "assets": 1,
+        "assets": 2,
         "rules": 0,
         "character_creation": 0,
         "reskins": 1,
@@ -891,7 +891,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:86a4047049681121531d06b27dbc978d86a8046961b5efa3f7a5b1d0934dec1d"
+      "integrity": "sha256:b2dedd337e3e688811b7f432e10da527ce89115fc996444ca7cc01490168ff02"
     }
   ],
   "files": {

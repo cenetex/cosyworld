@@ -152,8 +152,11 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         state = {
             "action_hand": {
                 "generation": 7,
-                "entries": [{"offer_id": "srd5.2.1:9:move:move Rain-Soft Garden"}],
-                "pass": {"label": "Think", "offer_id": "pass:42:9:7:ordinary"},
+                "entries": [{
+                    "slot": "story",
+                    "offer_id": "srd5.2.1:9:move:move Rain-Soft Garden",
+                    "think": {"available": False},
+                }],
             },
             "action_offers": [
                 {
@@ -187,10 +190,14 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         self.assertIn("Travel — Rain-Soft Garden", output.getvalue())
         self.assertNotIn("Attack", output.getvalue())
 
-    def test_cli_think_hashes_a_spaced_pass_certificate(self) -> None:
+    def test_cli_think_hashes_a_spaced_card_certificate(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
         game.state = lambda: {  # type: ignore[method-assign]
-            "action_hand": {"pass": {"offer_id": "pass:42:9:7:Moonlit Garden"}}
+            "action_hand": {"entries": [{
+                "slot": "story",
+                "offer_id": "move-garden",
+                "think": {"available": True, "offer_id": "think:42:9:story:7:Moonlit Garden"},
+            }]}
         }
         payloads: list[dict[str, object]] = []
         game.client.post = lambda _path, payload: payloads.append(payload) or {"ok": True, "events": []}  # type: ignore[method-assign]
@@ -199,16 +206,24 @@ class SemanticStoryReceiptTests(unittest.TestCase):
 
         intent_id = payloads[0]["envelope"]["intent_id"]
         self.assertRegex(intent_id, r"^[A-Za-z0-9_.:-]{1,160}$")
-        self.assertEqual(intent_id, offer_intent_id(42, "pass:42:9:7:Moonlit Garden"))
+        self.assertEqual(intent_id, offer_intent_id(42, "think:42:9:story:7:Moonlit Garden"))
 
     def test_cli_think_retries_the_same_pending_certificate_after_transport_failure(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
         first_state = {
-            "action_hand": {"pass": {"offer_id": "pass:42:1:0:first"}},
+            "action_hand": {"entries": [{
+                "slot": "story",
+                "offer_id": "first",
+                "think": {"available": True, "offer_id": "think:42:1:story:0:first"},
+            }]},
             "world_seq": 10,
         }
         changed_state = {
-            "action_hand": {"pass": {"offer_id": "pass:42:2:1:next"}},
+            "action_hand": {"entries": [{
+                "slot": "story",
+                "offer_id": "next",
+                "think": {"available": True, "offer_id": "think:42:2:story:1:next"},
+            }]},
             "world_seq": 11,
         }
         state_calls = 0
@@ -234,17 +249,17 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         game.pass_hand()
 
         self.assertEqual(payloads[0], payloads[1])
-        self.assertEqual(payloads[1]["offer_id"], "pass:42:1:0:first")
+        self.assertEqual(payloads[1]["offer_id"], "think:42:1:story:0:first")
         self.assertEqual(
             payloads[1]["envelope"]["intent_id"],
-            offer_intent_id(42, "pass:42:1:0:first"),
+            offer_intent_id(42, "think:42:1:story:0:first"),
         )
 
     def test_cli_act_refuses_retired_draw_alias(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
-        game.state = lambda: {"action_offers": [], "action_hand": {"pass": {"offer_id": "pass:42:1:0:ordinary"}}}  # type: ignore[method-assign]
+        game.state = lambda: {"action_offers": [], "action_hand": {"entries": []}}  # type: ignore[method-assign]
         with patch("builtins.input", return_value="draw"):
-            with self.assertRaisesRegex(ValueError, "numbered dealt card, or Think"):
+            with self.assertRaisesRegex(ValueError, "numbered Story Hand card"):
                 game.act()
 
     def test_cli_empty_hand_does_not_render_a_leading_separator(self) -> None:
@@ -252,17 +267,18 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         output = io.StringIO()
         with redirect_stdout(output):
             game.print_action_hand(
-                {"pass": {"label": "Think", "offer_id": "pass:42:1:0:ordinary"}},
+                {"entries": []},
                 [],
             )
 
-        self.assertEqual(output.getvalue(), "Hand: Think [pass:42:1:0:ordinary]\n")
+        self.assertEqual(output.getvalue(), "")
 
 
 class ExactOfferSelectionTests(unittest.TestCase):
     def test_cli_selects_the_exact_gift_trade_use_and_project_offer(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
         state = {
+            "action_hand": {"entries": []},
             "action_offers": [
                 {"offer_id": "gift-a", "id": "give_item:100:7", "kind": "give_item", "target": {"kind": "actor", "id": 7}},
                 {"offer_id": "gift-b", "id": "give_item:101:8", "kind": "give_item", "target": {"kind": "actor", "id": 8}},
@@ -276,22 +292,27 @@ class ExactOfferSelectionTests(unittest.TestCase):
         }
         game.state = lambda: state  # type: ignore[method-assign]
 
+        state["action_hand"] = {"entries": [{"offer_id": "gift-b"}]}
         self.assertEqual(
             game.current_offer("/actions/give-item", {"item_id": 101, "target_actor_id": 8}),
             state["action_offers"][1],
         )
+        state["action_hand"] = {"entries": [{"offer_id": "trade-b"}]}
         self.assertEqual(
             game.current_offer("/actions/trade-item", {"item_id": 101, "target_actor_id": 8, "target_item_id": 901}),
             state["action_offers"][3],
         )
+        state["action_hand"] = {"entries": [{"offer_id": "use-b"}]}
         self.assertEqual(
             game.current_offer("/actions/use-item", {"item_id": 101}),
             state["action_offers"][5],
         )
+        state["action_hand"] = {"entries": [{"offer_id": "work-b"}]}
         self.assertEqual(
             game.current_offer("/actions/contribute", {"job_id": "job-b", "strategy_id": "bold"}),
             state["action_offers"][7],
         )
+        state["action_hand"] = {"entries": [{"offer_id": "gift-b"}]}
         self.assertIsNone(game.current_offer("/actions/give-item", {"item_id": 100, "target_actor_id": 8}))
 
     def test_button_game_exposes_each_exact_dealt_use_card(self) -> None:
@@ -391,7 +412,7 @@ class ExactOfferSelectionTests(unittest.TestCase):
         )
         self.assertEqual(game.last_seq, 74)
 
-    def test_button_game_uses_the_focused_pass_label_in_render_and_errors(self) -> None:
+    def test_button_game_uses_the_story_card_think_certificate_in_render_and_errors(self) -> None:
         game = ButtonGame(CosyClient("http://127.0.0.1:3102"), 42, "session")
         state = {
             "actors": [
@@ -402,7 +423,17 @@ class ExactOfferSelectionTests(unittest.TestCase):
                     "canonical_ref": "actor://cosyworld/42",
                 }
             ],
-            "action_hand": {"pass": {"label": "Pass", "offer_id": "pass:42:focus:7"}},
+            "action_hand": {
+                "entries": [{
+                    "slot": "story",
+                    "offer_id": "move-7",
+                    "think": {
+                        "available": True,
+                        "free": False,
+                        "offer_id": "think:42:focus:story:7:move-7",
+                    },
+                }],
+            },
         }
         game.state = lambda: state  # type: ignore[method-assign]
         game.client.post = lambda _path, _payload: {"ok": False, "status": 409, "events": []}  # type: ignore[method-assign]
@@ -412,8 +443,11 @@ class ExactOfferSelectionTests(unittest.TestCase):
             game.render(state, [])
         game.pass_hand()
 
-        self.assertIn("[P]     Pass (skip turn and deal two new cards)", output.getvalue())
-        self.assertIn("Pass failed with status 409.", game.message_log)
+        self.assertIn(
+            "[P]     Think about the Story card (replace only it; uses the turn)",
+            output.getvalue(),
+        )
+        self.assertIn("Think failed with status 409.", game.message_log)
 
 
 if __name__ == "__main__":

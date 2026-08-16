@@ -251,6 +251,9 @@ impl RuntimeWorld {
         if !needs_healing {
             return false;
         }
+        if let Some(rescue) = self.active_avatar_rescue_for_downed(target.id) {
+            return actor.id == rescue.rescuer_actor_id;
+        }
         if target.id == actor.id {
             return true;
         }
@@ -843,23 +846,14 @@ mod tests {
         let candidate = runtime
             .default_player_feature_use_candidate(5000)
             .expect("the held Story Button can target a room feature");
-        let offer = (0..64)
-            .find_map(|generation| {
-                runtime.hand_generations.insert(5000, generation);
-                let (_, offers) =
-                    runtime.legal_action_candidates(Some(5000), &AccessContext::default());
-                let hand = runtime.action_hand_for(Some(5000), &offers);
-                offers.into_iter().find(|offer| {
-                    hand.entries
-                        .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
-                        && RuntimeWorld::use_offer_matches_feature(
-                            offer,
-                            candidate.item_id,
-                            candidate.location_id,
-                            &candidate.feature_key,
-                        )
-                })
+        let offer = runtime
+            .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
+                RuntimeWorld::use_offer_matches_feature(
+                    offer,
+                    candidate.item_id,
+                    candidate.location_id,
+                    &candidate.feature_key,
+                )
             })
             .expect("the exact room-feature offer is dealt within a bounded rotation");
         let state = test_app_state(runtime, None);

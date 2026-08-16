@@ -27,7 +27,17 @@
       14,
       15
     ],
-    "member_actor_ids": [],
+    "member_actor_ids": [
+      1110,
+      1111,
+      1112,
+      1113,
+      1114,
+      1115,
+      1120,
+      1121,
+      1122
+    ],
     "player_facing": true,
     "pack_id": "ruby-high.first-bell"
   }

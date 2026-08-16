@@ -438,6 +438,30 @@ function offerEnvelope(state, actorId, offerId) {
   };
 }
 
+function storyHandSlotForOffer(offer = {}) {
+  const presentation = offer.presentation || {};
+  const suit = String(presentation.suit || "");
+  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
+  const intention = String(offer.intention || "");
+  const effect = String(offer.effect || "").toLowerCase();
+  const hustleIsMovement = suit === "hustle" && (
+    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
+    || offer.kind === "move"
+    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
+  );
+  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
+      || suit === "honor" || hustleIsMovement) return "story";
+  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
+      || suit === "heart") return "self";
+  return "anchor";
+}
+
+function thinkForSlot(state, slot = "") {
+  const entries = state.action_hand?.entries || [];
+  return entries.find((entry) => entry.slot === slot && entry.think?.available)?.think
+    || entries.find((entry) => entry.think?.available)?.think;
+}
+
 async function dealOffer(baseUrl, actorId, actorSession, predicate, description) {
   let state;
   let offer;
@@ -451,13 +475,17 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   let writeAuthorityRefreshes = 0;
   while (true) {
     state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-    offer = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
+    const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
+    offer = state.action_offers?.find((candidate) => (
+      dealtIds.has(candidate.offer_id) && !candidate.disabled && predicate(candidate)
+    ));
     if (offer) break;
     if (maxPassAttempts === 0) {
-      maxPassAttempts = Math.max(1, Number(state.action_hand?.deck_size ?? 0));
+      maxPassAttempts = Math.max(1, Number(state.action_hand?.offer_queue_size ?? 0));
     }
     if (passAttempts >= maxPassAttempts) break;
-    const passOffer = state.action_hand?.pass;
+    const desired = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
+    const passOffer = thinkForSlot(state, storyHandSlotForOffer(desired));
     assert(
       passOffer?.offer_id,
       `No dealt card matches ${description} and Think is unavailable: ${JSON.stringify(state.action_hand)}`,
@@ -465,7 +493,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
     const passPayload = {
       actor_id: actorId,
       actor_session: actorSession,
-      command: "pass",
+      command: "think",
       offer_id: passOffer.offer_id,
       envelope: offerEnvelope(state, actorId, passOffer.offer_id),
     };
@@ -484,7 +512,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   }
   assert(
     offer?.offer_id,
-    `The finite hand did not deal ${description} within ${maxPassAttempts} Passes: ${JSON.stringify({
+    `The Story Hand did not deal ${description} within ${maxPassAttempts} Thinks: ${JSON.stringify({
       hand: state?.action_hand,
       offers: state?.action_offers?.map(({ kind, command, label }) => ({ kind, command, label })),
       questions: state?.shared_questions?.map(({ id, strategies }) => ({
@@ -534,12 +562,12 @@ async function command(baseUrl, actorId, actorSession, value) {
 
 async function passCurrentHand(baseUrl, actorId, actorSession) {
   const state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-  const passOffer = state.action_hand?.pass;
-  assert(passOffer?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
+  const passOffer = thinkForSlot(state);
+  assert(passOffer?.offer_id, `a Story Hand card must expose Think: ${JSON.stringify(state.action_hand)}`);
   const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    command: "pass",
+    command: "think",
     offer_id: passOffer.offer_id,
     envelope: offerEnvelope(state, actorId, passOffer.offer_id),
   });

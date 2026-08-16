@@ -395,27 +395,27 @@ class Game:
 
     def act(self) -> None:
         state = self.state()
-        offers = [
-            offer
-            for offer in state.get("action_offers") or []
-            if isinstance(offer, dict) and not offer.get("disabled")
-        ]
-        print("Actions:")
-        for index, offer in enumerate(offers, start=1):
+        entries, offers = self.dealt_action_offers(state)
+        print("Story Hand:")
+        for index, (entry, offer) in enumerate(zip(entries, offers), start=1):
             label = str(offer.get("label") or offer.get("kind") or "action")
             target = offer.get("target") or offer.get("project") or {}
             target_label = str(target.get("label") or "").strip() if isinstance(target, dict) else ""
             suffix = f" — {target_label}" if target_label else ""
-            print(f"  {index}. {label}{suffix}")
-        print(f"  {len(offers) + 1}. Think (commit a pass and deal the next two cards)")
+            slot = str(entry.get("slot") or f"card {index}").title()
+            presentation = offer.get("presentation") or {}
+            suit = str(presentation.get("suit") or "action").title() if isinstance(presentation, dict) else "Action"
+            verb = str(presentation.get("verb") or label).strip()
+            print(f"  {index}. [{slot}] {suit} · {verb} — {label}{suffix}")
+            think = entry.get("think") or {}
+            if isinstance(think, dict) and think.get("available"):
+                timing = "free" if think.get("free") else "uses the turn"
+                print(f"     Think {index}: replace only this card ({timing})")
         raw = input("Choose action: ").strip().lower()
         if not raw:
             return
         if raw.isdigit():
             index = int(raw) - 1
-            if index == len(offers):
-                self.pass_hand()
-                return
             if index < 0 or index >= len(offers):
                 raise ValueError("action number out of range")
             command = str(offers[index].get("command") or "").strip()
@@ -424,10 +424,12 @@ class Game:
             self.run_command(command, offer_id=str(offers[index].get("offer_id") or ""), state=state)
             return
 
-        if raw in {"think", "pass"}:
-            self.pass_hand()
+        if raw.startswith("think") or raw.startswith("pass"):
+            parts = raw.split()
+            slot_index = int(parts[1]) - 1 if len(parts) > 1 else 0
+            self.pass_hand(slot_index)
         else:
-            raise ValueError("choose a numbered dealt card, or Think to pass")
+            raise ValueError("choose a numbered Story Hand card, or type Think followed by its number")
 
     def choose_chat(self, state: dict[str, object]) -> None:
         actors = [
@@ -662,7 +664,7 @@ class Game:
         offer = self.current_offer(path, authoritative_payload)
         if not offer:
             raise ClientError(
-                "That action is not in your current two-card hand. Choose Think to commit a pass."
+                "That action is not in your Story Hand. Choose a card, or Think about one slot."
             )
         response = self.client.post(
             "/actions/submit",
@@ -690,35 +692,66 @@ class Game:
             self.look()
 
     def current_offer(self, path: str, payload: dict[str, object]) -> dict[str, object] | None:
+        state = self.state()
+        dealt_ids = {
+            str(entry.get("offer_id") or "")
+            for entry in ((state.get("action_hand") or {}).get("entries") or [])
+            if isinstance(entry, dict)
+        }
         return next(
             (
                 offer
-                for offer in self.state().get("action_offers") or []
-                if isinstance(offer, dict) and offer_matches_payload(offer, path, payload)
+                for offer in state.get("action_offers") or []
+                if isinstance(offer, dict)
+                and str(offer.get("offer_id") or "") in dealt_ids
+                and offer_matches_payload(offer, path, payload)
             ),
             None,
         )
 
-    def pending_pass_payload(self) -> dict[str, object]:
+    @staticmethod
+    def dealt_action_offers(
+        state: dict[str, object],
+    ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+        hand = state.get("action_hand") or {}
+        entries = hand.get("entries") if isinstance(hand, dict) else []
+        entries = [entry for entry in (entries or []) if isinstance(entry, dict)]
+        offered_by_id = {
+            str(offer.get("offer_id") or ""): offer
+            for offer in state.get("action_offers") or []
+            if isinstance(offer, dict) and not offer.get("disabled")
+        }
+        paired = [
+            (entry, offered_by_id[str(entry.get("offer_id") or "")])
+            for entry in entries
+            if str(entry.get("offer_id") or "") in offered_by_id
+        ]
+        return [entry for entry, _ in paired], [offer for _, offer in paired]
+
+    def pending_pass_payload(self, slot_index: int = 0) -> dict[str, object]:
         if self._pending_pass_payload is not None:
             return self._pending_pass_payload
         state = self.state()
         hand = state.get("action_hand") or {}
-        pass_offer = hand.get("pass") if isinstance(hand, dict) else None
-        if not isinstance(pass_offer, dict) or not pass_offer.get("offer_id"):
-            raise ClientError("Think is not available until the current hand arrives.")
-        self._pending_pass_label = str(pass_offer.get("label") or "Think")
+        entries = hand.get("entries") if isinstance(hand, dict) else []
+        entries = [entry for entry in (entries or []) if isinstance(entry, dict)]
+        if slot_index < 0 or slot_index >= len(entries):
+            raise ClientError("Choose a Story Hand card before using Think.")
+        think = entries[slot_index].get("think") or {}
+        if not isinstance(think, dict) or not think.get("available") or not think.get("offer_id"):
+            raise ClientError("That Story Hand card has no other possibility to reveal.")
+        self._pending_pass_label = "Think"
         actor = next(
             (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
             {},
         )
         self._pending_pass_payload = self.with_actor_session({
             "actor_id": self.actor_id,
-            "command": "pass",
-            "offer_id": pass_offer["offer_id"],
+            "command": "think",
+            "offer_id": think["offer_id"],
             "envelope": {
                 "world_id": state.get("world_id") or "world://cosyworld/official",
-                "intent_id": offer_intent_id(self.actor_id, str(pass_offer["offer_id"])),
+                "intent_id": offer_intent_id(self.actor_id, str(think["offer_id"])),
                 "actor_ref": actor.get("canonical_ref") or "",
                 "observed": {},
                 "last_world_seq": int(state.get("world_seq") or 0),
@@ -730,8 +763,8 @@ class Game:
     def is_definitive_pass_rejection(response: dict[str, object]) -> bool:
         return response.get("status") in {400, 409, 423}
 
-    def pass_hand(self) -> None:
-        response = self.client.post("/commands", self.pending_pass_payload())
+    def pass_hand(self, slot_index: int = 0) -> None:
+        response = self.client.post("/commands", self.pending_pass_payload(slot_index))
         if not isinstance(response, dict):
             raise ClientError("Think response was not an object")
         self.print_events(response.get("events") or [])
@@ -793,13 +826,12 @@ class Game:
         pass_offer: dict[str, object] | None = None
         generation: object = None
         if isinstance(offers, dict):
-            pass_offer = offers.get("pass") if isinstance(offers.get("pass"), dict) else None
             generation = offers.get("generation")
             offers = offers.get("entries") or []
         if not isinstance(offers, list):
             return
         offers = [offer for offer in offers if isinstance(offer, dict)]
-        if not offers and pass_offer is None:
+        if not offers:
             return
         offered_by_id = {
             str(offer.get("offer_id") or ""): offer
@@ -807,14 +839,11 @@ class Game:
             if isinstance(offer, dict)
         }
         labels = ", ".join(
-            self.hand_offer_label(offer, offered_by_id) for offer in offers
+            f"{str(offer.get('slot') or 'card').title()}: {self.hand_offer_label(offer, offered_by_id)}"
+            for offer in offers
         )
-        pass_label = str(pass_offer.get("label") or "Think") if pass_offer else "Think"
-        pass_id = str(pass_offer.get("offer_id") or "") if pass_offer else ""
         hand_id = f" generation {generation}" if generation is not None else ""
-        certificate = f" [{pass_id}]" if pass_id else ""
-        separator = "; " if labels else ""
-        print(f"Hand{hand_id}: {labels}{separator}{pass_label}{certificate}")
+        print(f"Story Hand{hand_id}: {labels}")
 
     @staticmethod
     def hand_offer_label(entry: dict[str, object], offered_by_id: dict[str, dict[str, object]]) -> str:
@@ -1129,12 +1158,13 @@ class Game:
 
     def help(self, short: bool = False) -> None:
         if short:
-            print("Type 'act' for your two cards, 'think' to pass, 'look', or 'help'.")
+            print("Type 'act' for your Story Hand, 'think 1' to replace one card, 'look', or 'help'.")
             return
         print(
-            "Commands: act, think, look, who, deck, inventory, "
+            "Commands: act, think <card number>, look, who, pack, inventory, "
             "report <actor>: <reason>, events/watch [after_seq], quit. Scene actions must be "
-            "one of the two cards shown by act; Think skips your turn and deals two new cards."
+            "one of the Story, Self, and Anchor cards shown by act; Think replaces only the "
+            "chosen card. It is free once in a safe scene and otherwise uses the turn."
         )
 
     @staticmethod
@@ -1170,6 +1200,9 @@ class ButtonGame(Game):
                     continue
                 if key in {" ", "2"} and len(actions) > 1:
                     actions[1].callback()
+                    continue
+                if key in {"t", "T", "3"} and len(actions) > 2:
+                    actions[2].callback()
                     continue
                 if key in {"\r", "\n", "1", ""} and actions:
                     actions[0].callback()
@@ -1230,7 +1263,7 @@ class ButtonGame(Game):
                 lambda offer=offer: self.submit_button_offer(state, offer),
                 self.button_offer_detail(offer),
             )
-            for offer in dealt[:2]
+            for offer in dealt[:3]
         ]
 
     @staticmethod
@@ -1317,10 +1350,15 @@ class ButtonGame(Game):
             print(f"[Space] {secondary.label}")
             if secondary.detail:
                 print(f"        {secondary.detail}")
+        if len(actions) > 2:
+            print(f"[T]     {actions[2].label}")
+            if actions[2].detail:
+                print(f"        {actions[2].detail}")
         hand = state.get("action_hand") or {}
-        pass_offer = hand.get("pass") if isinstance(hand, dict) else None
-        pass_label = str(pass_offer.get("label") or "Think") if isinstance(pass_offer, dict) else "Think"
-        print(f"[P]     {pass_label} (skip turn and deal two new cards)")
+        entries = hand.get("entries") if isinstance(hand, dict) else []
+        first_think = (entries[0].get("think") or {}) if entries and isinstance(entries[0], dict) else {}
+        think_timing = "free" if isinstance(first_think, dict) and first_think.get("free") else "uses the turn"
+        print(f"[P]     Think about the Story card (replace only it; {think_timing})")
         print("[Q]     Quit")
 
     def render_actors(self, actors: list[dict[str, object]]) -> None:
@@ -1351,7 +1389,7 @@ class ButtonGame(Game):
         offer = self.current_offer(path, authoritative_payload)
         if not offer:
             raise ClientError(
-                "That action is not in your current two-card hand. Choose Think to commit a pass."
+                "That action is not in your Story Hand. Choose a card, or Think about one slot."
             )
         response = self.client.post(
             "/actions/submit",

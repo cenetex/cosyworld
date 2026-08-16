@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "hoppycat.archive",
   "name": "Hoppycat: February Third",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "kind": "world",
   "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
   "license": "MIT",
@@ -12,7 +12,7 @@
     {
       "id": "hoppycat.archive/world",
       "kind": "world",
-      "version": "0.3.2"
+      "version": "0.4.0"
     },
     {
       "id": "hoppycat.archive/assets",
@@ -53,7 +53,7 @@
     "author": "CosyWorld contributors",
     "source_name": "HoppyCat public GitHub work",
     "source_url": "https://github.com/HoppyCat",
-    "modification_notice": "Recurring ideas across the public repositories informed an original fantasy setting. The pack does not reproduce source text, private material, or documented Cathedral participants as characters. Original generated art uses user-provided Hoppy Cat and Teacat visual references; those references are not bundled."
+    "modification_notice": "Recurring ideas across the public repositories informed an original fantasy setting. The pack does not reproduce source text, private material, or documented Cathedral participants as characters. Original generated art uses user-provided Hoppy Cat, Teacat, and eight-avatar roster visual references; those references are not bundled."
   },
   "character_creation": "character_creation.json",
   "attribution": {
@@ -63,6 +63,7 @@
   },
   "resources": {
     "actors": "actors.json",
+    "actor_model_bindings": "actor_model_bindings.json",
     "factions": "factions.json",
     "items": "items.json",
     "locations": "locations.json",
@@ -84,6 +85,14 @@
     }
   ],
   "extensions": {
+    "x-cosyworld-ai-cast": {
+      "schema_version": 1,
+      "provider": "openrouter",
+      "catalog_snapshot_version": "openrouter-2026-08-10.1",
+      "speech_mode": "raw",
+      "binding_policy": "explicit",
+      "runtime_refresh": false
+    },
     "x-hoppycat-github-sources": {
       "schema_version": 1,
       "owner": "HoppyCat",

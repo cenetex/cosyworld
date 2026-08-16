@@ -466,6 +466,8 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         CW_ACTION_PICK_UP_ITEM
         | CW_ACTION_DROP_ITEM
         | CW_ACTION_USE_ITEM
+        | CW_ACTION_COMPLETE_AVATAR_RESCUE
+        | CW_ACTION_REPLACE_AVATAR_RESCUER
         | CW_ACTION_RULES_UTILIZE_ITEM
         | CW_ACTION_PROJECT_PUSH
         | CW_ACTION_GIVE_ITEM
@@ -1305,7 +1307,7 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
 }
 
 /// Local configuration, moderation, and transfer-offer responses do not require
-/// one of the finite hand's two cards at the command boundary. Accepting an
+/// one of the finite Story Hand's three cards at the command boundary. Accepting an
 /// offer still consumes a room turn because it moves an item; declining or
 /// withdrawing remains available while a focused scene is locked.
 pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatch) -> bool {
@@ -1804,7 +1806,7 @@ pub(super) async fn pass_action(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<ActorRequest>,
-    pass_offer_id: &str,
+    think: &ActionHandPassView,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
@@ -1848,15 +1850,30 @@ pub(super) async fn pass_action(
             events: Vec::new(),
         });
     }
-    if runtime
-        .action_hand_for(Some(payload.actor_id), &[])
-        .pass
-        .offer_id
-        != pass_offer_id
-    {
+    let (scene_key, safe_scene) = runtime.story_hand_scene_for_actor(payload.actor_id);
+    let story_state = runtime.story_hand_state_for_scene(payload.actor_id, &scene_key);
+    let slot_index = match think.slot.as_str() {
+        "story" => Some(0usize),
+        "self" => Some(1usize),
+        "anchor" => Some(2usize),
+        _ => None,
+    };
+    let free = safe_scene && !story_state.free_think_used;
+    let current = slot_index.is_some_and(|slot_index| {
+        think.offer_id.starts_with("think:")
+            && think.available
+            && think.state_revision == runtime.current_state_revision()
+            && think.scene_key == scene_key
+            && think.generation == story_state.slot_generations[slot_index]
+            && think.free == free
+            && think.consumes_turn != free
+            && !think.replaces_offer_id.is_empty()
+    });
+    if !current {
         drop(runtime);
         if let Some(path) = state.event_store_path.as_deref() {
-            if let Err(error) = record_stale_pass_rejection(path, payload.actor_id, pass_offer_id) {
+            if let Err(error) = record_stale_pass_rejection(path, payload.actor_id, &think.offer_id)
+            {
                 warn!(
                     "failed to record stale pass certificate metric for actor {}: {}",
                     payload.actor_id, error
@@ -1895,7 +1912,7 @@ pub(super) async fn pass_action(
     // or fails to advance the pass.
     let mut record = if let Some(focused) = focused.as_ref() {
         if focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
-            JournalRecord::new(
+            let mut record = JournalRecord::new(
                 CwAction {
                     kind: CW_ACTION_COMBAT_PASS,
                     actor_id: payload.actor_id,
@@ -1904,7 +1921,9 @@ pub(super) async fn pass_action(
                 },
                 runtime.next_seed_value(),
             )
-            .into_player_card()
+            .into_player_card();
+            record.bind_offer_kind("pass");
+            record
         } else {
             let mut record = JournalRecord::new(
                 CwAction {
@@ -1927,7 +1946,7 @@ pub(super) async fn pass_action(
             record
         }
     } else {
-        JournalRecord::new(
+        let record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id: payload.actor_id,
@@ -1935,13 +1954,22 @@ pub(super) async fn pass_action(
                 ..CwAction::default()
             },
             runtime.next_seed_value(),
-        )
-        .into_player_card()
+        );
+        if think.consumes_turn {
+            record.into_player_card()
+        } else {
+            record.into_player_control()
+        }
     };
     record
         .projection_mutations
-        .push(ProjectionMutation::ShuffleHand {
-            reason: "player_pass".to_string(),
+        .push(ProjectionMutation::ThinkHand {
+            slot: u8::try_from(slot_index.expect("a current Think has a valid slot"))
+                .expect("Story Hand has three slots"),
+            scene_key: scene_key.clone(),
+            replaces_offer_id: think.replaces_offer_id.clone(),
+            free: think.free,
+            reason: "player_think".to_string(),
         });
     if let Some(job) = thought_job.clone() {
         attach_avatar_reflection_check(&mut record, job);
@@ -1973,14 +2001,19 @@ pub(super) async fn pass_action(
         )
         .unwrap_or(500);
     }
-    let observation = advance_turn_and_capture_player_tick_observation(
-        &state,
-        &mut runtime,
-        turn_location_id,
-        payload.actor_id,
-        status,
-        &mut events,
-    );
+    let observation = think
+        .consumes_turn
+        .then(|| {
+            advance_turn_and_capture_player_tick_observation(
+                &state,
+                &mut runtime,
+                turn_location_id,
+                payload.actor_id,
+                status,
+                &mut events,
+            )
+        })
+        .flatten();
     drop(runtime);
     broadcast_events(&state, &released_events);
     broadcast_events(&state, &events);
@@ -2032,14 +2065,19 @@ pub(super) async fn draw_action(
     State(state): State<AppState>,
     Json(payload): Json<ActorRequest>,
 ) -> Json<ActionResponse> {
-    let offer_id = state
-        .inner
-        .lock()
-        .await
-        .action_hand_for(Some(payload.actor_id), &[])
-        .pass
-        .offer_id;
-    pass_action(client, State(state), Json(payload), &offer_id).await
+    let think = {
+        let runtime = state.inner.lock().await;
+        let (_, offers) =
+            runtime.legal_action_candidates(Some(payload.actor_id), &AccessContext::default());
+        runtime
+            .action_hand_for(Some(payload.actor_id), &offers)
+            .entries
+            .iter()
+            .find(|entry| entry.think.available)
+            .map(|entry| entry.think.clone())
+            .unwrap_or_else(empty_think_view)
+    };
+    pass_action(client, State(state), Json(payload), &think).await
 }
 
 async fn apply_focused_control(
@@ -3026,22 +3064,34 @@ mod tests {
                 .get_mut(&5001)
                 .expect("second worker controller")
                 .control_mode = ActorControlMode::LocalAi;
-            let actor = runtime.actor_by_id(5001).expect("focused inference actor");
+            let preferred = {
+                let actor = runtime.actor_by_id(5001).expect("focused inference actor");
+                runtime
+                    .resident_job_autonomy_record(actor, 82_199)
+                    .expect("focused worker has a preferred contribution")
+            };
             let mut dealt_generation = None;
             for generation in 0..64 {
-                runtime.hand_generations.insert(5001, generation);
                 let (_, offers) =
                     runtime.legal_action_candidates(Some(5001), &AccessContext::default());
+                let Some(preferred_offer) = offers
+                    .iter()
+                    .find(|offer| runtime.resident_offer_matches_record(offer, &preferred))
+                    .cloned()
+                else {
+                    continue;
+                };
+                let slot = story_hand_natural_slot(&preferred_offer);
+                let (scene_key, _) = runtime.story_hand_scene_for_actor(5001);
+                let mut story_state = runtime.story_hand_state_for_scene(5001, &scene_key);
+                story_state.slot_generations[slot] = generation;
+                runtime.story_hand_states.insert(5001, story_state);
                 let hand = runtime.action_hand_for(Some(5001), &offers);
-                let preferred = runtime
-                    .resident_job_autonomy_record(actor, 82_199)
-                    .expect("focused worker has a preferred contribution");
-                if offers.iter().any(|offer| {
-                    hand.entries
-                        .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
-                        && runtime.resident_offer_matches_record(offer, &preferred)
-                }) {
+                if hand
+                    .entries
+                    .iter()
+                    .any(|entry| entry.offer_id == preferred_offer.offer_id)
+                {
                     dealt_generation = Some(generation);
                     break;
                 }
