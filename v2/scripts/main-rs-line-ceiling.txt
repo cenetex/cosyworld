@@ -304,4 +304,9 @@
 # sqlite_error, params!, OptionalExtension, now_millis, trim_to_chars) via the
 # existing `use super::*;` glob. Pure, behavior-preserving; tests stay in
 # main.rs for this slice.
-66162
+# 66162 -> 66087: move the three recent_room_* RuntimeWorld methods
+# (recent_room_lines, recent_room_activity, recent_room_consequences) from
+# main.rs into room_memory.rs as `impl crate::RuntimeWorld` pub(crate) methods,
+# matching the 47-module split-impl convention. Pure, behavior-preserving;
+# tests stay in main.rs for this slice.
+66087

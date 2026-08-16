@@ -1373,3 +1373,81 @@ pub(super) fn load_room_memory_prior_chapters(
     chapters.reverse();
     Ok(chapters)
 }
+
+// --- moved from main.rs: recent_room_* RuntimeWorld methods ---
+impl crate::RuntimeWorld {
+    pub(crate) fn recent_room_lines(&self, location_id: u64, limit: usize) -> Vec<String> {
+        let room_lines = self
+            .recent_room_lines
+            .get(&location_id)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        room_lines
+            .iter()
+            .rev()
+            .take(limit)
+            .map(|event| {
+                format!(
+                    "{}: {}",
+                    event
+                        .actor_name
+                        .clone()
+                        .unwrap_or_else(|| "Someone".to_string()),
+                    event.content.clone().unwrap_or_default()
+                )
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
+    }
+
+    pub(crate) fn recent_room_activity(&self, location_id: u64, limit: usize) -> Vec<String> {
+        let mut activity = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| {
+                event.success
+                    && event.type_name != "message.created"
+                    && event.type_name != "image.created"
+                    && !event.type_name.starts_with("model_interaction.")
+                    && event_visible_in_location(event, location_id)
+            })
+            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .take(limit)
+            .map(|entry| format!("{}: {}", entry.label, entry.text))
+            .collect::<Vec<_>>();
+        activity.reverse();
+        activity
+    }
+
+    pub(crate) fn recent_room_consequences(&self, location_id: u64, limit: usize) -> Vec<String> {
+        let mut consequences = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| {
+                event.success
+                    && event_visible_in_location(event, location_id)
+                    && matches!(
+                        event.type_name.as_str(),
+                        "pathway.discovered"
+                            | "first_tale.public_trace"
+                            | "natural_feature.revealed"
+                            | "governance.selected"
+                            | "building.completed"
+                            | "quest.loot_allocated"
+                            | "world.logistics.completed"
+                            | "item.crafted"
+                            | "item.transformed"
+                    )
+            })
+            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .take(limit.min(3))
+            .map(|entry| entry.text)
+            .collect::<Vec<_>>();
+        consequences.reverse();
+        consequences
+    }
+}
