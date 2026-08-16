@@ -282,4 +282,9 @@
 # request, replay, session-handoff, and browser contract boundaries. Rescue
 # state and rules remain extracted in avatar_rescue.rs; the increase is focused
 # end-to-end replay and double-knockout regression coverage in the root harness.
-67252
+# 67252 -> 66694: move the room-memory entry/label/kind/log-text cluster
+# (room_memory_entries, _summary_entries, _entries_chronological,
+# _entry_for_event[_at_location], _label, _kind, _log_text[_at_location],
+# _text) from main.rs into room_memory.rs as pub(super) free functions. Pure,
+# behavior-preserving extraction; tests remain in main.rs for this slice.
+66694
