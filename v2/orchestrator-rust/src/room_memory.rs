@@ -237,35 +237,6 @@ fn room_memory_retry_is_blocked(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn failures_back_off_and_expired_retries_reopen() {
-        assert_eq!(room_memory_retry_delay(1), Duration::from_secs(60));
-        assert_eq!(room_memory_retry_delay(2), Duration::from_secs(120));
-        assert_eq!(room_memory_retry_delay(99), Duration::from_secs(15 * 60));
-
-        let now = Instant::now();
-        let key = (652042, 10, 99);
-        let mut retries = BTreeMap::from([(
-            key,
-            RoomMemoryRetryState {
-                consecutive_failures: 1,
-                retry_at: now + Duration::from_secs(60),
-            },
-        )]);
-        assert!(room_memory_retry_is_blocked(&mut retries, key, now));
-        assert!(!room_memory_retry_is_blocked(
-            &mut retries,
-            key,
-            now + Duration::from_secs(60)
-        ));
-        assert!(!retries.contains_key(&key));
-    }
-}
-
 // --- moved from main.rs: room-memory entry/label/log-text cluster ---
 pub(super) fn room_memory_entries(
     location_id: u64,
@@ -1449,5 +1420,34 @@ impl crate::RuntimeWorld {
             .collect::<Vec<_>>();
         consequences.reverse();
         consequences
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failures_back_off_and_expired_retries_reopen() {
+        assert_eq!(room_memory_retry_delay(1), Duration::from_secs(60));
+        assert_eq!(room_memory_retry_delay(2), Duration::from_secs(120));
+        assert_eq!(room_memory_retry_delay(99), Duration::from_secs(15 * 60));
+
+        let now = Instant::now();
+        let key = (652042, 10, 99);
+        let mut retries = BTreeMap::from([(
+            key,
+            RoomMemoryRetryState {
+                consecutive_failures: 1,
+                retry_at: now + Duration::from_secs(60),
+            },
+        )]);
+        assert!(room_memory_retry_is_blocked(&mut retries, key, now));
+        assert!(!room_memory_retry_is_blocked(
+            &mut retries,
+            key,
+            now + Duration::from_secs(60)
+        ));
+        assert!(!retries.contains_key(&key));
     }
 }
