@@ -109,6 +109,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
         ambient: AmbientConfig {
             quiet_after: Duration::from_secs(1),
+            interval: Duration::from_secs(1),
         },
         ownership_feed: Arc::new(OwnershipFeedConfig::default()),
         ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),

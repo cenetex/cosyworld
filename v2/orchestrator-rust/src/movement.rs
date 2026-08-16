@@ -29,7 +29,10 @@ pub(super) async fn scout_access_context(
 
 impl RuntimeWorld {
     pub(super) fn resident_roaming_action(&self, actor: CwActor) -> Option<CwAction> {
-        if !seed_actor_roams(actor.id) {
+        if !matches!(
+            self.actor_control_mode(actor.id),
+            ActorControlMode::LocalAi | ActorControlMode::RoamingAi | ActorControlMode::DelegatedAi
+        ) {
             return None;
         }
         let exits = self
@@ -40,6 +43,9 @@ impl RuntimeWorld {
         if exits.is_empty() {
             return None;
         }
+        // Read the legacy preference for compatibility and diagnostics, but
+        // LocalAI no longer needs that opt-in merely to take a local fallback.
+        let _legacy_roaming_preference = seed_actor_roams(actor.id);
         let start = actor
             .id
             .wrapping_add(self.world.tick)

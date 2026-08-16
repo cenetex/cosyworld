@@ -97,11 +97,24 @@ PY
 }
 
 stop_server() {
-  screen -S "$SESSION" -X quit >/dev/null 2>&1 || true
   local pids
   pids="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
+  screen -S "$SESSION" -X quit >/dev/null 2>&1 || true
   if [ -n "$pids" ]; then
     kill $pids >/dev/null 2>&1 || true
+    for _ in {1..50}; do
+      local alive=""
+      for pid in $pids; do
+        if kill -0 "$pid" >/dev/null 2>&1; then
+          alive=1
+          break
+        fi
+      done
+      if [ -z "$alive" ]; then
+        break
+      fi
+      sleep 0.1
+    done
   fi
 }
 
@@ -296,9 +309,14 @@ run_browser_check() {
     stop_server
     case "$runtime_path" in
       */cosyworld-browser-check.*)
-        for _ in 1 2 3; do
-          if rm -rf -- "$runtime_path"; then
-            break
+        for _ in {1..50}; do
+          rm -rf -- "$runtime_path" || true
+          sleep 0.1
+          if [ ! -e "$runtime_path" ]; then
+            sleep 0.1
+            if [ ! -e "$runtime_path" ]; then
+              break
+            fi
           fi
           sleep 0.1
         done

@@ -466,6 +466,8 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         CW_ACTION_PICK_UP_ITEM
         | CW_ACTION_DROP_ITEM
         | CW_ACTION_USE_ITEM
+        | CW_ACTION_COMPLETE_AVATAR_RESCUE
+        | CW_ACTION_REPLACE_AVATAR_RESCUER
         | CW_ACTION_RULES_UTILIZE_ITEM
         | CW_ACTION_PROJECT_PUSH
         | CW_ACTION_GIVE_ITEM

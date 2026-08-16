@@ -1013,6 +1013,146 @@ static cw_status apply_create_actor(cw_world *world, const cw_action *action, ui
   return CW_OK;
 }
 
+static cw_status apply_complete_avatar_rescue(
+    cw_world *world,
+    const cw_action *action,
+    cw_event_buffer *out_events) {
+  cw_actor *rescuer = find_actor(world, action->actor_id);
+  cw_actor *downed = find_actor(world, action->target_actor_id);
+  cw_item *draught = find_item(world, action->item_id);
+  if (!rescuer) return reject(world, out_events, action, CW_REASON_ACTOR_NOT_FOUND);
+  if (!actor_is_active(rescuer)) {
+    return reject(world, out_events, action, CW_REASON_ACTOR_INACTIVE);
+  }
+  if (!downed) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  if (downed->status != CW_ACTOR_KNOCKED_OUT) {
+    return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  }
+  if (downed->location_id != rescuer->location_id) {
+    return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+  }
+  if (!draught) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  if (draught->kind != CW_ITEM_POTION
+      || draught->holder_actor_id != rescuer->id
+      || draught->charges == 0) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+  if (action->content_id != rescuer->id && action->content_id != downed->id) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+
+  cw_actor *inhabited = action->content_id == rescuer->id ? rescuer : downed;
+  cw_actor *released = action->content_id == rescuer->id ? downed : rescuer;
+  downed->damage = 0;
+  downed->status = CW_ACTOR_ACTIVE;
+  downed->conditions &= ~CW_CONDITION_UNCONSCIOUS;
+  inhabited->kind = CW_ACTOR_HUMAN;
+  released->kind = CW_ACTOR_NPC;
+  draught->charges--;
+  if (draught->charges == 0) exhaust_item(draught);
+
+  append_event(world, out_events, CW_EVENT_ITEM_USED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = rescuer->id;
+    event->target_actor_id = downed->id;
+    event->location_id = rescuer->location_id;
+    event->item_id = draught->id;
+    event->current_hp = cw_actor_current_hp(downed);
+  }
+  append_event(world, out_events, CW_EVENT_AVATAR_RESCUE_COMPLETED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = rescuer->id;
+    event->target_actor_id = downed->id;
+    event->location_id = rescuer->location_id;
+    event->content_id = inhabited->id;
+    event->item_id = draught->id;
+    event->current_hp = cw_actor_current_hp(downed);
+  }
+  append_event(world, out_events, CW_EVENT_AVATAR_RELEASED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = released->id;
+    event->target_actor_id = inhabited->id;
+    event->location_id = released->location_id;
+  }
+  return CW_OK;
+}
+
+static cw_status apply_replace_avatar_rescuer(
+    cw_world *world,
+    const cw_action *action,
+    uint64_t seed,
+    cw_event_buffer *out_events) {
+  cw_id location_id = action->location_id ? action->location_id : 1;
+  cw_actor *oldest = find_actor(world, action->target_actor_id);
+  cw_actor *fallen_rescuer = find_actor(world, action->content_id);
+  cw_item *retired_draught = find_item(world, action->item_id);
+  if (!find_location(world, location_id)) {
+    return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
+  }
+  if (find_actor(world, action->actor_id)) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  if (!oldest || !fallen_rescuer) {
+    return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  }
+  if (!retired_draught) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  }
+  if (retired_draught->kind != CW_ITEM_POTION) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+  if (oldest->status != CW_ACTOR_KNOCKED_OUT
+      || fallen_rescuer->status != CW_ACTOR_KNOCKED_OUT
+      || oldest->id == fallen_rescuer->id) {
+    return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  }
+
+  cw_stat_block stats = generated_stats(seed ^ action->actor_id);
+  if (action->modifier == -1) stats.level = 0;
+  cw_status status = add_actor(world, action->actor_id, CW_ACTOR_HUMAN, location_id, stats);
+  if (status == CW_ERR_RULE) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  if (status != CW_OK) return status;
+  oldest->status = CW_ACTOR_DEAD;
+  oldest->kind = CW_ACTOR_NPC;
+  if (retired_draught) {
+    retired_draught->charges = 0;
+    exhaust_item(retired_draught);
+  }
+
+  append_event(world, out_events, CW_EVENT_COMBAT_DEATH);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = fallen_rescuer->id;
+    event->target_actor_id = oldest->id;
+    event->location_id = oldest->location_id;
+  }
+  append_event(world, out_events, CW_EVENT_ACTOR_CREATED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = location_id;
+    event->current_hp = stats.hp_base;
+  }
+  append_event(world, out_events, CW_EVENT_ACTOR_ENTERED_LOCATION);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = location_id;
+  }
+  return CW_OK;
+}
+
 static cw_status require_active_actor(cw_world *world, const cw_action *action, cw_event_buffer *out_events, cw_actor **out_actor) {
   cw_actor *actor = find_actor(world, action->actor_id);
   if (!actor) return reject(world, out_events, action, CW_REASON_ACTOR_NOT_FOUND);
@@ -3183,6 +3323,12 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_CREATE_ACTOR:
       status = apply_create_actor(world, action, seed, out_events);
       break;
+    case CW_ACTION_COMPLETE_AVATAR_RESCUE:
+      status = apply_complete_avatar_rescue(world, action, out_events);
+      break;
+    case CW_ACTION_REPLACE_AVATAR_RESCUER:
+      status = apply_replace_avatar_rescuer(world, action, seed, out_events);
+      break;
     case CW_ACTION_SAY:
       status = apply_say(world, action, out_events);
       break;
@@ -3505,6 +3651,9 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_SEARCH_COMMITTED: return "discovery.search.committed";
     case CW_EVENT_STUDY_COMMITTED: return "discovery.study.committed";
     case CW_EVENT_SCOUT_COMMITTED: return "discovery.scout.committed";
+    case CW_EVENT_AVATAR_RESCUE_COMPLETED: return "avatar.rescue.completed";
+    case CW_EVENT_AVATAR_RELEASED: return "avatar.released";
+    case CW_EVENT_COMBAT_DEATH: return "combat.death";
     default: return "unknown";
   }
 }

@@ -153,7 +153,11 @@ impl RuntimeWorld {
         initial_origin_id: Option<&str>,
         initial_physical_description: Option<&str>,
     ) -> Vec<EventView> {
-        if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
+        if !matches!(
+            action.kind,
+            CW_ACTION_CREATE_ACTOR | CW_ACTION_REPLACE_AVATAR_RESCUER
+        ) || self.callings.contains_key(&action.actor_id)
+        {
             return Vec::new();
         }
         let Some(actor) = self.actor_by_id(action.actor_id) else {

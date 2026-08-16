@@ -380,15 +380,25 @@ impl RuntimeWorld {
     }
 
     pub(super) fn can_summon_avatar_for_rescue(&self, actor_id: u64) -> bool {
-        self.actor_by_id(actor_id).is_some_and(|actor| {
+        let downed_direct_avatar = self.actor_by_id(actor_id).is_some_and(|actor| {
             actor.kind == CW_ACTOR_HUMAN
                 && actor.status == CW_ACTOR_KNOCKED_OUT
                 && self.actor_control_mode(actor.id).is_direct_input()
-        }) && !self.avatar_rescue_predecessors.contains_key(&actor_id)
-            && !self
-                .avatar_rescue_predecessors
-                .values()
-                .any(|downed_actor_id| *downed_actor_id == actor_id)
+        });
+        if !downed_direct_avatar {
+            return false;
+        }
+        if self
+            .avatar_rescues
+            .values()
+            .any(|rescue| rescue.status == "active" && rescue.rescuer_actor_id == actor_id)
+        {
+            return true;
+        }
+        !self
+            .avatar_rescues
+            .values()
+            .any(|rescue| rescue.status == "active" && rescue.downed_actor_id == actor_id)
     }
 
     pub(super) fn avatar_lifecycle_primary_action(&self, actor_id: u64) -> Option<PrimaryAction> {
@@ -396,16 +406,14 @@ impl RuntimeWorld {
             return Some(create_avatar_primary_action());
         };
 
-        // Knockout changes the body, not its canonical identity. Keep the
-        // player attached to the same observable actor and deal no mutation
-        // while another participant can still rescue it. Only an
-        // authoritative terminal state opens character creation.
+        // Knockout keeps the body in the world but opens a linked-account
+        // rescue run. The replacement is a rescuer, not a reconnect prompt.
         if Self::actor_is_present(actor) && !Self::actor_can_act(actor) {
             return Some(PrimaryAction {
-                kind: "await_rescue".to_string(),
-                label: "Await Rescue".to_string(),
-                command: "observe".to_string(),
-                disabled: true,
+                kind: "create_rescuer".to_string(),
+                label: "Create Rescuer".to_string(),
+                command: "create rescuer".to_string(),
+                disabled: false,
                 options: Vec::new(),
             });
         }
@@ -730,13 +738,10 @@ mod tests {
             false,
         );
         assert_eq!(
-            downed.primary_action.kind, "await_rescue",
-            "a knocked-out avatar must remain attached in observer mode",
+            downed.primary_action.kind, "create_rescuer",
+            "a knocked-out avatar must expose the linked rescue run",
         );
-        assert!(
-            downed.primary_action.disabled,
-            "observer mode cannot mutate the downed actor",
-        );
+        assert!(!downed.primary_action.disabled);
         assert!(
             downed.action_offers.is_empty(),
             "a knocked-out avatar must not be dealt offers it cannot submit: {:?}",
@@ -823,10 +828,10 @@ mod tests {
             .items
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
-        // Present and observable does not mean playable, and it does not mean
-        // the player may replace this still-living identity.
-        assert_eq!(observer_view.primary_action.kind, "await_rescue");
-        assert!(observer_view.primary_action.disabled);
+        // Present and observable does not mean playable. The one available
+        // lifecycle action starts a linked rescue run without removing it.
+        assert_eq!(observer_view.primary_action.kind, "create_rescuer");
+        assert!(!observer_view.primary_action.disabled);
         assert!(observer_view.action_offers.is_empty());
 
         let who = runtime

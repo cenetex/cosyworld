@@ -17,6 +17,11 @@ checks, inventory rules, bonds, combat participation, evolution, or deed
 projection. Session ownership decides who may submit a direct choice; it is an
 authorization boundary, not an RPG rule.
 
+Worldpacks may author an initial `control_mode` for a seeded actor. That value
+initializes new controller state but does not bypass authenticated session
+ownership or later controller handoff. When the field is absent, the legacy
+ambient-autonomy default remains in force.
+
 The room roster has one projection-visibility policy across `/state`, typed
 `look`/`who`, and ordered-turn messages. A `direct_input` avatar whose
 presence has lapsed is normally absent. While that avatar still owns an

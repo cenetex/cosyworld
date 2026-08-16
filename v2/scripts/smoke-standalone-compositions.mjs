@@ -474,6 +474,30 @@ function offerEnvelope(state, actorId, offerId) {
   };
 }
 
+function storyHandSlotForOffer(offer = {}) {
+  const presentation = offer.presentation || {};
+  const suit = String(presentation.suit || "");
+  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
+  const intention = String(offer.intention || "");
+  const effect = String(offer.effect || "").toLowerCase();
+  const hustleIsMovement = suit === "hustle" && (
+    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
+    || offer.kind === "move"
+    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
+  );
+  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
+      || suit === "honor" || hustleIsMovement) return "story";
+  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
+      || suit === "heart") return "self";
+  return "anchor";
+}
+
+function thinkForSlot(state, slot = "") {
+  const entries = state.action_hand?.entries || [];
+  return entries.find((entry) => entry.slot === slot && entry.think?.available)?.think
+    || entries.find((entry) => entry.think?.available)?.think;
+}
+
 async function dealOffer(baseUrl, actorId, actorSession, predicate, description) {
   let state;
   let offer;
@@ -509,7 +533,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
     const passPayload = {
       actor_id: actorId,
       actor_session: actorSession,
-      command: "pass",
+      command: "think",
       offer_id: passOffer.offer_id,
       envelope: offerEnvelope(state, actorId, passOffer.offer_id),
     };
@@ -596,7 +620,7 @@ async function passCurrentHand(baseUrl, actorId, actorSession) {
   const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    command: "pass",
+    command: "think",
     offer_id: passOffer.offer_id,
     envelope: offerEnvelope(state, actorId, passOffer.offer_id),
   });

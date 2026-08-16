@@ -96,6 +96,88 @@ static void test_seed_and_chat(void) {
   assert(events.events[0].content_id == 9001);
 }
 
+static void test_linked_avatar_rescue_and_double_knockout_cascade(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.location_id = 1;
+  create.actor_id = 5001;
+  assert(cw_world_apply(&world, &create, 501, &events) == CW_OK);
+  create.actor_id = 5002;
+  assert(cw_world_apply(&world, &create, 502, &events) == CW_OK);
+
+  cw_actor *downed = test_find_actor(&world, 5001);
+  cw_actor *rescuer = test_find_actor(&world, 5002);
+  assert(downed && rescuer);
+  downed->status = CW_ACTOR_KNOCKED_OUT;
+  downed->conditions |= CW_CONDITION_UNCONSCIOUS;
+  downed->damage = downed->stats.hp_base;
+  cw_item *draught = &world.items[world.item_count++];
+  memset(draught, 0, sizeof(*draught));
+  draught->id = 9001;
+  draught->kind = CW_ITEM_POTION;
+  draught->charges = 1;
+  draught->max_charges = 1;
+  draught->zone = CW_CARD_ZONE_CARRIED;
+  draught->holder_actor_id = rescuer->id;
+
+  cw_action rescue = {0};
+  rescue.kind = CW_ACTION_COMPLETE_AVATAR_RESCUE;
+  rescue.actor_id = rescuer->id;
+  rescue.target_actor_id = downed->id;
+  rescue.item_id = draught->id;
+  rescue.content_id = downed->id;
+  assert(cw_world_apply(&world, &rescue, 503, &events) == CW_OK);
+  assert(events.count == 3);
+  assert(events.events[0].type == CW_EVENT_ITEM_USED);
+  assert(events.events[1].type == CW_EVENT_AVATAR_RESCUE_COMPLETED);
+  assert(events.events[1].content_id == downed->id);
+  assert(events.events[2].type == CW_EVENT_AVATAR_RELEASED);
+  assert(downed->status == CW_ACTOR_ACTIVE);
+  assert(downed->kind == CW_ACTOR_HUMAN);
+  assert(rescuer->kind == CW_ACTOR_NPC);
+  assert(draught->charges == 0);
+  assert(draught->zone == CW_CARD_ZONE_EXHAUSTED);
+
+  downed->status = CW_ACTOR_KNOCKED_OUT;
+  downed->conditions |= CW_CONDITION_UNCONSCIOUS;
+  rescuer->status = CW_ACTOR_KNOCKED_OUT;
+  rescuer->conditions |= CW_CONDITION_UNCONSCIOUS;
+  cw_item *next_draught = &world.items[world.item_count++];
+  memset(next_draught, 0, sizeof(*next_draught));
+  next_draught->id = 9002;
+  next_draught->kind = CW_ITEM_POTION;
+  next_draught->charges = 1;
+  next_draught->max_charges = 1;
+  next_draught->zone = CW_CARD_ZONE_CARRIED;
+  next_draught->holder_actor_id = rescuer->id;
+
+  cw_action replace = {0};
+  replace.kind = CW_ACTION_REPLACE_AVATAR_RESCUER;
+  replace.actor_id = 5003;
+  replace.target_actor_id = downed->id;
+  replace.content_id = rescuer->id;
+  replace.item_id = next_draught->id;
+  replace.location_id = 1;
+  assert(cw_world_apply(&world, &replace, 504, &events) == CW_OK);
+  assert(events.count == 3);
+  assert(events.events[0].type == CW_EVENT_COMBAT_DEATH);
+  assert(events.events[0].target_actor_id == downed->id);
+  assert(events.events[1].type == CW_EVENT_ACTOR_CREATED);
+  assert(events.events[2].type == CW_EVENT_ACTOR_ENTERED_LOCATION);
+  assert(downed->status == CW_ACTOR_DEAD);
+  assert(rescuer->status == CW_ACTOR_KNOCKED_OUT);
+  assert(test_find_actor(&world, 5003)->status == CW_ACTOR_ACTIVE);
+  assert(next_draught->charges == 0);
+  assert(strcmp(cw_event_type_name(CW_EVENT_AVATAR_RESCUE_COMPLETED),
+                "avatar.rescue.completed") == 0);
+  assert(strcmp(cw_event_type_name(CW_EVENT_COMBAT_DEATH), "combat.death") == 0);
+}
+
 static void test_movement_and_check(void) {
   cw_world world;
   cw_event_buffer events;
@@ -2333,6 +2415,7 @@ static void test_deterministic_replay(void) {
 int main(void) {
   test_kernel_capacities_are_runtime_sized();
   test_seed_and_chat();
+  test_linked_avatar_rescue_and_double_knockout_cascade();
   test_movement_and_check();
   test_explicit_tick_control_and_rejected_action_rollback();
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();

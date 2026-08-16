@@ -192,6 +192,8 @@ pub const CW_ACTION_FOCUSED_NOTICE_V2: u8 = 35;
 pub const CW_ACTION_SEARCH_V2: u8 = 36;
 pub const CW_ACTION_STUDY_V2: u8 = 37;
 pub const CW_ACTION_SCOUT_V2: u8 = 38;
+pub const CW_ACTION_COMPLETE_AVATAR_RESCUE: u8 = 39;
+pub const CW_ACTION_REPLACE_AVATAR_RESCUER: u8 = 40;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ABILITY_CHECK_ROLLED: u8 = 6;
@@ -238,6 +240,9 @@ pub const CW_EVENT_FOCUSED_NOTICE_COMMITTED: u8 = 47;
 pub const CW_EVENT_SEARCH_COMMITTED: u8 = 48;
 pub const CW_EVENT_STUDY_COMMITTED: u8 = 49;
 pub const CW_EVENT_SCOUT_COMMITTED: u8 = 50;
+pub const CW_EVENT_AVATAR_RESCUE_COMPLETED: u8 = 51;
+pub const CW_EVENT_AVATAR_RELEASED: u8 = 52;
+pub const CW_EVENT_COMBAT_DEATH: u8 = 53;
 
 // These append-only values mirror the authoritative `CW_REASON_*` enum in
 // core-c. The numeric value remains the replay contract; player-facing copy is
