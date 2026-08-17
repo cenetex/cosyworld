@@ -65,6 +65,7 @@ mod local_leads;
 mod materialization_retirement;
 // The legacy canary evaluator remains readable for frozen-job compatibility
 // and audit tests, while live evolution now always preserves its parent image.
+mod autonomy;
 #[allow(dead_code)]
 mod media_evolution;
 mod media_recipes;
@@ -92,7 +93,6 @@ mod quest_loot;
 mod rate_limit;
 mod relationships;
 mod resident_image;
-mod resident_offer_scoring;
 mod residents;
 mod rest;
 mod room_memory;
@@ -2200,17 +2200,14 @@ impl RippleBudget {
                 allow_movement: false,
             };
         }
-        match zone {
-            ZONE_FRONTIER => Self {
-                resident_actions: 1,
-                allow_wander: true,
-                allow_movement: true,
-            },
-            _ => Self {
-                resident_actions: 1,
-                allow_wander: true,
-                allow_movement: true,
-            },
+        // Zone does not differentiate the ripple budget: both frontier and
+        // sanctuary residents receive the same allowance. The zone is still
+        // tracked in the RippleContext for downstream filtering and projection.
+        let _ = zone;
+        Self {
+            resident_actions: 1,
+            allow_wander: true,
+            allow_movement: true,
         }
     }
 }
@@ -14303,21 +14300,6 @@ impl RuntimeWorld {
             .find(|item| item.id == item_id)
     }
 
-    fn resident_waits_for_player_gift(&self, resident: CwActor) -> bool {
-        self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| {
-                Self::actor_can_act(*actor)
-                    && actor.id != resident.id
-                    && actor.location_id == resident.location_id
-            })
-            .any(|actor| {
-                self.resident_request_for_holder(resident, actor.id)
-                    .is_some()
-            })
-    }
-
     fn resident_economy_prompt_note(
         &self,
         resident: CwActor,
@@ -17613,229 +17595,6 @@ The relationship statement they are preserving is: {statement}"
                 .then_with(|| left.offered_item.id.cmp(&right.offered_item.id))
         });
         candidates
-    }
-
-    fn resident_mutual_trade_candidate(
-        &self,
-        actor: CwActor,
-    ) -> Option<ResidentMutualTradeCandidate> {
-        if !Self::actor_can_act(actor) {
-            return None;
-        }
-        let actor_items = self.actor_held_items(actor.id);
-        if actor_items.is_empty() {
-            return None;
-        }
-
-        let mut targets: Vec<_> = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|target| {
-                target.id != actor.id
-                    && Self::actor_can_act(*target)
-                    && target.location_id == actor.location_id
-                    && self.resident_remembers_actor_at(actor.id, target.id, actor.location_id)
-            })
-            .collect();
-        targets.sort_by_key(|target| target.id);
-
-        let mut candidates = Vec::new();
-        for target in targets {
-            for actor_item in &actor_items {
-                for target_item in self.actor_held_items(target.id) {
-                    if !self.resident_remembers_actor_holding_item_at(
-                        actor.id,
-                        target.id,
-                        target_item.id,
-                        actor.location_id,
-                    ) {
-                        continue;
-                    }
-                    let Some(target_desire_memory) =
-                        self.resident_actor_wants_item_memory(actor.id, target.id, actor_item.id)
-                    else {
-                        continue;
-                    };
-                    let target_preference =
-                        self.resident_trade_preference(target.id, *actor_item, target_item);
-                    let actor_preference =
-                        self.resident_trade_preference(actor.id, target_item, *actor_item);
-                    if target_preference.accepted && actor_preference.accepted {
-                        candidates.push(ResidentMutualTradeCandidate {
-                            actor_item: *actor_item,
-                            target,
-                            target_item,
-                            actor_preference,
-                            target_preference,
-                            target_desire_confidence: target_desire_memory.confidence,
-                            target_desire_salience: target_desire_memory.salience,
-                            target_desire_observed_tick: target_desire_memory.observed_tick,
-                        });
-                    }
-                }
-            }
-        }
-        candidates.sort_by(|left, right| {
-            let left_score = left
-                .actor_preference
-                .score
-                .saturating_add(left.target_preference.score);
-            let right_score = right
-                .actor_preference
-                .score
-                .saturating_add(right.target_preference.score);
-            right_score
-                .cmp(&left_score)
-                .then_with(|| {
-                    right
-                        .target_desire_salience
-                        .cmp(&left.target_desire_salience)
-                })
-                .then_with(|| {
-                    right
-                        .target_desire_confidence
-                        .cmp(&left.target_desire_confidence)
-                })
-                .then_with(|| {
-                    right
-                        .target_desire_observed_tick
-                        .cmp(&left.target_desire_observed_tick)
-                })
-                .then_with(|| left.target.id.cmp(&right.target.id))
-                .then_with(|| left.target_item.id.cmp(&right.target_item.id))
-                .then_with(|| left.actor_item.id.cmp(&right.actor_item.id))
-        });
-        candidates.into_iter().next()
-    }
-
-    fn resident_gift_candidate(&self, actor: CwActor) -> Option<ResidentGiftCandidate> {
-        if !Self::actor_can_act(actor) {
-            return None;
-        }
-        let actor_items = self.actor_held_items(actor.id);
-        if actor_items.is_empty() {
-            return None;
-        }
-
-        let mut targets: Vec<_> = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|target| {
-                target.id != actor.id
-                    && Self::actor_can_act(*target)
-                    && target.location_id == actor.location_id
-                    && self.resident_remembers_actor_at(actor.id, target.id, actor.location_id)
-            })
-            .collect();
-        targets.sort_by_key(|target| target.id);
-
-        let mut candidates = Vec::new();
-        for actor_item in actor_items {
-            if self.resident_item_is_attached(actor.id, actor_item) {
-                continue;
-            }
-            for target in &targets {
-                if !self.actor_can_receive_item(*target, actor_item.id) {
-                    continue;
-                }
-                if let Some(desire_memory) =
-                    self.resident_actor_wants_item_memory(actor.id, target.id, actor_item.id)
-                {
-                    candidates.push(ResidentGiftCandidate {
-                        actor_item,
-                        target: *target,
-                        desire_confidence: desire_memory.confidence,
-                        desire_salience: desire_memory.salience,
-                        desire_observed_tick: desire_memory.observed_tick,
-                    });
-                }
-            }
-        }
-        candidates.sort_by_key(|candidate| {
-            (
-                std::cmp::Reverse(candidate.desire_salience),
-                std::cmp::Reverse(candidate.desire_confidence),
-                std::cmp::Reverse(candidate.desire_observed_tick),
-                self.resident_item_keep_score(actor, candidate.actor_item),
-                candidate.target.id,
-                candidate.actor_item.id,
-            )
-        });
-        candidates.into_iter().next()
-    }
-
-    fn resident_delivery_candidate(&self, actor: CwActor) -> Option<ResidentDeliveryCandidate> {
-        if !Self::actor_can_act(actor) {
-            return None;
-        }
-        let actor_items = self.actor_held_items(actor.id);
-        if actor_items.is_empty() {
-            return None;
-        }
-
-        let mut candidates = Vec::new();
-        for actor_item in actor_items {
-            if self.resident_item_is_attached(actor.id, actor_item) {
-                continue;
-            }
-            let target_memories: Vec<_> = self
-                .beliefs
-                .values()
-                .filter(|memory| {
-                    memory.holder_actor_id == actor.id
-                        && memory.kind == BELIEF_KIND_ACTOR_LOCATION
-                        && memory.subject_id != actor.id
-                        && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-                })
-                .cloned()
-                .collect();
-            for memory in target_memories {
-                let Some(target) = self.actor_by_id(memory.subject_id) else {
-                    continue;
-                };
-                if !Self::actor_can_act(target) {
-                    continue;
-                }
-                let Some(desire_memory) =
-                    self.resident_actor_wants_item_memory(actor.id, target.id, actor_item.id)
-                else {
-                    continue;
-                };
-                if memory.location_id == actor.location_id
-                    || self
-                        .next_unlocked_step_toward(actor.location_id, memory.location_id)
-                        .is_none()
-                {
-                    continue;
-                }
-                candidates.push(ResidentDeliveryCandidate {
-                    actor_item,
-                    target,
-                    target_location_id: memory.location_id,
-                    confidence: memory.confidence,
-                    salience: memory.salience,
-                    observed_tick: memory.observed_tick,
-                    desire_confidence: desire_memory.confidence,
-                    desire_salience: desire_memory.salience,
-                    desire_observed_tick: desire_memory.observed_tick,
-                });
-            }
-        }
-        candidates.sort_by_key(|candidate| {
-            (
-                std::cmp::Reverse(candidate.desire_salience),
-                std::cmp::Reverse(candidate.desire_confidence),
-                std::cmp::Reverse(candidate.desire_observed_tick),
-                self.resident_item_keep_score(actor, candidate.actor_item),
-                std::cmp::Reverse(candidate.salience),
-                std::cmp::Reverse(candidate.confidence),
-                std::cmp::Reverse(candidate.observed_tick),
-                candidate.target_location_id,
-                candidate.target.id,
-                candidate.actor_item.id,
-            )
-        });
-        candidates.into_iter().next()
     }
 
     fn resident_trade_is_willing(
