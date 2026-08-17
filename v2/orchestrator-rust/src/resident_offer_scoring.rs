@@ -1,5 +1,61 @@
 use super::*;
 
+/// Resident desire rank tiers for inter-actor scheduling.
+///
+/// When multiple residents can act in the same tick, their candidate records
+/// are sorted by `(rank, score)` ascending — lower rank means higher priority.
+/// Ties break by score (descending), then actor id, then offer kind, then action
+/// kind, then item/target/destination ids (see `sort_resident_autonomy_candidates`).
+///
+/// The tiers, from most to least urgent:
+///
+/// 0  `USE_ITEM` — urgent self-preservation (healing self or companion).
+/// 1  `CRAFT_MEDICINE` — crafting a hearth tonic when hurt.
+/// 2  `PLANNER_DISCOVERY` — the AI planner explicitly selected a discovery.
+/// 5  `REST` — recovery / clearing a rest tag.
+/// 10 `TRADE` — mutual-benefit item exchange.
+/// 20 `GIVE` — altruistic item transfer.
+/// 30 `USE_FEATURE` — interactive world engagement (e.g. hearth, workbench).
+/// 35 `JOB_CONTRIBUTION` — shared work progress.
+/// 40 `PICK_UP` — item acquisition.
+/// 50 `DROP` — item shedding.
+/// 55 `OPEN` — container / door interaction.
+/// 60 `MOVE` — relocation.
+/// 64 `NOTICE` — social observation (notice_actor, focused_notice).
+/// 65 `SEARCH` — exploration (search, discovery_search).
+/// 66 `CRAFT` — general crafting / discovery_study.
+/// 67 `DISCOVERY_SCOUT` — reconnaissance.
+/// 70 `INFLUENCE` — social impact.
+/// 80 `CHECK` — ability check.
+/// 85 `EXPLORE_PATH` — pathway exploration.
+/// 90 `OTHER` — catch-all for unrecognised offer kinds.
+///
+/// These are separate from the intra-actor cascade in
+/// `resident_economy_autonomy_action`, which uses contextual guards
+/// (waiting_for_player_gift, staying_with_active_job, held healing items) to
+/// pick what a single actor *tries* first. The cascade generates one candidate;
+/// these ranks score it alongside other generated records.
+const RESIDENT_RANK_USE_ITEM: u8 = 0;
+const RESIDENT_RANK_CRAFT_MEDICINE: u8 = 1;
+const RESIDENT_RANK_PLANNER_DISCOVERY: u8 = 2;
+const RESIDENT_RANK_REST: u8 = 5;
+const RESIDENT_RANK_TRADE: u8 = 10;
+const RESIDENT_RANK_GIVE: u8 = 20;
+const RESIDENT_RANK_USE_FEATURE: u8 = 30;
+const RESIDENT_RANK_JOB_CONTRIBUTION: u8 = 35;
+const RESIDENT_RANK_PICK_UP: u8 = 40;
+const RESIDENT_RANK_DROP: u8 = 50;
+const RESIDENT_RANK_OPEN: u8 = 55;
+const RESIDENT_RANK_MOVE: u8 = 60;
+const RESIDENT_RANK_NOTICE: u8 = 64;
+const RESIDENT_RANK_SEARCH: u8 = 65;
+const RESIDENT_RANK_CRAFT: u8 = 66;
+const RESIDENT_RANK_DISCOVERY_SCOUT: u8 = 67;
+const RESIDENT_RANK_INFLUENCE: u8 = 70;
+const RESIDENT_RANK_CHECK: u8 = 80;
+const RESIDENT_RANK_EXPLORE_PATH: u8 = 85;
+const RESIDENT_RANK_OTHER: u8 = 90;
+
 impl RuntimeWorld {
     fn resident_shared_offer_autonomy_records(
         &self,
@@ -116,7 +172,7 @@ impl RuntimeWorld {
                 .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE)
         };
         let (rank, score) = if planner_selected_discovery {
-            (2, 0)
+            (RESIDENT_RANK_PLANNER_DISCOVERY, 0)
         } else if let Some(intent) =
             record
                 .projection_mutations
@@ -127,13 +183,13 @@ impl RuntimeWorld {
                 })
         {
             (
-                35,
+                RESIDENT_RANK_JOB_CONTRIBUTION,
                 i16::from(self.contribution_progress_amount(actor.id, intent)),
             )
         } else {
             match Self::resident_record_offer_kind(record).as_str() {
-                "use_item" => (0, item_score(record.action.item_id)),
-                "rest" => (5, RESIDENT_DESIRED_ITEM_SCORE),
+                "use_item" => (RESIDENT_RANK_USE_ITEM, item_score(record.action.item_id)),
+                "rest" => (RESIDENT_RANK_REST, RESIDENT_DESIRED_ITEM_SCORE),
                 "trade_item" => {
                     let score = self
                         .item_by_id(record.action.item_id)
@@ -143,7 +199,7 @@ impl RuntimeWorld {
                                 .score
                         })
                         .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE);
-                    (10, score)
+                    (RESIDENT_RANK_TRADE, score)
                 }
                 "give_item" => {
                     let score = self
@@ -151,25 +207,25 @@ impl RuntimeWorld {
                         .zip(self.item_by_id(record.action.item_id))
                         .map(|(target, item)| self.resident_item_offer_score(target, item))
                         .unwrap_or_else(|| item_score(record.action.item_id));
-                    (20, score)
+                    (RESIDENT_RANK_GIVE, score)
                 }
-                "use_feature" => (30, RESIDENT_DESIRED_ITEM_SCORE),
-                "pick_up" => (40, item_score(record.action.item_id)),
+                "use_feature" => (RESIDENT_RANK_USE_FEATURE, RESIDENT_DESIRED_ITEM_SCORE),
+                "pick_up" => (RESIDENT_RANK_PICK_UP, item_score(record.action.item_id)),
                 "drop_item" => {
                     let score = self
                         .item_by_id(record.action.item_id)
                         .map(|item| -self.resident_item_keep_score(actor, item))
                         .unwrap_or(-RESIDENT_DEFAULT_ITEM_SCORE);
-                    (50, score)
+                    (RESIDENT_RANK_DROP, score)
                 }
-                "move" => (60, RESIDENT_DEFAULT_ITEM_SCORE),
-                "open" => (55, RESIDENT_DEFAULT_ITEM_SCORE),
-                "search" => (65, 0),
-                NOTICE_ACTOR_OFFER_KIND => (64, 0),
-                FOCUSED_NOTICE_OFFER_KIND => (64, 0),
-                DISCOVERY_SEARCH_OFFER_KIND => (65, 0),
-                DISCOVERY_STUDY_OFFER_KIND => (66, 0),
-                DISCOVERY_SCOUT_OFFER_KIND => (67, 0),
+                "move" => (RESIDENT_RANK_MOVE, RESIDENT_DEFAULT_ITEM_SCORE),
+                "open" => (RESIDENT_RANK_OPEN, RESIDENT_DEFAULT_ITEM_SCORE),
+                "search" => (RESIDENT_RANK_SEARCH, 0),
+                NOTICE_ACTOR_OFFER_KIND => (RESIDENT_RANK_NOTICE, 0),
+                FOCUSED_NOTICE_OFFER_KIND => (RESIDENT_RANK_NOTICE, 0),
+                DISCOVERY_SEARCH_OFFER_KIND => (RESIDENT_RANK_SEARCH, 0),
+                DISCOVERY_STUDY_OFFER_KIND => (RESIDENT_RANK_CRAFT, 0),
+                DISCOVERY_SCOUT_OFFER_KIND => (RESIDENT_RANK_DISCOVERY_SCOUT, 0),
                 "craft"
                     if self.resident_needs_medicine(actor)
                         && record.projection_mutations.iter().any(|mutation| {
@@ -180,13 +236,13 @@ impl RuntimeWorld {
                             )
                         }) =>
                 {
-                    (1, RESIDENT_DESIRED_ITEM_SCORE)
+                    (RESIDENT_RANK_CRAFT_MEDICINE, RESIDENT_DESIRED_ITEM_SCORE)
                 }
-                "craft" => (66, 0),
-                "influence" => (70, 0),
-                "check" => (80, 0),
-                "explore_path" => (85, 0),
-                _ => (90, 0),
+                "craft" => (RESIDENT_RANK_CRAFT, 0),
+                "influence" => (RESIDENT_RANK_INFLUENCE, 0),
+                "check" => (RESIDENT_RANK_CHECK, 0),
+                "explore_path" => (RESIDENT_RANK_EXPLORE_PATH, 0),
+                _ => (RESIDENT_RANK_OTHER, 0),
             }
         };
         let practice_tiebreak = self
@@ -455,6 +511,25 @@ impl RuntimeWorld {
 }
 // --- moved from main.rs: autonomy record generation, action selection, intent ---
 impl RuntimeWorld {
+    /// Intra-actor desire cascade: decides what ONE action this resident tries
+    /// first, using contextual guards (not pure rank ordering).
+    ///
+    /// This is distinct from `resident_autonomy_record_priority`, which scores
+    /// records for inter-actor scheduling. The cascade is greedy — it returns
+    /// the first action that passes `fresh_resident_autonomy_action` (which
+    /// validates kernel offers and guards against repeating recent events).
+    ///
+    /// Priority (context-aware, not rank-ordered):
+    /// 1. AI planner's pending proposal (if it matches a legal offer).
+    /// 2. Use a held healing item on self or a hurt companion.
+    /// 3. Mutual trade with a co-present actor.
+    /// 4. Give an item to a co-present actor.
+    /// 5. Move toward a delivery target (unless waiting/staying).
+    /// 6. Pick up a sought item at this location, or move toward its memory.
+    /// 7. Roaming fallback (ambient wander / search).
+    ///
+    /// `waiting_for_player_gift` and `staying_with_active_job` suppress movement
+    /// and remote seeking so a resident stays near the player.
     pub(crate) fn resident_economy_autonomy_action(&self, actor: CwActor) -> Option<CwAction> {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
@@ -1800,9 +1875,43 @@ impl RuntimeWorld {
             .map(|candidate| candidate.record.action)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pins the resident desire rank ordering so future retuning is intentional.
+    /// Lower rank = higher priority. If a tier needs to move, this test breaks
+    /// and forces a conscious decision (and an update to the doc comment above).
+    #[test]
+    #[allow(clippy::assertions_on_constants)] // intentional: pins compile-time constants
+    fn resident_desire_rank_ordering_is_intentional() {
+        // Urgent self-preservation and planner selection (0-2).
+        assert!(RESIDENT_RANK_USE_ITEM < RESIDENT_RANK_CRAFT_MEDICINE);
+        assert!(RESIDENT_RANK_CRAFT_MEDICINE < RESIDENT_RANK_PLANNER_DISCOVERY);
+        // Recovery and social exchange (5-20).
+        assert!(RESIDENT_RANK_PLANNER_DISCOVERY < RESIDENT_RANK_REST);
+        assert!(RESIDENT_RANK_REST < RESIDENT_RANK_TRADE);
+        assert!(RESIDENT_RANK_TRADE < RESIDENT_RANK_GIVE);
+        // World engagement and item acquisition (30-40).
+        assert!(RESIDENT_RANK_GIVE < RESIDENT_RANK_USE_FEATURE);
+        assert!(RESIDENT_RANK_USE_FEATURE < RESIDENT_RANK_JOB_CONTRIBUTION);
+        assert!(RESIDENT_RANK_JOB_CONTRIBUTION < RESIDENT_RANK_PICK_UP);
+        // Item management and movement (50-60).
+        assert!(RESIDENT_RANK_PICK_UP < RESIDENT_RANK_DROP);
+        assert!(RESIDENT_RANK_DROP < RESIDENT_RANK_OPEN);
+        assert!(RESIDENT_RANK_OPEN < RESIDENT_RANK_MOVE);
+        // Observation and exploration (64-67).
+        assert!(RESIDENT_RANK_MOVE < RESIDENT_RANK_NOTICE);
+        assert!(RESIDENT_RANK_NOTICE < RESIDENT_RANK_SEARCH);
+        assert!(RESIDENT_RANK_SEARCH < RESIDENT_RANK_CRAFT);
+        assert!(RESIDENT_RANK_CRAFT < RESIDENT_RANK_DISCOVERY_SCOUT);
+        // Low-priority actions (70-90).
+        assert!(RESIDENT_RANK_DISCOVERY_SCOUT < RESIDENT_RANK_INFLUENCE);
+        assert!(RESIDENT_RANK_INFLUENCE < RESIDENT_RANK_CHECK);
+        assert!(RESIDENT_RANK_CHECK < RESIDENT_RANK_EXPLORE_PATH);
+        assert!(RESIDENT_RANK_EXPLORE_PATH < RESIDENT_RANK_OTHER);
+    }
 
     #[test]
     fn ambient_ties_prefer_the_resident_waiting_longest() {
