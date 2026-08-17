@@ -392,6 +392,67 @@ impl RuntimeWorld {
     }
 }
 
+// --- moved from main.rs: ripple record/candidate selection ---
+impl RuntimeWorld {
+    pub(crate) fn resident_ripple_candidate_ids(&self, context: &RippleContext) -> Vec<u64> {
+        let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| {
+                Self::actor_can_act(*actor)
+                    && self.actor_uses_inference(actor.id)
+                    && context.affected_location_ids.contains(&actor.location_id)
+            })
+            .collect();
+        if candidates.is_empty() {
+            return Vec::new();
+        }
+        let start = (self.world.tick as usize) % candidates.len();
+        (0..candidates.len())
+            .map(|offset| candidates[(start + offset) % candidates.len()].id)
+            .collect()
+    }
+
+    pub(crate) fn resident_ripple_record_for_seed(
+        &mut self,
+        context: &RippleContext,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        self.best_resident_ripple_candidate(context, seed)
+            .map(|candidate| candidate.record)
+            .filter(|record| context.budget.allow_movement || record.action.kind != CW_ACTION_MOVE)
+            .filter(|record| self.ripple_move_keeps_player_company(context, &record.action))
+    }
+
+    pub(crate) fn ripple_move_keeps_player_company(
+        &self,
+        context: &RippleContext,
+        action: &CwAction,
+    ) -> bool {
+        if action.kind != CW_ACTION_MOVE {
+            return true;
+        }
+        let Some(player) = self.actor_by_id(context.source_actor_id) else {
+            return false;
+        };
+        let Some(resident) = self.actor_by_id(action.actor_id) else {
+            return false;
+        };
+        if resident.location_id != player.location_id {
+            return true;
+        }
+        self.world.actors[..self.world.actor_count]
+            .iter()
+            .filter(|actor| {
+                Self::actor_can_act(**actor)
+                    && self.actor_uses_inference(actor.id)
+                    && actor.location_id == player.location_id
+            })
+            .take(2)
+            .count()
+            > 1
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

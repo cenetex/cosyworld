@@ -322,4 +322,10 @@
 # ambient_autonomy_action, ambient_autonomy_record) from main.rs into
 # actor_presence.rs as `impl crate::RuntimeWorld` pub(crate) methods.
 # #[cfg(test)] attributes preserved. Pure, behavior-preserving.
-65212
+# 65212 -> 65157: move 3 ripple RuntimeWorld methods
+# (resident_ripple_candidate_ids, resident_ripple_record_for_seed,
+# ripple_move_keeps_player_company) from main.rs into resident_offer_scoring.rs,
+# which already owns best_resident_ripple_candidate and the candidate machinery.
+# pub(crate) since main.rs calls resident_ripple_record_for_seed. Pure,
+# behavior-preserving.
+65157
