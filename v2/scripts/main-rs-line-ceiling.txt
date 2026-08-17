@@ -328,4 +328,18 @@
 # which already owns best_resident_ripple_candidate and the candidate machinery.
 # pub(crate) since main.rs calls resident_ripple_record_for_seed. Pure,
 # behavior-preserving.
-65157
+# 65157 -> 63826: move 21 autonomy record/action/intent RuntimeWorld methods
+# (resident_economy_autonomy_action, _proposed_action_matches_legal_offer,
+# _stays_with_active_job, fresh_resident_autonomy_action,
+# _autonomy_action_repeats_recent_event, _feature_use_autonomy_record,
+# preferred_job_contribution_intent, _job_autonomy_record,
+# _record_for_shared_offer, _shared_offer_autonomy_record_for_kinds,
+# append_resident_autonomy_intent_projection, _autonomy_intent_for_record,
+# prepare_resident_local_memories, _economy_autonomy_candidate_ids,
+# refresh_resident_local_memories_for_ids, _record_offer_kind,
+# _offer_matches_record, _decision_trace, attach_resident_decision_trace,
+# _economy_autonomy_record_for_seed, _economy_autonomy_action_by_priority)
+# from main.rs into resident_offer_scoring.rs as pub(crate). The 3 AI-speech
+# collision methods (resident_reply_repeats_recent_event, collision_safe_*)
+# stay in main.rs. Pure, behavior-preserving.
+63826
