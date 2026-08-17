@@ -282,4 +282,64 @@
 # request, replay, session-handoff, and browser contract boundaries. Rescue
 # state and rules remain extracted in avatar_rescue.rs; the increase is focused
 # end-to-end replay and double-knockout regression coverage in the root harness.
-67252
+# 67252 -> 66694: move the room-memory entry/label/kind/log-text cluster
+# (room_memory_entries, _summary_entries, _entries_chronological,
+# _entry_for_event[_at_location], _label, _kind, _log_text[_at_location],
+# _text) from main.rs into room_memory.rs as pub(super) free functions. Pure,
+# behavior-preserving extraction; tests remain in main.rs for this slice.
+# 66694 -> 66264: move the room-memory view/chapter/cache/atmosphere cluster
+# (room_memory_view_for_state, load_current_room_memory_chapter_for_state,
+# _prompt_chapters, _summary_entries_since, latest_room_memory_listen_seq,
+# event_is_room_memory_listen, current_room_memory_day_index,
+# load_room_memory_prior_chapters_for_state, cache_room_memory_summary,
+# fallback_room_memory_view/_summary, room_atmosphere_sentence, first_sentence,
+# atmospheric_*_beat, split_case_insensitive, complete_sentence,
+# sentence_fragment, ROOM_MEMORY_DAY_MS, ROOM_MEMORY_PRIOR_CHAPTER_LIMIT)
+# from main.rs into room_memory.rs. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+# 66264 -> 66162: move the room-memory chapter persistence functions
+# (upsert_room_memory_chapter, load_room_memory_chapter,
+# load_room_memory_prior_chapters) from main.rs into room_memory.rs. They
+# reach shared sqlite helpers (init_event_store, open_event_store,
+# sqlite_error, params!, OptionalExtension, now_millis, trim_to_chars) via the
+# existing `use super::*;` glob. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+# 66162 -> 66087: move the three recent_room_* RuntimeWorld methods
+# (recent_room_lines, recent_room_activity, recent_room_consequences) from
+# main.rs into room_memory.rs as `impl crate::RuntimeWorld` pub(crate) methods,
+# matching the 47-module split-impl convention. Pure, behavior-preserving;
+# tests stay in main.rs for this slice.
+# 66087 -> 65394: move the 14 inline room_memory and recent_room tests out of
+# main.rs's mod tests into room_memory.rs's mod tests. The tests reach
+# RuntimeWorld methods (seeded, location_view, push_projected_event), shared
+# helpers (append_event_store, now_millis, now_seed, load/save_snapshot), and
+# the moved pub(super) room_memory fns via the `use super::*;` glob. Pure,
+# behavior-preserving; no test count or assertion changed.
+# 65394 -> 65212: move 10 autonomy RuntimeWorld methods (ensure_actor_autonomy,
+# observe_player_tick_for_autonomy, replenish_ambient_autonomy_credits,
+# autonomy_allows_action, record_autonomous_action,
+# player_tick_already_has_autonomous_result, ambient_actor, ambient_line,
+# ambient_autonomy_action, ambient_autonomy_record) from main.rs into
+# actor_presence.rs as `impl crate::RuntimeWorld` pub(crate) methods.
+# #[cfg(test)] attributes preserved. Pure, behavior-preserving.
+# 65212 -> 65157: move 3 ripple RuntimeWorld methods
+# (resident_ripple_candidate_ids, resident_ripple_record_for_seed,
+# ripple_move_keeps_player_company) from main.rs into resident_offer_scoring.rs,
+# which already owns best_resident_ripple_candidate and the candidate machinery.
+# pub(crate) since main.rs calls resident_ripple_record_for_seed. Pure,
+# behavior-preserving.
+# 65157 -> 63826: move 21 autonomy record/action/intent RuntimeWorld methods
+# (resident_economy_autonomy_action, _proposed_action_matches_legal_offer,
+# _stays_with_active_job, fresh_resident_autonomy_action,
+# _autonomy_action_repeats_recent_event, _feature_use_autonomy_record,
+# preferred_job_contribution_intent, _job_autonomy_record,
+# _record_for_shared_offer, _shared_offer_autonomy_record_for_kinds,
+# append_resident_autonomy_intent_projection, _autonomy_intent_for_record,
+# prepare_resident_local_memories, _economy_autonomy_candidate_ids,
+# refresh_resident_local_memories_for_ids, _record_offer_kind,
+# _offer_matches_record, _decision_trace, attach_resident_decision_trace,
+# _economy_autonomy_record_for_seed, _economy_autonomy_action_by_priority)
+# from main.rs into resident_offer_scoring.rs as pub(crate). The 3 AI-speech
+# collision methods (resident_reply_repeats_recent_event, collision_safe_*)
+# stay in main.rs. Pure, behavior-preserving.
+63826
