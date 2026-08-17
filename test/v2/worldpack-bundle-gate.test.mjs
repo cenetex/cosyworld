@@ -34,8 +34,8 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
-const LANTERN_ACTIVE_HASH = "sha256:603bf802566d36b81c2da472f36f8d94d951e54716a0fa1deb2e798b09a4ad71";
-const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:ff28d95b0c55d4add61634860c53892a87130b1829bb619c744cc8f4e6114a1a";
+const LANTERN_ACTIVE_HASH = "sha256:75a8ad1bb47c1bb3a94803bb2077a2f1928250cf6e1851ca18e8aca508dc9ba8";
+const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:603bf802566d36b81c2da472f36f8d94d951e54716a0fa1deb2e798b09a4ad71";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
 const ELYSIUM_ACTIVE_HASH = "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c";
 const ELYSIUM_FAILED_CANDIDATE_HASH = "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099";
@@ -291,6 +291,13 @@ describe("worldpack deploy gate CLI", () => {
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,
       liveHash: LANTERN_PERSISTED_HASH,
+    })).toMatchObject({ ok: true, status: "declared_migration" });
+    // The deployed world is persisted at the outgoing active hash, so mounting
+    // the character art pack must not strand it.
+    expect(evaluateWorldpackGate({
+      candidateHash: candidate.bundleHash,
+      candidateReplayCompatible: candidate.replayCompatible,
+      liveHash: LANTERN_PREVIOUS_ACTIVE_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 
