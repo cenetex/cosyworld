@@ -269,7 +269,7 @@ impl RuntimeWorld {
         let event =
             Self::first_meaningful_class_readiness_event(action.actor_id, committed_events)?;
         let offer_kind = Self::resident_record_offer_kind(record);
-        let strategy_label = self.action_offer_verb(&offer_kind, action.actor_id);
+        let strategy_label = self.action_offer_verb(offer_kind.as_str(), action.actor_id);
         let label = self
             .card_reaction_subject(event)
             .or_else(|| event.location_name.clone())
@@ -314,7 +314,7 @@ impl RuntimeWorld {
             label,
         };
         Some(ClassReadinessEvidence {
-            offer_kind,
+            offer_kind: offer_kind.as_str().to_string(),
             strategy_label: strategy_label.clone(),
             summary: format!(
                 "{strategy_label} at {} became your first meaningful world action.",

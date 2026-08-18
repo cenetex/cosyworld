@@ -56,6 +56,113 @@ const RESIDENT_RANK_CHECK: u8 = 80;
 const RESIDENT_RANK_EXPLORE_PATH: u8 = 85;
 const RESIDENT_RANK_OTHER: u8 = 90;
 
+/// Closed vocabulary for the offer-kind a resident autonomy record represents.
+///
+/// This is the autonomy-boundary projection of the broader (string-typed,
+/// serialized) `JournalRecord.offer_kind` / `RankedActionOffer.kind` fields.
+/// The conversion happens in [`RuntimeWorld::resident_record_offer_kind`];
+/// callers inside the autonomy system match on this enum instead of comparing
+/// raw strings, so adding a verb is a compiler-checked operation.
+///
+/// Ordering is lexicographic by `as_str()` to preserve the historical string
+/// sort used for candidate tie-breaking in `sort_resident_autonomy_candidates`.
+/// Do not derive `Ord` — the derived discriminant order would change behavior.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum ResidentOfferKind {
+    UseItem,
+    Rest,
+    TradeItem,
+    GiveItem,
+    UseFeature,
+    PickUp,
+    DropItem,
+    Move,
+    Open,
+    Search,
+    NoticeActor,
+    FocusedNotice,
+    DiscoverySearch,
+    DiscoveryStudy,
+    DiscoveryScout,
+    Craft,
+    Influence,
+    Check,
+    ExplorePath,
+    Pass,
+    Draw,
+    /// Catch-all for kinds the autonomy system does not explicitly rank.
+    /// Retains the original string so tie-break ordering is preserved.
+    Other(String),
+}
+
+impl ResidentOfferKind {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            Self::UseItem => "use_item",
+            Self::Rest => "rest",
+            Self::TradeItem => "trade_item",
+            Self::GiveItem => "give_item",
+            Self::UseFeature => "use_feature",
+            Self::PickUp => "pick_up",
+            Self::DropItem => "drop_item",
+            Self::Move => "move",
+            Self::Open => "open",
+            Self::Search => "search",
+            Self::NoticeActor => NOTICE_ACTOR_OFFER_KIND,
+            Self::FocusedNotice => FOCUSED_NOTICE_OFFER_KIND,
+            Self::DiscoverySearch => DISCOVERY_SEARCH_OFFER_KIND,
+            Self::DiscoveryStudy => DISCOVERY_STUDY_OFFER_KIND,
+            Self::DiscoveryScout => DISCOVERY_SCOUT_OFFER_KIND,
+            Self::Craft => "craft",
+            Self::Influence => "influence",
+            Self::Check => "check",
+            Self::ExplorePath => "explore_path",
+            Self::Pass => "pass",
+            Self::Draw => "draw",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+
+    fn from_str(s: &str) -> Self {
+        match s {
+            "use_item" => Self::UseItem,
+            "rest" => Self::Rest,
+            "trade_item" => Self::TradeItem,
+            "give_item" => Self::GiveItem,
+            "use_feature" => Self::UseFeature,
+            "pick_up" => Self::PickUp,
+            "drop_item" => Self::DropItem,
+            "move" => Self::Move,
+            "open" => Self::Open,
+            "search" => Self::Search,
+            NOTICE_ACTOR_OFFER_KIND => Self::NoticeActor,
+            FOCUSED_NOTICE_OFFER_KIND => Self::FocusedNotice,
+            DISCOVERY_SEARCH_OFFER_KIND => Self::DiscoverySearch,
+            DISCOVERY_STUDY_OFFER_KIND => Self::DiscoveryStudy,
+            DISCOVERY_SCOUT_OFFER_KIND => Self::DiscoveryScout,
+            "craft" => Self::Craft,
+            "influence" => Self::Influence,
+            "check" => Self::Check,
+            "explore_path" => Self::ExplorePath,
+            "pass" => Self::Pass,
+            "draw" => Self::Draw,
+            other => Self::Other(other.to_string()),
+        }
+    }
+}
+
+impl Ord for ResidentOfferKind {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl PartialOrd for ResidentOfferKind {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl RuntimeWorld {
     fn resident_shared_offer_autonomy_records(
         &self,
@@ -187,10 +294,12 @@ impl RuntimeWorld {
                 i16::from(self.contribution_progress_amount(actor.id, intent)),
             )
         } else {
-            match Self::resident_record_offer_kind(record).as_str() {
-                "use_item" => (RESIDENT_RANK_USE_ITEM, item_score(record.action.item_id)),
-                "rest" => (RESIDENT_RANK_REST, RESIDENT_DESIRED_ITEM_SCORE),
-                "trade_item" => {
+            match Self::resident_record_offer_kind(record) {
+                ResidentOfferKind::UseItem => {
+                    (RESIDENT_RANK_USE_ITEM, item_score(record.action.item_id))
+                }
+                ResidentOfferKind::Rest => (RESIDENT_RANK_REST, RESIDENT_DESIRED_ITEM_SCORE),
+                ResidentOfferKind::TradeItem => {
                     let score = self
                         .item_by_id(record.action.item_id)
                         .zip(self.item_by_id(record.action.target_item_id))
@@ -201,7 +310,7 @@ impl RuntimeWorld {
                         .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE);
                     (RESIDENT_RANK_TRADE, score)
                 }
-                "give_item" => {
+                ResidentOfferKind::GiveItem => {
                     let score = self
                         .actor_by_id(record.action.target_actor_id)
                         .zip(self.item_by_id(record.action.item_id))
@@ -209,24 +318,28 @@ impl RuntimeWorld {
                         .unwrap_or_else(|| item_score(record.action.item_id));
                     (RESIDENT_RANK_GIVE, score)
                 }
-                "use_feature" => (RESIDENT_RANK_USE_FEATURE, RESIDENT_DESIRED_ITEM_SCORE),
-                "pick_up" => (RESIDENT_RANK_PICK_UP, item_score(record.action.item_id)),
-                "drop_item" => {
+                ResidentOfferKind::UseFeature => {
+                    (RESIDENT_RANK_USE_FEATURE, RESIDENT_DESIRED_ITEM_SCORE)
+                }
+                ResidentOfferKind::PickUp => {
+                    (RESIDENT_RANK_PICK_UP, item_score(record.action.item_id))
+                }
+                ResidentOfferKind::DropItem => {
                     let score = self
                         .item_by_id(record.action.item_id)
                         .map(|item| -self.resident_item_keep_score(actor, item))
                         .unwrap_or(-RESIDENT_DEFAULT_ITEM_SCORE);
                     (RESIDENT_RANK_DROP, score)
                 }
-                "move" => (RESIDENT_RANK_MOVE, RESIDENT_DEFAULT_ITEM_SCORE),
-                "open" => (RESIDENT_RANK_OPEN, RESIDENT_DEFAULT_ITEM_SCORE),
-                "search" => (RESIDENT_RANK_SEARCH, 0),
-                NOTICE_ACTOR_OFFER_KIND => (RESIDENT_RANK_NOTICE, 0),
-                FOCUSED_NOTICE_OFFER_KIND => (RESIDENT_RANK_NOTICE, 0),
-                DISCOVERY_SEARCH_OFFER_KIND => (RESIDENT_RANK_SEARCH, 0),
-                DISCOVERY_STUDY_OFFER_KIND => (RESIDENT_RANK_CRAFT, 0),
-                DISCOVERY_SCOUT_OFFER_KIND => (RESIDENT_RANK_DISCOVERY_SCOUT, 0),
-                "craft"
+                ResidentOfferKind::Move => (RESIDENT_RANK_MOVE, RESIDENT_DEFAULT_ITEM_SCORE),
+                ResidentOfferKind::Open => (RESIDENT_RANK_OPEN, RESIDENT_DEFAULT_ITEM_SCORE),
+                ResidentOfferKind::Search => (RESIDENT_RANK_SEARCH, 0),
+                ResidentOfferKind::NoticeActor => (RESIDENT_RANK_NOTICE, 0),
+                ResidentOfferKind::FocusedNotice => (RESIDENT_RANK_NOTICE, 0),
+                ResidentOfferKind::DiscoverySearch => (RESIDENT_RANK_SEARCH, 0),
+                ResidentOfferKind::DiscoveryStudy => (RESIDENT_RANK_CRAFT, 0),
+                ResidentOfferKind::DiscoveryScout => (RESIDENT_RANK_DISCOVERY_SCOUT, 0),
+                ResidentOfferKind::Craft
                     if self.resident_needs_medicine(actor)
                         && record.projection_mutations.iter().any(|mutation| {
                             matches!(
@@ -238,15 +351,20 @@ impl RuntimeWorld {
                 {
                     (RESIDENT_RANK_CRAFT_MEDICINE, RESIDENT_DESIRED_ITEM_SCORE)
                 }
-                "craft" => (RESIDENT_RANK_CRAFT, 0),
-                "influence" => (RESIDENT_RANK_INFLUENCE, 0),
-                "check" => (RESIDENT_RANK_CHECK, 0),
-                "explore_path" => (RESIDENT_RANK_EXPLORE_PATH, 0),
-                _ => (RESIDENT_RANK_OTHER, 0),
+                ResidentOfferKind::Craft => (RESIDENT_RANK_CRAFT, 0),
+                ResidentOfferKind::Influence => (RESIDENT_RANK_INFLUENCE, 0),
+                ResidentOfferKind::Check => (RESIDENT_RANK_CHECK, 0),
+                ResidentOfferKind::ExplorePath => (RESIDENT_RANK_EXPLORE_PATH, 0),
+                ResidentOfferKind::Pass | ResidentOfferKind::Draw | ResidentOfferKind::Other(_) => {
+                    (RESIDENT_RANK_OTHER, 0)
+                }
             }
         };
         let practice_tiebreak = self
-            .practice_recognition_for_offer(actor.id, &Self::resident_record_offer_kind(record))
+            .practice_recognition_for_offer(
+                actor.id,
+                Self::resident_record_offer_kind(record).as_str(),
+            )
             .is_some() as i16;
         (rank, score.saturating_add(practice_tiebreak))
     }
@@ -298,7 +416,7 @@ impl RuntimeWorld {
             let records = self.resident_economy_autonomy_records(actor, seed);
             let mut found_playable_card = false;
             for record in records.into_iter().filter(|record| {
-                if Self::resident_record_offer_kind(record) == "pass" {
+                if Self::resident_record_offer_kind(record) == ResidentOfferKind::Pass {
                     return record.projection_mutations.iter().any(|mutation| {
                         matches!(mutation, ProjectionMutation::ShuffleHand { reason }
                             if reason == "resident_planner_pass")
@@ -1488,9 +1606,9 @@ impl RuntimeWorld {
         }
     }
 
-    pub(crate) fn resident_record_offer_kind(record: &JournalRecord) -> String {
+    pub(crate) fn resident_record_offer_kind(record: &JournalRecord) -> ResidentOfferKind {
         if let Some(kind) = record.offer_kind.as_ref() {
-            return kind.clone();
+            return ResidentOfferKind::from_str(kind);
         }
         if let Some(kind) = record
             .projection_mutations
@@ -1516,9 +1634,9 @@ impl RuntimeWorld {
                 _ => None,
             })
         {
-            return kind.to_string();
+            return ResidentOfferKind::from_str(kind);
         }
-        match record.action.kind {
+        let kind = match record.action.kind {
             CW_ACTION_MOVE => "move",
             CW_ACTION_ABILITY_CHECK => "check",
             CW_ACTION_RULES_SEARCH => "check",
@@ -1539,8 +1657,8 @@ impl RuntimeWorld {
             CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
             CW_ACTION_REST => "rest",
             _ => "act",
-        }
-        .to_string()
+        };
+        ResidentOfferKind::from_str(kind)
     }
 
     pub(crate) fn resident_offer_matches_record(
@@ -1549,7 +1667,7 @@ impl RuntimeWorld {
         record: &JournalRecord,
     ) -> bool {
         let action = &record.action;
-        if offer.kind != Self::resident_record_offer_kind(record) {
+        if offer.kind != Self::resident_record_offer_kind(record).as_str() {
             return false;
         }
         if let Some(intent) = record
@@ -1755,7 +1873,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
-        if offer_kind == "pass" {
+        if offer_kind == ResidentOfferKind::Pass {
             let (offer_id, composition_id) = planner
                 .filter(|proposal| proposal.kind == "pass")
                 .and_then(|proposal| {
@@ -1814,7 +1932,7 @@ impl RuntimeWorld {
                     .map(|(_, composition_id, _)| composition_id.clone()),
                 focused_encounter: chosen_offer
                     .and_then(|(_, _, focused_encounter)| focused_encounter),
-                offer_kind,
+                offer_kind: offer_kind.as_str().to_string(),
                 policy_rank: candidate.rank,
                 policy_score: candidate.score,
                 action: candidate.record.action,
@@ -2261,11 +2379,11 @@ mod tests {
             .iter()
             .map(RuntimeWorld::resident_record_offer_kind)
             .collect::<BTreeSet<_>>();
-        assert!(kinds.contains("use_item"));
+        assert!(kinds.contains(&ResidentOfferKind::UseItem));
         assert!(
             kinds
                 .iter()
-                .any(|kind| matches!(kind.as_str(), "prepare" | "work" | "help" | "study")),
+                .any(|kind| matches!(kind, ResidentOfferKind::Other(s) if matches!(s.as_str(), "prepare" | "work" | "help" | "study"))),
             "an active job contribution must remain in the scored set"
         );
 
@@ -2274,7 +2392,7 @@ mod tests {
             .expect("one legal meaningful offer is selected");
         assert_eq!(
             RuntimeWorld::resident_record_offer_kind(&selected),
-            "use_item",
+            ResidentOfferKind::UseItem,
             "urgent recovery wins through scoring, not lane order"
         );
     }
