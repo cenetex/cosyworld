@@ -27,7 +27,13 @@ COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
-RUN cargo build --release
+# The remote builder's OOM killer SIGKILLs rustc partway through the release
+# build of the orchestrator bin crate, which has kept main undeployable.
+# Cargo hands rustc one jobserver token per job, and rustc sizes its parallel
+# LLVM codegen against those tokens, so serialising jobs keeps a single
+# optimising codegen unit resident instead of many. This trades build time for
+# peak memory and does not change the emitted binary.
+RUN CARGO_BUILD_JOBS=1 cargo build --release
 
 FROM debian:bookworm-slim AS runtime
 
