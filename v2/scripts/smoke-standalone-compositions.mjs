@@ -69,7 +69,11 @@ const worldCases = [
       "cosyworld.rules-srd-5.1",
       "cosyworld.campaign.the-lantern-keeper",
       "cosyworld.composition.core-lantern-keeper",
+      "cosyworld.lonely-forest.characters",
     ],
+    // Core card rows point at this pack's art, so the composition must mount it
+    // or every character card degrades to the provider placeholder.
+    cardImagePath: "/assets/lonely-forest/characters/29-grey-winged-boy.png",
     location: "The Cosy Cottage",
     locationPack: "cosyworld.core",
     selectedBy: "cosyworld.core",

@@ -24,5 +24,18 @@
     "content_hash": "sha256:656d332e4a10235b882f187db185869072987cece36fe78218c8ac4039d2d144",
     "optional": false,
     "fallback": null
+  },
+  {
+    "pack_id": "cosyworld.lonely-forest.characters",
+    "pack_version": "1.1.1",
+    "pack_integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff",
+    "provider": "cosyworld.lonely-forest.characters/assets",
+    "mount": "characters",
+    "root": "lonely-forest",
+    "directory": "assets/characters/slices",
+    "public_prefix": "/assets/lonely-forest/characters",
+    "content_hash": "sha256:d45eb30a962de236ddba913834e8bdaa7b9c530bc6b66383e272118218797d93",
+    "optional": false,
+    "fallback": null
   }
 ]

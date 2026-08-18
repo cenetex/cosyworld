@@ -347,4 +347,10 @@
 # (was resident_offer_scoring.rs). Rename module to reflect its role as the
 # autonomy decision system home. Delete dead RippleBudget zone branch where
 # frontier and sanctuary returned identical budgets. Behavior-preserving.
-63585
+# 63585 -> 63586: one line adding ai_publication_record_already_applied to the
+# existing already-applied group in apply_journal_record, alongside the
+# threshold, discovery, and rescue claim checks it sits with. No new system --
+# the predicate itself lives in ai_publication.rs. This unbricks worlds whose
+# replay hit a colliding deterministic-fallback publication key, which left
+# three of them unbootable on 2026-08-16/17.
+63586

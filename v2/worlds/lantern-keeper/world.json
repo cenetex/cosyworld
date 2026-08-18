@@ -23,6 +23,7 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
+      "sha256:603bf802566d36b81c2da472f36f8d94d951e54716a0fa1deb2e798b09a4ad71",
       "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586",
       "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
       "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
@@ -40,6 +41,7 @@
     "cosyworld.rules-srd-5.2.1",
     "cosyworld.rules-profile-srd5",
     "cosyworld.campaign.the-lantern-keeper",
+    "cosyworld.lonely-forest.characters",
     "cosyworld.composition.core-lantern-keeper"
   ]
 }
