@@ -120,11 +120,22 @@ impl SnapshotJob {
 
     /// Is the captured cursor backed by the durable commit point?
     ///
-    /// A checkpoint whose `next_event_seq` leads `committed_seq` is not a valid
-    /// checkpoint: every boot restores that lead, and the first commit then
-    /// proposes a sequence the journal must reject. Keeping the previous good
-    /// checkpoint is strictly better than freezing a torn cursor, and skipping
-    /// the write also skips compaction, so nothing is discarded behind it.
+    /// A checkpoint whose `next_event_seq` leads `committed_seq`, or whose
+    /// `action_journal_seq` leads the durable action-journal head, is not a
+    /// valid checkpoint: every boot restores that lead, and the first replay
+    /// then finds a gap the journal can never fill. `synchronous = NORMAL`
+    /// lets SQLite ack a commit that a hard stop can still discard, so the
+    /// in-memory runtime (and the snapshot captured from it) can race ahead
+    /// of what actually reached disk on either cursor independently. Keeping
+    /// the previous good checkpoint is strictly better than freezing a torn
+    /// one, and skipping the write also skips compaction, so nothing is
+    /// discarded behind it.
+    ///
+    /// This guards both cursors because they are durable on separate tables
+    /// (`world_events` vs `action_journal`) and a hard stop can lose either
+    /// one without the other: an unguarded action-journal cursor was exactly
+    /// what left production unbootable on 2026-08-16 and 2026-08-18 even
+    /// though the world-event cursor below was fine both times.
     fn checkpoint_cursor_is_durable(&self) -> bool {
         let (Some(path), Some(snapshot)) =
             (self.event_store_path.as_deref(), self.snapshot.as_ref())
@@ -141,15 +152,33 @@ impl SnapshotJob {
         };
         // A store with no commit point yet still carries a freshly seeded world's
         // bootstrap events in memory only, so there is nothing to contradict.
-        if committed_seq == 0 || snapshot.next_event_seq <= committed_seq.saturating_add(1) {
-            return true;
+        if committed_seq != 0 && snapshot.next_event_seq > committed_seq.saturating_add(1) {
+            error!(
+                "refusing to checkpoint CosyWorld snapshot: captured event cursor {} leads the \
+                 durable commit point {}; keeping the previous checkpoint",
+                snapshot.next_event_seq, committed_seq
+            );
+            return false;
         }
-        error!(
-            "refusing to checkpoint CosyWorld snapshot: captured event cursor {} leads the durable \
-             commit point {}; keeping the previous checkpoint",
-            snapshot.next_event_seq, committed_seq
-        );
-        false
+        let journal_head = match latest_action_journal_seq(path) {
+            Ok(journal_head) => journal_head,
+            // Same reasoning as above: an unreadable head contradicts nothing.
+            Err(_) => return true,
+        };
+        // Unlike `next_event_seq`, `action_journal_seq` has no bootstrap
+        // pathway that advances it without a durable `action_journal` insert
+        // (the only writer is the commit path, which sets it from that
+        // insert's own row id). So a lead over the durable head is always a
+        // genuine overshoot, even from a head of 0.
+        if snapshot.action_journal_seq > journal_head {
+            error!(
+                "refusing to checkpoint CosyWorld snapshot: captured action-journal cursor {} \
+                 leads the durable journal head {}; keeping the previous checkpoint",
+                snapshot.action_journal_seq, journal_head
+            );
+            return false;
+        }
+        true
     }
 
     fn write(self) -> io::Result<()> {
@@ -387,6 +416,89 @@ mod tests {
         persist_runtime_now(&state, &runtime);
         let kept = RuntimeWorld::load_snapshot(&snapshot_path).expect("previous snapshot survives");
         assert_eq!(kept.world.tick, 11);
+
+        let _ = fs::remove_file(snapshot_path);
+        let _ = fs::remove_file(store_path);
+    }
+
+    fn fixture_action_journal_record(seed: u64) -> JournalRecord {
+        let content_id = 900_000 + seed;
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                content_id,
+                ..CwAction::default()
+            },
+            seed,
+        );
+        record
+            .content_upserts
+            .insert(content_id, format!("checkpoint fixture {seed}"));
+        record
+    }
+
+    /// Regression for the 2026-08-16 and 2026-08-18 outages: an unguarded
+    /// `action_journal_seq` let a checkpoint whose action-journal cursor
+    /// outran the durable journal survive into the only file a compacted
+    /// journal can be rebuilt from, leaving production unbootable. This
+    /// mirrors `a_checkpoint_that_leads_the_commit_point_is_refused` above,
+    /// but for the action-journal cursor instead of the world-event cursor —
+    /// the two are durable on separate tables and a hard stop can lose
+    /// either one independently of the other.
+    #[test]
+    fn a_checkpoint_that_leads_the_action_journal_head_is_refused() {
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-torn-journal-cursor-snapshot-{}-{}.json",
+            std::process::id(),
+            now_millis()
+        ));
+        let store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-torn-journal-cursor-store-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&snapshot_path);
+        let _ = fs::remove_file(&store_path);
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(store_path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        state.snapshot_writer = Some(Arc::new(SnapshotWriter::spawn().expect("snapshot writer")));
+        // Keep the world-event cursor durable throughout so only the
+        // action-journal guard is under test.
+        append_event_store(
+            &store_path,
+            &[EventView {
+                seq: 1,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        )
+        .expect("append durable event");
+        append_action_journal(&store_path, &fixture_action_journal_record(1))
+            .expect("append durable action journal record");
+
+        // A cursor level with the durable journal head checkpoints normally.
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.next_event_seq = 2;
+        runtime.action_journal_seq = 1;
+        runtime.world.tick = 11;
+        persist_runtime_now(&state, &runtime);
+        let durable = RuntimeWorld::load_snapshot(&snapshot_path).expect("durable snapshot loads");
+        assert_eq!(durable.world.tick, 11);
+
+        // A cursor that leads the durable head — as if the runtime applied
+        // an action whose journal insert never reached disk — must not
+        // overwrite that checkpoint.
+        runtime.action_journal_seq = 5;
+        runtime.world.tick = 22;
+        persist_runtime_now(&state, &runtime);
+        let kept = RuntimeWorld::load_snapshot(&snapshot_path).expect("previous snapshot survives");
+        assert_eq!(kept.world.tick, 11);
+        assert_eq!(kept.action_journal_seq, 1);
 
         let _ = fs::remove_file(snapshot_path);
         let _ = fs::remove_file(store_path);
