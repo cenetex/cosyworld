@@ -8,6 +8,8 @@ tenant_config="${COSYWORLD_MULTITENANT_TENANTS_CONFIG:-/app/deploy/lonelyforest/
 health_monitor="${COSYWORLD_MULTITENANT_HEALTH_MONITOR:-/app/deploy/lonelyforest/check-required-health.sh}"
 health_startup_grace_secs="${COSYWORLD_MULTITENANT_HEALTH_STARTUP_GRACE_SECS:-45}"
 health_interval_secs="${COSYWORLD_MULTITENANT_HEALTH_INTERVAL_SECS:-5}"
+health_failure_threshold="${COSYWORLD_MULTITENANT_HEALTH_FAILURE_THRESHOLD:-3}"
+health_probe_timeout_secs="${COSYWORLD_MULTITENANT_HEALTH_PROBE_TIMEOUT_SECS:-10}"
 restart_delay="${COSYWORLD_MULTITENANT_RESTART_DELAY_SECS:-2}"
 supervisor_pid="$$"
 workers=""
@@ -112,7 +114,7 @@ tenant_data_path() {
 }
 
 monitor_required_tenants() {
-  if "$health_monitor" "$tenant_config" "$supervisor_pid" "$health_startup_grace_secs" "$health_interval_secs"; then
+  if "$health_monitor" "$tenant_config" "$supervisor_pid" "$health_startup_grace_secs" "$health_interval_secs" "$health_failure_threshold" "$health_probe_timeout_secs"; then
     status=0
   else
     status="$?"
@@ -237,7 +239,7 @@ nginx_pid="$!"
 log "hostname router listening on 0.0.0.0:3000"
 monitor_required_tenants &
 health_monitor_pid="$!"
-log "required tenant health monitor started after ${health_startup_grace_secs}s grace"
+log "required tenant health monitor started after ${health_startup_grace_secs}s grace; ${health_failure_threshold} consecutive misses at ${health_probe_timeout_secs}s fail the Machine"
 
 if wait "$nginx_pid"; then
   status=0
