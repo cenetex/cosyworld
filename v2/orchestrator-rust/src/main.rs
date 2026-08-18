@@ -9218,6 +9218,7 @@ impl RuntimeWorld {
         if threshold_record_claim_already_applied(self, record)
             || discovery_record_claim_already_applied(self, record)
             || avatar_rescue_already_applied
+            || self.ai_publication_record_already_applied(record)
         {
             return (CW_OK, Vec::new());
         }

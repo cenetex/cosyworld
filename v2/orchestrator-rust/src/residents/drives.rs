@@ -278,9 +278,9 @@ impl ResidentDrive {
         self
     }
 
-    /// Whether the drive is fully bound to all the atoms in its pattern.
-    /// A fully bound drive is a concrete goal; an unbound one is a general
-    /// inclination.
+    /// Whether the drive names any specific entity. Binding even one atom
+    /// makes it a concrete desire rather than a general inclination, so the
+    /// goal generator only has to fill in the atoms still left open.
     pub(crate) fn is_bound(&self) -> bool {
         self.avatar_id.is_some() || self.location_id.is_some() || self.item_id.is_some()
     }
@@ -481,8 +481,8 @@ mod tests {
 
     #[test]
     fn covers_respects_repeated_atoms() {
-        // ALLI has two L atoms; a single-L pattern covers it, but ALLI does
-        // not cover a single-L pattern.
+        // ALLI has two L atoms, so it covers a single-L pattern, but a
+        // single-L pattern does not cover ALLI.
         let alli = DrivePattern::avatar_location_location_item();
         assert!(alli.covers(&DrivePattern::location()));
         assert!(!DrivePattern::location().covers(&alli));

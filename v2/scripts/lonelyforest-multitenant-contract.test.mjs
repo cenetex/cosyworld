@@ -57,8 +57,30 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(supervisor, /required tenant health monitor exited with status \$status; failing supervisor \$supervisor_pid/);
   assert.match(healthMonitor, /sleep "\$startup_grace_secs"/);
   assert.match(healthMonitor, /\[ "\$requirement" = "required" \] \|\| continue/);
-  assert.match(healthMonitor, /curl --noproxy '\*' --fail --silent --show-error --max-time 3 "http:\/\/127\.0\.0\.1:\$port\/health"/);
+  assert.match(
+    healthMonitor,
+    /curl --noproxy '\*' --fail --silent --show-error --max-time "\$probe_timeout_secs" "http:\/\/127\.0\.0\.1:\$port\/health"/,
+  );
   assert.match(healthMonitor, /required tenant \$slug failed private \/health[\s\S]*?kill -USR1 "\$supervisor_pid"/);
+  // A required tenant that is briefly busy must not cost every hostname on the
+  // Machine: root can hold the authoritative runtime lock for seconds under
+  // load, so the supervisor only fails after repeated misses.
+  assert.match(healthMonitor, /failure_threshold="\$\{5:-3\}"/);
+  assert.match(healthMonitor, /probe_timeout_secs="\$\{6:-10\}"/);
+  assert.match(healthMonitor, /\[ "\$failures" -ge "\$failure_threshold" \]/);
+  assert.match(healthMonitor, /still within tolerance/);
+  assert.match(
+    supervisor,
+    /health_failure_threshold="\$\{COSYWORLD_MULTITENANT_HEALTH_FAILURE_THRESHOLD:-3\}"/,
+  );
+  assert.match(
+    supervisor,
+    /health_probe_timeout_secs="\$\{COSYWORLD_MULTITENANT_HEALTH_PROBE_TIMEOUT_SECS:-10\}"/,
+  );
+  assert.match(
+    supervisor,
+    /"\$health_monitor" "\$tenant_config" "\$supervisor_pid" "\$health_startup_grace_secs" "\$health_interval_secs" "\$health_failure_threshold" "\$health_probe_timeout_secs"/,
+  );
 
   for (const tenant of tenants) {
     assert.match(
@@ -319,6 +341,59 @@ test("required-tenant health monitor fails the Machine after startup grace when 
       assert.match(requests, new RegExp(`127\\.0\\.0\\.1:${port}/health`));
     }
     assert.doesNotMatch(requests, /127\.0\.0\.1:3101\/health/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("a required tenant that misses one probe and recovers keeps every hostname up", async () => {
+  // Root can hold the authoritative runtime lock for several seconds under
+  // load, which starves its readiness endpoint while the world is alive and
+  // serving. Tearing down every hostname on the first missed probe turned that
+  // into a site-wide flap, so a miss inside the threshold must be survivable.
+  const tempRoot = await mkdtemp(resolve(tmpdir(), "cosyworld-required-health-transient-"));
+  try {
+    const binDir = resolve(tempRoot, "bin");
+    const curlLog = resolve(tempRoot, "curl.log");
+    const stateFile = resolve(tempRoot, "root-probe-count");
+    const fakeCurl = resolve(binDir, "curl");
+    const tenantConfig = resolve(deploymentRoot, "tenants.tsv");
+    await mkdir(binDir);
+    // Root fails its very first probe, then answers normally for good.
+    await writeFile(
+      fakeCurl,
+      "#!/bin/sh\n"
+        + "printf '%s\\n' \"$*\" >> \"$FAKE_CURL_LOG\"\n"
+        + "case \"$*\" in\n"
+        + "  *:3100*)\n"
+        + "    if [ -f \"$FAKE_CURL_STATE\" ]; then exit 0; fi\n"
+        + "    : > \"$FAKE_CURL_STATE\"\n"
+        + "    exit 1\n"
+        + "    ;;\n"
+        + "  *) exit 0 ;;\n"
+        + "esac\n",
+    );
+    await chmod(fakeCurl, 0o755);
+    const child = spawn(
+      "sh",
+      [resolve(deploymentRoot, "check-required-health.sh"), tenantConfig, "999999", "0", "1"],
+      {
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}`, FAKE_CURL_LOG: curlLog, FAKE_CURL_STATE: stateFile },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += chunk; });
+    child.stderr.on("data", (chunk) => { output += chunk; });
+    const exited = new Promise((resolveResult) => child.once("close", (code) => resolveResult(code)));
+    const settled = await Promise.race([
+      exited,
+      new Promise((resolveRace) => setTimeout(() => resolveRace("still-running"), 4_000)),
+    ]);
+    child.kill("SIGKILL");
+    assert.equal(settled, "still-running", `monitor must survive one missed probe: ${output}`);
+    assert.match(output, /required tenant root missed private \/health[\s\S]*?\(1\/3\)/);
+    assert.doesNotMatch(output, /failing supervisor/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -595,15 +595,43 @@ impl crate::RuntimeWorld {
         } else {
             None
         };
-        !self.ai_publications.contains_key(&receipt.generation_id)
-            && receipt.generation_id
-                == publication_generation_id_for(
-                    &receipt.feature,
-                    &receipt.prompt_version,
-                    &receipt.generation_key,
-                    record.action.actor_id,
-                )
+        // A generation key is not always unique per utterance: the
+        // deterministic-fallback key is a pure function of actor and scope, so
+        // two different lines by one resident derive the same generation id.
+        // The live path accepts both, so replay must too — rejecting the second
+        // leaves the world permanently unbootable. Only a receipt that
+        // reproduces a registered publication byte for byte is a true repeat,
+        // and that is handled as already-applied rather than as a violation.
+        if self.ai_publication_record_already_applied(record) {
+            // Not a violation: apply_journal_record's already-applied group
+            // turns this into an idempotent skip.
+            return true;
+        }
+        receipt.generation_id
+            == publication_generation_id_for(
+                &receipt.feature,
+                &receipt.prompt_version,
+                &receipt.generation_key,
+                record.action.actor_id,
+            )
             && published_text.is_some_and(|text| receipt_matches_text(receipt, text))
+    }
+
+    /// True when this record's publication is already reflected in world state.
+    ///
+    /// Registration is keyed by generation id, but a colliding id whose output
+    /// differs belongs to a distinct utterance that still has to be applied, so
+    /// only an identical output counts as already applied.
+    pub(crate) fn ai_publication_record_already_applied(
+        &self,
+        record: &crate::JournalRecord,
+    ) -> bool {
+        let Some(receipt) = record.ai_publication.as_ref() else {
+            return false;
+        };
+        self.ai_publications
+            .get(&receipt.generation_id)
+            .is_some_and(|stored| stored.output_hash == receipt.output_hash)
     }
 }
 
@@ -2693,9 +2721,23 @@ mod tests {
             );
         let mut statuses = vec![first.await.unwrap(), second.await.unwrap()];
         statuses.sort_unstable();
-        assert_eq!(statuses, vec![CW_OK, CW_ERR_RULE]);
+        // Re-applying the identical receipt is idempotent rather than a rule
+        // violation: the loser is already-applied and skips. A hard rejection
+        // here would make an ordinary replay unbootable.
+        assert_eq!(statuses, vec![CW_OK, CW_OK]);
         let runtime = runtime.lock().await;
         assert_eq!(runtime.ai_publications.len(), 1);
+        // The point of the test: one commit, not two.
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "message.created"
+                    && event.content.as_deref()
+                        == Some("The teapot sits beside the basket, lid askew."))
+                .count(),
+            1
+        );
         assert_eq!(
             runtime
                 .ai_publications
@@ -2703,6 +2745,75 @@ mod tests {
                 .map(|stored| stored.publication_id.as_str()),
             Some(receipt.publication_id.as_str())
         );
+    }
+
+    #[tokio::test]
+    async fn colliding_generation_key_still_replays_the_second_distinct_line() {
+        // Regression for the outages of 2026-08-16/17, which bricked three
+        // worlds. publication_beat_id() falls back to
+        // "deterministic-fallback:actor:{id}:scope:{scope}" when a caller has no
+        // explicit beat id, and the generation id derives from that key, so a
+        // resident's second fallback line derives the id its first line already
+        // registered. The live path commits both. Replay used to refuse the
+        // second, and with the journal compacted past it no bootable path
+        // remained.
+        let first = certified_record(
+            1001,
+            98_101,
+            "The teapot sits beside the basket, lid askew.",
+            "context-before",
+        );
+        let mut second = certified_record(
+            1001,
+            98_102,
+            "The teapot sits beside the basket, steam curling.",
+            "context-after",
+        );
+        let first_receipt = first.ai_publication.as_ref().unwrap().clone();
+
+        // Reproduce the weak key: the fixture derives a unique key per content
+        // id, so force the two receipts to share one, exactly as the
+        // deterministic fallback does in production.
+        {
+            let receipt = second.ai_publication.as_mut().unwrap();
+            receipt.generation_key = first_receipt.generation_key.clone();
+            receipt.generation_id = publication_generation_id_for(
+                &receipt.feature,
+                &receipt.prompt_version,
+                &receipt.generation_key,
+                1001,
+            );
+            receipt.publication_id = sha256_hex(
+                format!("{}\0{}", receipt.generation_id, receipt.output_hash).as_bytes(),
+            );
+        }
+        let second_receipt = second.ai_publication.as_ref().unwrap().clone();
+
+        assert_eq!(
+            first_receipt.generation_id, second_receipt.generation_id,
+            "the two distinct utterances must collide on one generation id"
+        );
+        assert_ne!(first_receipt.output_hash, second_receipt.output_hash);
+
+        let mut runtime = RuntimeWorld::seeded();
+        assert_eq!(runtime.apply_journal_record(&first).0, CW_OK);
+        let (status, events) = runtime.apply_journal_record(&second);
+
+        assert_eq!(status, CW_OK, "the second distinct line must still replay");
+        assert!(!events.is_empty(), "it publishes its own speech");
+        assert_eq!(
+            runtime
+                .ai_publications
+                .get(&second_receipt.generation_id)
+                .map(|stored| stored.output_hash.as_str()),
+            Some(second_receipt.output_hash.as_str()),
+            "the newer publication is what stays registered"
+        );
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.content.as_deref()
+                    == Some("The teapot sits beside the basket, steam curling.")
+        }));
     }
 
     #[test]
@@ -2751,8 +2862,22 @@ mod tests {
         assert!(replayed
             .ai_publications
             .contains_key(&receipt.generation_id));
-        assert_eq!(replayed.apply_journal_record(&record).0, CW_ERR_RULE);
+        // Re-applying the identical record is an idempotent no-op, not a rule
+        // violation: it emits nothing and leaves the registration alone.
+        let (status, events) = replayed.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.is_empty());
         assert_eq!(replayed.ai_publications.len(), 1);
+        assert_eq!(
+            replayed
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "message.created"
+                    && event.content.as_deref()
+                        == Some("The teapot is still warm beside the basket."))
+                .count(),
+            1
+        );
         let snapshot = RuntimeSnapshot::from_runtime(&replayed)
             .into_runtime()
             .expect("snapshot round trip");
