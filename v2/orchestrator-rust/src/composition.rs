@@ -519,15 +519,25 @@ impl RuntimeWorld {
                 })
         });
 
-        primary_action.options.retain_mut(|option| {
-            let Some(offer) = action_offers.iter().find(|offer| offer.kind == option.kind) else {
-                return false;
-            };
-            if option.kind == "create_bond" {
-                option.command = offer.command.clone();
-            }
-            true
-        });
+        // Lifecycle options are not world offers. A knocked-out player is dealt
+        // no offers at all, so matching them against the offer list would strip
+        // the only affordances they have left.
+        let lifecycle_primary = matches!(
+            primary_action.kind.as_str(),
+            "create_avatar" | "create_rescuer" | "summon_avatar"
+        );
+        if !lifecycle_primary {
+            primary_action.options.retain_mut(|option| {
+                let Some(offer) = action_offers.iter().find(|offer| offer.kind == option.kind)
+                else {
+                    return false;
+                };
+                if option.kind == "create_bond" {
+                    option.command = offer.command.clone();
+                }
+                true
+            });
+        }
         let primary_offer_kind = match primary_action.kind.as_str() {
             "travel" => "move",
             kind => kind,
@@ -547,7 +557,14 @@ impl RuntimeWorld {
                 primary_action.disabled = offer.disabled;
             }
             primary_action.command = offer.command.clone();
-        } else if !primary_action.disabled && primary_action.kind != "create_rescuer" {
+        // A lifecycle action is the player's only way out of a state that
+        // deals no offers, so it must survive the fallback to "wait".
+        } else if !primary_action.disabled
+            && !matches!(
+                primary_action.kind.as_str(),
+                "create_rescuer" | "create_avatar"
+            )
+        {
             primary_action = PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),

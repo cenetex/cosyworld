@@ -406,16 +406,13 @@ impl RuntimeWorld {
             return Some(create_avatar_primary_action());
         };
 
-        // Knockout keeps the body in the world but opens a linked-account
-        // rescue run. The replacement is a rescuer, not a reconnect prompt.
+        // Knockout leaves the body in the world, and a knocked-out body is still
+        // "present", so this branch is the only offer a downed player ever sees.
+        // It used to offer a rescuer, which the create path refuses without a
+        // linked wallet, so an ordinary player had no reachable move at all.
+        // Looking is always legal, and starting again always has to be.
         if Self::actor_is_present(actor) && !Self::actor_can_act(actor) {
-            return Some(PrimaryAction {
-                kind: "create_rescuer".to_string(),
-                label: "Create Rescuer".to_string(),
-                command: "create rescuer".to_string(),
-                disabled: false,
-                options: Vec::new(),
-            });
+            return Some(downed_avatar_primary_action());
         }
         (!Self::actor_can_act(actor)).then(create_avatar_primary_action)
     }
@@ -470,6 +467,30 @@ impl RuntimeWorld {
         Self::actor_can_act(actor)
             && combat_turn_view(self, actor.id, actor.location_id)
                 .is_some_and(|turn| turn.current_actor_id == Some(actor.id))
+    }
+}
+
+/// What a knocked-out player may still do: watch the room, or begin again.
+///
+/// The body stays behind to be rescued, so leaving it is not losing it.
+fn downed_avatar_primary_action() -> PrimaryAction {
+    PrimaryAction {
+        kind: "create_avatar".to_string(),
+        label: "Begin Again".to_string(),
+        command: "create avatar".to_string(),
+        disabled: false,
+        options: vec![
+            ActionOption {
+                kind: "create_avatar".to_string(),
+                label: "Begin Again".to_string(),
+                command: "create avatar".to_string(),
+            },
+            ActionOption {
+                kind: "look".to_string(),
+                label: "Look".to_string(),
+                command: "look".to_string(),
+            },
+        ],
     }
 }
 
@@ -922,8 +943,17 @@ mod tests {
             false,
         );
         assert_eq!(
-            downed.primary_action.kind, "create_rescuer",
-            "a knocked-out avatar must expose the linked rescue run",
+            downed.primary_action.kind, "create_avatar",
+            "a knocked-out player must be able to begin again without a wallet",
+        );
+        assert!(
+            downed
+                .primary_action
+                .options
+                .iter()
+                .any(|option| option.kind == "look"),
+            "a knocked-out player must still be able to look: {:?}",
+            downed.primary_action.options,
         );
         assert!(!downed.primary_action.disabled);
         assert!(
@@ -1014,7 +1044,7 @@ mod tests {
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
         // Present and observable does not mean playable. The one available
         // lifecycle action starts a linked rescue run without removing it.
-        assert_eq!(observer_view.primary_action.kind, "create_rescuer");
+        assert_eq!(observer_view.primary_action.kind, "create_avatar");
         assert!(!observer_view.primary_action.disabled);
         assert!(observer_view.action_offers.is_empty());
 
