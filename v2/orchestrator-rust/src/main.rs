@@ -1080,6 +1080,9 @@ enum ProjectionMutation {
         previous_rescue_id: String,
         rescue: AvatarRescueState,
     },
+    AbandonAvatar {
+        actor_id: u64,
+    },
     PlaceResident {
         actor_id: u64,
         location_id: u64,
@@ -9212,6 +9215,7 @@ impl RuntimeWorld {
             || !card_policy_preference_record_preconditions_hold(record)
             || (!avatar_rescue_already_applied
                 && !self.avatar_rescue_record_preconditions_hold(record))
+            || !self.abandon_avatar_record_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -9960,6 +9964,9 @@ impl RuntimeWorld {
                     rescue,
                 } => {
                     events.extend(self.apply_cascade_avatar_rescue(previous_rescue_id, rescue));
+                }
+                ProjectionMutation::AbandonAvatar { actor_id } => {
+                    events.extend(self.apply_abandon_avatar(*actor_id));
                 }
                 ProjectionMutation::PlaceResident {
                     actor_id,
@@ -20719,6 +20726,14 @@ async fn submit_action_offer(
         }
         "/actions/unlock-charm-slot" => {
             unlock_charm_slot(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/abandon-avatar" => {
+            abandon_avatar(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(ActorRequest)),
@@ -39761,6 +39776,7 @@ mod tests {
         assert!(INDEX_HTML.contains("Stay with them while help arrives."));
         assert!(INDEX_HTML.contains("Summon one new traveler to attempt the rescue."));
         assert!(INDEX_HTML.contains("[\"await_rescue\", \"summon_avatar\"].includes(rescueAction)"));
+        assert!(INDEX_HTML.contains("abandon avatar"));
         assert!(INDEX_HTML.contains("summon_from_actor_id: summonFromActorId"));
         assert!(INDEX_HTML.contains("/avatar/session"));
         assert!(INDEX_HTML.contains("restore this same avatar"));

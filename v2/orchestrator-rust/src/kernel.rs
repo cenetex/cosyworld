@@ -194,6 +194,9 @@ pub const CW_ACTION_STUDY_V2: u8 = 37;
 pub const CW_ACTION_SCOUT_V2: u8 = 38;
 pub const CW_ACTION_COMPLETE_AVATAR_RESCUE: u8 = 39;
 pub const CW_ACTION_REPLACE_AVATAR_RESCUER: u8 = 40;
+// Player frees their knocked-out avatar to live on as an independent
+// roaming NPC, releasing the account to begin a new avatar.
+pub const CW_ACTION_ABANDON_AVATAR: u8 = 41;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ABILITY_CHECK_ROLLED: u8 = 6;
