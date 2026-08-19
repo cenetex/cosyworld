@@ -406,16 +406,11 @@ impl RuntimeWorld {
             return Some(create_avatar_primary_action());
         };
 
-        // Knockout keeps the body in the world but opens a linked-account
-        // rescue run. The replacement is a rescuer, not a reconnect prompt.
+        // Knockout keeps the body in the world. A linked account summons a
+        // rescuer; anyone else abandons the fallen avatar to live on as a
+        // resident and begins again.
         if Self::actor_is_present(actor) && !Self::actor_can_act(actor) {
-            return Some(PrimaryAction {
-                kind: "create_rescuer".to_string(),
-                label: "Create Rescuer".to_string(),
-                command: "create rescuer".to_string(),
-                disabled: false,
-                options: Vec::new(),
-            });
+            return Some(abandon_avatar_primary_action());
         }
         (!Self::actor_can_act(actor)).then(create_avatar_primary_action)
     }
@@ -488,6 +483,16 @@ pub(super) fn summon_avatar_primary_action() -> PrimaryAction {
         kind: "summon_avatar".to_string(),
         label: "Summon a New Avatar".to_string(),
         command: "summon avatar".to_string(),
+        disabled: false,
+        options: Vec::new(),
+    }
+}
+
+pub(super) fn abandon_avatar_primary_action() -> PrimaryAction {
+    PrimaryAction {
+        kind: "abandon_avatar".to_string(),
+        label: "Abandon Avatar".to_string(),
+        command: "abandon avatar".to_string(),
         disabled: false,
         options: Vec::new(),
     }
@@ -922,8 +927,8 @@ mod tests {
             false,
         );
         assert_eq!(
-            downed.primary_action.kind, "create_rescuer",
-            "a knocked-out avatar must expose the linked rescue run",
+            downed.primary_action.kind, "abandon_avatar",
+            "a knocked-out avatar must expose the abandon path",
         );
         assert!(!downed.primary_action.disabled);
         assert!(
@@ -1013,8 +1018,8 @@ mod tests {
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
         // Present and observable does not mean playable. The one available
-        // lifecycle action starts a linked rescue run without removing it.
-        assert_eq!(observer_view.primary_action.kind, "create_rescuer");
+        // lifecycle action abandons the body without removing it.
+        assert_eq!(observer_view.primary_action.kind, "abandon_avatar");
         assert!(!observer_view.primary_action.disabled);
         assert!(observer_view.action_offers.is_empty());
 
@@ -1684,5 +1689,40 @@ mod tests {
                     .as_deref()
                     .is_some_and(|content| content.contains("witness:noticed"))
         }));
+    }
+
+    #[tokio::test]
+    async fn knocked_out_avatar_can_be_abandoned_to_roaming_ai() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+        assert!(runtime.actor_control_mode(5000).is_direct_input());
+
+        let (action, mutation) = runtime.plan_abandon_avatar(5000).expect("plan abandon");
+        assert_eq!(action.kind, CW_ACTION_ABANDON_AVATAR);
+        match mutation {
+            ProjectionMutation::AbandonAvatar { actor_id } => assert_eq!(actor_id, 5000),
+            _ => panic!("expected AbandonAvatar mutation"),
+        }
+
+        let events = runtime.apply_abandon_avatar(5000);
+        assert!(runtime.actor_control_mode(5000).uses_inference());
+        assert!(!events.is_empty());
+        // Replaying the same abandonment is a no-op.
+        assert!(runtime.apply_abandon_avatar(5000).is_empty());
     }
 }

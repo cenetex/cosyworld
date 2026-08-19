@@ -353,4 +353,10 @@
 # the predicate itself lives in ai_publication.rs. This unbricks worlds whose
 # replay hit a colliding deterministic-fallback publication key, which left
 # three of them unbootable on 2026-08-16/17.
-63586
+# 63586 -> 63602: sixteen lines wiring Abandon Avatar at the existing
+# boundaries main.rs already owns -- the ProjectionMutation variant, its
+# precondition call and apply arm, the /actions/abandon-avatar route entry,
+# and one INDEX_HTML contract assertion. The action's planning, precondition,
+# and apply logic all live in avatar_rescue.rs beside the rescue lifecycle it
+# extends. Existing routing/projection seams, no new system in main.rs.
+63602

@@ -547,7 +547,10 @@ impl RuntimeWorld {
                 primary_action.disabled = offer.disabled;
             }
             primary_action.command = offer.command.clone();
-        } else if !primary_action.disabled && primary_action.kind != "create_rescuer" {
+        } else if !primary_action.disabled
+            && primary_action.kind != "create_rescuer"
+            && primary_action.kind != "abandon_avatar"
+        {
             primary_action = PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
