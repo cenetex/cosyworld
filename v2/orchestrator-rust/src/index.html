@@ -6549,6 +6549,128 @@
       .prompt.hand-expanded .cmd .thumb.action-mini-card { width: 100%; }
       .minimal-menu-slot { min-height: 82px; }
     }
+
+    /*
+     * Consolidated narrow-viewport Story Hand card layout. Placed last so it
+     * is authoritative over the earlier, partially-conflicting 561-900px
+     * rules above: several older `@media (max-width: 900px)` blocks size
+     * `.cmd` as a horizontal list row (small fixed thumb beside text), while
+     * the `.cmd.has-copy .thumb` selector's extra `.has-copy` class outranks
+     * the unconditional full-bleed rule's specificity, so a viewport between
+     * 561px and 900px got a small boxed thumbnail floating in an otherwise
+     * empty stacked card — full-bleed only actually worked at <=560px. This
+     * block unifies the whole <=900px range on one full-bleed, swipeable,
+     * shorter card design instead of maintaining two half-finished ones.
+     */
+    @media (max-width: 900px) {
+      .prompt.hand-expanded .hand-rail {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 9px 14px 8px;
+        scroll-padding-inline: 14px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        cursor: grab;
+      }
+      .prompt.hand-expanded .hand-rail::-webkit-scrollbar { display: none; }
+      /* Added by pointer-drag swipe (script below) while a mouse/pen drag is
+         in progress, so scroll-snap does not fight the live drag. */
+      .prompt.hand-expanded .hand-rail.dragging {
+        cursor: grabbing;
+        scroll-snap-type: none;
+      }
+      .prompt.hand-expanded .story-card-slot {
+        flex: 0 0 calc(100% - 28px);
+        width: calc(100% - 28px);
+        min-width: 0;
+        height: clamp(268px, 48dvh, 346px);
+        scroll-snap-align: center;
+      }
+      .prompt.hand-expanded .cmd {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: clamp(108px, 20dvh, 148px) minmax(0, 1fr);
+        gap: 0;
+        padding: 0;
+        text-align: left;
+        opacity: 0.66;
+        transition: border-color 140ms ease, opacity 140ms ease;
+      }
+      .prompt.hand-expanded .cmd[aria-current="true"] {
+        border-color: rgba(var(--cmd-accent-rgb), 0.78);
+        box-shadow:
+          inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.72),
+          0 0 0 1px rgba(var(--cmd-accent-rgb), 0.16);
+        opacity: 1;
+      }
+      .prompt.hand-expanded .cmd-copy {
+        align-content: start;
+        gap: 4px;
+        padding: 10px 12px 8px;
+      }
+      .prompt.hand-expanded .cmd-kicker { font-size: 10px; }
+      .prompt.hand-expanded .cmd-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        overflow: visible;
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 820;
+        line-height: 1.16;
+        white-space: normal;
+      }
+      .prompt.hand-expanded .cmd-label-text {
+        display: -webkit-box;
+        min-width: 0;
+        overflow: hidden;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+      .prompt.hand-expanded .detail {
+        display: -webkit-box;
+        margin-top: 2px;
+        overflow: hidden;
+        font-size: 13px;
+        line-height: 1.3;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+      .prompt.hand-expanded :is(.cmd-meta, .provider-call, .story-call) {
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* The full-bleed fix: `.has-copy` on the same selector as the older
+         rules gives this the specificity to win regardless of source-order
+         tie-breaks against the blocks above. */
+      .prompt.hand-expanded .cmd.has-copy .thumb,
+      .prompt.hand-expanded .cmd.has-copy .thumb.item,
+      .prompt.hand-expanded .cmd.has-copy .thumb.location,
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar,
+      .prompt.hand-expanded .cmd.has-copy .thumb.action-mini-card {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        flex: none;
+        border-right: 0;
+        border-bottom: 1px solid rgba(var(--cmd-accent-rgb), 0.46);
+        background-position: center 42%;
+      }
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar { background-position: center 22%; }
+      .prompt.hand-expanded .story-card-actions button {
+        min-height: 44px;
+        font-size: 10px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -19420,6 +19542,52 @@
         selectStoryHandCardFromScroll();
       });
     }, { passive: true });
+
+    // Touch already swipes the hand rail natively via CSS scroll-snap. A
+    // narrow desktop window (a resized browser, no touch input) has no other
+    // way to reach it: the scrollbar is deliberately hidden for the mobile
+    // card look, and there is no click-drag affordance without this. Mouse
+    // and pen pointers get one here; touch is left to the native gesture so
+    // it is never double-handled.
+    (function enableHandRailPointerSwipe() {
+      const rail = $("hand-rail");
+      let pointerId = null;
+      let dragging = false;
+      let startX = 0;
+      let startScrollLeft = 0;
+      const DRAG_ENGAGE_PX = 6;
+
+      rail.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "touch" || !usesInlineStoryHand()) return;
+        pointerId = event.pointerId;
+        dragging = false;
+        startX = event.clientX;
+        startScrollLeft = rail.scrollLeft;
+      });
+
+      rail.addEventListener("pointermove", (event) => {
+        if (pointerId !== event.pointerId) return;
+        const delta = event.clientX - startX;
+        if (!dragging) {
+          if (Math.abs(delta) < DRAG_ENGAGE_PX) return;
+          dragging = true;
+          rail.classList.add("dragging");
+          rail.setPointerCapture(pointerId);
+        }
+        event.preventDefault();
+        rail.scrollLeft = startScrollLeft - delta;
+      });
+
+      const releaseDrag = (event) => {
+        if (pointerId !== event.pointerId) return;
+        if (dragging) rail.classList.remove("dragging");
+        if (rail.hasPointerCapture?.(pointerId)) rail.releasePointerCapture(pointerId);
+        pointerId = null;
+        dragging = false;
+      };
+      rail.addEventListener("pointerup", releaseDrag);
+      rail.addEventListener("pointercancel", releaseDrag);
+    })();
 
     window.matchMedia("(max-width: 900px)").addEventListener("change", () => {
       storyHandExpanded = false;
