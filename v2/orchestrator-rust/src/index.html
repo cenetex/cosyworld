@@ -8122,6 +8122,22 @@
         return [action, campaignAction];
       }
 
+      if (view.primary_action?.kind === "abandon_avatar") {
+        return [{
+          kind: "abandon-avatar",
+          label: "abandon avatar",
+          detail: "release this fallen avatar to live on as a resident",
+          command: "abandon avatar",
+          focusKey: "abandon-avatar",
+          card: cardForActor(actorId) || cardForLocation(view.location?.id),
+          shape: "avatar",
+          effect: "frees your account to begin a new avatar while this one stays in the world",
+          busyLabel: "abandoning",
+          busyDetail: "handing your avatar to the world…",
+          run: () => action("/actions/abandon-avatar", { actor_id: actorId }),
+        }];
+      }
+
       if (view.primary_action?.kind === "await_rescue") return [];
 
       const characterIdentity = view.character_identity || null;

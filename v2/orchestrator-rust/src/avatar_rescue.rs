@@ -520,4 +520,135 @@ impl RuntimeWorld {
             ),
         )]
     }
+
+    pub(super) fn plan_abandon_avatar(
+        &self,
+        actor_id: u64,
+    ) -> Result<(CwAction, ProjectionMutation), String> {
+        let actor = self
+            .actor_by_id(actor_id)
+            .ok_or_else(|| "No avatar to abandon.".to_string())?;
+        if !Self::actor_is_present(actor) {
+            return Err("This avatar is no longer in the world.".to_string());
+        }
+        if actor.status != CW_ACTOR_KNOCKED_OUT {
+            return Err("Only a knocked-out avatar can be abandoned.".to_string());
+        }
+        if !self.actor_control_mode(actor_id).is_direct_input() {
+            return Err("This avatar is already beyond your direct control.".to_string());
+        }
+        Ok((
+            CwAction {
+                kind: CW_ACTION_ABANDON_AVATAR,
+                actor_id,
+                ..CwAction::default()
+            },
+            ProjectionMutation::AbandonAvatar { actor_id },
+        ))
+    }
+
+    pub(super) fn abandon_avatar_record_preconditions_hold(
+        &self,
+        record: &JournalRecord,
+    ) -> bool {
+        for mutation in &record.projection_mutations {
+            if let ProjectionMutation::AbandonAvatar { actor_id } = mutation {
+                if record.action.kind != CW_ACTION_ABANDON_AVATAR
+                    || record.action.actor_id != *actor_id
+                    || self.actor_by_id(*actor_id).is_none_or(|actor| {
+                        !Self::actor_is_present(actor) || actor.status != CW_ACTOR_KNOCKED_OUT
+                    })
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    pub(super) fn apply_abandon_avatar(&mut self, actor_id: u64) -> Vec<EventView> {
+        let claim_key = abandon_avatar_claim_key(actor_id);
+        if self.rpg_claims.contains(&claim_key) || self.actor_by_id(actor_id).is_none() {
+            return Vec::new();
+        }
+        self.ensure_actor_autonomy();
+        if let Some(autonomy) = self.actor_autonomy.get_mut(&actor_id) {
+            autonomy.control_mode = ActorControlMode::RoamingAi;
+            autonomy.attention_credits = autonomy.attention_credits.max(1);
+            autonomy.pending_intent = None;
+        }
+        self.rpg_claims.insert(claim_key);
+        vec![self.append_async_job_event(
+            "avatar.abandoned",
+            actor_id,
+            None,
+            Some(
+                "Their avatar now lives on as an independent resident of the world.".to_string(),
+            ),
+        )]
+    }
+}
+
+fn abandon_avatar_claim_key(actor_id: u64) -> String {
+    format!("avatar_abandon:{actor_id}")
+}
+
+pub(super) async fn abandon_avatar(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let (action, mutation) = match runtime.plan_abandon_avatar(payload.actor_id) {
+        Ok(planned) => planned,
+        Err(reason) => return action_offer_rejected(reason),
+    };
+    let turn_location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id);
+    let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.bind_offer_kind("abandon_avatar");
+    record.projection_mutations.push(mutation);
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+    broadcast_events(&state, &events);
+    if let Some(plan) = reply_plan {
+        schedule_player_tick_observation(&state, plan);
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
 }
