@@ -21,20 +21,48 @@ different actions even though each is Hustle. Danger is risk metadata, not a
 fifth suit. A Spell is still an Item/source card; the spell action's suit is
 derived from its effect.
 
-## Three stable slots
+## Three stable piles
 
-The server composes exactly three independent queues:
+The server composes exactly three independent queues, one per kind of world
+entity the action is *about*:
 
-- **Story** — the scene's strongest invitation: location, quest, route, or
-  danger.
-- **Self** — an action grounded in the avatar: Calling, Friendship, Journal,
-  equipped gear, or prepared spell.
-- **Anchor** — a safe, legible foundation that keeps the hand usable.
+- **Item** — a tangible object: Take, Drop, Use, Give, Trade, Accept, Craft.
+- **Location** — a place or the room itself: Travel, Flee, Search, Study,
+  Scout, Explore, Open, Use feature, and the place-bound job verbs
+  (Prepare, Work, Help) plus the room Check.
+- **Avatar** — a person, yourself or another: Chat, Notice, Befriend,
+  Remember, Attack, Defend, Rescue, Steal, Rest, Train, Evolve, Cast.
 
-Sparse scenes borrow a deterministic card into an empty slot before any card
-is selected. The queues remain disjoint, so advancing one slot cannot move
-another. First-tale and journey guarantees are inserted into the Story queue,
-not layered over the completed hand.
+Each pile always surfaces its own strongest current offer, so the hand cannot
+show two Travel cards and no Notice. Because a pile holds every verb for its
+entity kind, the verb variants of one thing (Take / Drop / Give for the same
+item) sit in the same queue — so Discard reveals *another way to act on this
+thing*, not an unrelated replacement. See Discard below.
+
+Grouping is by exact verb (`offer.kind`), not by suit, provider, or narrative
+role. A few kinds are deliberately filed against their literal target:
+`give_item` and `trade_item` target the other avatar but belong to **Item**,
+because the item is what is being decided about; `theft` targets the item but
+belongs to **Avatar**, because stealing is a confrontation with the person.
+An unrecognised kind falls to **Avatar**, the catch-all.
+
+Sparse scenes borrow a deterministic card into an empty pile before any card
+is selected. The queues remain disjoint, so advancing one pile cannot move
+another. First-tale and journey guarantees are inserted into the pile that
+owns their entity, not layered over the completed hand.
+
+### Status: specified, not yet implemented
+
+The runtime still composes the older Story / Self / Anchor slots. Moving to
+piles is not a rename: slot identity is load-bearing for the progression pin
+(guaranteed at the head of one slot), Think/Discard availability (a slot needs
+a second card to be rotatable), ordered-combat pass, first-tale and journey
+guarantees, and cross-process hand convergence. A prototype that only
+reclassified offers and re-targeted the pin left 16 authoritative tests
+failing across `first_tale`, `movement`, `action_hand_tests`, combat ordering,
+and replay convergence — those are the invariants any real implementation has
+to carry, not incidental test churn. Land it as its own change with those
+paths reworked deliberately.
 
 ## Discard
 
@@ -48,7 +76,10 @@ Discard.
 - The first Discard after entering a safe scene is free.
 - Later Discards in that scene consume the turn.
 - Discard always consumes the turn in risky, dangerous, and ordered scenes.
-- A slot with no other current possibility does not show Discard.
+- A pile with no other current possibility does not show Discard, and the
+  card says so rather than showing a dead control.
+- Because a pile is one entity's verbs, Discard reads as "show me another way
+  to act on this" — the same rotation mechanism, a legible meaning.
 - Moving to another scene resets the slot counters and safe-scene allowance.
 
 The hidden deterministic structure is an **Offer queue**, not a player deck.
