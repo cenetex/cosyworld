@@ -160,10 +160,28 @@ impl SnapshotJob {
             );
             return false;
         }
-        let journal_head = match latest_action_journal_seq(path) {
+        // This must be the *durable* head, not whatever SQLite currently
+        // reports. Under `synchronous = NORMAL` a WAL-committed row counts as
+        // the head before its frame is fsynced, so comparing against a plain
+        // `MAX(journal_seq)` was not enough: the guard agreed, the machine
+        // stopped, the un-fsynced row evaporated, and the checkpoint it had
+        // already blessed was left leading the surviving journal. That is the
+        // 2026-08-19 outage, which happened *with* the earlier version of this
+        // guard in place. `durable_action_journal_head` flushes the WAL and
+        // only reports a head it has proven is on disk.
+        let journal_head = match durable_action_journal_head(path) {
             Ok(journal_head) => journal_head,
-            // Same reasoning as above: an unreadable head contradicts nothing.
-            Err(_) => return true,
+            // Unlike the commit point above, an unverifiable journal head must
+            // refuse the write. Allowing it is exactly how a world becomes
+            // unbootable; refusing only keeps the previous good checkpoint,
+            // which replay can still reach.
+            Err(error) => {
+                error!(
+                    "refusing to checkpoint CosyWorld snapshot: could not prove the action-journal \
+                     head is durable: {error}"
+                );
+                return false;
+            }
         };
         // Unlike `next_event_seq`, `action_journal_seq` has no bootstrap
         // pathway that advances it without a durable `action_journal` insert
@@ -502,5 +520,56 @@ mod tests {
 
         let _ = fs::remove_file(snapshot_path);
         let _ = fs::remove_file(store_path);
+    }
+
+    /// The 2026-08-19 outage happened *with* the action-journal guard in
+    /// place, because the guard compared against whatever SQLite reported as
+    /// the head -- and `synchronous = NORMAL` reports a WAL-committed row
+    /// before its frame has been transferred into the database file.
+    ///
+    /// Losing the WAL is modelled by copying *only* the main `.sqlite` file
+    /// and opening that copy: whatever is still WAL-resident does not come
+    /// along, exactly as an un-fsynced machine stop would leave it. The
+    /// production keepalive reader is held open throughout so closing the
+    /// short-lived writers cannot checkpoint on our behalf and mask the bug.
+    #[test]
+    fn an_accepted_checkpoint_cites_only_journal_rows_that_survive_losing_the_wal() {
+        let store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-durable-head-store-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let salvaged_path = store_path.with_extension("salvaged.sqlite");
+        let _ = fs::remove_file(&store_path);
+        let _ = fs::remove_file(&salvaged_path);
+
+        append_action_journal(&store_path, &fixture_action_journal_record(1))
+            .expect("seed the store so it exists");
+        // Hold the keepalive reader for the rest of the test so closing the
+        // writers below cannot quietly checkpoint the WAL for us.
+        let keepalive =
+            open_event_store_keepalive(&store_path).expect("process-lifetime WAL keepalive");
+        for seed in 2..=6 {
+            append_action_journal(&store_path, &fixture_action_journal_record(seed))
+                .expect("append action journal record");
+        }
+
+        let head = durable_action_journal_head(&store_path).expect("durable head");
+        assert_eq!(head, 6, "every committed row is reported as the head");
+
+        // Salvage only the database file, leaving any WAL-resident frames
+        // behind, while the keepalive still holds the WAL open.
+        fs::copy(&store_path, &salvaged_path).expect("salvage the database file alone");
+        drop(keepalive);
+
+        let surviving =
+            latest_action_journal_seq(&salvaged_path).expect("the salvaged database opens");
+        assert!(
+            surviving >= head,
+            "a head the guard blessed ({head}) must survive losing the WAL, but only {surviving} did"
+        );
+
+        let _ = fs::remove_file(store_path);
+        let _ = fs::remove_file(salvaged_path);
     }
 }

@@ -2350,6 +2350,45 @@ pub(super) fn open_event_store(path: &Path) -> io::Result<Connection> {
     open_canonical_store(path)
 }
 
+/// An action-journal head that is guaranteed to already be on disk.
+///
+/// `synchronous = NORMAL` (see `open_canonical_store`) lets SQLite report a
+/// WAL-committed row as the head before that WAL frame has been fsynced, so a
+/// plain `MAX(journal_seq)` can name a row that a hard stop will discard. A
+/// snapshot that cites such a row becomes unbootable the moment the stop
+/// happens: the checkpoint leads the surviving journal head, and compaction
+/// has already removed the path back.
+///
+/// The head is read *before* the checkpoint on purpose. Everything at or
+/// below that value is transferred into the database file by the time this
+/// returns, so the answer stays correct even if a concurrent writer appends
+/// afterwards -- a later append can only make the real head larger, never
+/// invalidate the value returned here.
+///
+/// `FULL` (rather than `TRUNCATE`) transfers every frame without also
+/// requiring the WAL to be reset, which is far less likely to be refused by a
+/// concurrent reader. A refused or partial checkpoint is reported as an error
+/// so callers stay conservative: an unverifiable head must never be written
+/// into a checkpoint.
+pub(super) fn durable_action_journal_head(path: &Path) -> io::Result<u64> {
+    let conn = open_event_store(path)?;
+    let head = max_action_journal_seq(&conn)?;
+    conn.pragma_update(None, "synchronous", "FULL")
+        .map_err(sqlite_error)?;
+    let busy = conn
+        .query_row("PRAGMA wal_checkpoint(FULL)", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .map_err(sqlite_error)?;
+    if busy != 0 {
+        return Err(io::Error::other(format!(
+            "wal checkpoint did not complete for {}; action-journal head {head} is not proven durable",
+            path.display()
+        )));
+    }
+    Ok(head)
+}
+
 /// Retain an activated WAL reader for the process lifetime so closing each
 /// short-lived writer does not checkpoint the whole database.
 pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> {
