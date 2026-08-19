@@ -223,6 +223,30 @@ impl RuntimeWorld {
         })
     }
 
+    /// In the `contribute` phase, a latecomer whose shared question is already
+    /// answered still owes one truthful Listen. When the single-shot Search
+    /// reveal is spent, the only remaining hand card that resolves to that
+    /// Listen check is the generic Check, which the offer pipeline normally
+    /// discards. Keeping it only here (when Search is already exhausted)
+    /// preserves the existing latecomer flow while guaranteeing an advancing
+    /// card.
+    pub(super) fn first_tale_latecomer_needs_listen_fallback(&self, actor_id: u64) -> bool {
+        if self.first_tale_stage(actor_id) != Some(FirstTaleStage::Contribute) {
+            return false;
+        }
+        let Some(first_tale) = active_first_tale() else {
+            return false;
+        };
+        if !self
+            .clocks
+            .get(&first_tale.progress_clock_id)
+            .is_some_and(|clock| clock.filled >= clock.segments)
+        {
+            return false;
+        }
+        self.default_search_target(actor_id).is_none()
+    }
+
     fn first_tale_offer_advances(
         &self,
         actor_id: u64,
@@ -276,9 +300,16 @@ impl RuntimeWorld {
                             && project.progress_clock_id == first_tale.progress_clock_id
                     }))
                     || (shared_question_complete
-                        && offer.intention == "inspect"
                         && offer.target.as_ref().and_then(|target| target.id)
-                            == Some(first_tale.destination_location_id))
+                            == Some(first_tale.destination_location_id)
+                        && (offer.intention == "inspect"
+                            // A latecomer still owes one truthful Listen. After
+                            // the single-shot Search reveal is spent, the generic
+                            // Check (kind `check`, no project) resolves to a
+                            // Listen check in this room and can complete the
+                            // tale, so it must stay selectable as the advancing
+                            // card instead of leaving the hand without a pin.
+                            || (offer.kind == "check" && offer.project.is_none())))
             }
             FirstTaleStage::ContinuationTravel => first_tale
                 .continuation
@@ -776,5 +807,76 @@ mod tests {
                 .is_empty(),
             "the latecomer trace remains exactly once"
         );
+    }
+
+    #[test]
+    fn latecomer_generic_listen_check_advances_after_search_is_spent() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Stranded Path Listener",
+        );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(actor_id, COSY_COTTAGE_LOCATION_ID));
+        {
+            let clock = runtime
+                .clocks
+                .get_mut(FIRST_TALE_PROGRESS_CLOCK_ID)
+                .expect("official first-tale clock");
+            clock.filled = clock.segments;
+        }
+
+        // Spend the single-shot Search reveal by discovering every seed exit,
+        // mirroring a latecomer who already searched Rain-Soft Garden.
+        for exit in active_content()
+            .exits
+            .iter()
+            .filter(|exit| exit.from_location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+        {
+            let id = seed_exit_discovered_tag_id(exit.from_location_id, exit.to_location_id);
+            runtime.tags.insert(
+                id.clone(),
+                RpgTagState {
+                    id,
+                    scope: "room".to_string(),
+                    scope_id: exit.from_location_id,
+                    label: format!(
+                        "path to {}",
+                        runtime
+                            .location_name(exit.to_location_id)
+                            .unwrap_or_else(|| format!("Location {}", exit.to_location_id))
+                    ),
+                    kind: "discovery".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: None,
+                },
+            );
+        }
+        assert!(
+            runtime.default_search_target(actor_id).is_none(),
+            "discovering every seed exit must consume the room Search so only the Listen Check remains"
+        );
+        assert!(runtime.first_tale_latecomer_needs_listen_fallback(actor_id));
+
+        let (_, offers) =
+            runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        let check_offer = offers
+            .iter()
+            .find(|offer| offer.kind == "check" && offer.project.is_none())
+            .expect("the generic Listen Check is retained once Search is spent");
+        assert!(
+            runtime.first_tale_offer_advances(actor_id, FirstTaleStage::Contribute, check_offer),
+            "a still-available Listen Check must advance a latecomer whose shared question is complete"
+        );
+        let advancing_ids = runtime
+            .first_tale_advancing_offer_selection(actor_id, std::slice::from_ref(check_offer))
+            .0
+            .expect("the Listen Check is selectable as the advancing card");
+        assert_eq!(advancing_ids, check_offer.offer_id);
     }
 }

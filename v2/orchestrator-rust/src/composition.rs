@@ -805,7 +805,11 @@ impl RuntimeWorld {
         offers = self.expand_route_action_offers(actor_id, access, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
         offers.extend(self.discovery_action_offers(actor_id));
-        offers.retain(|offer| offer.kind != "check" || offer.project.is_some());
+        let keep_projectless_listen_check =
+            self.first_tale_latecomer_needs_listen_fallback(actor_id);
+        offers.retain(|offer| {
+            offer.kind != "check" || offer.project.is_some() || keep_projectless_listen_check
+        });
         offers.extend(self.notice_actor_action_offers(actor_id));
         if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
             let mut unavailable = self.ranked_offer_from_parts(
