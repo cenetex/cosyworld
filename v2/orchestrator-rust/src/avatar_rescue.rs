@@ -537,9 +537,22 @@ impl RuntimeWorld {
         if !self.actor_control_mode(actor_id).is_direct_input() {
             return Err("This avatar is already beyond your direct control.".to_string());
         }
+        if self.active_combat_encounter_for_actor(actor_id).is_some() {
+            return Err("The fight around their body has not ended.".to_string());
+        }
+        if self
+            .rpg_claims
+            .contains(&abandon_avatar_claim_key(actor_id))
+        {
+            return Err("This avatar was already released to the world once.".to_string());
+        }
+        // The abandon effect is pure orchestrator state (autonomy control
+        // mode, claim, event), so the record is projection-only. Kind 41 was
+        // never a kernel action; sending it there got every attempt rejected
+        // and journalled as an unreplayable poison row.
         Ok((
             CwAction {
-                kind: CW_ACTION_ABANDON_AVATAR,
+                kind: CW_ACTION_NONE,
                 actor_id,
                 ..CwAction::default()
             },
@@ -550,7 +563,7 @@ impl RuntimeWorld {
     pub(super) fn abandon_avatar_record_preconditions_hold(&self, record: &JournalRecord) -> bool {
         for mutation in &record.projection_mutations {
             if let ProjectionMutation::AbandonAvatar { actor_id } = mutation {
-                if record.action.kind != CW_ACTION_ABANDON_AVATAR
+                if record.action.kind != CW_ACTION_NONE
                     || record.action.actor_id != *actor_id
                     || self.actor_by_id(*actor_id).is_none_or(|actor| {
                         !Self::actor_is_present(actor) || actor.status != CW_ACTOR_KNOCKED_OUT
@@ -561,6 +574,33 @@ impl RuntimeWorld {
             }
         }
         true
+    }
+
+    /// A settled abandon record replays as a no-op. This covers records whose
+    /// abandon claim already ran (idempotent re-application) and the legacy
+    /// kind-41 records written before the projection-only fix: those were
+    /// rejected by the kernel at commit time, so their live effect was
+    /// "nothing happened", and replay must preserve exactly that history
+    /// instead of failing the boot or applying a late effect.
+    pub(super) fn abandon_avatar_record_already_applied(&self, record: &JournalRecord) -> bool {
+        for mutation in &record.projection_mutations {
+            if let ProjectionMutation::AbandonAvatar { actor_id } = mutation {
+                if record.action.kind == CW_ACTION_ABANDON_AVATAR
+                    && record.action.actor_id == *actor_id
+                {
+                    return true;
+                }
+                if record.action.kind == CW_ACTION_NONE
+                    && record.action.actor_id == *actor_id
+                    && self
+                        .rpg_claims
+                        .contains(&abandon_avatar_claim_key(*actor_id))
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub(super) fn apply_abandon_avatar(&mut self, actor_id: u64) -> Vec<EventView> {
@@ -618,7 +658,7 @@ pub(super) async fn abandon_avatar(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
     record.bind_offer_kind("abandon_avatar");
     record.projection_mutations.push(mutation);
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {

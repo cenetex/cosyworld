@@ -359,4 +359,10 @@
 # and one INDEX_HTML contract assertion. The action's planning, precondition,
 # and apply logic all live in avatar_rescue.rs beside the rescue lifecycle it
 # extends. Existing routing/projection seams, no new system in main.rs.
-63602
+# 63602 -> 63605: three lines in apply_journal_record treat settled abandon
+# records like the existing already-applied rescue/publication groups: legacy
+# kind-41 rows (rejected by the kernel at commit, so their live effect was
+# "nothing happened") and claim-settled rows replay as no-ops instead of
+# failing boot or double-advancing the tick. The predicates live in
+# avatar_rescue.rs beside the abandon lifecycle; no new system in main.rs.
+63605
