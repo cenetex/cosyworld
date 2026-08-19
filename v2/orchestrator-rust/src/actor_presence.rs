@@ -1694,7 +1694,12 @@ mod tests {
     #[tokio::test]
     async fn knocked_out_avatar_can_be_abandoned_to_roaming_ai() {
         let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Fallen Traveler");
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fallen Traveler",
+        );
         {
             let actor = runtime
                 .world

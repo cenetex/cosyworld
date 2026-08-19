@@ -547,10 +547,7 @@ impl RuntimeWorld {
         ))
     }
 
-    pub(super) fn abandon_avatar_record_preconditions_hold(
-        &self,
-        record: &JournalRecord,
-    ) -> bool {
+    pub(super) fn abandon_avatar_record_preconditions_hold(&self, record: &JournalRecord) -> bool {
         for mutation in &record.projection_mutations {
             if let ProjectionMutation::AbandonAvatar { actor_id } = mutation {
                 if record.action.kind != CW_ACTION_ABANDON_AVATAR
@@ -582,9 +579,7 @@ impl RuntimeWorld {
             "avatar.abandoned",
             actor_id,
             None,
-            Some(
-                "Their avatar now lives on as an independent resident of the world.".to_string(),
-            ),
+            Some("Their avatar now lives on as an independent resident of the world.".to_string()),
         )]
     }
 }
