@@ -301,10 +301,7 @@ class Game:
         if verb in {"help", "h", "?"}:
             self.help()
         elif verb in {"look", "l"}:
-            if rest:
-                self.run_command(command)
-            else:
-                self.look()
+            self.look()
         elif verb in {"act", "a"}:
             self.act()
         elif verb in {"think", "pass"}:
@@ -312,34 +309,19 @@ class Game:
         elif verb in {"draw", "shuffle", "deal", "more", "redraw"}:
             raise ClientError("Free redeal retired. Use think to commit a pass for this hand.")
         elif verb == "chat":
-            if rest and not first_token_int(rest):
-                self.run_command(command)
-            else:
-                self.chat(rest)
-        elif verb in {"report", "drop", "give", "trade", "steal", "bond", "resolve", "skill", "calling", "bank", "listen", "study", "influence", "prepare", "work", "assist", "rest", "search", "deck", "wear", "remove", "wield", "sling", "stow", "unstow", "cast", "bracelet"}:
-            self.run_command(command)
+            self.chat(rest)
+        elif verb in {"drop", "give", "trade", "steal", "bond", "resolve", "skill", "calling", "bank", "listen", "study", "influence", "prepare", "work", "assist", "rest", "search", "deck", "wear", "remove", "wield", "sling", "stow", "unstow", "cast", "bracelet"}:
+            raise ClientError("typed commands are retired; choose a Story Hand card with 'act'")
         elif verb in {"move", "go"}:
-            if rest and not first_token_int(rest):
-                self.run_command(command)
-            else:
-                self.move(rest)
+            self.move(rest)
         elif verb in {"pickup", "pick", "take"}:
-            if rest and not first_token_int(rest):
-                self.run_command(command)
-            else:
-                self.pick_up(rest)
+            self.pick_up(rest)
         elif verb == "use":
-            if rest and not all(part.isdigit() for part in rest.split()):
-                self.run_command(command)
-            else:
-                self.use_item(rest)
+            self.use_item(rest)
         elif verb == "check":
             self.check(rest)
         elif verb == "attack":
-            if rest and not first_token_int(rest):
-                self.run_command(command)
-            else:
-                self.attack(rest)
+            self.attack(rest)
         elif verb == "defend":
             self.defend()
         elif verb in {"events", "watch"}:
@@ -349,7 +331,7 @@ class Game:
         elif verb == "inventory":
             self.inventory()
         else:
-            self.run_command(command)
+            raise ClientError("typed commands are retired; choose a Story Hand card with 'act'")
         return False
 
     def state(self) -> dict[str, object]:
@@ -418,10 +400,10 @@ class Game:
             index = int(raw) - 1
             if index < 0 or index >= len(offers):
                 raise ValueError("action number out of range")
-            command = str(offers[index].get("command") or "").strip()
-            if not command:
-                raise ClientError("the dealt card is missing its authoritative command")
-            self.run_command(command, offer_id=str(offers[index].get("offer_id") or ""), state=state)
+            offer_id = str(offers[index].get("offer_id") or "").strip()
+            if not offer_id:
+                raise ClientError("the dealt card is missing its certificate")
+            self.run_offer(offer_id, state=state)
             return
 
         if raw.startswith("think") or raw.startswith("pass"):
@@ -622,29 +604,27 @@ class Game:
             return
         self.print_events(events)
 
-    def run_command(
-        self,
-        command: str,
-        offer_id: str | None = None,
-        state: dict[str, object] | None = None,
-    ) -> None:
+    def run_offer(self, offer_id: str, state: dict[str, object] | None = None) -> None:
         if self.actor_id is None:
             raise ClientError("command requires an avatar")
-        payload = self.with_actor_session({"actor_id": self.actor_id, "command": command})
-        if offer_id:
-            view = state or self.state()
-            actor = next(
-                (candidate for candidate in view.get("actors") or [] if candidate.get("id") == self.actor_id),
-                {},
-            )
-            payload["offer_id"] = offer_id
-            payload["envelope"] = {
+        if not offer_id:
+            raise ClientError("typed commands are retired; choose a Story Hand card with 'act'")
+        view = state or self.state()
+        actor = next(
+            (candidate for candidate in view.get("actors") or [] if candidate.get("id") == self.actor_id),
+            {},
+        )
+        payload = self.with_actor_session({
+            "actor_id": self.actor_id,
+            "offer_id": offer_id,
+            "envelope": {
                 "world_id": view.get("world_id") or "world://cosyworld/official",
                 "intent_id": offer_intent_id(self.actor_id, offer_id),
                 "actor_ref": actor.get("canonical_ref") or "",
                 "observed": {},
                 "last_world_seq": int(view.get("world_seq") or 0),
-            }
+            },
+        })
         response = self.client.post(
             "/commands",
             payload,
@@ -747,7 +727,6 @@ class Game:
         )
         self._pending_pass_payload = self.with_actor_session({
             "actor_id": self.actor_id,
-            "command": "think",
             "offer_id": think["offer_id"],
             "envelope": {
                 "world_id": state.get("world_id") or "world://cosyworld/official",
@@ -1161,10 +1140,11 @@ class Game:
             print("Type 'act' for your Story Hand, 'think 1' to replace one card, 'look', or 'help'.")
             return
         print(
-            "Commands: act, think <card number>, look, who, pack, inventory, "
-            "report <actor>: <reason>, events/watch [after_seq], quit. Scene actions must be "
+            "Commands: act, think <card number>, look, who, inventory, "
+            "events/watch [after_seq], quit. Scene actions must be "
             "one of the Story, Self, and Anchor cards shown by act; Think replaces only the "
-            "chosen card. It is free once in a safe scene and otherwise uses the turn."
+            "chosen card. It is free once in a safe scene and otherwise uses the turn. "
+            "Typed scene commands are retired; every action plays a card."
         )
 
     @staticmethod
@@ -1289,9 +1269,8 @@ class ButtonGame(Game):
         if self.actor_id is None:
             raise ClientError("command requires an avatar")
         offer_id = str(offer.get("offer_id") or "").strip()
-        command = str(offer.get("command") or "").strip()
-        if not offer_id or not command:
-            raise ClientError("the dealt card is missing its authoritative command or certificate")
+        if not offer_id:
+            raise ClientError("the dealt card is missing its certificate")
         actor = next(
             (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
             {},
@@ -1300,7 +1279,6 @@ class ButtonGame(Game):
             "/commands",
             self.with_actor_session({
                 "actor_id": self.actor_id,
-                "command": command,
                 "offer_id": offer_id,
                 "envelope": {
                     "world_id": state.get("world_id") or "world://cosyworld/official",

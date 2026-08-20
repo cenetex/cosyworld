@@ -9141,8 +9141,7 @@
         inspectAction.selectedTarget = () => searchCandidates.find((candidate) => (
           candidate.value === String(inspectAction.selectedChoice || firstSearch.value)
         )) || firstSearch;
-        inspectAction.run = () => runCommandText(
-          inspectAction.selectedTarget().command,
+        inspectAction.run = () => runCommandOffer(
           inspectAction.selectedTarget().offer,
         );
         built.push(inspectAction);
@@ -9399,7 +9398,7 @@
           ].join(" "),
           effect: method.effect,
           risk: method.consequence,
-          run: () => runCommandText(offer.command, offer),
+          run: () => runCommandOffer(offer),
         });
       }
       const projectedRouteOfferIds = new Set((view.action_hand?.entries || [])
@@ -10030,7 +10029,7 @@
           focusKey: "look",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          run: () => runCommandText("look"),
+          run: () => { void refresh(); },
         });
         built.forEach(decorateActionHand);
       }
@@ -10823,27 +10822,24 @@
       return matches.length === 1 ? matches[0] : null;
     }
 
-    async function runCommandText(commandText, exactOffer = null) {
-      const command = String(commandText || "").trim();
-      if (!command) return;
+    async function runCommandOffer(exactOffer) {
+      const command = String(exactOffer?.command || exactOffer?.label || "").trim();
       if (!actorId || !actorSession) {
         setError("Begin with an avatar first.");
         return;
       }
-      setError("");
-      const clearFirstTaleAfterAction = firstTalePayoffVisible()
-        && !/^(?:need[ -]time)$/i.test(command);
-      if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        setError("Whole-hand redeals have retired. Open the card you want to replace, then choose Discard.");
+      if (!exactOffer?.offer_id) {
+        setError("That card is not in your Story Hand. Refresh the scene.");
         return null;
       }
+      setError("");
+      const clearFirstTaleAfterAction = firstTalePayoffVisible();
       const beforeOrbs = economyOrbCount();
       let envelope = canonicalCommandEnvelope();
       let submittedOffer = exactOffer;
       const submit = () => postResult("/commands", withAccess({
           actor_id: actorId,
-          command,
-          ...(submittedOffer?.offer_id ? { offer_id: submittedOffer.offer_id } : {}),
+          offer_id: submittedOffer.offer_id,
           envelope,
         }));
       let result = await submit();
@@ -19477,7 +19473,11 @@
         kind: "report",
         label: "sending report",
         busyLabel: "sending report",
-        run: () => runCommandText(`report ${actorLabel(target)}: ${reason}`),
+        run: () => postResult("/actions/report", withAccess({
+          actor_id: actorId,
+          target_actor_id: Number(target.id),
+          reason,
+        })),
       });
     });
 

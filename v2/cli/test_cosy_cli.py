@@ -179,7 +179,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
             game.act()
 
         self.assertEqual(payloads[0][0], "/commands")
-        self.assertEqual(payloads[0][1]["command"], "move Rain-Soft Garden")
+        self.assertNotIn("command", payloads[0][1])
         self.assertEqual(payloads[0][1]["offer_id"], "srd5.2.1:9:move:move Rain-Soft Garden")
         intent_id = payloads[0][1]["envelope"]["intent_id"]
         self.assertRegex(intent_id, r"^[A-Za-z0-9_.:-]{1,160}$")
@@ -355,7 +355,7 @@ class ExactOfferSelectionTests(unittest.TestCase):
         actions[1].callback()
         self.assertEqual(payloads[0][0], "/commands")
         self.assertEqual(payloads[0][1]["offer_id"], "use-b")
-        self.assertEqual(payloads[0][1]["command"], "use Blue Charm")
+        self.assertNotIn("command", payloads[0][1])
         self.assertEqual(
             payloads[0][1]["envelope"]["intent_id"],
             offer_intent_id(42, "use-b"),
@@ -402,10 +402,8 @@ class ExactOfferSelectionTests(unittest.TestCase):
             [payload["offer_id"] for _, payload in payloads],
             ["craft-17", "rest-5"],
         )
-        self.assertEqual(
-            [payload["command"] for _, payload in payloads],
-            ["craft Brass Lantern", "rest"],
-        )
+        for _, payload in payloads:
+            self.assertNotIn("command", payload)
         self.assertEqual(
             [payload["envelope"]["intent_id"] for _, payload in payloads],
             [offer_intent_id(42, "craft-17"), offer_intent_id(42, "rest-5")],
