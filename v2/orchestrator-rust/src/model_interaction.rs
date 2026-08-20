@@ -501,6 +501,7 @@ impl RuntimeWorld {
             .and_then(|target| supported_profile_for_actor(target.id))
     }
 
+    #[cfg(test)]
     pub(super) fn model_interaction_profile_for(
         &self,
         actor_id: u64,

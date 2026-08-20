@@ -380,7 +380,7 @@ pub(crate) async fn resolve_command_submission_at_boundary(
             return Err(Json(CommandResponse {
                 ok: false,
                 status: 403,
-                command: normalize_command_text(&payload.command),
+                command: payload.offer_id.clone().unwrap_or_default(),
                 verb: String::new(),
                 output: Some(
                     "Reconnect your account to restore this same avatar; the world will not replace it."

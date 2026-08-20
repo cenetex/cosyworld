@@ -497,8 +497,6 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::UseFeature { .. }
         | CommandDispatch::GiveItem { .. }
         | CommandDispatch::TradeItem { .. }
-        | CommandDispatch::ResolveTransferOffer { .. }
-        | CommandDispatch::RequestGift { .. }
         | CommandDispatch::Theft { .. }
         | CommandDispatch::Craft { .. }
         | CommandDispatch::Work
@@ -506,7 +504,6 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::Chat { .. }
         | CommandDispatch::ModelInteraction { .. }
         | CommandDispatch::CreateBond { .. }
-        | CommandDispatch::ReviseBond { .. }
         | CommandDispatch::ResolveBond { .. }
         | CommandDispatch::Influence { .. }
         | CommandDispatch::CastSpell { .. }
@@ -514,7 +511,6 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::SetSpellPrepared { .. }
         | CommandDispatch::SetItemEquipped { .. }
         | CommandDispatch::SetItemContained { .. } => ConcurrencyPolicy::TargetSerialized,
-        CommandDispatch::Governance { .. } => ConcurrencyPolicy::GovernedChoice,
         _ => ConcurrencyPolicy::Concurrent,
     }
 }
@@ -1286,42 +1282,9 @@ pub(super) fn actor_offer_turn_rejection(
 }
 
 pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) -> bool {
-    if matches!(
+    !matches!(
         command_concurrency_policy(dispatch),
         ConcurrencyPolicy::SceneTurn | ConcurrencyPolicy::GovernedChoice
-    ) {
-        return false;
-    }
-    let non_mutating_transfer_response = matches!(
-        dispatch,
-        CommandDispatch::ResolveTransferOffer { decision, .. }
-            if matches!(decision.as_str(), "decline" | "withdraw")
-    );
-    !non_mutating_transfer_response
-        && !matches!(
-            dispatch,
-            CommandDispatch::Read { .. }
-                | CommandDispatch::Disabled { .. }
-                | CommandDispatch::Report { .. }
-                | CommandDispatch::SetActorSafety { .. }
-        )
-}
-
-/// Local configuration, moderation, and transfer-offer responses do not require
-/// one of the finite Story Hand's three cards at the command boundary. Accepting an
-/// offer still consumes a room turn because it moves an item; declining or
-/// withdrawing remains available while a focused scene is locked.
-pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatch) -> bool {
-    matches!(
-        dispatch,
-        CommandDispatch::Disabled { .. }
-            | CommandDispatch::Report { .. }
-            | CommandDispatch::SetActorSafety { .. }
-            | CommandDispatch::SetCharmEquipped { .. }
-            | CommandDispatch::SetSpellPrepared { .. }
-            | CommandDispatch::SetItemEquipped { .. }
-            | CommandDispatch::SetItemContained { .. }
-            | CommandDispatch::ResolveTransferOffer { .. }
     )
 }
 

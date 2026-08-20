@@ -1,6 +1,5 @@
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 use crate::*;
 
@@ -63,13 +62,6 @@ pub(crate) struct ResolvedCommand {
 pub(crate) enum CommandDispatch {
     Pass {
         think: ActionHandPassView,
-    },
-    Read {
-        output: String,
-    },
-    Disabled {
-        status: u32,
-        output: String,
     },
     Move {
         destination_location_id: u64,
@@ -138,19 +130,6 @@ pub(crate) enum CommandDispatch {
         target_actor_id: u64,
         target_item_id: u64,
     },
-    ResolveTransferOffer {
-        offer_id: String,
-        decision: String,
-    },
-    SetActorSafety {
-        target_actor_id: u64,
-        control: ActorSafetyControl,
-        enabled: bool,
-    },
-    RequestGift {
-        offered_by_actor_id: u64,
-        item_id: u64,
-    },
     Theft {
         item_id: u64,
         target_actor_id: u64,
@@ -170,11 +149,7 @@ pub(crate) enum CommandDispatch {
     },
     Work,
     Help,
-    Governance {
-        action: GovernanceAction,
-    },
     Rest,
-    UnlockCharmSlot,
     SetCharmEquipped {
         item_id: u64,
         equipped: bool,
@@ -191,26 +166,12 @@ pub(crate) enum CommandDispatch {
         item_id: u64,
         container_item_id: Option<u64>,
     },
-    ReviseCalling {
-        statement: String,
-    },
     CreateBond {
         target_actor_id: u64,
         statement: String,
     },
-    ReviseBond {
-        target_actor_id: u64,
-        statement: String,
-    },
-    TrainSkill {
-        skill_id: String,
-    },
     ResolveBond {
         target_actor_id: u64,
-    },
-    Report {
-        target_actor_id: u64,
-        reason: String,
     },
 }
 
@@ -223,12 +184,6 @@ pub(crate) struct CommandError {
     pub(crate) kind: CommandErrorKind,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum CommandActorFilter {
-    Any,
-    ActiveActor,
-}
-
 pub(crate) fn normalize_command_text(input: &str) -> String {
     input
         .trim()
@@ -238,13 +193,6 @@ pub(crate) fn normalize_command_text(input: &str) -> String {
         .join(" ")
 }
 
-const ADVANCEMENT_NEXT_STEP: &str =
-    "Try listen or study; a successful discovery banks advancement automatically.";
-
-fn advancement_gate_output(subject: &str) -> String {
-    format!("{subject} needs one banked advancement point. {ADVANCEMENT_NEXT_STEP}")
-}
-
 pub(crate) fn command_submission_identity(payload: &CommandRequest) -> String {
     payload
         .offer_id
@@ -252,22 +200,6 @@ pub(crate) fn command_submission_identity(payload: &CommandRequest) -> String {
         .map(str::trim)
         .map(|offer_id| format!("offer_id:{offer_id}"))
         .unwrap_or_else(|| "offer_id:".to_string())
-}
-
-pub(crate) fn command_verb_and_rest(command: &str) -> (String, &str) {
-    command
-        .split_once(' ')
-        .map(|(verb, rest)| (verb.to_lowercase(), rest.trim()))
-        .unwrap_or_else(|| (command.to_lowercase(), ""))
-}
-
-fn strip_ascii_command_prefix<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
-    let head = value.get(..prefix.len())?;
-    let tail = value.get(prefix.len()..)?;
-    head.eq_ignore_ascii_case(prefix)
-        .then_some(tail)
-        .filter(|tail| tail.is_empty() || tail.starts_with(char::is_whitespace))
-        .map(str::trim)
 }
 
 pub(crate) fn canonical_command_verb(verb: &str) -> String {
@@ -363,79 +295,11 @@ pub(crate) fn command_key(value: &str) -> String {
         .collect()
 }
 
-pub(crate) fn command_match_score(candidate: &str, query_key: &str) -> Option<u8> {
-    let candidate_key = command_key(candidate);
-    if candidate_key.is_empty() || query_key.is_empty() {
-        None
-    } else if candidate_key == query_key {
-        Some(0)
-    } else if candidate_key.starts_with(query_key) {
-        Some(1)
-    } else if candidate_key.contains(query_key) {
-        Some(2)
-    } else {
-        None
-    }
-}
-
-pub(crate) fn trim_command_filler(value: &str) -> &str {
-    value
-        .trim()
-        .trim_start_matches("at ")
-        .trim_start_matches("to ")
-        .trim_start_matches("with ")
-        .trim_start_matches("the ")
-        .trim()
-}
-
-fn search_query_is_room(query: &str) -> bool {
-    let query = trim_command_filler(query);
-    query.is_empty()
-        || matches!(
-            command_key(query).as_str(),
-            "room" | "here" | "around" | "location"
-        )
-}
-
-pub(crate) fn split_direct_indirect<'a>(
-    value: &'a str,
-    separator: &str,
-) -> Option<(&'a str, &'a str)> {
-    let needle = format!(" {separator} ");
-    value
-        .split_once(&needle)
-        .map(|(direct, indirect)| (direct.trim(), indirect.trim()))
-        .filter(|(direct, indirect)| !direct.is_empty() && !indirect.is_empty())
-}
-
-pub(crate) fn command_list_or_none(values: &[String]) -> String {
-    if values.is_empty() {
-        "none".to_string()
-    } else {
-        values.join(", ")
-    }
-}
-
 pub(crate) fn command_action(kind: &str, label: &str, command: &str) -> CommandActionView {
     CommandActionView {
         kind: kind.to_string(),
         label: label.to_string(),
         command: normalize_command_text(command),
-    }
-}
-
-pub(crate) fn command_error(
-    command: &str,
-    verb: &str,
-    status: u32,
-    output: impl Into<String>,
-) -> CommandError {
-    CommandError {
-        command: normalize_command_text(command),
-        verb: verb.to_string(),
-        status,
-        output: output.into(),
-        kind: CommandErrorKind::ParseFailure,
     }
 }
 
@@ -527,13 +391,6 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::TradeItem { .. } => {
             "That trade changed while you were choosing. Check what you carry and who is here."
         }
-        CommandDispatch::ResolveTransferOffer { .. } => {
-            "That transfer offer changed while you were choosing. Check offers again."
-        }
-        CommandDispatch::SetActorSafety { .. } => {
-            "That safety control could not be changed. Check who is nearby."
-        }
-        CommandDispatch::RequestGift { .. } => "That exact gift request is no longer available.",
         CommandDispatch::Theft { .. } => "That item is no longer a legal theft target.",
         CommandDispatch::Craft { .. } => {
             "That recipe changed. Check what you carry and what is nearby."
@@ -545,13 +402,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Contribute { .. } => "That contribution strategy is no longer available.",
         CommandDispatch::Work => "That work is not ready for you right now.",
         CommandDispatch::Help => "No one needs that kind of help here right now.",
-        CommandDispatch::Governance { .. } => {
-            "That shared choice changed while you were choosing; try choice again."
-        }
         CommandDispatch::Rest => "You are already fresh enough to keep going.",
-        CommandDispatch::UnlockCharmSlot => {
-            "That loadout need changed. Check Pack & Loadout for a specific charm."
-        }
         CommandDispatch::SetCharmEquipped { .. } => {
             "That charm loadout changed while you were choosing. Check your Pack."
         }
@@ -564,21 +415,12 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::SetItemContained { .. } => {
             "Those container contents changed while you were choosing. Check your Pack."
         }
-        CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
         CommandDispatch::Chat { .. } => "That conversation is no longer within reach.",
         CommandDispatch::ModelInteraction { .. } => {
             "That model interaction is no longer within reach."
         }
         CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
-        CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
-        CommandDispatch::TrainSkill { .. } => {
-            "Earn advancement through play, then you can practice that knack."
-        }
-        CommandDispatch::Report { .. } => "That report did not reach us. Try once more.",
-        CommandDispatch::Read { .. }
-        | CommandDispatch::Disabled { .. }
-        | CommandDispatch::SearchFeature { .. }
-        | CommandDispatch::UseFeature { .. } => {
+        CommandDispatch::SearchFeature { .. } | CommandDispatch::UseFeature { .. } => {
             "Nothing happened. Look around and try another choice."
         }
     }
@@ -1216,13 +1058,25 @@ fn event_calling_text(event: &EventView) -> Option<&str> {
         .filter(|value| !value.is_empty())
 }
 
-#[derive(Clone, Debug)]
-struct FeatureUseResult {
-    feature_key: String,
-    feature_name: String,
-    output: String,
-    matched: bool,
+impl RuntimeWorld {
+    pub(crate) fn item_can_be_equipped(&self, item: &CwItem) -> bool {
+        matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+            || (item.role == CW_ITEM_ROLE_TOOL
+                && self
+                    .seed_item_contract_for_instance(item.id)
+                    .is_some_and(|contract| {
+                        contract
+                            .capabilities
+                            .iter()
+                            .any(|capability| capability == CAMP_SHELTER_ITEM_CAPABILITY)
+                    }))
+    }
 }
+
+#[cfg(test)]
+mod room_output {
+    use super::*;
+    use std::collections::BTreeSet;
 
 fn clock_summary(clock: &ClockView) -> String {
     let feeling = if clock.segments > 0 && clock.filled >= clock.segments {
@@ -1281,21 +1135,223 @@ fn tag_belongs_in_room_description(tag: &TagView) -> bool {
     )
 }
 
-impl RuntimeWorld {
-    pub(crate) fn item_can_be_equipped(&self, item: &CwItem) -> bool {
-        matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
-            || (item.role == CW_ITEM_ROLE_TOOL
-                && self
-                    .seed_item_contract_for_instance(item.id)
-                    .is_some_and(|contract| {
-                        contract
-                            .capabilities
-                            .iter()
-                            .any(|capability| capability == CAMP_SHELTER_ITEM_CAPABILITY)
-                    }))
+pub(crate) fn command_list_or_none(values: &[String]) -> String {
+    if values.is_empty() {
+        "none".to_string()
+    } else {
+        values.join(", ")
+    }
+}
+
+
+    impl RuntimeWorld {
+    pub(super) fn room_command_output(
+        &self,
+        actor: CwActor,
+        access: &AccessContext,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> String {
+        let location_id = actor.location_id;
+        let location = self.location_view(location_id);
+        let actors = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
+            .filter(|visible_actor| {
+                self.actor_visible_in_projection(
+                    *visible_actor,
+                    Some(actor.id),
+                    active_direct_actor_ids,
+                )
+            })
+            .map(|actor| self.actor_view(actor).name)
+            .collect::<Vec<_>>();
+        let items = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.location_id == location_id)
+            .map(|item| self.item_view(item).name)
+            .collect::<Vec<_>>();
+        let exits = self
+            .exit_views(Some(actor.id), location_id, access)
+            .into_iter()
+            .filter(|exit| exit.accessible && !exit.locked)
+            .map(|exit| {
+                exit.direction
+                    .as_deref()
+                    .map(|direction| format!("{direction}: {}", exit.destination_location_name))
+                    .unwrap_or(exit.destination_location_name)
+            })
+            .collect::<Vec<_>>();
+        let mut lines = vec![
+            format!("{} - {}", location.name, location.title),
+            location.description,
+            format!("Here: {}.", command_list_or_none(&actors)),
+            format!("You notice: {}.", command_list_or_none(&items)),
+            format!("Ways onward: {}.", command_list_or_none(&exits)),
+        ];
+
+        if let Some(sheet) = self.room_sheet_view(location_id) {
+            let aspects = command_list_or_none(&sheet.aspects);
+            lines.push(format!(
+                "This place feels {}. You notice: {}.",
+                room_zone_feeling(&sheet.zone),
+                aspects
+            ));
+            if !sheet.natural_features.is_empty() {
+                let features = sheet
+                    .natural_features
+                    .iter()
+                    .map(|feature| feature.resource_kind.label().to_string())
+                    .collect::<Vec<_>>();
+                let buildings = sheet
+                    .eligible_building_archetypes
+                    .iter()
+                    .map(|building| building.replace('_', " "))
+                    .collect::<Vec<_>>();
+                lines.push(format!(
+                    "Known natural features: {}. They can support: {}.",
+                    command_list_or_none(&features),
+                    command_list_or_none(&buildings)
+                ));
+            }
+            if !sheet.governance_decisions.is_empty() {
+                lines.push(self.governance_command_output(location_id));
+            }
+        }
+
+        let recent_consequences = self.recent_room_consequences(location_id, 3);
+        if !recent_consequences.is_empty() {
+            lines.push(format!(
+                "Recent changes: {}.",
+                recent_consequences.join(" | ")
+            ));
+        }
+
+        if let Some(first_tale) = self.first_tale_view(actor.id) {
+            if first_tale.phase == "complete" {
+                lines.push(format!(
+                    "Your first tale: {} Next: {}",
+                    first_tale.completion_memory, first_tale.next_invitation
+                ));
+            } else {
+                lines.push(format!(
+                    "Your first tale: {} Target: {} What finishing changes: {} Next: {}",
+                    first_tale.question,
+                    first_tale.target_label,
+                    first_tale.consequence,
+                    first_tale.instruction
+                ));
+            }
+        }
+
+        let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
+        let action_hand = self.action_hand_for(Some(actor.id), &action_offers);
+        let shared_questions = self.shared_question_views_with_actions(
+            location_id,
+            Some(actor.id),
+            &action_offers,
+            &action_hand,
+        );
+        let promoted_questions = shared_questions
+            .iter()
+            .filter(|question| question.promoted)
+            .map(|question| {
+                let suggestions = question
+                    .suggested_actions
+                    .iter()
+                    .enumerate()
+                    .map(|(index, suggestion)| {
+                        let risk = suggestion
+                            .risk
+                            .as_ref()
+                            .map(|risk| format!(" Risk: {risk}."))
+                            .unwrap_or_default();
+                        format!(
+                            "Suggestion {} of {}: {}. target {}. Source: {}. Likely: {}.{}",
+                            index + 1,
+                            question.suggested_actions.len(),
+                            suggestion.label,
+                            suggestion.target_label,
+                            suggestion.source,
+                            suggestion.likely_effect,
+                            risk,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let next = question
+                    .next_revelation
+                    .as_ref()
+                    .map(|milestone| format!(" Next sign: {}", milestone.text))
+                    .unwrap_or_default();
+                let trouble = (question.danger_segments > 0)
+                    .then(|| {
+                        format!(
+                            " Trouble: {}/{}.",
+                            question.danger_filled, question.danger_segments
+                        )
+                    })
+                    .unwrap_or_default();
+                format!(
+                    "{} {} Progress: {}/{}.{} Danger now: {} Danger consequence: {} What finishing changes: {} Try: {}.{}",
+                    question.question,
+                    question.situation,
+                    question.filled,
+                    question.segments,
+                    trouble,
+                    question.danger_situation,
+                    question.danger_consequence,
+                    question.outcome,
+                    command_list_or_none(&suggestions),
+                    next,
+                )
+            })
+            .collect::<Vec<_>>();
+        if !promoted_questions.is_empty() {
+            lines.push(format!(
+                "Shared questions: {}",
+                promoted_questions.join(" | ")
+            ));
+        } else if let Some(question) = shared_questions
+            .iter()
+            .find(|question| question.presentation_state == "completed_memory")
+        {
+            let contributors = command_list_or_none(&question.participant_names);
+            lines.push(format!(
+                "What changed here: {} Contributors: {}.",
+                question
+                    .completion_memory
+                    .as_deref()
+                    .unwrap_or(&question.situation),
+                contributors,
+            ));
+        }
+
+        let clocks = self.clock_views(location_id);
+        if shared_questions.is_empty() && !clocks.is_empty() {
+            let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
+            lines.push(format!("Things unfolding: {}.", clock_lines.join(", ")));
+        }
+
+        let tags = self
+            .tag_views(Some(actor.id), location_id)
+            .into_iter()
+            .filter(tag_belongs_in_room_description)
+            .collect::<Vec<_>>();
+        if !tags.is_empty() {
+            let tag_lines = tags.into_iter().map(|tag| tag.label).collect::<Vec<_>>();
+            lines.push(format!("What lingers: {}.", tag_lines.join(", ")));
+        }
+
+        let ledger = self.visit_ledger_view(actor.id);
+        if let Some(summary) = journal_memory_summary(&ledger) {
+            lines.push(summary.to_string());
+        }
+
+        lines.join("\n")
     }
 
-    #[cfg(test)]
+    }
 }
 
 #[cfg(test)]

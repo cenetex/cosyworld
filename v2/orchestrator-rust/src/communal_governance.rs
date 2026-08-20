@@ -642,6 +642,7 @@ impl RuntimeWorld {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn current_governance_decision(
         &self,
         location_id: u64,
@@ -658,6 +659,7 @@ impl RuntimeWorld {
             })
     }
 
+    #[cfg(test)]
     pub(super) fn resolve_governance_alternative_id(
         &self,
         decision: &GovernanceDecisionState,
@@ -1148,6 +1150,7 @@ impl RuntimeWorld {
             .collect()
     }
 
+    #[cfg(test)]
     pub(super) fn governance_command_output(&self, location_id: u64) -> String {
         let Some(decision) = self.current_governance_decision(location_id) else {
             return "No shared choice is open here.".to_string();

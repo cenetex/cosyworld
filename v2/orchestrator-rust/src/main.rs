@@ -3333,7 +3333,7 @@ struct NarrativeMoveRequest {
 #[derive(Clone, Debug, Deserialize)]
 struct SignedNarrativeMove {
     wallet_address: String,
-    command: String,
+    offer_id: String,
     nonce: String,
     issued_at_unix: u64,
     signature: WalletSignatureInput,
@@ -21614,29 +21614,29 @@ async fn submit_narrative_move(
         );
     }
 
-    let command_text = normalize_command_text(&payload.signed_response.command);
-    if command_text.is_empty() {
-        return narrative_move_rejected_response(400, "", "Narrative move command is empty.");
+    let offer_id = payload.signed_response.offer_id.trim().to_string();
+    if offer_id.is_empty() {
+        return narrative_move_rejected_response(400, "", "Narrative move offer_id is empty.");
     }
     let nonce = payload.signed_response.nonce.trim().to_string();
     if !narrative_move_nonce_valid(&nonce) {
         return narrative_move_rejected_response(
             400,
-            command_text.as_str(),
+            offer_id.as_str(),
             "Narrative move nonce is invalid.",
         );
     }
     if !narrative_move_signature_is_fresh(payload.signed_response.issued_at_unix) {
         return narrative_move_rejected_response(
             401,
-            command_text.as_str(),
+            offer_id.as_str(),
             "Narrative move signature expired.",
         );
     }
     let Some(signature) = payload.signed_response.signature.bytes() else {
         return narrative_move_rejected_response(
             400,
-            command_text.as_str(),
+            offer_id.as_str(),
             "Narrative move signature is invalid.",
         );
     };
@@ -21644,7 +21644,7 @@ async fn submit_narrative_move(
         let Some(delegate_address) = normalize_wallet_address(&delegation.delegate_address) else {
             return narrative_move_rejected_response(
                 400,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Narrative move delegation key is invalid.",
             );
         };
@@ -21654,14 +21654,14 @@ async fn submit_narrative_move(
         ) {
             return narrative_move_rejected_response(
                 401,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Narrative move delegation expired.",
             );
         }
         let Some(delegation_signature) = delegation.signature.bytes() else {
             return narrative_move_rejected_response(
                 400,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Narrative move delegation signature is invalid.",
             );
         };
@@ -21680,7 +21680,7 @@ async fn submit_narrative_move(
         ) {
             return narrative_move_rejected_response(
                 401,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Narrative move delegation rejected.",
             );
         }
@@ -21689,14 +21689,14 @@ async fn submit_narrative_move(
             &delegate_address,
             &session_id,
             payload.character_id,
-            command_text.as_str(),
+            offer_id.as_str(),
             &nonce,
             payload.signed_response.issued_at_unix,
         );
         if !verify_solana_wallet_signature(&delegate_address, &expected_message, &signature) {
             return narrative_move_rejected_response(
                 401,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Delegated narrative move signature rejected.",
             );
         }
@@ -21705,14 +21705,14 @@ async fn submit_narrative_move(
             &wallet_address,
             &session_id,
             payload.character_id,
-            command_text.as_str(),
+            offer_id.as_str(),
             &nonce,
             payload.signed_response.issued_at_unix,
         );
         if !verify_solana_wallet_signature(&wallet_address, &expected_message, &signature) {
             return narrative_move_rejected_response(
                 401,
-                command_text.as_str(),
+                offer_id.as_str(),
                 "Narrative move signature rejected.",
             );
         }
@@ -21726,7 +21726,7 @@ async fn submit_narrative_move(
     ) {
         return narrative_move_rejected_response(
             409,
-            command_text.as_str(),
+            offer_id.as_str(),
             "Narrative move has already been submitted.",
         );
     }
@@ -21740,8 +21740,7 @@ async fn submit_narrative_move(
         Json(CommandRequest {
             actor_id: payload.character_id,
             actor_session: Some(actor_session),
-            command: command_text,
-            offer_id: None,
+            offer_id: Some(offer_id),
             wallet_session: Some(session_id),
             envelope: None,
         }),
@@ -22663,7 +22662,7 @@ async fn command_with_forwarding(
         Err(error) => {
             warn!("canonical command convergence failed: {}", error);
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 503,
                 "Canonical history is temporarily unavailable. Refresh and retry.",
             );
@@ -22686,7 +22685,7 @@ async fn command_with_forwarding(
             .map(ToString::to_string)
         else {
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 404,
                 "The canonical actor could not be found.",
             );
@@ -22695,18 +22694,18 @@ async fn command_with_forwarding(
             Some(mut envelope) => {
                 if envelope.world_id != OFFICIAL_WORLD_ID {
                     return canonical_command_error(
-                        &payload.command,
+                        payload.offer_id.as_deref().unwrap_or(""),
                         409,
                         "This command names a different canonical world.",
                     );
                 }
                 let intent_id = match validate_intent_id(&envelope.intent_id) {
                     Ok(intent_id) => intent_id,
-                    Err(error) => return canonical_command_error(&payload.command, 400, error),
+                    Err(error) => return canonical_command_error(payload.offer_id.as_deref().unwrap_or(""), 400, error),
                 };
                 if envelope.actor_ref != actor_ref {
                     return canonical_command_error(
-                        &payload.command,
+                        payload.offer_id.as_deref().unwrap_or(""),
                         409,
                         "The canonical actor reference does not match the authenticated avatar.",
                     );
@@ -22741,7 +22740,7 @@ async fn command_with_forwarding(
             payload.actor_session.as_deref(),
         ) {
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 403,
                 "Reconnect your account to restore this same avatar; the world will not replace it.",
             );
@@ -22770,7 +22769,7 @@ async fn command_with_forwarding(
     if let Some(stored) = stored {
         if stored.request_hash != request_hash {
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 409,
                 "That intent_id is already bound to a different command envelope.",
             );
@@ -22780,7 +22779,7 @@ async fn command_with_forwarding(
             Err(error) => {
                 error!("stored canonical command receipt is invalid: {}", error);
                 canonical_command_error(
-                    &payload.command,
+                    payload.offer_id.as_deref().unwrap_or(""),
                     500,
                     "The committed command receipt could not be read.",
                 )
@@ -22793,7 +22792,7 @@ async fn command_with_forwarding(
         let current_world_seq = runtime.world.next_event_seq.saturating_sub(1);
         if envelope.last_world_seq > current_world_seq {
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 409,
                 "The command observes a public event cursor ahead of this world.",
             );
@@ -22802,7 +22801,7 @@ async fn command_with_forwarding(
             let current = runtime.entity_version(&envelope.actor_ref);
             if observed != current {
                 return canonical_command_error_with_kind(
-                    &payload.command,
+                    payload.offer_id.as_deref().unwrap_or(""),
                     409,
                     format!(
                         "Stale actor version: observed {observed}, current {current}. Refresh before retrying."
@@ -22819,7 +22818,7 @@ async fn command_with_forwarding(
                 .unwrap_or_default();
             if observed != current {
                 return canonical_command_error_with_kind(
-                    &payload.command,
+                    payload.offer_id.as_deref().unwrap_or(""),
                     409,
                     format!(
                         "Stale location version: observed {observed}, current {current}. Refresh before retrying."
@@ -22836,7 +22835,7 @@ async fn command_with_forwarding(
                 .copied();
             if current != Some(*observed) {
                 return canonical_command_error_with_kind(
-                    &payload.command,
+                    payload.offer_id.as_deref().unwrap_or(""),
                     409,
                     format!(
                         "Stale or unknown entity version for {canonical_ref}. Refresh before retrying."
@@ -22896,7 +22895,7 @@ async fn command_with_forwarding(
             }
             warn!("canonical command authority is unavailable: {}", error);
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 503,
                 "Canonical write authority is unavailable. Refresh and retry.",
             );
@@ -22936,7 +22935,7 @@ async fn command_with_forwarding(
                         Err(error) => {
                             error!("stored concurrent command receipt is invalid: {}", error);
                             canonical_command_error(
-                                &payload.command,
+                                payload.offer_id.as_deref().unwrap_or(""),
                                 500,
                                 "The committed command receipt could not be read.",
                             )
@@ -22945,7 +22944,7 @@ async fn command_with_forwarding(
                 }
                 Ok(Some(_)) => {
                     return canonical_command_error(
-                        &payload.command,
+                        payload.offer_id.as_deref().unwrap_or(""),
                         409,
                         "That intent_id is already bound to a different command envelope.",
                     );
@@ -22959,7 +22958,7 @@ async fn command_with_forwarding(
         }
         if response.status >= 500 {
             return canonical_command_error(
-                &payload.command,
+                payload.offer_id.as_deref().unwrap_or(""),
                 503,
                 "Canonical write authority is unavailable. Refresh and retry with the same intent_id.",
             );
@@ -23013,7 +23012,7 @@ async fn command_with_forwarding(
             Err(error) => {
                 error!("failed to serialize canonical command receipt: {}", error);
                 return canonical_command_error(
-                    &payload.command,
+                    payload.offer_id.as_deref().unwrap_or(""),
                     500,
                     "The canonical command receipt could not be written.",
                 );
@@ -23065,7 +23064,7 @@ async fn command_with_forwarding(
     if command_elapsed >= Duration::from_millis(250) {
         warn!(
             actor_id = payload.actor_id,
-            command = %normalize_command_text(&payload.command),
+            command = %payload.offer_id.as_deref().unwrap_or(""),
             total_ms = command_elapsed.as_millis(),
             lease_ms = lease_elapsed.as_millis(),
             commit_ms = commit_elapsed.as_millis(),
@@ -23586,29 +23585,6 @@ async fn command_inner(
             Ok(resolved) => resolved,
             Err(response) => return response,
         };
-    let visible_room_control = match &resolved.dispatch {
-        CommandDispatch::Read { .. } => resolved
-            .action
-            .as_ref()
-            .is_none_or(|action| action.kind != "shuffle_hand"),
-        dispatch => command_dispatch_is_visible_room_control(dispatch),
-    };
-    if payload.offer_id.is_none() && !visible_room_control {
-        return Json(CommandResponse {
-            ok: false,
-            status: 404,
-            command: resolved.command,
-            verb: resolved.verb,
-            output: Some(
-                "That is not a visible room control. Play a current Story Hand card or Think."
-                    .to_string(),
-            ),
-            error_kind: Some(CommandErrorKind::UnknownOffer),
-            action: resolved.action,
-            receipt: None,
-            events: presence_events,
-        });
-    }
 
     if command_dispatch_consumes_room_turn(&resolved.dispatch) {
         let runtime = state.inner.lock().await;
@@ -23633,28 +23609,6 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::Read { output } => Json(CommandResponse {
-            ok: true,
-            status: CW_OK,
-            command: resolved.command,
-            verb: resolved.verb,
-            output: Some(output),
-            error_kind: None,
-            action: resolved.action,
-            receipt: None,
-            events: presence_events,
-        }),
-        CommandDispatch::Disabled { status, output } => Json(CommandResponse {
-            ok: false,
-            status,
-            command: resolved.command,
-            verb: resolved.verb,
-            output: Some(output),
-            error_kind: None,
-            action: resolved.action,
-            receipt: None,
-            events: presence_events,
-        }),
         CommandDispatch::Move {
             destination_location_id,
         } => {
@@ -24087,56 +24041,6 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::ResolveTransferOffer { offer_id, decision } => {
-            let Json(response) = resolve_transfer_offer(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(TransferOfferActionRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    offer_id,
-                    decision,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::SetActorSafety {
-            target_actor_id,
-            control,
-            enabled,
-        } => {
-            let Json(response) = set_actor_safety(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ActorSafetyRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    target_actor_id,
-                    control,
-                    enabled,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::RequestGift {
-            offered_by_actor_id,
-            item_id,
-        } => {
-            let Json(response) = request_gift_auto_accept(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(GiftAutoAcceptRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    offered_by_actor_id,
-                    item_id,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
         CommandDispatch::Theft {
             item_id,
             target_actor_id,
@@ -24265,122 +24169,8 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::Governance { action } => {
-            if !allow_actor_mutation(
-                &state,
-                client_addr,
-                payload.actor_id,
-                "action-actor",
-                GENERAL_ACTION_LIMIT,
-            ) {
-                return command_rate_limited_response_with_events(resolved, presence_events);
-            }
-            let mut runtime = state.inner.lock().await;
-            if !client_actor_authorized_for_state(
-                &runtime,
-                &state,
-                payload.actor_id,
-                payload.actor_session.as_deref(),
-            ) {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 403,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "Reconnect your account to restore this same avatar; the world will not replace it."
-                            .to_string(),
-                    ),
-                    error_kind: None,
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            }
-            if let Err(output) = runtime.validate_governance_action(payload.actor_id, &action) {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 409,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(output),
-                    error_kind: None,
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            }
-            let location_id = runtime
-                .actor_by_id(payload.actor_id)
-                .map(|actor| actor.location_id)
-                .unwrap_or_default();
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: payload.actor_id,
-                    location_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            )
-            .into_player_card();
-            record
-                .projection_mutations
-                .push(ProjectionMutation::ApplyGovernance { action });
-            let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
-            else {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 500,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "That choice got lost before the room could answer. Try once more."
-                            .to_string(),
-                    ),
-                    error_kind: None,
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            };
-            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
-                &state,
-                &mut runtime,
-                Some(location_id),
-                payload.actor_id,
-                status,
-                &mut events,
-            );
-            drop(runtime);
-            broadcast_events(&state, &events);
-            if let Some(plan) = ripple_reply_plan {
-                schedule_player_tick_observation(&state, plan);
-            }
-            command_action_response_with_events(
-                resolved,
-                ActionResponse {
-                    ok: status == CW_OK && !events.is_empty(),
-                    status: if events.is_empty() { 409 } else { status },
-                    events,
-                },
-                presence_events,
-            )
-        }
         CommandDispatch::Rest => {
             let Json(response) = rest(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ActorRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::UnlockCharmSlot => {
-            let Json(response) = unlock_charm_slot(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(ActorRequest {
@@ -24450,19 +24240,6 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::ReviseCalling { statement } => {
-            let Json(response) = revise_calling(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ReviseCallingRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    statement,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
         CommandDispatch::CreateBond {
             target_actor_id,
             statement,
@@ -24479,75 +24256,6 @@ async fn command_inner(
             )
             .await;
             command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::ReviseBond {
-            target_actor_id,
-            statement,
-        } => {
-            let Json(response) = revise_bond(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ReviseBondRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    target_actor_id,
-                    statement,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::TrainSkill { skill_id } => {
-            let Json(response) = train_skill(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(TrainSkillRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    skill_id,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
-        CommandDispatch::Report {
-            target_actor_id,
-            reason,
-        } => {
-            let Json(response) = report_actor(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ReportRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    target_actor_id,
-                    reason,
-                }),
-            )
-            .await;
-            let output = if response.ok {
-                Some(format!(
-                    "Report submitted for {}.",
-                    response
-                        .report
-                        .as_ref()
-                        .map(|report| report.target_actor_name.as_str())
-                        .unwrap_or("that actor")
-                ))
-            } else {
-                response.error.clone()
-            };
-            Json(CommandResponse {
-                ok: response.ok,
-                status: response.status as u32,
-                command: resolved.command,
-                verb: resolved.verb,
-                output,
-                error_kind: None,
-                action: resolved.action,
-                receipt: None,
-                events: presence_events,
-            })
         }
     }
 }
