@@ -9203,6 +9203,7 @@ impl RuntimeWorld {
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
         let avatar_rescue_already_applied = self.avatar_rescue_record_already_applied(record);
+        let abandon_avatar_already_applied = self.abandon_avatar_record_already_applied(record);
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
             || !threshold_record_preconditions_hold(record)
@@ -9215,7 +9216,8 @@ impl RuntimeWorld {
             || !card_policy_preference_record_preconditions_hold(record)
             || (!avatar_rescue_already_applied
                 && !self.avatar_rescue_record_preconditions_hold(record))
-            || !self.abandon_avatar_record_preconditions_hold(record)
+            || (!abandon_avatar_already_applied
+                && !self.abandon_avatar_record_preconditions_hold(record))
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -9223,6 +9225,7 @@ impl RuntimeWorld {
             || discovery_record_claim_already_applied(self, record)
             || avatar_rescue_already_applied
             || self.ai_publication_record_already_applied(record)
+            || abandon_avatar_already_applied
         {
             return (CW_OK, Vec::new());
         }

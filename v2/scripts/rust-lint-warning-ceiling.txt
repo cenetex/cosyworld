@@ -29,4 +29,11 @@
 #
 # 237 -> 225: removed the remaining unused merged-inline continuity helpers
 # and other dead Rust surfaces while preserving test-only snapshot helpers.
-225
+#
+# 225 -> 226: no code moved this. Under the current local stable toolchain an
+# unmodified origin/main checkout (94d46d15) already reports 226 under this
+# script's counting; the abandon-avatar journal fix was verified to add zero
+# warnings by diffing clippy's per-warning short-format output between clean
+# main and the branch -- the sets are identical apart from line-number shifts
+# from the fix's three added main.rs lines.
+226

@@ -1713,16 +1713,308 @@ mod tests {
         assert!(runtime.actor_control_mode(5000).is_direct_input());
 
         let (action, mutation) = runtime.plan_abandon_avatar(5000).expect("plan abandon");
-        assert_eq!(action.kind, CW_ACTION_ABANDON_AVATAR);
+        assert_eq!(action.kind, CW_ACTION_NONE);
         match mutation {
             ProjectionMutation::AbandonAvatar { actor_id } => assert_eq!(actor_id, 5000),
             _ => panic!("expected AbandonAvatar mutation"),
         }
 
-        let events = runtime.apply_abandon_avatar(5000);
+        // Commit the record exactly the way the endpoint journals it. The
+        // abandon effect is projection-only; a record that reached the C
+        // kernel would be rejected and poison replay.
+        let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+        record.bind_offer_kind("abandon_avatar");
+        record.projection_mutations.push(mutation);
+        let tick_before = runtime.world.tick;
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK, "the abandon record must commit cleanly");
         assert!(runtime.actor_control_mode(5000).uses_inference());
-        assert!(!events.is_empty());
-        // Replaying the same abandonment is a no-op.
-        assert!(runtime.apply_abandon_avatar(5000).is_empty());
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "avatar.abandoned"));
+        assert_eq!(runtime.world.tick, tick_before + 1);
+
+        // Re-applying the same committed record is a settled no-op.
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(
+            events.is_empty(),
+            "a settled abandon record replays as a no-op"
+        );
+        assert_eq!(runtime.world.tick, tick_before + 1);
+    }
+
+    #[tokio::test]
+    async fn legacy_rejected_abandon_records_replay_as_no_ops() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+
+        // The first release of Abandon Avatar journalled kind 41, which the C
+        // kernel never knew: every such row was rejected at commit time, so
+        // its live effect was "nothing happened". Replay must preserve that
+        // history instead of failing the boot or applying a late effect.
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_ABANDON_AVATAR,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            72_001,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::AbandonAvatar { actor_id: 5000 });
+        let tick_before = runtime.world.tick;
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK, "a legacy rejected abandon row must replay");
+        assert!(events.is_empty());
+        assert!(runtime.actor_control_mode(5000).is_direct_input());
+        assert_eq!(runtime.world.tick, tick_before);
+
+        // Even once the world has moved on (the body recovered), the settled
+        // row still replays instead of bricking the journal.
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_ACTIVE;
+        }
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn abandon_avatar_is_refused_while_combat_still_holds_the_body() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Held Witness",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Standing Rival",
+        );
+        for actor_id in [5000, 5001] {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == actor_id)
+                .expect("encounter participant");
+            actor.stats.dexterity = 100;
+            actor.stats.hp_base = 100;
+        }
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5001,
+                target_actor_id: 5000,
+                content_id: combat_encounter_id(MOONLIT_JOB_ID),
+                ..CwAction::default()
+            },
+            72_310,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert!(
+            runtime.active_combat_encounter_for_actor(5000).is_some(),
+            "the fixture must hold the avatar in an active encounter"
+        );
+
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let refusal = runtime
+            .plan_abandon_avatar(5000)
+            .expect_err("an encounter still owns the fallen body");
+        assert_eq!(refusal, "The fight around their body has not ended.");
+    }
+
+    #[tokio::test]
+    async fn abandon_avatar_is_refused_once_already_released() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let (action, mutation) = runtime.plan_abandon_avatar(5000).expect("plan abandon");
+        let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+        record.projection_mutations.push(mutation);
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        // A later cycle returns the released body to direct control (the
+        // rescue-inhabit path can do this). Planning must refuse instead of
+        // journalling a record whose claim is already spent.
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        let refusal = runtime
+            .plan_abandon_avatar(5000)
+            .expect_err("the abandon claim is already spent");
+        assert_eq!(
+            refusal,
+            "This avatar was already released to the world once."
+        );
+    }
+
+    #[test]
+    fn abandoned_avatar_survives_a_full_journal_reboot() {
+        std::thread::Builder::new()
+            .name("abandon-durable-reboot".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(run_abandoned_avatar_durable_reboot)
+            .expect("spawn abandon durable reboot thread")
+            .join()
+            .expect("abandon durable reboot thread");
+    }
+
+    fn run_abandoned_avatar_durable_reboot() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-abandon-reboot-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-abandon-reboot-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&snapshot_path);
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        let mut create = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_CREATE_ACTOR,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            70_500,
+        );
+        create.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Fallen Traveler".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Relay Test Avatar".to_string(),
+                description: "A test avatar controlled through the narrative move relay."
+                    .to_string(),
+            },
+        );
+        {
+            let mut runtime = state.inner.blocking_lock();
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create)
+                    .expect("journal the avatar creation")
+                    .0,
+                CW_OK
+            );
+            // The knockout is world state the snapshot carries; the journal
+            // tail below must replay on top of it.
+            {
+                let world = &mut runtime.world;
+                let actor = world
+                    .actors
+                    .iter_mut()
+                    .take(world.actor_count)
+                    .find(|actor| actor.id == 5000)
+                    .expect("the avatar exists");
+                actor.status = CW_ACTOR_KNOCKED_OUT;
+                actor.conditions |= CW_CONDITION_UNCONSCIOUS;
+                actor.damage = actor.stats.hp_base.saturating_sub(1);
+            }
+            runtime
+                .save_snapshot(&snapshot_path)
+                .expect("checkpoint the knocked-out world");
+        }
+        {
+            let mut runtime = state.inner.blocking_lock();
+            let (action, mutation) = runtime.plan_abandon_avatar(5000).expect("plan abandon");
+            let mut record =
+                JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+            record.bind_offer_kind("abandon_avatar");
+            record.projection_mutations.push(mutation);
+            let (status, events) =
+                commit_journal_record(&state, &mut runtime, record).expect("commit abandon");
+            assert_eq!(status, CW_OK);
+            assert!(events
+                .iter()
+                .any(|event| event.type_name == "avatar.abandoned"));
+
+            // A legacy kind-41 row from the broken first release must also
+            // journal and replay as a settled no-op instead of bricking boot.
+            let mut legacy = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_ABANDON_AVATAR,
+                    actor_id: 5000,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            legacy.bind_offer_kind("abandon_avatar");
+            legacy
+                .projection_mutations
+                .push(ProjectionMutation::AbandonAvatar { actor_id: 5000 });
+            let (status, events) =
+                commit_journal_record(&state, &mut runtime, legacy).expect("commit legacy row");
+            assert_eq!(status, CW_OK);
+            assert!(events.is_empty());
+        }
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        {
+            let mut runtime = state.inner.blocking_lock();
+            restore_runtime_from_durable_state(&state, &mut runtime, &path)
+                .expect("reboot replays the abandon journal without poison");
+            assert!(
+                runtime.actor_control_mode(5000).uses_inference(),
+                "the replayed world keeps the abandoned avatar as a resident"
+            );
+        }
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&snapshot_path);
     }
 }

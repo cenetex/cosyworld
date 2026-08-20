@@ -359,7 +359,7 @@ impl RuntimeWorld {
             .find(|encounter| encounter.id == encounter_id)
     }
 
-    pub(super) fn active_combat_encounter_for_actor(
+    pub(crate) fn active_combat_encounter_for_actor(
         &self,
         actor_id: u64,
     ) -> Option<&CwCombatEncounter> {

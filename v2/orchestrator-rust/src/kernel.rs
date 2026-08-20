@@ -194,8 +194,12 @@ pub const CW_ACTION_STUDY_V2: u8 = 37;
 pub const CW_ACTION_SCOUT_V2: u8 = 38;
 pub const CW_ACTION_COMPLETE_AVATAR_RESCUE: u8 = 39;
 pub const CW_ACTION_REPLACE_AVATAR_RESCUER: u8 = 40;
-// Player frees their knocked-out avatar to live on as an independent
-// roaming NPC, releasing the account to begin a new avatar.
+// Legacy journal-only code from the broken first release of Abandon Avatar:
+// the C kernel never learned kind 41, so every record written with it was
+// rejected by `cw_world_apply_with_tick` and replay treats those rows as
+// settled no-ops. Never send this to the kernel and never reuse 41 for a
+// real kernel action; abandon records are projection-only (kind
+// CW_ACTION_NONE) and the effect lives in ProjectionMutation::AbandonAvatar.
 pub const CW_ACTION_ABANDON_AVATAR: u8 = 41;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
