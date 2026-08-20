@@ -39740,8 +39740,10 @@ mod tests {
         assert!(INDEX_HTML.contains("Reveal the first adjacent stretch without moving."));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
-        assert!(INDEX_HTML.contains("const thumb = action.pathwayDirection"));
-        assert!(INDEX_HTML.contains(": thumbnailHtml(action, false, \"action-mini-card\");"));
+        assert!(INDEX_HTML.contains("const pathwaySide = action.pathwayDirection?.side"));
+        assert!(INDEX_HTML
+            .contains("thumbnailHtml(action, false, \"action-mini-card\", pathwayBadgeHtml)"));
+        assert!(INDEX_HTML.contains("pathway-side-badge"));
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
         assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-kicker\">"));
         assert!(INDEX_HTML.contains("cardImage(card) || fallbackCardImage(fallback)"));

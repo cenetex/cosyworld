@@ -2535,23 +2535,6 @@
       flex-basis: 58px;
       height: 34px;
     }
-    .cmd.pathway-direction {
-      background:
-        linear-gradient(90deg, rgba(var(--cmd-accent-rgb), 0.18), rgba(16, 25, 18, 0.92) 44%),
-        var(--terminal-2);
-    }
-    .cmd.pathway-direction .pathway-direction-thumb {
-      width: 50px;
-      flex-basis: 50px;
-      height: 36px;
-      border: 0;
-      background: transparent;
-      box-shadow: none;
-      color: var(--cmd-accent);
-      font-size: 28px;
-      font-weight: 500;
-      cursor: inherit;
-    }
     .cmd .thumb.action-mini-card,
     .cmd .thumb.action-mini-card.avatar,
     .cmd .thumb.action-mini-card.item,
@@ -2585,6 +2568,23 @@
       background: rgba(5, 8, 6, 0.78);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.34);
       font-size: 15px;
+      z-index: 1;
+    }
+    .thumb .pathway-side-badge {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 16px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 999px;
+      background: rgba(5, 8, 6, 0.78);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.34);
+      color: var(--type-travel);
+      font-size: 11px;
+      font-weight: 700;
       z-index: 1;
     }
     .cmd-label .card-emoji,
@@ -17075,7 +17075,7 @@
       return String(action?.handProvider?.reason || "").trim();
     }
 
-    function thumbnailHtml(action, interactive = true, extraClass = "") {
+    function thumbnailHtml(action, interactive = true, extraClass = "", badgeHtml = "") {
       const card = action.card || null;
       const shape = action.shape || shapeForCard(card);
       const fallback = card || {
@@ -17087,7 +17087,7 @@
       const imageEmoji = cardImage(card) ? "" : emojiHtml(cardEmoji(fallback, shape));
       const dataAttr = interactive && card ? cardDataAttr(card) : "";
       const className = ["thumb", extraClass, shape].filter(Boolean).join(" ");
-      return `<span class="${escapeAttr(className)}"${dataAttr} aria-hidden="true" style="background-image:url('${escapeAttr(image)}')">${imageEmoji}</span>`;
+      return `<span class="${escapeAttr(className)}"${dataAttr} aria-hidden="true" style="background-image:url('${escapeAttr(image)}')">${imageEmoji}${badgeHtml}</span>`;
     }
 
     function actionImage(action) {
@@ -18437,12 +18437,18 @@
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
       );
-      const directionArrow = action.pathwayDirection?.side === "back"
-        ? "←"
-        : (action.pathwayDirection?.side === "forward" ? "→" : "↔");
-      const thumb = action.pathwayDirection
-        ? `<span class="thumb pathway-direction-thumb" aria-hidden="true">${directionArrow}</span>`
-        : thumbnailHtml(action, false, "action-mini-card");
+      // A journey travel card keeps the endpoint's Location art — the card is
+      // about the destination, and the arrow that used to replace the art said
+      // "direction exists" while hiding where the road leads. Direction rides
+      // a small corner badge on the art and the endpoint labels instead.
+      const pathwaySide = action.pathwayDirection?.side === "back"
+        || action.pathwayDirection?.side === "forward"
+        ? action.pathwayDirection.side
+        : "";
+      const pathwayBadgeHtml = pathwaySide
+        ? `<span class="pathway-side-badge" aria-hidden="true">${pathwaySide === "back" ? "←" : "→"}</span>`
+        : "";
+      const thumb = thumbnailHtml(action, false, "action-mini-card", pathwayBadgeHtml);
       button.classList.add("has-copy");
       const labelText = cardTitle;
       const detailHtml = effectText && !destinationOnlyCardLabel
