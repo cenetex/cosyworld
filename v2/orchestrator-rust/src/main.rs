@@ -1626,6 +1626,8 @@ struct RuntimeWorld {
     treasure_objectives: BTreeMap<String, TreasureObjectiveState>,
     card_policy_preferences: BTreeMap<u64, BTreeMap<String, i16>>,
     world_simulation: WorldSimulationState,
+    /// Clocks filling right now; transient. See `apply_bounded_clock_fill`.
+    clock_fill_cascade: Vec<String>,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
@@ -5480,6 +5482,7 @@ impl RuntimeSnapshot {
 
         Ok(RuntimeWorld {
             world,
+            clock_fill_cascade: Vec::new(),
             canonical_identities: self.canonical_identities,
             command_receipts: CommandReceiptCache::from_persisted(self.command_receipts),
             ai_publications: self.ai_publications,
@@ -5907,6 +5910,7 @@ impl RuntimeWorld {
 
         let mut runtime = RuntimeWorld {
             world,
+            clock_fill_cascade: Vec::new(),
             canonical_identities: CanonicalIdentityState::default(),
             command_receipts: CommandReceiptCache::default(),
             ai_publications: BTreeMap::new(),
@@ -11395,12 +11399,8 @@ impl RuntimeWorld {
         if crossed_fill && !clock.on_fill.is_empty() {
             let claim_key = clock_fill_claim_key(&clock.id, update_event.seq);
             if self.rpg_claims.insert(claim_key) {
-                let mut fill_events = self.apply_effects(
-                    EffectApplicationSource::ClockFill(&clock.id),
-                    actor_id,
-                    update_event.seq,
-                    &clock.on_fill,
-                );
+                let mut fill_events =
+                    self.apply_bounded_clock_fill(&clock, actor_id, update_event.seq);
                 self.link_events_to_cause(&mut fill_events, update_event.seq);
                 events.extend(fill_events);
             }

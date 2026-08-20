@@ -32,6 +32,11 @@ pub(super) fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> Strin
     format!("listen_attempt:{actor_id}:{location_id}")
 }
 
+/// How deep one committed action may cascade clock fills before the chain is
+/// cut. Four is enough for an authored consequence chain to read as a story
+/// beat and far short of anything that could exhaust the stack.
+pub(super) const CLOCK_FILL_CASCADE_MAX_DEPTH: usize = 4;
+
 pub(super) fn clock_fill_claim_key(clock_id: &str, event_seq: u64) -> String {
     format!("clock_fill:{clock_id}:{event_seq}")
 }

@@ -89,6 +89,60 @@ impl<'a> EffectApplicationSource<'a> {
 }
 
 impl RuntimeWorld {
+    /// Run one clock's `on_fill` effects with the cascade bounded.
+    ///
+    /// `on_fill` may advance another clock, which may fill and advance a third,
+    /// so the descriptor vocabulary already allows a chain as long as there are
+    /// clocks to author. The per-fill claim key does not bound it: every hop
+    /// crosses at a new event sequence and so mints a fresh key.
+    ///
+    /// Saturation is what stops a *cycle* today — a filled clock returns early
+    /// because `after == before`, so A -> B -> A cannot re-enter A. That makes
+    /// the visited-set check below currently unreachable, and it is kept
+    /// deliberately: it is the guard that holds if a repeatable or resettable
+    /// clock ever exists, and it costs one comparison. The depth bound is the
+    /// live protection, since saturation alone still permits a chain as deep as
+    /// the clock table.
+    ///
+    /// Either cut is reported in the feed rather than dropping effects
+    /// silently.
+    pub(crate) fn apply_bounded_clock_fill(
+        &mut self,
+        clock: &ClockState,
+        actor_id: u64,
+        source_event_seq: u64,
+    ) -> Vec<EventView> {
+        if self.clock_fill_cascade.iter().any(|id| id == &clock.id) {
+            return vec![self.append_clock_event(
+                "clock.fill_effect_rejected",
+                actor_id,
+                clock,
+                0,
+                "this clock is already filling in the current cascade",
+            )];
+        }
+        if self.clock_fill_cascade.len() >= CLOCK_FILL_CASCADE_MAX_DEPTH {
+            return vec![self.append_clock_event(
+                "clock.fill_effect_rejected",
+                actor_id,
+                clock,
+                0,
+                &format!(
+                    "clock fill cascade reached its depth bound of {CLOCK_FILL_CASCADE_MAX_DEPTH}"
+                ),
+            )];
+        }
+        self.clock_fill_cascade.push(clock.id.clone());
+        let events = self.apply_effects(
+            EffectApplicationSource::ClockFill(&clock.id),
+            actor_id,
+            source_event_seq,
+            &clock.on_fill,
+        );
+        self.clock_fill_cascade.pop();
+        events
+    }
+
     pub(crate) fn apply_effects(
         &mut self,
         source: EffectApplicationSource<'_>,
@@ -480,5 +534,111 @@ mod tests {
             .expect("test tag remains present")
             .active = false;
         assert!(!lifecycle_hook_requirements_met(&hook, &tags));
+    }
+
+    /// Two clocks that fill each other. Saturation is the first line of
+    /// defence — a filled clock cannot advance again, so `after == before`
+    /// returns before the cascade re-enters — and this pins that, because the
+    /// depth bound alone would not stop a cycle among many distinct clocks.
+    #[test]
+    fn mutually_filling_clocks_do_not_recurse() {
+        let mut runtime = RuntimeWorld::seeded();
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:cycle-a",
+            vec![EffectDescriptor::AdvanceClock {
+                clock_id: "test:cycle-b".to_string(),
+                amount: 1,
+                reason: Some("cycle_test".to_string()),
+            }],
+        );
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:cycle-b",
+            vec![EffectDescriptor::AdvanceClock {
+                clock_id: "test:cycle-a".to_string(),
+                amount: 1,
+                reason: Some("cycle_test".to_string()),
+            }],
+        );
+
+        // Returning at all is the assertion: unbounded re-entry ends in a
+        // stack overflow, not a failed comparison.
+        runtime.advance_clock("test:cycle-a", 1, 1001, "cycle_test");
+
+        assert_eq!(runtime.clocks["test:cycle-a"].filled, 1);
+        assert_eq!(runtime.clocks["test:cycle-b"].filled, 1);
+        assert!(
+            runtime.clock_fill_cascade.is_empty(),
+            "the cascade stack unwinds completely"
+        );
+    }
+
+    /// A chain longer than the bound is cut at the bound rather than running to
+    /// whatever depth an author happened to write.
+    #[test]
+    fn a_clock_fill_chain_stops_at_its_depth_bound() {
+        let mut runtime = RuntimeWorld::seeded();
+        let depth = CLOCK_FILL_CASCADE_MAX_DEPTH + 2;
+        for step in 0..depth {
+            let effects = vec![EffectDescriptor::AdvanceClock {
+                clock_id: format!("test:chain-{}", step + 1),
+                amount: 1,
+                reason: Some("chain_test".to_string()),
+            }];
+            insert_effect_test_clock(&mut runtime, &format!("test:chain-{step}"), effects);
+        }
+        insert_effect_test_clock(&mut runtime, &format!("test:chain-{depth}"), Vec::new());
+
+        let events = runtime.advance_clock("test:chain-0", 1, 1001, "chain_test");
+
+        assert!(
+            events.iter().any(|event| {
+                event.type_name == "clock.fill_effect_rejected"
+                    && event
+                        .content
+                        .as_deref()
+                        .is_some_and(|content| content.contains("depth bound"))
+            }),
+            "the cut names the depth bound"
+        );
+        assert_eq!(
+            runtime.clocks[&format!("test:chain-{CLOCK_FILL_CASCADE_MAX_DEPTH}")].filled,
+            1,
+            "the chain runs right up to the bound"
+        );
+        assert_eq!(
+            runtime.clocks[&format!("test:chain-{}", CLOCK_FILL_CASCADE_MAX_DEPTH + 1)].filled,
+            0,
+            "and no further"
+        );
+        assert!(runtime.clock_fill_cascade.is_empty());
+    }
+
+    /// The guard must not disturb an ordinary authored consequence.
+    #[test]
+    fn an_ordinary_single_fill_still_applies_its_effects() {
+        let mut runtime = RuntimeWorld::seeded();
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:plain-fill",
+            vec![EffectDescriptor::SetTag {
+                tag_id: "test:plain-tag".to_string(),
+                scope: "room".to_string(),
+                scope_id: COSY_COTTAGE_LOCATION_ID,
+                label: "Plain".to_string(),
+                kind: "condition".to_string(),
+                expires: None,
+                reason: Some("plain_test".to_string()),
+            }],
+        );
+
+        let events = runtime.advance_clock("test:plain-fill", 1, 1001, "plain_test");
+
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_rejected"));
+        assert!(runtime.tags.contains_key("test:plain-tag"));
+        assert!(runtime.clock_fill_cascade.is_empty());
     }
 }

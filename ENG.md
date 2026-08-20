@@ -128,7 +128,13 @@ Implements PRD "Next", per RPG Bible Phases 4–6 plus the arrangement-evolution
 - Extend the live player-turn world pulses beyond classified ambient weather, opportunity-level trade/faction/conflict, and consented danger-clock escalation: let stakes spawn frontier jobs through audited descriptors, and add smoke coverage for the full consequence chain. Keep the proven assertions that automatic pulses never mutate sanctuary state or turn an unrelated action into stakes.
 - **Arrangement evolution.** Generalize the kernel evolution table from "N unique items gained by one actor" to a **placement pattern**: a list of `(item, target)` requirements where a target is an avatar's keeping or a location's floor. The kernel checks satisfaction against state it already owns (item holder/location ids) and remains the sole authority on the evolve event; satisfaction re-checks ride item transfer, placement, search-reveal, and future craft/attunement hooks. Ceremony completion is claim-keyed, pays placer and witness Journal credit through projection, increments the resident once, and leaves the arranged items in their current slots.
 - **Generated quest lists per level.** A level's pattern may be generated: AI or tables propose from a closed vocabulary (existing item tags, currently reachable ungated locations, present residents); a fail-closed compiler — the same seam as on-fill descriptors — validates reachability, availability, and safety before the pattern is committed as authoritative jobs. Rejected proposals fall back to authored patterns. No generated pattern may require gated-room access for a free player's core-loop resident.
-- On-fill cascade guard (bounded depth, visited set) before content authors get cascading clocks.
+- On-fill cascade guard: **done.** `apply_bounded_clock_fill` cuts a clock-fill
+  chain at four hops and refuses re-entry into a clock already filling, and
+  reports either cut as `clock.fill_effect_rejected` instead of dropping the
+  effects. Saturation already prevented a two-clock cycle — a filled clock
+  returns before re-entering — so the depth bound is the live protection and
+  the visited set is what holds if a repeatable or resettable clock is ever
+  added. Content authors can now be given cascading clocks.
 - Conflict objectives: objective clocks in danger rooms, durability-absorbs-harm, nonlethal outcomes (Phase 6).
 
 ### 7. Crafting and generated content
