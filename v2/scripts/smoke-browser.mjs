@@ -9701,6 +9701,23 @@ async function main() {
         chatLabel: document.querySelector("#log")?.getAttribute("aria-label") || "",
         chatHeading: document.querySelector(".party-channel-heading")?.textContent || "",
       };
+      const handThumbEvidence = () => [...document.querySelectorAll("footer.prompt .cmd")]
+        .filter((button) => ["primary", "secondary", "tertiary"].includes(button.id))
+        .map((button) => {
+          const thumb = button.querySelector(".thumb");
+          const badge = button.querySelector(".thumb .pathway-side-badge");
+          return {
+            id: button.id,
+            command: button.dataset.command || "",
+            hasMiniCard: Boolean(thumb?.classList.contains("action-mini-card")),
+            hasImage: Boolean(thumb && getComputedStyle(thumb).backgroundImage !== "none"),
+            badge: badge?.textContent?.trim() || "",
+          };
+        });
+      const travellingThumbs = handThumbEvidence();
+      actions = backtrackingActions;
+      render();
+      const backtrackingThumbs = handThumbEvidence();
       state = previousState;
       actions = previousActions;
       render();
@@ -9773,6 +9790,8 @@ async function main() {
           targets: inspectTargets,
         },
         pathwayStage: pathwayStage.textContent.replace(/\s+/g, " ").trim(),
+        travellingThumbs,
+        backtrackingThumbs,
         journeyPresentation,
       };
     });
@@ -9822,6 +9841,20 @@ async function main() {
         && result.backtracking.direction?.side === "back"
         && result.backtracking.direction?.endpointName === "Rain-Soft Garden",
       `reverse travel should point toward the pathway's origin instead of naming an interior waypoint: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.travellingThumbs.length >= 1
+        && result.travellingThumbs.every((card) => !card.command || (card.hasMiniCard && card.hasImage))
+        && result.travellingThumbs.some((card) => card.command === "go Cedar Hollow" && card.hasMiniCard && card.hasImage && card.badge === "→")
+        && !result.travellingThumbs.some((card) => card.badge === "←"),
+      `a pathway Travel card must keep destination card art with a forward badge instead of replacing the art with an arrow: ${JSON.stringify(result.travellingThumbs)}`,
+    );
+    assert(
+      result.backtrackingThumbs.length >= 1
+        && result.backtrackingThumbs.every((card) => !card.command || (card.hasMiniCard && card.hasImage))
+        && result.backtrackingThumbs.some((card) => card.command === "go Rain-Soft Garden" && card.hasMiniCard && card.hasImage && card.badge === "←")
+        && !result.backtrackingThumbs.some((card) => card.badge === "→"),
+      `a backtracking Travel card must keep destination card art with a back badge: ${JSON.stringify(result.backtrackingThumbs)}`,
     );
     assert(
       result.pathwayStage.includes("Bethlehem — Jerusalem")

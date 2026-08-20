@@ -365,4 +365,8 @@
 # "nothing happened") and claim-settled rows replay as no-ops instead of
 # failing boot or double-advancing the tick. The predicates live in
 # avatar_rescue.rs beside the abandon lifecycle; no new system in main.rs.
-63605
+# 63605 -> 63607: two test-only lines in the browser shell contract -- the
+# pathway thumb pins now also assert the pathway-side badge, so journey
+# travel cards keep destination art with a direction badge instead of an
+# arrow replacing the art. The behaviour lives in index.html.
+63607
