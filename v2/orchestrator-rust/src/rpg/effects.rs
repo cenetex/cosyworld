@@ -52,6 +52,10 @@ pub(crate) enum EffectApplicationSource<'a> {
     Lifecycle(&'a str),
     ClockFill(&'a str),
     JobContribution,
+    /// A frozen discovery receipt materializing the truth it already selected.
+    /// The roll happened when the receipt was minted; this source only places
+    /// the authored result, so it carries no clock and no authored reason.
+    DiscoveryMaterialization,
 }
 
 pub(crate) fn lifecycle_hook_requirements_met(
@@ -70,20 +74,21 @@ impl<'a> EffectApplicationSource<'a> {
             Self::Lifecycle(_) => "lifecycle_effect",
             Self::ClockFill(_) => "clock_fill",
             Self::JobContribution => "job_contribution",
+            Self::DiscoveryMaterialization => "discovery_materialization",
         }
     }
 
     fn authored_reason(self) -> Option<&'a str> {
         match self {
             Self::Lifecycle(hook_name) => Some(hook_name),
-            Self::ClockFill(_) | Self::JobContribution => None,
+            Self::ClockFill(_) | Self::JobContribution | Self::DiscoveryMaterialization => None,
         }
     }
 
     fn clock_id(self) -> Option<&'a str> {
         match self {
             Self::ClockFill(clock_id) => Some(clock_id),
-            Self::Lifecycle(_) | Self::JobContribution => None,
+            Self::Lifecycle(_) | Self::JobContribution | Self::DiscoveryMaterialization => None,
         }
     }
 }

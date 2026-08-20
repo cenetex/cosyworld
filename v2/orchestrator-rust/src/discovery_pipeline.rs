@@ -2,7 +2,24 @@ use super::*;
 use serde::ser::SerializeStruct;
 
 pub(super) const DISCOVERY_PIPELINE_SCHEMA_VERSION: u8 = 1;
-pub(super) const DISCOVERY_PROCEDURE_VERSION: &str = "discovery-procedure-v2";
+/// Append-only. `discovery-procedure-v2` froze a selection and deliberately
+/// materialized nothing; every v2 row in the journal means "receipt only", and
+/// replay must keep meaning exactly that. `v3` is the same procedure with the
+/// selected item actually placed, so the two versions stay distinguishable in
+/// history instead of one silently reinterpreting the other.
+pub(super) const DISCOVERY_PROCEDURE_VERSION: &str = "discovery-procedure-v3";
+const DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY: &str = "discovery-procedure-v2";
+
+/// Replay rejects a whole boot when one record fails its preconditions, so a
+/// superseded procedure version has to stay *readable* forever even though
+/// nothing new is minted at it. Only the current version is offered; both
+/// replay.
+fn discovery_procedure_version_is_supported(version: &str) -> bool {
+    matches!(
+        version,
+        DISCOVERY_PROCEDURE_VERSION | DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY
+    )
+}
 pub(super) const FOCUSED_NOTICE_OFFER_KIND: &str = "focused_notice";
 pub(super) const DISCOVERY_SEARCH_OFFER_KIND: &str = "search_discovery";
 pub(super) const DISCOVERY_STUDY_OFFER_KIND: &str = "study_discovery";
@@ -719,6 +736,16 @@ impl RuntimeWorld {
                 ));
             }
         }
+        let source_event_seq = committed_events
+            .iter()
+            .filter(|event| event.actor_id == Some(intent.actor_id))
+            .map(|event| event.seq)
+            .max()
+            .unwrap_or_default();
+        let (materialization, materialized_events) =
+            self.materialize_discovery_result(intent, source_event_seq);
+        events.extend(materialized_events);
+
         let content = serde_json::json!({
             "procedure_version": intent.procedure_version,
             "procedure": intent.procedure,
@@ -730,7 +757,7 @@ impl RuntimeWorld {
             "target_kind": intent.target_kind,
             "origin_id": intent.origin_id,
             "result_ids": intent.receipt.materialized_entity_ids,
-            "materialization": "not_performed",
+            "materialization": materialization,
             "movement": "not_performed",
             "custody": "not_performed",
             "reward": "not_performed",
@@ -746,6 +773,85 @@ impl RuntimeWorld {
             serde_json::to_string(&content).ok(),
         ));
         events
+    }
+
+    /// Place the truth a discovery receipt already selected.
+    ///
+    /// The receipt froze *what* was found when it was minted; this turns that
+    /// frozen selection into world state through the same fail-closed effect
+    /// seam authored clock effects use, so the kernel stays the only authority
+    /// on whether the item may appear. Returns the disposition recorded in the
+    /// committed event, which never claims more than actually happened.
+    fn materialize_discovery_result(
+        &mut self,
+        intent: &AcceptedDiscoveryIntent,
+        source_event_seq: u64,
+    ) -> (&'static str, Vec<EventView>) {
+        if intent.procedure_version == DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY {
+            // A historical row. It meant "receipt only" when it was committed
+            // and it still does; replay must not invent a placement.
+            return ("not_performed", Vec::new());
+        }
+        if intent.phase_after != "revealed" {
+            // A Lead names where to look. Nothing is found yet.
+            return ("not_performed", Vec::new());
+        }
+        if intent.target_kind != "item" {
+            // Location, route, feature, and resource slots keep their frozen
+            // receipts until their own materializers exist. Saying so is more
+            // useful than an empty field that reads like success.
+            return ("unsupported_target_kind", Vec::new());
+        }
+
+        let effects = intent
+            .receipt
+            .materialized_entity_ids
+            .iter()
+            .filter_map(|entity_id| {
+                let canonical = discovery_canonical_ref(entity_id)?;
+                let item_id = self.discovery_item_handle(&canonical)?;
+                Some(EffectDescriptor::RevealItem {
+                    item_id,
+                    location_id: intent.location_id,
+                    reason: Some(format!("discovery {}", intent.slot_id)),
+                })
+            })
+            .collect::<Vec<_>>();
+        if effects.len() != intent.receipt.materialized_entity_ids.len() {
+            // A selected id that no longer resolves to an authored item means
+            // content moved under a frozen receipt. Fail closed and say so.
+            return ("unresolved_result", Vec::new());
+        }
+
+        let events = self.apply_effects(
+            EffectApplicationSource::DiscoveryMaterialization,
+            intent.actor_id,
+            source_event_seq,
+            &effects,
+        );
+        let revealed = events
+            .iter()
+            .filter(|event| event.success && event.type_name == "item.revealed")
+            .count();
+        if revealed == effects.len() {
+            ("revealed", events)
+        } else if revealed == 0 {
+            ("rejected", events)
+        } else {
+            ("partially_revealed", events)
+        }
+    }
+
+    fn discovery_item_handle(&self, canonical_ref: &str) -> Option<u64> {
+        self.runtime_handle_for_canonical_ref("item", canonical_ref)
+            .or_else(|| {
+                active_content().items.iter().find_map(|item| {
+                    content_registry()
+                        .content_reference("item", item.id)
+                        .is_some_and(|entry| entry.canonical_ref == canonical_ref)
+                        .then_some(item.id)
+                })
+            })
     }
 }
 
@@ -774,7 +880,7 @@ pub(super) fn discovery_record_preconditions_hold(
     }
     let intent = intents[0];
     if intent.schema_version != DISCOVERY_PIPELINE_SCHEMA_VERSION
-        || intent.procedure_version != DISCOVERY_PROCEDURE_VERSION
+        || !discovery_procedure_version_is_supported(&intent.procedure_version)
         || discovery_offer_kind(&intent.procedure) != Some(intent.offer_kind.as_str())
         || discovery_action_kind(&intent.procedure) != Some(record.action.kind)
         || record.action.actor_id != intent.actor_id
@@ -1162,5 +1268,254 @@ mod tests {
             })
             .expect("second actor still has an offer");
         assert_ne!(second.claim_key.as_deref(), Some(first_claim.as_str()));
+    }
+
+    /// A slot whose frozen selection names a real authored core item, so the
+    /// receipt can actually be turned into world state. A catalog may only
+    /// name entities inside its own pack, so this one is authored as core.
+    fn materializing_catalog() -> DiscoveryAuthorityCatalog {
+        serde_json::from_str(
+            r#"{
+              "schema_version": 1,
+              "receipt_version": "discovery-receipt-v1",
+              "roll_algorithm": "weighted-fnv1a-v1",
+              "stocking_tables": [
+                {
+                  "id": "cosyworld.core:discovery-table/hearth-cache",
+                  "version": 1,
+                  "target_kind": "item",
+                  "eligible_inputs": [
+                    "worldpack_bundle_hash",
+                    "slot_id",
+                    "slot_version",
+                    "origin_id",
+                    "claim_scope_id"
+                  ],
+                  "rows": [
+                    {
+                      "id": "tucked_keepsake",
+                      "weight": 1,
+                      "result_ids": ["cosyworld.core:item/2005"]
+                    }
+                  ],
+                  "fallback_row_id": "tucked_keepsake"
+                }
+              ],
+              "event_tables": [],
+              "presentation_tables": [],
+              "slots": [
+                {
+                  "id": "cosyworld.core:discovery/hidden-cache",
+                  "version": 1,
+                  "target_kind": "item",
+                  "origin_id": "cosyworld.core:feature/hollow-stone",
+                  "scope": "world",
+                  "initial_phase": "signed",
+                  "tells": [
+                    {
+                      "id": "hollow_note",
+                      "sense": "sight",
+                      "text": "One hearthstone sits a finger proud of the rest."
+                    }
+                  ],
+                  "reveal_methods": ["search"],
+                  "claim_policy": "once_per_scope",
+                  "stocking": {
+                    "kind": "table",
+                    "table_id": "cosyworld.core:discovery-table/hearth-cache",
+                    "table_version": 1
+                  },
+                  "progression": { "kind": "optional" }
+                }
+              ]
+            }"#,
+        )
+        .expect("materializing discovery fixture")
+    }
+
+    fn runtime_with_materializing_slot() -> RuntimeWorld {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5_000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Discovery Tester",
+        );
+        // The kernel allows one loose item per floor, and the seed cottage
+        // already has one. Clear it so the reveal is testing materialization
+        // rather than the capacity rule the effect seam already pins.
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
+        let hidden = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == 2005)
+            .expect("seed item 2005");
+        hidden.holder_actor_id = 0;
+        hidden.location_id = 0;
+        hidden.zone = CW_CARD_ZONE_WORLD;
+        runtime.install_discovery_catalog_for_test(
+            materializing_catalog(),
+            "cosyworld.core",
+            "1.0.0",
+            COSY_COTTAGE_LOCATION_ID,
+            None,
+        );
+        runtime
+    }
+
+    fn hidden_cache_search_record(runtime: &mut RuntimeWorld, seed: u64) -> JournalRecord {
+        let offer = runtime
+            .discovery_action_offers(5_000)
+            .into_iter()
+            .find(|offer| {
+                offer.discovery.as_ref().is_some_and(|binding| {
+                    binding.slot_id == "cosyworld.core:discovery/hidden-cache"
+                })
+            })
+            .expect("hidden cache Search offer");
+        runtime
+            .discovery_record_for_offer(5_000, &offer, seed)
+            .expect("hidden cache record")
+    }
+
+    #[test]
+    fn a_revealed_item_slot_places_its_frozen_selection_on_the_floor() {
+        let mut runtime = runtime_with_materializing_slot();
+        assert!(runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
+
+        let record = hidden_cache_search_record(&mut runtime, 91_101);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+
+        assert!(events
+            .iter()
+            .any(|event| event.success && event.type_name == "item.revealed"));
+        assert_eq!(
+            runtime
+                .loose_items_at_location(COSY_COTTAGE_LOCATION_ID)
+                .iter()
+                .map(|item| item.id)
+                .collect::<Vec<_>>(),
+            vec![2005],
+            "the selected item is placed where it was found"
+        );
+
+        let revealed = events
+            .iter()
+            .find(|event| event.type_name == "discovery.revealed")
+            .expect("discovery.revealed");
+        let content: serde_json::Value =
+            serde_json::from_str(revealed.content.as_deref().expect("content"))
+                .expect("discovery content");
+        assert_eq!(content["materialization"], "revealed");
+        // Reveal is not Take and not Travel; those stay separate operations.
+        assert_eq!(content["custody"], "not_performed");
+        assert_eq!(content["movement"], "not_performed");
+    }
+
+    #[test]
+    fn a_historical_receipt_only_record_replays_without_materializing() {
+        let mut runtime = runtime_with_materializing_slot();
+        let mut record = hidden_cache_search_record(&mut runtime, 91_102);
+        for mutation in &mut record.projection_mutations {
+            if let ProjectionMutation::ResolveDiscovery { intent } = mutation {
+                intent.procedure_version = DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY.to_string();
+            }
+        }
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(
+            status, CW_OK,
+            "a superseded procedure version must still replay, or boot dies on it"
+        );
+        assert!(
+            runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID),
+            "a v2 row meant receipt-only when it was written and still does"
+        );
+        let revealed = events
+            .iter()
+            .find(|event| event.type_name == "discovery.revealed")
+            .expect("discovery.revealed");
+        let content: serde_json::Value =
+            serde_json::from_str(revealed.content.as_deref().expect("content"))
+                .expect("discovery content");
+        assert_eq!(content["materialization"], "not_performed");
+    }
+
+    #[test]
+    fn both_procedure_versions_satisfy_replay_preconditions() {
+        let mut runtime = runtime_with_materializing_slot();
+        let current = hidden_cache_search_record(&mut runtime, 91_103);
+        assert!(discovery_record_preconditions_hold(&runtime, &current));
+
+        let mut historical = current.clone();
+        for mutation in &mut historical.projection_mutations {
+            if let ProjectionMutation::ResolveDiscovery { intent } = mutation {
+                intent.procedure_version = DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY.to_string();
+            }
+        }
+        assert!(
+            discovery_record_preconditions_hold(&runtime, &historical),
+            "replay rejects the whole boot when a record fails preconditions"
+        );
+
+        let mut unknown = current.clone();
+        for mutation in &mut unknown.projection_mutations {
+            if let ProjectionMutation::ResolveDiscovery { intent } = mutation {
+                intent.procedure_version = "discovery-procedure-v99".to_string();
+            }
+        }
+        assert!(
+            !discovery_record_preconditions_hold(&runtime, &unknown),
+            "an unknown procedure version is still refused"
+        );
+    }
+
+    #[test]
+    fn a_selection_that_no_longer_resolves_fails_closed() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5_000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Discovery Tester",
+        );
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
+        // The stock fixture names items that no pack authors.
+        runtime.install_discovery_catalog_for_test(
+            fixture(),
+            "fixture.discovery",
+            "1.0.0",
+            COSY_COTTAGE_LOCATION_ID,
+            Some("fixture.discovery:region/mossy-verge"),
+        );
+        let offer = runtime
+            .discovery_action_offers(5_000)
+            .into_iter()
+            .find(|offer| {
+                offer.kind == DISCOVERY_SEARCH_OFFER_KIND
+                    && offer
+                        .discovery
+                        .as_ref()
+                        .is_some_and(|binding| binding.target_kind == "item")
+            })
+            .expect("item Search");
+        let record = runtime
+            .discovery_record_for_offer(5_000, &offer, 91_104)
+            .expect("record");
+        let (status, events) = runtime.apply_journal_record(&record);
+
+        assert_eq!(status, CW_OK);
+        assert!(
+            runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID),
+            "an unresolvable selection materializes nothing"
+        );
+        let revealed = events
+            .iter()
+            .find(|event| event.type_name == "discovery.revealed")
+            .expect("discovery.revealed");
+        let content: serde_json::Value =
+            serde_json::from_str(revealed.content.as_deref().expect("content"))
+                .expect("discovery content");
+        assert_eq!(content["materialization"], "unresolved_result");
     }
 }

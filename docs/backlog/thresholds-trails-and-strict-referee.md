@@ -170,11 +170,38 @@ THR-7L are proposed extensions with no filed issue.
 
 ## THR-D2 — Materialize Bounded Item And Location Discoveries
 
-**Priority**: P1 / later / blocked
-
 **Scope**: Worldpack stocking tables and bounded runtime materialization
 
 **Depends on**: THR-3, THR-D0, THR-D1
+
+### Status: item materialization shipped; locations and authored sources have not
+
+The discovery procedure previously committed a frozen receipt and then
+recorded `"materialization": "not_performed"` alongside `movement`, `custody`,
+and `reward`. A resolved `item` slot now places its selected item through the
+same fail-closed `EffectDescriptor::RevealItem` seam authored clock effects
+use, so the kernel remains the only authority on whether the item may appear,
+and the committed event reports what actually happened — `revealed`,
+`rejected`, `unresolved_result`, or `unsupported_target_kind` — instead of a
+constant.
+
+Because that changes what a committed row means, the procedure version is
+append-only: `discovery-procedure-v2` rows keep their receipt-only meaning on
+replay forever and `discovery-procedure-v3` rows materialize. Both versions
+must stay accepted by `discovery_record_preconditions_hold`, because replay
+fails the entire boot on one rejected record.
+
+Still open, in dependency order:
+
+- **Authored sources.** No pack ships `x-cosyworld-discovery-slots` yet, so the
+  procedure still only runs against fixtures. This is now the binding
+  constraint on everything below.
+- **Location and route materialization.** `location`, `route`, `feature`, and
+  `resource` slots keep their frozen receipts and report
+  `unsupported_target_kind`. The bounded hidden graph, incremental reveal, and
+  `authorized_topology_ids` enforcement are untouched.
+- **Movement, custody, and reward** remain `not_performed` by design; Open,
+  Take, and Travel stay separate operations after Reveal.
 
 ### What to do
 
