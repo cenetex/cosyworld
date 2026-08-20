@@ -323,8 +323,13 @@ impl RuntimeWorld {
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
         model_config: Option<&AiConfig>,
     ) -> Result<ResolvedCommand, CommandError> {
-        let Some(offer_id) = payload.offer_id.as_deref() else {
-            return self.resolve_command_with_presence(payload, access, active_direct_actor_ids);
+        let Some(offer_id) = payload.offer_id.as_deref().map(str::trim) else {
+            return Err(offer_command_error(
+                "",
+                CommandErrorKind::ProseRetired,
+                400,
+                "Typed commands are retired. Play a card from your Story Hand, or Think to replace one.",
+            ));
         };
         let (mut primary_action, mut offers) = self.legal_action_candidates_with_presence(
             Some(payload.actor_id),
