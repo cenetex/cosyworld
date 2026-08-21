@@ -263,5 +263,17 @@
       "theft_policy": "eligible_when_carried"
     },
     "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2015,
+    "name": "Dry Wool Socks",
+    "description": "Thick grey wool, darned twice at the heel, folded tight and still dry.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 0,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
   }
 ]

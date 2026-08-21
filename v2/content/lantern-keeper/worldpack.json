@@ -19,7 +19,8 @@
       "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743",
       "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381",
       "sha256:7d3b33f743bd50699fe013321e23cfe6b11476b4f457e41ee8525a10e7d72d72",
-      "sha256:ff28d95b0c55d4add61634860c53892a87130b1829bb619c744cc8f4e6114a1a"
+      "sha256:ff28d95b0c55d4add61634860c53892a87130b1829bb619c744cc8f4e6114a1a",
+      "sha256:75a8ad1bb47c1bb3a94803bb2077a2f1928250cf6e1851ca18e8aca508dc9ba8"
     ]
   },
   "pack_lifecycle": {
@@ -755,7 +756,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:75a8ad1bb47c1bb3a94803bb2077a2f1928250cf6e1851ca18e8aca508dc9ba8",
+  "bundle_hash": "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -976,7 +977,7 @@
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 11,
-        "items": 13,
+        "items": 14,
         "locations": 23,
         "exits": 48,
         "hidden_exits": 1,
@@ -1003,6 +1004,67 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-discovery-slots": {
+          "schema_version": 1,
+          "receipt_version": "discovery-receipt-v1",
+          "roll_algorithm": "weighted-fnv1a-v1",
+          "stocking_tables": [
+            {
+              "id": "cosyworld.core:discovery-table/mossbell-floorboard",
+              "version": 1,
+              "target_kind": "item",
+              "eligible_inputs": [
+                "world_seed",
+                "worldpack_bundle_hash",
+                "slot_id",
+                "slot_version",
+                "origin_id",
+                "claim_scope_id"
+              ],
+              "rows": [
+                {
+                  "id": "folded_socks",
+                  "weight": 1,
+                  "result_ids": [
+                    "cosyworld.core:item/2015"
+                  ]
+                }
+              ],
+              "fallback_row_id": "folded_socks"
+            }
+          ],
+          "event_tables": [],
+          "presentation_tables": [],
+          "slots": [
+            {
+              "id": "cosyworld.core:discovery/mossbell-floorboard",
+              "version": 1,
+              "target_kind": "item",
+              "origin_id": "cosyworld.core:location/4",
+              "scope": "world",
+              "initial_phase": "signed",
+              "tells": [
+                {
+                  "id": "proud_floorboard",
+                  "sense": "sight",
+                  "text": "One floorboard by the boot rack sits proud of the rest."
+                }
+              ],
+              "reveal_methods": [
+                "search"
+              ],
+              "claim_policy": "once_per_scope",
+              "stocking": {
+                "kind": "table",
+                "table_id": "cosyworld.core:discovery-table/mossbell-floorboard",
+                "table_version": 1
+              },
+              "progression": {
+                "kind": "optional"
+              }
+            }
+          ]
+        },
         "x-cosyworld-progression-safety": {
           "schema_version": 1,
           "proof_version": "progression-safety-v1",
@@ -1969,7 +2031,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8"
+      "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

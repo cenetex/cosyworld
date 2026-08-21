@@ -369,4 +369,12 @@
 # pathway thumb pins now also assert the pathway-side badge, so journey
 # travel cards keep destination art with a direction badge instead of an
 # arrow replacing the art. The behaviour lives in index.html.
-63607
+# 63607 -> 63609: ensure_item learns that location 0 means "authored but not
+# placed" rather than a broken reference, so a worldpack can ship a hidden item
+# that only its discovery slot reveals. Two lines are the comment recording that
+# distinction; the condition itself changed in place. Existing seeding function,
+# no new system.
+# 63609 -> 63611: two comment lines recording why the pinned official item
+# count moved from 34 to 35 -- the core pack now authors one unplaced item for
+# its discovery slot. Test-only.
+63611

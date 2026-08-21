@@ -1518,4 +1518,65 @@ mod tests {
                 .expect("discovery content");
         assert_eq!(content["materialization"], "unresolved_result");
     }
+
+    /// The authored end of the loop: a slot shipped in the core worldpack, not
+    /// a fixture. Search at Mossbell Inn finds the pair of socks the pack
+    /// authors unplaced, and puts them on the floor where they were found.
+    #[test]
+    fn the_authored_mossbell_slot_reveals_its_hidden_item() {
+        const MOSSBELL_INN_LOCATION_ID: u64 = 4;
+        const DRY_WOOL_SOCKS_ITEM_ID: u64 = 2015;
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5_000,
+            MOSSBELL_INN_LOCATION_ID,
+            "Mossbell Guest",
+        );
+
+        // Authored unplaced: it exists in the world but is nowhere yet.
+        let hidden = runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .find(|item| item.id == DRY_WOOL_SOCKS_ITEM_ID)
+            .expect("the pack authors the hidden item into the world");
+        assert_eq!(hidden.location_id, 0);
+        assert_eq!(hidden.holder_actor_id, 0);
+        assert!(runtime.room_floor_empty(MOSSBELL_INN_LOCATION_ID));
+
+        let offer = runtime
+            .discovery_action_offers(5_000)
+            .into_iter()
+            .find(|offer| {
+                offer.discovery.as_ref().is_some_and(|binding| {
+                    binding.slot_id == "cosyworld.core:discovery/mossbell-floorboard"
+                })
+            })
+            .expect("the authored slot deals a Search offer in its own room");
+        let record = runtime
+            .discovery_record_for_offer(5_000, &offer, 92_001)
+            .expect("record");
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+
+        assert!(events
+            .iter()
+            .any(|event| event.success && event.type_name == "item.revealed"));
+        assert_eq!(
+            runtime
+                .loose_items_at_location(MOSSBELL_INN_LOCATION_ID)
+                .iter()
+                .map(|item| item.id)
+                .collect::<Vec<_>>(),
+            vec![DRY_WOOL_SOCKS_ITEM_ID],
+        );
+        let revealed = events
+            .iter()
+            .find(|event| event.type_name == "discovery.revealed")
+            .expect("discovery.revealed");
+        let content: serde_json::Value =
+            serde_json::from_str(revealed.content.as_deref().expect("content"))
+                .expect("discovery content");
+        assert_eq!(content["materialization"], "revealed");
+    }
 }

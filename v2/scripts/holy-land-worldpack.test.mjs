@@ -169,8 +169,10 @@ test("Bethlehem accepts every declared production replay epoch", () => {
   // Tenant 7 persisted the second and third hashes before later content-pack
   // compiler releases. The fourth is the provider-less bundle replaced by the
   // Lonely Forest art mount. The fifth predates the Emmaus presentation update;
-  // the sixth is the Emmaus bundle replaced by Rati's authored portrait. All
-  // use the same canonical IDs and state meaning.
+  // the sixth is the Emmaus bundle replaced by Rati's authored portrait. The
+  // seventh is the bundle replaced by the Mossbell discovery slot, which adds
+  // one unplaced core item and no new state interpretation. All use the same
+  // canonical IDs and state meaning.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [
@@ -180,6 +182,7 @@ test("Bethlehem accepts every declared production replay epoch", () => {
     "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
     "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
     "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74",
+    "sha256:0781f23550c8be3e16ad2fb92b9c1bf067f164c351d9d95df47a2969116f7480",
   ]);
 });
 

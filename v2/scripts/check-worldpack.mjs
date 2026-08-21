@@ -567,6 +567,29 @@ const mountedLootDeliveryTags = new Set();
 const mountedBuildingCapabilities = new Set();
 const mountedBuildingRecipeTags = new Set();
 const mountedBuildingArchetypes = [];
+// Items a discovery slot may reveal. These are authored unplaced -- the kernel's
+// reveal requires holder 0 and location 0 -- so they are the only items allowed
+// to name no location. Anything else unplaced is a broken reference.
+const discoveryHiddenItemIds = new Set();
+for (const pack of packs) {
+  const discovery = pack.extensions?.["x-cosyworld-discovery-slots"];
+  if (!discovery) continue;
+  const collect = (targetKind, resultIds) => {
+    if (targetKind !== "item") return;
+    for (const resultId of resultIds ?? []) {
+      const localId = String(resultId).split(":").at(-1)?.split("/").at(-1);
+      const numeric = Number(localId);
+      if (Number.isInteger(numeric)) discoveryHiddenItemIds.add(numeric);
+    }
+  };
+  for (const slot of discovery.slots ?? []) {
+    collect(slot.target_kind, slot.stocking?.result_ids);
+  }
+  for (const table of discovery.stocking_tables ?? []) {
+    for (const row of table.rows ?? []) collect(table.target_kind, row.result_ids);
+  }
+}
+
 for (const pack of packs) {
   for (const template of pack.extensions?.["x-cosyworld-loot-tables"]?.item_templates ?? []) {
     if (mountedLootTemplateIds.has(template.id)) {
@@ -1727,7 +1750,11 @@ for (const item of items) {
       fail(`spell item ${item.id} references unsupported magic effect ${mechanics?.magic_effect}`);
     }
   }
-  if (!has(locationIds, item.location_id)) {
+  if (!item.location_id) {
+    if (!discoveryHiddenItemIds.has(item.id)) {
+      fail(`item ${item.id} is unplaced but no discovery slot reveals it`);
+    }
+  } else if (!has(locationIds, item.location_id)) {
     fail(`item ${item.id} references missing location ${item.location_id}`);
   }
 }
