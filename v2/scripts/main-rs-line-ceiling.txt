@@ -377,4 +377,13 @@
 # 63609 -> 63611: two comment lines recording why the pinned official item
 # count moved from 34 to 35 -- the core pack now authors one unplaced item for
 # its discovery slot. Test-only.
-63611
+# 63611 -> 63698: durable journal commits move onto `block_in_place` so a slow
+# SQLite commit can no longer block a tokio worker outright. Production showed
+# 11.5s commits; on the four-CPU Lonely Forest machine a few concurrent commits
+# starved every worker, so lock-free `/health` could not be scheduled and Fly
+# pulled a busy-but-alive machine out of rotation. ~57 of the added lines are
+# the two regressions plus the comment recording why the helper is flavor-aware
+# (`block_in_place` panics on the current-thread runtime `#[tokio::test]`
+# builds). The commit body itself only gained a wrapper; existing persistence
+# seam, no new system.
+63698
