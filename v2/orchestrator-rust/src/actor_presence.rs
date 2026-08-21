@@ -781,12 +781,11 @@ mod tests {
             );
     }
 
-    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    fn offer_request(actor_id: u64, offer_id: &str) -> CommandRequest {
         CommandRequest {
             actor_id,
             actor_session: None,
-            command: command.to_string(),
-            offer_id: None,
+            offer_id: Some(offer_id.to_string()),
             wallet_session: None,
             envelope: None,
         }
@@ -831,23 +830,24 @@ mod tests {
         assert_eq!(target.id, MARA_ACTOR_ID);
         assert!(runtime.relationship_contract(target.id).is_some());
 
-        let state = runtime.state_response(Some(TEST_ACTOR_ID), &AccessContext::default());
-        let offer = state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "create_bond")
-            .expect("authored relationship becomes a legal action offer");
+        let offer = runtime
+            .draw_until_test_offer(TEST_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "create_bond"
+            })
+            .expect("authored relationship becomes a dealt action offer");
         assert_eq!(
             offer.target.as_ref().and_then(|target| target.id),
             Some(MARA_ACTOR_ID)
         );
         assert!(offer.command.starts_with("bond Mara Wick: "));
         let resolved = runtime
-            .resolve_command(
-                &command_request(TEST_ACTOR_ID, &offer.command),
+            .resolve_command_submission(
+                &offer_request(TEST_ACTOR_ID, &offer.offer_id),
                 &AccessContext::default(),
+                None,
+                None,
             )
-            .expect("the published relationship command parses through the CLI boundary");
+            .expect("the published relationship offer resolves by identity");
         assert!(matches!(
             resolved.dispatch,
             CommandDispatch::CreateBond {
@@ -1022,33 +1022,6 @@ mod tests {
         assert_eq!(observer_view.primary_action.kind, "abandon_avatar");
         assert!(!observer_view.primary_action.disabled);
         assert!(observer_view.action_offers.is_empty());
-
-        let who = runtime
-            .resolve_command_with_presence(
-                &command_request(5000, "who"),
-                &AccessContext::default(),
-                Some(&active_direct_actor_ids),
-            )
-            .expect("who includes a present but inert avatar");
-        assert!(matches!(
-            who.dispatch,
-            CommandDispatch::Read { ref output } if output.contains("Fallen Neighbor")
-        ));
-
-        let use_tonic = runtime
-            .resolve_command_with_presence(
-                &command_request(5000, "use Hearth Tonic on Fallen Neighbor"),
-                &AccessContext::default(),
-                Some(&active_direct_actor_ids),
-            )
-            .expect("the downed avatar is a legal care target");
-        assert!(matches!(
-            use_tonic.dispatch,
-            CommandDispatch::UseItem {
-                item_id: HEARTH_TONIC_ITEM_ID,
-                target_actor_id: 5001
-            }
-        ));
 
         let state = test_app_state(runtime, None);
         let (_helper_session, _) = issue_actor_session(&state, 5000);

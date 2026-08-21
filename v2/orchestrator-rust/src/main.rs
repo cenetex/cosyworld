@@ -22701,7 +22701,13 @@ async fn command_with_forwarding(
                 }
                 let intent_id = match validate_intent_id(&envelope.intent_id) {
                     Ok(intent_id) => intent_id,
-                    Err(error) => return canonical_command_error(payload.offer_id.as_deref().unwrap_or(""), 400, error),
+                    Err(error) => {
+                        return canonical_command_error(
+                            payload.offer_id.as_deref().unwrap_or(""),
+                            400,
+                            error,
+                        )
+                    }
                 };
                 if envelope.actor_ref != actor_ref {
                     return canonical_command_error(
@@ -33050,12 +33056,11 @@ mod tests {
         issue_actor_session(state, actor_id).0
     }
 
-    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    fn offer_request(actor_id: u64, offer_id: &str) -> CommandRequest {
         CommandRequest {
             actor_id,
             actor_session: None,
-            command: command.to_string(),
-            offer_id: None,
+            offer_id: Some(offer_id.to_string()),
             wallet_session: None,
             envelope: None,
         }
@@ -33986,65 +33991,6 @@ mod tests {
     }
 
     #[test]
-    fn mud_exposes_gift_requests_offer_decisions_and_safety_controls() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "CLI Holder");
-        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "CLI Decider");
-        arrange_test_transfer_items(&mut runtime);
-        runtime.record_economy_disclosure(5000, 5001);
-        runtime.record_economy_disclosure(5001, 5000);
-        let access = AccessContext::default();
-        let request = runtime
-            .resolve_command(
-                &command_request(5001, "request story button from CLI Holder"),
-                &access,
-            )
-            .unwrap();
-        assert!(matches!(
-            request.dispatch,
-            CommandDispatch::RequestGift {
-                offered_by_actor_id: 5000,
-                item_id: STORY_BUTTON_ITEM_ID,
-            }
-        ));
-
-        let offer = runtime.new_transfer_offer(
-            TransferOfferKind::Gift,
-            5000,
-            5001,
-            STORY_BUTTON_ITEM_ID,
-            None,
-        );
-        runtime
-            .transfer_offers
-            .insert(offer.id.clone(), offer.clone());
-        let accept = runtime
-            .resolve_command(
-                &command_request(5001, &format!("accept {}", offer.id)),
-                &access,
-            )
-            .unwrap();
-        assert!(matches!(
-            accept.dispatch,
-            CommandDispatch::ResolveTransferOffer {
-                ref offer_id,
-                ref decision,
-            } if offer_id == &offer.id && decision == "accept"
-        ));
-        let block = runtime
-            .resolve_command(&command_request(5001, "block CLI Holder"), &access)
-            .unwrap();
-        assert!(matches!(
-            block.dispatch,
-            CommandDispatch::SetActorSafety {
-                target_actor_id: 5000,
-                control: ActorSafetyControl::Block,
-                enabled: true,
-            }
-        ));
-    }
-
-    #[test]
     fn inference_autonomy_cannot_supply_a_direct_avatar_transfer_decision() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -34446,7 +34392,6 @@ mod tests {
         actor_id: u64,
         actor_session: &str,
         intent_id: &str,
-        command: &str,
     ) -> CommandRequest {
         let actor = runtime.actor_by_id(actor_id).expect("canonical test actor");
         let actor_ref = runtime
@@ -34459,7 +34404,6 @@ mod tests {
         CommandRequest {
             actor_id,
             actor_session: Some(actor_session.to_string()),
-            command: command.to_string(),
             offer_id: None,
             wallet_session: None,
             envelope: Some(CanonicalCommandEnvelope {
@@ -34517,6 +34461,20 @@ mod tests {
                 .unwrap_or_else(|| panic!("canonical test hand exposes an exact Think certificate"))
                 .think
                 .offer_id
+        } else if kind == "any" {
+            let offers = runtime
+                .legal_action_candidates_with_presence(
+                    Some(actor_id),
+                    &AccessContext::default(),
+                    active_direct_actor_ids,
+                )
+                .1;
+            let hand = runtime.action_hand_for(Some(actor_id), &offers);
+            hand.entries
+                .into_iter()
+                .find(|entry| !entry.offer_id.is_empty())
+                .unwrap_or_else(|| panic!("canonical test hand exposes an executable offer"))
+                .offer_id
         } else {
             runtime
                 .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
@@ -34525,17 +34483,8 @@ mod tests {
                 .unwrap_or_else(|| panic!("{kind} rotates into the canonical test hand"))
                 .offer_id
         };
-        let mut request = canonical_test_command_request(
-            runtime,
-            actor_id,
-            actor_session,
-            intent_id,
-            if kind == "*" {
-                "think"
-            } else {
-                "offer identity selects the action"
-            },
-        );
+        let mut request =
+            canonical_test_command_request(runtime, actor_id, actor_session, intent_id);
         request.offer_id = Some(offer_id);
         request
     }
@@ -34576,13 +34525,7 @@ mod tests {
                 .to_string();
             let mut request = {
                 let runtime = state.inner.lock().await;
-                canonical_test_command_request(
-                    &runtime,
-                    actor_id,
-                    actor_session,
-                    intent_id,
-                    "think",
-                )
+                canonical_test_command_request(&runtime, actor_id, actor_session, intent_id)
             };
             request.offer_id = Some(offer_id);
             let response = client
@@ -36214,13 +36157,13 @@ mod tests {
         let client = ConnectInfo("127.0.0.1:45137".parse().unwrap());
 
         let first_request = {
-            let runtime = state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_id,
                 &actor_session,
                 "test:evicted",
-                "look",
+                "any",
             )
         };
         let first = command(client, State(state.clone()), Json(first_request.clone()))
@@ -36231,13 +36174,13 @@ mod tests {
         // Push the first receipt out of the bounded cache with later commands.
         for index in 0..(COMMAND_RECEIPT_CACHE_MAX_ENTRIES + 4) {
             let request = {
-                let runtime = state.inner.lock().await;
-                canonical_test_command_request(
-                    &runtime,
+                let mut runtime = state.inner.lock().await;
+                canonical_test_offer_request(
+                    &mut runtime,
                     actor_id,
                     &actor_session,
                     &format!("test:filler-{index}"),
-                    "look",
+                    "any",
                 )
             };
             let filler = command(client, State(state.clone()), Json(request)).await.0;
@@ -36403,24 +36346,23 @@ mod tests {
         wallet_address: &str,
         session_id: &str,
         character_id: u64,
-        command: &str,
+        offer_id: &str,
         nonce: &str,
         issued_at_unix: u64,
     ) -> SignedNarrativeMove {
         use ed25519_dalek::Signer;
 
-        let command = normalize_command_text(command);
         let message = narrative_move_signature_message(
             wallet_address,
             session_id,
             character_id,
-            &command,
+            offer_id,
             nonce,
             issued_at_unix,
         );
         SignedNarrativeMove {
             wallet_address: wallet_address.to_string(),
-            command,
+            offer_id: offer_id.to_string(),
             nonce: nonce.to_string(),
             issued_at_unix,
             signature: WalletSignatureInput::Bytes(
@@ -36468,26 +36410,25 @@ mod tests {
         delegate_address: &str,
         session_id: &str,
         character_id: u64,
-        command: &str,
+        offer_id: &str,
         nonce: &str,
         issued_at_unix: u64,
         delegation: NarrativeMoveDelegation,
     ) -> SignedNarrativeMove {
         use ed25519_dalek::Signer;
 
-        let command = normalize_command_text(command);
         let message = delegated_narrative_move_signature_message(
             wallet_address,
             delegate_address,
             session_id,
             character_id,
-            &command,
+            offer_id,
             nonce,
             issued_at_unix,
         );
         SignedNarrativeMove {
             wallet_address: wallet_address.to_string(),
-            command,
+            offer_id: offer_id.to_string(),
             nonce: nonce.to_string(),
             issued_at_unix,
             signature: WalletSignatureInput::Bytes(
@@ -36678,6 +36619,12 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Relay Walker",
         );
+        let offer = runtime
+            .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("relay Search offer rotates into the hand");
+        let expected_command = offer.command.clone();
         let state = test_app_state(runtime, None);
         insert_wallet_session(&state, wallet_session, &wallet_address);
         link_wallet_actor(&state, &wallet_address, actor_id);
@@ -36693,7 +36640,7 @@ mod tests {
                     &wallet_address,
                     wallet_session,
                     actor_id,
-                    "look",
+                    &offer.offer_id,
                     "relay-nonce-1",
                     now_unix_secs(),
                 ),
@@ -36704,7 +36651,7 @@ mod tests {
 
         assert!(response.ok, "{response:?}");
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.command, "look");
+        assert_eq!(response.command, expected_command);
         assert!(response.events.iter().all(|event| {
             event.type_name != "message.created" || event.actor_id != Some(actor_id)
         }));
@@ -36728,6 +36675,12 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Delegated Relay",
         );
+        let offer = runtime
+            .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("delegated relay Search offer rotates into the hand");
+        let expected_command = offer.command.clone();
         let state = test_app_state(runtime, None);
         insert_wallet_session(&state, wallet_session, &wallet_address);
         link_wallet_actor(&state, &wallet_address, actor_id);
@@ -36754,7 +36707,7 @@ mod tests {
                     &delegate_address,
                     wallet_session,
                     actor_id,
-                    "look",
+                    &offer.offer_id,
                     "relay-delegated-nonce-1",
                     now,
                     delegation,
@@ -36766,7 +36719,7 @@ mod tests {
 
         assert!(response.ok, "{response:?}");
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.command, "look");
+        assert_eq!(response.command, expected_command);
         assert!(response.events.iter().all(|event| {
             event.type_name != "message.created" || event.actor_id != Some(actor_id)
         }));
@@ -36790,6 +36743,11 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Agent Playtester",
         );
+        let offer = runtime
+            .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("agent relay Search offer rotates into the hand");
         let state = test_app_state(runtime, None);
         insert_wallet_session(&state, wallet_session, &wallet_address);
         link_wallet_actor(&state, &wallet_address, actor_id);
@@ -36848,7 +36806,7 @@ mod tests {
                     &delegate_address,
                     wallet_session,
                     actor_id,
-                    "look",
+                    &offer.offer_id,
                     "agent-play-nonce-1",
                     now,
                     delegation,
@@ -36934,6 +36892,11 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Replay Relay",
         );
+        let offer = runtime
+            .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("replay relay Search offer rotates into the hand");
         let state = test_app_state(runtime, None);
         insert_wallet_session(&state, wallet_session, &wallet_address);
         link_wallet_actor(&state, &wallet_address, actor_id);
@@ -36943,7 +36906,7 @@ mod tests {
             &wallet_address,
             wallet_session,
             actor_id,
-            "look",
+            &offer.offer_id,
             "relay-nonce-3",
             issued_at_unix,
         );
@@ -36993,7 +36956,7 @@ mod tests {
                     &wallet_address,
                     wallet_session,
                     actor_id,
-                    "look",
+                    &offer.offer_id,
                     "relay-nonce-stale",
                     stale_issued_at,
                 ),
@@ -39418,7 +39381,7 @@ mod tests {
         assert!(INDEX_HTML.contains("class=\"cmd-meta\""));
         assert!(INDEX_HTML.contains("class=\"provider-call\""));
         assert!(INDEX_HTML.contains("class=\"collectible-mark\""));
-        assert!(INDEX_HTML.contains("Whole-hand redeals have retired"));
+        assert!(!INDEX_HTML.contains("Whole-hand redeals have retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
         assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
@@ -41751,58 +41714,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn read_only_command_reactivates_stale_presence() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 1;
-        let mut record = JournalRecord::new(create, 17620);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Command Presence".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Presence Tester".to_string(),
-                description: "A test avatar checking command presence fanout.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-        assert!(mark_actor_session_inactive(
-            &state.actor_sessions,
-            5000,
-            &actor_session
-        ));
-        let mut rx = state.tx.subscribe();
-        let mut payload = command_request(5000, "look");
-        payload.actor_session = Some(actor_session);
-
-        let response = command(
-            ConnectInfo("127.0.0.1:0".parse().unwrap()),
-            State(state.clone()),
-            Json(payload),
-        )
-        .await
-        .0;
-        assert!(response.ok);
-        assert_eq!(response.status, CW_OK);
-        assert!(response
-            .output
-            .as_deref()
-            .unwrap_or_default()
-            .contains("The Cosy Cottage"));
-        assert_eq!(response.events.len(), 1);
-        assert_eq!(response.events[0].type_name, "actor.presence");
-        assert_eq!(response.events[0].content.as_deref(), Some("active"));
-        assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
-        let broadcast = rx.try_recv().expect("command presence broadcast");
-        assert_eq!(broadcast.type_name, "actor.presence");
-        assert_eq!(broadcast.content.as_deref(), Some("active"));
-    }
-
-    #[tokio::test]
     async fn mutating_command_response_includes_stale_presence_refresh() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -41834,9 +41745,8 @@ mod tests {
             &actor_session
         ));
         let mut rx = state.tx.subscribe();
-        let mut payload = command_request(5000, "offer identity selects the action");
+        let mut payload = offer_request(5000, &search_offer.offer_id);
         payload.actor_session = Some(actor_session);
-        payload.offer_id = Some(search_offer.offer_id);
 
         let response = command(
             ConnectInfo("127.0.0.1:0".parse().unwrap()),
@@ -42817,7 +42727,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn public_command_surface_rejects_client_authored_speech() {
+    async fn public_command_surface_rejects_prose_only_payloads() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Quiet Tester");
         let state = test_app_state(runtime, None);
@@ -42825,8 +42735,12 @@ mod tests {
         let before_tick = state.inner.lock().await.world.tick;
 
         for authored_command in ["say this should not publish", "/me waves"] {
-            let mut payload = command_request(5000, authored_command);
-            payload.actor_session = Some(actor_session.clone());
+            let payload = serde_json::from_value::<CommandRequest>(serde_json::json!({
+                "actor_id": 5000,
+                "actor_session": actor_session,
+                "command": authored_command,
+            }))
+            .expect("legacy prose payload deserializes for a typed retirement error");
             let response = command(
                 ConnectInfo("127.0.0.1:0".parse().unwrap()),
                 State(state.clone()),
@@ -42836,7 +42750,8 @@ mod tests {
             .0;
 
             assert!(!response.ok, "{authored_command} must remain unsupported");
-            assert_eq!(response.status, 404);
+            assert_eq!(response.status, 400);
+            assert_eq!(response.error_kind, Some(CommandErrorKind::ProseRetired));
             assert!(response
                 .events
                 .iter()
@@ -42895,9 +42810,8 @@ mod tests {
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        let mut payload = command_request(5000, "search scarf");
+        let mut payload = offer_request(5000, &search_offer.offer_id);
         payload.actor_session = Some(actor_session);
-        payload.offer_id = Some(search_offer.offer_id);
 
         let response = command(
             ConnectInfo("127.0.0.1:0".parse().unwrap()),
@@ -44713,49 +44627,6 @@ mod tests {
         assert!(!state.actors.iter().any(|actor| actor.id == 5001));
         assert!(state.actors.iter().any(|actor| actor.name == "Gust"));
 
-        let who = runtime
-            .resolve_command_with_presence(
-                &command_request(5000, "who"),
-                &AccessContext::default(),
-                Some(&active_direct_actors),
-            )
-            .expect("who resolves with live presence");
-        match who.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Active Guest (you)"));
-                assert!(!output.contains("Gone Guest"));
-                assert!(output.contains("Gust"));
-                assert!(!output.contains("(human)"));
-                assert!(!output.contains("(npc)"));
-            }
-            other => panic!("who should be read-only, got {other:?}"),
-        }
-
-        let look = runtime
-            .resolve_command_with_presence(
-                &command_request(5000, "look"),
-                &AccessContext::default(),
-                Some(&active_direct_actors),
-            )
-            .expect("look resolves with live presence");
-        match look.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Active Guest"));
-                assert!(!output.contains("Gone Guest"));
-                assert!(output.contains("Gust"));
-            }
-            other => panic!("look should be read-only, got {other:?}"),
-        }
-
-        let stale_report = runtime
-            .resolve_command_with_presence(
-                &command_request(5000, "report Gone Guest: stale session"),
-                &AccessContext::default(),
-                Some(&active_direct_actors),
-            )
-            .expect_err("stale direct avatars are not visible report targets");
-        assert_eq!(stale_report.status, 404);
-
         let world = runtime.world_response_with_presence(
             Some(5000),
             &AccessContext::default(),
@@ -45357,11 +45228,6 @@ mod tests {
             .action_offers
             .iter()
             .any(|offer| offer.kind == "check"));
-
-        let repeat_command = runtime
-            .resolve_command(&command_request(5000, "listen"), &AccessContext::default())
-            .expect("typed repeat listen still resolves");
-        assert!(matches!(repeat_command.dispatch, CommandDispatch::Check));
     }
 
     #[test]
@@ -45494,16 +45360,6 @@ mod tests {
             .options
             .iter()
             .all(|option| option.kind != "check"));
-
-        let bank_command = runtime
-            .resolve_command(&command_request(5000, "grow"), &AccessContext::default())
-            .expect("retired grow command remains explained");
-        match bank_command.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("standalone progress command has retired"));
-            }
-            other => panic!("retired grow should be informational, got {other:?}"),
-        }
 
         move_test_actor(&mut runtime, 5000, 2, 7090);
         let mut discovery = CwAction::default();
@@ -45666,50 +45522,12 @@ mod tests {
             "an empty current slot never prompts expansion"
         );
 
-        let deck_command = runtime
-            .resolve_command(&command_request(5000, "pack"), &AccessContext::default())
-            .expect("Pack command resolves");
-        match deck_command.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Wolfprint Charm"));
-                assert!(output.contains("Bracelet: 0/1 charm slots"));
-                assert!(output.contains("Prepared spells: 0/3 (none prepared)"));
-            }
-            other => panic!("Pack should be a read command, got {other:?}"),
-        }
-        let wear_command = runtime
-            .resolve_command(
-                &command_request(5000, "wear Wolfprint Charm"),
-                &AccessContext::default(),
-            )
-            .expect("wear charm command resolves");
-        assert!(matches!(
-            wear_command.dispatch,
-            CommandDispatch::SetCharmEquipped {
-                item_id: 2003,
-                equipped: true
-            }
-        ));
-
         let equip_events = runtime.set_charm_equipped(5000, 2003, true, "test");
         assert!(equip_events
             .iter()
             .any(|event| event.type_name == "skill_charm.equipped"));
         assert_eq!(runtime.skill_bonus_for_ability(5000, 2), 1);
         assert_eq!(runtime.deck_view(Some(5000)).equipped_charms.len(), 1);
-        let remove_command = runtime
-            .resolve_command(
-                &command_request(5000, "remove Wolfprint Charm"),
-                &AccessContext::default(),
-            )
-            .expect("remove charm command resolves");
-        assert!(matches!(
-            remove_command.dispatch,
-            CommandDispatch::SetCharmEquipped {
-                item_id: 2003,
-                equipped: false
-            }
-        ));
 
         give_test_skill_charm(&mut runtime, 5000, 2901, "Thimble Charm");
         runtime.ledger_marks.insert(
@@ -45722,23 +45540,6 @@ mod tests {
                 source_event_seq: runtime.world.next_event_seq,
                 banked: true,
             },
-        );
-        let unlock_command = runtime
-            .resolve_command(
-                &command_request(5000, "bracelet unlock"),
-                &AccessContext::default(),
-            )
-            .expect("bracelet unlock command resolves");
-        assert!(matches!(
-            unlock_command.dispatch,
-            CommandDispatch::UnlockCharmSlot
-        ));
-        assert_eq!(
-            unlock_command
-                .action
-                .as_ref()
-                .map(|action| action.label.as_str()),
-            Some("Make room for Thimble Charm")
         );
         let demand = runtime
             .deck_view(Some(5000))
@@ -46347,16 +46148,6 @@ mod tests {
         tool.holder_actor_id = 5000;
         tool.zone = CW_CARD_ZONE_CARRIED;
 
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "wield Threadbare Map Scrap"),
-                &AccessContext::default(),
-            )
-            .expect("invalid tool command resolves to a disabled dispatch");
-        assert!(matches!(
-            command.dispatch,
-            CommandDispatch::Disabled { status: 409, .. }
-        ));
         assert!(runtime
             .set_item_equipped(5000, 2008, true, "invalid_tool_test")
             .is_empty());
@@ -46695,21 +46486,7 @@ mod tests {
             .all(|offer| offer.kind != "unlock_charm_slot"));
         assert!(banked_state.deck.charm_slot_expansion.is_none());
 
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "skill listening"),
-                &AccessContext::default(),
-            )
-            .expect("skill command resolves");
-        assert_eq!(
-            command.action.as_ref().map(|action| action.kind.as_str()),
-            Some("train_skill")
-        );
-        let skill_id = match command.dispatch {
-            CommandDispatch::TrainSkill { skill_id } => skill_id,
-            other => panic!("skill command should dispatch training, got {other:?}"),
-        };
-        assert_eq!(skill_id, "listening");
+        let skill_id = "listening".to_string();
 
         let mut train_action = CwAction::default();
         train_action.kind = CW_ACTION_NONE;
@@ -46779,26 +46556,9 @@ mod tests {
             .train_skill(5000, "nimble_hands", SKILL_STEP_COST, "advancement")
             .is_empty());
 
-        let blocked_command = runtime
-            .resolve_command(
-                &command_request(5000, "skill dexterity"),
-                &AccessContext::default(),
-            )
-            .expect("dexterity skill command resolves while trained");
-        assert_eq!(
-            blocked_command
-                .action
-                .as_ref()
-                .map(|action| action.kind.as_str()),
-            Some("train_skill")
-        );
-        match blocked_command.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("Rest before practicing"));
-            }
-            other => panic!("duplicate train should be disabled, got {other:?}"),
-        }
+        assert!(runtime
+            .train_skill(5000, "dexterity", SKILL_STEP_COST, "advancement")
+            .is_empty());
 
         if let Some(actor) = runtime
             .world
@@ -46885,21 +46645,7 @@ mod tests {
             .all(|offer| offer.kind != "unlock_charm_slot"));
         assert!(rested_state.deck.charm_slot_expansion.is_none());
 
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "skill dexterity"),
-                &AccessContext::default(),
-            )
-            .expect("dexterity skill command resolves");
-        assert_eq!(
-            command.action.as_ref().map(|action| action.kind.as_str()),
-            Some("train_skill")
-        );
-        let nimble_skill_id = match command.dispatch {
-            CommandDispatch::TrainSkill { skill_id } => skill_id,
-            other => panic!("dexterity skill command should dispatch training, got {other:?}"),
-        };
-        assert_eq!(nimble_skill_id, "nimble_hands");
+        let nimble_skill_id = "nimble_hands".to_string();
 
         let mut train_action = CwAction::default();
         train_action.kind = CW_ACTION_NONE;
@@ -47027,17 +46773,6 @@ mod tests {
             .iter()
             .all(|offer| offer.kind != "unlock_charm_slot"));
         assert!(state.deck.charm_slot_expansion.is_none());
-
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "skill steadiness"),
-                &AccessContext::default(),
-            )
-            .expect("contextual skill command resolves");
-        match command.dispatch {
-            CommandDispatch::TrainSkill { skill_id } => assert_eq!(skill_id, "steadiness"),
-            other => panic!("contextual train should dispatch steadiness, got {other:?}"),
-        }
     }
 
     #[test]
@@ -47114,26 +46849,6 @@ mod tests {
             .is_some_and(|effect| effect.contains("a friendship with Rati begins")));
 
         let statement = "Rati trusts me with the greenhouse keys.";
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, &format!("bond rati: {statement}")),
-                &AccessContext::default(),
-            )
-            .expect("new bond command resolves");
-        assert_eq!(
-            command.action.as_ref().map(|action| action.kind.as_str()),
-            Some("create_bond")
-        );
-        match command.dispatch {
-            CommandDispatch::CreateBond {
-                target_actor_id,
-                statement: resolved_statement,
-            } => {
-                assert_eq!(target_actor_id, 1001);
-                assert_eq!(resolved_statement, statement);
-            }
-            other => panic!("new bond should dispatch creation, got {other:?}"),
-        }
 
         let mut create_bond_action = CwAction::default();
         create_bond_action.kind = CW_ACTION_NONE;
@@ -47178,19 +46893,6 @@ mod tests {
                 .any(|option| option.kind == "resolve_bond"),
             "fresh strength-1 bonds should not immediately become a memory"
         );
-        let premature_remember = runtime
-            .resolve_command(
-                &command_request(5000, "remember rati"),
-                &AccessContext::default(),
-            )
-            .expect("fresh Bond remember command remains recognized");
-        match premature_remember.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("Spend a little more time"));
-            }
-            other => panic!("fresh Bond should not be remembered yet, got {other:?}"),
-        }
         let mut premature_settle_action = CwAction::default();
         premature_settle_action.kind = CW_ACTION_NONE;
         premature_settle_action.actor_id = 5000;
@@ -47208,20 +46910,6 @@ mod tests {
         assert_eq!(still_bonded_state.bonds.len(), 1);
         assert_eq!(still_bonded_state.bonds[0].strength, 1);
         assert_eq!(still_bonded_state.ledger.unbanked_count, 0);
-
-        let repeat = runtime
-            .resolve_command(
-                &command_request(5000, &format!("bond rati: {statement}")),
-                &AccessContext::default(),
-            )
-            .expect("active bond command remains recognized");
-        match repeat.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("already"));
-            }
-            other => panic!("same active bond should be disabled, got {other:?}"),
-        }
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
@@ -47363,25 +47051,7 @@ mod tests {
             2
         );
 
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "revise calling I mend what the rain loosens."),
-                &AccessContext::default(),
-            )
-            .expect("calling revision command resolves");
-        assert_eq!(
-            command.action.as_ref().map(|action| action.kind.as_str()),
-            Some("revise_calling")
-        );
-        assert_eq!(
-            command.action.as_ref().map(|action| action.label.as_str()),
-            Some("Change Purpose")
-        );
-        let statement = match command.dispatch {
-            CommandDispatch::ReviseCalling { statement } => statement,
-            other => panic!("calling revision should dispatch, got {other:?}"),
-        };
-        assert_eq!(statement, "I mend what the rain loosens.");
+        let statement = "I mend what the rain loosens.".to_string();
 
         let mut revise_action = CwAction::default();
         revise_action.kind = CW_ACTION_NONE;
@@ -47426,20 +47096,6 @@ mod tests {
         assert_eq!(revised_state.ledger.banked_count, 2);
         assert_eq!(revised_state.ledger.spent_count, 1);
         assert_eq!(revised_state.ledger.advancement_points, 1);
-
-        let repeat = runtime
-            .resolve_command(
-                &command_request(5000, "calling I mend what the rain loosens."),
-                &AccessContext::default(),
-            )
-            .expect("same calling remains recognized");
-        match repeat.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("already"));
-            }
-            other => panic!("same calling should be disabled, got {other:?}"),
-        }
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
@@ -48525,40 +48181,6 @@ mod tests {
     }
 
     #[test]
-    fn mud_look_explains_the_same_shared_question_targets_and_stakes() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            MOONLIT_TRAIL_LOCATION_ID,
-            "Text Traveler",
-        );
-        let resolved = runtime
-            .resolve_command(&command_request(5000, "look"), &AccessContext::default())
-            .expect("look resolves through the text transport");
-        let CommandDispatch::Read { output } = resolved.dispatch else {
-            panic!("look must be a read-only command");
-        };
-        let question = runtime
-            .state_response(Some(5000), &AccessContext::default())
-            .shared_questions
-            .into_iter()
-            .find(|question| question.promoted)
-            .expect("Moonlit Trail has one promoted question");
-        assert!(output.contains("Shared questions:"));
-        assert!(output.contains(&question.question));
-        assert!(output.contains(&question.situation));
-        assert!(output.contains(&question.outcome));
-
-        assert_eq!(question.suggested_actions.len(), 3);
-        for suggestion in &question.suggested_actions {
-            assert!(output.contains(&format!("target {}", suggestion.target_label)));
-        }
-        assert!(!output.contains(MOONLIT_PROGRESS_CLOCK_ID));
-        assert!(!output.contains(MOONLIT_JOB_ID));
-    }
-
-    #[test]
     fn quest_strategy_legality_ignores_avatar_identity_practice_and_controller() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -49016,12 +48638,19 @@ mod tests {
             Some("Practice Circle")
         );
 
+        let feature_offer = runtime
+            .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
+                offer.kind == "use_feature" && offer_provider_item_id(offer) == Some(2003)
+            })
+            .expect("feature-use offer rotates into the hand");
         let command = runtime
-            .resolve_command(
-                &command_request(5000, "use Wolfprint Charm on practice circle"),
+            .resolve_command_submission(
+                &offer_request(5000, &feature_offer.offer_id),
                 &AccessContext::default(),
+                None,
+                None,
             )
-            .expect("project feature use resolves");
+            .expect("project feature use resolves by offer");
         assert_eq!(
             command.action.as_ref().map(|action| action.kind.as_str()),
             Some("use_feature")
@@ -49309,13 +48938,6 @@ mod tests {
         assert!(!unneeded_rest.events.iter().any(|event| {
             event.type_name == "ability_check.rolled" && event.content.as_deref() == Some("dream")
         }));
-        {
-            let runtime = state.inner.lock().await;
-            let command = runtime
-                .resolve_command(&command_request(5000, "rest"), &AccessContext::default())
-                .expect("Rest command resolves while recovery is unnecessary");
-            assert!(matches!(command.dispatch, CommandDispatch::Rest));
-        }
 
         for step in 1..=4 {
             let work_response = work(
@@ -50041,11 +49663,13 @@ mod tests {
         assert_eq!(action.target_actor_id, 1004);
 
         let resolved = runtime
-            .resolve_command(
-                &command_request(5000, "attack Coach"),
+            .resolve_command_submission(
+                &offer_request(5000, &offer.offer_id),
                 &AccessContext::default(),
+                None,
+                None,
             )
-            .expect("typed attack command resolves");
+            .expect("attack resolves by offer");
         assert!(matches!(
             resolved.dispatch,
             CommandDispatch::Attack {
@@ -52022,37 +51646,27 @@ mod tests {
         let (actor_session, _) = issue_actor_session(&state, 5000);
         let before_tick = state.inner.lock().await.world.tick;
 
-        let mut need_time_command = command_request(5000, "need time");
-        need_time_command.actor_session = Some(actor_session.clone());
-        let need_time = command_inner(
+        let prose_command = CommandRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session.clone()),
+            offer_id: None,
+            wallet_session: None,
+            envelope: None,
+        };
+        let prose = command_inner(
             ConnectInfo("127.0.0.1:44010".parse().unwrap()),
             State(state.clone()),
-            Json(need_time_command),
+            Json(prose_command),
         )
         .await
         .0;
-        assert!(!need_time.ok);
-        assert_eq!(need_time.status, 404);
-        assert!(!need_time
+        assert!(!prose.ok);
+        assert_eq!(prose.status, 400);
+        assert_eq!(prose.error_kind, Some(CommandErrorKind::ProseRetired));
+        assert!(!prose
             .events
             .iter()
             .any(|event| event.type_name == "combat.need_time"));
-
-        let mut pass_command = command_request(5000, "pass");
-        pass_command.actor_session = Some(actor_session.clone());
-        let raw_pass = command_inner(
-            ConnectInfo("127.0.0.1:44011".parse().unwrap()),
-            State(state.clone()),
-            Json(pass_command),
-        )
-        .await
-        .0;
-        assert!(!raw_pass.ok);
-        assert_eq!(raw_pass.status, 404);
-        assert!(!raw_pass
-            .events
-            .iter()
-            .any(|event| event.type_name == "combat.pass"));
         assert_eq!(state.inner.lock().await.world.tick, before_tick);
 
         let ordered_think = {
@@ -52067,9 +51681,8 @@ mod tests {
             hand.pass
         };
 
-        let mut think_command = command_request(5000, "think");
+        let mut think_command = offer_request(5000, &ordered_think.offer_id);
         think_command.actor_session = Some(actor_session);
-        think_command.offer_id = Some(ordered_think.offer_id);
         let drawn = command_inner(
             ConnectInfo("127.0.0.1:44013".parse().unwrap()),
             State(state.clone()),
@@ -54304,12 +53917,24 @@ mod tests {
             .iter()
             .any(|option| option.kind == "trade_item"));
 
+        let trade_offer = runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                offer.kind == "trade_item"
+                    && offer
+                        .target
+                        .as_ref()
+                        .and_then(|target| target.id)
+                        .is_some_and(|id| id == DEWBRIGHT_BUTTON_ITEM_ID)
+            })
+            .expect("trade offer rotates into the hand");
         let trade = runtime
-            .resolve_command(
-                &command_request(5000, "trade story with rati for dewbright"),
+            .resolve_command_submission(
+                &offer_request(5000, &trade_offer.offer_id),
                 &access,
+                None,
+                None,
             )
-            .expect("trade resolves");
+            .expect("trade resolves by offer");
         match trade.dispatch {
             CommandDispatch::TradeItem {
                 item_id,
@@ -55313,15 +54938,11 @@ mod tests {
             )
             .expect_err("Rati protects a desired item she already holds");
         assert!(refusal.contains("attached to Story Button"));
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "trade dewbright with rati for story"),
-                &AccessContext::default(),
-            )
-            .expect_err("refused trade should not dispatch");
-        assert_eq!(command.status, 409);
-        assert!(command.output.contains("attached to Story Button"));
         let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(state.action_offers.iter().all(|offer| {
+            offer.kind != "trade_item"
+                || offer.target.as_ref().and_then(|target| target.id) != Some(STORY_BUTTON_ITEM_ID)
+        }));
         let economy = state
             .actors
             .iter()
@@ -55749,17 +55370,15 @@ mod tests {
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == 5000));
 
-        let inventory = runtime
-            .resolve_command(&command_request(5000, "inventory"), &access)
-            .expect("inventory resolves");
-        match inventory.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Your Pack holds Hearth Tonic, Story Button"));
-                assert!(output.contains("0.6/"));
-                assert!(output.contains("Hearth Tonic"));
-            }
-            other => panic!("inventory should be read-only, got {other:?}"),
-        }
+        let carried = runtime.state_response(Some(5000), &access);
+        assert!(carried
+            .items
+            .iter()
+            .any(|item| item.id == 2001 && item.holder_actor_id == Some(5000)));
+        assert!(carried
+            .items
+            .iter()
+            .any(|item| { item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5000) }));
     }
 
     #[test]
@@ -55802,9 +55421,17 @@ mod tests {
                 && transaction.object.display_name == "The Cosy Cottage"
         }));
 
+        let search_offer = runtime
+            .draw_until_test_offer(5000, &access, |offer| offer.kind == "search")
+            .expect("location search offer rotates into the hand");
         let search = runtime
-            .resolve_command(&command_request(5000, "search"), &access)
-            .expect("location search resolves");
+            .resolve_command_submission(
+                &offer_request(5000, &search_offer.offer_id),
+                &access,
+                None,
+                None,
+            )
+            .expect("location search offer resolves");
         match search.dispatch {
             CommandDispatch::SearchFeature {
                 location_id,
@@ -55925,9 +55552,24 @@ mod tests {
             Some("Scarf Basket")
         );
 
+        let dealt_search = runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                offer.kind == "search"
+                    && offer
+                        .target
+                        .as_ref()
+                        .and_then(|target| target.label.as_deref())
+                        == Some("Scarf Basket")
+            })
+            .expect("clue-led search offer rotates into the hand");
         let search = runtime
-            .resolve_command(&command_request(5000, "search Scarf Basket"), &access)
-            .expect("clue-led search resolves");
+            .resolve_command_submission(
+                &offer_request(5000, &dealt_search.offer_id),
+                &access,
+                None,
+                None,
+            )
+            .expect("clue-led search offer resolves");
         match search.dispatch {
             CommandDispatch::SearchFeature {
                 location_id,
@@ -55941,469 +55583,6 @@ mod tests {
                 assert!(output.contains("warm wooden button"));
             }
             other => panic!("the clue should lead to the scarf basket, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn mud_commands_resolve_to_world_actions_and_feature_use_events() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 1;
-        let mut record = JournalRecord::new(create, 7830);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Command Tester".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "MUD Verb Tester".to_string(),
-                description: "A test avatar checking the command grammar.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-
-        discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
-        discover_seed_exit_pair_for_test(&mut runtime, 1, 11);
-        let access = AccessContext::default();
-        let state = runtime.state_response(Some(5000), &access);
-        assert!(state.room_features.is_empty());
-        let cottage_features = runtime.room_feature_views(1, Some(5000));
-        assert!(cottage_features
-            .iter()
-            .any(|feature| feature.key == "hearth"));
-        assert!(cottage_features
-            .iter()
-            .any(|feature| feature.uses.iter().any(|use_case| use_case.item_id == 2005)));
-        assert!(state.exits.iter().any(|exit| {
-            exit.destination_location_id == 2 && exit.direction.as_deref() == Some("east")
-        }));
-
-        let look = runtime
-            .resolve_command(&command_request(5000, "look"), &access)
-            .expect("look resolves");
-        match look.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("The Cosy Cottage"));
-                assert!(output.contains("Ways onward:"));
-                assert!(output.contains("east: Rain-Soft Garden"));
-                assert!(!output.contains("Features:"));
-            }
-            other => panic!("look should be read-only, got {other:?}"),
-        }
-
-        assert_eq!(canonical_command_verb("more"), "redeal-retired");
-        assert_eq!(canonical_command_verb("practice"), "skill");
-        assert_eq!(canonical_command_verb("purpose"), "calling");
-        assert_eq!(canonical_command_verb("friendship"), "bond");
-
-        let help = runtime
-            .resolve_command(&command_request(5000, "help"), &access)
-            .expect("help resolves");
-        match help.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(!output.contains("say <message>"));
-                assert!(!output.contains("emote <action>"));
-                assert!(output.contains("report <actor>: <reason>"));
-                assert!(output.contains("drop <item>"));
-                assert!(output.contains("think"));
-                assert!(!output.contains(", more,"));
-                assert!(output.contains("pack"));
-                assert!(!output.contains("bracelet unlock"));
-                assert!(!output.contains(", grow,"));
-                assert!(output.contains("wear <skill charm>"));
-                assert!(output.contains("remove <skill charm>"));
-                assert!(!output.contains("practice <knack>"));
-                assert!(!output.contains(", pass,"));
-                assert!(output.contains("need time"));
-                assert!(!output.contains("skill <name>"));
-                assert!(!output.contains("calling <new drive>"));
-                assert!(!output.contains("bond <avatar>"));
-                assert!(!output.contains("settle <avatar>"));
-                assert!(!output.contains("resolve bond"));
-            }
-            other => panic!("help should be read-only, got {other:?}"),
-        }
-
-        let shuffle = runtime
-            .resolve_command(&command_request(5000, "shuffle"), &access)
-            .expect("shuffle resolves");
-        match shuffle.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 400);
-                assert!(output.contains("Whole-hand redeals are retired"));
-            }
-            other => panic!("shuffle must be version-refused, got {other:?}"),
-        }
-
-        runtime.hide_loose_items_at_location(1);
-        let search = runtime
-            .resolve_command(&command_request(5000, "search scarf"), &access)
-            .expect("search resolves");
-        match search.dispatch {
-            CommandDispatch::SearchFeature {
-                location_id,
-                feature_key,
-                feature_name,
-                output,
-            } => {
-                assert_eq!(location_id, 1);
-                assert_eq!(feature_key, "room");
-                assert_eq!(feature_name, "The Cosy Cottage");
-                assert_eq!(output, "You look closely around The Cosy Cottage.");
-                let found_item_id = STORY_BUTTON_ITEM_ID;
-                assert!(runtime.world.items[..runtime.world.item_count]
-                    .iter()
-                    .any(|item| {
-                        item.id == found_item_id
-                            && item.location_id == 0
-                            && item.holder_actor_id == 0
-                    }));
-                let mut search_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_SEARCH,
-                        actor_id: 5000,
-                        location_id,
-                        item_id: found_item_id,
-                        ..CwAction::default()
-                    },
-                    7829,
-                );
-                search_record
-                    .projection_mutations
-                    .push(ProjectionMutation::SearchLocation {
-                        location_id,
-                        content: output.clone(),
-                        reason: "search_location".to_string(),
-                    });
-                let (status, events) = runtime.apply_journal_record(&search_record);
-                assert_eq!(status, CW_OK);
-                assert!(events.iter().any(|event| {
-                    event.type_name == "location.searched"
-                        && event.actor_id == Some(5000)
-                        && event.location_id == Some(1)
-                }));
-                assert!(events.iter().any(|event| {
-                    event.type_name == "tag.applied"
-                        && event.tag_id.as_deref() == Some(location_search_tag_id(5000, 1).as_str())
-                }));
-                assert!(events
-                    .iter()
-                    .any(|event| event.type_name == "ledger.marked"));
-                let output = command_response_output(Some(output), &events)
-                    .expect("location search has command output");
-                assert!(output.contains("You look closely around The Cosy Cottage."));
-            }
-            other => panic!("search should map to a projected feature search, got {other:?}"),
-        }
-
-        let look_east = runtime
-            .resolve_command(&command_request(5000, "look east"), &access)
-            .expect("look direction resolves");
-        match look_east.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Rain-Soft Garden"));
-                assert!(output.contains("Rain-Pearled Annex"));
-            }
-            other => panic!("look direction should be read-only, got {other:?}"),
-        }
-
-        let go = runtime
-            .resolve_command(&command_request(5000, "go garden"), &access)
-            .expect("go resolves");
-        assert_eq!(
-            go.action.as_ref().map(|action| action.command.as_str()),
-            Some("go Rain-Soft Garden")
-        );
-        match go.dispatch {
-            CommandDispatch::Move {
-                destination_location_id,
-            } => assert_eq!(destination_location_id, 2),
-            other => panic!("go should map to movement, got {other:?}"),
-        }
-
-        let go_east = runtime
-            .resolve_command(&command_request(5000, "east"), &access)
-            .expect("direction command resolves");
-        match go_east.dispatch {
-            CommandDispatch::Move {
-                destination_location_id,
-            } => assert_eq!(destination_location_id, 2),
-            other => panic!("direction should map to movement, got {other:?}"),
-        }
-
-        let go_east_alias = runtime
-            .resolve_command(&command_request(5000, "go e"), &access)
-            .expect("direction alias resolves");
-        match go_east_alias.dispatch {
-            CommandDispatch::Move {
-                destination_location_id,
-            } => assert_eq!(destination_location_id, 2),
-            other => panic!("direction alias should map to movement, got {other:?}"),
-        }
-
-        let mut move_action = CwAction::default();
-        move_action.kind = CW_ACTION_MOVE;
-        move_action.actor_id = 5000;
-        move_action.destination_location_id = 2;
-        assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(move_action, 7831))
-                .0,
-            CW_OK
-        );
-
-        let take = runtime
-            .resolve_command(&command_request(5000, "take dewbright"), &access)
-            .expect("take resolves");
-        match take.dispatch {
-            CommandDispatch::PickUp { item_id, .. } => assert_eq!(item_id, 2002),
-            other => panic!("take should map to pick-up, got {other:?}"),
-        }
-
-        let mut pickup = CwAction::default();
-        pickup.kind = CW_ACTION_PICK_UP_ITEM;
-        pickup.actor_id = 5000;
-        pickup.item_id = 2002;
-        let (status, pickup_events) =
-            runtime.apply_journal_record(&JournalRecord::new(pickup, 7832));
-        assert_eq!(status, CW_OK);
-        assert!(command_response_output(None, &pickup_events)
-            .is_some_and(|output| output.starts_with("You take Dewbright Button.")));
-
-        let inventory = runtime
-            .resolve_command(&command_request(5000, "inventory"), &access)
-            .expect("inventory resolves");
-        match inventory.dispatch {
-            CommandDispatch::Read { output } => assert!(output.contains("Dewbright Button")),
-            other => panic!("inventory should be read-only, got {other:?}"),
-        }
-
-        let off_room_give = runtime
-            .resolve_command(&command_request(5000, "give dewbright to gust"), &access)
-            .expect_err("off-room give explains where the resident is");
-        assert_eq!(off_room_give.status, 404);
-        assert!(off_room_give.output.contains("Gust"));
-        assert!(off_room_give.output.contains("The Cosy Cottage"));
-        assert!(off_room_give.output.contains("Rain-Soft Garden"));
-
-        let drop = runtime
-            .resolve_command(&command_request(5000, "drop dewbright"), &access)
-            .expect("drop resolves");
-        match drop.dispatch {
-            CommandDispatch::Drop { item_id } => {
-                assert_eq!(item_id, 2002);
-                let mut drop_action = CwAction::default();
-                drop_action.kind = CW_ACTION_DROP_ITEM;
-                drop_action.actor_id = 5000;
-                drop_action.item_id = item_id;
-                let (status, drop_events) =
-                    runtime.apply_journal_record(&JournalRecord::new(drop_action, 7833));
-                assert_eq!(status, CW_OK);
-                assert_eq!(
-                    command_response_output(None, &drop_events).as_deref(),
-                    Some("You drop Dewbright Button.")
-                );
-                assert!(runtime.world.items[..runtime.world.item_count]
-                    .iter()
-                    .any(|item| {
-                        item.id == 2002 && item.location_id == 2 && item.holder_actor_id == 0
-                    }));
-            }
-            other => panic!("drop should map to item drop, got {other:?}"),
-        }
-
-        let inventory = runtime
-            .resolve_command(&command_request(5000, "inventory"), &access)
-            .expect("inventory resolves after drop");
-        match inventory.dispatch {
-            CommandDispatch::Read { output } => assert!(!output.contains("Dewbright Button")),
-            other => panic!("inventory should be read-only, got {other:?}"),
-        }
-
-        let take_again = runtime
-            .resolve_command(&command_request(5000, "take dewbright"), &access)
-            .expect("retake resolves");
-        match take_again.dispatch {
-            CommandDispatch::PickUp { item_id, .. } => assert_eq!(item_id, 2002),
-            other => panic!("retake should map to pick-up, got {other:?}"),
-        }
-        pickup.item_id = 2002;
-        let (status, pickup_events) =
-            runtime.apply_journal_record(&JournalRecord::new(pickup, 7834));
-        assert_eq!(status, CW_OK);
-        assert!(pickup_events
-            .iter()
-            .any(|event| event.type_name == "item.picked_up" && event.item_id == Some(2002)));
-
-        move_action.destination_location_id = 1;
-        assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(move_action, 7835))
-                .0,
-            CW_OK
-        );
-
-        pickup.item_id = 2005;
-        assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(pickup, 7836))
-                .0,
-            CW_OK
-        );
-        let use_feature = runtime
-            .resolve_command(
-                &command_request(5000, "use Story Button on scarf basket"),
-                &access,
-            )
-            .expect("use feature resolves");
-        assert_eq!(
-            use_feature
-                .action
-                .as_ref()
-                .map(|action| action.kind.as_str()),
-            Some("use_feature")
-        );
-        match use_feature.dispatch {
-            CommandDispatch::UseFeature {
-                item_id,
-                location_id,
-                feature_key,
-                output,
-            } => {
-                assert_eq!(item_id, 2005);
-                assert_eq!(location_id, 1);
-                assert_eq!(feature_key, "scarf_basket");
-                assert!(output.contains("Story Button"));
-                assert!(output.contains("fits the notch"));
-                let mut feature_record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_NONE,
-                        actor_id: 5000,
-                        ..CwAction::default()
-                    },
-                    7837,
-                );
-                feature_record
-                    .projection_mutations
-                    .push(ProjectionMutation::UseFeature {
-                        item_id,
-                        location_id,
-                        feature_key: feature_key.clone(),
-                        content: output.clone(),
-                        reason: "use_feature".to_string(),
-                    });
-                let (status, events) = runtime.apply_journal_record(&feature_record);
-                assert_eq!(status, CW_OK);
-                assert!(events.iter().any(|event| {
-                    event.type_name == "item.used"
-                        && event.actor_id == Some(5000)
-                        && event.item_id == Some(2005)
-                }));
-                assert!(events.iter().any(|event| {
-                    event.type_name == "bond.deepened"
-                        && event.actor_id == Some(5000)
-                        && event.target_actor_id == Some(RATI_ACTOR_ID)
-                        && event
-                            .content
-                            .as_deref()
-                            .map(|content| content.contains("story_button_scarf"))
-                            .unwrap_or(false)
-                }));
-                assert!(events.iter().any(|event| {
-                    event.type_name == "tag.applied"
-                        && event.tag_id.as_deref()
-                            == Some(feature_use_tag_id(5000, 1, &feature_key, 2005).as_str())
-                }));
-                assert!(events
-                    .iter()
-                    .any(|event| event.type_name == "ledger.marked"));
-                let feature_views = runtime.room_feature_views(1, Some(5000));
-                assert!(feature_views
-                    .iter()
-                    .flat_map(|feature| feature.uses.iter())
-                    .any(|use_case| use_case.item_id == 2005 && use_case.used));
-                assert!(feature_views
-                    .iter()
-                    .flat_map(|feature| feature.uses.iter())
-                    .any(|use_case| use_case.item_id == 2005
-                        && use_case.effect.as_deref() == Some("friendship with Rati grows")));
-                let feature_state = runtime.state_response(Some(5000), &access);
-                let rati_bond = feature_state
-                    .bonds
-                    .iter()
-                    .find(|bond| bond.target_actor_id == RATI_ACTOR_ID)
-                    .expect("Story Button feature use deepens Rati bond");
-                assert_eq!(rati_bond.strength, 1);
-                let output = command_response_output(Some(output.clone()), &events)
-                    .expect("feature use has command output");
-                assert!(output.contains("fits the notch"));
-            }
-            other => panic!("feature use should map to projected item use, got {other:?}"),
-        }
-
-        let carried = runtime
-            .resolve_command(&command_request(5000, "inventory"), &access)
-            .expect("multi-card Pack resolves");
-        match carried.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Dewbright Button"));
-                assert!(output.contains("Story Button"));
-            }
-            other => panic!("inventory should show both carried cards, got {other:?}"),
-        }
-
-        let give = runtime
-            .resolve_command(&command_request(5000, "give dewbright to gust"), &access)
-            .expect("give resolves");
-        assert_eq!(
-            give.action.as_ref().map(|action| action.command.as_str()),
-            Some("give Dewbright Button to Gust")
-        );
-        match give.dispatch {
-            CommandDispatch::GiveItem {
-                item_id,
-                target_actor_id,
-            } => {
-                assert_eq!(item_id, 2002);
-                assert_eq!(target_actor_id, 1002);
-            }
-            other => panic!("give should map to give-item, got {other:?}"),
-        }
-
-        let chat = runtime
-            .resolve_command(&command_request(5000, "talk rati"), &access)
-            .expect("chat resolves");
-        match chat.dispatch {
-            CommandDispatch::Chat { target_actor_id } => {
-                assert_eq!(target_actor_id, RATI_ACTOR_ID);
-            }
-            other => panic!("Chat should remain available within a friendship, got {other:?}"),
-        }
-
-        let report = runtime
-            .resolve_command(
-                &command_request(5000, "report rati: repeated room spam"),
-                &access,
-            )
-            .expect("report resolves");
-        match report.dispatch {
-            CommandDispatch::Report {
-                target_actor_id,
-                reason,
-            } => {
-                assert_eq!(target_actor_id, 1001);
-                assert_eq!(reason, "repeated room spam");
-                assert_eq!(report.command, "report Rati: repeated room spam");
-            }
-            other => panic!("report should map to moderation report, got {other:?}"),
-        }
-
-        for authored_command in ["say hello room", "/me waves by the hearth", "emote nods"] {
-            let error = runtime
-                .resolve_command(&command_request(5000, authored_command), &access)
-                .expect_err("client-authored speech must be absent from the command grammar");
-            assert_eq!(error.status, 404);
         }
     }
 
@@ -56448,36 +55627,28 @@ mod tests {
             )
             .is_some());
 
-        let look = runtime
-            .resolve_command(&command_request(5000, "look"), &AccessContext::default())
-            .expect("look resolves");
-        match look.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(output.contains("Moonlit Trail"));
-                assert!(output.contains("This place feels a little wild around the edges"));
-                assert!(output.contains("Shared questions:"));
-                assert!(output.contains(
-                    "Can travelers quiet the Moonlit Trail before its echoes turn every step against them?"
-                ));
-                assert!(output.contains("Progress: 0/4."));
-                assert!(output.contains("Trouble: 0/4."));
-                assert!(
-                    output.contains("What finishing changes: Footsteps sound like travelers again")
-                );
-                assert!(output.contains("Try:"));
-                assert!(!output.contains("Quiet the Moonlit Trail —"));
-                assert!(!output.contains("Echo Shatters the Trail —"));
-                assert!(output.contains("What lingers:"));
-                assert!(output.contains("moonlit threshold crossed"));
-                assert!(output.contains(
-                    "Your journal holds an older unsettled memory. Your next successful discovery will settle it automatically."
-                ));
-                assert!(!output.contains("frontier"));
-                assert!(!output.contains("growth left"));
-                assert!(!output.contains("Memory:"));
-            }
-            other => panic!("look should be read-only, got {other:?}"),
-        }
+        let actor = runtime.actor_by_id(5000).expect("look actor");
+        let output = runtime.room_command_output(actor, &AccessContext::default(), None);
+        assert!(output.contains("Moonlit Trail"));
+        assert!(output.contains("This place feels a little wild around the edges"));
+        assert!(output.contains("Shared questions:"));
+        assert!(output.contains(
+            "Can travelers quiet the Moonlit Trail before its echoes turn every step against them?"
+        ));
+        assert!(output.contains("Progress: 0/4."));
+        assert!(output.contains("Trouble: 0/4."));
+        assert!(output.contains("What finishing changes: Footsteps sound like travelers again"));
+        assert!(output.contains("Try:"));
+        assert!(!output.contains("Quiet the Moonlit Trail —"));
+        assert!(!output.contains("Echo Shatters the Trail —"));
+        assert!(output.contains("What lingers:"));
+        assert!(output.contains("moonlit threshold crossed"));
+        assert!(output.contains(
+            "Your journal holds an older unsettled memory. Your next successful discovery will settle it automatically."
+        ));
+        assert!(!output.contains("frontier"));
+        assert!(!output.contains("growth left"));
+        assert!(!output.contains("Memory:"));
     }
 
     #[test]
@@ -61405,19 +60576,6 @@ mod tests {
         assert_eq!(restored_state.bonds[0].strength, 1);
 
         let revised_statement = "Gust trusts me with thunder tea.";
-        let blocked_revision = runtime
-            .resolve_command(
-                &command_request(5000, &format!("bond gust: {revised_statement}")),
-                &access,
-            )
-            .expect("bond revision command remains recognized before banking");
-        match blocked_revision.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("one banked advancement point"));
-            }
-            other => panic!("unbanked bond revision should be disabled, got {other:?}"),
-        }
 
         let mut bank_action = CwAction::default();
         bank_action.kind = CW_ACTION_NONE;
@@ -61439,23 +60597,6 @@ mod tests {
             .advancement_points;
         let revision_cost = usize::from(BOND_REVISION_COST);
         assert!(advancement_before_revision >= revision_cost);
-
-        let revise_command = runtime
-            .resolve_command(
-                &command_request(5000, &format!("revise bond gust: {revised_statement}")),
-                &access,
-            )
-            .expect("banked bond revision resolves as a command");
-        match revise_command.dispatch {
-            CommandDispatch::ReviseBond {
-                target_actor_id,
-                statement,
-            } => {
-                assert_eq!(target_actor_id, 1002);
-                assert_eq!(statement, revised_statement);
-            }
-            other => panic!("banked bond revision should dispatch, got {other:?}"),
-        }
 
         let mut revise_action = CwAction::default();
         revise_action.kind = CW_ACTION_NONE;
@@ -61494,31 +60635,6 @@ mod tests {
             revised_state.ledger.advancement_points,
             advancement_before_revision - revision_cost
         );
-
-        let repeat_revision = runtime
-            .resolve_command(
-                &command_request(5000, &format!("bond gust: {revised_statement}")),
-                &access,
-            )
-            .expect("same bond revision remains recognized");
-        match repeat_revision.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(!output.trim().is_empty());
-            }
-            other => panic!("same bond revision should be disabled, got {other:?}"),
-        }
-
-        let remember_command = runtime
-            .resolve_command(&command_request(5000, "remember gust"), &access)
-            .expect("Bond remember command remains recognized");
-        match remember_command.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("Spend a little more time"));
-            }
-            other => panic!("strength-1 Bond should not become a memory yet, got {other:?}"),
-        }
     }
 
     #[test]

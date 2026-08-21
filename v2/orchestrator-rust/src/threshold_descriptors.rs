@@ -3865,30 +3865,6 @@ mod tests {
             CW_GATE_METHOD_RESOLUTION_CERTAIN
         );
 
-        let terminal = runtime
-            .resolve_command(
-                &CommandRequest {
-                    actor_id: 5_100,
-                    actor_session: None,
-                    command: "open".to_string(),
-                    offer_id: None,
-                    wallet_session: None,
-                    envelope: None,
-                },
-                &access,
-            )
-            .expect("terminal open");
-        let CommandDispatch::OpenThreshold {
-            action: terminal_action,
-        } = terminal.dispatch
-        else {
-            panic!("terminal must dispatch the exact threshold action");
-        };
-        assert_eq!(
-            serde_json::to_value(*terminal_action).expect("terminal action"),
-            serde_json::to_value(planned).expect("planned action")
-        );
-
         complete_guided_story_for_test(&mut runtime, 5_100);
         let dealt_key_offer = runtime
             .draw_until_test_offer(5_100, &access, |offer| {
@@ -3903,7 +3879,6 @@ mod tests {
                 &CommandRequest {
                     actor_id: 5_100,
                     actor_session: None,
-                    command: String::new(),
                     offer_id: Some(dealt_key_offer.offer_id.clone()),
                     wallet_session: None,
                     envelope: None,

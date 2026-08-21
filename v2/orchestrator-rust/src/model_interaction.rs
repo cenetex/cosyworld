@@ -501,16 +501,6 @@ impl RuntimeWorld {
             .and_then(|target| supported_profile_for_actor(target.id))
     }
 
-    #[cfg(test)]
-    pub(super) fn model_interaction_profile_for(
-        &self,
-        actor_id: u64,
-        target_actor_id: u64,
-    ) -> Option<ModelInteractionProfile> {
-        self.model_interaction_plan_for(actor_id, target_actor_id)
-            .map(|plan| plan.profile)
-    }
-
     pub(super) fn model_interaction_offer_label(&self, actor_id: u64) -> &'static str {
         self.model_interaction_offer_profile(actor_id)
             .map(ModelInteractionProfile::label)

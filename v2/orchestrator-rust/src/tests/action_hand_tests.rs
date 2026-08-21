@@ -66,9 +66,6 @@ fn live_command_request(actor_id: u64, actor_session: &str, offer_id: String) ->
     CommandRequest {
         actor_id,
         actor_session: Some(actor_session.to_string()),
-        // The command text is deliberately inert: the current certified card
-        // identity, not reparsed prose, selects the authoritative action.
-        command: "card identity selects this action".to_string(),
         offer_id: Some(offer_id),
         wallet_session: None,
         envelope: None,
@@ -1578,7 +1575,6 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
             actor_id,
             &actor_session,
             "test:certified-pass",
-            "pass",
         );
         request.offer_id = Some(hand.pass.offer_id);
         let mut cross_actor_request = canonical_test_command_request(
@@ -1586,7 +1582,6 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
             other_actor_id,
             &other_actor_session,
             "test:certified-pass-cross-actor",
-            "pass",
         );
         cross_actor_request.offer_id = request.offer_id.clone();
         (
@@ -2804,12 +2799,15 @@ async fn direct_loadout_configuration_is_turn_neutral_outside_a_focused_scene() 
     let before_hand_generation = before_state.action_hand.generation;
     let state = test_app_state(runtime, None);
     let actor_session = issue_actor_session(&state, 5000).0;
-    let mut request = command_request(5000, "wield Ashwood Practice Blade");
-    request.actor_session = Some(actor_session);
-    let response = command(
+    let response = set_item_equipped(
         ConnectInfo("127.0.0.1:46023".parse().expect("client address")),
         State(state.clone()),
-        Json(request),
+        Json(SetCharmEquippedRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            item_id: 2013,
+            equipped: true,
+        }),
     )
     .await
     .0;
@@ -2893,12 +2891,15 @@ async fn direct_loadout_configuration_is_rejected_without_hand_or_world_change_i
     .expect("hand serializes");
     let state = test_app_state(runtime, None);
     let actor_session = issue_actor_session(&state, 5000).0;
-    let mut request = command_request(5000, "wield Ashwood Practice Blade");
-    request.actor_session = Some(actor_session);
-    let response = command(
+    let response = set_item_equipped(
         ConnectInfo("127.0.0.1:46024".parse().expect("client address")),
         State(state.clone()),
-        Json(request),
+        Json(SetCharmEquippedRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            item_id: 2013,
+            equipped: true,
+        }),
     )
     .await
     .0;

@@ -513,7 +513,6 @@ mod tests {
                 Json(CommandRequest {
                     actor_id: TEST_ACTOR_ID,
                     actor_session: Some(session),
-                    command: "this prose must not select the action".to_string(),
                     offer_id: Some(offer_id),
                     wallet_session: None,
                     envelope: None,

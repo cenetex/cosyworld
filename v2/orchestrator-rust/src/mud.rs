@@ -32,7 +32,6 @@ pub(crate) struct CommandRequest {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommandErrorKind {
-    ParseFailure,
     ProseRetired,
     InvalidOfferId,
     StaleOffer,
@@ -1078,29 +1077,29 @@ mod room_output {
     use super::*;
     use std::collections::BTreeSet;
 
-fn clock_summary(clock: &ClockView) -> String {
-    let feeling = if clock.segments > 0 && clock.filled >= clock.segments {
-        "comes due"
-    } else if clock.filled == 0 {
-        "is only just beginning"
-    } else if clock.filled.saturating_mul(2) >= clock.segments {
-        "draws close"
-    } else {
-        "is taking shape"
-    };
-    format!("{} — {feeling}", clock.label)
-}
-
-fn room_zone_feeling(zone: &str) -> &'static str {
-    match zone {
-        ZONE_SANCTUARY => "safe and welcoming",
-        ZONE_FRONTIER => "a little wild around the edges",
-        _ => "full of its own small character",
+    fn clock_summary(clock: &ClockView) -> String {
+        let feeling = if clock.segments > 0 && clock.filled >= clock.segments {
+            "comes due"
+        } else if clock.filled == 0 {
+            "is only just beginning"
+        } else if clock.filled.saturating_mul(2) >= clock.segments {
+            "draws close"
+        } else {
+            "is taking shape"
+        };
+        format!("{} — {feeling}", clock.label)
     }
-}
 
-fn journal_memory_summary(ledger: &VisitLedgerView) -> Option<&'static str> {
-    match (
+    fn room_zone_feeling(zone: &str) -> &'static str {
+        match zone {
+            ZONE_SANCTUARY => "safe and welcoming",
+            ZONE_FRONTIER => "a little wild around the edges",
+            _ => "full of its own small character",
+        }
+    }
+
+    fn journal_memory_summary(ledger: &VisitLedgerView) -> Option<&'static str> {
+        match (
         ledger.unbanked_count > 0,
         ledger.advancement_points > 0,
         ledger.banked_count > 0,
@@ -1119,141 +1118,141 @@ fn journal_memory_summary(ledger: &VisitLedgerView) -> Option<&'static str> {
         }
         (false, false, false) => None,
     }
-}
-
-fn tag_belongs_in_room_description(tag: &TagView) -> bool {
-    !matches!(
-        tag.label.trim().to_ascii_lowercase().as_str(),
-        "searched location"
-            | "frontier travel"
-            | "prepared"
-            | "spent preparation"
-            | "helped"
-            | "trained"
-            | "purpose changed"
-            | "friendship changed"
-    )
-}
-
-pub(crate) fn command_list_or_none(values: &[String]) -> String {
-    if values.is_empty() {
-        "none".to_string()
-    } else {
-        values.join(", ")
     }
-}
 
+    fn tag_belongs_in_room_description(tag: &TagView) -> bool {
+        !matches!(
+            tag.label.trim().to_ascii_lowercase().as_str(),
+            "searched location"
+                | "frontier travel"
+                | "prepared"
+                | "spent preparation"
+                | "helped"
+                | "trained"
+                | "purpose changed"
+                | "friendship changed"
+        )
+    }
 
+    #[cfg(test)]
+    pub(crate) fn command_list_or_none(values: &[String]) -> String {
+        if values.is_empty() {
+            "none".to_string()
+        } else {
+            values.join(", ")
+        }
+    }
+    #[cfg(test)]
     impl RuntimeWorld {
-    pub(super) fn room_command_output(
-        &self,
-        actor: CwActor,
-        access: &AccessContext,
-        active_direct_actor_ids: Option<&BTreeSet<u64>>,
-    ) -> String {
-        let location_id = actor.location_id;
-        let location = self.location_view(location_id);
-        let actors = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
-            .filter(|visible_actor| {
-                self.actor_visible_in_projection(
-                    *visible_actor,
-                    Some(actor.id),
-                    active_direct_actor_ids,
-                )
-            })
-            .map(|actor| self.actor_view(actor).name)
-            .collect::<Vec<_>>();
-        let items = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| item.location_id == location_id)
-            .map(|item| self.item_view(item).name)
-            .collect::<Vec<_>>();
-        let exits = self
-            .exit_views(Some(actor.id), location_id, access)
-            .into_iter()
-            .filter(|exit| exit.accessible && !exit.locked)
-            .map(|exit| {
-                exit.direction
-                    .as_deref()
-                    .map(|direction| format!("{direction}: {}", exit.destination_location_name))
-                    .unwrap_or(exit.destination_location_name)
-            })
-            .collect::<Vec<_>>();
-        let mut lines = vec![
-            format!("{} - {}", location.name, location.title),
-            location.description,
-            format!("Here: {}.", command_list_or_none(&actors)),
-            format!("You notice: {}.", command_list_or_none(&items)),
-            format!("Ways onward: {}.", command_list_or_none(&exits)),
-        ];
+        pub(crate) fn room_command_output(
+            &self,
+            actor: CwActor,
+            access: &AccessContext,
+            active_direct_actor_ids: Option<&BTreeSet<u64>>,
+        ) -> String {
+            let location_id = actor.location_id;
+            let location = self.location_view(location_id);
+            let actors = self.world.actors[..self.world.actor_count]
+                .iter()
+                .copied()
+                .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
+                .filter(|visible_actor| {
+                    self.actor_visible_in_projection(
+                        *visible_actor,
+                        Some(actor.id),
+                        active_direct_actor_ids,
+                    )
+                })
+                .map(|actor| self.actor_view(actor).name)
+                .collect::<Vec<_>>();
+            let items = self.world.items[..self.world.item_count]
+                .iter()
+                .copied()
+                .filter(|item| item.location_id == location_id)
+                .map(|item| self.item_view(item).name)
+                .collect::<Vec<_>>();
+            let exits = self
+                .exit_views(Some(actor.id), location_id, access)
+                .into_iter()
+                .filter(|exit| exit.accessible && !exit.locked)
+                .map(|exit| {
+                    exit.direction
+                        .as_deref()
+                        .map(|direction| format!("{direction}: {}", exit.destination_location_name))
+                        .unwrap_or(exit.destination_location_name)
+                })
+                .collect::<Vec<_>>();
+            let mut lines = vec![
+                format!("{} - {}", location.name, location.title),
+                location.description,
+                format!("Here: {}.", command_list_or_none(&actors)),
+                format!("You notice: {}.", command_list_or_none(&items)),
+                format!("Ways onward: {}.", command_list_or_none(&exits)),
+            ];
 
-        if let Some(sheet) = self.room_sheet_view(location_id) {
-            let aspects = command_list_or_none(&sheet.aspects);
-            lines.push(format!(
-                "This place feels {}. You notice: {}.",
-                room_zone_feeling(&sheet.zone),
-                aspects
-            ));
-            if !sheet.natural_features.is_empty() {
-                let features = sheet
-                    .natural_features
-                    .iter()
-                    .map(|feature| feature.resource_kind.label().to_string())
-                    .collect::<Vec<_>>();
-                let buildings = sheet
-                    .eligible_building_archetypes
-                    .iter()
-                    .map(|building| building.replace('_', " "))
-                    .collect::<Vec<_>>();
+            if let Some(sheet) = self.room_sheet_view(location_id) {
+                let aspects = command_list_or_none(&sheet.aspects);
                 lines.push(format!(
-                    "Known natural features: {}. They can support: {}.",
-                    command_list_or_none(&features),
-                    command_list_or_none(&buildings)
+                    "This place feels {}. You notice: {}.",
+                    room_zone_feeling(&sheet.zone),
+                    aspects
+                ));
+                if !sheet.natural_features.is_empty() {
+                    let features = sheet
+                        .natural_features
+                        .iter()
+                        .map(|feature| feature.resource_kind.label().to_string())
+                        .collect::<Vec<_>>();
+                    let buildings = sheet
+                        .eligible_building_archetypes
+                        .iter()
+                        .map(|building| building.replace('_', " "))
+                        .collect::<Vec<_>>();
+                    lines.push(format!(
+                        "Known natural features: {}. They can support: {}.",
+                        command_list_or_none(&features),
+                        command_list_or_none(&buildings)
+                    ));
+                }
+                if !sheet.governance_decisions.is_empty() {
+                    lines.push(self.governance_command_output(location_id));
+                }
+            }
+
+            let recent_consequences = self.recent_room_consequences(location_id, 3);
+            if !recent_consequences.is_empty() {
+                lines.push(format!(
+                    "Recent changes: {}.",
+                    recent_consequences.join(" | ")
                 ));
             }
-            if !sheet.governance_decisions.is_empty() {
-                lines.push(self.governance_command_output(location_id));
+
+            if let Some(first_tale) = self.first_tale_view(actor.id) {
+                if first_tale.phase == "complete" {
+                    lines.push(format!(
+                        "Your first tale: {} Next: {}",
+                        first_tale.completion_memory, first_tale.next_invitation
+                    ));
+                } else {
+                    lines.push(format!(
+                        "Your first tale: {} Target: {} What finishing changes: {} Next: {}",
+                        first_tale.question,
+                        first_tale.target_label,
+                        first_tale.consequence,
+                        first_tale.instruction
+                    ));
+                }
             }
-        }
 
-        let recent_consequences = self.recent_room_consequences(location_id, 3);
-        if !recent_consequences.is_empty() {
-            lines.push(format!(
-                "Recent changes: {}.",
-                recent_consequences.join(" | ")
-            ));
-        }
-
-        if let Some(first_tale) = self.first_tale_view(actor.id) {
-            if first_tale.phase == "complete" {
-                lines.push(format!(
-                    "Your first tale: {} Next: {}",
-                    first_tale.completion_memory, first_tale.next_invitation
-                ));
-            } else {
-                lines.push(format!(
-                    "Your first tale: {} Target: {} What finishing changes: {} Next: {}",
-                    first_tale.question,
-                    first_tale.target_label,
-                    first_tale.consequence,
-                    first_tale.instruction
-                ));
-            }
-        }
-
-        let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
-        let action_hand = self.action_hand_for(Some(actor.id), &action_offers);
-        let shared_questions = self.shared_question_views_with_actions(
-            location_id,
-            Some(actor.id),
-            &action_offers,
-            &action_hand,
-        );
-        let promoted_questions = shared_questions
+            let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
+            let action_hand = self.action_hand_for(Some(actor.id), &action_offers);
+            let shared_questions = self.shared_question_views_with_actions(
+                location_id,
+                Some(actor.id),
+                &action_offers,
+                &action_hand,
+            );
+            let promoted_questions = shared_questions
             .iter()
             .filter(|question| question.promoted)
             .map(|question| {
@@ -1307,50 +1306,49 @@ pub(crate) fn command_list_or_none(values: &[String]) -> String {
                 )
             })
             .collect::<Vec<_>>();
-        if !promoted_questions.is_empty() {
-            lines.push(format!(
-                "Shared questions: {}",
-                promoted_questions.join(" | ")
-            ));
-        } else if let Some(question) = shared_questions
-            .iter()
-            .find(|question| question.presentation_state == "completed_memory")
-        {
-            let contributors = command_list_or_none(&question.participant_names);
-            lines.push(format!(
-                "What changed here: {} Contributors: {}.",
-                question
-                    .completion_memory
-                    .as_deref()
-                    .unwrap_or(&question.situation),
-                contributors,
-            ));
+            if !promoted_questions.is_empty() {
+                lines.push(format!(
+                    "Shared questions: {}",
+                    promoted_questions.join(" | ")
+                ));
+            } else if let Some(question) = shared_questions
+                .iter()
+                .find(|question| question.presentation_state == "completed_memory")
+            {
+                let contributors = command_list_or_none(&question.participant_names);
+                lines.push(format!(
+                    "What changed here: {} Contributors: {}.",
+                    question
+                        .completion_memory
+                        .as_deref()
+                        .unwrap_or(&question.situation),
+                    contributors,
+                ));
+            }
+
+            let clocks = self.clock_views(location_id);
+            if shared_questions.is_empty() && !clocks.is_empty() {
+                let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
+                lines.push(format!("Things unfolding: {}.", clock_lines.join(", ")));
+            }
+
+            let tags = self
+                .tag_views(Some(actor.id), location_id)
+                .into_iter()
+                .filter(tag_belongs_in_room_description)
+                .collect::<Vec<_>>();
+            if !tags.is_empty() {
+                let tag_lines = tags.into_iter().map(|tag| tag.label).collect::<Vec<_>>();
+                lines.push(format!("What lingers: {}.", tag_lines.join(", ")));
+            }
+
+            let ledger = self.visit_ledger_view(actor.id);
+            if let Some(summary) = journal_memory_summary(&ledger) {
+                lines.push(summary.to_string());
+            }
+
+            lines.join("\n")
         }
-
-        let clocks = self.clock_views(location_id);
-        if shared_questions.is_empty() && !clocks.is_empty() {
-            let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
-            lines.push(format!("Things unfolding: {}.", clock_lines.join(", ")));
-        }
-
-        let tags = self
-            .tag_views(Some(actor.id), location_id)
-            .into_iter()
-            .filter(tag_belongs_in_room_description)
-            .collect::<Vec<_>>();
-        if !tags.is_empty() {
-            let tag_lines = tags.into_iter().map(|tag| tag.label).collect::<Vec<_>>();
-            lines.push(format!("What lingers: {}.", tag_lines.join(", ")));
-        }
-
-        let ledger = self.visit_ledger_view(actor.id);
-        if let Some(summary) = journal_memory_summary(&ledger) {
-            lines.push(summary.to_string());
-        }
-
-        lines.join("\n")
-    }
-
     }
 }
 
@@ -1359,135 +1357,49 @@ mod tests {
     use super::*;
     use crate::test_support::create_test_human;
 
-    fn command_request(command: &str) -> CommandRequest {
-        CommandRequest {
-            actor_id: 5000,
-            actor_session: None,
-            command: command.to_string(),
-            offer_id: None,
-            wallet_session: None,
-            envelope: None,
-        }
-    }
-
-    fn disabled_output(runtime: &RuntimeWorld, command: &str) -> String {
-        let resolved = runtime
-            .resolve_command(&command_request(command), &AccessContext::default())
-            .unwrap_or_else(|error| panic!("{command} should resolve: {error:?}"));
-        match resolved.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409, "{command} should be advancement-gated");
-                output
-            }
-            other => panic!("{command} should be disabled, got {other:?}"),
-        }
-    }
-
-    fn assert_actionable_advancement_gate(output: &str) {
-        assert!(output.contains("one banked advancement point"));
-        assert!(output.contains("listen or study"));
-        assert!(output.contains("banks advancement automatically"));
-        assert!(!output.contains("Grow first"));
-    }
-
     #[test]
-    fn zero_point_social_and_calling_gates_name_a_reachable_next_action() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "New Friend");
-        assert_eq!(runtime.advancement_points_available(5000), 0);
-
-        let chat = runtime
-            .resolve_command(&command_request("chat Rati"), &AccessContext::default())
-            .expect("free Chat should resolve without advancement");
-        assert!(
-            matches!(
-                chat.dispatch,
-                CommandDispatch::Chat {
-                    target_actor_id: RATI_ACTOR_ID
-                }
-            ),
-            "Chat is conversation, not an advancement-spending friendship action"
-        );
-
-        for command in [
-            "purpose I listen for odd jobs.",
-            "friendship Rati: I bring small kindnesses to Rati.",
-        ] {
-            assert_actionable_advancement_gate(&disabled_output(&runtime, command));
-        }
-
-        let friendship_id = bond_id(5000, RATI_ACTOR_ID);
-        runtime.bonds.insert(
-            friendship_id.clone(),
-            BondState {
-                id: friendship_id,
-                actor_id: 5000,
-                target_actor_id: RATI_ACTOR_ID,
-                statement: "I bring small kindnesses to Rati.".to_string(),
-                strength: 1,
-                status: "active".to_string(),
-                source_event_seq: Some(90_407),
-                updated_event_seq: Some(90_407),
-                dialogue_status: String::new(),
-                dialogue_event_seq: None,
-            },
-        );
-        assert_actionable_advancement_gate(&disabled_output(
-            &runtime,
-            "friendship Rati: I listen when Rati needs company.",
-        ));
-    }
-
-    #[test]
-    fn retired_growth_aliases_are_actionable_but_absent_from_help() {
+    fn typed_prose_submission_is_retired_with_a_typed_error() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
             5000,
             COSY_COTTAGE_LOCATION_ID,
-            "Journal Reader",
+            "Prose Speaker",
         );
-
-        for command in ["grow", "bank"] {
-            let resolved = runtime
-                .resolve_command(&command_request(command), &AccessContext::default())
-                .unwrap_or_else(|error| panic!("{command} should resolve: {error:?}"));
-            match resolved.dispatch {
-                CommandDispatch::Read { output } => {
-                    assert!(output.contains("has retired"));
-                    assert!(output.contains("listen or study"));
-                    assert!(output.contains("banks advancement automatically"));
-                }
-                other => panic!("{command} should explain its retirement, got {other:?}"),
-            }
-        }
-
-        let help = runtime
-            .resolve_command(&command_request("help"), &AccessContext::default())
-            .expect("help should resolve");
-        match help.dispatch {
-            CommandDispatch::Read { output } => {
-                assert!(!output.contains(", grow"));
-                assert!(!output.contains(", bank"));
-            }
-            other => panic!("help should be read-only, got {other:?}"),
-        }
+        let payload = CommandRequest {
+            actor_id: 5000,
+            actor_session: None,
+            offer_id: None,
+            wallet_session: None,
+            envelope: None,
+        };
+        let error = runtime
+            .resolve_command_submission(&payload, &AccessContext::default(), None, None)
+            .expect_err("prose-only submissions are retired");
+        assert_eq!(error.status, 400);
+        assert_eq!(error.kind, CommandErrorKind::ProseRetired);
+        assert!(error.output.contains("Story Hand"));
     }
 
     #[test]
-    fn semantic_model_commands_consume_case_insensitive_phrases_without_losing_target_case() {
-        assert_eq!(
-            strip_ascii_command_prefix("Resonance Echo Prime", "resonance"),
-            Some("Echo Prime")
+    fn blank_offer_id_is_also_prose_and_is_rejected() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Blank Speaker",
         );
-        assert_eq!(
-            strip_ascii_command_prefix("ECHOES Model Seven", "echoes"),
-            Some("Model Seven")
-        );
-        assert_eq!(
-            strip_ascii_command_prefix("resonances Echo", "resonance"),
-            None
-        );
-        assert_eq!(canonical_command_verb("speak"), "speak");
+        let payload = CommandRequest {
+            actor_id: 5000,
+            actor_session: None,
+            offer_id: Some("   ".to_string()),
+            wallet_session: None,
+            envelope: None,
+        };
+        let error = runtime
+            .resolve_command_submission(&payload, &AccessContext::default(), None, None)
+            .expect_err("blank identifiers never reach offer selection");
+        assert_eq!(error.kind, CommandErrorKind::InvalidOfferId);
     }
 }

@@ -83,7 +83,7 @@ fn submitted_payload_u64(payload: &serde_json::Value, key: &str) -> Option<u64> 
     payload.get(key).and_then(serde_json::Value::as_u64)
 }
 
-fn offer_provider_item_id(offer: &RankedActionOffer) -> Option<u64> {
+pub(super) fn offer_provider_item_id(offer: &RankedActionOffer) -> Option<u64> {
     offer
         .provider
         .id
@@ -3291,12 +3291,11 @@ pub(super) fn action_offer_category(kind: &str) -> &'static str {
 mod tests {
     use super::*;
 
-    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    fn offer_request(actor_id: u64, offer_id: &str) -> CommandRequest {
         CommandRequest {
             actor_id,
             actor_session: None,
-            command: command.to_string(),
-            offer_id: None,
+            offer_id: Some(offer_id.to_string()),
             wallet_session: None,
             envelope: None,
         }
@@ -3453,30 +3452,21 @@ mod tests {
     }
 
     #[test]
-    fn composed_offers_advertise_commands_the_typed_client_can_resolve() {
+    fn composed_offers_publish_structured_identities_the_client_can_resolve() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Offer Tester");
         let access = AccessContext::default();
         let (primary, offers) = runtime.legal_action_candidates(Some(5000), &access);
 
         for offer in &offers {
-            runtime
-                .resolve_command(&command_request(5000, &offer.command), &access)
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "{} advertised unroutable command {:?}: {}",
-                        offer.offer_id, offer.command, error.output
-                    )
-                });
+            assert!(!offer.offer_id.is_empty());
+            assert!(!offer.kind.is_empty());
+            assert!(!offer.command.is_empty());
         }
-        runtime
-            .resolve_command(&command_request(5000, &primary.command), &access)
-            .expect("the primary action advertises a routable command");
         assert!(offers.iter().any(|offer| offer.command == primary.command));
 
-        let offer = offers
-            .iter()
-            .find(|offer| {
+        let offer = runtime
+            .draw_until_test_offer(5000, &access, |offer| {
                 offer
                     .composition_trace
                     .contextual_offers
@@ -3487,8 +3477,8 @@ mod tests {
         assert_eq!(offer.label, "Ask for a local lead");
         assert_eq!(offer.command, "influence Rati");
         let resolved = runtime
-            .resolve_command(&command_request(5000, &offer.command), &access)
-            .expect("the advertised contextual command resolves");
+            .resolve_command_submission(&offer_request(5000, &offer.offer_id), &access, None, None)
+            .expect("the advertised contextual offer resolves");
         assert_eq!(resolved.command, offer.command);
         assert!(matches!(
             resolved.dispatch,
@@ -3497,9 +3487,8 @@ mod tests {
             }
         ));
 
-        let scout = offers
-            .iter()
-            .find(|offer| offer.kind == "explore_path")
+        let scout = runtime
+            .draw_until_test_offer(5000, &access, |offer| offer.kind == "explore_path")
             .expect("the seeded long journey exposes Scout");
         assert!(scout.route.is_some(), "Scout is bound to its route version");
         let destination_location_id = scout
@@ -3515,8 +3504,13 @@ mod tests {
         assert_eq!(scout.command, format!("scout {destination_label}"));
         assert!(matches!(
             runtime
-                .resolve_command(&command_request(5000, &scout.command), &access)
-                .expect("the advertised Scout command resolves")
+                .resolve_command_submission(
+                    &offer_request(5000, &scout.offer_id),
+                    &access,
+                    None,
+                    None,
+                )
+                .expect("the advertised Scout offer resolves")
                 .dispatch,
             CommandDispatch::Scout {
                 destination_location_id: resolved_destination_location_id
@@ -3565,21 +3559,28 @@ mod tests {
                 .as_ref()
                 .and_then(|target| target.id)
                 .expect("Scout offer has a destination");
+            let dealt = runtime
+                .draw_until_test_offer(5000, &access, |candidate| {
+                    candidate.kind == "explore_path"
+                        && candidate.target.as_ref().and_then(|target| target.id)
+                            == Some(destination_location_id)
+                })
+                .expect("each Scout destination rotates into the hand");
             assert!(matches!(
                 runtime
-                    .resolve_command(&command_request(5000, &offer.command), &access)
-                    .expect("each advertised Scout command resolves")
+                    .resolve_command_submission(
+                        &offer_request(5000, &dealt.offer_id),
+                        &access,
+                        None,
+                        None,
+                    )
+                    .expect("each advertised Scout offer resolves")
                     .dispatch,
                 CommandDispatch::Scout {
                     destination_location_id: resolved_destination_location_id
                 } if resolved_destination_location_id == destination_location_id
             ));
         }
-        let ambiguous = runtime
-            .resolve_command(&command_request(5000, "scout"), &access)
-            .expect_err("a branch requires naming the Scout destination");
-        assert_eq!(ambiguous.status, 404);
-        assert!(ambiguous.output.contains("matches"));
     }
 
     #[test]

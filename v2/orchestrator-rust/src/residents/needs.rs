@@ -515,15 +515,11 @@ mod tests {
             )
             .expect_err("Rati protects a desired item she already holds");
         assert!(refusal.contains("attached to Story Button"));
-        let command = runtime
-            .resolve_command(
-                &command_request(5000, "trade dewbright with rati for story"),
-                &AccessContext::default(),
-            )
-            .expect_err("refused trade should not dispatch");
-        assert_eq!(command.status, 409);
-        assert!(command.output.contains("attached to Story Button"));
         let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(state.action_offers.iter().all(|offer| {
+            offer.kind != "trade_item"
+                || offer.target.as_ref().and_then(|target| target.id) != Some(STORY_BUTTON_ITEM_ID)
+        }));
         let economy = state
             .actors
             .iter()

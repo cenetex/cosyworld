@@ -377,4 +377,7 @@
 # 63609 -> 63611: two comment lines recording why the pinned official item
 # count moved from 34 to 35 -- the core pack now authors one unplaced item for
 # its discovery slot. Test-only.
-63611
+# 63611 -> 62435: retire prose-command parsing, dispatch, and parser-only tests.
+# Clients now submit dealt offer IDs; retained command-shaped strings are authored
+# offer presentation data rather than an alternate client execution path.
+62435

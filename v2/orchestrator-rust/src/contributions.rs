@@ -1265,19 +1265,29 @@ mod tests {
                 })
                 .unwrap_or_else(|| panic!("missing {kind} offer for {strategy_id}"));
             assert_eq!(offer.command, format!("contribute {strategy_id}"));
+            let dealt = runtime
+                .draw_until_test_offer(5000, &AccessContext::default(), |candidate| {
+                    candidate.kind == kind
+                        && candidate.project.as_ref().is_some_and(|project| {
+                            project.id == FIRST_TALE_JOB_ID
+                                && project.strategy_id.as_deref() == Some(strategy_id)
+                        })
+                })
+                .expect("advertised contribution offer is dealt");
             let command = runtime
-                .resolve_command(
+                .resolve_command_submission(
                     &CommandRequest {
                         actor_id: 5000,
                         actor_session: None,
-                        command: offer.command.clone(),
-                        offer_id: None,
+                        offer_id: Some(dealt.offer_id),
                         wallet_session: None,
                         envelope: None,
                     },
                     &AccessContext::default(),
+                    None,
+                    None,
                 )
-                .expect("advertised contribution command parses");
+                .expect("advertised contribution offer resolves");
             assert!(matches!(
                 command.dispatch,
                 CommandDispatch::Contribute {

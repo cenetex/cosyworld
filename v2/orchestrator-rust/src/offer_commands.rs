@@ -323,7 +323,7 @@ impl RuntimeWorld {
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
         model_config: Option<&AiConfig>,
     ) -> Result<ResolvedCommand, CommandError> {
-        let Some(offer_id) = payload.offer_id.as_deref().map(str::trim) else {
+        let Some(raw_offer_id) = payload.offer_id.as_deref() else {
             return Err(offer_command_error(
                 "",
                 CommandErrorKind::ProseRetired,
@@ -331,6 +331,15 @@ impl RuntimeWorld {
                 "Typed commands are retired. Play a card from your Story Hand, or Think to replace one.",
             ));
         };
+        let offer_id = raw_offer_id.trim();
+        if offer_id.is_empty() {
+            return Err(offer_command_error(
+                offer_id,
+                CommandErrorKind::InvalidOfferId,
+                400,
+                "That offer_id is blank. Refresh the scene and submit an identifier from your Story Hand.",
+            ));
+        }
         let (mut primary_action, mut offers) = self.legal_action_candidates_with_presence(
             Some(payload.actor_id),
             access,
@@ -459,7 +468,6 @@ mod tests {
         CommandRequest {
             actor_id,
             actor_session: Some(session.to_string()),
-            command: "this prose must never be parsed".to_string(),
             offer_id: Some(offer_id.to_string()),
             wallet_session: None,
             envelope: None,
@@ -490,7 +498,7 @@ mod tests {
     }
 
     #[test]
-    fn offer_id_wins_over_legacy_prose_and_hashing_is_deterministic() {
+    fn offer_id_is_the_submission_identity_and_hashing_is_deterministic() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5_000, COSY_COTTAGE_LOCATION_ID, "ID Winner");
         let (_, offers) = runtime.legal_action_candidates(Some(5_000), &AccessContext::default());
@@ -506,8 +514,7 @@ mod tests {
             })
             .expect("seeded actor has an enabled dealt offer");
         let left = request(5_000, "session", &offer.offer_id);
-        let mut right = left.clone();
-        right.command = "different legacy prose".to_string();
+        let right = left.clone();
         let resolved = runtime
             .resolve_command_submission(&left, &AccessContext::default(), None, None)
             .expect("offer identity resolves before prose");
@@ -517,7 +524,7 @@ mod tests {
         );
         assert_eq!(
             command_submission_identity(&left),
-            command_submission_identity(&right)
+            format!("offer_id:{}", offer.offer_id)
         );
         assert_eq!(
             command_request_hash(
@@ -536,7 +543,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pre_change_prose_payload_remains_compatible_and_parse_failures_are_typed() {
+    async fn pre_change_prose_payload_deserializes_but_is_rejected_as_retired() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -548,22 +555,18 @@ mod tests {
             "actor_id": 5_000,
             "command": "look"
         }))
-        .expect("pre-offer_id command payload still deserializes");
+        .expect("unknown legacy command field is ignored during deserialization");
         assert_eq!(legacy.offer_id, None);
-        assert_eq!(command_submission_identity(&legacy), "look");
-        assert!(matches!(
-            runtime
-                .resolve_command_submission(&legacy, &AccessContext::default(), None, None)
-                .expect("legacy prose still resolves")
-                .dispatch,
-            CommandDispatch::Read { .. }
-        ));
+        assert_eq!(command_submission_identity(&legacy), "offer_id:");
+        let error = runtime
+            .resolve_command_submission(&legacy, &AccessContext::default(), None, None)
+            .expect_err("legacy prose no longer resolves");
+        assert_eq!(error.kind, CommandErrorKind::ProseRetired);
 
         let state = test_app_state(runtime, None);
         let (session, _) = issue_actor_session(&state, 5_000);
         let mut invalid = legacy;
         invalid.actor_session = Some(session);
-        invalid.command = "verb-that-does-not-exist".to_string();
         let response = command_inner(
             ConnectInfo("127.0.0.1:44089".parse().expect("client address")),
             State(state),
@@ -572,7 +575,7 @@ mod tests {
         .await
         .0;
         assert!(!response.ok);
-        assert_eq!(response.error_kind, Some(CommandErrorKind::ParseFailure));
+        assert_eq!(response.error_kind, Some(CommandErrorKind::ProseRetired));
         assert!(response.events.iter().any(|event| {
             event.type_name == "actor.presence" && event.content.as_deref() == Some("active")
         }));
@@ -599,29 +602,10 @@ mod tests {
         for slot_index in 0..slot_count {
             let state = test_app_state(runtime_from_bytes(&initial), None);
             let (session, _) = issue_actor_session(&state, 5_000);
-            let mut activate = request(5_000, &session, "");
-            activate.offer_id = None;
-            activate.command = "look".to_string();
-            let activation = command_inner(
-                ConnectInfo("127.0.0.1:44090".parse().expect("client address")),
-                State(state.clone()),
-                Json(activate),
-            )
-            .await
-            .0;
-            assert!(
-                activation.ok,
-                "read-only activation makes the session present"
-            );
-            let active_direct_actors = active_actor_ids_for_state(&state);
             let offer = {
                 let runtime = state.inner.lock().await;
-                let (mut primary_action, mut offers) = runtime
-                    .legal_action_candidates_with_presence(
-                        Some(5_000),
-                        &access,
-                        Some(&active_direct_actors),
-                    );
+                let (mut primary_action, mut offers) =
+                    runtime.legal_action_candidates(Some(5_000), &access);
                 retain_configured_model_interaction_offers(
                     &mut primary_action,
                     &mut offers,

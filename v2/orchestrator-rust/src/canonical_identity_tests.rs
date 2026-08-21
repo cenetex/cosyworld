@@ -280,7 +280,6 @@ fn canonical_version_test_offer_request(
     CommandRequest {
         actor_id,
         actor_session: Some(actor_session.to_string()),
-        command: "offer identity selects the action".to_string(),
         offer_id: Some(offer_id),
         wallet_session: None,
         envelope: Some(CanonicalCommandEnvelope {

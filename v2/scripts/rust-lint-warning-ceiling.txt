@@ -36,4 +36,6 @@
 # warnings by diffing clippy's per-warning short-format output between clean
 # main and the branch -- the sets are identical apart from line-number shifts
 # from the fix's three added main.rs lines.
-226
+# 226 -> 217: retiring prose-command parsing and its parser-only dispatch/tests
+# removed nine dead-code warnings from production and all-target test builds.
+217

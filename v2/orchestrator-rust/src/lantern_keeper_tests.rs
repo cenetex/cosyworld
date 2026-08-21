@@ -217,9 +217,13 @@ async fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
 
     let state = test_app_state(runtime, None);
     let (actor_session, _) = issue_actor_session(&state, actor_id);
-    let mut request = command_request(actor_id, &search_offer.command);
-    request.actor_session = Some(actor_session);
-    request.offer_id = Some(search_offer.offer_id);
+    let request = CommandRequest {
+        actor_id,
+        actor_session: Some(actor_session),
+        offer_id: Some(search_offer.offer_id),
+        wallet_session: None,
+        envelope: None,
+    };
     let response = command(
         ConnectInfo("127.0.0.1:0".parse().expect("client address")),
         State(state.clone()),

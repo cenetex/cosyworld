@@ -1583,17 +1583,6 @@ pub(super) fn encounter_participant_ids_for_job(job_id: &str) -> &'static [u64] 
 mod tests {
     use super::*;
 
-    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
-        CommandRequest {
-            actor_id,
-            actor_session: None,
-            command: command.to_string(),
-            offer_id: None,
-            wallet_session: None,
-            envelope: None,
-        }
-    }
-
     fn discover_seed_exit_for_test(
         runtime: &mut RuntimeWorld,
         from_location_id: u64,
@@ -2223,18 +2212,5 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "use_item"));
-
-        for command in ["attack Coach", "defend", "flee"] {
-            let resolved = runtime
-                .resolve_command(&command_request(5000, command), &AccessContext::default())
-                .expect("combat command still resolves to a disabled action");
-            assert!(
-                matches!(
-                    resolved.dispatch,
-                    CommandDispatch::Disabled { status: 409, .. }
-                ),
-                "{command} should be disabled after the combat project resolves"
-            );
-        }
     }
 }

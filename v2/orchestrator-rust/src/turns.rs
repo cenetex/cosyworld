@@ -2345,21 +2345,6 @@ mod tests {
     }
 
     #[test]
-    fn transfer_offer_responses_are_card_exempt_and_only_non_mutating_choices_skip_turns() {
-        for decision in ["accept", "decline", "withdraw"] {
-            let dispatch = CommandDispatch::ResolveTransferOffer {
-                offer_id: "offer:test".to_string(),
-                decision: decision.to_string(),
-            };
-            assert!(command_dispatch_is_visible_room_control(&dispatch));
-            assert_eq!(
-                command_dispatch_consumes_room_turn(&dispatch),
-                decision == "accept"
-            );
-        }
-    }
-
-    #[test]
     fn ordinary_rooms_never_enable_a_global_turn() {
         let runtime = RuntimeWorld::seeded();
         assert!(combat_turn_view(&runtime, 1001, 1).is_none());
@@ -2608,17 +2593,6 @@ mod tests {
             );
         }
         let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn safety_commands_never_wait_for_an_ordered_scene() {
-        assert!(!command_dispatch_consumes_room_turn(
-            &CommandDispatch::SetActorSafety {
-                target_actor_id: 1001,
-                control: ActorSafetyControl::Mute,
-                enabled: true,
-            }
-        ));
     }
 
     #[test]
