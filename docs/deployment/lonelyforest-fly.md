@@ -39,6 +39,11 @@ rewrites the compiled manifest or bundle identity.
   unknown public hosts return HTTP `421`.
 - `deploy/lonelyforest/proxy-headers.conf` preserves streaming HTTP and SSE
   behavior without letting forwarded host values select runtime state.
+- `deploy/lonelyforest/proxy-json-api.conf` buffers and bounds the command,
+  state, and health proxy paths. Proxy request timeouts and oversized bodies
+  become JSON `408`/`413` responses, while upstream `502`/`504` responses become
+  a parseable JSON `503` with `Retry-After: 1`; unknown-host command/state
+  requests receive a JSON `421` rather than nginx's default HTML body.
 - The root `/health` readiness check verifies the root event store and every
   required sibling process. Elysium is included only when its registry is
   installed; `/health/live` remains a lightweight process-liveness check.

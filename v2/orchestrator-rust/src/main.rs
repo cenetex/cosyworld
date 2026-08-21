@@ -4459,30 +4459,6 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
     })
 }
 
-async fn action_response_http_status(response: Response) -> Response {
-    let (mut parts, body) = response.into_parts();
-    let is_json = parts
-        .headers
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.starts_with("application/json"));
-    if !is_json {
-        return Response::from_parts(parts, body);
-    }
-    let Ok(bytes) = to_bytes(body, 2 * 1024 * 1024).await else {
-        return Response::from_parts(parts, Body::empty());
-    };
-    if let Some(status) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        .ok()
-        .and_then(|value| value.get("status").and_then(serde_json::Value::as_u64))
-        .and_then(|status| u16::try_from(status).ok())
-        .and_then(|status| StatusCode::from_u16(status).ok())
-    {
-        parts.status = status;
-    }
-    Response::from_parts(parts, Body::from(bytes))
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     startup::run().await
@@ -23240,10 +23216,23 @@ fn refresh_canonical_process_route(state: &AppState) -> io::Result<()> {
 }
 
 async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventView>> {
-    let Some(path) = state.event_store_path.as_deref() else {
+    let Some(path) = state.event_store_path.as_deref().cloned() else {
         return Ok(Vec::new());
     };
-    let latest_journal_seq = latest_action_journal_seq(path)?;
+    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
+    let read_path = path.clone();
+    let (latest_journal_seq, events) = tokio::task::spawn_blocking(move || {
+        let latest_journal_seq = latest_action_journal_seq(&read_path)?;
+        let through_seq = current_world_seq(&open_event_store(&read_path)?, OFFICIAL_WORLD_ID)?;
+        let events = if through_seq > after {
+            read_event_store_forward_between(&read_path, after, through_seq, MAX_EVENT_STORE_SCAN)?
+        } else {
+            Vec::new()
+        };
+        Ok::<_, io::Error>((latest_journal_seq, events))
+    })
+    .await
+    .map_err(|error| io::Error::other(format!("canonical capacity read task failed: {error}")))??;
     if latest_journal_seq
         > state
             .canonical_applied_journal_seq
@@ -23255,20 +23244,13 @@ async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventV
             .load(AtomicOrdering::Acquire);
         if latest_journal_seq > applied {
             let presence_states = runtime.presence_states.clone();
-            restore_runtime_from_durable_state(state, &mut runtime, path)?;
+            restore_runtime_from_durable_state(state, &mut runtime, &path)?;
             runtime.presence_states = presence_states;
             state
                 .canonical_applied_journal_seq
                 .store(latest_journal_seq, AtomicOrdering::Release);
         }
     }
-
-    let through_seq = current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?;
-    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
-    if through_seq <= after {
-        return Ok(Vec::new());
-    }
-    let events = read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)?;
     Ok(events)
 }
 
@@ -31527,7 +31509,7 @@ mod tests {
             events: Vec::new(),
         })
         .into_response();
-        let response = action_response_http_status(response).await;
+        let response = routes::action_response_http_status(response).await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
         let body = to_bytes(response.into_body(), 1024)
             .await

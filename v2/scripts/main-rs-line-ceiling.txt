@@ -399,4 +399,7 @@
 # (`block_in_place` panics on the current-thread runtime `#[tokio::test]`
 # builds). The commit body itself only gained a wrapper; existing persistence
 # seam, no new system.
-61990
+# 61990 -> 61972: move HTTP response-contract handling into routes.rs and run
+# routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
+# threads stay available for health while JSON error policy remains at routing.
+61972

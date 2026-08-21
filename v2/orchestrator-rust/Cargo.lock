@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "cosyworld-orchestrator"
-version = "1.0.85"
+version = "1.0.86"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -330,6 +330,7 @@ dependencies = [
  "sha2",
  "tokio",
  "tokio-stream",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",

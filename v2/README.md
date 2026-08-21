@@ -835,6 +835,17 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
+
+Every `POST /commands` rejection is a JSON command envelope whose `status`
+matches the HTTP status. Malformed requests, extractor failures, rate limits,
+and local command-admission overload therefore never fall back to Axum's plain
+text error body. The runtime admits at most 16 concurrent public commands;
+additional callers fail fast with `503`,
+`error_kind: "server_overloaded"`, and `Retry-After: 1`; retrying a mutation
+must reuse the same `intent_id`. The Lonely Forest proxy applies the same
+contract to upstream `502`/`504` failures, returning a bounded JSON `503`
+instead of an empty or HTML response.
+
 There is no collection materialize/unmaterialize route. `GET /meta` exposes
 `migration_archive.item_materialization`: the permanent `archived` / `audit_only`
 state, disabled mutation flags, and read-only migration receipt counts. Verified
