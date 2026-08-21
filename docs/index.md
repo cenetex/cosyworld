@@ -98,6 +98,9 @@ do not define V2 behavior.
 - **[World simulation](../v2/docs/world-simulation.md)**,
   **[combat](../v2/docs/combat-system.md)**, and
   **[writing style](../v2/docs/writing-style.md)** — focused runtime contracts.
+- **[Telegram postcard proof](../v2/docs/telegram-postcard-proof.md)** — the
+  scheduler-neutral evidence, retry, delivery, and seven-expedition record
+  contract for following one traveler's life without granting prose authority.
 - **[Deployment](deployment/07-deployment.md)** and
   **[release process](release.md)** — operating and shipping the repository.
 
