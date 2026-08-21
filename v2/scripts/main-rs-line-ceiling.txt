@@ -385,4 +385,9 @@
 # canonical_world.rs as a pub(crate) split-impl beside the
 # CanonicalIdentityState types they operate on. Pure, behavior-preserving;
 # tests stay in main.rs and canonical_identity_tests.rs for this slice.
-63391
+# 63391 -> 61903: move the 26 projected world-event builder RuntimeWorld
+# methods (append_world_reset_event through append_bond_event) from main.rs
+# into a new world_events.rs seam as pub(crate) split-impl methods beside
+# the push_projected_event boundary they all end with. Pure,
+# behavior-preserving; tests stay in main.rs for this slice.
+61903
