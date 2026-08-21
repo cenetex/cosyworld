@@ -921,6 +921,8 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             let returned = event
                 .target_item_name
                 .as_deref()
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
                 .map(|item| format!(", who hands you {item} to make room"))
                 .unwrap_or_default();
             Some(format!(
@@ -4093,5 +4095,22 @@ mod tests {
             None
         );
         assert_eq!(canonical_command_verb("speak"), "speak");
+    }
+
+    #[test]
+    fn give_receipt_omits_an_empty_returned_item_name() {
+        for returned_item_name in ["", "   "] {
+            let output = command_event_output(&EventView {
+                type_name: "item.given".to_string(),
+                item_name: Some("Hearth Tonic".to_string()),
+                target_actor_name: Some("Gust".to_string()),
+                target_item_name: Some(returned_item_name.to_string()),
+                ..EventView::default()
+            })
+            .expect("give receipt");
+            assert_eq!(output, "You give Hearth Tonic to Gust.");
+            assert!(!output.contains("  "));
+            assert!(!output.contains("hands you"));
+        }
     }
 }
