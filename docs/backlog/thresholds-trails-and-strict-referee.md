@@ -191,11 +191,19 @@ replay forever and `discovery-procedure-v3` rows materialize. Both versions
 must stay accepted by `discovery_record_preconditions_hold`, because replay
 fails the entire boot on one rejected record.
 
+The core pack now ships the first authored source: a Mossbell Inn floorboard
+slot whose stocking table names one unplaced item, so a Search in a real room
+finds a real thing. Authoring it required three gates to learn that an item may
+legitimately have no location — the worldpack checker, the Rust content loader,
+and `ensure_item` all treated location 0 as a broken reference. Each now allows
+it for exactly the items a discovery slot declares, and fails closed otherwise.
+
 Still open, in dependency order:
 
-- **Authored sources.** No pack ships `x-cosyworld-discovery-slots` yet, so the
-  procedure still only runs against fixtures. This is now the binding
-  constraint on everything below.
+- **Breadth of authored sources.** One slot in one pack proves the loop; the
+  containers, hidden caches, resource sites, and Hazard aftermaths the slice
+  calls for are not authored, and Project 89 has no mechanically identical
+  example yet.
 - **Location and route materialization.** `location`, `route`, `feature`, and
   `resource` slots keep their frozen receipts and report
   `unsupported_target_kind`. The bounded hidden graph, incremental reveal, and

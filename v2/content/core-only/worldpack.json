@@ -7,6 +7,12 @@
   "version": 1,
   "description": "The first-party cosy exploration experience with no expansion packs mounted.",
   "entry_location": "cosyworld.core:location/1",
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:70d51da64a3b5a76ba543d3aca70059022d75f57c0102d750c93f74139857b06"
+    ]
+  },
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
@@ -609,7 +615,7 @@
       "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
     }
   },
-  "bundle_hash": "sha256:70d51da64a3b5a76ba543d3aca70059022d75f57c0102d750c93f74139857b06",
+  "bundle_hash": "sha256:c25a8ef4b6aab4cea9e6d70e3153c1d0785348facdbaa97976b0bbf3f6e9978e",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -828,7 +834,7 @@
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 11,
-        "items": 13,
+        "items": 14,
         "locations": 23,
         "exits": 48,
         "hidden_exits": 1,
@@ -854,6 +860,67 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-discovery-slots": {
+          "schema_version": 1,
+          "receipt_version": "discovery-receipt-v1",
+          "roll_algorithm": "weighted-fnv1a-v1",
+          "stocking_tables": [
+            {
+              "id": "cosyworld.core:discovery-table/mossbell-floorboard",
+              "version": 1,
+              "target_kind": "item",
+              "eligible_inputs": [
+                "world_seed",
+                "worldpack_bundle_hash",
+                "slot_id",
+                "slot_version",
+                "origin_id",
+                "claim_scope_id"
+              ],
+              "rows": [
+                {
+                  "id": "folded_socks",
+                  "weight": 1,
+                  "result_ids": [
+                    "cosyworld.core:item/2015"
+                  ]
+                }
+              ],
+              "fallback_row_id": "folded_socks"
+            }
+          ],
+          "event_tables": [],
+          "presentation_tables": [],
+          "slots": [
+            {
+              "id": "cosyworld.core:discovery/mossbell-floorboard",
+              "version": 1,
+              "target_kind": "item",
+              "origin_id": "cosyworld.core:location/4",
+              "scope": "world",
+              "initial_phase": "signed",
+              "tells": [
+                {
+                  "id": "proud_floorboard",
+                  "sense": "sight",
+                  "text": "One floorboard by the boot rack sits proud of the rest."
+                }
+              ],
+              "reveal_methods": [
+                "search"
+              ],
+              "claim_policy": "once_per_scope",
+              "stocking": {
+                "kind": "table",
+                "table_id": "cosyworld.core:discovery-table/mossbell-floorboard",
+                "table_version": 1
+              },
+              "progression": {
+                "kind": "optional"
+              }
+            }
+          ]
+        },
         "x-cosyworld-progression-safety": {
           "schema_version": 1,
           "proof_version": "progression-safety-v1",
@@ -1820,7 +1887,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8"
+      "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
     }
   ],
   "files": {

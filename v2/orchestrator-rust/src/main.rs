@@ -7423,7 +7423,9 @@ impl RuntimeWorld {
         if self.world.item_count >= CW_MAX_ITEMS {
             return;
         }
-        if self.location_name(location_id).is_none() {
+        // Location 0 is "authored but not placed" -- a hidden item awaiting its
+        // discovery slot. A non-zero unknown id is still a broken reference.
+        if location_id != 0 && self.location_name(location_id).is_none() {
             return;
         }
         self.world.items[self.world.item_count] = CwItem {
@@ -52687,7 +52689,9 @@ mod tests {
         assert_eq!(content.actors.len(), 65);
         assert!(content.access_gates.is_empty());
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 34);
+        // 35 with the Mossbell floorboard socks, which the core pack authors
+        // unplaced for its discovery slot to reveal.
+        assert_eq!(content.items.len(), 35);
         let satchel = content
             .items
             .iter()

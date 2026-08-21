@@ -17,7 +17,8 @@
         "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8",
         "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
         "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
-        "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74"
+        "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74",
+        "sha256:0781f23550c8be3e16ad2fb92b9c1bf067f164c351d9d95df47a2969116f7480"
       ]
     },
     "pack_lifecycle": {
@@ -726,7 +727,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:0781f23550c8be3e16ad2fb92b9c1bf067f164c351d9d95df47a2969116f7480",
+    "bundle_hash": "sha256:070906fd0fd90124fe93641d11c2c6285cf0c78b2e9126d805206a0d9136eb7f",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -945,7 +946,7 @@
           "actor_facets": 0,
           "access_gates": 0,
           "factions": 11,
-          "items": 13,
+          "items": 14,
           "locations": 23,
           "exits": 48,
           "hidden_exits": 1,
@@ -971,6 +972,67 @@
           "extensions": 0
         },
         "extensions": {
+          "x-cosyworld-discovery-slots": {
+            "schema_version": 1,
+            "receipt_version": "discovery-receipt-v1",
+            "roll_algorithm": "weighted-fnv1a-v1",
+            "stocking_tables": [
+              {
+                "id": "cosyworld.core:discovery-table/mossbell-floorboard",
+                "version": 1,
+                "target_kind": "item",
+                "eligible_inputs": [
+                  "world_seed",
+                  "worldpack_bundle_hash",
+                  "slot_id",
+                  "slot_version",
+                  "origin_id",
+                  "claim_scope_id"
+                ],
+                "rows": [
+                  {
+                    "id": "folded_socks",
+                    "weight": 1,
+                    "result_ids": [
+                      "cosyworld.core:item/2015"
+                    ]
+                  }
+                ],
+                "fallback_row_id": "folded_socks"
+              }
+            ],
+            "event_tables": [],
+            "presentation_tables": [],
+            "slots": [
+              {
+                "id": "cosyworld.core:discovery/mossbell-floorboard",
+                "version": 1,
+                "target_kind": "item",
+                "origin_id": "cosyworld.core:location/4",
+                "scope": "world",
+                "initial_phase": "signed",
+                "tells": [
+                  {
+                    "id": "proud_floorboard",
+                    "sense": "sight",
+                    "text": "One floorboard by the boot rack sits proud of the rest."
+                  }
+                ],
+                "reveal_methods": [
+                  "search"
+                ],
+                "claim_policy": "once_per_scope",
+                "stocking": {
+                  "kind": "table",
+                  "table_id": "cosyworld.core:discovery-table/mossbell-floorboard",
+                  "table_version": 1
+                },
+                "progression": {
+                  "kind": "optional"
+                }
+              }
+            ]
+          },
           "x-cosyworld-progression-safety": {
             "schema_version": 1,
             "proof_version": "progression-safety-v1",
@@ -1937,7 +1999,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8"
+        "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -4504,6 +4566,18 @@
           "transfer_policy": "transferable",
           "theft_policy": "eligible_when_carried"
         },
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "id": 2015,
+        "name": "Dry Wool Socks",
+        "description": "Thick grey wool, darned twice at the heel, folded tight and still dry.",
+        "kind": "keepsake",
+        "charges": 1,
+        "location_id": 0,
+        "role": "relic",
+        "weight_tenths": 1,
+        "size": "tiny",
         "pack_id": "cosyworld.core"
       },
       {
@@ -11819,7 +11893,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.13",
-      "pack_integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8",
+      "pack_integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -11832,7 +11906,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.13",
-      "pack_integrity": "sha256:a31f21f953a2afa5610538ac3ad391786e5af1d14c767e51915a8350dfb334a8",
+      "pack_integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",
@@ -15261,6 +15335,15 @@
         "local_id": "2014",
         "legacy_runtime_id": 2014,
         "runtime_handle": 2014
+      },
+      {
+        "canonical_ref": "pack://cosyworld.core/item/2015",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.13",
+        "kind": "item",
+        "local_id": "2015",
+        "legacy_runtime_id": 2015,
+        "runtime_handle": 2015
       },
       {
         "canonical_ref": "pack://cosyworld.core/job/goblin-cave%3Aname-the-price",

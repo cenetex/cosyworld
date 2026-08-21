@@ -70,6 +70,53 @@
     "offers": "offers.json"
   },
   "extensions": {
+    "x-cosyworld-discovery-slots": {
+      "schema_version": 1,
+      "receipt_version": "discovery-receipt-v1",
+      "roll_algorithm": "weighted-fnv1a-v1",
+      "stocking_tables": [
+        {
+          "id": "cosyworld.core:discovery-table/mossbell-floorboard",
+          "version": 1,
+          "target_kind": "item",
+          "eligible_inputs": [
+            "world_seed", "worldpack_bundle_hash", "slot_id", "slot_version",
+            "origin_id", "claim_scope_id"
+          ],
+          "rows": [
+            {"id": "folded_socks", "weight": 1, "result_ids": ["cosyworld.core:item/2015"]}
+          ],
+          "fallback_row_id": "folded_socks"
+        }
+      ],
+      "event_tables": [],
+      "presentation_tables": [],
+      "slots": [
+        {
+          "id": "cosyworld.core:discovery/mossbell-floorboard",
+          "version": 1,
+          "target_kind": "item",
+          "origin_id": "cosyworld.core:location/4",
+          "scope": "world",
+          "initial_phase": "signed",
+          "tells": [
+            {
+              "id": "proud_floorboard",
+              "sense": "sight",
+              "text": "One floorboard by the boot rack sits proud of the rest."
+            }
+          ],
+          "reveal_methods": ["search"],
+          "claim_policy": "once_per_scope",
+          "stocking": {
+            "kind": "table",
+            "table_id": "cosyworld.core:discovery-table/mossbell-floorboard",
+            "table_version": 1
+          },
+          "progression": {"kind": "optional"}
+        }
+      ]
+    },
     "x-cosyworld-progression-safety": {
       "schema_version": 1,
       "proof_version": "progression-safety-v1",

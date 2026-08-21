@@ -2753,8 +2753,45 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             ));
         }
     }
+    // Items a discovery slot may reveal are authored unplaced: the kernel's
+    // reveal requires holder 0 and location 0, so those are the only items
+    // allowed to name no location. Anything else unplaced is a broken
+    // reference and still fails closed.
+    let mut discovery_hidden_item_ids = BTreeSet::new();
+    for pack in &content.manifest.packs {
+        let Ok(Some(catalog)) = discovery_authority_catalog(pack) else {
+            continue;
+        };
+        let mut collect = |target_kind: &str, result_ids: &[String]| {
+            if target_kind != "item" {
+                return;
+            }
+            for result_id in result_ids {
+                if let Some(local_id) = result_id.rsplit('/').next() {
+                    if let Ok(item_id) = local_id.parse::<u64>() {
+                        discovery_hidden_item_ids.insert(item_id);
+                    }
+                }
+            }
+        };
+        for slot in &catalog.slots {
+            collect(&slot.target_kind, &slot.stocking.result_ids);
+        }
+        for table in &catalog.stocking_tables {
+            for row in &table.rows {
+                collect(&table.target_kind, &row.result_ids);
+            }
+        }
+    }
     for item in &content.items {
-        if !location_ids.contains(&item.location_id) {
+        if item.location_id == 0 {
+            if !discovery_hidden_item_ids.contains(&item.id) {
+                return Err(format!(
+                    "seed item {} is unplaced but no discovery slot reveals it",
+                    item.id
+                ));
+            }
+        } else if !location_ids.contains(&item.location_id) {
             return Err(format!(
                 "seed item {} references missing location {}",
                 item.id, item.location_id
