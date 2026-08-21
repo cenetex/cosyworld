@@ -4780,6 +4780,8 @@
     }
     .journal-log { display: block; }
     .journal-page {
+      display: grid;
+      gap: 18px;
       min-height: 0;
       padding: 0;
     }
@@ -4809,6 +4811,54 @@
     .journal-page-heading,
     .journal-page-prose,
     .journal-page-folio { display: none; }
+    .journal-chat-log {
+      padding: 22px 24px 24px;
+      border: 1px solid rgba(239, 201, 107, 0.2);
+      border-radius: 3px;
+      background: linear-gradient(145deg, rgba(226, 211, 174, 0.96), rgba(196, 177, 132, 0.96));
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.36);
+      color: #302d25;
+    }
+    .journal-chat-log h3 {
+      margin: 0 0 17px;
+      color: #4d513e;
+      font: 600 24px/1.1 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      letter-spacing: 0.01em;
+    }
+    .journal-chat-room + .journal-chat-room {
+      margin-top: 18px;
+      padding-top: 17px;
+      border-top: 1px solid rgba(69, 65, 48, 0.2);
+    }
+    .journal-chat-room h4 {
+      margin: 0 0 9px;
+      color: #686650;
+      font: 700 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .journal-chat-room ol {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .journal-chat-line {
+      display: grid;
+      grid-template-columns: minmax(8ch, auto) minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      font: 500 15px/1.45 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+    }
+    .journal-chat-speaker {
+      color: #4d513e;
+      font-weight: 700;
+    }
+    .journal-chat-line q {
+      color: #302d25;
+      quotes: "“" "”" "‘" "’";
+    }
     .journal-page-nav { padding: 14px 0 0; }
     .journal-page-nav[hidden] { display: none; }
     .journal-page-nav button {
@@ -4836,6 +4886,11 @@
       .journal-page { padding: 0; }
       .journal-page-illustration { width: 100%; }
       .journal-page-illustration img { max-height: calc(100vh - 154px); }
+      .journal-chat-log { padding: 18px 17px 20px; }
+      .journal-chat-line {
+        grid-template-columns: 1fr;
+        gap: 1px;
+      }
     }
     .chat-empty {
       margin: auto;
@@ -13979,7 +14034,28 @@
       const artifactId = cleanStatusText(page?.artifact_id || page?.page_id || "");
       const styleRevision = cleanStatusText(page?.style_revision || "");
       const artifactAttrs = `${artifactId ? ` data-journal-artifact-id="${escapeAttr(artifactId)}"` : ""}${styleRevision ? ` data-journal-style-revision="${escapeAttr(styleRevision)}"` : ""} data-journal-day="${escapeAttr(page.day_key)}" data-journal-rest-kind="long"`;
-      return `<article class="journal-page"${artifactAttrs}><figure class="journal-page-illustration generated"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(alt)}" loading="lazy" /></figure></article>`;
+      const chats = Array.isArray(page?.chat_excerpts) ? page.chat_excerpts : [];
+      const rooms = new Map();
+      for (const chat of chats) {
+        const text = String(chat?.text || "").trim();
+        if (!text) continue;
+        const locationId = String(chat?.location_id || "");
+        const locationName = cleanStatusText(chat?.location_name || "Somewhere along the way");
+        const roomKey = locationId || locationName;
+        if (!rooms.has(roomKey)) rooms.set(roomKey, { name: locationName, chats: [] });
+        rooms.get(roomKey).chats.push({
+          speaker: cleanStatusText(chat?.speaker_name || "Someone"),
+          text,
+        });
+      }
+      const chatLog = rooms.size
+        ? `<section class="journal-chat-log" aria-label="Recent chats"><h3>Recent chats</h3>${[...rooms.values()].map((room) => (
+            `<section class="journal-chat-room"><h4>${escapeHtml(room.name)}</h4><ol>${room.chats.map((chat) => (
+              `<li class="journal-chat-line"><span class="journal-chat-speaker">${escapeHtml(chat.speaker)}</span><q>${escapeHtml(chat.text)}</q></li>`
+            )).join("")}</ol></section>`
+          )).join("")}</section>`
+        : "";
+      return `<article class="journal-page"${artifactAttrs}><figure class="journal-page-illustration generated"><img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(alt)}" loading="lazy" /></figure>${chatLog}</article>`;
     }
 
     function turnJournalPage(delta) {

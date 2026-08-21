@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, fs, path::Path, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::Path,
+    time::Duration,
+};
 
 use axum::{
     extract::{Path as AxumPath, State},
@@ -12,12 +17,17 @@ use super::*;
 
 const DAILY_JOURNAL_PROTOCOL: &str = "cosyworld.daily-journal.v1";
 const DAILY_JOURNAL_FEATURE: &str = "avatar_daily_journal";
-const DAILY_JOURNAL_PROMPT_VERSION: &str = "avatar-daily-journal-first-person-v1";
+const DAILY_JOURNAL_PROMPT_VERSION: &str = "avatar-daily-journal-relationships-v2";
 const DAILY_JOURNAL_IMAGE_FEATURE: &str = "avatar_daily_journal_image";
 const DAILY_JOURNAL_IMAGE_PROMPT_VERSION: &str = "avatar-daily-journal-image-v1";
 const DAILY_JOURNAL_STYLE_REVISION: &str = "cosyworld-hand-painted-page/2";
 const DAILY_JOURNAL_MAX_UPDATES: usize = 36;
+const DAILY_JOURNAL_MAX_CHAT_EXCERPTS: usize = 16;
 const DAILY_JOURNAL_MAX_PAGES: usize = 32;
+
+fn default_daily_journal_update_kind() -> String {
+    "moment".to_string()
+}
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct AvatarDailyJournalState {
@@ -25,6 +35,8 @@ pub(super) struct AvatarDailyJournalState {
     pub(super) observed_through_seq: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(super) hidden_updates: Vec<DailyJournalHiddenUpdate>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) pending_chat_excerpts: Vec<DailyJournalChatExcerpt>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(super) pages: BTreeMap<u64, DailyJournalPageState>,
 }
@@ -32,6 +44,18 @@ pub(super) struct AvatarDailyJournalState {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct DailyJournalHiddenUpdate {
     pub(super) source_event_seqs: Vec<u64>,
+    #[serde(default = "default_daily_journal_update_kind")]
+    pub(super) kind: String,
+    pub(super) text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct DailyJournalChatExcerpt {
+    pub(super) source_event_seq: u64,
+    pub(super) speaker_actor_id: u64,
+    pub(super) speaker_name: String,
+    pub(super) location_id: u64,
+    pub(super) location_name: String,
     pub(super) text: String,
 }
 
@@ -46,6 +70,8 @@ pub(super) struct DailyJournalPageState {
     pub(super) requested_event_seq: u64,
     pub(super) source_event_seqs: Vec<u64>,
     pub(super) hidden_updates: Vec<DailyJournalHiddenUpdate>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) chat_excerpts: Vec<DailyJournalChatExcerpt>,
     pub(super) status: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(super) entry: String,
@@ -67,6 +93,8 @@ pub(super) struct DailyJournalRestUpdate {
     pub(super) location_id: u64,
     pub(super) location_name: String,
     pub(super) updates: Vec<DailyJournalHiddenUpdate>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) chat_excerpts: Vec<DailyJournalChatExcerpt>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -98,6 +126,8 @@ struct DailyJournalPageView {
     image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     image_alt: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    chat_excerpts: Vec<DailyJournalChatExcerpt>,
     style_revision: String,
 }
 
@@ -117,29 +147,19 @@ impl RuntimeWorld {
             .map(|journal| journal.observed_through_seq)
             .unwrap_or_default();
         let observed_through_seq = self.world.next_event_seq.saturating_sub(1);
-        let recent = self
-            .event_log
-            .iter()
-            .filter(|event| {
-                event.success
-                    && event.seq > observed_after
-                    && event.seq <= observed_through_seq
-                    && (event.actor_id == Some(actor_id)
-                        || event.location_id == Some(actor.location_id))
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        let mut updates = journal_beat_views(&recent, actor.location_id)
-            .into_iter()
-            .map(|beat| DailyJournalHiddenUpdate {
-                source_event_seqs: beat.source_event_seqs,
-                text: compact_whitespace(&beat.headline),
-            })
-            .filter(|update| !update.text.is_empty())
-            .collect::<Vec<_>>();
+        let recent = daily_journal_observed_events(
+            &self.event_log,
+            actor_id,
+            actor.location_id,
+            observed_after,
+            observed_through_seq,
+        );
+        let chat_excerpts = daily_journal_chat_excerpts(self, &recent);
+        let mut updates = daily_journal_context_updates(self, actor_id, &recent, &chat_excerpts);
         if updates.is_empty() {
             updates.push(DailyJournalHiddenUpdate {
                 source_event_seqs: Vec::new(),
+                kind: "moment".to_string(),
                 text: format!("A quiet pause at {}.", compact_whitespace(&location_name)),
             });
         }
@@ -152,6 +172,7 @@ impl RuntimeWorld {
             location_id: actor.location_id,
             location_name: compact_whitespace(&location_name),
             updates,
+            chat_excerpts,
         })
     }
 
@@ -163,6 +184,7 @@ impl RuntimeWorld {
         for candidate in &update.updates {
             if journal.hidden_updates.iter().any(|existing| {
                 existing.source_event_seqs == candidate.source_event_seqs
+                    && existing.kind == candidate.kind
                     && existing.text == candidate.text
             }) {
                 continue;
@@ -173,15 +195,29 @@ impl RuntimeWorld {
             let excess = journal.hidden_updates.len() - DAILY_JOURNAL_MAX_UPDATES;
             journal.hidden_updates.drain(0..excess);
         }
+        for excerpt in &update.chat_excerpts {
+            if journal
+                .pending_chat_excerpts
+                .iter()
+                .any(|existing| existing.source_event_seq == excerpt.source_event_seq)
+            {
+                continue;
+            }
+            journal.pending_chat_excerpts.push(excerpt.clone());
+        }
+        journal.pending_chat_excerpts =
+            bound_daily_journal_chat_excerpts(std::mem::take(&mut journal.pending_chat_excerpts));
         if update.rest_kind != "long" || journal.pages.contains_key(&update.day_index) {
             return;
         }
         let artifact_id = daily_journal_artifact_id(update.actor_id, update.day_index);
         let hidden_updates = std::mem::take(&mut journal.hidden_updates);
+        let chat_excerpts = std::mem::take(&mut journal.pending_chat_excerpts);
         let mut source_event_seqs = hidden_updates
             .iter()
             .flat_map(|item| item.source_event_seqs.iter().copied())
             .collect::<Vec<_>>();
+        source_event_seqs.extend(chat_excerpts.iter().map(|excerpt| excerpt.source_event_seq));
         source_event_seqs.sort_unstable();
         source_event_seqs.dedup();
         journal.pages.insert(
@@ -196,6 +232,7 @@ impl RuntimeWorld {
                 requested_event_seq: update.observed_through_seq,
                 source_event_seqs,
                 hidden_updates,
+                chat_excerpts,
                 status: "pending".to_string(),
                 entry: String::new(),
                 image_content_type: String::new(),
@@ -272,6 +309,7 @@ impl RuntimeWorld {
                                     page.avatar_name, page.entry
                                 )
                             }),
+                            chat_excerpts: page.chat_excerpts.clone(),
                             style_revision: page.style_revision.clone(),
                         }
                     })
@@ -282,6 +320,247 @@ impl RuntimeWorld {
             protocol: DAILY_JOURNAL_PROTOCOL,
             pages,
         }
+    }
+}
+
+fn daily_journal_observed_events(
+    event_log: &[EventView],
+    actor_id: u64,
+    current_location_id: u64,
+    observed_after: u64,
+    observed_through: u64,
+) -> Vec<EventView> {
+    let mut room_cursor = current_location_id;
+    let mut observed = Vec::new();
+    for event in event_log.iter().rev().filter(|event| {
+        event.success && event.seq > observed_after && event.seq <= observed_through
+    }) {
+        let event_location_id = event.location_id.or(event.source_location_id);
+        if event.actor_id == Some(actor_id) || event_location_id == Some(room_cursor) {
+            observed.push(event.clone());
+        }
+        if event.actor_id == Some(actor_id) && event.type_name == "actor.moved" {
+            if let Some(origin_location_id) = event.location_id {
+                room_cursor = origin_location_id;
+            }
+        }
+    }
+    observed.reverse();
+    observed
+}
+
+fn daily_journal_chat_excerpts(
+    runtime: &RuntimeWorld,
+    events: &[EventView],
+) -> Vec<DailyJournalChatExcerpt> {
+    let excerpts = events
+        .iter()
+        .filter(|event| event.type_name == "message.created")
+        .filter_map(|event| {
+            let text = compact_whitespace(event.content.as_deref()?);
+            if text.is_empty() {
+                return None;
+            }
+            let location_id = event.location_id.or(event.source_location_id)?;
+            let speaker_actor_id = event.actor_id.unwrap_or_default();
+            Some(DailyJournalChatExcerpt {
+                source_event_seq: event.seq,
+                speaker_actor_id,
+                speaker_name: event
+                    .actor_name
+                    .clone()
+                    .or_else(|| runtime.actor_name(speaker_actor_id))
+                    .unwrap_or_else(|| "Someone".to_string()),
+                location_id,
+                location_name: event
+                    .location_name
+                    .clone()
+                    .or_else(|| runtime.location_name(location_id))
+                    .unwrap_or_else(|| "Somewhere along the way".to_string()),
+                text,
+            })
+        })
+        .collect::<Vec<_>>();
+    bound_daily_journal_chat_excerpts(excerpts)
+}
+
+fn bound_daily_journal_chat_excerpts(
+    mut excerpts: Vec<DailyJournalChatExcerpt>,
+) -> Vec<DailyJournalChatExcerpt> {
+    excerpts.sort_by_key(|excerpt| excerpt.source_event_seq);
+    excerpts.dedup_by_key(|excerpt| excerpt.source_event_seq);
+    if excerpts.len() <= DAILY_JOURNAL_MAX_CHAT_EXCERPTS {
+        return excerpts;
+    }
+
+    let mut selected_seqs = BTreeSet::new();
+    for excerpt in excerpts.iter().rev() {
+        if selected_seqs.len() >= DAILY_JOURNAL_MAX_CHAT_EXCERPTS {
+            break;
+        }
+        let room_already_kept = excerpts.iter().rev().any(|candidate| {
+            candidate.source_event_seq > excerpt.source_event_seq
+                && candidate.location_id == excerpt.location_id
+                && selected_seqs.contains(&candidate.source_event_seq)
+        });
+        if !room_already_kept {
+            selected_seqs.insert(excerpt.source_event_seq);
+        }
+    }
+    for excerpt in excerpts.iter().rev() {
+        if selected_seqs.len() >= DAILY_JOURNAL_MAX_CHAT_EXCERPTS {
+            break;
+        }
+        selected_seqs.insert(excerpt.source_event_seq);
+    }
+    excerpts
+        .into_iter()
+        .filter(|excerpt| selected_seqs.contains(&excerpt.source_event_seq))
+        .collect()
+}
+
+fn daily_journal_context_updates(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    events: &[EventView],
+    chat_excerpts: &[DailyJournalChatExcerpt],
+) -> Vec<DailyJournalHiddenUpdate> {
+    let mut updates = Vec::new();
+    let mut latest_conversation_by_speaker = BTreeMap::new();
+    for excerpt in chat_excerpts {
+        if excerpt.speaker_actor_id != actor_id {
+            latest_conversation_by_speaker.insert(excerpt.speaker_actor_id, excerpt);
+        }
+    }
+    let mut conversations = latest_conversation_by_speaker
+        .into_values()
+        .collect::<Vec<_>>();
+    conversations.sort_by_key(|excerpt| std::cmp::Reverse(excerpt.source_event_seq));
+    updates.extend(
+        conversations
+            .into_iter()
+            .take(4)
+            .map(|excerpt| DailyJournalHiddenUpdate {
+                source_event_seqs: vec![excerpt.source_event_seq],
+                kind: "conversation".to_string(),
+                text: format!(
+                    "I spoke with {} at {}.",
+                    excerpt.speaker_name, excerpt.location_name
+                ),
+            }),
+    );
+
+    let mut bonds = runtime.bond_views(actor_id);
+    bonds.sort_by_key(|bond| {
+        std::cmp::Reverse(
+            bond.updated_event_seq
+                .or(bond.source_event_seq)
+                .unwrap_or_default(),
+        )
+    });
+    updates.extend(bonds.into_iter().take(3).map(|bond| {
+        let name = bond
+            .target_actor_name
+            .unwrap_or_else(|| "someone important".to_string());
+        DailyJournalHiddenUpdate {
+            source_event_seqs: bond
+                .updated_event_seq
+                .or(bond.source_event_seq)
+                .into_iter()
+                .collect(),
+            kind: "relationship".to_string(),
+            text: format!(
+                "My bond with {name}: {}",
+                compact_whitespace(&bond.statement)
+            ),
+        }
+    }));
+
+    if let Some(calling) = runtime.calling_view(actor_id) {
+        let statement = compact_whitespace(&calling.statement);
+        if !statement.is_empty() {
+            updates.push(DailyJournalHiddenUpdate {
+                source_event_seqs: Vec::new(),
+                kind: "calling".to_string(),
+                text: format!("My calling: {statement}"),
+            });
+        }
+    }
+    if let Some(journey) = runtime.journey_view(actor_id) {
+        let next = journey
+            .next_location_name
+            .map(|name| format!("; next comes {name}"))
+            .unwrap_or_default();
+        updates.push(DailyJournalHiddenUpdate {
+            source_event_seqs: Vec::new(),
+            kind: "journey".to_string(),
+            text: format!("My journey is toward {}{next}", journey.destination_name),
+        });
+    }
+
+    updates.extend(
+        events
+            .iter()
+            .rev()
+            .filter(|event| event.actor_id == Some(actor_id) && event.type_name == "avatar.dream")
+            .filter_map(|event| {
+                let text = compact_whitespace(event.content.as_deref()?);
+                (!text.is_empty()).then(|| DailyJournalHiddenUpdate {
+                    source_event_seqs: vec![event.seq],
+                    kind: "dream".to_string(),
+                    text,
+                })
+            })
+            .take(2),
+    );
+
+    let mut beats = journal_beat_views(
+        events,
+        runtime
+            .actor_by_id(actor_id)
+            .map_or(0, |actor| actor.location_id),
+    );
+    beats.sort_by_key(|beat| {
+        (
+            daily_journal_beat_priority(beat.category),
+            std::cmp::Reverse(beat.ordering_seq),
+        )
+    });
+    updates.extend(beats.into_iter().take(10).filter_map(|beat| {
+        let text = compact_whitespace(&beat.headline);
+        (!text.is_empty()).then(|| DailyJournalHiddenUpdate {
+            source_event_seqs: beat.source_event_seqs,
+            kind: daily_journal_beat_kind(beat.category).to_string(),
+            text,
+        })
+    }));
+    updates.truncate(DAILY_JOURNAL_MAX_UPDATES);
+    updates
+}
+
+fn daily_journal_beat_priority(category: JournalBeatCategory) -> u8 {
+    match category {
+        JournalBeatCategory::Relationship => 0,
+        JournalBeatCategory::Growth => 1,
+        JournalBeatCategory::Story => 2,
+        JournalBeatCategory::Travel => 3,
+        JournalBeatCategory::Consequence => 4,
+        JournalBeatCategory::Discovery | JournalBeatCategory::Work => 5,
+        JournalBeatCategory::Item | JournalBeatCategory::Search => 6,
+    }
+}
+
+fn daily_journal_beat_kind(category: JournalBeatCategory) -> &'static str {
+    match category {
+        JournalBeatCategory::Relationship => "relationship",
+        JournalBeatCategory::Growth => "growth",
+        JournalBeatCategory::Story => "story",
+        JournalBeatCategory::Travel => "journey",
+        JournalBeatCategory::Consequence => "consequence",
+        JournalBeatCategory::Discovery => "discovery",
+        JournalBeatCategory::Work => "work",
+        JournalBeatCategory::Item => "item",
+        JournalBeatCategory::Search => "search",
     }
 }
 
@@ -325,15 +604,12 @@ async fn complete_daily_journal_page(
     };
     let fallback = fallback_daily_journal_entry(&page);
     let entry = if let Some(config) = state.ai_config.as_ref().as_ref() {
-        let system = "You are the private daily journaler for one player avatar in a cozy shared world. Write strictly in that avatar's first person, using I/my/me. Use only the supplied observed moments. Sound personal, concrete, and natural rather than like an event log. Never mention mechanics, rolls, IDs, prompts, models, policies, or UI. Never invent dialogue, possessions, motives, feelings, or outcomes. Output only one 55-95 word journal entry with no heading.";
-        let evidence = page
-            .hidden_updates
-            .iter()
-            .map(|update| format!("- {}", update.text))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let system = "You write one avatar's private daily journal in a cozy shared world. Write strictly in that avatar's first person, using I/my/me. Make it a human-feeling reflection, never an itinerary, quest recap, or event log. Remember relationships first, then connect them to the avatar's calling, hopes, journey, growth, and dreams. Places are background context, not the subject. Use only the supplied evidence. Never invent or quote dialogue, possessions, motives, feelings, or outcomes. Never mention mechanics, rolls, IDs, prompts, models, policies, or UI. Output only one 75-120 word journal entry with no heading.";
+        // Exact chat excerpts stay in the player's journal view and are never
+        // forwarded to the configured writing service.
+        let evidence = daily_journal_ai_evidence(&page);
         let user = format!(
-            "Avatar: {}\nPlace at long rest: {}\nPrivate observed moments since the previous page:\n{}",
+            "Avatar: {}\nPlace where the avatar finally rested: {}\nRelationship-first private context since the previous page:\n{}",
             page.avatar_name,
             page.location_name,
             if evidence.is_empty() {
@@ -351,7 +627,7 @@ async fn complete_daily_journal_page(
                 system,
                 user: &user,
                 temperature: 0.45,
-                max_tokens: 180,
+                max_tokens: 260,
                 timeout: Duration::from_secs(18),
                 max_attempts: 1,
                 referer: "https://cosy.world/",
@@ -447,35 +723,69 @@ async fn complete_daily_journal_page(
     Ok(())
 }
 
-fn fallback_daily_journal_entry(page: &DailyJournalPageState) -> String {
-    let moments = page
-        .hidden_updates
+fn daily_journal_ai_evidence(page: &DailyJournalPageState) -> String {
+    page.hidden_updates
         .iter()
-        .map(|update| compact_whitespace(&update.text))
-        .filter(|text| !text.is_empty())
-        .take(3)
-        .collect::<Vec<_>>();
-    if moments.is_empty() {
+        .filter(|update| update.kind != "conversation")
+        .map(|update| format!("- {}", update.text))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn fallback_daily_journal_entry(page: &DailyJournalPageState) -> String {
+    let mut reflections = Vec::new();
+    for (kind, lead) in [
+        ("conversation", "I keep thinking about this:"),
+        ("relationship", "What matters most to me is"),
+        ("calling", "I am still carrying this purpose:"),
+        ("journey", "I am still moving with this in mind:"),
+        ("dream", "I do not want to lose this dream:"),
+    ] {
+        if let Some(update) = page
+            .hidden_updates
+            .iter()
+            .find(|update| update.kind == kind)
+        {
+            let text = compact_whitespace(&update.text);
+            if !text.is_empty() {
+                reflections.push(format!(
+                    "{lead} {}",
+                    text.trim_end_matches(&['.', '!', '?'][..])
+                ));
+            }
+        }
+    }
+    if reflections.is_empty() {
+        if let Some(moment) = page
+            .hidden_updates
+            .iter()
+            .map(|update| compact_whitespace(&update.text))
+            .find(|text| !text.is_empty())
+        {
+            reflections.push(format!("I keep returning to {moment}"));
+        }
+    }
+    if reflections.is_empty() {
         return format!(
-            "I let the day grow quiet around me at {}. Nothing needed to become a grand lesson before I could rest; it was enough to notice where I had arrived and leave a little room for tomorrow.",
+            "I let the day grow quiet around me at {}. Nothing needed to become a grand lesson before I could rest. I want tomorrow's page to hold the people I meet, the words we share, and the hopes that keep drawing me onward.",
             page.location_name
         );
     }
-    let remembered = moments
+    let remembered = reflections
         .into_iter()
-        .map(|moment| moment.trim_end_matches(&['.', '!', '?'][..]).to_string())
+        .take(4)
+        .map(|reflection| format!("{}.", reflection.trim_end_matches(&['.', '!', '?'][..])))
         .collect::<Vec<_>>()
-        .join(" Then I remembered how ");
+        .join(" ");
     format!(
-        "I kept returning to this: {}. By the time I rested at {}, those moments felt like the shape of my day. I do not know what they will mean tomorrow, but tonight they are the things I want to remember.",
-        remembered,
-        page.location_name
+        "{remembered} {} is where I happened to stop; the people, purpose, and possibilities I carry are what I want this page to remember.",
+        page.location_name,
     )
 }
 
 fn daily_journal_image_prompt(page: &DailyJournalPageState, entry: &str) -> String {
     format!(
-        "Create one complete portrait 3:4 daily journal page as a warm hand-painted storybook artifact. It belongs to {name} and remembers a day ending at {place}. Use watercolor, colored pencil, pressed leaves, soft ink, worn cream paper, and small scene illustrations grounded only in the journal entry. The page must feel private and personal, never like an interface. No spreadsheet, table, chart, status meter, event log, badges, controls, metadata, IDs, or technical text. Include the supplied first-person entry as the only substantial writing, in neat dark handwritten lettering:\n\n{entry}",
+        "Create one complete portrait 3:4 daily journal page as a warm hand-painted storybook artifact. It belongs to {name} and remembers a day ending at {place}. Let named people, relationships, shared conversation, hopes, and dreams be the visual focus; make the place only gentle background context. Use watercolor, colored pencil, pressed leaves, soft ink, worn cream paper, and small scene illustrations grounded only in the journal entry. The page must feel private and personal, never like an interface or travel log. No spreadsheet, table, chart, status meter, event log, badges, controls, metadata, IDs, or technical text. Include the supplied first-person entry as the only substantial writing, in neat dark handwritten lettering:\n\n{entry}",
         name = page.avatar_name,
         place = page.location_name,
     )
@@ -510,7 +820,7 @@ fn sanitize_daily_journal_entry(value: &str) -> Option<String> {
     {
         return None;
     }
-    let words = text.split_whitespace().take(105).collect::<Vec<_>>();
+    let words = text.split_whitespace().take(130).collect::<Vec<_>>();
     if words.len() < 12 {
         return None;
     }
@@ -717,8 +1027,37 @@ fn xml_escape(value: &str) -> String {
 mod tests {
     use super::*;
 
+    fn journal_test_event(
+        seq: u64,
+        actor_id: u64,
+        actor_name: &str,
+        location_id: u64,
+        location_name: &str,
+        destination_location_id: Option<u64>,
+        content: Option<&str>,
+    ) -> EventView {
+        let type_name = if destination_location_id.is_some() {
+            "actor.moved"
+        } else {
+            "message.created"
+        };
+        serde_json::from_value(serde_json::json!({
+            "seq": seq,
+            "type": type_name,
+            "success": true,
+            "reason": 0,
+            "actor_id": actor_id,
+            "actor_name": actor_name,
+            "location_id": location_id,
+            "location_name": location_name,
+            "destination_location_id": destination_location_id,
+            "content": content,
+        }))
+        .expect("journal test event")
+    }
+
     #[test]
-    fn browser_journal_is_image_only_and_keeps_source_context_hidden() {
+    fn browser_journal_keeps_the_illustrated_page_and_shows_recent_chats() {
         assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
         assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
         assert!(INDEX_HTML.contains("function setJournalOpen"));
@@ -762,6 +1101,8 @@ mod tests {
         assert!(INDEX_HTML.contains("String(page.rest_kind || \"\").toLowerCase() !== \"long\""));
         assert!(INDEX_HTML.contains("const daily = new Map()"));
         assert!(INDEX_HTML.contains("class=\"journal-page-illustration generated\""));
+        assert!(INDEX_HTML.contains("class=\"journal-chat-log\" aria-label=\"Recent chats\""));
+        assert!(INDEX_HTML.contains("page?.chat_excerpts"));
         assert!(!INDEX_HTML.contains("painted after a long rest"));
         assert!(!INDEX_HTML.contains("function journalEventHtml"));
     }
@@ -779,6 +1120,112 @@ mod tests {
     }
 
     #[test]
+    fn recent_chat_follows_the_avatar_through_every_visited_room() {
+        let events = vec![
+            journal_test_event(
+                1,
+                2001,
+                "Fern",
+                1,
+                "Cottage",
+                None,
+                Some("Will you walk with me?"),
+            ),
+            journal_test_event(2, RATI_ACTOR_ID, "Rati", 1, "Cottage", Some(2), None),
+            journal_test_event(
+                3,
+                2002,
+                "Mara",
+                2,
+                "Rain Path",
+                None,
+                Some("The long way has the better view."),
+            ),
+            journal_test_event(4, RATI_ACTOR_ID, "Rati", 2, "Rain Path", Some(3), None),
+            journal_test_event(
+                5,
+                2003,
+                "Pip",
+                2,
+                "Rain Path",
+                None,
+                Some("This happened after Rati had already left."),
+            ),
+            journal_test_event(
+                6,
+                2004,
+                "Sol",
+                3,
+                "Lantern Hill",
+                None,
+                Some("I hoped you would make it before dark."),
+            ),
+        ];
+        let observed = daily_journal_observed_events(&events, RATI_ACTOR_ID, 3, 0, u64::MAX);
+        assert_eq!(
+            observed.iter().map(|event| event.seq).collect::<Vec<_>>(),
+            vec![1, 2, 3, 4, 6]
+        );
+
+        let runtime = RuntimeWorld::seeded();
+        let chats = daily_journal_chat_excerpts(&runtime, &observed);
+        assert_eq!(
+            chats
+                .iter()
+                .map(|chat| (chat.location_id, chat.text.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                (1, "Will you walk with me?"),
+                (2, "The long way has the better view."),
+                (3, "I hoped you would make it before dark."),
+            ]
+        );
+    }
+
+    #[test]
+    fn exact_chat_stays_out_of_external_journal_prompt_evidence() {
+        let page = DailyJournalPageState {
+            day_index: 20_600,
+            artifact_id: daily_journal_artifact_id(5000, 20_600),
+            actor_id: 5000,
+            avatar_name: "Moss".to_string(),
+            location_id: 4,
+            location_name: "The Cosy Cottage".to_string(),
+            requested_event_seq: 20,
+            source_event_seqs: vec![10, 12],
+            hidden_updates: vec![
+                DailyJournalHiddenUpdate {
+                    source_event_seqs: vec![10],
+                    kind: "conversation".to_string(),
+                    text: "Fern said a private sentence.".to_string(),
+                },
+                DailyJournalHiddenUpdate {
+                    source_event_seqs: vec![12],
+                    kind: "relationship".to_string(),
+                    text: "My bond with Fern is becoming steadier.".to_string(),
+                },
+            ],
+            chat_excerpts: vec![DailyJournalChatExcerpt {
+                source_event_seq: 10,
+                speaker_actor_id: 6000,
+                speaker_name: "Fern".to_string(),
+                location_id: 4,
+                location_name: "The Cosy Cottage".to_string(),
+                text: "a private sentence".to_string(),
+            }],
+            status: "pending".to_string(),
+            entry: String::new(),
+            image_content_type: String::new(),
+            image_digest: String::new(),
+            style_revision: DAILY_JOURNAL_STYLE_REVISION.to_string(),
+            prompt_version: DAILY_JOURNAL_PROMPT_VERSION.to_string(),
+        };
+        let evidence = daily_journal_ai_evidence(&page);
+        assert!(!evidence.contains("private sentence"));
+        assert!(evidence.contains("bond with Fern"));
+    }
+
+    #[test]
     fn fallback_page_is_one_svg_with_first_person_words() {
         let page = DailyJournalPageState {
             day_index: 20_600,
@@ -790,6 +1237,7 @@ mod tests {
             requested_event_seq: 20,
             source_event_seqs: vec![10, 12],
             hidden_updates: Vec::new(),
+            chat_excerpts: Vec::new(),
             status: "ready".to_string(),
             entry: "I followed the warm path home, and I kept the sound of rain with me."
                 .to_string(),
@@ -806,6 +1254,49 @@ mod tests {
     }
 
     #[test]
+    fn fallback_journal_remembers_people_and_purpose_before_place() {
+        let page = DailyJournalPageState {
+            day_index: 20_600,
+            artifact_id: daily_journal_artifact_id(5000, 20_600),
+            actor_id: 5000,
+            avatar_name: "Moss".to_string(),
+            location_id: 4,
+            location_name: "The Cosy Cottage".to_string(),
+            requested_event_seq: 20,
+            source_event_seqs: vec![10, 12],
+            hidden_updates: vec![
+                DailyJournalHiddenUpdate {
+                    source_event_seqs: vec![10],
+                    kind: "conversation".to_string(),
+                    text: "I spoke with Fern at Lantern Hill.".to_string(),
+                },
+                DailyJournalHiddenUpdate {
+                    source_event_seqs: Vec::new(),
+                    kind: "calling".to_string(),
+                    text: "My calling: help strangers find a welcome.".to_string(),
+                },
+                DailyJournalHiddenUpdate {
+                    source_event_seqs: vec![12],
+                    kind: "dream".to_string(),
+                    text: "A table with one chair left open for a new friend.".to_string(),
+                },
+            ],
+            chat_excerpts: Vec::new(),
+            status: "pending".to_string(),
+            entry: String::new(),
+            image_content_type: String::new(),
+            image_digest: String::new(),
+            style_revision: DAILY_JOURNAL_STYLE_REVISION.to_string(),
+            prompt_version: DAILY_JOURNAL_PROMPT_VERSION.to_string(),
+        };
+        let entry = fallback_daily_journal_entry(&page);
+        assert!(entry.find("Fern").unwrap() < entry.find("The Cosy Cottage").unwrap());
+        assert!(entry.contains("calling"));
+        assert!(entry.contains("dream"));
+        assert!(!entry.contains("Then I remembered"));
+    }
+
+    #[test]
     fn short_rests_stay_hidden_and_long_rests_create_at_most_one_page_per_day() {
         let mut runtime = RuntimeWorld::seeded();
         let update = |day_index, rest_kind: &str, seq, text: &str| DailyJournalRestUpdate {
@@ -818,6 +1309,15 @@ mod tests {
             location_name: "The Cosy Cottage".to_string(),
             updates: vec![DailyJournalHiddenUpdate {
                 source_event_seqs: vec![seq],
+                kind: "moment".to_string(),
+                text: text.to_string(),
+            }],
+            chat_excerpts: vec![DailyJournalChatExcerpt {
+                source_event_seq: seq,
+                speaker_actor_id: 6000,
+                speaker_name: "Fern".to_string(),
+                location_id: 4,
+                location_name: "The Cosy Cottage".to_string(),
                 text: text.to_string(),
             }],
         };
@@ -830,6 +1330,14 @@ mod tests {
         runtime.apply_daily_journal_rest_update(&update(20_600, "long", 12, "Came home."));
         assert_eq!(runtime.daily_journals[&5000].pages.len(), 1);
         assert!(runtime.daily_journals[&5000].hidden_updates.is_empty());
+        assert_eq!(
+            runtime.daily_journals[&5000].pages[&20_600]
+                .chat_excerpts
+                .iter()
+                .map(|excerpt| excerpt.source_event_seq)
+                .collect::<Vec<_>>(),
+            vec![10, 12]
+        );
 
         runtime.apply_daily_journal_rest_update(&update(20_600, "short", 14, "Listened."));
         runtime.apply_daily_journal_rest_update(&update(20_600, "long", 16, "Rested again."));
@@ -854,7 +1362,16 @@ mod tests {
             location_name: "The Cosy Cottage".to_string(),
             updates: vec![DailyJournalHiddenUpdate {
                 source_event_seqs: vec![41, 43],
+                kind: "journey".to_string(),
                 text: "Moss followed the rain-bright path home.".to_string(),
+            }],
+            chat_excerpts: vec![DailyJournalChatExcerpt {
+                source_event_seq: 42,
+                speaker_actor_id: 6000,
+                speaker_name: "Fern".to_string(),
+                location_id: 4,
+                location_name: "The Cosy Cottage".to_string(),
+                text: "Come in before the rain gets heavier.".to_string(),
             }],
         });
         let artifact_id = runtime.daily_journals[&5000].pages[&20_600]
@@ -881,7 +1398,16 @@ mod tests {
             location_name: "The Cosy Cottage".to_string(),
             updates: vec![DailyJournalHiddenUpdate {
                 source_event_seqs: vec![48],
+                kind: "moment".to_string(),
                 text: "Moss heard rain on the roof.".to_string(),
+            }],
+            chat_excerpts: vec![DailyJournalChatExcerpt {
+                source_event_seq: 48,
+                speaker_actor_id: 6000,
+                speaker_name: "Fern".to_string(),
+                location_id: 4,
+                location_name: "The Cosy Cottage".to_string(),
+                text: "It sounds gentler from in here.".to_string(),
             }],
         });
         let expected = runtime.daily_journals.clone();
