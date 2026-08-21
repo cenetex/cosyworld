@@ -377,4 +377,12 @@
 # 63609 -> 63611: two comment lines recording why the pinned official item
 # count moved from 34 to 35 -- the core pack now authors one unplaced item for
 # its discovery slot. Test-only.
-63611
+# 63611 -> 63391: move the canonical identity/version RuntimeWorld methods
+# (ensure_canonical_identities, canonical_ref,
+# runtime_handle_for_canonical_ref, canonical_pact_ref, entity_version,
+# event_entity_refs, bump_entity_versions_for_events,
+# refresh_canonical_events, refresh_all_canonical_events) from main.rs into
+# canonical_world.rs as a pub(crate) split-impl beside the
+# CanonicalIdentityState types they operate on. Pure, behavior-preserving;
+# tests stay in main.rs and canonical_identity_tests.rs for this slice.
+63391
