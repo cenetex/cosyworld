@@ -10140,7 +10140,11 @@
       if (!turn?.enabled) return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
       const sceneKind = String(turn.scene_kind || "");
-      const copy = sceneKind === "combat" || combat
+      // scene-turn is the ordered-combat protocol identity even when the
+      // adjacent combat projection has not arrived yet, so it has to keep
+      // reading as combat rather than falling through to the generic scene.
+      const combatCopy = sceneKind === "combat" || Boolean(combat) || turn.policy === "scene-turn";
+      const copy = combatCopy
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
         : sceneKind === "room"
           ? (turn.is_current_actor ? "room initiative — your turn" : `room initiative — ${currentName} acts now`)
