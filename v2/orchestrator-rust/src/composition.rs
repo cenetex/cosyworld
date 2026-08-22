@@ -528,36 +528,37 @@ impl RuntimeWorld {
             }
             true
         });
-        let primary_offer_kind = match primary_action.kind.as_str() {
-            "travel" => "move",
-            kind => kind,
-        };
-        let selected_offer = action_offers
-            .iter()
-            .find(|offer| offer.kind == primary_offer_kind)
-            .or_else(|| action_offers.first());
-        if let Some(offer) = selected_offer {
-            if offer.kind != primary_offer_kind {
-                primary_action.kind = match offer.kind.as_str() {
-                    "move" => "travel",
-                    kind => kind,
-                }
-                .to_string();
-                primary_action.label = offer.verb.clone();
-                primary_action.disabled = offer.disabled;
-            }
-            primary_action.command = offer.command.clone();
-        } else if !primary_action.disabled
-            && primary_action.kind != "create_rescuer"
-            && primary_action.kind != "abandon_avatar"
-        {
-            primary_action = PrimaryAction {
-                kind: "wait".to_string(),
-                label: "Wait".to_string(),
-                command: "wait".to_string(),
-                disabled: true,
-                options: Vec::new(),
+        // An avatar lifecycle action is the player's way back into play, so no
+        // offer ranking may replace it. Everything else follows the dealt hand.
+        if !actor_presence::primary_action_is_avatar_lifecycle(&primary_action.kind) {
+            let primary_offer_kind = match primary_action.kind.as_str() {
+                "travel" => "move",
+                kind => kind,
             };
+            let selected_offer = action_offers
+                .iter()
+                .find(|offer| offer.kind == primary_offer_kind)
+                .or_else(|| action_offers.first());
+            if let Some(offer) = selected_offer {
+                if offer.kind != primary_offer_kind {
+                    primary_action.kind = match offer.kind.as_str() {
+                        "move" => "travel",
+                        kind => kind,
+                    }
+                    .to_string();
+                    primary_action.label = offer.verb.clone();
+                    primary_action.disabled = offer.disabled;
+                }
+                primary_action.command = offer.command.clone();
+            } else if !primary_action.disabled {
+                primary_action = PrimaryAction {
+                    kind: "wait".to_string(),
+                    label: "Wait".to_string(),
+                    command: "wait".to_string(),
+                    disabled: true,
+                    options: Vec::new(),
+                };
+            }
         }
         for offer in &mut action_offers {
             offer.composition_trace.focused_encounter = actor_id

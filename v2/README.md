@@ -656,6 +656,8 @@ Returning players keep their local avatar id plus an opaque `actor_session` mint
 
 When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same present human actor — active or knocked out — and issue a fresh actor session without emitting duplicate `actor.created` world events. Knockout never mints or links a replacement identity. Dev reset clears those links along with the reseeded world.
 
+A knocked-out avatar stays in the world and holds a valid session, so its state answers with the release path rather than a playable hand: `primary_action` is `abandon_avatar`, `action_offers` is empty, and `search_available` is false. `POST /actions/abandon-avatar` frees the account to begin again and leaves the fallen avatar behind as a resident. Offer filtering never replaces an avatar lifecycle action with `wait`, and the browser never builds a card the server did not deal, so a downed player always keeps a way back into play.
+
 `POST /avatar/session` renews credentials only for the same canonical actor. A current actor session may rotate itself; an expired actor session requires the signed wallet already linked to that actor. The route returns `409` for a terminal actor and never creates an avatar. Browser action retries use it once after a credential-specific failure and reuse the original command intent.
 
 Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and `/state` use the same current-room roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible until turn recovery hands off, but remains absent from actor-target offers and commands. The browser and terminal clients maintain explicit presence heartbeats. NPC residents stay visible according to world placement.
@@ -835,6 +837,17 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
+
+Every `POST /commands` rejection is a JSON command envelope whose `status`
+matches the HTTP status. Malformed requests, extractor failures, rate limits,
+and local command-admission overload therefore never fall back to Axum's plain
+text error body. The runtime admits at most 16 concurrent public commands;
+additional callers fail fast with `503`,
+`error_kind: "server_overloaded"`, and `Retry-After: 1`; retrying a mutation
+must reuse the same `intent_id`. The Lonely Forest proxy applies the same
+contract to upstream `502`/`504` failures, returning a bounded JSON `503`
+instead of an empty or HTML response.
+
 There is no collection materialize/unmaterialize route. `GET /meta` exposes
 `migration_archive.item_materialization`: the permanent `archived` / `audit_only`
 state, disabled mutation flags, and read-only migration receipt counts. Verified

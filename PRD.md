@@ -206,7 +206,7 @@ World health:
 
 - Rooms whose hand offers only exits (target: zero — every settled room offers listen or search).
 - Items held by inactive avatars (target: near zero via recovery).
-- Turns with more than one resident reply (keep near zero); repeated identical ambient lines per session (target: zero); dialogue inference failure rate; resident speech-contract pass rate.
+- Turns with more than one resident reply (keep near zero); repeated identical player-turn replies per session (target: zero); dialogue inference failure rate; resident speech-contract pass rate.
 - Ping-to-skip rate in shared rooms (high values mean turn friction); report resolution time.
 
 Economy health:
@@ -235,7 +235,7 @@ A release of the current era is acceptable when:
 - A returning user's home is exactly as they left it, and at least one opted-in frontier goal has visibly moved through player turns.
 - No settled room's action hand collapses to exits alone: scene composition always yields a reflective, investigative, social, or useful local action in addition to travel.
 - Two players can complete a resident's placement-based evolution ceremony together without consuming the arranged items, and a present witness earns a Journal mark when a resident claims what it desires.
-- The room transcript reads as a place: at most one resident reply per turn, no repeated ambient lines, dice and clocks visible as public events.
+- The room transcript reads as a place: at most one resident reply per turn, no repeated resident replies, dice and clocks visible as public events.
 - A player with zero Orbs and no wallet can listen, help, bond, travel, and settle the Journal.
 - Killing the AI provider leaves every core world action functional; explicit dialogue fails visibly without spending Orbs or emitting substitute speech, and incidental dialogue is skipped.
 - A waiting player in a shared room can always see whose turn it is, ping them, watch the countdown, and never waits on a ghost.

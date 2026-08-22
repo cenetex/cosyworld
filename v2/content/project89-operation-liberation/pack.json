@@ -103,7 +103,7 @@
       },
       "actor_kind": "independent_proxim8",
       "custody_changes_control": false,
-      "ambient_autonomy": true,
+      "event_autonomy": true,
       "direct_actor_session": false,
       "goal": "Search for other Proxim8s and welcome them as independent actors.",
       "dynamic_item": {

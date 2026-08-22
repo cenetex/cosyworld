@@ -36,4 +36,7 @@
 # warnings by diffing clippy's per-warning short-format output between clean
 # main and the branch -- the sets are identical apart from line-number shifts
 # from the fix's three added main.rs lines.
-226
+#
+# 226 -> 225: moving response-contract handling out of main.rs removes one
+# dead-code warning while keeping the command admission and JSON boundary live.
+225

@@ -1910,11 +1910,17 @@ async function main() {
             target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
             provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
           },
+          {
+            offer_id: "search:cosy-cottage",
+            kind: "search",
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
         ],
         action_hand: {
           entries: [
             { offer_id: "core:1:notice-rati", kind: "notice_actor" },
             { offer_id: "move:rain-soft-garden", kind: "move" },
+            { offer_id: "search:cosy-cottage", kind: "search" },
           ],
         },
         economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
@@ -1932,33 +1938,52 @@ async function main() {
       };
       state = fakeState;
       actorId = 5000;
+      const project = (view) => buildActions(view).map((action) => ({
+        label: action.label,
+        detail: action.detail || "",
+        focusKey: action.focusKey,
+        intention: action.intention,
+        accessibleLabel: action.accessibleLabel,
+        icon: actionEmoji(action),
+        title: actionTitle(action),
+        summary: actionSummary(action),
+        rows: actionModalRows(action),
+      }));
       try {
-        return buildActions(fakeState).map((action) => ({
-          label: action.label,
-          detail: action.detail || "",
-          focusKey: action.focusKey,
-          intention: action.intention,
-          accessibleLabel: action.accessibleLabel,
-          icon: actionEmoji(action),
-          title: actionTitle(action),
-          summary: actionSummary(action),
-          rows: actionModalRows(action),
-        }));
+        const certified = project(fakeState);
+        // The same room with the certificate withheld. A bare room affordance
+        // must not become a card: the server refuses an offerless search, so
+        // drawing one hands the player something that cannot be played.
+        const uncertifiedState = {
+          ...fakeState,
+          action_offers: fakeState.action_offers.filter((offer) => offer.kind !== "search"),
+          action_hand: {
+            entries: fakeState.action_hand.entries.filter((entry) => entry.kind !== "search"),
+          },
+        };
+        state = uncertifiedState;
+        const uncertified = project(uncertifiedState);
+        state = fakeState;
+        return { certified, uncertified };
       } finally {
         state = previousState;
         actorId = previousActorId;
       }
     });
-    const searchIndex = result.findIndex((action) => action.focusKey === "feature:hearth");
-    const locationSearch = result.find((action) => action.focusKey === "location:1:search");
-    const travelIndex = result.findIndex((action) => action.label === "travel");
-    const travel = result.find((action) => action.label === "travel");
-    const chatIndex = result.findIndex((action) => action.label === "chat");
-    const notice = result.find((action) => action.intention === "notice");
-    assert(result[0]?.label === "notice", `fresh Notice can still lead calm-room discovery: ${JSON.stringify(result)}`);
+    const certified = result.certified;
+    const searchIndex = certified.findIndex((action) => action.focusKey === "feature:hearth");
+    const locationSearch = certified.find((action) => action.focusKey === "location:1:search");
+    const travelIndex = certified.findIndex((action) => action.label === "travel");
+    const travel = certified.find((action) => action.label === "travel");
+    const chatIndex = certified.findIndex((action) => action.label === "chat");
+    assert(certified[0]?.label === "notice", `fresh Notice can still lead calm-room discovery: ${JSON.stringify(result)}`);
     assert(chatIndex >= 0, `calm-room fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
     assert(searchIndex === -1 || searchIndex > travelIndex, `calm-room feature search should stay behind travel unless focused: ${JSON.stringify(result)}`);
     assert(locationSearch?.title === "inspect the cosy cottage", `room Inspect should name where the player is looking: ${JSON.stringify(result)}`);
+    assert(
+      !result.uncertified.some((action) => action.focusKey === "location:1:search"),
+      `room Inspect without a dealt certificate must not be drawn: ${JSON.stringify(result.uncertified)}`,
+    );
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
     assert(locationSearch?.rows?.some((row) => row[1] === "one hidden thing in The Cosy Cottage comes to light"), `room Search outcome should promise concrete progress: ${JSON.stringify(result)}`);
     assert(!/searches .*; can reveal|\b(?:progress|clock|tag)\b/i.test(JSON.stringify(locationSearch)), `room Search confirmation should hide resolver jargon: ${JSON.stringify(result)}`);

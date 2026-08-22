@@ -887,51 +887,6 @@ impl RuntimeWorld {
         candidates
     }
 
-    pub(crate) fn ambient_reply_plan(&self) -> Option<AvatarReplyPlan> {
-        let npc = self.ambient_actor()?;
-        let npc_meta = self.actors.get(&npc.id);
-        let location_meta = self.location_meta_for(npc.location_id);
-        let economy_note = self.resident_economy_prompt_note(npc, None);
-        let user_text = "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string();
-        let context_spine = self.avatar_context_spine(npc.id, None, None, user_text.clone())?;
-        Some(AvatarReplyPlan {
-            context_spine,
-            speaker_actor_id: npc.id,
-            speaker_name: self
-                .actor_name(npc.id)
-                .unwrap_or_else(|| format!("Actor {}", npc.id)),
-            speaker_voice: self.authored_actor_voice(npc.id),
-            speech_mode: npc_meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            location_id: npc.location_id,
-            resident_continuity: self.resident_continuity_for(npc),
-            economy_note,
-            goals: self.narrative_goal_lines(Some(npc.id), npc.location_id),
-            location_name: self
-                .location_name(npc.location_id)
-                .unwrap_or_else(|| "Unknown Location".to_string()),
-            location_title: location_meta.title,
-            location_description: location_meta.description,
-            location_persona: location_meta.persona,
-            location_evidence: self.conversation_location_evidence(npc.location_id, npc.id, None),
-            public_room_memory: self.recent_public_room_evidence(npc.location_id, 3),
-            cast: self.room_cast_names(npc.location_id),
-            recent_lines: self.recent_room_lines(npc.location_id, 8),
-            recent_activity: self.recent_room_activity(npc.location_id, 10),
-            user_text,
-            incoming_turn: None,
-            caused_by_event_seq: None,
-            source_world_tick: None,
-            observed_through_seq: None,
-            source_location_id: None,
-            publication_beat_id: String::new(),
-            planner_requested: false,
-            planner_candidates: Vec::new(),
-            card_policy_snapshot: None,
-        })
-    }
-
     pub(crate) fn avatar_self_description_due(&self, actor_id: u64, level: u8) -> bool {
         !self
             .entity_memories

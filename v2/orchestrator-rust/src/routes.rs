@@ -1,11 +1,20 @@
 use axum::{
+    extract::Request,
+    http::HeaderValue,
     middleware,
+    middleware::Next,
     routing::{get, post},
     Router,
 };
+use tokio::sync::Semaphore;
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use super::*;
+
+// Keep command work bounded without making routine player and resident activity
+// contend for a single slot. Saturated callers fail fast and can safely retry
+// the same intent while health endpoints continue to bypass this admission gate.
+const COMMAND_CONCURRENCY_LIMIT: usize = 16;
 
 pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
@@ -53,6 +62,10 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
 }
 
 pub(super) fn app_router(state: AppState) -> Router {
+    app_router_with_command_capacity(state, Arc::new(Semaphore::new(COMMAND_CONCURRENCY_LIMIT)))
+}
+
+fn app_router_with_command_capacity(state: AppState, command_capacity: Arc<Semaphore>) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/moderation", get(moderation_console))
@@ -294,6 +307,9 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/rest", post(legacy_action_requires_certificate))
         .route("/actions/bank-ledger", post(bank_ledger))
         .route("/actions/revise-calling", post(revise_calling))
+        // Releasing a knocked-out avatar is a lifecycle action with no dealt
+        // offer, so it needs its own route rather than an offer certificate.
+        .route("/actions/abandon-avatar", post(abandon_avatar))
         .route(
             "/actions/create-bond",
             post(legacy_action_requires_certificate),
@@ -310,7 +326,13 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(legacy_action_requires_certificate),
         )
         .route("/actions/flee", post(legacy_action_requires_certificate))
-        .route("/commands", post(command))
+        .route(
+            "/commands",
+            post(command).layer(middleware::from_fn_with_state(
+                command_capacity,
+                command_admission,
+            )),
+        )
         .route(
             "/internal/canonical/commands",
             post(internal_canonical_command),
@@ -344,15 +366,218 @@ pub(super) fn app_router(state: AppState) -> Router {
         // status field. Promote that field to the HTTP status after handlers
         // finish, before compression obscures the JSON body.
         .layer(middleware::map_response(action_response_http_status))
+        // Extractor and method rejections happen before the command handler.
+        // Normalize those last so /commands never leaks Axum's plain-text body.
+        .layer(middleware::from_fn(command_response_json_contract))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
 
+async fn command_admission(
+    State(command_capacity): State<Arc<Semaphore>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let Ok(_permit) = command_capacity.try_acquire() else {
+        let mut response = canonical_command_error_with_kind(
+            "",
+            503,
+            "The world is busy. Retry this command with the same intent_id.",
+            Some(CommandErrorKind::ServerOverloaded),
+        )
+        .into_response();
+        *response.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+        response
+            .headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+        return response;
+    };
+    next.run(request).await
+}
+
+async fn command_response_json_contract(request: Request, next: Next) -> Response {
+    let is_command = request.uri().path() == "/commands";
+    let response = next.run(request).await;
+    if !is_command
+        || !(response.status().is_client_error() || response.status().is_server_error())
+        || response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("application/json"))
+    {
+        return response;
+    }
+
+    let status = response.status();
+    let error_kind = if status.is_server_error() {
+        CommandErrorKind::ServerUnavailable
+    } else {
+        CommandErrorKind::InvalidRequest
+    };
+    let output = match status {
+        StatusCode::BAD_REQUEST => "The command request body is invalid JSON.",
+        StatusCode::METHOD_NOT_ALLOWED => "POST this command as JSON.",
+        StatusCode::PAYLOAD_TOO_LARGE => "The command request body is too large.",
+        StatusCode::UNSUPPORTED_MEDIA_TYPE => {
+            "Send the command with Content-Type: application/json."
+        }
+        StatusCode::UNPROCESSABLE_ENTITY => {
+            "The command request is missing required fields or has invalid field values."
+        }
+        StatusCode::TOO_MANY_REQUESTS => {
+            "Too many command requests. Retry with the same intent_id."
+        }
+        status if status.is_server_error() => {
+            "The command could not be served. Retry with the same intent_id."
+        }
+        _ => "The command request was rejected. Refresh and retry.",
+    };
+    let allow = response.headers().get(header::ALLOW).cloned();
+    let retry_after = response.headers().get(header::RETRY_AFTER).cloned();
+    let mut replacement =
+        canonical_command_error_with_kind("", u32::from(status.as_u16()), output, Some(error_kind))
+            .into_response();
+    *replacement.status_mut() = status;
+    if let Some(value) = allow {
+        replacement.headers_mut().insert(header::ALLOW, value);
+    }
+    if let Some(value) = retry_after {
+        replacement.headers_mut().insert(header::RETRY_AFTER, value);
+    }
+    replacement
+}
+
+pub(super) async fn action_response_http_status(response: Response) -> Response {
+    let (mut parts, body) = response.into_parts();
+    let is_json = parts
+        .headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("application/json"));
+    if !is_json {
+        return Response::from_parts(parts, body);
+    }
+    let bytes = match to_bytes(body, 2 * 1024 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            warn!("failed to encode JSON action response: {error}");
+            let mut response = canonical_command_error_with_kind(
+                "",
+                500,
+                "The response could not be encoded. Retry with the same intent_id.",
+                Some(CommandErrorKind::ResponseEncodingFailed),
+            )
+            .into_response();
+            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            return response;
+        }
+    };
+    if let Some(status) = serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|value| value.get("status").and_then(serde_json::Value::as_u64))
+        .and_then(|status| u16::try_from(status).ok())
+        .and_then(|status| StatusCode::from_u16(status).ok())
+    {
+        parts.status = status;
+    }
+    Response::from_parts(parts, Body::from(bytes))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::Bytes;
+    use tower::ServiceExt;
+
+    fn request(method: &str, body: Body, content_type: Option<&str>) -> Request {
+        let mut builder = Request::builder().method(method).uri("/commands");
+        if let Some(content_type) = content_type {
+            builder = builder.header(header::CONTENT_TYPE, content_type);
+        }
+        let mut request = builder.body(body).expect("command request");
+        request.extensions_mut().insert(ConnectInfo(
+            "127.0.0.1:12345"
+                .parse::<SocketAddr>()
+                .expect("test address"),
+        ));
+        request
+    }
+
+    async fn assert_command_error(
+        response: Response,
+        expected_status: StatusCode,
+    ) -> CommandResponse {
+        assert_eq!(response.status(), expected_status);
+        assert!(response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("application/json")));
+        let body = to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .expect("command error body");
+        let payload: CommandResponse =
+            serde_json::from_slice(&body).expect("parseable command error envelope");
+        assert!(!payload.ok);
+        assert_eq!(payload.status, u32::from(expected_status.as_u16()));
+        assert!(payload
+            .output
+            .as_deref()
+            .is_some_and(|output| !output.is_empty()));
+        payload
+    }
+
+    fn registered_route_paths(router_source: &str) -> BTreeSet<&str> {
+        router_source
+            .split(".route(")
+            .skip(1)
+            .filter_map(|segment| segment.split('"').nth(1))
+            .collect()
+    }
+
+    fn quoted_action_paths(source: &str) -> BTreeSet<&str> {
+        source
+            .split('"')
+            .filter(|value| value.starts_with("/actions/"))
+            .collect()
+    }
+
+    fn posted_action_paths(source: &str) -> BTreeSet<&str> {
+        source
+            .split("action(\"")
+            .skip(1)
+            .filter_map(|segment| segment.split('"').next())
+            .filter(|path| path.starts_with("/actions/"))
+            .collect()
+    }
+
+    /// The browser client posts a plain action path unless that path is offer
+    /// bound, in which case it travels through /actions/submit with a
+    /// certificate. A path that is neither served nor offer bound answers 404
+    /// on every attempt: that is how Abandon Avatar shipped unreachable and
+    /// left knocked-out players with no way back into play.
+    #[test]
+    fn every_client_action_path_stays_reachable() {
+        let registered = registered_route_paths(include_str!("routes.rs"));
+        let offer_bound_block = INDEX_HTML
+            .split("const offerBoundPaths = new Set([")
+            .nth(1)
+            .and_then(|block| block.split("]);").next())
+            .expect("the client declares its offer-bound action paths");
+        let offer_bound = quoted_action_paths(offer_bound_block);
+        assert!(offer_bound.contains("/actions/chat"));
+        let posted = posted_action_paths(INDEX_HTML);
+        assert!(posted.contains("/actions/abandon-avatar"));
+        for path in posted {
+            assert!(
+                registered.contains(path) || offer_bound.contains(path),
+                "the client posts to {path}, but no route serves it and it is not offer bound",
+            );
+        }
+    }
 
     #[test]
     fn model_interaction_has_its_own_certificate_bound_path() {
@@ -364,5 +589,114 @@ mod tests {
             "/actions/model-interaction",
             "chat"
         ));
+    }
+
+    #[tokio::test]
+    async fn every_commands_rejection_is_a_parseable_json_envelope() {
+        let app = app_router(test_app_state(RuntimeWorld::seeded(), None));
+        let cases = [
+            (
+                request("POST", Body::from("{"), Some("application/json")),
+                StatusCode::BAD_REQUEST,
+            ),
+            (
+                request("POST", Body::from("{}"), Some("text/plain")),
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            ),
+            (
+                request("POST", Body::from("{}"), Some("application/json")),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
+            (
+                request("GET", Body::empty(), None),
+                StatusCode::METHOD_NOT_ALLOWED,
+            ),
+            (
+                request(
+                    "POST",
+                    Body::from(
+                        r#"{"actor_id":18446744073709551615,"actor_session":null,"wallet_session":null}"#,
+                    ),
+                    Some("application/json"),
+                ),
+                StatusCode::NOT_FOUND,
+            ),
+        ];
+
+        for (request, status) in cases {
+            assert_command_error(
+                app.clone()
+                    .oneshot(request)
+                    .await
+                    .expect("command response"),
+                status,
+            )
+            .await;
+        }
+    }
+
+    #[tokio::test]
+    async fn command_overload_is_json_and_does_not_queue_health() {
+        let capacity = Arc::new(Semaphore::new(1));
+        let _held = capacity
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("hold command capacity");
+        let app = app_router_with_command_capacity(
+            test_app_state(RuntimeWorld::seeded(), None),
+            capacity,
+        );
+        let command = request(
+            "POST",
+            Body::from(r#"{"actor_id":1,"actor_session":null,"wallet_session":null}"#),
+            Some("application/json"),
+        );
+        let overloaded = assert_command_error(
+            app.clone()
+                .oneshot(command)
+                .await
+                .expect("overload response"),
+            StatusCode::SERVICE_UNAVAILABLE,
+        )
+        .await;
+        assert_eq!(
+            overloaded.error_kind,
+            Some(CommandErrorKind::ServerOverloaded)
+        );
+
+        let health = tokio::time::timeout(
+            Duration::from_millis(100),
+            app.oneshot(
+                Request::builder()
+                    .uri("/health/live")
+                    .body(Body::empty())
+                    .expect("health request"),
+            ),
+        )
+        .await
+        .expect("health must bypass command admission")
+        .expect("health response");
+        assert_eq!(health.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_failed_json_body_is_replaced_by_an_actionable_envelope() {
+        let body = Body::from_stream(tokio_stream::once(Err::<Bytes, io::Error>(
+            io::Error::other("fixture body failure"),
+        )));
+        let response = Response::builder()
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .expect("failing JSON response");
+        let payload = assert_command_error(
+            action_response_http_status(response).await,
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .await;
+        assert_eq!(
+            payload.error_kind,
+            Some(CommandErrorKind::ResponseEncodingFailed)
+        );
     }
 }
