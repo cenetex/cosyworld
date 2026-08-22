@@ -364,6 +364,43 @@ fn persistence_compaction_due(
             })
 }
 
+/// Hands freed pages back to the filesystem, bounded by `budget_pages`.
+///
+/// This is a no-op unless the store was created with `auto_vacuum` set to
+/// INCREMENTAL: SQLite only accepts that mode on an empty database, so a store
+/// older than that runtime setting keeps its pages on the freelist no matter
+/// how often this runs. `/meta.persistence.event_store_auto_vacuum` reports
+/// which case a deployment is in.
+fn reclaim_event_store_pages(conn: &Connection, budget_pages: u32) -> u64 {
+    let auto_vacuum = conn
+        .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, u64>(0))
+        .unwrap_or(0);
+    if auto_vacuum != 2 || budget_pages == 0 {
+        return 0;
+    }
+    let free_pages = |conn: &Connection| {
+        conn.query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
+            .unwrap_or(0)
+    };
+    let before = free_pages(conn);
+    if before == 0 {
+        return 0;
+    }
+    let pages = before.min(u64::from(budget_pages));
+    if conn
+        .execute_batch(&format!("PRAGMA incremental_vacuum({pages})"))
+        .is_err()
+    {
+        return 0;
+    }
+    let page_size = conn
+        .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
+        .unwrap_or(0);
+    before
+        .saturating_sub(free_pages(conn))
+        .saturating_mul(page_size)
+}
+
 pub(super) fn compact_event_store_after_snapshot(
     path: &Path,
     checkpoint_seq: u64,
@@ -580,9 +617,16 @@ fn compact_event_store_after_snapshot_now(
     )
     .map_err(sqlite_error)?;
     tx.commit().map_err(sqlite_error)?;
-    // Deleted pages are intentional reusable headroom. Vacuuming synchronously
-    // here rewrites the volume while the world lock is held and stalls player
-    // commands; SQLite will reuse these pages for later journal appends.
+    // A full VACUUM rewrites the whole volume while the world lock is held and
+    // stalls player commands, so it stays out of this path. A bounded
+    // incremental pass costs a few milliseconds and hands the pages this
+    // compaction just freed back to the filesystem, so a burst is recoverable
+    // over the following snapshots instead of ratcheting the file up forever.
+    // Pages beyond the budget stay on the freelist and SQLite reuses them.
+    let reclaimed_bytes = reclaim_event_store_pages(&conn, incremental_vacuum_page_budget());
+    if reclaimed_bytes > 0 {
+        info!("returned {reclaimed_bytes} byte(s) of compacted CosyWorld event-store pages to the filesystem");
+    }
     Ok(PersistenceCompactionReport {
         action_journal_floor_seq,
         canonical_commit_floor_journal_seq,
@@ -726,6 +770,50 @@ mod tests {
             .content_upserts
             .insert(content_id, format!("checkpoint fixture {seed}"));
         record
+    }
+
+    /// Compaction deletes rows; without this the file only ever ratchets up,
+    /// so one busy weekend costs the volume permanently.
+    #[test]
+    fn compacted_pages_return_to_the_filesystem_within_the_budget() {
+        let path = temp_path("incremental-reclaim", "sqlite");
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize reclaim fixture");
+        let conn = open_event_store(&path).expect("open reclaim fixture");
+        conn.execute_batch("CREATE TABLE reclaim_fixture (id INTEGER PRIMARY KEY, blob BLOB)")
+            .expect("create reclaim fixture");
+        for _ in 0..400 {
+            conn.execute(
+                "INSERT INTO reclaim_fixture (blob) VALUES (randomblob(4096))",
+                [],
+            )
+            .expect("fill reclaim fixture");
+        }
+        conn.execute_batch("DELETE FROM reclaim_fixture")
+            .expect("free reclaim fixture pages");
+
+        let free_before = conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
+            .expect("read freelist");
+        assert!(free_before > 0, "the fixture must leave pages to reclaim");
+
+        let reclaimed = reclaim_event_store_pages(&conn, 8);
+        assert!(reclaimed > 0, "an incremental store must return pages");
+        let free_after = conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
+            .expect("read freelist");
+        let returned_pages = free_before.saturating_sub(free_after);
+        assert!(
+            (1..=8).contains(&returned_pages),
+            "the pass must return pages without exceeding its budget, so it can \
+             never stall the world lock: returned {returned_pages}",
+        );
+        assert_eq!(
+            reclaim_event_store_pages(&conn, 0),
+            0,
+            "a zero budget must do nothing",
+        );
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

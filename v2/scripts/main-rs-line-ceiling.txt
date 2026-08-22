@@ -408,4 +408,10 @@
 # 61673 -> 61640: replace main.rs's unbounded signal helpers with the shutdown
 # module and route SSE through its notification subscription. Drain policy,
 # timing, and tests live in shutdown.rs, startup.rs, and routes.rs.
-61640
+# 61640 -> 61582: move the persistence storage report into
+# snapshot_persistence.rs, where the retention and compaction policy it
+# describes already lives, and drop the ineffective auto_vacuum block from
+# schema initialization. The mode is now chosen ahead of WAL by
+# open_canonical_store_for_initialization in canonical_journal.rs; main.rs keeps
+# only the /meta boundary fields.
+61582
