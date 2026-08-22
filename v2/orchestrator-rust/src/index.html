@@ -1445,6 +1445,63 @@
       font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
       font-style: italic;
     }
+    .message-speaker-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .message-speaker-line .speaker { flex: 0 1 auto; }
+    .message-thought-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex: 0 0 auto;
+      border: 0;
+      padding: 1px 2px;
+      background: transparent;
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 650;
+      line-height: 1.2;
+      opacity: 0.78;
+    }
+    .message-thought-toggle::after {
+      content: "›";
+      display: inline-block;
+      font-size: 12px;
+      transform: rotate(90deg);
+      transition: transform 120ms ease;
+    }
+    .message-thought-toggle[aria-expanded="true"]::after {
+      transform: rotate(-90deg);
+    }
+    .message-thought-toggle:hover,
+    .message-thought-toggle:focus-visible {
+      color: var(--amber);
+      opacity: 1;
+    }
+    .message-thought-toggle:focus-visible {
+      border-radius: 3px;
+      outline: 1px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .message-thought {
+      grid-column: 3;
+      margin-top: -4px;
+      padding: 7px 10px;
+      border-left: 1px solid var(--line-strong);
+      color: var(--dim);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: 13px;
+      font-style: italic;
+      line-height: 1.48;
+      white-space: normal;
+    }
+    .message-thought p { margin: 0; }
+    .message-thought p + p { margin-top: 0.55em; }
+    .message-thought[hidden] { display: none; }
     .line.chat.image-reply .text {
       display: grid;
       gap: 7px;
@@ -3754,11 +3811,25 @@
       .line.model-output .speaker {
         grid-area: speaker;
       }
+      .line.chat.has-thought {
+        grid-template-areas:
+          "pfp speaker"
+          "pfp text"
+          ". thought";
+      }
+      .line.chat .message-speaker-line {
+        grid-area: speaker;
+        justify-content: flex-start;
+      }
       .line.chat .text,
       .line.model-output .text {
         grid-area: text;
         width: 100%;
         padding-left: 0;
+      }
+      .line.chat .message-thought {
+        grid-area: thought;
+        margin-top: 2px;
       }
       .line.event {
         grid-template-columns: 2ch minmax(0, 1fr);
@@ -7018,6 +7089,7 @@
     let pendingModelInteractionRehydrationRequired = false;
     const chatOpeningTurnCount = 2;
     let renderedChatTailKey = "";
+    const expandedMessageThoughtKeys = new Set();
     let actionConfirmAction = null;
     let accountPanelPinned = false;
     let libraryPanelPinned = false;
@@ -11059,7 +11131,32 @@
         return eventIsChatTranscriptEvent(event)
           && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
       });
-      return visible.slice(-40);
+      return chatTranscriptWithAttachedThoughts(visible).slice(-40);
+    }
+
+    function chatTranscriptWithAttachedThoughts(events) {
+      const attached = [];
+      for (const event of events || []) {
+        const message = attached.at(-1);
+        if (event?.type === "avatar.thought" && thoughtMatchesMessage(message, event)) {
+          attached[attached.length - 1] = {
+            ...message,
+            attached_thoughts: [...(message.attached_thoughts || []), event],
+          };
+          continue;
+        }
+        attached.push(event);
+      }
+      return attached;
+    }
+
+    function thoughtMatchesMessage(message, thought) {
+      if (message?.type !== "message.created" || thought?.type !== "avatar.thought") return false;
+      const messageActorId = Number(message.actor_id || 0);
+      const thoughtActorId = Number(thought.actor_id || 0);
+      if (messageActorId || thoughtActorId) return messageActorId === thoughtActorId;
+      return cleanStatusText(message.actor_name).toLowerCase()
+        === cleanStatusText(thought.actor_name).toLowerCase();
     }
 
     function narratedTranscriptEvents(events) {
@@ -11142,6 +11239,7 @@
       logEvents = [];
       pendingChats = [];
       pendingReflection = null;
+      expandedMessageThoughtKeys.clear();
       journalNotifications = [];
       dismissedJournalActivityKeys.clear();
       pendingModelInteractions = [];
@@ -15556,6 +15654,7 @@
       const speaker = event.actor_name || "CosyWorld";
       const body = eventText(event);
       const kind = event.actor_id === actorId ? "you" : event.actor_id ? "avatar" : "world";
+      const thoughts = Array.isArray(event.attached_thoughts) ? event.attached_thoughts : [];
       const repeat = Math.max(1, Number(event.repeat_count || 1));
       const baseAriaLabel = eventAriaLabel(event, speaker, body);
       const label = repeat > 1
@@ -15565,7 +15664,21 @@
       const repeatHtml = repeat > 1
         ? `<span class="chat-repeat" aria-label="Repeated ${repeat} times">×${repeat}</span>`
         : "";
-      return `<div class="line chat ${kind}"${attrs}>${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><div class="text chat-markdown">${markdownHtml(body)}${repeatHtml}</div></div>`;
+      if (!thoughts.length) {
+        return `<div class="line chat ${kind}"${attrs}>${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><div class="text chat-markdown">${markdownHtml(body)}${repeatHtml}</div></div>`;
+      }
+      const thoughtKey = thoughts.map((thought) => thought.seq).filter(Boolean).join("-")
+        || `${event.seq || "message"}-thought`;
+      const thoughtId = `message-thought-${String(thoughtKey).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+      const expanded = expandedMessageThoughtKeys.has(String(thoughtKey));
+      const thoughtBody = thoughts
+        .map((thought) => cleanStatusText(thought.content))
+        .filter(Boolean)
+        .map((thought) => `<p>${escapeHtml(thought)}</p>`)
+        .join("");
+      const speakerHtml = `<span class="message-speaker-line"><span class="speaker">${escapeHtml(speaker)}</span><button type="button" class="message-thought-toggle" data-message-thought-toggle="${escapeAttr(thoughtKey)}" aria-expanded="${expanded ? "true" : "false"}" aria-controls="${escapeAttr(thoughtId)}" aria-label="${expanded ? "Hide" : "Show"} ${escapeAttr(speaker)}'s thought">thinks</button></span>`;
+      const thoughtHtml = `<div class="message-thought" id="${escapeAttr(thoughtId)}" role="region" aria-label="${escapeAttr(speaker)}'s thought"${expanded ? "" : " hidden"}>${thoughtBody}</div>`;
+      return `<div class="line chat has-thought ${kind}"${attrs}>${chatPfpHtml(event, speaker)}${speakerHtml}<div class="text chat-markdown">${markdownHtml(body)}${repeatHtml}</div>${thoughtHtml}</div>`;
     }
 
     function avatarReflectionHtml(event) {
@@ -19139,6 +19252,19 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
+      const thoughtToggle = event.target.closest("[data-message-thought-toggle]");
+      if (thoughtToggle) {
+        event.preventDefault();
+        const thoughtKey = thoughtToggle.getAttribute("data-message-thought-toggle") || "";
+        const panel = document.getElementById(thoughtToggle.getAttribute("aria-controls") || "");
+        const expanded = thoughtToggle.getAttribute("aria-expanded") !== "true";
+        thoughtToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        thoughtToggle.setAttribute("aria-label", `${expanded ? "Hide" : "Show"} ${panel?.getAttribute("aria-label") || "thought"}`);
+        if (panel) panel.hidden = !expanded;
+        if (expanded) expandedMessageThoughtKeys.add(thoughtKey);
+        else expandedMessageThoughtKeys.delete(thoughtKey);
+        return;
+      }
       if (event.target.closest("[data-menu-close]")) {
         event.preventDefault();
         toggleAccountPanel(false);
