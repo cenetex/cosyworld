@@ -204,7 +204,12 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
   assert.doesNotMatch(nginx, /\/var\/lib\/nginx/, "non-root nginx must not retain default temp paths");
   assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
-  assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log combined;$/m);
+  assert.equal(
+    nginx.match(/^\s*log_format cosyworld_safe (.+)$/m)?.[1],
+    `'process=nginx event=http_access tenant_host="$host" method="$request_method" status=$status bytes=$body_bytes_sent latency_secs=$request_time request_id="$upstream_http_x_request_id" upstream="$upstream_addr" upstream_status="$upstream_status"';`,
+    "the proxy access log must remain an exact metadata allowlist without requests, paths, query strings, cookies, or user agents",
+  );
+  assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log cosyworld_safe;$/m);
   assert.match(supervisor, /mkdir -p[\s\S]*?\/tmp\/cosyworld-nginx \\/);
   assert.match(supervisor, /tail -n 0 -F \/tmp\/cosyworld-nginx\/error\.log \/tmp\/cosyworld-nginx\/access\.log/);
   assert.match(supervisor, /kill -TERM "\$nginx_log_pid"/);
