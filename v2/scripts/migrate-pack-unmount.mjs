@@ -418,12 +418,14 @@ function evacuateOccupiedActors(
   const policies = sourceRegistry.manifest?.pack_lifecycle?.unmount ?? [];
   const matches = policies.filter((policy) => policy.pack_id === packId);
   if (matches.length !== 1) {
+    const actorIds = occupied.map((actor) => actor.id).join(", ");
+    const itemIds = [...strandedRetainedItemIds].join(", ");
     const stranded = [
-      ...occupied.map((actor) => `actor ${actor.id}`),
-      ...[...strandedRetainedItemIds].map((itemId) => `item ${itemId}`),
-    ].join(", ");
+      actorIds ? `actors ${actorIds}` : "",
+      itemIds ? `items ${itemIds}` : "",
+    ].filter(Boolean).join(" and ");
     throw new Error(
-      `cannot unmount ${packId}: ${stranded} still occupies pack locations and no unique evacuation policy is available`,
+      `cannot unmount ${packId}: ${stranded} still occupy pack locations and no unique evacuation policy is available`,
     );
   }
   const policy = matches[0];
