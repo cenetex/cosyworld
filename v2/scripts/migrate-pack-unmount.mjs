@@ -408,13 +408,22 @@ function evacuateOccupiedActors(
   packId,
   locationIds,
   occupied,
+  retainedItemIds,
 ) {
-  if (occupied.length === 0) return null;
+  const strandedRetainedItemIds = new Set((snapshot.world_items ?? [])
+    .filter((item) =>
+      hasId(retainedItemIds, item.id) && hasId(locationIds, item.location_id))
+    .map((item) => Number(item.id)));
+  if (occupied.length === 0 && strandedRetainedItemIds.size === 0) return null;
   const policies = sourceRegistry.manifest?.pack_lifecycle?.unmount ?? [];
   const matches = policies.filter((policy) => policy.pack_id === packId);
   if (matches.length !== 1) {
+    const stranded = [
+      ...occupied.map((actor) => `actor ${actor.id}`),
+      ...[...strandedRetainedItemIds].map((itemId) => `item ${itemId}`),
+    ].join(", ");
     throw new Error(
-      `cannot unmount ${packId}: actors ${occupied.map((actor) => actor.id).join(", ")} still occupy pack locations and no unique evacuation policy is available`,
+      `cannot unmount ${packId}: ${stranded} still occupies pack locations and no unique evacuation policy is available`,
     );
   }
   const policy = matches[0];
@@ -457,7 +466,7 @@ function evacuateOccupiedActors(
     );
   }
 
-  const movedItemIds = new Set();
+  const movedItemIds = new Set(strandedRetainedItemIds);
   for (const item of snapshot.world_items ?? []) {
     if (occupiedActorIds.has(Number(item.holder_actor_id))) {
       movedItemIds.add(Number(item.id));
@@ -561,6 +570,9 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     [...removedPackIds].flatMap((removedPackId) =>
       [...packHandles(sourceRegistry, removedPackId, "location")]),
   );
+  const retainedItemIds = new Set((targetRegistry.content_references?.entries ?? [])
+    .filter((entry) => entry.kind === "item")
+    .map((entry) => Number(entry.runtime_handle)));
   const ownedGeneratedPathways = Object.entries(migrated.generated_pathways ?? {})
     .filter(([, pathway]) =>
       removedPackIds.has(pathway.owner_pack_id)
@@ -584,6 +596,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     packId,
     locationIds,
     occupied,
+    retainedItemIds,
   );
   const itemIds = frozenItemIds(
     migrated,
