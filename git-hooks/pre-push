@@ -7,5 +7,29 @@ if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
   exit 0
 fi
 
+# Tiered gate: CI is the final authority and always runs the full suite, so the
+# hook only needs to keep obviously-red code off the remote. A push that
+# touches nothing but Markdown/docs cannot fail the JS, pack, kernel, or Rust
+# stages, so those pushes run the cheap checks only -- every other push still
+# runs the full `npm run check`.
+changed="$(git diff --name-only @{push}...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD)"
+docs_only=1
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  case "$file" in
+    *.md|*.markdown|*.mdx) ;;
+    *) docs_only=0; break ;;
+  esac
+done <<EOF
+$changed
+EOF
+
+if [ "$docs_only" = "1" ]; then
+  echo "[pre-push] docs-only change: running git diff --check && npm run check:version" >&2
+  git diff --check
+  npm run check:version
+  exit 0
+fi
+
 echo "[pre-push] npm run check" >&2
 npm run check

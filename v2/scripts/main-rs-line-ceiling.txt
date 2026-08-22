@@ -400,4 +400,4 @@
 # 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
 # idle speaker/reply planning, and scheduler-only tests. Resident consequences
 # remain causally attached to committed player turns.
-61693
+61691
