@@ -3368,6 +3368,82 @@ async function main() {
       && result.documentWidth <= result.viewportWidth, `chat typography and tables should stay readable without viewport overflow: ${JSON.stringify(result)}`);
   }
 
+  async function assertThoughtsStaySeparateFromMessages() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        state,
+        actorId,
+        logEvents,
+        pendingAction,
+        pendingChats,
+        pendingModelInteractions,
+        accountPanelPinned,
+        libraryPanelPinned,
+        renderedChatTailKey,
+      };
+      try {
+        actorId = 5000;
+        state = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active" },
+          ],
+          cards: { actors: {}, items: {}, locations: {} },
+        };
+        pendingAction = null;
+        pendingChats = [];
+        pendingModelInteractions = [];
+        accountPanelPinned = false;
+        libraryPanelPinned = false;
+        logEvents = [
+          {
+            seq: 900,
+            type: "message.created",
+            actor_id: 5000,
+            actor_name: "Lantern Stitch",
+            location_id: 1,
+            content: "The little light is still warm.",
+          },
+          {
+            seq: 901,
+            type: "avatar.thought",
+            actor_id: 5000,
+            actor_name: "Lantern Stitch",
+            location_id: 1,
+            content: "I hope it remembers the way home.",
+          },
+        ];
+        renderedChatTailKey = "";
+        renderLog();
+        const message = document.querySelector("#log .line.chat:not(.reflection)");
+        const thought = document.querySelector("#log .line.chat.reflection.thought");
+        return {
+          rows: document.querySelectorAll("#log .line.chat").length,
+          standaloneThoughtRows: document.querySelectorAll("#log .line.chat.reflection.thought").length,
+          messageText: message?.textContent?.trim() || "",
+          thoughtText: thought?.textContent?.trim() || "",
+          attachedToggleCount: document.querySelectorAll("[data-message-thought-toggle]").length,
+        };
+      } finally {
+        state = previous.state;
+        actorId = previous.actorId;
+        logEvents = previous.logEvents;
+        pendingAction = previous.pendingAction;
+        pendingChats = previous.pendingChats;
+        pendingModelInteractions = previous.pendingModelInteractions;
+        accountPanelPinned = previous.accountPanelPinned;
+        libraryPanelPinned = previous.libraryPanelPinned;
+        renderedChatTailKey = previous.renderedChatTailKey;
+        renderLog();
+      }
+    });
+    assert(result.rows === 2 && result.standaloneThoughtRows === 1 && result.attachedToggleCount === 0,
+      `fictional thoughts should remain a separate transcript lane: ${JSON.stringify(result)}`);
+    assert(result.messageText.includes("The little light is still warm.")
+      && result.thoughtText.includes("I hope it remembers the way home."),
+    `separate speech and thought rows should keep their own content: ${JSON.stringify(result)}`);
+  }
+
   async function assertModelInteractionLifecycleRehydratesAfterReloadAndGap() {
     const result = await page.evaluate(() => {
       const previousState = state;
@@ -14511,6 +14587,7 @@ async function main() {
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
   await assertChatMarkdownTypography();
+  await assertThoughtsStaySeparateFromMessages();
   // Before an avatar exists there are core and optional campaign onboarding
   // commands, rather than a dealt Story Hand. The three slots begin in play.
   await assertActionBarCapped("avatar gate", 2);

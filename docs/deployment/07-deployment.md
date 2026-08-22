@@ -52,6 +52,10 @@ The Fly config runs with `COSYWORLD_DEPLOY_PROFILE=production`, persistent
 `/data` storage, and the SQLite event journal. The protected linked-avatar feed
 is optional; ordinary play boots without it.
 
+Production log retention, incident queries, alerts, credential rotation, and
+the cross-app ingestion smoke are documented in
+[`production-logs.md`](production-logs.md).
+
 Passkey authentication also requires an exact WebAuthn relying-party configuration. The RP ID is the deployment hostname without a scheme; the origin is the public HTTPS origin:
 
 ```bash

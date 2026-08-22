@@ -628,6 +628,29 @@ fn abandon_avatar_claim_key(actor_id: u64) -> String {
     format!("avatar_abandon:{actor_id}")
 }
 
+/// Releasing a fallen avatar is the one mutation a knocked-out player may
+/// submit, so it cannot use the ordinary submit gate.
+/// `client_actor_authorized_for_state` requires `client_actor_can_submit`,
+/// which requires an ACTIVE actor -- a state an abandoning player is never in.
+/// Gating the endpoint that way refused every real attempt with 403 while the
+/// route, the projection, and the planner were all correct.
+///
+/// The session must still own this exact actor, the avatar must still be
+/// present and under direct control, and the account must not be suspended.
+/// `plan_abandon_avatar` enforces the rest: knocked out, out of combat, and
+/// not already released.
+fn abandon_avatar_authorized(
+    runtime: &RuntimeWorld,
+    state: &AppState,
+    actor_id: u64,
+    actor_session: Option<&str>,
+) -> bool {
+    !actor_is_suspended(state, actor_id)
+        && runtime.client_actor_can_observe(actor_id)
+        && actor_session.and_then(|token| actor_for_session(&state.actor_sessions, token))
+            == Some(actor_id)
+}
+
 pub(super) async fn abandon_avatar(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -643,7 +666,7 @@ pub(super) async fn abandon_avatar(
         return action_rate_limited_response();
     }
     let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(
+    if !abandon_avatar_authorized(
         &runtime,
         &state,
         payload.actor_id,

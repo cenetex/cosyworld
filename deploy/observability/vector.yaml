@@ -1,0 +1,388 @@
+data_dir: /var/lib/vector
+
+api:
+  enabled: true
+  address: "[::]:8686"
+
+sources:
+  fly_nats:
+    type: nats
+    url: "nats://[fdaa::3]:4223"
+    subject: "logs.>"
+    queue: cosyworld-production-cloudwatch
+    connection_name: CosyWorld production logs
+    auth:
+      strategy: user_password
+      user_password:
+        user: "${FLY_ORG:?FLY_ORG is required}"
+        password: "${ACCESS_TOKEN:?ACCESS_TOKEN is required}"
+
+transforms:
+  decode_envelope:
+    type: remap
+    inputs: [fly_nats]
+    drop_on_error: true
+    source: |
+      . = parse_json!(.message)
+
+  allowlisted_apps:
+    type: filter
+    inputs: [decode_envelope]
+    condition: >-
+      .fly.app.name == "cosyworld" ||
+      .fly.app.name == "cosyworld-lonelyforest"
+
+  normalize_and_redact:
+    type: remap
+    inputs: [allowlisted_apps]
+    source: |
+      envelope = .
+      raw_message = to_string(envelope.message) ?? ""
+      runtime, parse_error = parse_json(raw_message)
+      if parse_error != null || !is_object(runtime) {
+        runtime, parse_error = parse_key_value(raw_message)
+        if parse_error != null || !is_object(runtime) {
+          runtime = {}
+        }
+      }
+
+      event_timestamp = parse_timestamp(to_string(envelope.timestamp) ?? "", format: "%+") ?? now()
+      app = to_string(envelope.fly.app.name) ?? "unknown"
+      machine_id = if exists(envelope.host) { to_string!(envelope.host) } else if exists(envelope.fly.instance) { to_string!(envelope.fly.instance) } else { "unknown" }
+      region = if exists(envelope.fly.region) { to_string!(envelope.fly.region) } else if exists(envelope.region) { to_string!(envelope.region) } else { "unknown" }
+      severity_value = if exists(runtime.level) { to_string!(runtime.level) } else if exists(envelope.level) { to_string!(envelope.level) } else { "INFO" }
+      severity = upcase(severity_value)
+      event = if exists(runtime.event) { to_string!(runtime.event) } else { "platform_log" }
+      message = if exists(runtime.message) { to_string!(runtime.message) } else { raw_message }
+      request_id = if exists(runtime.request_id) { to_string!(runtime.request_id) } else if exists(runtime.span.request_id) { to_string!(runtime.span.request_id) } else { "" }
+      process = if exists(runtime.span.process) { to_string!(runtime.span.process) } else if exists(runtime.process) { to_string!(runtime.process) } else if exists(envelope.fly.process_group) { to_string!(envelope.fly.process_group) } else { "unknown" }
+      tenant = if exists(runtime.span.tenant) { to_string!(runtime.span.tenant) } else if exists(runtime.tenant) { to_string!(runtime.tenant) } else { "unknown" }
+      worldpack = if exists(runtime.span.worldpack) { to_string!(runtime.span.worldpack) } else if exists(runtime.worldpack) { to_string!(runtime.worldpack) } else { "unknown" }
+      provider = if exists(runtime.provider) { to_string!(runtime.provider) } else if exists(runtime.span.provider) { to_string!(runtime.span.provider) } else { "" }
+
+      # Retain only reviewed operational fields. Unknown structured fields are
+      # discarded, so a newly added prompt or credential field cannot become
+      # durable merely because an application event starts emitting it.
+      details = compact({
+        "status": runtime.status,
+        "method": runtime.method,
+        "bytes": runtime.bytes,
+        "latency_ms": runtime.latency_ms,
+        "latency_secs": runtime.latency_secs,
+        "upstream": runtime.upstream,
+        "upstream_status": runtime.upstream_status,
+        "tenant_host": runtime.tenant_host,
+        "reason": runtime.reason,
+        "exit_code": runtime.exit_code,
+        "forced_process_count": runtime.forced_process_count,
+        "worker_count": runtime.worker_count,
+        "grace_secs": runtime.grace_secs,
+        "failures": runtime.failures,
+        "error_code": runtime.error_code,
+        "http_status": runtime.http_status,
+        "gateway_attempts": runtime.gateway_attempts,
+        "retry_after_secs": runtime.retry_after_secs,
+        "retry_at_unix": runtime.retry_at_unix,
+        "retry_floor_ms": runtime.retry_floor_ms,
+        "disposition": runtime.disposition,
+        "requested_model_id": runtime.requested_model_id,
+        "profile": runtime.profile,
+        "old_state": runtime.old_state,
+        "old_route_state": runtime.old_route_state,
+        "new_state": runtime.new_state,
+        "actor_job_id": runtime.actor_job_id,
+        "actor_job_kind": runtime.actor_job_kind,
+        "actor_attempts": runtime.actor_attempts,
+        "actor_attempt": runtime.actor_attempt,
+        "actor_id": runtime.actor_id,
+        "target_actor_id": runtime.target_actor_id,
+        "source_event_id": runtime.source_event_id,
+        "location_id": runtime.location_id,
+        "failure_stage": runtime.failure_stage,
+        "rejection_reason": runtime.rejection_reason,
+        "retry_decision": runtime.retry_decision,
+        "commit_status": runtime.commit_status,
+        "commit_error_kind": runtime.commit_error_kind,
+        "interaction_id": runtime.interaction_id,
+        "queue_event_id": runtime.queue_event_id
+      }, nullish: true, string: true, object: true, array: true)
+
+      # Remove credential-bearing fields at any nesting level before applying
+      # value-pattern redaction. This is deliberately a last line of defense;
+      # application and proxy logs also avoid emitting secrets at the source.
+      details_json = encode_json(details)
+      details_json = replace(
+        details_json,
+        r'(?i)"(?:authorization|cookie|set-cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|bearer|password|passkey|secret|session[_-]?token|actor[_-]?session|wallet[_-]?session|poll[_-]?token|signature)"\s*:\s*"(?:\\.|[^"\\])*"',
+        s'"redacted":"[REDACTED]"'
+      )
+      details = redact(object!(parse_json!(details_json)), filters: [
+        r'(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+',
+        r'(?i)\b(?:authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|session[_-]?token|actor[_-]?session|wallet[_-]?session|poll[_-]?token|signature|[a-z0-9_-]*prompt[a-z0-9_-]*)\b\s*[:=]\s*[^\s,;"&]+',
+        r'(?i)https?://[^\s"?#]+\?[^\s"#]+',
+        r'(?i)[?&](?:token|key|api_key|access_token|poll_token|actor_session|wallet_session|code|secret|password|signature)=[^&#\s"]+',
+        r'\b(?:sk|pk|rk)-[A-Za-z0-9_-]{10,}\b'
+      ])
+      message = redact(message, filters: [
+        r'(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+',
+        r'(?i)\b(?:authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|session[_-]?token|actor[_-]?session|wallet[_-]?session|poll[_-]?token|signature|[a-z0-9_-]*prompt[a-z0-9_-]*)\b\s*[:=]\s*[^\s,;"&]+',
+        r'(?i)https?://[^\s"?#]+\?[^\s"#]+',
+        r'(?i)[?&](?:token|key|api_key|access_token|poll_token|actor_session|wallet_session|code|secret|password|signature)=[^&#\s"]+',
+        r'\b(?:sk|pk|rk)-[A-Za-z0-9_-]{10,}\b'
+      ])
+
+      searchable = downcase(event + " " + message)
+      alert_kind = null
+      if match(searchable, r'\b(?:shutdown_drain_forced|tenant_shutdown_forced|shutdown_forced|pu05)\b') {
+        alert_kind = "forced_exit"
+      } else if match(searchable, r'(?:required tenant .*failed private /health|required tenant health monitor exited|failed health check)') {
+        alert_kind = "health_failure"
+      } else if match(searchable, r'\b(?:oom|out of memory)\b|signal: killed') {
+        alert_kind = "oom"
+      } else if match(searchable, r'panicked at|thread .* panicked|\bpanic\b') {
+        alert_kind = "panic"
+      } else if event == "model_interaction_provider_failure" || (event == "ai_readiness_transition" && contains(searchable, "circuit opened")) {
+        alert_kind = "provider_unavailable"
+      } else if event == "actor_job_dead" {
+        alert_kind = "actor_job_failure"
+      }
+
+      . = compact({
+        "schema_version": 1,
+        "timestamp": event_timestamp,
+        "event_timestamp": event_timestamp,
+        "app": app,
+        "machine_id": machine_id,
+        "region": region,
+        "process": process,
+        "tenant": tenant,
+        "worldpack": worldpack,
+        "provider": provider,
+        "severity": severity,
+        "request_id": request_id,
+        "event": event,
+        "message": message,
+        "alert_kind": alert_kind,
+        "details": details
+      }, nullish: true, string: true, object: true, array: true)
+
+sinks:
+  cloudwatch:
+    type: aws_cloudwatch_logs
+    inputs: [normalize_and_redact]
+    region: "${AWS_REGION:?AWS_REGION is required}"
+    group_name: "${CLOUDWATCH_LOG_GROUP_NAME:?CLOUDWATCH_LOG_GROUP_NAME is required}"
+    stream_name: "{{ app }}/{{ machine_id }}"
+    create_missing_group: false
+    create_missing_stream: true
+    compression: gzip
+    encoding:
+      codec: json
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: block
+    batch:
+      timeout_secs: 2
+
+tests:
+  - name: structured runtime event preserves incident dimensions
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-21T12:00:00Z",
+            "host": "0803404a047798",
+            "level": "warn",
+            "fly": {"app": {"name": "cosyworld-lonelyforest"}, "region": "sjc"},
+            "message": encode_json({
+              "timestamp": "2026-08-21T12:00:00Z",
+              "level": "WARN",
+              "event": "model_interaction_provider_failure",
+              "message": "transient exact model interaction provider failure",
+              "app": "cosyworld-lonelyforest",
+              "machine_id": "0803404a047798",
+              "region": "sjc",
+              "process": "lonelyforest-7",
+              "tenant": "7",
+              "worldpack": "bethlehem",
+              "provider": "openrouter",
+              "span": {"request_id": "incident-smoke-7"},
+              "http_status": 503
+            })
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.app, "cosyworld-lonelyforest")
+              assert_eq!(.machine_id, "0803404a047798")
+              assert_eq!(.region, "sjc")
+              assert_eq!(.process, "lonelyforest-7")
+              assert_eq!(.tenant, "7")
+              assert_eq!(.worldpack, "bethlehem")
+              assert_eq!(.provider, "openrouter")
+              assert_eq!(.request_id, "incident-smoke-7")
+              assert_eq!(.alert_kind, "provider_unavailable")
+              assert_eq!(.details.http_status, 503)
+
+  - name: credentials and query strings are recursively redacted
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-21T12:00:00Z",
+            "host": "machine-primary",
+            "level": "error",
+            "fly": {"app": {"name": "cosyworld"}, "region": "sjc"},
+            "message": encode_json({
+              "level": "ERROR",
+              "event": "fixture",
+              "message": "failed https://example.test/callback?access_token=do-not-retain",
+              "authorization": "Bearer top-level-secret",
+              "nested": {"api_key": "sk-do-not-retain-123456789"},
+              "prompt": "do-not-retain-prompt",
+              "error": "Authorization: Bearer another-secret",
+              "http_status": 502
+            })
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              encoded = encode_json(.)
+              assert!(!contains(encoded, "do-not-retain"))
+              assert!(!contains(encoded, "top-level-secret"))
+              assert!(!contains(encoded, "another-secret"))
+              assert!(!contains(encoded, "do-not-retain-prompt"))
+              assert_eq!(.details.http_status, 502)
+              assert!(contains(encoded, "[REDACTED]"))
+
+  - name: supervisor forced shutdown becomes an alert
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-21T12:00:00Z",
+            "host": "0803404a047798",
+            "level": "warn",
+            "fly": {"app": {"name": "cosyworld-lonelyforest"}, "region": "sjc"},
+            "message": "[lonelyforest-multitenant] event=tenant_shutdown_forced tenant=7 child_pid=42 forced_process_count=1"
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event, "tenant_shutdown_forced")
+              assert_eq!(.tenant, "7")
+              assert_eq!(.alert_kind, "forced_exit")
+              assert_eq!(.machine_id, "0803404a047798")
+
+  - name: only a durable dead actor job becomes an actor job alert
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-21T12:00:00Z",
+            "host": "machine-primary",
+            "level": "error",
+            "fly": {"app": {"name": "cosyworld"}, "region": "sjc"},
+            "message": encode_json({
+              "level": "ERROR",
+              "event": "actor_job_dead",
+              "message": "actor job entered the durable dead state",
+              "actor_job_id": 42,
+              "actor_job_kind": "model_interaction",
+              "actor_attempts": 3,
+              "disposition": "attempt_budget_exhausted"
+            })
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.alert_kind, "actor_job_failure")
+              assert_eq!(.details.actor_job_id, 42)
+              assert_eq!(.details.actor_attempts, 3)
+
+  - name: safe nginx access lines preserve proxy request correlation
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-21T12:00:00Z",
+            "host": "0803404a047798",
+            "level": "info",
+            "fly": {"app": {"name": "cosyworld-lonelyforest"}, "region": "sjc"},
+            "message": "process=nginx event=http_access tenant_host=7.lonelyforest.com method=GET status=200 bytes=123 latency_secs=0.010 request_id=incident-nginx-7 upstream=127.0.0.1:3107 upstream_status=200"
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.timestamp, t'2026-08-21T12:00:00Z')
+              assert_eq!(.event, "http_access")
+              assert_eq!(.process, "nginx")
+              assert_eq!(.request_id, "incident-nginx-7")
+              assert_eq!(.details.method, "GET")
+              assert_eq!(.details.status, "200")
+
+  - name: avatar opening rejection keeps exact operational causality
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-22T12:00:00Z",
+            "host": "machine-primary",
+            "level": "warn",
+            "fly": {"app": {"name": "cosyworld"}, "region": "sjc"},
+            "message": encode_json({
+              "level": "WARN",
+              "event": "avatar_opening_publication_rejected",
+              "message": "avatar opening was not published",
+              "actor_job_id": 2323,
+              "actor_attempt": 2,
+              "actor_id": 5000,
+              "target_actor_id": 77,
+              "source_event_id": 981,
+              "location_id": 1,
+              "failure_stage": "opening_commit",
+              "rejection_reason": "storage_failure",
+              "retry_decision": "retry",
+              "commit_status": "",
+              "commit_error_kind": "other"
+            })
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event, "avatar_opening_publication_rejected")
+              assert_eq!(.details.actor_job_id, 2323)
+              assert_eq!(.details.actor_attempt, 2)
+              assert_eq!(.details.source_event_id, 981)
+              assert_eq!(.details.location_id, 1)
+              assert_eq!(.details.failure_stage, "opening_commit")
+              assert_eq!(.details.rejection_reason, "storage_failure")
+              assert_eq!(.details.retry_decision, "retry")
+              assert_eq!(.details.commit_error_kind, "other")
+
+  - name: unrelated Fly apps are rejected before normalization
+    no_outputs_from: [allowlisted_apps]
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {"fly": {"app": {"name": "unrelated-app"}}, "message": "must be dropped"}

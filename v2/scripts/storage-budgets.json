@@ -1,0 +1,17 @@
+{
+  "$comment": "Committed ceilings for the two stores that grow on a Fly volume. The volume check catches a full disk; this catches the growth that fills it, while there is still room to decide. Raising a budget is a reviewed decision, not a silent drift.",
+  "targets": [
+    {
+      "label": "primary",
+      "base_url": "https://cosyworld.fly.dev",
+      "event_store_mb": 400,
+      "generated_asset_mb": 400
+    },
+    {
+      "label": "lonelyforest",
+      "base_url": "https://cosyworld-lonelyforest.fly.dev",
+      "event_store_mb": 400,
+      "generated_asset_mb": 500
+    }
+  ]
+}

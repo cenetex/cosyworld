@@ -405,7 +405,22 @@
 # 61691 -> 61673: move HTTP response-contract handling into routes.rs and run
 # routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
 # threads stay available for health while JSON error policy remains at routing.
-# 61673 -> 61577: move player-tick observation, resident initiative selection,
+# 61673 -> 61640: replace main.rs's unbounded signal helpers with the shutdown
+# module and route SSE through its notification subscription. Drain policy,
+# timing, and tests live in shutdown.rs, startup.rs, and routes.rs.
+# 61640 -> 61582: move the persistence storage report into
+# snapshot_persistence.rs, where the retention and compaction policy it
+# describes already lives, and drop the ineffective auto_vacuum block from
+# schema initialization. The mode is now chosen ahead of WAL by
+# open_canonical_store_for_initialization in canonical_journal.rs; main.rs keeps
+# only the /meta boundary fields.
+# 61582 -> 61553: move actor-job failure persistence into actor_jobs.rs so the
+# durable dead-state transition and its incident event share one queue seam.
+# 61553 -> 61539: keep provider reasoning private and move narration-state
+# helpers into their existing focused modules.
+# 61539 -> 61165: move avatar-opening validation, publication, and bounded
+# retry handling into chat_action.rs beside the command's durable chat seam.
+# 61165 -> 61069: move player-tick observation, resident initiative selection,
 # and room-heartbeat scheduling into actor_jobs.rs while adding durable ordinary
 # room initiative.
-61577
+61069

@@ -11,15 +11,45 @@ health_interval_secs="${COSYWORLD_MULTITENANT_HEALTH_INTERVAL_SECS:-5}"
 health_failure_threshold="${COSYWORLD_MULTITENANT_HEALTH_FAILURE_THRESHOLD:-3}"
 health_probe_timeout_secs="${COSYWORLD_MULTITENANT_HEALTH_PROBE_TIMEOUT_SECS:-10}"
 restart_delay="${COSYWORLD_MULTITENANT_RESTART_DELAY_SECS:-2}"
+shutdown_grace_secs="${COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS:-4}"
 supervisor_pid="$$"
 workers=""
+worker_count=0
 nginx_pid=""
 nginx_log_pid=""
 health_monitor_pid=""
 required_health_urls=""
+shutdown_started=0
+shutdown_marker_dir="/tmp/cosyworld-multitenant-shutdown.$$"
 
 log() {
   printf '[lonelyforest-multitenant] %s\n' "$*"
+}
+
+wait_shutdown_grace() {
+  cancel_file="${1:-}"
+  remaining="$shutdown_grace_secs"
+  while [ "$remaining" -gt 0 ]; do
+    if [ -n "$cancel_file" ] && [ -f "$cancel_file" ]; then
+      return
+    fi
+    sleep 1
+    remaining=$((remaining - 1))
+  done
+  if [ -n "$cancel_file" ] && [ -f "$cancel_file" ]; then
+    return
+  fi
+}
+
+wait_for_pid_exit() {
+  process="$1"
+  [ -n "$process" ] || return
+  # A trapped signal can interrupt wait before a shell subprocess finishes its
+  # own handler. Re-enter wait until the PID is actually gone, then reap it.
+  while kill -0 "$process" 2>/dev/null; do
+    wait "$process" 2>/dev/null || true
+  done
+  wait "$process" 2>/dev/null || true
 }
 
 run_world() {
@@ -34,15 +64,37 @@ run_world() {
   extra_origins="$9"
   requirement="${10}"
   supervisor_pid="${11}"
+  shutdown_grace_secs="${12}"
+  shutdown_marker_dir="${13}"
+  worldpack="$(basename "$(dirname "$registry")")"
   active_child=""
 
   # Invoked indirectly by the signal trap below.
   # shellcheck disable=SC2329
   stop_world() {
+    trap '' TERM INT HUP
+    started_at="$(date +%s)"
     if [ -n "$active_child" ]; then
+      log "event=tenant_shutdown_started tenant=$slug child_pid=$active_child grace_secs=$shutdown_grace_secs"
       kill -TERM "$active_child" 2>/dev/null || true
-      wait "$active_child" 2>/dev/null || true
+      child_watchdog_cancel="$shutdown_marker_dir/.cancel-tenant-$slug"
+      (
+        trap - TERM INT HUP
+        wait_shutdown_grace "$child_watchdog_cancel"
+        if kill -0 "$active_child" 2>/dev/null; then
+          log "event=tenant_shutdown_forced tenant=$slug child_pid=$active_child forced_process_count=1"
+          : > "$shutdown_marker_dir/tenant-$slug"
+          kill -KILL "$active_child" 2>/dev/null || true
+        fi
+      ) &
+      child_watchdog_pid="$!"
+      wait_for_pid_exit "$active_child"
+      : > "$child_watchdog_cancel"
+      kill -TERM "$child_watchdog_pid" 2>/dev/null || true
+      wait "$child_watchdog_pid" 2>/dev/null || true
     fi
+    elapsed_secs="$(($(date +%s) - started_at))"
+    log "event=tenant_shutdown_complete tenant=$slug elapsed_secs=$elapsed_secs"
     exit 0
   }
   trap stop_world TERM INT HUP
@@ -55,6 +107,8 @@ run_world() {
       env -u COSYWORLD_ENTRY_LOCATION_ID \
         COSYWORLD_V2_ADDR="127.0.0.1:$port" \
         COSYWORLD_PROCESS_ID="lonelyforest-$slug" \
+        COSYWORLD_LOG_TENANT="$slug" \
+        COSYWORLD_LOG_WORLDPACK="$worldpack" \
         COSYWORLD_V2_SHARD_ID="lonelyforest-$slug" \
         COSYWORLD_CONTENT_REGISTRY_PATH="$registry" \
         COSYWORLD_V2_SNAPSHOT_PATH="$snapshot_path" \
@@ -69,6 +123,8 @@ run_world() {
       env -u COSYWORLD_REQUIRED_HEALTH_URLS \
         COSYWORLD_V2_ADDR="127.0.0.1:$port" \
         COSYWORLD_PROCESS_ID="lonelyforest-$slug" \
+        COSYWORLD_LOG_TENANT="$slug" \
+        COSYWORLD_LOG_WORLDPACK="$worldpack" \
         COSYWORLD_V2_SHARD_ID="lonelyforest-$slug" \
         COSYWORLD_CONTENT_REGISTRY_PATH="$registry" \
         COSYWORLD_ENTRY_LOCATION_ID="$entry_location_id" \
@@ -102,8 +158,9 @@ run_world() {
 }
 
 start_world() {
-  run_world "$@" "$supervisor_pid" &
+  run_world "$@" "$supervisor_pid" "$shutdown_grace_secs" "$shutdown_marker_dir" &
   workers="$workers $!"
+  worker_count=$((worker_count + 1))
 }
 
 tenant_data_path() {
@@ -114,11 +171,27 @@ tenant_data_path() {
 }
 
 monitor_required_tenants() {
-  if "$health_monitor" "$tenant_config" "$supervisor_pid" "$health_startup_grace_secs" "$health_interval_secs" "$health_failure_threshold" "$health_probe_timeout_secs"; then
+  monitor_child_pid=""
+  # Invoked indirectly by the signal trap below.
+  # shellcheck disable=SC2329
+  stop_health_monitor() {
+    trap '' TERM INT HUP
+    if [ -n "$monitor_child_pid" ]; then
+      kill -TERM "$monitor_child_pid" 2>/dev/null || true
+      kill -KILL "$monitor_child_pid" 2>/dev/null || true
+      wait "$monitor_child_pid" 2>/dev/null || true
+    fi
+    exit 0
+  }
+  trap stop_health_monitor TERM INT HUP
+  "$health_monitor" "$tenant_config" "$supervisor_pid" "$health_startup_grace_secs" "$health_interval_secs" "$health_failure_threshold" "$health_probe_timeout_secs" &
+  monitor_child_pid="$!"
+  if wait "$monitor_child_pid"; then
     status=0
   else
     status="$?"
   fi
+  monitor_child_pid=""
   # The monitor is a required readiness component. Its own unexpected exit
   # must not leave nginx serving only the root health endpoint indefinitely.
   log "required tenant health monitor exited with status $status; failing supervisor $supervisor_pid"
@@ -127,7 +200,13 @@ monitor_required_tenants() {
 }
 
 stop_all() {
-  trap - TERM INT HUP USR1
+  if [ "$shutdown_started" -eq 1 ]; then
+    return
+  fi
+  shutdown_started=1
+  trap '' TERM INT HUP USR1
+  shutdown_started_at="$(date +%s)"
+  log "event=shutdown_started grace_secs=$shutdown_grace_secs worker_count=$worker_count"
   if [ -n "$nginx_pid" ]; then
     kill -TERM "$nginx_pid" 2>/dev/null || true
   fi
@@ -136,26 +215,64 @@ stop_all() {
   fi
   if [ -n "$nginx_log_pid" ]; then
     kill -TERM "$nginx_log_pid" 2>/dev/null || true
+    # tail -F can keep polling after TERM on some shells. It is only a log
+    # forwarder, so stop it immediately while nginx and tenants drain.
+    kill -KILL "$nginx_log_pid" 2>/dev/null || true
   fi
   for worker in $workers; do
     kill -TERM "$worker" 2>/dev/null || true
   done
+  shutdown_watchdog_cancel="$shutdown_marker_dir/.cancel-supervisor"
+  (
+    trap - TERM INT HUP USR1
+    wait_shutdown_grace "$shutdown_watchdog_cancel"
+    forced_process_count=0
+    if [ -n "$nginx_pid" ] && kill -0 "$nginx_pid" 2>/dev/null; then
+      forced_process_count=1
+      kill -KILL "$nginx_pid" 2>/dev/null || true
+    fi
+    if [ "$forced_process_count" -gt 0 ]; then
+      printf '%s\n' "$forced_process_count" > "$shutdown_marker_dir/supervisor"
+      log "event=shutdown_forced reason=deadline forced_process_count=$forced_process_count"
+    fi
+  ) &
+  shutdown_watchdog_pid="$!"
   if [ -n "$nginx_pid" ]; then
-    wait "$nginx_pid" 2>/dev/null || true
+    wait_for_pid_exit "$nginx_pid"
   fi
   if [ -n "$health_monitor_pid" ]; then
-    wait "$health_monitor_pid" 2>/dev/null || true
+    wait_for_pid_exit "$health_monitor_pid"
   fi
   if [ -n "$nginx_log_pid" ]; then
-    wait "$nginx_log_pid" 2>/dev/null || true
+    wait_for_pid_exit "$nginx_log_pid"
   fi
   for worker in $workers; do
-    wait "$worker" 2>/dev/null || true
+    wait_for_pid_exit "$worker"
   done
+  : > "$shutdown_watchdog_cancel"
+  kill -TERM "$shutdown_watchdog_pid" 2>/dev/null || true
+  wait "$shutdown_watchdog_pid" 2>/dev/null || true
+  forced_process_count=0
+  for marker in "$shutdown_marker_dir"/*; do
+    [ -f "$marker" ] || continue
+    case "$marker" in
+      */supervisor) forced_process_count=$((forced_process_count + $(cat "$marker"))) ;;
+      *) forced_process_count=$((forced_process_count + 1)) ;;
+    esac
+  done
+  elapsed_secs="$(($(date +%s) - shutdown_started_at))"
+  log "event=shutdown_complete elapsed_secs=$elapsed_secs forced_process_count=$forced_process_count"
 }
 
 trap 'stop_all; exit 0' TERM INT HUP
 trap 'stop_all; exit 1' USR1
+
+case "$shutdown_grace_secs" in
+  ""|*[!0-9]*|0)
+    log "COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS must be a positive integer"
+    exit 1
+    ;;
+esac
 
 mkdir -p \
   /tmp/cosyworld-nginx \
@@ -164,7 +281,8 @@ mkdir -p \
   /tmp/cosyworld-nginx/fastcgi \
   /tmp/cosyworld-nginx/uwsgi \
   /tmp/cosyworld-nginx/scgi \
-  "$tenant_data_root"
+  "$tenant_data_root" \
+  "$shutdown_marker_dir"
 
 # tenants.tsv is the committed source of truth for hostname, registry, port,
 # and persistence identity. The deploy guard validates every required row
@@ -181,6 +299,9 @@ fi
 # Root readiness follows the same required/optional boundary as the supervisor
 # and dedicated health monitor. An optional world may restart independently
 # without making every hostname on the Machine fail its public health check.
+# These manifest passes do not need the upstream name; it remains a positional
+# field so every later column keeps the validated schema.
+# shellcheck disable=SC2034
 while IFS='|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins; do
   case "$slug" in
     ""|\#*) continue ;;
@@ -198,6 +319,7 @@ while IFS='|' read -r slug requirement hosts upstream port registry entry_locati
     required_health_urls="$health_url"
   fi
 done < "$tenant_config"
+# shellcheck disable=SC2034
 while IFS='|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins; do
   case "$slug" in
     ""|\#*) continue ;;

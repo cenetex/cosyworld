@@ -102,6 +102,7 @@ mod rpg;
 mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
+mod shutdown;
 mod snapshot_persistence;
 mod solana;
 mod spatial;
@@ -136,7 +137,7 @@ use avatar_reflections::*;
 use avatar_rescue::*;
 use axum::{
     body::{to_bytes, Body},
-    extract::{ConnectInfo, Path as AxumPath, Query, State},
+    extract::{ConnectInfo, Extension, Path as AxumPath, Query, State},
     http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -219,6 +220,7 @@ pub(crate) use config::{
     canonical_routing_config, resolve_process_id, DeploymentProfile, DEFAULT_CANONICAL_REGION_ID,
 };
 use keys::*;
+use shutdown::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -237,7 +239,6 @@ use story_metrics::*;
 use test_support::*;
 use tokio::{
     net::TcpListener,
-    signal,
     sync::{broadcast, Mutex, Notify, RwLock},
 };
 use tokio_stream::{
@@ -2370,6 +2371,9 @@ struct MetaPersistence {
     event_store_bytes: Option<u64>,
     event_store_live_bytes: Option<u64>,
     event_store_reusable_bytes: Option<u64>,
+    event_store_auto_vacuum: Option<&'static str>,
+    generated_asset_bytes: Option<u64>,
+    generated_asset_count: Option<u64>,
     snapshot_bytes: Option<u64>,
     snapshot_temp_bytes: Option<u64>,
     moderation_report_retention_days: Option<u64>,
@@ -2402,15 +2406,6 @@ struct PersistenceCompactionReport {
     deleted_action_journal_rows: u64,
     deleted_canonical_commit_rows: u64,
     deleted_world_event_rows: u64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct PersistenceStorageReport {
-    event_store_bytes: Option<u64>,
-    event_store_live_bytes: Option<u64>,
-    event_store_reusable_bytes: Option<u64>,
-    snapshot_bytes: Option<u64>,
-    snapshot_temp_bytes: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -17084,6 +17079,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let storage_report = persistence_storage_report(
         state.event_store_path.as_deref().map(PathBuf::as_path),
         state.snapshot_path.as_deref().map(PathBuf::as_path),
+        Some(state.generated_asset_dir.as_path()),
     );
     let region_authority = state.event_store_path.as_deref().and_then(|path| {
         current_region_authority(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH).ok()
@@ -17178,6 +17174,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             event_store_bytes: storage_report.event_store_bytes,
             event_store_live_bytes: storage_report.event_store_live_bytes,
             event_store_reusable_bytes: storage_report.event_store_reusable_bytes,
+            event_store_auto_vacuum: storage_report.event_store_auto_vacuum,
+            generated_asset_bytes: storage_report.generated_asset_bytes,
+            generated_asset_count: storage_report.generated_asset_count,
             snapshot_bytes: storage_report.snapshot_bytes,
             snapshot_temp_bytes: storage_report.snapshot_temp_bytes,
             moderation_report_retention_days: state.moderation_report_retention.days,
@@ -19331,367 +19330,6 @@ async fn fund_community_image(
         schedule_community_art_generation(&state, payload.actor_id, plan);
     }
     FundCommunityImageResponse::action(true, CW_OK, events)
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn complete_chat_after_context_change(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    source_location_id: u64,
-) -> Result<(), String> {
-    let completed_already = {
-        let runtime = state.inner.lock().await;
-        orb_chat_status_already_committed(
-            &runtime,
-            actor_id,
-            target_actor_id,
-            "completed",
-            source_location_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-        )
-    };
-    if completed_already {
-        return Ok(());
-    }
-
-    let events = commit_chat_status(
-        state,
-        actor_id,
-        target_actor_id,
-        "completed",
-        "the conversation moved out of reach",
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        Some(source_location_id),
-    )
-    .await;
-    (!events.is_empty())
-        .then_some(())
-        .ok_or_else(|| "the ended conversation status could not be committed".to_string())
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn complete_queued_orb_chat_attempt(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    plan: AvatarChatPlan,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    attempt: u32,
-) -> Result<(), String> {
-    let mut plan = plan.with_publication_beat(
-        &orb_chat_attempt_stage("avatar-chat", attempt),
-        queue_event_id,
-        source_world_tick,
-    );
-    if plan.initiative_order.is_empty() {
-        plan.initiative_order.push(target_actor_id);
-    }
-    let will_retry = state.event_store_path.is_some() && attempt < ACTOR_JOB_MAX_ATTEMPTS;
-    let started_at = Instant::now();
-    let usage_config = state.ai_config.as_ref().clone();
-    let committed_lines = {
-        let runtime = state.inner.lock().await;
-        committed_orb_chat_lines(
-            &runtime,
-            actor_id,
-            target_actor_id,
-            plan.location_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-            &plan.initiative_order,
-        )?
-    };
-    if committed_lines.is_empty() {
-        let participants_can_continue = {
-            let runtime = state.inner.lock().await;
-            chat_participants_can_continue(&runtime, actor_id, target_actor_id, plan.location_id)
-        };
-        if !participants_can_continue {
-            tracing::info!(
-                actor_id,
-                target_actor_id,
-                location_id = plan.location_id,
-                "avatar chat ended cleanly before inference because a participant left the room"
-            );
-            return complete_chat_after_context_change(
-                state,
-                actor_id,
-                target_actor_id,
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-                plan.location_id,
-            )
-            .await;
-        }
-        announce_chat_typing(
-            state,
-            actor_id,
-            target_actor_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-            Some(plan.location_id),
-        )
-        .await;
-        if state.avatar_chat_delay > Duration::ZERO {
-            tokio::time::sleep(state.avatar_chat_delay).await;
-        }
-        let certified = match avatar_chat_text(state, &plan).await {
-            Ok(content) => content,
-            Err(error) => {
-                let config = state.ai_config.as_ref().as_ref();
-                let readiness_retry = chat_target_route_retry_floor_ms(config, target_actor_id) > 0;
-                let will_retry = state.event_store_path.is_some()
-                    && !chat_target_route_is_permanently_unavailable(config, target_actor_id)
-                    && (will_retry || readiness_retry);
-                warn!("queued AI avatar inference failed: {}", error);
-                record_rejected_ai_publication(state, &error);
-                commit_chat_status(
-                    state,
-                    actor_id,
-                    target_actor_id,
-                    if will_retry { "retrying" } else { "failed" },
-                    if will_retry {
-                        "the reply got lost; retrying the conversation"
-                    } else {
-                        "the reply got lost; try talking again"
-                    },
-                    queue_event_id,
-                    source_world_tick,
-                    observed_through_seq,
-                    Some(plan.location_id),
-                )
-                .await;
-                record_ai_usage(
-                    state,
-                    Some(actor_id),
-                    "avatar_chat",
-                    "cosyworld_system",
-                    usage_config.as_ref(),
-                    "failed",
-                    queue_event_id,
-                    0,
-                    Some(error.code()),
-                    started_at.elapsed(),
-                );
-                return Err(error.to_string());
-            }
-        };
-        let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
-        let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
-        let (context_changed, committed) = {
-            let mut runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                plan.location_id,
-            ) {
-                (true, None)
-            } else {
-                let content_id = runtime.next_content_id_value();
-                let mut record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_SAY,
-                        actor_id,
-                        content_id,
-                        ..CwAction::default()
-                    },
-                    runtime.next_seed_value(),
-                );
-                record.caused_by_event_seq = queue_event_id;
-                record.source_world_tick = source_world_tick;
-                record.observed_through_seq = observed_through_seq;
-                record.source_location_id = Some(plan.location_id);
-                record.content_upserts.insert(content_id, content.clone());
-                record.ai_publication = Some(publication_receipt);
-                runtime.attach_reasoning_thought_memory(
-                    &mut record,
-                    actor_id,
-                    plan.location_id,
-                    reasoning_trace.as_deref(),
-                );
-                let committed = match commit_journal_record(state, &mut runtime, record) {
-                    Ok((CW_OK, events)) if !events.is_empty() => Some((content_id, events)),
-                    _ => None,
-                };
-                (false, committed)
-            }
-        };
-
-        if context_changed {
-            tracing::info!(
-                actor_id,
-                target_actor_id,
-                location_id = plan.location_id,
-                "avatar chat ended cleanly after a participant left during inference"
-            );
-            record_ai_usage(
-                state,
-                Some(actor_id),
-                "avatar_chat",
-                "cosyworld_system",
-                usage_config.as_ref(),
-                "ok",
-                queue_event_id,
-                0,
-                None,
-                started_at.elapsed(),
-            );
-            return complete_chat_after_context_change(
-                state,
-                actor_id,
-                target_actor_id,
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-                plan.location_id,
-            )
-            .await;
-        }
-
-        let Some((content_id, events)) = committed else {
-            commit_chat_status(
-                state,
-                actor_id,
-                target_actor_id,
-                if will_retry { "retrying" } else { "failed" },
-                if will_retry {
-                    "the conversation moved out of reach; retrying"
-                } else {
-                    "the conversation moved out of reach"
-                },
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-                Some(plan.location_id),
-            )
-            .await;
-            record_ai_usage(
-                state,
-                Some(actor_id),
-                "avatar_chat",
-                "cosyworld_system",
-                usage_config.as_ref(),
-                "failed",
-                queue_event_id,
-                0,
-                Some("chat_context_changed"),
-                started_at.elapsed(),
-            );
-            return Err("the avatar opening could not be committed".to_string());
-        };
-        broadcast_events(state, &events);
-        record_ai_usage(
-            state,
-            Some(actor_id),
-            "avatar_chat",
-            "cosyworld_system",
-            usage_config.as_ref(),
-            "ok",
-            queue_event_id.or_else(|| source_event_id_for_chat(&events, actor_id, content_id)),
-            0,
-            None,
-            started_at.elapsed(),
-        );
-    }
-    let exchange_result = complete_orb_chat_exchange(
-        state,
-        actor_id,
-        target_actor_id,
-        plan.clone(),
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        attempt,
-    )
-    .await;
-    if let Err(error) = exchange_result {
-        if error == CHAT_CONTEXT_CHANGED_ERROR {
-            tracing::info!(
-                actor_id,
-                target_actor_id,
-                location_id = plan.location_id,
-                "avatar chat ended cleanly after a participant left the room"
-            );
-            complete_chat_after_context_change(
-                state,
-                actor_id,
-                target_actor_id,
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-                plan.location_id,
-            )
-            .await?;
-            return Ok(());
-        }
-        let config = state.ai_config.as_ref().as_ref();
-        let readiness_retry = chat_target_route_retry_floor_ms(config, target_actor_id) > 0;
-        let will_retry = state.event_store_path.is_some()
-            && !chat_target_route_is_permanently_unavailable(config, target_actor_id)
-            && (will_retry || readiness_retry);
-        warn!("bounded avatar chat ended early: {}", error);
-        commit_chat_status(
-            state,
-            actor_id,
-            target_actor_id,
-            if will_retry { "retrying" } else { "failed" },
-            if will_retry {
-                "the conversation ended early; retrying from its last line"
-            } else {
-                "the conversation ended early; try talking again"
-            },
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-            Some(plan.location_id),
-        )
-        .await;
-        return Err(error);
-    }
-    let completed_already = {
-        let runtime = state.inner.lock().await;
-        orb_chat_status_already_committed(
-            &runtime,
-            actor_id,
-            target_actor_id,
-            "completed",
-            plan.location_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-        )
-    };
-    if completed_already {
-        return Ok(());
-    }
-    let completed_events = commit_completed_chat(
-        state,
-        actor_id,
-        target_actor_id,
-        queue_event_id,
-        source_world_tick,
-        observed_through_seq,
-        plan.location_id,
-    )
-    .await;
-    if completed_events.is_empty() {
-        return Err("the completed conversation status could not be committed".to_string());
-    }
-    Ok(())
 }
 
 async fn report_actor(
@@ -22788,27 +22426,6 @@ async fn command_inner(
     }
 }
 
-fn chat_participants_can_continue(
-    runtime: &RuntimeWorld,
-    actor_id: u64,
-    target_actor_id: u64,
-    location_id: u64,
-) -> bool {
-    runtime
-        .actor_by_id(actor_id)
-        .zip(runtime.actor_by_id(target_actor_id))
-        .is_some_and(|(actor, target)| {
-            RuntimeWorld::actor_can_act(actor)
-                && RuntimeWorld::actor_can_act(target)
-                && actor.location_id == location_id
-                && target.location_id == location_id
-                && runtime.actor_uses_inference(target_actor_id)
-                && resident_supports_text_reply(target_actor_id)
-                && !runtime.actors_blocked(actor_id, target_actor_id)
-                && !runtime.actor_muted(actor_id, target_actor_id)
-        })
-}
-
 fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -22822,7 +22439,6 @@ fn commit_resident_reply_record(
         speech,
         mut planning,
     } = certified;
-    let reasoning_trace = speech.reasoning_trace().map(ToString::to_string);
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
@@ -22895,12 +22511,6 @@ fn commit_resident_reply_record(
                 reason: presentation.content(),
             });
     }
-    runtime.attach_reasoning_thought_memory(
-        &mut record,
-        plan.speaker_actor_id,
-        plan.location_id,
-        reasoning_trace.as_deref(),
-    );
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };
@@ -23132,6 +22742,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                             chat.queue_event_id,
                             chat.source_world_tick,
                             chat.observed_through_seq,
+                            Some(&job),
                             job.attempts,
                         )
                         .await
@@ -23153,7 +22764,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         ACTOR_JOB_KIND_AVATAR_REFLECTION,
                         ActorJobPayload::AvatarReflection(reflection),
                     ) if job.actor_id == reflection.actor_id => {
-                        complete_avatar_reflection(&state, reflection.clone())
+                        complete_avatar_reflection(&state, reflection.as_ref().clone())
                             .await
                             .map(|_| true)
                     }
@@ -26642,6 +26253,7 @@ fn client_actor_rejected_response() -> Json<ActionResponse> {
 
 async fn stream(
     headers: HeaderMap,
+    Extension(shutdown): Extension<ShutdownSubscription>,
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
@@ -26699,7 +26311,7 @@ async fn stream(
     }
     let replay_stream = tokio_stream::iter(replay_messages);
     let live_stream = live_event_stream(rx, visible_locations);
-    let stream = replay_stream.chain(live_stream);
+    let stream = shutdown.finish_stream(replay_stream.chain(live_stream));
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -29132,41 +28744,6 @@ fn journal_commit_recovery_error(
 /// Coalesce instead: write at most once per interval, and let the journal cover
 /// the gap. A snapshot that trails the journal by a few seconds only costs a
 /// slightly longer replay at boot. See issue #481.
-/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
-///
-/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
-/// restart, and the composition smoke stops servers with it before running the
-/// offline pack-mount migration. That migration requires the on-disk snapshot
-/// to match the journal head, so an unhandled SIGTERM — which kills the process
-/// before the final forced snapshot — would leave a snapshot trailing the
-/// journal now that ordinary writes are coalesced.
-async fn terminate_signal() {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{signal as unix_signal, SignalKind};
-        match unix_signal(SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                warn!("failed to install SIGTERM handler: {}", error);
-                std::future::pending::<()>().await;
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        std::future::pending::<()>().await;
-    }
-}
-
-async fn shutdown_signal() {
-    tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate_signal() => {}
-    }
-}
-
 fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
@@ -29303,18 +28880,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
             fs::create_dir_all(parent)?;
         }
     }
-    let conn = open_event_store(path)?;
-    let table_count = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sqlite_error)?;
-    if table_count == 0 {
-        conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
-            .map_err(sqlite_error)?;
-    }
+    let conn = open_canonical_store_for_initialization(path)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS world_events (
             seq INTEGER PRIMARY KEY,
@@ -29702,51 +29268,6 @@ fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
     u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
 }
 
-fn persistence_storage_report(
-    event_store_path: Option<&Path>,
-    snapshot_path: Option<&Path>,
-) -> PersistenceStorageReport {
-    let snapshot_bytes =
-        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
-    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
-        fs::metadata(snapshot_temp_path(path))
-            .ok()
-            .map(|meta| meta.len())
-    });
-    let Some(event_store_path) = event_store_path else {
-        return PersistenceStorageReport {
-            snapshot_bytes,
-            snapshot_temp_bytes,
-            ..PersistenceStorageReport::default()
-        };
-    };
-    let event_store_bytes = fs::metadata(event_store_path).ok().map(|meta| meta.len());
-    let sqlite_pages = open_event_store(event_store_path).ok().and_then(|conn| {
-        let page_count = conn
-            .query_row("PRAGMA page_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let free_pages = conn
-            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let page_size = conn
-            .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        Some((
-            page_count
-                .saturating_sub(free_pages)
-                .saturating_mul(page_size),
-            free_pages.saturating_mul(page_size),
-        ))
-    });
-    PersistenceStorageReport {
-        event_store_bytes,
-        event_store_live_bytes: sqlite_pages.map(|pages| pages.0),
-        event_store_reusable_bytes: sqlite_pages.map(|pages| pages.1),
-        snapshot_bytes,
-        snapshot_temp_bytes,
-    }
-}
-
 #[cfg(test)]
 fn append_action_journal(path: &Path, record: &JournalRecord) -> io::Result<()> {
     init_event_store(path)?;
@@ -29832,7 +29353,7 @@ fn insert_orb_chat_job(
     job.queue_event_id = queue_event_id.or(job.queue_event_id);
     job.source_world_tick = Some(source_tick);
     job.observed_through_seq = job.queue_event_id;
-    let payload = ActorJobPayload::OrbChat(job.clone());
+    let payload = ActorJobPayload::OrbChat(Box::new(job.clone()));
     let cause_event_seq = job.queue_event_id;
     insert_actor_job_payload(
         conn,
@@ -29947,35 +29468,6 @@ fn actor_job_retry_floor_ms(state: &AppState, job: &ActorJob, error: &str) -> u6
     1_000u64
         .saturating_mul(1u64 << provider_failure_budget.saturating_sub(1).min(6))
         .saturating_add(250)
-}
-
-fn fail_or_retry_actor_job(
-    path: &Path,
-    job: &ActorJob,
-    error: &str,
-    retry_floor_ms: u64,
-) -> io::Result<()> {
-    let conn = open_event_store(path)?;
-    let terminal = job.attempts >= ACTOR_JOB_MAX_ATTEMPTS;
-    let backoff_ms = 250_u64
-        .saturating_mul(1_u64 << job.attempts.saturating_sub(1).min(5))
-        .max(retry_floor_ms);
-    let now = now_millis();
-    conn.execute(
-        "UPDATE actor_jobs
-         SET status = ?2, lease_until_ms = NULL, available_at_ms = ?3,
-             last_error = ?4, updated_at_ms = ?5
-         WHERE id = ?1",
-        params![
-            job.id,
-            if terminal { "dead" } else { "pending" },
-            now.saturating_add(backoff_ms) as i64,
-            trim_to_chars(error, 500),
-            now as i64,
-        ],
-    )
-    .map_err(sqlite_error)?;
-    Ok(())
 }
 
 #[cfg(test)]

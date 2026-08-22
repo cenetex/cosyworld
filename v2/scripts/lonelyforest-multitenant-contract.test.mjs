@@ -49,7 +49,14 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(supervisor, /while IFS='\|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins;/);
   assert.match(supervisor, /trap 'stop_all; exit 1' USR1/);
   assert.match(supervisor, /trap 'stop_all; exit 0' TERM INT HUP/);
-  assert.match(supervisor, /trap - TERM INT HUP USR1/);
+  assert.match(supervisor, /trap '' TERM INT HUP USR1/);
+  assert.match(
+    supervisor,
+    /shutdown_grace_secs="\$\{COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS:-4\}"/,
+  );
+  assert.match(supervisor, /event=shutdown_started grace_secs=\$shutdown_grace_secs/);
+  assert.match(supervisor, /event=tenant_shutdown_forced/);
+  assert.match(supervisor, /event=shutdown_complete elapsed_secs=\$elapsed_secs forced_process_count=\$forced_process_count/);
   assert.match(supervisor, /if \[ "\$requirement" = "required" \]; then[\s\S]*?failing supervisor/);
   assert.match(supervisor, /kill -USR1 "\$supervisor_pid"/);
   assert.match(supervisor, /health_startup_grace_secs="\$\{COSYWORLD_MULTITENANT_HEALTH_STARTUP_GRACE_SECS:-45\}"/);
@@ -197,7 +204,20 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
   assert.doesNotMatch(nginx, /\/var\/lib\/nginx/, "non-root nginx must not retain default temp paths");
   assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
-  assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log combined;$/m);
+  // The proxy boundary logs through the redacting cosyworld_safe format, not
+  // nginx's combined format, which retains query strings, cookies, and user
+  // agents. This assertion only runs in the deployment gate, so pinning the
+  // named format here is what keeps a later revert from reaching production
+  // through a green PR.
+  assert.match(
+    nginx,
+    /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log cosyworld_safe;$/m,
+  );
+  assert.doesNotMatch(
+    nginx,
+    /access_log[^;]*\bcombined;/,
+    "the combined format retains credential-bearing request detail",
+  );
   assert.match(supervisor, /mkdir -p[\s\S]*?\/tmp\/cosyworld-nginx \\/);
   assert.match(supervisor, /tail -n 0 -F \/tmp\/cosyworld-nginx\/error\.log \/tmp\/cosyworld-nginx\/access\.log/);
   assert.match(supervisor, /kill -TERM "\$nginx_log_pid"/);
@@ -224,6 +244,8 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(fly, /app = "\/app\/deploy\/lonelyforest\/run-multitenant\.sh"/);
   assert.match(fly, /^\s*COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"$/m);
   assert.match(fly, /^\s*COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS = "650000"$/m);
+  assert.match(fly, /^\s*COSYWORLD_SHUTDOWN_DRAIN_MS = "3000"$/m);
+  assert.match(fly, /^\s*COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS = "4"$/m);
   assert.match(dockerfile, /apt-get install[^\\\n]*ca-certificates curl gosu nginx/);
   assert.match(dockerfile, /COPY deploy\/lonelyforest \/app\/deploy\/lonelyforest/);
   assert.match(dockerfile, /COPY deploy\/entrypoint\.sh \/app\/entrypoint\.sh/);
@@ -507,8 +529,117 @@ test("a required child crash exits the supervisor nonzero", async () => {
       child.once("exit", (code) => resolveResult({ code }));
     });
     assert.equal(result.code, 1);
-    assert.ok(Date.now() - startedAt < 3_000, "required child crash must fail the supervisor immediately");
+    assert.ok(
+      Date.now() - startedAt < 3_000,
+      "required child crash must fail the supervisor immediately",
+    );
   } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("the supervisor forwards shutdown once and force-stops wedged children within budget", async () => {
+  const tempRoot = await mkdtemp(resolve(tmpdir(), "cosyworld-supervisor-shutdown-"));
+  let child;
+  try {
+    const binDir = resolve(tempRoot, "bin");
+    const registry = resolve(tempRoot, "registry.json");
+    const tenantConfig = resolve(tempRoot, "tenants.tsv");
+    const snapshot = resolve(tempRoot, "snapshot.json");
+    const eventDb = resolve(tempRoot, "events.sqlite");
+    const generated = resolve(tempRoot, "generated");
+    const orchestratorPid = resolve(tempRoot, "orchestrator.pid");
+    await mkdir(binDir);
+    await writeFile(registry, "{}");
+    await writeFile(tenantConfig, `root|required|root.example|root|3100|${registry}|-|${snapshot}|${eventDb}|${generated}|\n`);
+    const scripts = {
+      nginx: "#!/usr/bin/env node\nif (process.argv.includes('-t')) process.exit(0);\nfor (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => {});\nconsole.log('fake nginx ready');\nsetInterval(() => {}, 1_000);\n",
+      orchestrator: "#!/usr/bin/env node\nfor (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => {});\nrequire('node:fs').writeFileSync(process.env.FAKE_ORCHESTRATOR_PID_FILE, String(process.pid) + '\\n');\nconsole.log('fake orchestrator ready');\nsetInterval(() => {}, 1_000);\n",
+      monitor: "#!/bin/sh\nexec sleep 300\n",
+    };
+    await Promise.all(Object.entries(scripts).map(async ([name, content]) => {
+      const script = resolve(binDir, name);
+      await writeFile(script, content);
+      await chmod(script, 0o755);
+    }));
+
+    let output = "";
+    let markReady;
+    const ready = new Promise((resolveReady) => { markReady = resolveReady; });
+    child = spawn("sh", [resolve(deploymentRoot, "run-multitenant.sh")], {
+      env: {
+        ...process.env,
+        PATH: `${binDir}:${process.env.PATH}`,
+        FAKE_ORCHESTRATOR_PID_FILE: orchestratorPid,
+        COSYWORLD_ORCHESTRATOR_BINARY: resolve(binDir, "orchestrator"),
+        COSYWORLD_MULTITENANT_TENANTS_CONFIG: tenantConfig,
+        COSYWORLD_MULTITENANT_HEALTH_MONITOR: resolve(binDir, "monitor"),
+        COSYWORLD_MULTITENANT_NGINX_CONFIG: resolve(tempRoot, "nginx.conf"),
+        COSYWORLD_MULTITENANT_DATA_ROOT: resolve(tempRoot, "worldpacks"),
+        COSYWORLD_MULTITENANT_HEALTH_STARTUP_GRACE_SECS: "60",
+        COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const capture = (chunk) => {
+      output += chunk;
+      if (
+        output.includes("hostname router listening")
+        && output.includes("fake nginx ready")
+        && output.includes("fake orchestrator ready")
+      ) markReady();
+    };
+    child.stdout.on("data", capture);
+    child.stderr.on("data", capture);
+    let readyTimeout;
+    try {
+      await Promise.race([
+        ready,
+        new Promise((_, reject) => {
+          readyTimeout = setTimeout(
+            () => reject(new Error(`supervisor did not become ready: ${output}`)),
+            2_000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(readyTimeout);
+    }
+
+    const startedAt = Date.now();
+    child.kill("SIGTERM");
+    const repeatedSignal = setTimeout(() => child?.kill("SIGINT"), 50);
+    let shutdownTimeout;
+    let code;
+    try {
+      code = await Promise.race([
+        new Promise((resolveExit, reject) => {
+          child.once("error", reject);
+          child.once("exit", resolveExit);
+        }),
+        new Promise((_, reject) => {
+          shutdownTimeout = setTimeout(
+            () => reject(new Error(`supervisor exceeded shutdown budget: ${output}`)),
+            3_000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(repeatedSignal);
+      clearTimeout(shutdownTimeout);
+    }
+    assert.equal(code, 0, output);
+    assert.ok(Date.now() - startedAt < 2_500, output);
+    assert.match(output, /event=shutdown_started grace_secs=1/);
+    assert.match(output, /event=tenant_shutdown_started tenant=root/);
+    assert.match(output, /event=tenant_shutdown_forced tenant=root/);
+    assert.match(output, /event=shutdown_forced reason=deadline/);
+    assert.match(output, /event=shutdown_complete elapsed_secs=\d+ forced_process_count=[1-9]\d*/);
+
+    const pid = Number.parseInt(await readFile(orchestratorPid, "utf8"), 10);
+    assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+  } finally {
+    child?.kill("SIGKILL");
     await rm(tempRoot, { recursive: true, force: true });
   }
 });

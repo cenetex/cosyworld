@@ -650,7 +650,10 @@ fn ordinary_room_turn_view(
 }
 
 pub(super) fn journal_record_consumes_room_activation(record: &JournalRecord) -> bool {
-    matches!(record.origin, JournalOrigin::PlayerCard)
+    (matches!(record.origin, JournalOrigin::PlayerCard)
+        // A knocked-out avatar is not an initiative participant, but releasing
+        // it is still a durable player card that advances the world tick.
+        && record.offer_kind.as_deref() != Some("abandon_avatar"))
         || (record.origin == JournalOrigin::ActorConsequence && record.resident_decision.is_some())
         || (record.offer_kind.as_deref() == Some("chat")
             && matches!(record.queued_actor_job, Some(ActorJobPayload::OrbChat(_))))

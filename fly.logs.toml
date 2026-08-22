@@ -1,0 +1,32 @@
+app = "cosyworld-log-shipper"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "deploy/observability/Dockerfile"
+
+[env]
+  AWS_REGION = "us-east-1"
+  CLOUDWATCH_LOG_GROUP_NAME = "/cosyworld/production"
+  FLY_ORG = "personal"
+  VECTOR_LOG = "info"
+
+# ACCESS_TOKEN, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are Fly secrets.
+# The NATS subscription is organization-wide because its subject grammar cannot
+# express a union of the two app names; vector.yaml immediately filters to the
+# exact production allowlist before normalizing or exporting an event.
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
+
+[[restart]]
+  policy = "always"
+
+[checks.vector]
+  type = "http"
+  port = 8686
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"

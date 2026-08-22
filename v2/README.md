@@ -256,6 +256,25 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
+### Shutdown contract
+
+The first `SIGINT` or `SIGTERM` begins a bounded drain. The listener stops
+accepting connections, existing SSE responses close so clients can reconnect
+with their `Last-Event-ID`, and requests arriving on an existing keep-alive
+connection receive JSON `503` responses with `Retry-After: 1` and
+`Connection: close`. `/health/live` remains available during the drain so an
+operator can distinguish a restarting process from a dead one.
+
+`COSYWORLD_SHUTDOWN_DRAIN_MS` sets the HTTP drain deadline. It defaults to
+`3000` and startup accepts only `100` through `4000` milliseconds, preserving
+time before Fly's next shutdown escalation. A second signal or the deadline
+force-finishes the HTTP server; the final snapshot is flushed after that
+bounded drain. Structured `shutdown_signal_received`,
+`shutdown_drain_started`, `shutdown_drain_forced`, and `shutdown_complete`
+records report timing, signal count, forced drains, and notified or remaining
+streams. Clients must treat a closed stream or a draining `503` as a reconnect
+boundary and reuse the same `intent_id` when retrying a command.
+
 The production Fly profile requires moderation and the event store. Configure
 the protected avatar feed only when linked-avatar discovery is enabled:
 
@@ -1057,10 +1076,31 @@ the replay window, or set `COSYWORLD_V2_PERSISTENCE_COMPACTION=off` before a
 store is compacted to preserve full history. Canonical routing and regional
 recovery require uncompacted prefix history and refuse a previously compacted
 store. A new database is required to re-enable those modes after compaction.
-New SQLite stores use incremental auto-vacuum; existing stores reuse freed
-pages even when their outer file cannot immediately shrink. On boot, the
-orchestrator removes the exact stale `*.json.tmp` file left by an interrupted
-snapshot without touching the committed snapshot.
+A new SQLite store chooses incremental auto-vacuum before it enters WAL mode.
+The order matters: SQLite records `auto_vacuum` in the database header and
+silently ignores the pragma once the store is in WAL mode, so setting it after
+the first open left every store at `none`, where compaction frees pages onto
+the freelist and the file can only ever grow. After each compaction the
+runtime hands back the pages it just freed, bounded by
+`COSYWORLD_V2_INCREMENTAL_VACUUM_PAGES` (default 512), which keeps a burst
+recoverable without holding the world lock through a full rewrite.
+
+`/meta.persistence.event_store_auto_vacuum` reports which mode a store is in.
+A store reporting `none` predates this ordering fix and cannot return a byte
+until one full `VACUUM` runs in a maintenance window, which needs roughly twice
+the file size free on the volume. `/meta.persistence.generated_asset_bytes` and
+`generated_asset_count` report the generated-art directory, which has no
+retention policy of its own and grows for as long as a world is played.
+
+`node v2/scripts/check-storage-budget.mjs <target>` compares both figures
+against the committed ceilings in `v2/scripts/storage-budgets.json` and fails
+when a store passes its budget. The scheduled volume-headroom workflow runs it
+for each deployment beside the disk check, so growth is caught while there is
+still room to choose a response rather than at the point a full volume
+crash-loops the release.
+
+On boot, the orchestrator removes the exact stale `*.json.tmp` file left by an
+interrupted snapshot without touching the committed snapshot.
 
 The startup log line reports how many milliseconds boot took from process
 start to listening, so a regression to full replay is visible. A rejected
