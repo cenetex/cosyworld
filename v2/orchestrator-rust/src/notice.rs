@@ -217,7 +217,7 @@ pub(super) async fn notice_actor(
             }
         };
     if let Some(response) =
-        actor_offer_turn_rejection(&runtime, payload.actor_id, NOTICE_ACTOR_OFFER_KIND)
+        actor_offer_turn_rejection(&state, &runtime, payload.actor_id, NOTICE_ACTOR_OFFER_KIND)
     {
         drop(runtime);
         if !released_events.is_empty() {

@@ -8669,15 +8669,15 @@
             run: () => action("/actions/timeout", { actor_id: actorId }),
           });
         }
-        // Ordered-combat status belongs in the turn banner, not the card hand.
+        // Ordered-scene status belongs in the turn banner, not the card hand.
         // A waiting player receives no dealt card here, so nothing can bypass
-      // or crowd the combat floor. See issue #461.
+      // or crowd the initiative floor. See issue #461.
       return waitingActions.map(decorateActionHand);
     }
 
       // Pass and Need time are timing controls, not ranked combat actions.
       // They render in the turn banner so the card row stays reserved for
-      // legal combat choices. See issue #461 and turnBannerControlSpecs.
+      // legal current-activation choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
       const discoveryKinds = new Set([
         "focused_notice",
@@ -10135,12 +10135,12 @@
     function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
       if (!turn?.enabled) return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
-      // scene-turn is the ordered-combat protocol identity even when the
-      // adjacent combat projection has not arrived yet.
-      const combatCopy = Boolean(combat || turn.policy === "scene-turn");
-      const copy = combatCopy
+      const sceneKind = String(turn.scene_kind || "");
+      const copy = sceneKind === "combat" || combat
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
-        : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
+        : sceneKind === "room"
+          ? (turn.is_current_actor ? "room initiative — your turn" : `room initiative — ${currentName} acts now`)
+          : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
       const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
       // Urgency carries a glyph and distinct wording, never colour alone.
       const mark = turn.is_current_actor
@@ -17604,7 +17604,7 @@
         && actorId
         && actorSession
         && state?.primary_action?.kind !== "create_avatar"
-        && (!state?.combat || state?.turn?.is_current_actor)
+        && (!state?.turn?.enabled || state?.turn?.is_current_actor)
         && handCardThink(action)?.available
         && handCardThink(action)?.offer_id
       );
@@ -17847,7 +17847,7 @@
         && actorSession
         && discardCertificate?.available
         && discardCertificate?.offer_id
-        && (!state?.combat || state?.turn?.is_current_actor);
+        && (!state?.turn?.enabled || state?.turn?.is_current_actor);
       discardButton.hidden = handCard ? false : !canDiscard;
       discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
       discardButton.textContent = handCard ? "discard" : (discardCertificate?.free ? "discard · free" : "discard");
