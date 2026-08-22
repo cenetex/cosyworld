@@ -1347,6 +1347,12 @@ pub(super) fn retain_configured_model_interaction_offers(
     primary_action
         .options
         .retain(|option| offered_kinds.contains(option.kind.as_str()));
+    // A knocked-out or absent avatar has no offers to keep, and its primary
+    // action is the way back into play. Filtering configured model routes must
+    // not turn that into a disabled Wait.
+    if actor_presence::primary_action_is_avatar_lifecycle(&primary_action.kind) {
+        return;
+    }
     let primary_offer_kind = if primary_action.kind == "travel" {
         "move"
     } else {
