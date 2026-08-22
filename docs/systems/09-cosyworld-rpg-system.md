@@ -197,6 +197,46 @@ Bond directly; **Befriend** creates Bonds and joins the Cosy advancement
 domain. Advancement remains spendable on evolution, bond slots, Calling
 revision, and future growth choices.
 
+#### Seed relationships
+
+Cold start is a designed moment, not an accident. A player's first session
+must already contain someone who can speak to them:
+
+- **Rati is the canonical seeded chat partner** for new avatars in Core.
+- Worldpacks may author **seed relationships** — starting stages or active
+  Bonds between specific actors — applied deterministically at world creation
+  and recorded as journal events like every other meter fact.
+- Faction membership may later imply group-level seed stages; until a faction
+  contract exists, seeds are pairwise and authored.
+
+Seeds never bypass session ownership or moderation blocks; they only pre-fill
+the same meter every other interaction writes.
+
+#### Daily budget
+
+Relationship gains are farmable unless the meter has a clock. Gains are
+budgeted per in-world day:
+
+- Each ordered pair accrues at most the authored daily gain budget between
+  long Rests; further interactions that day advance nothing.
+- A long Rest resets the budgets. Long Rests are themselves limited per
+  in-world day (Core default: one), so the whole loop stays bounded.
+- Repeated identical interactions draw down the same budget: alternating
+  Give and Take cannot outpace genuine play.
+
+Budget counters are deterministic kernel state, journaled and replayed like
+the meter itself.
+
+#### Open decision: combat as the second conversion
+
+Befriend converts accumulated relationship into a *friendly* Bond. Combat
+could be the Honor-path twin: challenging (or being challenged by) someone you
+have history with converts the same meter into a rivalry or hostile Bond,
+giving fights narrative grounding instead of spawning them from nothing. Chat
+would remain locked on the hostile path. Whether combat joins Befriend as a
+conversion ceremony — and how hostile Bonds resolve back — is deferred to the
+combat-system contract and deliberately not specified here.
+
 ## Sanctuary And Frontier
 
 A world with pressure is engaging but not relaxing; a world that waits for you is relaxing but inert. CosyWorld refuses to choose globally and **divides space** instead.
