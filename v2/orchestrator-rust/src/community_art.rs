@@ -1197,15 +1197,18 @@ pub(super) fn prepare_community_art_generation(
         .validate()
         .map_err(CommunityArtGenerationError::BriefInvalid)?;
     let job_key = media_brief.job_key.clone();
-    if prepare_rejected_media_candidate_replacement(generated_asset_dir, media_brief.clone())
-        .map_err(CommunityArtGenerationError::Storage)?
-    {
+    let retry_preparation =
+        prepare_rejected_media_candidate_replacement(generated_asset_dir, media_brief.clone())
+            .map_err(CommunityArtGenerationError::Storage)?;
+    if retry_preparation.migrated {
         warn!(
             event = "community_art_media_brief_migrated",
             job_key,
             generation_profile_version = plan.generation_profile_version,
             "retired an obsolete media verdict record before retrying generation"
         );
+    }
+    if retry_preparation.discard_staged_candidate {
         remove_community_art_candidate(generated_asset_dir, plan)
             .map_err(CommunityArtGenerationError::Storage)?;
     }
@@ -2042,20 +2045,14 @@ pub(super) fn schedule_community_art_generation(
                 );
             }
         }
-        let retry_rejected = if status == "policy_rejected" && events.is_some() {
-            match remove_community_art_candidate(&state.generated_asset_dir, &plan) {
-                Ok(()) => true,
-                Err(error) => {
-                    warn!(
-                        "failed to remove rejected community art candidate for {}: {}",
-                        key, error
-                    );
-                    false
-                }
+        if status == "policy_rejected" && events.is_some() {
+            if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan) {
+                warn!(
+                    "failed to remove rejected community art candidate for {}: {}",
+                    key, error
+                );
             }
-        } else {
-            false
-        };
+        }
         for execution in &outcome.provider_executions {
             record_ai_usage_for_provider(
                 &state,
@@ -2077,9 +2074,6 @@ pub(super) fn schedule_community_art_generation(
         if let Ok(mut jobs) = community_art_jobs().lock() {
             jobs.remove(&key);
         }
-        if retry_rejected {
-            schedule_community_art_generation(&state, actor_id, plan);
-        }
     });
 }
 
@@ -2095,11 +2089,9 @@ pub(super) fn pending_community_art_resumption_plans(
                 generation.status.as_str(),
                 "funded" | "generating" | "reviewing"
             );
-            let rejected_candidate = generation.status == "policy_rejected";
             let stale_brief =
                 generation.last_error_code.as_deref() == Some("community_art_storage_failed");
-            generation.funded_orbs >= generation.required_orbs
-                && (interrupted || rejected_candidate || stale_brief)
+            generation.funded_orbs >= generation.required_orbs && (interrupted || stale_brief)
         })
         .filter_map(|generation| {
             generation

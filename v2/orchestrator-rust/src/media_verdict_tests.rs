@@ -444,9 +444,12 @@ fn rejected_candidate_can_be_replaced_under_a_new_frozen_brief_with_audit_retain
 
     let mut replacement_brief = original.clone();
     replacement_brief.crop = "full room, subject centered".to_string();
+    let preparation =
+        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap();
+    assert!(preparation.migrated);
     assert!(
-        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap(),
-        "an explicitly rejected active candidate may move to a newly frozen retry brief"
+        preparation.discard_staged_candidate,
+        "an explicitly rejected candidate must not be reused"
     );
     let retired = root
         .join("media-verdicts/v1")
@@ -475,9 +478,12 @@ fn provider_failure_record_can_adopt_a_new_frozen_brief_with_audit_retained() {
     let mut replacement_brief = original.clone();
     replacement_brief.recipe = "cosyworld.test-recipe/2".to_string();
     replacement_brief.crop = "wide environment view, subject centered".to_string();
+    let preparation =
+        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap();
+    assert!(preparation.migrated);
     assert!(
-        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap(),
-        "a candidate-free provider failure may move to a newly frozen retry brief"
+        !preparation.discard_staged_candidate,
+        "candidate-free migrations preserve any separately staged provider result"
     );
     let retired = root
         .join("media-verdicts/v1")
@@ -490,6 +496,30 @@ fn provider_failure_record_can_adopt_a_new_frozen_brief_with_audit_retained() {
     );
     preflight_media_verdict_storage(&root, &replacement_brief)
         .expect("the new frozen brief passes storage preflight");
+}
+
+#[test]
+fn empty_record_can_adopt_a_new_frozen_brief_without_discarding_staged_work() {
+    let root = root("empty-brief-replacement");
+    let original = brief("empty-brief-job");
+    let original_digest = original.digest().unwrap();
+    store_record(&root, &new_record(original.clone(), &original_digest)).unwrap();
+
+    let mut replacement_brief = original.clone();
+    replacement_brief.recipe = "cosyworld.test-recipe/2".to_string();
+    replacement_brief.crop = "portrait crop, subject centered".to_string();
+    let preparation =
+        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap();
+    assert!(
+        preparation.migrated,
+        "an empty legacy record must not permanently freeze the old brief"
+    );
+    assert!(
+        !preparation.discard_staged_candidate,
+        "a provider result staged outside the empty verdict record remains reusable"
+    );
+    preflight_media_verdict_storage(&root, &replacement_brief)
+        .expect("the replacement brief is now the live verdict identity");
 }
 
 #[test]
