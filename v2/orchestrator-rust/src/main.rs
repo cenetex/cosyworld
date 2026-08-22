@@ -102,6 +102,7 @@ mod rpg;
 mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
+mod shutdown;
 mod snapshot_persistence;
 mod solana;
 mod spatial;
@@ -136,7 +137,7 @@ use avatar_reflections::*;
 use avatar_rescue::*;
 use axum::{
     body::{to_bytes, Body},
-    extract::{ConnectInfo, Path as AxumPath, Query, State},
+    extract::{ConnectInfo, Extension, Path as AxumPath, Query, State},
     http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -219,6 +220,7 @@ pub(crate) use config::{
     canonical_routing_config, resolve_process_id, DeploymentProfile, DEFAULT_CANONICAL_REGION_ID,
 };
 use keys::*;
+use shutdown::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -237,7 +239,6 @@ use story_metrics::*;
 use test_support::*;
 use tokio::{
     net::TcpListener,
-    signal,
     sync::{broadcast, Mutex, Notify, RwLock},
 };
 use tokio_stream::{
@@ -26837,6 +26838,7 @@ fn client_actor_rejected_response() -> Json<ActionResponse> {
 
 async fn stream(
     headers: HeaderMap,
+    Extension(shutdown): Extension<ShutdownSubscription>,
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
@@ -26894,7 +26896,7 @@ async fn stream(
     }
     let replay_stream = tokio_stream::iter(replay_messages);
     let live_stream = live_event_stream(rx, visible_locations);
-    let stream = replay_stream.chain(live_stream);
+    let stream = shutdown.finish_stream(replay_stream.chain(live_stream));
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -29302,41 +29304,6 @@ fn journal_commit_recovery_error(
 /// Coalesce instead: write at most once per interval, and let the journal cover
 /// the gap. A snapshot that trails the journal by a few seconds only costs a
 /// slightly longer replay at boot. See issue #481.
-/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
-///
-/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
-/// restart, and the composition smoke stops servers with it before running the
-/// offline pack-mount migration. That migration requires the on-disk snapshot
-/// to match the journal head, so an unhandled SIGTERM — which kills the process
-/// before the final forced snapshot — would leave a snapshot trailing the
-/// journal now that ordinary writes are coalesced.
-async fn terminate_signal() {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{signal as unix_signal, SignalKind};
-        match unix_signal(SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                warn!("failed to install SIGTERM handler: {}", error);
-                std::future::pending::<()>().await;
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        std::future::pending::<()>().await;
-    }
-}
-
-async fn shutdown_signal() {
-    tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate_signal() => {}
-    }
-}
-
 fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;

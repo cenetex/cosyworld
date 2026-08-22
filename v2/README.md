@@ -256,6 +256,25 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
+### Shutdown contract
+
+The first `SIGINT` or `SIGTERM` begins a bounded drain. The listener stops
+accepting connections, existing SSE responses close so clients can reconnect
+with their `Last-Event-ID`, and requests arriving on an existing keep-alive
+connection receive JSON `503` responses with `Retry-After: 1` and
+`Connection: close`. `/health/live` remains available during the drain so an
+operator can distinguish a restarting process from a dead one.
+
+`COSYWORLD_SHUTDOWN_DRAIN_MS` sets the HTTP drain deadline. It defaults to
+`3000` and startup accepts only `100` through `4000` milliseconds, preserving
+time before Fly's next shutdown escalation. A second signal or the deadline
+force-finishes the HTTP server; the final snapshot is flushed after that
+bounded drain. Structured `shutdown_signal_received`,
+`shutdown_drain_started`, `shutdown_drain_forced`, and `shutdown_complete`
+records report timing, signal count, forced drains, and notified or remaining
+streams. Clients must treat a closed stream or a draining `503` as a reconnect
+boundary and reuse the same `intent_id` when retrying a command.
+
 The production Fly profile requires moderation and the event store. Configure
 the protected avatar feed only when linked-avatar discovery is enabled:
 
