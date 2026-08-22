@@ -741,7 +741,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:f94d4908ffb6429ec5cb2f5d466e83eebdb617170f9639bf5886f432a3a9c8e7",
+  "bundle_hash": "sha256:4c40819234949a5756abffd7de53a8767e53890e53ca2d95a3ad0118a4db749d",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2157,7 +2157,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2"
+      "integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929"
     },
     {
       "id": "cosyworld.composition.core-ruby",

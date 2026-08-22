@@ -34,7 +34,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "level_track_id",
     "voice",
     "control_mode",
-    "ambient_autonomy",
+    "event_autonomy",
     "roaming",
     "location_id",
     "stats",

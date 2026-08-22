@@ -823,7 +823,7 @@ fn seed_actor_roams(actor_id: u64) -> bool {
 }
 
 pub(super) fn seed_actor_roaming_enabled(actor: &SeedActorContent) -> bool {
-    actor.ambient_autonomy.unwrap_or(true) && actor.roaming.unwrap_or(false)
+    actor.event_autonomy.unwrap_or(true) && actor.roaming.unwrap_or(false)
 }
 
 pub(super) fn bind_threshold_action(
