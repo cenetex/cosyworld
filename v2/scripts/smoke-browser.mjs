@@ -12101,17 +12101,24 @@ async function main() {
     });
     if (!result.ok) return false;
     const { submission } = result;
+    const expectedReceiptType = submission.expectedPath === "/actions/trade-item"
+      ? "item.traded"
+      : "item.given";
     const transferReceipt = (result.body?.events || []).find((event) => (
-      event.type === "item.given"
+      event.type === expectedReceiptType
         && Number(event.item_id || 0) === Number(submission.itemId)
         && Number(event.target_actor_id || 0) === Number(submission.targetActorId)
+        && (
+          expectedReceiptType !== "item.traded"
+            || Number(event.target_item_id || 0) === Number(submission.targetItemId)
+        )
     ));
     assert(
       transferReceipt,
-      `${name} gift should return an exact authoritative item.given receipt: ${JSON.stringify(result.body?.events || [])}`,
+      `${name} transfer should return an exact authoritative ${expectedReceiptType} receipt: ${JSON.stringify(result.body?.events || [])}`,
     );
     recordLivingItemEvidence({
-      type: "item.given",
+      type: expectedReceiptType,
       resident: name,
       item: transferReceipt.item_name || `item:${submission.itemId}`,
     });
@@ -12132,7 +12139,7 @@ async function main() {
     if (!transferVerified) {
       steps.push({
         label: `${name} settled ${submission.itemId} after receipt`,
-        outcome: "the shared world advanced after the exact gift",
+        outcome: "the shared world advanced after the exact transfer",
       });
     }
     return true;
