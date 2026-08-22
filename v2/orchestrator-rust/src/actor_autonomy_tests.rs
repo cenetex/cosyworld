@@ -108,7 +108,20 @@ fn autonomous_result_dedup_uses_event_causality_after_a_tick_restore() {
 
     runtime.event_log.push(EventView {
         success: true,
+        type_name: "world.faction.influence_shifted".to_string(),
+        source_world_tick: Some(source_world_tick),
+        caused_by_event_seq: Some(caused_by_event_seq),
+        ..EventView::default()
+    });
+    assert!(
+        !runtime.player_tick_already_has_autonomous_result(&observation),
+        "a global side effect is not an inferred avatar's initiative action"
+    );
+
+    runtime.event_log.push(EventView {
+        success: true,
         type_name: "message.created".to_string(),
+        actor_id: Some(RATI_ACTOR_ID),
         source_world_tick: Some(source_world_tick),
         caused_by_event_seq: Some(caused_by_event_seq),
         ..EventView::default()

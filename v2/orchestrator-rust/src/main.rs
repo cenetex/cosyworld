@@ -1631,6 +1631,7 @@ struct RuntimeWorld {
     // bounded presentation projection and must never determine a certificate.
     hand_generations: BTreeMap<u64, u64>,
     story_hand_states: BTreeMap<u64, StoryHandActorState>,
+    room_initiatives: BTreeMap<u64, RoomInitiativeState>,
     daily_journals: BTreeMap<u64, AvatarDailyJournalState>,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
@@ -1661,6 +1662,8 @@ struct RuntimeSnapshot {
     hand_generations: BTreeMap<u64, u64>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     story_hand_states: BTreeMap<u64, StoryHandActorState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    room_initiatives: BTreeMap<u64, RoomInitiativeState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     daily_journals: BTreeMap<u64, AvatarDailyJournalState>,
 
@@ -1930,6 +1933,8 @@ struct JournalRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     focused_encounter: Option<FocusedEncounterJournalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    room_activation: Option<RoomActivationJournalContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     offer_kind: Option<String>,
     #[serde(default)]
     focused_policy_version: u8,
@@ -1971,7 +1976,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 17;
+const JOURNAL_RECORD_VERSION: u32 = 18;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -2011,6 +2016,7 @@ impl JournalRecord {
             resident_planning: None,
             ai_publication: None,
             focused_encounter,
+            room_activation: None,
             offer_kind: None,
             focused_policy_version: 1,
             action,
@@ -5136,7 +5142,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 20,
+            version: 21,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5146,6 +5152,7 @@ impl RuntimeSnapshot {
             action_journal_seq: runtime.action_journal_seq,
             hand_generations: runtime.hand_generations.clone(),
             story_hand_states: runtime.story_hand_states.clone(),
+            room_initiatives: runtime.room_initiatives.clone(),
             daily_journals: runtime.daily_journals.clone(),
 
             world_version: runtime.world.version,
@@ -5485,6 +5492,7 @@ impl RuntimeSnapshot {
             action_journal_seq: self.action_journal_seq,
             hand_generations,
             story_hand_states,
+            room_initiatives: self.room_initiatives,
             daily_journals: self.daily_journals,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
@@ -5693,6 +5701,7 @@ impl RuntimeWorld {
             action_journal_seq: 0,
             hand_generations: BTreeMap::new(),
             story_hand_states: BTreeMap::new(),
+            room_initiatives: BTreeMap::new(),
             daily_journals: BTreeMap::new(),
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
@@ -7437,6 +7446,7 @@ impl RuntimeWorld {
         let avatar_rescue_already_applied = self.avatar_rescue_record_already_applied(record);
         let abandon_avatar_already_applied = self.abandon_avatar_record_already_applied(record);
         if !focused_encounter_journal_context_is_supported(self, record)
+            || !room_activation_record_preconditions_hold(self, record)
             || !self.route_record_preconditions_hold(record)
             || !threshold_record_preconditions_hold(record)
             || !self.threshold_hazard_preconditions_hold(record)
@@ -7481,6 +7491,7 @@ impl RuntimeWorld {
                 record.origin,
                 JournalOrigin::PlayerControl | JournalOrigin::ActorConsequence
             )
+            && record.room_activation.is_none()
             && action.kind == CW_ACTION_NONE
             && record.projection_mutations.len() == 1
         {
@@ -7697,6 +7708,7 @@ impl RuntimeWorld {
             }
         }
         events.extend(self.apply_treasure_objective_progress(record, status));
+        events.extend(apply_room_activation_record(self, record, status));
         self.apply_resident_planning_lifecycle(record, status, resident_planning_lifecycle);
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
@@ -22915,215 +22927,6 @@ fn append_action_receipt(runtime: &RuntimeWorld, actor_id: u64, events: &mut Vec
     });
 }
 
-fn player_tick_observation(
-    runtime: &RuntimeWorld,
-    location_id: Option<u64>,
-    actor_id: u64,
-    status: u32,
-    events: &[EventView],
-) -> Option<PlayerTickObservation> {
-    if status != CW_OK || events.is_empty() {
-        return None;
-    }
-    if !events
-        .iter()
-        .any(|event| event.success && event.actor_id == Some(actor_id))
-    {
-        return None;
-    }
-
-    let source_action_kind = ripple_action_kind_from_events(actor_id, events);
-    let ripple_source = runtime
-        .ripple_context_for_player_turn(actor_id, source_action_kind, events)
-        .map(|context| context.to_source());
-    let caused_by_event_seq = events
-        .iter()
-        .filter(|event| event.success && event.actor_id == Some(actor_id))
-        .map(|event| event.seq)
-        .max();
-    let source_location_id = ripple_source
-        .as_ref()
-        .and_then(|source| source.source_location_id)
-        .or(location_id);
-    let allow_ordinary_speech = !matches!(
-        source_action_kind,
-        CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM
-    ) && !events.iter().any(|event| event.type_name == "chat.queued")
-        && !events.iter().any(|event| {
-            matches!(
-                event.type_name.as_str(),
-                "bond.created" | "bond.revised" | "bond.resolved"
-            )
-        });
-
-    Some(PlayerTickObservation {
-        source_actor_id: actor_id,
-        source_world_tick: runtime.world.tick,
-        caused_by_event_seq,
-        observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
-        source_location_id,
-        allow_ordinary_speech,
-        source_events: events.to_vec(),
-        ripple_source,
-        relationship_reply: relationship_reply_expectation(runtime, actor_id, events),
-    })
-}
-
-async fn complete_player_tick_observation(
-    state: &AppState,
-    observation: PlayerTickObservation,
-) -> Result<
-    (
-        Option<AvatarReplyPlan>,
-        Option<RelationshipReplyExpectation>,
-    ),
-    String,
-> {
-    let relationship_reply = observation.relationship_reply.clone();
-    let active_direct_actor_ids = active_actor_ids_for_state(state);
-    let (ripple_events, reply_plan) = {
-        let mut runtime = state.inner.lock().await;
-        // A worker may be reclaimed after its reaction committed but before the
-        // outbox row was acknowledged. Match the exact triggering event rather
-        // than a persisted world-tick watermark: restored worlds can legitimately
-        // resume behind an actor's historical last_acted_tick.
-        if relationship_reply
-            .as_ref()
-            .is_some_and(|expectation| !runtime.relationship_reply_pending(expectation))
-        {
-            return Ok((None, relationship_reply));
-        }
-        if relationship_reply.is_none()
-            && runtime.player_tick_already_has_autonomous_result(&observation)
-        {
-            return Ok((None, None));
-        }
-        runtime.observe_player_tick_for_autonomy(&observation);
-        let card_reaction_plan = if relationship_reply.is_some() {
-            runtime.relationship_reply_plan(&observation)
-        } else if observation.allow_ordinary_speech {
-            runtime
-                .next_room_card_reaction_plan(
-                    observation.source_actor_id,
-                    &observation.source_events,
-                    Some(&active_direct_actor_ids),
-                )
-                .map(|plan| plan.with_observation(&observation).requesting_planner())
-        } else {
-            runtime.direct_observation_reply_plan(&observation)
-        }
-        .filter(|plan| {
-            runtime
-                .actor_by_id(plan.speaker_actor_id)
-                .is_some_and(|actor| {
-                    !runtime.actor_uses_inference(actor.id)
-                        || runtime.autonomy_allows_action(plan.speaker_actor_id, CW_ACTION_SAY)
-                })
-        });
-        let source_action_kind = observation
-            .ripple_source
-            .as_ref()
-            .map(|source| source.source_action_kind)
-            .unwrap_or(CW_ACTION_NONE);
-        let ripple = if matches!(
-            source_action_kind,
-            CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM
-        ) {
-            None
-        } else {
-            observation.ripple_source.as_ref().and_then(|source| {
-                let seed = runtime.next_seed_value();
-                let context = source.to_context();
-                runtime
-                    .ripple_record_for_player_turn(&context, seed)
-                    .filter(|record| {
-                        runtime.autonomy_allows_action(record.action.actor_id, record.action.kind)
-                            && runtime.kernel_offer_allows_action(&record.action)
-                    })
-                    .map(|mut record| {
-                        record.origin = JournalOrigin::ActorConsequence;
-                        record.source_world_tick = Some(observation.source_world_tick);
-                        record.caused_by_event_seq = observation.caused_by_event_seq;
-                        record.observed_through_seq = Some(observation.observed_through_seq);
-                        record.source_location_id = observation.source_location_id;
-                        record
-                    })
-            })
-        };
-        match ripple {
-            None => (Vec::new(), card_reaction_plan),
-            Some(record) => {
-                let action = record.action;
-                match commit_journal_record(state, &mut runtime, record) {
-                    Ok((CW_OK, events)) if !events.is_empty() => {
-                        let ripple_reply_plan = observation
-                            .allow_ordinary_speech
-                            .then(|| runtime.resident_economy_action_reply_plan(&action))
-                            .flatten()
-                            .map(|plan| plan.with_observation(&observation));
-                        let reply = card_reaction_plan.or(ripple_reply_plan);
-                        (events, reply)
-                    }
-                    Ok((_status, _events)) => (Vec::new(), card_reaction_plan),
-                    Err(error) => {
-                        warn!(
-                            "failed to commit player-tick actor consequence for event {:?}: {}",
-                            observation.caused_by_event_seq, error
-                        );
-                        return Err(error.to_string());
-                    }
-                }
-            }
-        }
-    };
-    if !ripple_events.is_empty() {
-        broadcast_events(state, &ripple_events);
-    }
-    Ok((reply_plan, relationship_reply))
-}
-
-fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
-    if state.event_store_path.is_some() {
-        // The observation was inserted in the same SQLite transaction as the
-        // card journal and events. This call only wakes the durable worker;
-        // its available_at timestamp supplies the room-chat heartbeat delay.
-        state.actor_job_notify.notify_waiters();
-        return;
-    }
-    let Some(location_id) = observation.source_location_id else {
-        return;
-    };
-    let dedicated_relationship_heartbeat = observation.relationship_reply.is_some();
-    let heartbeat_armed = dedicated_relationship_heartbeat
-        || state
-            .room_chat_heartbeats
-            .lock()
-            .map(|mut rooms| rooms.insert(location_id))
-            .unwrap_or(false);
-    if !heartbeat_armed {
-        return;
-    }
-    let state = state.clone();
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(CARD_REACTION_HEARTBEAT_DELAY_MS)).await;
-        match complete_player_tick_observation(&state, observation.clone()).await {
-            Ok((plan, relationship_reply)) => {
-                if let Err(error) =
-                    complete_player_tick_reply(&state, &observation, plan, relationship_reply).await
-                {
-                    warn!("asynchronous resident dialogue failed: {}", error);
-                }
-            }
-            Err(error) => warn!("resident turn failed: {}", error),
-        }
-        if !dedicated_relationship_heartbeat {
-            if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
-                rooms.remove(&location_id);
-            }
-        }
-    });
-}
-
 fn start_actor_job_worker(state: AppState) {
     if state.event_store_path.is_none() {
         return;
@@ -23267,7 +23070,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         if job.actor_id == observation.source_actor_id =>
                     {
                         match complete_player_tick_observation(&state, observation.clone()).await {
-                            Ok((plan, relationship_reply))
+                            Ok((plan, relationship_reply, _next_observation))
                                 if plan.is_some() || relationship_reply.is_some() =>
                             {
                                 let reply_state = state.clone();
@@ -25166,7 +24969,9 @@ async fn prepare(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "prepare") {
+    if let Some(response) =
+        actor_offer_turn_rejection(&state, &runtime, payload.actor_id, "prepare")
+    {
         return response;
     }
     let contribution_intent =
@@ -25287,7 +25092,7 @@ async fn work(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "work") {
+    if let Some(response) = actor_offer_turn_rejection(&state, &runtime, payload.actor_id, "work") {
         return response;
     }
     if !runtime.work_available(payload.actor_id) {
@@ -25454,7 +25259,7 @@ async fn help_room(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "help") {
+    if let Some(response) = actor_offer_turn_rejection(&state, &runtime, payload.actor_id, "help") {
         return response;
     }
     if !runtime.help_available(payload.actor_id) {
@@ -28760,6 +28565,8 @@ fn commit_journal_record_blocking(
 ) -> io::Result<(u32, Vec<EventView>)> {
     let durable_started_at = Instant::now();
     bind_focused_encounter_context(runtime, &mut record);
+    let active_direct_actor_ids = active_actor_ids_for_state(state);
+    bind_room_activation_context(runtime, &mut record, &active_direct_actor_ids);
     runtime.bind_route_precondition(&mut record);
     runtime.bind_threshold_intent(&mut record);
     if !runtime.route_record_preconditions_hold(&record) {
@@ -28996,15 +28803,38 @@ fn commit_journal_record_blocking(
             insert_world_events_strict(&tx, &events)?;
             persistence_phases.push(("ledger_and_events", phase_started_at.elapsed()));
             phase_started_at = Instant::now();
-            let observation_job_inserted =
-                if status == CW_OK && record.origin == JournalOrigin::PlayerCard {
-                    player_tick_observation(runtime, None, record.action.actor_id, status, &events)
-                        .map(|observation| insert_actor_job(&tx, &observation))
-                        .transpose()?
-                        .unwrap_or(false)
-                } else {
-                    false
-                };
+            let activation_location_id = record
+                .room_activation
+                .as_ref()
+                .map(|activation| activation.location_id);
+            let actor_location_id = runtime
+                .actor_by_id(record.action.actor_id)
+                .map(|actor| actor.location_id);
+            let active_direct_actor_ids = active_actor_ids_for_state(state);
+            let initiative_job_location_id = activation_location_id
+                .into_iter()
+                .chain(actor_location_id)
+                .find(|location_id| {
+                    room_initiative_needs_actor_job(runtime, *location_id, &active_direct_actor_ids)
+                });
+            let observation_job_inserted = if status == CW_OK
+                && ((record.origin == JournalOrigin::PlayerCard
+                    && record.room_activation.is_none())
+                    || initiative_job_location_id.is_some())
+            {
+                player_tick_observation(
+                    runtime,
+                    initiative_job_location_id,
+                    record.action.actor_id,
+                    status,
+                    &events,
+                )
+                .map(|observation| insert_actor_job(&tx, &observation))
+                .transpose()?
+                .unwrap_or(false)
+            } else {
+                false
+            };
             let queued_job_inserted = if status == CW_OK {
                 match record.queued_actor_job.as_ref() {
                     Some(ActorJobPayload::OrbChat(job)) => {
@@ -29977,21 +29807,6 @@ fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
 }
 
 fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> io::Result<bool> {
-    if observation.relationship_reply.is_none() {
-        if let Some(location_id) = observation.source_location_id {
-            let active_heartbeat_count: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM actor_jobs
-                 WHERE kind = ?1 AND location_id = ?2 AND status IN ('pending', 'running')",
-                    params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
-                    |row| row.get(0),
-                )
-                .map_err(sqlite_error)?;
-            if active_heartbeat_count > 0 {
-                return Ok(false);
-            }
-        }
-    }
     let payload = ActorJobPayload::PlayerTick(observation.clone());
     insert_actor_job_payload(
         conn,
@@ -33530,9 +33345,9 @@ mod tests {
         );
         let actor_a = 5000;
         let actor_b = 5001;
+        let rendezvous_location_id = 32;
         let session_a =
-            commit_capacity_test_human(&state_a, actor_a, COSY_COTTAGE_LOCATION_ID, "Pinned A")
-                .await;
+            commit_capacity_test_human(&state_a, actor_a, rendezvous_location_id, "Pinned A").await;
         let session_b =
             commit_capacity_test_human(&state_a, actor_b, RAIN_SOFT_GARDEN_LOCATION_ID, "Pinned B")
                 .await;
@@ -33702,7 +33517,7 @@ mod tests {
         assert!(followed.events.iter().any(|event| {
             event.type_name == "actor.moved"
                 && event.actor_id == Some(actor_b)
-                && event.destination_location_id == Some(COSY_COTTAGE_LOCATION_ID)
+                && event.destination_location_id == Some(rendezvous_location_id)
         }));
 
         let actor_b_ref = followed.actor_ref.clone().expect("actor B canonical ref");
@@ -33727,17 +33542,19 @@ mod tests {
         assert_eq!(profile_a.profile, profile_b.profile);
         assert_eq!(
             profile_b.profile.as_ref().map(|view| view.location_id),
-            Some(COSY_COTTAGE_LOCATION_ID)
+            Some(rendezvous_location_id)
         );
 
         let retry_request = {
+            let active_direct_actor_ids = active_actor_ids_for_state(&state_a);
             let mut runtime = state_a.inner.lock().await;
-            canonical_test_offer_request(
+            canonical_test_offer_request_with_presence(
                 &mut runtime,
                 actor_a,
                 &session_a,
                 "test:cross-process-retry",
                 "*",
+                Some(&active_direct_actor_ids),
             )
         };
         let request_a = client
@@ -33853,6 +33670,11 @@ mod tests {
             .events
             .windows(2)
             .all(|events| events[0].seq + 1 == events[1].seq));
+        assert!(mark_actor_session_inactive(
+            &state_b.actor_sessions,
+            actor_b,
+            &session_b,
+        ));
 
         convergence_a.abort();
         server_a.abort();
@@ -33955,6 +33777,7 @@ mod tests {
         let lease_ttl = Duration::from_millis(1_500);
         let actor_hot = 5100;
         let actor_cold = 5101;
+        let hot_location_id = 32;
 
         let state_a = configure_capacity_test_state(
             test_app_state(RuntimeWorld::seeded(), Some(primary_path.clone())),
@@ -33964,13 +33787,9 @@ mod tests {
             router_token,
             lease_ttl,
         );
-        let session_hot = commit_capacity_test_human(
-            &state_a,
-            actor_hot,
-            COSY_COTTAGE_LOCATION_ID,
-            "Hot Room Neighbour",
-        )
-        .await;
+        let session_hot =
+            commit_capacity_test_human(&state_a, actor_hot, hot_location_id, "Hot Room Neighbour")
+                .await;
         let session_cold = commit_capacity_test_human(
             &state_a,
             actor_cold,
@@ -34244,7 +34063,7 @@ mod tests {
                 },
                 runtime.next_seed_value(),
             );
-            record.source_location_id = Some(COSY_COTTAGE_LOCATION_ID);
+            record.source_location_id = Some(hot_location_id);
             record
                 .projection_mutations
                 .push(ProjectionMutation::RendezvousActor {
@@ -39457,7 +39276,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn co_present_player_can_grow_and_train_without_a_room_owner() {
+    async fn co_present_growth_spends_the_current_room_activation() {
         let mut runtime = RuntimeWorld::seeded();
         for (actor_id, name, dexterity, seed) in [
             (5000, "Room Keeper", 30, 17601),
@@ -39503,6 +39322,16 @@ mod tests {
             CW_OK
         );
         assert!(runtime.visit_ledger_view(5001).unbanked_count > 0);
+        runtime.room_initiatives.insert(
+            COSY_COTTAGE_LOCATION_ID,
+            RoomInitiativeState {
+                schema_version: 1,
+                participant_order: vec![5001, 5000, RATI_ACTOR_ID],
+                current_index: 0,
+                round: 1,
+                activation: 1,
+            },
+        );
 
         let state = test_app_state(runtime, None);
         let (current_session, _) = issue_actor_session(&state, 5000);
@@ -39525,10 +39354,10 @@ mod tests {
                 Some(5001),
                 &active,
             );
-            assert!(!before.enabled);
-            assert_eq!(before.policy, "concurrent");
-            assert_eq!(before.current_actor_id, None);
-            assert!(!before.is_current_actor);
+            assert!(before.enabled);
+            assert_eq!(before.policy, "scene-turn");
+            assert_eq!(before.current_actor_id, Some(5001));
+            assert!(before.is_current_actor);
         }
 
         let grown = bank_ledger(
@@ -39559,12 +39388,8 @@ mod tests {
         )
         .await
         .0;
-        assert!(trained.ok);
-        assert_eq!(trained.status, CW_OK);
-        assert!(trained
-            .events
-            .iter()
-            .any(|event| event.type_name == "skill.stepped"));
+        assert!(!trained.ok);
+        assert_ne!(trained.status, CW_OK);
 
         let active = active_actor_ids_for_state(&state);
         let runtime = state.inner.lock().await;
@@ -39575,9 +39400,9 @@ mod tests {
             Some(5001),
             &active,
         );
-        assert!(!after.enabled);
-        assert_eq!(after.policy, "concurrent");
-        assert_eq!(after.current_actor_id, None);
+        assert!(after.enabled);
+        assert_eq!(after.policy, "scene-turn");
+        assert_eq!(after.current_actor_id, Some(5000));
         assert!(!after.is_current_actor);
         assert_eq!(runtime.visit_ledger_view(5001).unbanked_count, 0);
         assert_eq!(
@@ -39585,12 +39410,12 @@ mod tests {
                 .skills
                 .get(&skill_state_id(5001, "listening"))
                 .map(|skill| skill.rank),
-            Some(1)
+            None
         );
     }
 
     #[tokio::test]
-    async fn co_present_avatars_move_independently_without_a_room_turn() {
+    async fn co_present_avatars_move_in_room_initiative_order() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "First Walker");
         create_test_human(
@@ -39605,10 +39430,30 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Crowded Observer",
         );
+        runtime.room_initiatives.insert(
+            COSY_COTTAGE_LOCATION_ID,
+            RoomInitiativeState {
+                schema_version: 1,
+                participant_order: vec![5000, 5001, 5002, RATI_ACTOR_ID],
+                current_index: 0,
+                round: 1,
+                activation: 1,
+            },
+        );
         let state = test_app_state(runtime, None);
         let (first_session, _) = issue_actor_session(&state, 5000);
         let (second_session, _) = issue_actor_session(&state, 5001);
-        let _ = issue_actor_session(&state, 5002);
+        let (observer_session, _) = issue_actor_session(&state, 5002);
+        for (actor_id, session) in [
+            (5000, first_session.as_str()),
+            (5001, second_session.as_str()),
+            (5002, observer_session.as_str()),
+        ] {
+            assert_eq!(
+                ping_actor_session_for_actor(&state.actor_sessions, actor_id, session),
+                Some(false)
+            );
+        }
 
         for (actor_id, actor_session, port) in
             [(5000, first_session, 43120), (5001, second_session, 43121)]
@@ -39625,7 +39470,10 @@ mod tests {
             )
             .await
             .0;
-            assert!(response.ok, "actor {actor_id} moves without a room owner");
+            assert!(
+                response.ok,
+                "actor {actor_id} moves on its initiative seat: {response:?}"
+            );
             assert_ne!(response.status, 423);
         }
 
@@ -39645,12 +39493,12 @@ mod tests {
             Some(5000),
             &active_actor_ids_for_state(&state),
         );
-        assert!(!turn.enabled);
-        assert_eq!(turn.policy, "concurrent");
+        assert!(turn.enabled);
+        assert_eq!(turn.policy, "scene-turn");
     }
 
     #[tokio::test]
-    async fn co_present_avatars_contribute_to_compatible_project_targets() {
+    async fn co_present_avatars_contribute_in_room_initiative_order() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -39664,9 +39512,37 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Second Contributor",
         );
+        for actor in runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+        {
+            if actor.location_id == MOONLIT_TRAIL_LOCATION_ID && !matches!(actor.id, 5000 | 5001) {
+                actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            }
+        }
+        runtime.room_initiatives.insert(
+            MOONLIT_TRAIL_LOCATION_ID,
+            RoomInitiativeState {
+                schema_version: 1,
+                participant_order: vec![5000, 5001],
+                current_index: 0,
+                round: 1,
+                activation: 1,
+            },
+        );
         let state = test_app_state(runtime, None);
         let (first_session, _) = issue_actor_session(&state, 5000);
         let (second_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &first_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &second_session),
+            Some(false)
+        );
 
         for (actor_id, actor_session, port) in [
             (5000, first_session.clone(), 43124),
@@ -39682,7 +39558,7 @@ mod tests {
             )
             .await
             .0;
-            assert!(prepared.ok, "compatible preparation is not room-turn gated");
+            assert!(prepared.ok, "compatible preparation follows initiative");
             assert_ne!(prepared.status, 423);
         }
 
@@ -39698,7 +39574,7 @@ mod tests {
         )
         .await
         .0;
-        assert!(first_work.ok);
+        assert!(first_work.ok, "first work failed: {first_work:?}");
         assert_ne!(first_work.status, 423);
 
         let second_help = help_room(
@@ -39745,6 +39621,14 @@ mod tests {
         let state = test_app_state(runtime, Some(path.clone()));
         let (first_session, _) = issue_actor_session(&state, 5000);
         let (second_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &first_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &second_session),
+            Some(false)
+        );
 
         let first = pick_up_item(
             ConnectInfo("127.0.0.1:43130".parse().unwrap()),
@@ -41072,7 +40956,7 @@ mod tests {
     }
 
     #[test]
-    fn actor_outbox_coalesces_cards_until_the_room_heartbeat_completes() {
+    fn actor_outbox_preserves_every_room_activation_in_order() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-actor-outbox-order-{}-{}.sqlite",
             std::process::id(),
@@ -41094,8 +40978,8 @@ mod tests {
         let second_observation = observation(42, 402);
         assert!(append_actor_job(&path, &first_observation).expect("queue first player card"));
         assert!(
-            !append_actor_job(&path, &second_observation).expect("coalesce second player card"),
-            "multiple cards must not stack while the room heartbeat is armed"
+            append_actor_job(&path, &second_observation).expect("queue second player card"),
+            "a newer room activation must not be hidden by an older pending heartbeat"
         );
 
         release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
@@ -41108,15 +40992,15 @@ mod tests {
             _ => panic!("player-card worker claimed another job kind"),
         };
         assert_eq!(first_tick, 41);
-        complete_actor_job(&path, first.id).expect("complete first player card");
-
-        assert!(
-            append_actor_job(&path, &second_observation)
-                .expect("queue a card after heartbeat completion"),
-            "a later card may arm the next heartbeat"
-        );
         release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("release second heartbeat");
+        assert!(
+            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+                .expect("inspect the room lane while its first heartbeat runs")
+                .is_none(),
+            "the next activation waits for narration from the running activation"
+        );
+        complete_actor_job(&path, first.id).expect("complete first player card");
         let second = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("claim second player card")
             .expect("second player card remains queued");
@@ -41135,7 +41019,7 @@ mod tests {
     }
 
     #[test]
-    fn slow_chat_job_does_not_block_the_player_card_gameplay_lane() {
+    fn room_jobs_wait_behind_the_active_room_job_across_worker_lanes() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-actor-outbox-lanes-{}-{}.sqlite",
             std::process::id(),
@@ -41177,12 +41061,17 @@ mod tests {
             .expect("Chat is running");
         release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("release gameplay heartbeat");
-        let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
-            .expect("claim gameplay lane while Chat runs")
-            .expect("gameplay is not blocked by slow Chat");
-        assert_eq!(claimed_chat.actor_id, claimed_gameplay.actor_id);
-        complete_actor_job(&path, claimed_gameplay.id).expect("complete gameplay turn");
+        assert!(
+            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+                .expect("inspect gameplay lane while Chat runs")
+                .is_none(),
+            "one room cannot run a Chat consequence and an initiative activation together"
+        );
         complete_actor_job(&path, claimed_chat.id).expect("complete Chat");
+        let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("claim gameplay after Chat")
+            .expect("the room lane resumes after Chat completes");
+        complete_actor_job(&path, claimed_gameplay.id).expect("complete gameplay turn");
         let _ = fs::remove_file(path);
     }
 
@@ -47325,6 +47214,11 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        runtime
+            .actor_autonomy
+            .entry(MOONLIT_ECHO_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
         let initial = runtime.state_response(Some(5000), &AccessContext::default());
         let help_offer = initial
             .action_offers
@@ -48045,6 +47939,16 @@ mod tests {
     async fn solar_abyss_project_supports_solo_work_and_rest_danger() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, 36, "Solo Bell Listener");
+        for actor in runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+        {
+            if actor.id != 5000 && actor.location_id == 36 {
+                actor.location_id = DARK_ABYSS_LOCATION_ID;
+            }
+        }
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -48106,7 +48010,7 @@ mod tests {
         )
         .await
         .0;
-        assert!(rest_response.ok);
+        assert!(rest_response.ok, "rest failed: {rest_response:?}");
         assert!(rest_response.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some("solar-abyss.schism")

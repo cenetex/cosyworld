@@ -684,6 +684,9 @@ impl crate::RuntimeWorld {
             event.success
                 && event.source_world_tick == Some(observation.source_world_tick)
                 && event.caused_by_event_seq == Some(caused_by_event_seq)
+                && event.actor_id.is_some_and(|actor_id| {
+                    actor_id != observation.source_actor_id && self.actor_uses_inference(actor_id)
+                })
         })
     }
 }

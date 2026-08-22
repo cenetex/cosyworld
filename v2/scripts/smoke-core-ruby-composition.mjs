@@ -293,6 +293,19 @@ async function fetchInspectableState(baseUrl, actorId, actorSession) {
   };
 }
 
+async function waitForActorTurn(baseUrl, actorId, actorSession, description) {
+  const deadline = Date.now() + 60_000;
+  let state;
+  while (Date.now() < deadline) {
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    if (!state.turn?.enabled || state.turn.is_current_actor) return state;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+  }
+  throw new Error(
+    `${description} never regained room initiative: ${JSON.stringify(state?.turn)}`,
+  );
+}
+
 function inspectedRulesContext(state) {
   return (state?.__inspection?.actions || [])
     .map((action) => action.composition_trace?.rules_context)
@@ -330,9 +343,12 @@ function storyHandSlotForOffer(offer = {}) {
 async function passCurrentHand(baseUrl, actorId, actorSession, initialState, desiredSlot = "") {
   let state = initialState;
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    if (!state || attempt > 0) {
-      state = await fetchInspectableState(baseUrl, actorId, actorSession);
-    }
+    state = await waitForActorTurn(
+      baseUrl,
+      actorId,
+      actorSession,
+      "Story Hand Think",
+    );
     const thinkEntries = (state.action_hand?.entries || [])
       .filter((entry) => entry.think?.available && entry.think.offer_id)
       .sort((left, right) =>
@@ -363,8 +379,14 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState, des
   throw new Error("Think remained stale or turn-locked after five refreshed attempts");
 }
 
-async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
-  let state = await fetchInspectableState(baseUrl, actorId, actorSession);
+async function drawExactOffer(
+  baseUrl,
+  actorId,
+  actorSession,
+  predicate,
+  label,
+) {
+  let state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   const boundedThinks = Math.max(
     1,
     (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
@@ -375,7 +397,7 @@ async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) 
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
     await passCurrentHand(baseUrl, actorId, actorSession, state);
-    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   }
   throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);
 }

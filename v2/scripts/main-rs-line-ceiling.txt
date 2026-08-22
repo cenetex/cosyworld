@@ -405,4 +405,7 @@
 # 61691 -> 61673: move HTTP response-contract handling into routes.rs and run
 # routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
 # threads stay available for health while JSON error policy remains at routing.
-61673
+# 61673 -> 61577: move player-tick observation, resident initiative selection,
+# and room-heartbeat scheduling into actor_jobs.rs while adding durable ordinary
+# room initiative.
+61577

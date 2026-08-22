@@ -634,7 +634,7 @@ mod tests {
             .relationship_event_seq;
         let state = test_app_state(runtime, None);
 
-        let (plan, relationship_reply) =
+        let (plan, relationship_reply, _next_observation) =
             complete_player_tick_observation(&state, observation.clone())
                 .await
                 .expect("heartbeat planning succeeds");
@@ -735,7 +735,7 @@ mod tests {
             ..AiConfig::default()
         }));
 
-        let (plan, relationship_reply) =
+        let (plan, relationship_reply, _next_observation) =
             complete_player_tick_observation(&state, observation.clone())
                 .await
                 .expect("heartbeat planning succeeds");
@@ -837,7 +837,7 @@ mod tests {
             vision_model: "test-vision".to_string(),
             ..AiConfig::default()
         }));
-        let (plan, relationship_reply) =
+        let (plan, relationship_reply, _next_observation) =
             complete_player_tick_observation(&state, observation.clone())
                 .await
                 .expect("heartbeat planning succeeds");

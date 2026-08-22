@@ -600,6 +600,80 @@ impl RuntimeWorld {
             .filter(|record| self.ripple_move_keeps_player_company(context, &record.action))
     }
 
+    pub(crate) fn resident_ripple_record_for_actor(
+        &mut self,
+        context: &RippleContext,
+        actor_id: u64,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        if !self.actor_uses_inference(actor_id) {
+            return None;
+        }
+        let selected = self
+            .resident_autonomy_candidates_for_ids(&[actor_id], seed)
+            .into_iter()
+            .find(|candidate| {
+                let action = &candidate.record.action;
+                (context.budget.allow_movement || action.kind != CW_ACTION_MOVE)
+                    && self.ripple_move_keeps_player_company(context, action)
+                    && !self.resident_campaign_pickup_is_reserved(action)
+                    && self.kernel_offer_allows_action(action)
+            });
+        let candidate = match selected {
+            Some(candidate) => candidate,
+            None => {
+                let actor = self.actor_by_id(actor_id)?;
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id,
+                        location_id: actor.location_id,
+                        ..CwAction::default()
+                    },
+                    seed,
+                )
+                .into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("pass");
+                record.source_location_id = Some(actor.location_id);
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::ShuffleHand {
+                        reason: "resident_initiative_pass".to_string(),
+                    });
+                ResidentAutonomyCandidate {
+                    actor_id,
+                    rank: 89,
+                    score: 0,
+                    record,
+                }
+            }
+        };
+        Some(self.attach_resident_decision_trace(candidate).record)
+    }
+
+    fn resident_campaign_pickup_is_reserved(&self, action: &CwAction) -> bool {
+        if action.kind != CW_ACTION_PICK_UP_ITEM {
+            return false;
+        }
+        let Some(resident) = self.actor_by_id(action.actor_id) else {
+            return false;
+        };
+        let direct_actor_is_present =
+            self.world.actors[..self.world.actor_count]
+                .iter()
+                .any(|actor| {
+                    Self::actor_can_act(*actor)
+                        && actor.location_id == resident.location_id
+                        && !self.actor_uses_inference(actor.id)
+                });
+        direct_actor_is_present
+            && active_content().cards.iter().any(|card| {
+                card.subject_kind == "item"
+                    && card.subject_id == action.item_id
+                    && card.role == "campaign item"
+            })
+    }
+
     pub(crate) fn ripple_move_keeps_player_company(
         &self,
         context: &RippleContext,
@@ -2450,6 +2524,85 @@ mod tests {
         let second = runtime.resident_autonomy_candidates_for_ids(&[RATI_ACTOR_ID], 146_020);
         assert!(first.is_empty());
         assert!(second.is_empty());
+    }
+
+    #[test]
+    fn an_initiative_seat_only_draws_from_that_avatars_story_hand() {
+        let mut runtime = RuntimeWorld::seeded();
+        for actor_id in [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID] {
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::LocalAi;
+        }
+
+        let candidates =
+            runtime.resident_autonomy_candidates_for_ids(&[WHISKERWIND_ACTOR_ID], 146_025);
+        assert!(
+            !candidates.is_empty(),
+            "the current avatar can play or pass"
+        );
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.actor_id == WHISKERWIND_ACTOR_ID));
+        assert!(candidates.iter().all(|candidate| {
+            candidate.record.action.actor_id == WHISKERWIND_ACTOR_ID
+                && candidate.record.resident_decision.is_none()
+        }));
+    }
+
+    #[test]
+    fn reactive_ai_can_play_a_mechanical_story_hand_card_on_its_initiative() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::ReactiveAi;
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            match item.id {
+                DEWBRIGHT_BUTTON_ITEM_ID => {
+                    item.holder_actor_id = RATI_ACTOR_ID;
+                    item.location_id = 0;
+                }
+                STORY_BUTTON_ITEM_ID => {
+                    item.holder_actor_id = WHISKERWIND_ACTOR_ID;
+                    item.location_id = 0;
+                }
+                _ => {}
+            }
+        }
+        runtime.record_economy_disclosure(RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID);
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "trade_item"
+                    && offer.id
+                        == format!(
+                            "trade_item:{DEWBRIGHT_BUTTON_ITEM_ID}:{WHISKERWIND_ACTOR_ID}:{STORY_BUTTON_ITEM_ID}"
+                        )
+            })
+            .expect("Trade rotates into the reactive avatar's Story Hand");
+        let context = RippleContext {
+            source_actor_id: SKULL_ACTOR_ID,
+            source_action_kind: CW_ACTION_NONE,
+            source_event_seqs: Vec::new(),
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            affected_location_ids: BTreeSet::from([COSY_COTTAGE_LOCATION_ID]),
+            zone: ZONE_SANCTUARY.to_string(),
+            budget: RippleBudget {
+                resident_actions: 1,
+                allow_wander: false,
+                allow_movement: false,
+            },
+        };
+
+        let record = runtime
+            .resident_ripple_record_for_actor(&context, RATI_ACTOR_ID, 146_026)
+            .expect("reactive AI can choose a legal mechanical card on its initiative");
+        assert_eq!(record.action.actor_id, RATI_ACTOR_ID);
+        assert_ne!(record.action.kind, CW_ACTION_NONE);
+        assert_ne!(record.offer_kind.as_deref(), Some("pass"));
     }
 
     #[test]
