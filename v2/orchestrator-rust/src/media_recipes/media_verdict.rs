@@ -439,24 +439,33 @@ pub(crate) fn preflight_media_verdict_storage(
     )
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct MediaBriefRetryPreparation {
+    pub(crate) migrated: bool,
+    pub(crate) discard_staged_candidate: bool,
+}
+
 /// Retires an immutable review record when a legacy retry must adopt a newly
 /// frozen brief. Approved or still-pending work remains fail-closed: only an
-/// explicitly rejected active candidate or a candidate-free provider-failure
-/// record may move to the new brief.
+/// explicitly rejected active candidate or a candidate-free record may move to
+/// the new brief.
 ///
-/// The retired record is preserved beside the live record for audit. Returning
-/// `true` tells the community-art pipeline to remove its staged candidate before
-/// spending another capped provider attempt.
+/// The retired record is preserved beside the live record for audit. A staged
+/// provider result is discarded only when it belongs to an explicitly rejected
+/// verdict; candidate-free records preserve any separately staged result so it
+/// can be reviewed under the repaired brief without another provider call.
 pub(crate) fn prepare_rejected_media_candidate_replacement(
     root: &Path,
     brief: FrozenMediaBrief,
-) -> Result<bool, String> {
+) -> Result<MediaBriefRetryPreparation, String> {
     brief.validate()?;
     let brief_digest = brief.digest()?;
     let _guard = media_verdict_lock()?;
     let record = match load_record_by_job(root, &brief.job_key) {
         Ok(record) => record,
-        Err(error) if error.contains("not found") => return Ok(false),
+        Err(error) if error.contains("not found") => {
+            return Ok(MediaBriefRetryPreparation::default());
+        }
         Err(error) => return Err(error),
     };
     let active_rejected = record
@@ -474,13 +483,15 @@ pub(crate) fn prepare_rejected_media_candidate_replacement(
                 MediaVerdictDisposition::Rejected | MediaVerdictDisposition::ReplaceRequested
             )
         });
-    let candidate_free_provider_failure =
-        record.candidates.is_empty() && record.provider_failures > 0;
+    let candidate_free = record.candidates.is_empty() && record.active_candidate_digest.is_none();
     if record.disabled {
-        return Ok(false);
+        return Ok(MediaBriefRetryPreparation::default());
     }
     if record.brief_digest == brief_digest && record.brief == brief {
-        return Ok(active_rejected);
+        return Ok(MediaBriefRetryPreparation {
+            migrated: false,
+            discard_staged_candidate: active_rejected,
+        });
     }
     if record.candidates.iter().any(|candidate| {
         matches!(
@@ -490,12 +501,15 @@ pub(crate) fn prepare_rejected_media_candidate_replacement(
     }) {
         return Err("generated-image frozen brief changed for an existing job".to_string());
     }
-    if !active_rejected && !candidate_free_provider_failure {
-        return Ok(false);
+    if !active_rejected && !candidate_free {
+        return Ok(MediaBriefRetryPreparation::default());
     }
     retire_record(root, &record)?;
     store_record(root, &new_record(brief, &brief_digest))?;
-    Ok(true)
+    Ok(MediaBriefRetryPreparation {
+        migrated: true,
+        discard_staged_candidate: active_rejected,
+    })
 }
 
 pub(crate) fn record_media_visual_verdict(
