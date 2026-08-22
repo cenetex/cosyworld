@@ -22427,7 +22427,6 @@ fn commit_resident_reply_record(
         speech,
         mut planning,
     } = certified;
-    let reasoning_trace = speech.reasoning_trace().map(ToString::to_string);
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
@@ -22500,12 +22499,6 @@ fn commit_resident_reply_record(
                 reason: presentation.content(),
             });
     }
-    runtime.attach_reasoning_thought_memory(
-        &mut record,
-        plan.speaker_actor_id,
-        plan.location_id,
-        reasoning_trace.as_deref(),
-    );
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };

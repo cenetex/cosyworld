@@ -446,12 +446,22 @@ pub(crate) fn approximate_tokens(value: &str) -> u32 {
 
 impl crate::RuntimeWorld {
     pub(crate) fn authored_actor_voice(&self, actor_id: u64) -> String {
-        crate::active_content()
+        let authored = crate::active_content()
             .actors
             .iter()
             .find(|actor| actor.id == actor_id)
             .map(|actor| actor.voice.trim().to_string())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if !authored.is_empty() {
+            return authored;
+        }
+        const FALLBACK_IDIOLECTS: &[&str] = &[
+            "Short sentences. Concrete nouns. No similes. Notice objects before moods. Never finish with a maxim.",
+            "Mostly medium sentences. Notice people and gestures first. Use metaphor rarely. Leave disagreement plain.",
+            "Brief, practical clauses. Notice sound before sight. Ask direct questions only when an answer matters.",
+            "One precise detail before any feeling. Prefer verbs to adjectives. Never make an object think or choose.",
+        ];
+        FALLBACK_IDIOLECTS[actor_id as usize % FALLBACK_IDIOLECTS.len()].to_string()
     }
 
     pub(crate) fn recent_public_room_evidence(

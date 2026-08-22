@@ -760,7 +760,6 @@ pub(super) async fn complete_queued_orb_chat_attempt(
                 return Err(error.to_string());
             }
         };
-        let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
         let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
         let publication = {
             let mut runtime = state.inner.lock().await;
@@ -785,12 +784,6 @@ pub(super) async fn complete_queued_orb_chat_attempt(
                 record.source_location_id = Some(plan.location_id);
                 record.content_upserts.insert(content_id, content.clone());
                 record.ai_publication = Some(publication_receipt);
-                runtime.attach_reasoning_thought_memory(
-                    &mut record,
-                    actor_id,
-                    plan.location_id,
-                    reasoning_trace.as_deref(),
-                );
                 match commit_journal_record(state, &mut runtime, record) {
                     Ok((CW_OK, events)) if !events.is_empty() => {
                         AvatarOpeningPublication::Committed { content_id, events }
@@ -2859,14 +2852,16 @@ mod tests {
             plan
         };
 
+        let source_world_tick = plan.context_spine.world_tick;
+        let observed_through_seq = plan.context_spine.observed_through_seq;
         complete_queued_orb_chat(
             &state,
             5000,
             RATI_ACTOR_ID,
             plan,
             Some(51),
-            Some(8),
-            Some(50),
+            Some(source_world_tick),
+            Some(observed_through_seq),
         )
         .await
         .expect("the scripted bounded Chat completes");
@@ -3123,14 +3118,16 @@ mod tests {
                 .expect("co-present inference resident is a Chat target")
         };
 
+        let source_world_tick = plan.context_spine.world_tick;
+        let observed_through_seq = plan.context_spine.observed_through_seq;
         let first = complete_queued_orb_chat_attempt(
             &state,
             5000,
             RATI_ACTOR_ID,
             plan.clone(),
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             None,
             1,
         )
@@ -3183,8 +3180,8 @@ mod tests {
             RATI_ACTOR_ID,
             plan.clone(),
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             None,
             2,
         )
@@ -3197,8 +3194,8 @@ mod tests {
             RATI_ACTOR_ID,
             plan,
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             None,
             3,
         )

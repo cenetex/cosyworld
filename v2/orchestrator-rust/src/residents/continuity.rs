@@ -22,6 +22,8 @@ pub(crate) struct ResidentContinuityState {
     pub(crate) last_planning_disposition: Option<ResidentPlanningDisposition>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) recent_voice_shingle_hashes: Vec<u64>,
+    #[serde(default)]
+    pub(crate) voice_beat_count: u64,
     pub(crate) open_obligations: Vec<String>,
     pub(crate) current_intent: Option<String>,
     pub(crate) last_observed_event_seq: u64,
@@ -60,6 +62,7 @@ impl ResidentContinuityState {
             pending_planning: None,
             last_planning_disposition: None,
             recent_voice_shingle_hashes: Vec::new(),
+            voice_beat_count: 0,
             open_obligations: Vec::new(),
             current_intent: None,
             last_observed_event_seq: 0,
@@ -185,6 +188,9 @@ impl RuntimeWorld {
         continuity.memory_atoms = self.resident_continuity_atoms(resident.id, 6);
         continuity.recent_voice_shingle_hashes =
             self.resident_recent_voice_shingle_hashes(resident.id);
+        continuity.voice_beat_count = continuity
+            .voice_beat_count
+            .max(self.resident_voice_beat_count(resident.id));
         let (open_obligations, current_intent) =
             self.resident_open_obligations_and_intent(resident);
         continuity.open_obligations = open_obligations;
@@ -219,21 +225,62 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         lines.sort_by_key(|event| event.seq);
 
+        let lines = lines
+            .into_iter()
+            .rev()
+            .take(RECENT_VOICE_LINE_LIMIT)
+            .collect::<Vec<_>>();
         let mut seen = BTreeSet::new();
         let mut hashes = Vec::new();
-        for line in lines.into_iter().rev().take(RECENT_VOICE_LINE_LIMIT) {
+        for line in &lines {
             for hash in crate::ai_publication::voice_signature_shingle_hashes(
                 line.content.as_deref().unwrap_or_default(),
             ) {
                 if seen.insert(hash) {
                     hashes.push(hash);
-                    if hashes.len() == RECENT_VOICE_SHINGLE_LIMIT {
-                        return hashes;
-                    }
+                }
+            }
+            if let Some(hash) = crate::ai_publication::voice_closing_hash(
+                line.content.as_deref().unwrap_or_default(),
+            ) {
+                if seen.insert(hash) {
+                    hashes.push(hash);
                 }
             }
         }
+
+        let mut term_counts = BTreeMap::<String, usize>::new();
+        for line in &lines {
+            for term in crate::ai_publication::voice_content_terms(
+                line.content.as_deref().unwrap_or_default(),
+            ) {
+                *term_counts.entry(term).or_default() += 1;
+            }
+        }
+        for (term, count) in term_counts {
+            if count < 3 {
+                continue;
+            }
+            let hash = crate::ai_publication::voice_overused_term_hash(&term);
+            if seen.insert(hash) {
+                hashes.push(hash);
+            }
+        }
+        hashes.truncate(RECENT_VOICE_SHINGLE_LIMIT);
         hashes
+    }
+
+    pub(crate) fn resident_voice_beat_count(&self, resident_id: u64) -> u64 {
+        self.recent_room_lines
+            .values()
+            .flat_map(|events| events.iter())
+            .filter(|event| {
+                event.success
+                    && event.type_name == "message.created"
+                    && event.actor_id == Some(resident_id)
+                    && event.content.is_some()
+            })
+            .count() as u64
     }
 
     pub(crate) fn resident_continuity_for_reaction(
@@ -279,6 +326,11 @@ impl RuntimeWorld {
         proposal: &AvatarIntentProposal,
         reason: &str,
     ) {
+        let previous_voice_beat_count = self
+            .resident_continuities
+            .get(&resident_id)
+            .map(|continuity| continuity.voice_beat_count)
+            .unwrap_or_default();
         self.refresh_resident_continuity(resident_id);
         let source_event_seq = self
             .actor_by_id(resident_id)
@@ -331,6 +383,11 @@ impl RuntimeWorld {
         }
         if reason != "resident_autonomy_intent" && proposal.proposed_action.is_some() {
             continuity.pending_action = proposal.proposed_action.clone();
+        }
+        if reason != "resident_autonomy_intent"
+            && continuity.voice_beat_count <= previous_voice_beat_count
+        {
+            continuity.voice_beat_count = previous_voice_beat_count.saturating_add(1);
         }
         if let Some(source_event_seq) = source_event_seq {
             continuity.last_observed_event_seq =
@@ -899,6 +956,62 @@ mod tests {
         assert!(
             continuity.recent_voice_shingle_hashes.len() <= 192,
             "the persisted speaker memory stays bounded"
+        );
+    }
+
+    #[test]
+    fn resident_voice_history_extracts_overused_terms_closings_and_beat_count() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.recent_room_lines.clear();
+        for (offset, line) in [
+            "The marker rests below the cedar shelf.",
+            "Rain beads along the marker edge.",
+            "I found the marker beside the brass latch.",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            runtime.push_projected_event(EventView {
+                seq: 9_100 + offset as u64,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_id: Some(RATI_ACTOR_ID),
+                actor_name: Some("Rati".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some(line.to_string()),
+                ..EventView::default()
+            });
+        }
+
+        let resident = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let continuity = runtime.resident_continuity_for(resident);
+        assert_eq!(continuity.voice_beat_count, 3);
+        assert!(continuity
+            .recent_voice_shingle_hashes
+            .contains(&crate::ai_publication::voice_overused_term_hash("marker")));
+        assert!(continuity.recent_voice_shingle_hashes.contains(
+            &crate::ai_publication::voice_closing_hash(
+                "I found the marker beside the brass latch."
+            )
+            .expect("closing hash")
+        ));
+
+        runtime.apply_resident_intent_projection(
+            RATI_ACTOR_ID,
+            &AvatarIntentProposal {
+                speech: "The marker is here.".to_string(),
+                intent: None,
+                belief: None,
+                desire: None,
+                promise: None,
+                refusal: None,
+                proposed_action: None,
+            },
+            "resident_intent",
+        );
+        assert_eq!(
+            runtime.resident_continuities[&RATI_ACTOR_ID].voice_beat_count, 3,
+            "the speech event and its continuity projection are one beat"
         );
     }
 
