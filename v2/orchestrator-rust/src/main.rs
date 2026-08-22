@@ -2364,6 +2364,9 @@ struct MetaPersistence {
     event_store_bytes: Option<u64>,
     event_store_live_bytes: Option<u64>,
     event_store_reusable_bytes: Option<u64>,
+    event_store_auto_vacuum: Option<&'static str>,
+    generated_asset_bytes: Option<u64>,
+    generated_asset_count: Option<u64>,
     snapshot_bytes: Option<u64>,
     snapshot_temp_bytes: Option<u64>,
     moderation_report_retention_days: Option<u64>,
@@ -2396,15 +2399,6 @@ struct PersistenceCompactionReport {
     deleted_action_journal_rows: u64,
     deleted_canonical_commit_rows: u64,
     deleted_world_event_rows: u64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct PersistenceStorageReport {
-    event_store_bytes: Option<u64>,
-    event_store_live_bytes: Option<u64>,
-    event_store_reusable_bytes: Option<u64>,
-    snapshot_bytes: Option<u64>,
-    snapshot_temp_bytes: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -17096,6 +17090,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let storage_report = persistence_storage_report(
         state.event_store_path.as_deref().map(PathBuf::as_path),
         state.snapshot_path.as_deref().map(PathBuf::as_path),
+        Some(state.generated_asset_dir.as_path()),
     );
     let region_authority = state.event_store_path.as_deref().and_then(|path| {
         current_region_authority(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH).ok()
@@ -17190,6 +17185,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             event_store_bytes: storage_report.event_store_bytes,
             event_store_live_bytes: storage_report.event_store_live_bytes,
             event_store_reusable_bytes: storage_report.event_store_reusable_bytes,
+            event_store_auto_vacuum: storage_report.event_store_auto_vacuum,
+            generated_asset_bytes: storage_report.generated_asset_bytes,
+            generated_asset_count: storage_report.generated_asset_count,
             snapshot_bytes: storage_report.snapshot_bytes,
             snapshot_temp_bytes: storage_report.snapshot_temp_bytes,
             moderation_report_retention_days: state.moderation_report_retention.days,
@@ -29491,18 +29489,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
             fs::create_dir_all(parent)?;
         }
     }
-    let conn = open_event_store(path)?;
-    let table_count = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sqlite_error)?;
-    if table_count == 0 {
-        conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
-            .map_err(sqlite_error)?;
-    }
+    let conn = open_canonical_store_for_initialization(path)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS world_events (
             seq INTEGER PRIMARY KEY,
@@ -29888,51 +29875,6 @@ fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
         )
         .map_err(sqlite_error)?;
     u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
-}
-
-fn persistence_storage_report(
-    event_store_path: Option<&Path>,
-    snapshot_path: Option<&Path>,
-) -> PersistenceStorageReport {
-    let snapshot_bytes =
-        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
-    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
-        fs::metadata(snapshot_temp_path(path))
-            .ok()
-            .map(|meta| meta.len())
-    });
-    let Some(event_store_path) = event_store_path else {
-        return PersistenceStorageReport {
-            snapshot_bytes,
-            snapshot_temp_bytes,
-            ..PersistenceStorageReport::default()
-        };
-    };
-    let event_store_bytes = fs::metadata(event_store_path).ok().map(|meta| meta.len());
-    let sqlite_pages = open_event_store(event_store_path).ok().and_then(|conn| {
-        let page_count = conn
-            .query_row("PRAGMA page_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let free_pages = conn
-            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let page_size = conn
-            .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        Some((
-            page_count
-                .saturating_sub(free_pages)
-                .saturating_mul(page_size),
-            free_pages.saturating_mul(page_size),
-        ))
-    });
-    PersistenceStorageReport {
-        event_store_bytes,
-        event_store_live_bytes: sqlite_pages.map(|pages| pages.0),
-        event_store_reusable_bytes: sqlite_pages.map(|pages| pages.1),
-        snapshot_bytes,
-        snapshot_temp_bytes,
-    }
 }
 
 #[cfg(test)]

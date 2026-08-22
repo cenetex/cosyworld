@@ -309,12 +309,142 @@ pub(super) fn persistence_compaction_enabled() -> bool {
         .unwrap_or(true)
 }
 
+const DEFAULT_INCREMENTAL_VACUUM_PAGES: u32 = 512;
+const MAX_INCREMENTAL_VACUUM_PAGES: u32 = 8_192;
+const MAX_GENERATED_ASSET_SCAN: usize = 20_000;
+
 pub(super) fn retained_world_event_limit() -> usize {
     std::env::var("COSYWORLD_V2_RETAINED_WORLD_EVENTS")
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())
         .filter(|value| *value >= MAX_EVENT_STORE_SCAN)
         .unwrap_or(DEFAULT_RETAINED_WORLD_EVENTS)
+}
+
+/// Pages the runtime is willing to hand back to the filesystem in one pass.
+/// A full vacuum rewrites the whole volume under the world lock; an
+/// incremental pass this size costs a few milliseconds, so a burst becomes
+/// recoverable over the following snapshots instead of permanent.
+pub(super) fn incremental_vacuum_page_budget() -> u32 {
+    std::env::var("COSYWORLD_V2_INCREMENTAL_VACUUM_PAGES")
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .unwrap_or(DEFAULT_INCREMENTAL_VACUUM_PAGES)
+        .min(MAX_INCREMENTAL_VACUUM_PAGES)
+}
+
+/// SQLite reports auto_vacuum as 0/1/2, and the mode can only be chosen while
+/// the database is empty. A store created before the runtime set INCREMENTAL
+/// reports "none", and no amount of incremental vacuuming will ever return a
+/// byte from it -- that needs one full VACUUM in a maintenance window. Naming
+/// the mode in /meta is what makes that difference visible from outside.
+pub(super) fn auto_vacuum_mode_label(mode: u64) -> &'static str {
+    match mode {
+        1 => "full",
+        2 => "incremental",
+        _ => "none",
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct PersistenceStorageReport {
+    pub(super) event_store_bytes: Option<u64>,
+    pub(super) event_store_live_bytes: Option<u64>,
+    pub(super) event_store_reusable_bytes: Option<u64>,
+    pub(super) event_store_auto_vacuum: Option<&'static str>,
+    pub(super) generated_asset_bytes: Option<u64>,
+    pub(super) generated_asset_count: Option<u64>,
+    pub(super) snapshot_bytes: Option<u64>,
+    pub(super) snapshot_temp_bytes: Option<u64>,
+}
+
+/// Generated art is the one store on the volume with no retention at all, so
+/// its size belongs in /meta beside the event store rather than behind an ssh
+/// session. The walk is bounded because this runs on a request path.
+fn generated_asset_usage(root: &Path) -> Option<(u64, u64)> {
+    let mut pending = vec![root.to_path_buf()];
+    let mut bytes = 0u64;
+    let mut files = 0u64;
+    let mut visited = 0usize;
+    while let Some(dir) = pending.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            visited += 1;
+            if visited > MAX_GENERATED_ASSET_SCAN {
+                return Some((bytes, files));
+            }
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                pending.push(entry.path());
+            } else if let Ok(meta) = entry.metadata() {
+                bytes = bytes.saturating_add(meta.len());
+                files = files.saturating_add(1);
+            }
+        }
+    }
+    Some((bytes, files))
+}
+
+pub(super) fn persistence_storage_report(
+    event_store_path: Option<&Path>,
+    snapshot_path: Option<&Path>,
+    generated_asset_dir: Option<&Path>,
+) -> PersistenceStorageReport {
+    let snapshot_bytes =
+        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
+    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
+        fs::metadata(snapshot_temp_path(path))
+            .ok()
+            .map(|meta| meta.len())
+    });
+    let generated = generated_asset_dir
+        .filter(|dir| dir.is_dir())
+        .and_then(generated_asset_usage);
+    let Some(event_store_path) = event_store_path else {
+        return PersistenceStorageReport {
+            snapshot_bytes,
+            snapshot_temp_bytes,
+            generated_asset_bytes: generated.map(|usage| usage.0),
+            generated_asset_count: generated.map(|usage| usage.1),
+            ..PersistenceStorageReport::default()
+        };
+    };
+    let event_store_bytes = fs::metadata(event_store_path).ok().map(|meta| meta.len());
+    let sqlite_stats = open_event_store(event_store_path).ok().and_then(|conn| {
+        let page_count = conn
+            .query_row("PRAGMA page_count", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        let free_pages = conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        let page_size = conn
+            .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        let auto_vacuum = conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        Some((
+            page_count
+                .saturating_sub(free_pages)
+                .saturating_mul(page_size),
+            free_pages.saturating_mul(page_size),
+            auto_vacuum_mode_label(auto_vacuum),
+        ))
+    });
+    PersistenceStorageReport {
+        event_store_bytes,
+        event_store_live_bytes: sqlite_stats.map(|stats| stats.0),
+        event_store_reusable_bytes: sqlite_stats.map(|stats| stats.1),
+        event_store_auto_vacuum: sqlite_stats.map(|stats| stats.2),
+        generated_asset_bytes: generated.map(|usage| usage.0),
+        generated_asset_count: generated.map(|usage| usage.1),
+        snapshot_bytes,
+        snapshot_temp_bytes,
+    }
 }
 
 pub(super) fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
@@ -362,6 +492,60 @@ pub(super) fn persist_runtime_now(state: &AppState, runtime: &RuntimeWorld) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The mode is only settable while a store is empty, so a deployment can
+    /// be permanently unable to reclaim space and nothing on the outside says
+    /// so. /meta has to name which case a store is in.
+    #[test]
+    fn the_storage_report_names_the_auto_vacuum_mode_and_measures_generated_art() {
+        let root = std::env::temp_dir().join(format!(
+            "cosyworld-storage-report-{}-{}",
+            std::process::id(),
+            now_millis()
+        ));
+        let store_path = root.join("events.sqlite");
+        let generated = root.join("generated");
+        fs::create_dir_all(generated.join("cards")).expect("generated art fixture");
+        fs::write(generated.join("cards").join("one.webp"), vec![7u8; 512])
+            .expect("write art fixture");
+        fs::write(generated.join("loose.webp"), vec![7u8; 256]).expect("write art fixture");
+        init_event_store(&store_path).expect("initialize storage-report fixture");
+
+        let report = persistence_storage_report(Some(&store_path), None, Some(&generated));
+        assert_eq!(
+            report.event_store_auto_vacuum,
+            Some("incremental"),
+            "a store created by this runtime must be able to return pages",
+        );
+        assert_eq!(report.generated_asset_bytes, Some(768));
+        assert_eq!(
+            report.generated_asset_count,
+            Some(2),
+            "nested art counts too, or the biggest directory reports as empty",
+        );
+        assert!(report.event_store_bytes.unwrap_or_default() > 0);
+
+        let missing = persistence_storage_report(None, None, Some(&root.join("absent")));
+        assert_eq!(missing.generated_asset_bytes, None);
+        assert_eq!(missing.event_store_auto_vacuum, None);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn auto_vacuum_labels_cover_every_sqlite_mode() {
+        assert_eq!(auto_vacuum_mode_label(0), "none");
+        assert_eq!(auto_vacuum_mode_label(1), "full");
+        assert_eq!(auto_vacuum_mode_label(2), "incremental");
+    }
+
+    #[test]
+    fn the_incremental_vacuum_budget_stays_bounded() {
+        assert_eq!(
+            incremental_vacuum_page_budget(),
+            DEFAULT_INCREMENTAL_VACUUM_PAGES,
+        );
+        assert!(DEFAULT_INCREMENTAL_VACUUM_PAGES <= MAX_INCREMENTAL_VACUUM_PAGES);
+    }
 
     #[test]
     fn forced_flush_cannot_be_overwritten_by_an_older_coalesced_snapshot() {

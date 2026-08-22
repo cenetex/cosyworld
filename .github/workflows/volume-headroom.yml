@@ -29,6 +29,9 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      - name: Check primary storage budgets
+        run: node v2/scripts/check-storage-budget.mjs primary
+
   lonely-forest:
     name: Lonely Forest volume below 70%
     runs-on: ubuntu-latest
@@ -44,3 +47,6 @@ jobs:
         run: scripts/check-fly-volume-space.sh cosyworld-lonelyforest /data 70
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
+
+      - name: Check Lonely Forest storage budgets
+        run: node v2/scripts/check-storage-budget.mjs lonelyforest

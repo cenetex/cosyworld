@@ -400,4 +400,9 @@
 # 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
 # idle speaker/reply planning, and scheduler-only tests. Resident consequences
 # remain causally attached to committed player turns.
-61691
+# 61691 -> 61633: move the persistence storage report into snapshot_persistence.rs,
+# where the retention and compaction policy it describes already lives, and drop
+# the ineffective auto_vacuum block from schema initialization. The mode is now
+# chosen ahead of WAL by open_canonical_store_for_initialization in
+# canonical_journal.rs; main.rs keeps only the /meta boundary fields.
+61633
