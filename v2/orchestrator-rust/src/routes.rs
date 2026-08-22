@@ -1,5 +1,5 @@
 use axum::{
-    extract::Request,
+    extract::{MatchedPath, Request},
     http::HeaderValue,
     middleware,
     middleware::Next,
@@ -7,7 +7,8 @@ use axum::{
     Router,
 };
 use tokio::sync::Semaphore;
-use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
+use tracing::Instrument;
 
 use super::*;
 
@@ -15,6 +16,31 @@ use super::*;
 // contend for a single slot. Saturated callers fail fast and can safely retry
 // the same intent while health endpoints continue to bypass this admission gate.
 const COMMAND_CONCURRENCY_LIMIT: usize = 16;
+const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
+const MAX_REQUEST_ID_LENGTH: usize = 128;
+
+#[derive(Clone, Debug)]
+struct RequestLogContext {
+    app: String,
+    machine_id: String,
+    region: String,
+    process: String,
+    tenant: String,
+    worldpack: String,
+}
+
+impl RequestLogContext {
+    fn from_state(state: &AppState) -> Self {
+        Self {
+            app: startup::log_context_env("FLY_APP_NAME", "local"),
+            machine_id: startup::log_context_env("FLY_MACHINE_ID", "local"),
+            region: startup::log_context_env("FLY_REGION", "local"),
+            process: state.deployment.process_id.clone(),
+            tenant: startup::log_context_env("COSYWORLD_LOG_TENANT", "primary"),
+            worldpack: active_content().manifest.id.clone(),
+        }
+    }
+}
 
 pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
@@ -88,6 +114,7 @@ fn app_router_with_dependencies(
     command_capacity: Arc<Semaphore>,
     shutdown: ShutdownSubscription,
 ) -> Router {
+    let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .route("/", get(index))
         .route("/moderation", get(moderation_console))
@@ -396,9 +423,76 @@ fn app_router_with_dependencies(
         // draining process from a dead one.
         .layer(middleware::from_fn_with_state(shutdown, shutdown_admission))
         .layer(CompressionLayer::new())
-        .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
+        .layer(middleware::from_fn_with_state(
+            request_log_context,
+            request_observability,
+        ))
         .with_state(state)
+}
+
+async fn request_observability(
+    State(context): State<RequestLogContext>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let request_id = request_id(&request);
+    let request_id_header = HeaderValue::from_str(&request_id)
+        .expect("validated or generated request IDs must be valid header values");
+    request
+        .headers_mut()
+        .insert(REQUEST_ID_HEADER, request_id_header.clone());
+    let method = request.method().to_string();
+    let route = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|path| path.as_str().to_string())
+        .unwrap_or_else(|| "<unmatched>".to_string());
+    let started = Instant::now();
+    let span = tracing::info_span!(
+        "http_request",
+        request_id = %request_id,
+        method = %method,
+        route = %route,
+        app = %context.app,
+        machine_id = %context.machine_id,
+        region = %context.region,
+        process = %context.process,
+        tenant = %context.tenant,
+        worldpack = %context.worldpack,
+    );
+    let mut response = next.run(request).instrument(span.clone()).await;
+    let status = response.status().as_u16();
+    span.in_scope(|| {
+        info!(
+            event = "http_request_complete",
+            status,
+            latency_ms = started.elapsed().as_millis() as u64,
+        );
+    });
+    response
+        .headers_mut()
+        .insert(REQUEST_ID_HEADER, request_id_header);
+    response
+}
+
+fn request_id(request: &Request) -> String {
+    request
+        .headers()
+        .get(REQUEST_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| valid_request_id(value))
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("cw-{}", random_hex(16)))
+}
+
+fn valid_request_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_REQUEST_ID_LENGTH
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
 }
 
 async fn shutdown_admission(
@@ -553,6 +647,53 @@ mod tests {
     use super::*;
     use axum::body::Bytes;
     use tower::ServiceExt;
+
+    #[test]
+    fn request_ids_are_bounded_log_safe_tokens() {
+        assert!(valid_request_id("incident-2026.08.21:smoke_1"));
+        assert!(!valid_request_id(""));
+        assert!(!valid_request_id("contains space"));
+        assert!(!valid_request_id("contains?query=secret"));
+        assert!(!valid_request_id(&"a".repeat(MAX_REQUEST_ID_LENGTH + 1)));
+    }
+
+    #[tokio::test]
+    async fn requests_propagate_valid_ids_and_replace_unsafe_ids() {
+        let app = app_router(test_app_state(RuntimeWorld::seeded(), None));
+        let accepted = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/health/live?token=must-not-be-logged")
+                    .header(REQUEST_ID_HEADER, "incident-smoke-1")
+                    .body(Body::empty())
+                    .expect("health request"),
+            )
+            .await
+            .expect("health response");
+        assert_eq!(
+            accepted.headers().get(REQUEST_ID_HEADER).unwrap(),
+            "incident-smoke-1"
+        );
+
+        let replaced = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health/live")
+                    .header(REQUEST_ID_HEADER, "unsafe request id")
+                    .body(Body::empty())
+                    .expect("health request"),
+            )
+            .await
+            .expect("health response");
+        let generated = replaced
+            .headers()
+            .get(REQUEST_ID_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .expect("generated response request ID");
+        assert!(generated.starts_with("cw-"));
+        assert!(valid_request_id(generated));
+    }
 
     fn request(method: &str, body: Body, content_type: Option<&str>) -> Request {
         let mut builder = Request::builder().method(method).uri("/commands");

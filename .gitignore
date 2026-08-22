@@ -51,6 +51,13 @@ infra/terraform/*.auto.tfvars.json
 infra/aws-lonely-forest/.terraform/
 infra/aws-lonely-forest/terraform.tfstate
 infra/aws-lonely-forest/terraform.tfstate.backup
+infra/production-logs/.terraform/
+infra/production-logs/terraform.tfstate
+infra/production-logs/terraform.tfstate.backup
+infra/production-logs/terraform.tfvars
+infra/production-logs/terraform.tfvars.json
+infra/production-logs/*.auto.tfvars
+infra/production-logs/*.auto.tfvars.json
 infra/aws-lonely-forest/*.tfstate
 infra/aws-lonely-forest/*.tfstate.*
 

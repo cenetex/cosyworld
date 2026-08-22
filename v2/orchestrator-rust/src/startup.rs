@@ -34,12 +34,126 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn initialize_tracing() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "cosyworld_orchestrator=info,tower_http=info".into()),
-        )
-        .init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "cosyworld_orchestrator=info,tower_http=info".into());
+    if configured_log_format() == LogFormat::Json {
+        tracing_subscriber::fmt()
+            .event_format(ContextualJsonFormat::from_env())
+            .fmt_fields(tracing_subscriber::fmt::format::JsonFields::new())
+            .with_env_filter(filter)
+            .init();
+    } else {
+        tracing_subscriber::fmt().with_env_filter(filter).init();
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LogFormat {
+    Json,
+    Text,
+}
+
+fn configured_log_format() -> LogFormat {
+    match std::env::var("COSYWORLD_LOG_FORMAT") {
+        Ok(value) if value.trim().eq_ignore_ascii_case("json") => LogFormat::Json,
+        _ => LogFormat::Text,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ProductionLogContext {
+    app: String,
+    machine_id: String,
+    region: String,
+    process: String,
+    tenant: String,
+    worldpack: String,
+}
+
+impl ProductionLogContext {
+    fn from_env() -> Self {
+        Self {
+            app: log_context_env("FLY_APP_NAME", "local"),
+            machine_id: log_context_env("FLY_MACHINE_ID", "local"),
+            region: log_context_env("FLY_REGION", "local"),
+            process: log_context_env(
+                "COSYWORLD_PROCESS_ID",
+                &log_context_env("FLY_PROCESS_GROUP", "orchestrator"),
+            ),
+            tenant: log_context_env("COSYWORLD_LOG_TENANT", "primary"),
+            worldpack: log_context_env("COSYWORLD_LOG_WORLDPACK", "official"),
+        }
+    }
+}
+
+pub(super) fn log_context_env(name: &str, fallback: &str) -> String {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+#[derive(Clone)]
+struct ContextualJsonFormat {
+    inner: tracing_subscriber::fmt::format::Format<tracing_subscriber::fmt::format::Json>,
+    context: ProductionLogContext,
+}
+
+impl ContextualJsonFormat {
+    fn from_env() -> Self {
+        Self {
+            inner: tracing_subscriber::fmt::format()
+                .json()
+                .flatten_event(true)
+                .with_current_span(true),
+            context: ProductionLogContext::from_env(),
+        }
+    }
+}
+
+impl<S, N> tracing_subscriber::fmt::FormatEvent<S, N> for ContextualJsonFormat
+where
+    S: tracing::Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
+    N: for<'writer> tracing_subscriber::fmt::FormatFields<'writer> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &tracing_subscriber::fmt::FmtContext<'_, S, N>,
+        mut writer: tracing_subscriber::fmt::format::Writer<'_>,
+        event: &tracing::Event<'_>,
+    ) -> std::fmt::Result {
+        let mut rendered = String::new();
+        self.inner.format_event(
+            ctx,
+            tracing_subscriber::fmt::format::Writer::new(&mut rendered),
+            event,
+        )?;
+        let mut payload: serde_json::Value =
+            serde_json::from_str(rendered.trim_end()).map_err(|_| std::fmt::Error)?;
+        inject_production_log_context(&mut payload, &self.context);
+        let encoded = serde_json::to_string(&payload).map_err(|_| std::fmt::Error)?;
+        writeln!(writer, "{encoded}")
+    }
+}
+
+fn inject_production_log_context(payload: &mut serde_json::Value, context: &ProductionLogContext) {
+    let Some(fields) = payload.as_object_mut() else {
+        return;
+    };
+    fields.insert("schema_version".to_string(), serde_json::json!(1));
+    fields.insert("app".to_string(), serde_json::json!(context.app));
+    fields.insert(
+        "machine_id".to_string(),
+        serde_json::json!(context.machine_id),
+    );
+    fields.insert("region".to_string(), serde_json::json!(context.region));
+    fields.insert("process".to_string(), serde_json::json!(context.process));
+    fields.insert("tenant".to_string(), serde_json::json!(context.tenant));
+    fields.insert(
+        "worldpack".to_string(),
+        serde_json::json!(context.worldpack),
+    );
 }
 
 struct BackgroundServices {
@@ -204,7 +318,106 @@ async fn persist_final_snapshot(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[derive(Clone, Default)]
+    struct CapturedOutput(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    struct CapturedWriter(CapturedOutput);
+
+    impl Write for CapturedWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.0
+                 .0
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .extend_from_slice(buffer);
+            Ok(buffer.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'writer> tracing_subscriber::fmt::MakeWriter<'writer> for CapturedOutput {
+        type Writer = CapturedWriter;
+
+        fn make_writer(&'writer self) -> Self::Writer {
+            CapturedWriter(self.clone())
+        }
+    }
+
+    #[test]
+    fn contextual_json_formats_span_fields_as_json() {
+        let output = CapturedOutput::default();
+        let formatter = ContextualJsonFormat {
+            inner: tracing_subscriber::fmt::format()
+                .json()
+                .flatten_event(true)
+                .with_current_span(true),
+            context: ProductionLogContext {
+                app: "cosyworld".to_string(),
+                machine_id: "machine-primary".to_string(),
+                region: "sjc".to_string(),
+                process: "public-1".to_string(),
+                tenant: "primary".to_string(),
+                worldpack: "cosyworld.official".to_string(),
+            },
+        };
+        let subscriber = tracing_subscriber::fmt()
+            .event_format(formatter)
+            .fmt_fields(tracing_subscriber::fmt::format::JsonFields::new())
+            .with_writer(output.clone())
+            .finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span =
+                tracing::info_span!("http_request", request_id = "incident-821", route = "/meta");
+            let _entered = span.enter();
+            info!(event = "http_request_complete", status = 200);
+        });
+
+        let captured = output
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        let payload: serde_json::Value =
+            serde_json::from_slice(&captured).expect("one valid JSON event");
+        assert_eq!(payload["event"], "http_request_complete");
+        assert_eq!(payload["span"]["request_id"], "incident-821");
+        assert_eq!(payload["span"]["route"], "/meta");
+        assert_eq!(payload["app"], "cosyworld");
+        assert_eq!(payload["machine_id"], "machine-primary");
+    }
+
+    #[test]
+    fn production_log_context_overrides_untrusted_event_dimensions() {
+        let context = ProductionLogContext {
+            app: "cosyworld-lonelyforest".to_string(),
+            machine_id: "machine-7".to_string(),
+            region: "sjc".to_string(),
+            process: "lonelyforest-7".to_string(),
+            tenant: "7".to_string(),
+            worldpack: "bethlehem".to_string(),
+        };
+        let mut payload = serde_json::json!({
+            "event": "provider_unavailable",
+            "app": "attacker-controlled",
+            "machine_id": "wrong-machine"
+        });
+
+        inject_production_log_context(&mut payload, &context);
+
+        assert_eq!(payload["schema_version"], 1);
+        assert_eq!(payload["app"], "cosyworld-lonelyforest");
+        assert_eq!(payload["machine_id"], "machine-7");
+        assert_eq!(payload["process"], "lonelyforest-7");
+        assert_eq!(payload["tenant"], "7");
+        assert_eq!(payload["worldpack"], "bethlehem");
+    }
 
     async fn connected_request(addr: SocketAddr, path: &str) -> tokio::net::TcpStream {
         let mut connection = tokio::net::TcpStream::connect(addr)

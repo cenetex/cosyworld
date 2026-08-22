@@ -6,6 +6,10 @@ primary_region = "sjc"
 
 [env]
   COSYWORLD_DEPLOY_PROFILE = "production"
+  COSYWORLD_LOG_FORMAT = "json"
+  COSYWORLD_LOG_TENANT = "primary"
+  COSYWORLD_LOG_WORLDPACK = "cosyworld.official"
+  COSYWORLD_PROCESS_ID = "public-1"
   COSYWORLD_V2_ADDR = "0.0.0.0:3000"
   COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
   COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"

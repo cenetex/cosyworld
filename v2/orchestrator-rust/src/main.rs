@@ -30043,35 +30043,6 @@ fn actor_job_retry_floor_ms(state: &AppState, job: &ActorJob, error: &str) -> u6
         .saturating_add(250)
 }
 
-fn fail_or_retry_actor_job(
-    path: &Path,
-    job: &ActorJob,
-    error: &str,
-    retry_floor_ms: u64,
-) -> io::Result<()> {
-    let conn = open_event_store(path)?;
-    let terminal = job.attempts >= ACTOR_JOB_MAX_ATTEMPTS;
-    let backoff_ms = 250_u64
-        .saturating_mul(1_u64 << job.attempts.saturating_sub(1).min(5))
-        .max(retry_floor_ms);
-    let now = now_millis();
-    conn.execute(
-        "UPDATE actor_jobs
-         SET status = ?2, lease_until_ms = NULL, available_at_ms = ?3,
-             last_error = ?4, updated_at_ms = ?5
-         WHERE id = ?1",
-        params![
-            job.id,
-            if terminal { "dead" } else { "pending" },
-            now.saturating_add(backoff_ms) as i64,
-            trim_to_chars(error, 500),
-            now as i64,
-        ],
-    )
-    .map_err(sqlite_error)?;
-    Ok(())
-}
-
 #[cfg(test)]
 fn read_action_journal(path: &Path) -> io::Result<Vec<JournalRecord>> {
     Ok(read_action_journal_after_seq(path, 0)?
