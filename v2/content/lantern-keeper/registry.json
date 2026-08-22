@@ -758,7 +758,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183",
+    "bundle_hash": "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2347,7 +2347,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:5c351e2b082b1219a057a8256af0c9800d2add7596e75295ab7dc84a849c4fda"
+        "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f"
       },
       {
         "id": "cosyworld.composition.core-lantern-keeper",

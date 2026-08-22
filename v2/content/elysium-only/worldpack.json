@@ -20,7 +20,7 @@
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c",
+  "bundle_hash": "sha256:8854e9c436496541fbd4581df7abc908ce34e95d95518c2e89cf9fb93246d805",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -307,7 +307,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:09d774965b96f6f07e337d2f750baf4da54432e3ea326c43419cfab0b15c06bd"
+      "integrity": "sha256:65306806229dd97d8ed88f35dde61353dcd842829be24b96563bdb0f2b2c94c1"
     }
   ],
   "files": {

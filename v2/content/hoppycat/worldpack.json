@@ -184,7 +184,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5",
+  "bundle_hash": "sha256:95263c868c4120f18ca927ead1186b2254edcd5b8ffb1b7e150f66ba257644b5",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -549,7 +549,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:bcbcd2e834dabfe8d3566a2442307b1f50349ae30a17c6ba0ac83f54ddaeede3"
+      "integrity": "sha256:18ec727baaca5b98bb1eecd5679d645d06776c8c2ebd3da6ed76aee5d9fe3246"
     }
   ],
   "files": {

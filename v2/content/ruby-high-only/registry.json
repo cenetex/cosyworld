@@ -592,7 +592,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:56a85a5af3ed61eeff7cbd04a08f4c2fd6acc58d2d23973a36b43f802b7f6a46",
+    "bundle_hash": "sha256:35c881857a5955f2f4ef8b09aef3001e0a0fa65ec798531d26ef0316b7d05672",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -893,7 +893,7 @@
           "type": "workspace",
           "path": "../../content/ruby-high-first-bell"
         },
-        "integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2"
+        "integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929"
       }
     ],
     "files": {
@@ -2501,7 +2501,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "world-art",
       "root": "ruby-high-first-bell",
@@ -2514,7 +2514,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "cards",
       "root": "ruby-high-first-bell",
