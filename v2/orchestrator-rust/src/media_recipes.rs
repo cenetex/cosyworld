@@ -1647,6 +1647,33 @@ mod tests {
     }
 
     #[test]
+    fn project89_base_supports_the_portrait_aspect_used_by_actor_cards() {
+        let registry = MediaRecipeRegistry::embedded().expect("registry parses");
+        let resolved = registry
+            .resolve(
+                &MediaRecipeRuntimeControls::default(),
+                MediaJobRequest {
+                    job_key: "actor:9030:level:1".to_string(),
+                    profile: "project89.world-art.base/1".to_string(),
+                    operation: MediaOperation::BaseGeneration,
+                    intent: MediaIntent::Avatar,
+                    prompt: "P89, anime style, portrait of a forest traveler.".to_string(),
+                    references: Vec::new(),
+                    aspect_ratio: "2:3".to_string(),
+                    output_format: "webp".to_string(),
+                    mask_url: None,
+                    seed: Some(9030),
+                },
+            )
+            .expect("Project89 actor-card generation resolves");
+        assert_eq!(resolved.aspect_ratio, "2:3");
+        assert_eq!(
+            resolved.provider_input().unwrap()["aspect_ratio"],
+            serde_json::json!("2:3")
+        );
+    }
+
+    #[test]
     fn embedded_registry_preserves_incumbent_and_pins_flux2_capabilities() {
         let registry = MediaRecipeRegistry::embedded().expect("registry parses");
         let flux1 = &registry.recipes["replicate.flux1-dev-lora.base"];
