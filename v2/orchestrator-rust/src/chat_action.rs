@@ -1,6 +1,7 @@
 use super::*;
 
 static CHAT_ACTION_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> = OnceLock::new();
+const CHAT_TERMINAL_STATUS_PENDING_PREFIX: &str = "chat_terminal_status_pending:";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct CommittedOrbChatLine {
@@ -81,6 +82,14 @@ impl ChatContinuationRejection {
             _ => return None,
         })
     }
+}
+
+pub(super) fn pending_chat_context_rejection(error: &str) -> Option<ChatContinuationRejection> {
+    let code = error
+        .strip_prefix(CHAT_TERMINAL_STATUS_PENDING_PREFIX)?
+        .split(':')
+        .next()?;
+    ChatContinuationRejection::from_code(code)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -461,6 +470,7 @@ pub(super) async fn complete_chat_after_context_rejection(
         None,
         None,
     );
+    let status_retrying = state.event_store_path.is_some() && attempt < ACTOR_JOB_MAX_ATTEMPTS;
     match commit_chat_status_result(
         state,
         actor_id,
@@ -485,12 +495,13 @@ pub(super) async fn complete_chat_after_context_rejection(
                 source_location_id,
                 "terminal_status_commit",
                 "terminal_status_commit_rejected",
-                "retry",
+                if status_retrying { "retry" } else { "terminal" },
                 Some(status),
                 None,
             );
             Err(format!(
-                "the ended conversation status was rejected with commit status {status}"
+                "{CHAT_TERMINAL_STATUS_PENDING_PREFIX}{}:commit_status_{status}",
+                rejection.code(),
             ))
         }
         Err(error) => {
@@ -503,12 +514,13 @@ pub(super) async fn complete_chat_after_context_rejection(
                 source_location_id,
                 "terminal_status_commit",
                 "storage_failure",
-                "retry",
+                if status_retrying { "retry" } else { "terminal" },
                 None,
                 Some(error.kind()),
             );
             Err(format!(
-                "the ended conversation status could not be stored ({:?})",
+                "{CHAT_TERMINAL_STATUS_PENDING_PREFIX}{}:storage_{:?}",
+                rejection.code(),
                 error.kind()
             ))
         }
@@ -584,33 +596,57 @@ pub(super) async fn complete_queued_orb_chat_attempt(
     let will_retry = state.event_store_path.is_some() && attempt < ACTOR_JOB_MAX_ATTEMPTS;
     let started_at = Instant::now();
     let usage_config = state.ai_config.as_ref().clone();
-    let (terminal_status_already_committed, committed_lines) = {
+    let terminal_status_already_committed = {
         let runtime = state.inner.lock().await;
-        (
-            orb_chat_terminal_status_already_committed(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                plan.location_id,
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-            ),
-            committed_orb_chat_lines(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                plan.location_id,
-                queue_event_id,
-                source_world_tick,
-                observed_through_seq,
-                &plan.initiative_order,
-            )?,
+        orb_chat_terminal_status_already_committed(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            plan.location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
         )
     };
     if terminal_status_already_committed {
         return Ok(());
     }
+    // A prior attempt may have reached a terminal context decision but failed
+    // while persisting its player-visible status. Preserve that decision in
+    // the durable job error and retry only the status write: reevaluating a
+    // recovered room would otherwise pay for a second, now-invalid inference.
+    if let Some(rejection) = actor_job
+        .and_then(|job| job.last_error.as_deref())
+        .and_then(pending_chat_context_rejection)
+    {
+        return complete_chat_after_context_rejection(
+            state,
+            actor_job,
+            attempt,
+            actor_id,
+            target_actor_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            plan.location_id,
+            "terminal_status_retry",
+            rejection,
+        )
+        .await;
+    }
+    let committed_lines = {
+        let runtime = state.inner.lock().await;
+        committed_orb_chat_lines(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            plan.location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            &plan.initiative_order,
+        )?
+    };
     if committed_lines.is_empty() {
         match durable_chat_source_rejection(
             state,
@@ -875,7 +911,7 @@ pub(super) async fn complete_queued_orb_chat_attempt(
                         plan.location_id,
                         "failure_status_commit",
                         "failure_status_commit_rejected",
-                        "retry",
+                        if will_retry { "retry" } else { "terminal" },
                         Some(*status),
                         None,
                     ),
@@ -888,7 +924,7 @@ pub(super) async fn complete_queued_orb_chat_attempt(
                         plan.location_id,
                         "failure_status_commit",
                         "storage_failure",
-                        "retry",
+                        if will_retry { "retry" } else { "terminal" },
                         None,
                         Some(error.kind()),
                     ),
@@ -2751,6 +2787,234 @@ mod tests {
         }));
         drop(runtime);
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn terminal_context_status_retry_never_replays_inference_after_context_recovers() {
+        let event_store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-chat-terminal-retry-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&event_store_path);
+        let inference_started = Arc::new(Notify::new());
+        let inference_released = Arc::new(Notify::new());
+        let released = Arc::new(AtomicU8::new(0));
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let inference_started = inference_started.clone();
+                let inference_released = inference_released.clone();
+                let released = released.clone();
+                let calls = calls.clone();
+                move |Json(_request): Json<serde_json::Value>| {
+                    let inference_started = inference_started.clone();
+                    let inference_released = inference_released.clone();
+                    let released = released.clone();
+                    let calls = calls.clone();
+                    async move {
+                        calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        inference_started.notify_one();
+                        while released.load(AtomicOrdering::SeqCst) == 0 {
+                            inference_released.notified().await;
+                        }
+                        Json(serde_json::json!({
+                            "model": "test-chat-model",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": {
+                                    "content": "I found a quiet minute. How is the cottage treating you?"
+                                }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind terminal status retry inference server");
+        let address = listener
+            .local_addr()
+            .expect("terminal status retry inference server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(event_store_path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
+        {
+            let mut runtime = state.inner.lock().await;
+            let create = CwAction {
+                kind: CW_ACTION_CREATE_ACTOR,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            };
+            let mut record = JournalRecord::new(create, 76_000);
+            record.actor_meta_upserts.insert(
+                5000,
+                ActorMeta {
+                    name: "Terminal Retry Tester".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Durable Retry Avatar".to_string(),
+                    description: "A durable terminal-status retry test avatar.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, record)
+                    .expect("persist terminal retry test avatar")
+                    .0,
+                CW_OK,
+            );
+        }
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let response = chat(
+            ConnectInfo("127.0.0.1:44101".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        let claimed = claim_next_actor_job_of_kind(&event_store_path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim durable Chat job")
+            .expect("queued durable Chat job");
+        let ActorJobPayload::OrbChat(chat_job) = claimed.payload.clone() else {
+            panic!("queued the wrong durable job kind");
+        };
+
+        let conn = open_event_store(&event_store_path).expect("open terminal retry store");
+        conn.execute_batch(
+            "CREATE TRIGGER reject_terminal_chat_status
+             BEFORE INSERT ON world_events
+             WHEN NEW.event_type = 'chat.completed'
+             BEGIN SELECT RAISE(ABORT, 'injected terminal Chat status failure'); END;",
+        )
+        .expect("inject terminal Chat status failure");
+
+        let worker_state = state.clone();
+        let worker_job = claimed.clone();
+        let worker_chat = chat_job.clone();
+        let worker = tokio::spawn(async move {
+            complete_queued_orb_chat_attempt(
+                &worker_state,
+                worker_chat.actor_id,
+                worker_chat.target_actor_id,
+                worker_chat.plan.clone(),
+                worker_chat.queue_event_id,
+                worker_chat.source_world_tick,
+                worker_chat.observed_through_seq,
+                Some(&worker_job),
+                worker_job.attempts,
+            )
+            .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), inference_started.notified())
+            .await
+            .expect("opening inference starts");
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            runtime.world.actors[..actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == 5000)
+                .expect("Chat initiator exists")
+                .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        }
+        released.store(1, AtomicOrdering::SeqCst);
+        inference_released.notify_waiters();
+
+        let error = tokio::time::timeout(Duration::from_secs(10), worker)
+            .await
+            .expect("terminal status worker finishes")
+            .expect("terminal status worker joins")
+            .expect_err("the failed terminal status stays retryable");
+        assert_eq!(
+            pending_chat_context_rejection(&error),
+            Some(ChatContinuationRejection::InitiatorMoved),
+            "the durable retry error preserves the terminal context reason",
+        );
+        fail_actor_job_for_runtime_state(&event_store_path, &state, &claimed, &error, 0)
+            .expect("persist terminal status retry");
+
+        conn.execute_batch("DROP TRIGGER reject_terminal_chat_status;")
+            .expect("restore terminal Chat status persistence");
+        conn.execute(
+            "UPDATE actor_jobs SET available_at_ms = 0 WHERE id = ?1",
+            params![claimed.id],
+        )
+        .expect("make terminal status retry immediately available");
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            runtime.world.actors[..actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == 5000)
+                .expect("Chat initiator exists")
+                .location_id = COSY_COTTAGE_LOCATION_ID;
+        }
+
+        let retry = claim_next_actor_job_of_kind(&event_store_path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim terminal status retry")
+            .expect("terminal status retry exists");
+        assert_eq!(
+            retry
+                .last_error
+                .as_deref()
+                .and_then(pending_chat_context_rejection),
+            Some(ChatContinuationRejection::InitiatorMoved),
+        );
+        let calls_before_retry = calls.load(std::sync::atomic::Ordering::SeqCst);
+        let ActorJobPayload::OrbChat(retry_chat) = retry.payload.clone() else {
+            panic!("retried the wrong durable job kind");
+        };
+        complete_queued_orb_chat_attempt(
+            &state,
+            retry_chat.actor_id,
+            retry_chat.target_actor_id,
+            retry_chat.plan,
+            retry_chat.queue_event_id,
+            retry_chat.source_world_tick,
+            retry_chat.observed_through_seq,
+            Some(&retry),
+            retry.attempts,
+        )
+        .await
+        .expect("retry commits only the remembered terminal status");
+        complete_actor_job(&event_store_path, retry.id).expect("complete terminal status retry");
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            calls_before_retry,
+            "recovering the old context must not trigger another paid inference",
+        );
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.completed"
+                && event.caused_by_event_seq == chat_job.queue_event_id
+                && event.content.as_deref() == Some("the conversation ended because you moved away")
+        }));
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.caused_by_event_seq == chat_job.queue_event_id
+        }));
+        drop(runtime);
+        drop(conn);
+        server.abort();
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-wal"));
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-shm"));
+        let _ = fs::remove_file(event_store_path);
     }
 
     /// The scripted exchange the fake provider plays back, in order. Turn

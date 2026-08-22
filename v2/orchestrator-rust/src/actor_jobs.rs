@@ -6,6 +6,7 @@ pub(super) struct ActorJob {
     pub(super) kind: String,
     pub(super) actor_id: u64,
     pub(super) attempts: u32,
+    pub(super) last_error: Option<String>,
     pub(super) cause_event_seq: Option<u64>,
     pub(super) source_tick: u64,
     pub(super) observed_through_seq: u64,
@@ -69,7 +70,8 @@ fn claim_next_actor_job_filtered(
         .query_row(
             "SELECT id, kind, actor_id, attempts, context_json,
                     status, lease_until_ms, available_at_ms,
-                    cause_event_seq, source_tick, observed_through_seq, location_id
+                    cause_event_seq, source_tick, observed_through_seq, location_id,
+                    last_error
              FROM actor_jobs
              WHERE ((status = 'pending' AND available_at_ms <= ?1)
                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?1))
@@ -99,6 +101,7 @@ fn claim_next_actor_job_filtered(
                     row.get::<_, i64>(9)?,
                     row.get::<_, i64>(10)?,
                     row.get::<_, Option<i64>>(11)?,
+                    row.get::<_, Option<String>>(12)?,
                 ))
             },
         )
@@ -117,6 +120,7 @@ fn claim_next_actor_job_filtered(
         source_tick,
         observed_through_seq,
         location_id,
+        last_error,
     )) = row
     else {
         return Ok(None);
@@ -197,6 +201,7 @@ fn claim_next_actor_job_filtered(
         kind,
         actor_id: actor_id.max(0) as u64,
         attempts: next_attempt.max(0) as u32,
+        last_error,
         cause_event_seq: cause_event_seq.map(|value| value.max(0) as u64),
         source_tick: source_tick.max(0) as u64,
         observed_through_seq: observed_through_seq.max(0) as u64,
@@ -212,6 +217,11 @@ pub(super) fn fail_actor_job_for_runtime_state(
     error: &str,
     retry_floor_ms: u64,
 ) -> io::Result<()> {
+    if matches!(&job.payload, ActorJobPayload::OrbChat(_))
+        && pending_chat_context_rejection(error).is_some()
+    {
+        return fail_or_retry_actor_job(path, job, error, retry_floor_ms);
+    }
     if matches!(
         &job.payload,
         ActorJobPayload::ModelInteraction(interaction)
