@@ -80,7 +80,7 @@ keep separate domains so that a friendly label never silently changes rules:
 | Communication | Bounded Chat card and server-authored resident speech | Chat is a turn-consuming current-hand action; no player-authored speech surface exists. |
 | Object transfer | Take, Give, Trade | Inventory and ownership operations, not Utilize by default. |
 | Procedures | Rest, initiative, equipping a loadout | Rest and initiative are scene procedures; authenticated loadout configuration (equip, prepare, contain) is an explicit turn-neutral typed procedure, not a hidden scene-action chooser. |
-| Cosy advancement | Chat, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. Chat spends advancement to begin a friendship. |
+| Cosy advancement | Befriend, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. Befriend converts accumulated relationship progress into a Bond; Chat is unlocked by relationship progress, not advancement (see the RPG system bible, The Relationship Meter). |
 | Interface/meta | Look, inspect a card, report, open a menu | Never consumes a rules action. |
 
 ### Product-language mapping
@@ -100,7 +100,8 @@ mechanical offer declares its stable identity:
 | Mark | A temporary expedition return cue on a traversed leg; no topology, forward reveal, independent branch, or Anchor. |
 | Open | One certified Gate method on a door, seal, or container; no implicit reveal or transfer. |
 | Take | Transfer one revealed accessible item after custody and capacity checks; no implicit Open, equip, install, or use. |
-| Chat | Spend one banked advancement point to begin a friendship with an eligible nearby resident; absent when that growth option is unavailable. |
+| Befriend | Charisma-checked conversion of relationship progress into a Bond; its offer appears only once the meter reaches the authored befriend threshold. |
+| Chat | Open a bounded back-and-forth with a bonded co-present avatar through the chat floor; absent until the relationship meter reaches the bonded stage. Never accepts player text. |
 | Say | Ordinary moderated room communication; Influence only when changing attitude or cooperation is at stake. |
 | Use | Utilize for a nonmagical object; Magic for a spell, magic feature, or magic item. |
 | Work | A contextual Study or Utilize offer that advances an eligible project. |
