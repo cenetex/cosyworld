@@ -139,7 +139,7 @@ Official OpenRouter docs confirm the integration shape:
 
 ### Player OpenRouter Mode
 
-The player may connect an OpenRouter account or API key for explicitly supported provider features. Neither Chat nor ambient room replies cost Orbs.
+The player may connect an OpenRouter account or API key for explicitly supported provider features. Neither Chat nor player-turn resident replies cost Orbs.
 
 Current browser-owned MVP shape:
 
@@ -185,7 +185,6 @@ Community image generation is different: the server validates a level-scoped sha
 | Community card image (avatar/item/location) | future option | yes, when configured | pooled total equals card level |
 | Combat narration | no by default | yes | free or included in combat |
 | Combat rewards | no | no | awards Orbs |
-| Ambient residents | no | yes | no player cost |
 | Swarm content proposal | no | yes | no player cost |
 | Admin content generation | admin key | server key | no player cost |
 
@@ -553,7 +552,7 @@ Roles:
 - `observer`: reads world telemetry, room gaps, and stalled loops.
 - `cartographer`: proposes locations and exits.
 - `encounter_smith`: proposes challenge/combat templates.
-- `dialogue_composer`: proposes resident voice decks and ambient beats.
+- `dialogue_composer`: proposes resident voice decks and turn-triggered reply beats.
 - `photographer`: creates media prompts/jobs for cards and scenes.
 - `balancer`: simulates reward/cost effects.
 - `curator`: rejects incoherent, unsafe, duplicate, or off-theme content.
@@ -933,4 +932,4 @@ Current status: partially implemented. Moonlit Trail exposes `Attack`, `Defend`,
 - Whether player OpenRouter mode should be allowed to contribute provider credit instead of Orbs to the same public pool. Recommendation: defer; one level-based currency rule is clearer.
 - How non-avatar world-subject cards gain levels. Recommendation: make level an authoritative world/evolution property, never infer it from Orb contributions or external ownership.
 - Whether OpenRouter key storage should remain browser-only. Recommendation: browser-only MVP; encrypted vault later only if cross-device "connected" state matters.
-- Whether resident reply should wait in the same request to reuse a transient key. Recommendation: finish avatar line plus immediate resident reply within the same action transaction for player-key turns; keep async scheduling for server-paid ambient turns.
+- Whether a causally linked resident reply should wait in the same request to reuse a transient key. Recommendation: finish the avatar line plus immediate resident reply within the same action transaction for player-key turns; keep async delivery for server-paid replies while preserving their committed-turn cause.

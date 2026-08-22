@@ -280,11 +280,9 @@ struct AppState {
     generation_controls: Arc<GenerationControls>,
     avatar_art_config: Arc<Option<ReplicateAvatarArtConfig>>,
     generated_asset_dir: Arc<PathBuf>,
-    ambient: AmbientConfig,
     ownership_feed: Arc<OwnershipFeedConfig>,
     ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
     rendezvous_party_config: Arc<RendezvousPartyConfig>,
-    last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
     wallet_actor_links: Arc<StdMutex<BTreeMap<String, u64>>>,
@@ -393,12 +391,6 @@ struct RoomMemoryChapter {
     latest_seq: u64,
     summary: String,
     source: String,
-}
-
-#[derive(Clone, Debug)]
-struct AmbientConfig {
-    quiet_after: Duration,
-    interval: Duration,
 }
 
 #[derive(Clone, Copy)]
@@ -2343,7 +2335,6 @@ struct MetaFeatureFlags {
     ai_enabled: bool,
     generation_default_mode: &'static str,
     pathway_content_mode: &'static str,
-    ambient_enabled: bool,
     dev_reset_enabled: bool,
     moderation_audit_enabled: bool,
     avatar_chat_delay_ms: u128,
@@ -4652,7 +4643,6 @@ impl AppState {
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
         let generated_asset_dir = generated_asset_dir_from_env();
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
-        let ambient = AmbientConfig::from_env();
         deployment.validate_runtime_options(
             &ownership_feed,
             trust_client_card_ids,
@@ -4939,11 +4929,9 @@ impl AppState {
             generation_controls,
             avatar_art_config,
             generated_asset_dir: Arc::new(generated_asset_dir),
-            ambient,
             ownership_feed: Arc::new(ownership_feed),
             ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
             rendezvous_party_config,
-            last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(wallet_actor_links)),
@@ -4980,12 +4968,6 @@ impl AppState {
         })
     }
 
-    fn mark_activity(&self) {
-        if let Ok(mut last) = self.last_world_event_at.lock() {
-            *last = Instant::now();
-        }
-    }
-
     fn record_event_store_read_success(&self) {
         if let Ok(mut health) = self.event_store_health.lock() {
             health.record_read_success();
@@ -5008,13 +4990,6 @@ impl AppState {
         if let Ok(mut health) = self.event_store_health.lock() {
             health.record_append_failure(error);
         }
-    }
-
-    fn quiet_for(&self) -> Duration {
-        self.last_world_event_at
-            .lock()
-            .map(|last| last.elapsed())
-            .unwrap_or(Duration::ZERO)
     }
 
     fn allow_rate_limit(&self, key: impl Into<String>, limit: RateLimit) -> bool {
@@ -5164,23 +5139,6 @@ fn validate_journal_rule_binding(record: &JournalRecord) -> io::Result<()> {
         )));
     }
     Ok(())
-}
-
-impl AmbientConfig {
-    fn from_env() -> Self {
-        let quiet_secs = std::env::var("COSYWORLD_AMBIENT_QUIET_SECS")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(20);
-        let interval_secs = std::env::var("COSYWORLD_AMBIENT_INTERVAL_SECS")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(5);
-        Self {
-            quiet_after: Duration::from_secs(quiet_secs.max(1)),
-            interval: Duration::from_secs(interval_secs.max(1)),
-        }
-    }
 }
 
 impl RuntimeSnapshot {
@@ -17181,7 +17139,6 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             ai_enabled: state.ai_config.as_ref().is_some(),
             generation_default_mode: state.generation_controls.default_mode().as_str(),
             pathway_content_mode: state.generation_controls.mode("pathway_content").as_str(),
-            ambient_enabled: false,
             dev_reset_enabled: state.dev_reset_enabled,
             moderation_audit_enabled: state.moderation_token.is_some(),
             avatar_chat_delay_ms: state.avatar_chat_delay.as_millis(),
@@ -18347,7 +18304,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     let mut runtime = state.inner.lock().await;
     *runtime = fresh;
     persist_runtime(&state, &runtime);
-    state.mark_activity();
     drop(runtime);
     if let Ok(mut sessions) = state.actor_sessions.lock() {
         sessions.sessions.clear();
@@ -23555,90 +23511,6 @@ fn start_story_metrics_retention_scheduler(state: AppState) {
             tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
         }
     });
-}
-
-async fn maybe_emit_ambient_event(state: AppState) {
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    let ai_config = state.ai_config.as_ref().clone();
-    let mut runtime = state.inner.lock().await;
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    runtime.replenish_ambient_autonomy_credits();
-    let seed = runtime.next_seed_value();
-    if let Some(record) = runtime.ambient_autonomy_record(seed).filter(|record| {
-        runtime.autonomy_allows_action(record.action.actor_id, record.action.kind)
-            && runtime.kernel_offer_allows_action(&record.action)
-    }) {
-        let action = record.action;
-        let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-            return;
-        };
-        let reply_plan = if status == CW_OK && !events.is_empty() {
-            runtime.resident_economy_action_reply_plan(&action)
-        } else {
-            None
-        };
-        drop(runtime);
-        if status == CW_OK {
-            broadcast_events(&state, &events);
-        }
-        if let Some(plan) = reply_plan {
-            let _ = complete_avatar_reply(&state, plan, None).await;
-        }
-        return;
-    }
-    let Some(config) = ai_config else {
-        return;
-    };
-    let Some(plan) = runtime
-        .ambient_reply_plan()
-        .filter(|plan| runtime.autonomy_allows_action(plan.speaker_actor_id, CW_ACTION_SAY))
-    else {
-        return;
-    };
-    drop(runtime);
-
-    let proposal = match request_ai_avatar_intent(&config, None, &plan).await {
-        Ok(proposal) => proposal,
-        Err(error) => {
-            warn!(
-                "AI ambient resident intent failed; skipping ambient chat: {}",
-                error
-            );
-            record_rejected_ai_publication(&state, &error);
-            return;
-        }
-    };
-
-    let mut runtime = state.inner.lock().await;
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    let Some(speaker) = runtime.actor_by_id(plan.speaker_actor_id) else {
-        return;
-    };
-    if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
-        return;
-    }
-    let Some(events) =
-        commit_resident_reply_record(&state, &mut runtime, &plan, proposal, None, None)
-    else {
-        return;
-    };
-    drop(runtime);
-    broadcast_events(&state, &events);
-}
-
-fn start_resident_autonomy_scheduler(state: AppState) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(state.ambient.interval).await;
-            maybe_emit_ambient_event(state.clone()).await;
-        }
-    })
 }
 
 fn trim_to_chars(value: &str, max_chars: usize) -> String {
@@ -29339,9 +29211,6 @@ fn commit_journal_record_blocking(
         }
         (status, events, false, 0)
     };
-    if !events.is_empty() {
-        state.mark_activity();
-    }
     if committed_journal_seq > 0 {
         runtime.action_journal_seq = committed_journal_seq;
     }
@@ -53737,12 +53606,6 @@ mod tests {
             combat_turn_view(&runtime, 5000, COSY_COTTAGE_LOCATION_ID).is_none(),
             "controller mode does not create an ordinary room turn"
         );
-        assert_eq!(
-            runtime.ambient_actor().map(|actor| actor.id),
-            Some(5000),
-            "the human-kind avatar is scheduled because its controller uses inference"
-        );
-
         let legacy: ActorControlMode =
             serde_json::from_str("\"human\"").expect("legacy snapshots remain readable");
         assert_eq!(legacy, ActorControlMode::DirectInput);
@@ -55370,59 +55233,11 @@ mod tests {
     }
 
     #[test]
-    fn ambient_line_requires_human_presence_and_ignores_legacy_branch_state() {
-        let mut runtime = RuntimeWorld::seeded();
-        assert!(runtime.ambient_line().is_none());
-
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 1;
-        let mut record = JournalRecord::new(create, 7061);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Ambient Guest".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Quiet Tester".to_string(),
-                description: "A test avatar waiting in the room.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        let line = runtime
-            .ambient_line()
-            .expect("ambient line with human present");
-        assert!([1001, 1002, 1003].contains(&line.0));
-        assert!(!line.1.is_empty());
-        let plan = runtime
-            .ambient_reply_plan()
-            .expect("ambient AI reply plan with human present");
-        assert!([1001, 1002, 1003].contains(&plan.speaker_actor_id));
-        assert_eq!(plan.location_name, "The Cosy Cottage");
-        assert!(plan.user_text.contains("fresh in-character ambient beat"));
-
-        let branch = runtime
-            .dialogue_branch_for(5000, 1001)
-            .expect("branch available");
-        runtime.branches.insert(5000, branch);
-        assert!(runtime.ambient_line().is_some());
-
-        runtime
-            .branches
-            .get_mut(&5000)
-            .expect("stored branch")
-            .expires_at_tick = runtime.world.tick.saturating_sub(1);
-        assert!(runtime.ambient_line().is_some());
-    }
-
-    #[tokio::test]
-    async fn resident_economy_autonomy_can_act_without_human_presence() {
+    fn resident_economy_planning_does_not_require_direct_actor_presence() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
-        assert!(runtime.ambient_line().is_none());
-        assert!(runtime.ambient_reply_plan().is_none());
 
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
@@ -55449,36 +55264,6 @@ mod tests {
         assert_eq!(action.kind, CW_ACTION_MOVE);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
         assert_eq!(action.destination_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-
-        runtime.ensure_actor_autonomy();
-        for (actor_id, autonomy) in &mut runtime.actor_autonomy {
-            autonomy.control_mode = if *actor_id == RATI_ACTOR_ID {
-                ActorControlMode::LocalAi
-            } else if autonomy.control_mode.uses_inference() {
-                ActorControlMode::ReactiveAi
-            } else {
-                autonomy.control_mode
-            };
-        }
-        runtime
-            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
-                candidate.kind == "move"
-                    && candidate.target.as_ref().and_then(|target| target.id)
-                        == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-            })
-            .expect("Rati's ambient movement card is dealt before the heartbeat");
-        let initial_event_seq = runtime.world.next_event_seq;
-        let mut state = test_app_state(runtime, None);
-        state.ambient.quiet_after = Duration::ZERO;
-        maybe_emit_ambient_event(state.clone()).await;
-        let runtime = state.inner.lock().await;
-        assert!(runtime.event_log.iter().any(|event| {
-            event.seq >= initial_event_seq
-                && event.type_name == "actor.moved"
-                && event
-                    .actor_id
-                    .is_some_and(|actor_id| runtime.actor_control_mode(actor_id).uses_inference())
-        }));
     }
 
     #[test]
@@ -56399,7 +56184,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_notice_visible_sought_items_without_prior_memory() {
+    fn resident_economy_planning_notices_visible_sought_items_without_prior_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56418,7 +56203,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident notices a visible wanted item");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -56438,7 +56223,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_prioritizes_local_keepsake_pickup_over_remote_walking() {
+    fn resident_economy_planning_prioritizes_local_keepsake_over_remote_walking() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56480,7 +56265,7 @@ mod tests {
         assert_eq!(rati_action.kind, CW_ACTION_MOVE);
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("ranked resident economy action");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, BLUE_SQUIRREL_ACTOR_ID);
@@ -56502,7 +56287,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_record_residents_use_held_room_feature_items() {
+    fn resident_economy_record_uses_held_room_feature_items() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56522,10 +56307,10 @@ mod tests {
                     SCARF_BASKET_FEATURE_KEY,
                 )
             })
-            .expect("the Story Button feature card is dealt before ambient LocalAI selects it");
+            .expect("the Story Button feature card is dealt before LocalAI selects it");
 
         let record = runtime
-            .ambient_autonomy_record(70700)
+            .resident_economy_autonomy_record_for_seed(70700)
             .expect("resident feature use is recordable autonomy");
         assert_eq!(record.action.kind, CW_ACTION_NONE);
         assert_eq!(record.action.actor_id, RATI_ACTOR_ID);
@@ -56617,7 +56402,7 @@ mod tests {
             .expect("the resident feature-use offer is dealt before it is committed");
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let record = runtime
-            .ambient_autonomy_record(70702)
+            .resident_economy_autonomy_record_for_seed(70702)
             .expect("resident decision is recordable");
         let state = test_app_state(runtime.clone(), Some(path.clone()));
 
@@ -56682,7 +56467,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_pick_up_sought_items() {
+    fn resident_economy_actions_pick_up_sought_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56695,9 +56480,7 @@ mod tests {
             CW_OK
         );
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
             .into_iter()
@@ -56737,9 +56520,7 @@ mod tests {
                     && event.item_id == Some(sought_item_id)
             })
             .expect("resident pickup event");
-        let actor_name = runtime
-            .actor_name(actor.id)
-            .expect("ambient resident has name");
+        let actor_name = runtime.actor_name(actor.id).expect("resident has name");
         let item_name = runtime
             .item_name(sought_item_id)
             .expect("sought item has name");
@@ -56807,7 +56588,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_resident_can_add_wanted_card_without_self_evolving() {
+    fn resident_economy_action_can_add_wanted_card_without_self_evolving() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56878,7 +56659,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_swap_expendable_item_on_pickup_at_capacity() {
+    fn resident_economy_actions_swap_expendable_item_on_pickup_at_capacity() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56956,7 +56737,7 @@ mod tests {
         );
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident swaps before taking a wanted item");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -56994,7 +56775,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_do_not_evict_attached_items_for_pickup() {
+    fn resident_economy_actions_do_not_evict_attached_items_for_pickup() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57067,7 +56848,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_use_held_healing_items_when_hurt() {
+    fn resident_economy_actions_use_held_healing_items_when_hurt() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57099,7 +56880,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("hurt resident uses held medicine");
         assert_eq!(action.kind, CW_ACTION_USE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -57130,7 +56911,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_use_held_healing_items_for_hurt_companions() {
+    fn resident_economy_actions_use_held_healing_items_for_hurt_companions() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57162,7 +56943,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident uses medicine for a hurt companion");
         assert_eq!(action.kind, CW_ACTION_USE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -57188,7 +56969,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_seek_remembered_healing_items_when_hurt() {
+    fn resident_economy_actions_seek_remembered_healing_items_when_hurt() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57323,7 +57104,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_move_toward_nearby_sought_items() {
+    fn resident_economy_actions_move_toward_nearby_sought_items() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57337,9 +57118,7 @@ mod tests {
         );
         hide_seed_items(&mut runtime);
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
             .into_iter()
@@ -57403,7 +57182,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_follow_item_memory_across_rooms() {
+    fn resident_economy_actions_follow_item_memory_across_rooms() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57418,9 +57197,7 @@ mod tests {
         runtime.world.tick = 0;
         runtime.beliefs.clear();
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
@@ -58243,7 +58020,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_trade_mutually_desired_items() {
+    fn resident_economy_actions_trade_mutually_desired_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -58273,9 +58050,7 @@ mod tests {
             }
         }
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         assert!(
             runtime.resident_mutual_trade_candidate(actor).is_none(),
@@ -58414,80 +58189,8 @@ mod tests {
         assert!(reply_plan.economy_note.contains("carrying:"));
     }
 
-    #[tokio::test]
-    async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 0;
-        runtime.beliefs.clear();
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            match item.id {
-                DEWBRIGHT_BUTTON_ITEM_ID => {
-                    item.holder_actor_id = RATI_ACTOR_ID;
-                    item.location_id = 0;
-                    item.held_since_tick = runtime.world.tick;
-                }
-                STORY_BUTTON_ITEM_ID => {
-                    item.holder_actor_id = WHISKERWIND_ACTOR_ID;
-                    item.location_id = 0;
-                    item.held_since_tick = runtime.world.tick;
-                }
-                _ => {}
-            }
-        }
-        runtime.record_economy_disclosure(RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID);
-        runtime
-            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
-                candidate.kind == "trade_item"
-                    && candidate.id
-                        == format!(
-                            "trade_item:{DEWBRIGHT_BUTTON_ITEM_ID}:{WHISKERWIND_ACTOR_ID}:{STORY_BUTTON_ITEM_ID}"
-                        )
-            })
-            .expect("the ambient trade card is dealt before the resident heartbeat");
-
-        let mut state = test_app_state(runtime, None);
-        state.ambient.quiet_after = Duration::ZERO;
-        maybe_emit_ambient_event(state.clone()).await;
-
-        let after_trade_seq = {
-            let runtime = state.inner.lock().await;
-            runtime
-                .event_log
-                .iter()
-                .find(|event| {
-                    event.type_name == "item.traded"
-                        && event.actor_id == Some(RATI_ACTOR_ID)
-                        && event.target_actor_id == Some(WHISKERWIND_ACTOR_ID)
-                })
-                .map(|event| event.seq)
-                .expect("ambient autonomy trade event")
-        };
-
-        let mut saw_reply = false;
-        for _ in 0..20 {
-            {
-                let runtime = state.inner.lock().await;
-                saw_reply = runtime.event_log.iter().any(|event| {
-                    event.seq > after_trade_seq
-                        && event.type_name == "message.created"
-                        && event.actor_id == Some(RATI_ACTOR_ID)
-                        && event.location_id == Some(COSY_COTTAGE_LOCATION_ID)
-                        && event
-                            .content
-                            .as_deref()
-                            .is_some_and(|content| !content.trim().is_empty())
-                });
-            }
-            if saw_reply {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        assert!(!saw_reply, "no fallback speech should follow without AI");
-    }
-
     #[test]
-    fn ambient_autonomy_residents_give_sought_items_when_trade_is_not_needed() {
+    fn resident_economy_actions_give_sought_items_when_trade_is_not_needed() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -58517,9 +58220,7 @@ mod tests {
             }
         }
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         assert!(
             runtime.resident_gift_candidate(actor).is_none(),
@@ -58555,7 +58256,7 @@ mod tests {
         );
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident gives autonomously");
         assert_eq!(action.kind, CW_ACTION_GIVE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -59051,7 +58752,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_carry_sought_items_to_remembered_residents() {
+    fn resident_economy_actions_carry_sought_items_to_remembered_residents() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();

@@ -86,7 +86,7 @@
         "type": "workspace",
         "path": "../../content/project89-operation-liberation"
       },
-      "integrity": "sha256:082d3a16bb6ca947ef226e372e029cb4d04e63726a89a118c5ddac8f75fad235",
+      "integrity": "sha256:bc5cd605ccfe98b0c609c5a4c50c3cd25439e4616e20b211f639a69ed571e86c",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -123,7 +123,7 @@
         "type": "workspace",
         "path": "../../content/project89-perimeter-relay"
       },
-      "integrity": "sha256:b33f37957d7b9fa6afe04ead6da8c17880add4cf91f1ec364385c51f0708a48e",
+      "integrity": "sha256:99c22ea5026aeba21ee8b9d640816b7c961ebbd4cad381a4a974f2eb1754faa9",
       "dependencies": [
         {
           "id": "project89.operation-liberation",
@@ -168,7 +168,7 @@
         "type": "workspace",
         "path": "../../content/project89-open-signal-frontier"
       },
-      "integrity": "sha256:7d7ac53c930cce44368bf58c787aceb506e2d8588716ea90ae59b03523dedbac",
+      "integrity": "sha256:0590679eeb81b8121cd0e83db9d32a8a0cf8e4b1ab63e302a7a58c4246c9ed12",
       "dependencies": [
         {
           "id": "project89.perimeter-relay",

@@ -16,13 +16,14 @@
         "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548",
         "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
         "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e",
-        "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee"
+        "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee",
+        "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c"
       ]
     },
     "rules_profile": "cosyworld.srd5/1",
     "active_rules_variants": [],
     "active_rules_extensions": [],
-    "bundle_hash": "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c",
+    "bundle_hash": "sha256:8854e9c436496541fbd4581df7abc908ce34e95d95518c2e89cf9fb93246d805",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -309,7 +310,7 @@
           "type": "workspace",
           "path": "../../content/elysium"
         },
-        "integrity": "sha256:09d774965b96f6f07e337d2f750baf4da54432e3ea326c43419cfab0b15c06bd"
+        "integrity": "sha256:65306806229dd97d8ed88f35dde61353dcd842829be24b96563bdb0f2b2c94c1"
       }
     ],
     "files": {
@@ -355,7 +356,7 @@
         "speech_mode": "raw",
         "title": "~anthropic/claude-fable-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652000,
         "stats": {
           "strength": 10,
@@ -375,7 +376,7 @@
         "speech_mode": "raw",
         "title": "~anthropic/claude-haiku-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652001,
         "stats": {
           "strength": 10,
@@ -395,7 +396,7 @@
         "speech_mode": "raw",
         "title": "~anthropic/claude-opus-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652002,
         "stats": {
           "strength": 10,
@@ -415,7 +416,7 @@
         "speech_mode": "raw",
         "title": "~anthropic/claude-sonnet-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652003,
         "stats": {
           "strength": 10,
@@ -435,7 +436,7 @@
         "speech_mode": "raw",
         "title": "~google/gemini-flash-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652004,
         "stats": {
           "strength": 10,
@@ -455,7 +456,7 @@
         "speech_mode": "raw",
         "title": "~google/gemini-pro-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652005,
         "stats": {
           "strength": 10,
@@ -475,7 +476,7 @@
         "speech_mode": "raw",
         "title": "~moonshotai/kimi-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652006,
         "stats": {
           "strength": 10,
@@ -495,7 +496,7 @@
         "speech_mode": "raw",
         "title": "~openai/gpt-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652007,
         "stats": {
           "strength": 10,
@@ -515,7 +516,7 @@
         "speech_mode": "raw",
         "title": "~openai/gpt-mini-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652008,
         "stats": {
           "strength": 10,
@@ -535,7 +536,7 @@
         "speech_mode": "raw",
         "title": "~x-ai/grok-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652009,
         "stats": {
           "strength": 10,
@@ -555,7 +556,7 @@
         "speech_mode": "raw",
         "title": "ai21/jamba-large-1.7",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652010,
         "stats": {
           "strength": 10,
@@ -575,7 +576,7 @@
         "speech_mode": "raw",
         "title": "aion-labs/aion-2.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652011,
         "stats": {
           "strength": 10,
@@ -595,7 +596,7 @@
         "speech_mode": "raw",
         "title": "aion-labs/aion-3.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652012,
         "stats": {
           "strength": 10,
@@ -615,7 +616,7 @@
         "speech_mode": "raw",
         "title": "aion-labs/aion-3.0-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652013,
         "stats": {
           "strength": 10,
@@ -635,7 +636,7 @@
         "speech_mode": "raw",
         "title": "aion-labs/aion-rp-llama-3.1-8b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652014,
         "stats": {
           "strength": 10,
@@ -655,7 +656,7 @@
         "speech_mode": "unavailable",
         "title": "alibaba/happyhorse-1.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652015,
         "stats": {
           "strength": 10,
@@ -675,7 +676,7 @@
         "speech_mode": "unavailable",
         "title": "alibaba/happyhorse-1.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652016,
         "stats": {
           "strength": 10,
@@ -695,7 +696,7 @@
         "speech_mode": "unavailable",
         "title": "alibaba/wan-2.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652017,
         "stats": {
           "strength": 10,
@@ -715,7 +716,7 @@
         "speech_mode": "unavailable",
         "title": "alibaba/wan-2.7",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652018,
         "stats": {
           "strength": 10,
@@ -735,7 +736,7 @@
         "speech_mode": "raw",
         "title": "allenai/olmo-3-32b-think",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652019,
         "stats": {
           "strength": 10,
@@ -755,7 +756,7 @@
         "speech_mode": "raw",
         "title": "amazon/nova-2-lite-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652020,
         "stats": {
           "strength": 10,
@@ -775,7 +776,7 @@
         "speech_mode": "raw",
         "title": "amazon/nova-lite-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652021,
         "stats": {
           "strength": 10,
@@ -795,7 +796,7 @@
         "speech_mode": "raw",
         "title": "amazon/nova-micro-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652022,
         "stats": {
           "strength": 10,
@@ -815,7 +816,7 @@
         "speech_mode": "raw",
         "title": "amazon/nova-premier-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652023,
         "stats": {
           "strength": 10,
@@ -835,7 +836,7 @@
         "speech_mode": "raw",
         "title": "amazon/nova-pro-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652024,
         "stats": {
           "strength": 10,
@@ -855,7 +856,7 @@
         "speech_mode": "raw",
         "title": "anthracite-org/magnum-v4-72b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652025,
         "stats": {
           "strength": 10,
@@ -875,7 +876,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-3-haiku",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652026,
         "stats": {
           "strength": 10,
@@ -895,7 +896,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-fable-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652027,
         "stats": {
           "strength": 10,
@@ -915,7 +916,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-fable-5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652028,
         "stats": {
           "strength": 10,
@@ -935,7 +936,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-haiku-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652029,
         "stats": {
           "strength": 10,
@@ -955,7 +956,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-haiku-4.5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652030,
         "stats": {
           "strength": 10,
@@ -975,7 +976,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652031,
         "stats": {
           "strength": 10,
@@ -995,7 +996,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652032,
         "stats": {
           "strength": 10,
@@ -1015,7 +1016,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.1:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652033,
         "stats": {
           "strength": 10,
@@ -1035,7 +1036,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652034,
         "stats": {
           "strength": 10,
@@ -1055,7 +1056,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652035,
         "stats": {
           "strength": 10,
@@ -1075,7 +1076,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652036,
         "stats": {
           "strength": 10,
@@ -1095,7 +1096,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.6:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652037,
         "stats": {
           "strength": 10,
@@ -1115,7 +1116,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.7",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652038,
         "stats": {
           "strength": 10,
@@ -1135,7 +1136,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.7-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652039,
         "stats": {
           "strength": 10,
@@ -1155,7 +1156,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.7:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652040,
         "stats": {
           "strength": 10,
@@ -1175,7 +1176,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.8",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652041,
         "stats": {
           "strength": 10,
@@ -1195,7 +1196,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.8-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652042,
         "stats": {
           "strength": 10,
@@ -1215,7 +1216,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-4.8:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652043,
         "stats": {
           "strength": 10,
@@ -1235,7 +1236,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652044,
         "stats": {
           "strength": 10,
@@ -1255,7 +1256,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-opus-5-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652045,
         "stats": {
           "strength": 10,
@@ -1275,7 +1276,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652046,
         "stats": {
           "strength": 10,
@@ -1295,7 +1296,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652047,
         "stats": {
           "strength": 10,
@@ -1315,7 +1316,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-4.5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652048,
         "stats": {
           "strength": 10,
@@ -1335,7 +1336,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-4.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652049,
         "stats": {
           "strength": 10,
@@ -1355,7 +1356,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652050,
         "stats": {
           "strength": 10,
@@ -1375,7 +1376,7 @@
         "speech_mode": "raw",
         "title": "anthropic/claude-sonnet-5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652051,
         "stats": {
           "strength": 10,
@@ -1395,7 +1396,7 @@
         "speech_mode": "raw",
         "title": "arcee-ai/trinity-large-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652052,
         "stats": {
           "strength": 10,
@@ -1415,7 +1416,7 @@
         "speech_mode": "raw",
         "title": "arcee-ai/virtuoso-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652053,
         "stats": {
           "strength": 10,
@@ -1435,7 +1436,7 @@
         "speech_mode": "unavailable",
         "title": "baai/bge-base-en-v1.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652054,
         "stats": {
           "strength": 10,
@@ -1455,7 +1456,7 @@
         "speech_mode": "unavailable",
         "title": "baai/bge-large-en-v1.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652055,
         "stats": {
           "strength": 10,
@@ -1475,7 +1476,7 @@
         "speech_mode": "unavailable",
         "title": "baai/bge-m3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652056,
         "stats": {
           "strength": 10,
@@ -1495,7 +1496,7 @@
         "speech_mode": "raw",
         "title": "baidu/ernie-4.5-vl-424b-a47b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652057,
         "stats": {
           "strength": 10,
@@ -1515,7 +1516,7 @@
         "speech_mode": "unavailable",
         "title": "black-forest-labs/flux.2-flex",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652058,
         "stats": {
           "strength": 10,
@@ -1535,7 +1536,7 @@
         "speech_mode": "unavailable",
         "title": "black-forest-labs/flux.2-klein-4b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652059,
         "stats": {
           "strength": 10,
@@ -1555,7 +1556,7 @@
         "speech_mode": "unavailable",
         "title": "black-forest-labs/flux.2-max",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652060,
         "stats": {
           "strength": 10,
@@ -1575,7 +1576,7 @@
         "speech_mode": "unavailable",
         "title": "black-forest-labs/flux.2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652061,
         "stats": {
           "strength": 10,
@@ -1595,7 +1596,7 @@
         "speech_mode": "raw",
         "title": "bytedance-seed/seed-1.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652062,
         "stats": {
           "strength": 10,
@@ -1615,7 +1616,7 @@
         "speech_mode": "raw",
         "title": "bytedance-seed/seed-1.6-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652063,
         "stats": {
           "strength": 10,
@@ -1635,7 +1636,7 @@
         "speech_mode": "raw",
         "title": "bytedance-seed/seed-2.0-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652064,
         "stats": {
           "strength": 10,
@@ -1655,7 +1656,7 @@
         "speech_mode": "raw",
         "title": "bytedance-seed/seed-2.0-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652065,
         "stats": {
           "strength": 10,
@@ -1675,7 +1676,7 @@
         "speech_mode": "unavailable",
         "title": "bytedance-seed/seedream-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652066,
         "stats": {
           "strength": 10,
@@ -1695,7 +1696,7 @@
         "speech_mode": "unavailable",
         "title": "bytedance/seedance-1-5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652067,
         "stats": {
           "strength": 10,
@@ -1715,7 +1716,7 @@
         "speech_mode": "unavailable",
         "title": "bytedance/seedance-2.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652068,
         "stats": {
           "strength": 10,
@@ -1735,7 +1736,7 @@
         "speech_mode": "unavailable",
         "title": "bytedance/seedance-2.0-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652069,
         "stats": {
           "strength": 10,
@@ -1755,7 +1756,7 @@
         "speech_mode": "raw",
         "title": "bytedance/ui-tars-1.5-7b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652070,
         "stats": {
           "strength": 10,
@@ -1775,7 +1776,7 @@
         "speech_mode": "unavailable",
         "title": "canopylabs/orpheus-3b-0.1-ft",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652071,
         "stats": {
           "strength": 10,
@@ -1795,7 +1796,7 @@
         "speech_mode": "raw",
         "title": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652072,
         "stats": {
           "strength": 10,
@@ -1815,7 +1816,7 @@
         "speech_mode": "raw",
         "title": "cohere/command-a",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652073,
         "stats": {
           "strength": 10,
@@ -1835,7 +1836,7 @@
         "speech_mode": "raw",
         "title": "cohere/command-r-08-2024",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652074,
         "stats": {
           "strength": 10,
@@ -1855,7 +1856,7 @@
         "speech_mode": "raw",
         "title": "cohere/command-r-plus-08-2024",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652075,
         "stats": {
           "strength": 10,
@@ -1875,7 +1876,7 @@
         "speech_mode": "raw",
         "title": "cohere/command-r7b-12-2024",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652076,
         "stats": {
           "strength": 10,
@@ -1895,7 +1896,7 @@
         "speech_mode": "raw",
         "title": "cohere/north-mini-code:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652077,
         "stats": {
           "strength": 10,
@@ -1915,7 +1916,7 @@
         "speech_mode": "unavailable",
         "title": "cohere/rerank-4-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652078,
         "stats": {
           "strength": 10,
@@ -1935,7 +1936,7 @@
         "speech_mode": "unavailable",
         "title": "cohere/rerank-4-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652079,
         "stats": {
           "strength": 10,
@@ -1955,7 +1956,7 @@
         "speech_mode": "unavailable",
         "title": "cohere/rerank-v3.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652080,
         "stats": {
           "strength": 10,
@@ -1975,7 +1976,7 @@
         "speech_mode": "raw",
         "title": "deepcogito/cogito-v2.1-671b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652081,
         "stats": {
           "strength": 10,
@@ -1995,7 +1996,7 @@
         "speech_mode": "unavailable",
         "title": "deepgram/aura-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652082,
         "stats": {
           "strength": 10,
@@ -2015,7 +2016,7 @@
         "speech_mode": "unavailable",
         "title": "deepgram/nova-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652083,
         "stats": {
           "strength": 10,
@@ -2035,7 +2036,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-chat",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652084,
         "stats": {
           "strength": 10,
@@ -2055,7 +2056,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-chat-v3-0324",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652085,
         "stats": {
           "strength": 10,
@@ -2075,7 +2076,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-chat-v3.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652086,
         "stats": {
           "strength": 10,
@@ -2095,7 +2096,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-r1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652087,
         "stats": {
           "strength": 10,
@@ -2115,7 +2116,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-r1-0528",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652088,
         "stats": {
           "strength": 10,
@@ -2135,7 +2136,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-r1-distill-llama-70b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652089,
         "stats": {
           "strength": 10,
@@ -2155,7 +2156,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v3.1-terminus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652090,
         "stats": {
           "strength": 10,
@@ -2175,7 +2176,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v3.2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652091,
         "stats": {
           "strength": 10,
@@ -2195,7 +2196,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v3.2-exp",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652092,
         "stats": {
           "strength": 10,
@@ -2215,7 +2216,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v4-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652093,
         "stats": {
           "strength": 10,
@@ -2235,7 +2236,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v4-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652094,
         "stats": {
           "strength": 10,
@@ -2255,7 +2256,7 @@
         "speech_mode": "unavailable",
         "title": "fish-audio/s1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652095,
         "stats": {
           "strength": 10,
@@ -2275,7 +2276,7 @@
         "speech_mode": "unavailable",
         "title": "fish-audio/s2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652096,
         "stats": {
           "strength": 10,
@@ -2295,7 +2296,7 @@
         "speech_mode": "unavailable",
         "title": "fish-audio/s2.1-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652097,
         "stats": {
           "strength": 10,
@@ -2315,7 +2316,7 @@
         "speech_mode": "unavailable",
         "title": "fish-audio/s2.1-pro-free:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652098,
         "stats": {
           "strength": 10,
@@ -2335,7 +2336,7 @@
         "speech_mode": "unavailable",
         "title": "fish-audio/transcribe-1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652099,
         "stats": {
           "strength": 10,
@@ -2355,7 +2356,7 @@
         "speech_mode": "unavailable",
         "title": "google/chirp-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652100,
         "stats": {
           "strength": 10,
@@ -2375,7 +2376,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652101,
         "stats": {
           "strength": 10,
@@ -2395,7 +2396,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-flash-image",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652102,
         "stats": {
           "strength": 10,
@@ -2415,7 +2416,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-flash-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652103,
         "stats": {
           "strength": 10,
@@ -2435,7 +2436,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-flash-lite:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652104,
         "stats": {
           "strength": 10,
@@ -2455,7 +2456,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-flash:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652105,
         "stats": {
           "strength": 10,
@@ -2475,7 +2476,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652106,
         "stats": {
           "strength": 10,
@@ -2495,7 +2496,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-pro-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652107,
         "stats": {
           "strength": 10,
@@ -2515,7 +2516,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-pro-preview-05-06",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652108,
         "stats": {
           "strength": 10,
@@ -2535,7 +2536,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-2.5-pro:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652109,
         "stats": {
           "strength": 10,
@@ -2555,7 +2556,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3-flash-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652110,
         "stats": {
           "strength": 10,
@@ -2575,7 +2576,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3-flash-preview:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652111,
         "stats": {
           "strength": 10,
@@ -2595,7 +2596,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3-pro-image",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652112,
         "stats": {
           "strength": 10,
@@ -2615,7 +2616,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3-pro-image-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652113,
         "stats": {
           "strength": 10,
@@ -2635,7 +2636,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-image",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652114,
         "stats": {
           "strength": 10,
@@ -2655,7 +2656,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-image-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652115,
         "stats": {
           "strength": 10,
@@ -2675,7 +2676,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652116,
         "stats": {
           "strength": 10,
@@ -2695,7 +2696,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-lite-image",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652117,
         "stats": {
           "strength": 10,
@@ -2715,7 +2716,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-lite-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652118,
         "stats": {
           "strength": 10,
@@ -2735,7 +2736,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-flash-lite:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652119,
         "stats": {
           "strength": 10,
@@ -2755,7 +2756,7 @@
         "speech_mode": "unavailable",
         "title": "google/gemini-3.1-flash-tts-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652120,
         "stats": {
           "strength": 10,
@@ -2775,7 +2776,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-pro-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652121,
         "stats": {
           "strength": 10,
@@ -2795,7 +2796,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-pro-preview-customtools",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652122,
         "stats": {
           "strength": 10,
@@ -2815,7 +2816,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.1-pro-preview:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652123,
         "stats": {
           "strength": 10,
@@ -2835,7 +2836,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.5-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652124,
         "stats": {
           "strength": 10,
@@ -2855,7 +2856,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.5-flash-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652125,
         "stats": {
           "strength": 10,
@@ -2875,7 +2876,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.5-flash-lite:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652126,
         "stats": {
           "strength": 10,
@@ -2895,7 +2896,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.5-flash:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652127,
         "stats": {
           "strength": 10,
@@ -2915,7 +2916,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.6-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652128,
         "stats": {
           "strength": 10,
@@ -2935,7 +2936,7 @@
         "speech_mode": "raw",
         "title": "google/gemini-3.6-flash:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652129,
         "stats": {
           "strength": 10,
@@ -2955,7 +2956,7 @@
         "speech_mode": "unavailable",
         "title": "google/gemini-embedding-001",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652130,
         "stats": {
           "strength": 10,
@@ -2975,7 +2976,7 @@
         "speech_mode": "unavailable",
         "title": "google/gemini-embedding-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652131,
         "stats": {
           "strength": 10,
@@ -2995,7 +2996,7 @@
         "speech_mode": "unavailable",
         "title": "google/gemini-embedding-2-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652132,
         "stats": {
           "strength": 10,
@@ -3015,7 +3016,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-2-27b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652133,
         "stats": {
           "strength": 10,
@@ -3035,7 +3036,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-3-12b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652134,
         "stats": {
           "strength": 10,
@@ -3055,7 +3056,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-3-27b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652135,
         "stats": {
           "strength": 10,
@@ -3075,7 +3076,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-3-4b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652136,
         "stats": {
           "strength": 10,
@@ -3095,7 +3096,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-3n-e4b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652137,
         "stats": {
           "strength": 10,
@@ -3115,7 +3116,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-4-26b-a4b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652138,
         "stats": {
           "strength": 10,
@@ -3135,7 +3136,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-4-26b-a4b-it:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652139,
         "stats": {
           "strength": 10,
@@ -3155,7 +3156,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-4-31b-it",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652140,
         "stats": {
           "strength": 10,
@@ -3175,7 +3176,7 @@
         "speech_mode": "raw",
         "title": "google/gemma-4-31b-it:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652141,
         "stats": {
           "strength": 10,
@@ -3195,7 +3196,7 @@
         "speech_mode": "raw",
         "title": "google/lyria-3-clip-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652142,
         "stats": {
           "strength": 10,
@@ -3215,7 +3216,7 @@
         "speech_mode": "raw",
         "title": "google/lyria-3-pro-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652143,
         "stats": {
           "strength": 10,
@@ -3235,7 +3236,7 @@
         "speech_mode": "unavailable",
         "title": "google/veo-3.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652144,
         "stats": {
           "strength": 10,
@@ -3255,7 +3256,7 @@
         "speech_mode": "unavailable",
         "title": "google/veo-3.1-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652145,
         "stats": {
           "strength": 10,
@@ -3275,7 +3276,7 @@
         "speech_mode": "unavailable",
         "title": "google/veo-3.1-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652146,
         "stats": {
           "strength": 10,
@@ -3295,7 +3296,7 @@
         "speech_mode": "raw",
         "title": "gryphe/mythomax-l2-13b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652147,
         "stats": {
           "strength": 10,
@@ -3315,7 +3316,7 @@
         "speech_mode": "unavailable",
         "title": "hexgrad/kokoro-82m",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652148,
         "stats": {
           "strength": 10,
@@ -3335,7 +3336,7 @@
         "speech_mode": "raw",
         "title": "ibm-granite/granite-4.0-h-micro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652149,
         "stats": {
           "strength": 10,
@@ -3355,7 +3356,7 @@
         "speech_mode": "raw",
         "title": "ibm-granite/granite-4.1-8b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652150,
         "stats": {
           "strength": 10,
@@ -3375,7 +3376,7 @@
         "speech_mode": "raw",
         "title": "inception/mercury-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652151,
         "stats": {
           "strength": 10,
@@ -3395,7 +3396,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ling-2.6-1t",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652152,
         "stats": {
           "strength": 10,
@@ -3415,7 +3416,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ling-2.6-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652153,
         "stats": {
           "strength": 10,
@@ -3435,7 +3436,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ling-3.0-flash:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652154,
         "stats": {
           "strength": 10,
@@ -3455,7 +3456,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ring-2.6-1t",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652155,
         "stats": {
           "strength": 10,
@@ -3475,7 +3476,7 @@
         "speech_mode": "unavailable",
         "title": "intfloat/e5-base-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652156,
         "stats": {
           "strength": 10,
@@ -3495,7 +3496,7 @@
         "speech_mode": "unavailable",
         "title": "intfloat/e5-large-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652157,
         "stats": {
           "strength": 10,
@@ -3515,7 +3516,7 @@
         "speech_mode": "unavailable",
         "title": "intfloat/multilingual-e5-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652158,
         "stats": {
           "strength": 10,
@@ -3535,7 +3536,7 @@
         "speech_mode": "unavailable",
         "title": "krea/krea-2-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652159,
         "stats": {
           "strength": 10,
@@ -3555,7 +3556,7 @@
         "speech_mode": "unavailable",
         "title": "krea/krea-2-medium",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652160,
         "stats": {
           "strength": 10,
@@ -3575,7 +3576,7 @@
         "speech_mode": "unavailable",
         "title": "krea/krea-2-medium-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652161,
         "stats": {
           "strength": 10,
@@ -3595,7 +3596,7 @@
         "speech_mode": "raw",
         "title": "kwaipilot/kat-coder-air-v2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652162,
         "stats": {
           "strength": 10,
@@ -3615,7 +3616,7 @@
         "speech_mode": "raw",
         "title": "kwaipilot/kat-coder-pro-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652163,
         "stats": {
           "strength": 10,
@@ -3635,7 +3636,7 @@
         "speech_mode": "raw",
         "title": "kwaipilot/kat-coder-pro-v2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652164,
         "stats": {
           "strength": 10,
@@ -3655,7 +3656,7 @@
         "speech_mode": "unavailable",
         "title": "kwaivgi/kling-v3.0-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652165,
         "stats": {
           "strength": 10,
@@ -3675,7 +3676,7 @@
         "speech_mode": "unavailable",
         "title": "kwaivgi/kling-v3.0-std",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652166,
         "stats": {
           "strength": 10,
@@ -3695,7 +3696,7 @@
         "speech_mode": "unavailable",
         "title": "kwaivgi/kling-video-o1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652167,
         "stats": {
           "strength": 10,
@@ -3715,7 +3716,7 @@
         "speech_mode": "raw",
         "title": "mancer/weaver",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652168,
         "stats": {
           "strength": 10,
@@ -3735,7 +3736,7 @@
         "speech_mode": "raw",
         "title": "meituan/longcat-2.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652169,
         "stats": {
           "strength": 10,
@@ -3755,7 +3756,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-3.1-70b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652170,
         "stats": {
           "strength": 10,
@@ -3775,7 +3776,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-3.1-8b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652171,
         "stats": {
           "strength": 10,
@@ -3795,7 +3796,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-3.2-1b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652172,
         "stats": {
           "strength": 10,
@@ -3815,7 +3816,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-3.2-3b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652173,
         "stats": {
           "strength": 10,
@@ -3835,7 +3836,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-3.3-70b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652174,
         "stats": {
           "strength": 10,
@@ -3855,7 +3856,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-4-maverick",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652175,
         "stats": {
           "strength": 10,
@@ -3875,7 +3876,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-4-scout",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652176,
         "stats": {
           "strength": 10,
@@ -3895,7 +3896,7 @@
         "speech_mode": "raw",
         "title": "meta-llama/llama-guard-4-12b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652177,
         "stats": {
           "strength": 10,
@@ -3915,7 +3916,7 @@
         "speech_mode": "raw",
         "title": "meta/muse-spark-1.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652178,
         "stats": {
           "strength": 10,
@@ -3935,7 +3936,7 @@
         "speech_mode": "unavailable",
         "title": "microsoft/mai-image-2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652179,
         "stats": {
           "strength": 10,
@@ -3955,7 +3956,7 @@
         "speech_mode": "unavailable",
         "title": "microsoft/mai-image-2.5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652180,
         "stats": {
           "strength": 10,
@@ -3975,7 +3976,7 @@
         "speech_mode": "unavailable",
         "title": "microsoft/mai-transcribe-1.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652181,
         "stats": {
           "strength": 10,
@@ -3995,7 +3996,7 @@
         "speech_mode": "unavailable",
         "title": "microsoft/mai-voice-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652182,
         "stats": {
           "strength": 10,
@@ -4015,7 +4016,7 @@
         "speech_mode": "unavailable",
         "title": "microsoft/mai-voice-2-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652183,
         "stats": {
           "strength": 10,
@@ -4035,7 +4036,7 @@
         "speech_mode": "raw",
         "title": "microsoft/phi-4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652184,
         "stats": {
           "strength": 10,
@@ -4055,7 +4056,7 @@
         "speech_mode": "raw",
         "title": "microsoft/wizardlm-2-8x22b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652185,
         "stats": {
           "strength": 10,
@@ -4075,7 +4076,7 @@
         "speech_mode": "unavailable",
         "title": "minimax/hailuo-2.3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652186,
         "stats": {
           "strength": 10,
@@ -4095,7 +4096,7 @@
         "speech_mode": "unavailable",
         "title": "minimax/hailuo-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652187,
         "stats": {
           "strength": 10,
@@ -4115,7 +4116,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-01",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652188,
         "stats": {
           "strength": 10,
@@ -4135,7 +4136,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652189,
         "stats": {
           "strength": 10,
@@ -4155,7 +4156,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652190,
         "stats": {
           "strength": 10,
@@ -4175,7 +4176,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m2-her",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652191,
         "stats": {
           "strength": 10,
@@ -4195,7 +4196,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m2.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652192,
         "stats": {
           "strength": 10,
@@ -4215,7 +4216,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652193,
         "stats": {
           "strength": 10,
@@ -4235,7 +4236,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m2.7",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652194,
         "stats": {
           "strength": 10,
@@ -4255,7 +4256,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652195,
         "stats": {
           "strength": 10,
@@ -4275,7 +4276,7 @@
         "speech_mode": "raw",
         "title": "minimax/minimax-m3:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652196,
         "stats": {
           "strength": 10,
@@ -4295,7 +4296,7 @@
         "speech_mode": "unavailable",
         "title": "minimax/speech-2.8-hd",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652197,
         "stats": {
           "strength": 10,
@@ -4315,7 +4316,7 @@
         "speech_mode": "unavailable",
         "title": "minimax/speech-2.8-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652198,
         "stats": {
           "strength": 10,
@@ -4335,7 +4336,7 @@
         "speech_mode": "raw",
         "title": "mistralai/codestral-2508",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652199,
         "stats": {
           "strength": 10,
@@ -4355,7 +4356,7 @@
         "speech_mode": "unavailable",
         "title": "mistralai/codestral-embed-2505",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652200,
         "stats": {
           "strength": 10,
@@ -4375,7 +4376,7 @@
         "speech_mode": "raw",
         "title": "mistralai/devstral-2512",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652201,
         "stats": {
           "strength": 10,
@@ -4395,7 +4396,7 @@
         "speech_mode": "raw",
         "title": "mistralai/ministral-14b-2512",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652202,
         "stats": {
           "strength": 10,
@@ -4415,7 +4416,7 @@
         "speech_mode": "raw",
         "title": "mistralai/ministral-3b-2512",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652203,
         "stats": {
           "strength": 10,
@@ -4435,7 +4436,7 @@
         "speech_mode": "raw",
         "title": "mistralai/ministral-8b-2512",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652204,
         "stats": {
           "strength": 10,
@@ -4455,7 +4456,7 @@
         "speech_mode": "unavailable",
         "title": "mistralai/mistral-embed-2312",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652205,
         "stats": {
           "strength": 10,
@@ -4475,7 +4476,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652206,
         "stats": {
           "strength": 10,
@@ -4495,7 +4496,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-large-2407",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652207,
         "stats": {
           "strength": 10,
@@ -4515,7 +4516,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-large-2512",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652208,
         "stats": {
           "strength": 10,
@@ -4535,7 +4536,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-medium-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652209,
         "stats": {
           "strength": 10,
@@ -4555,7 +4556,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-medium-3-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652210,
         "stats": {
           "strength": 10,
@@ -4575,7 +4576,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-medium-3.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652211,
         "stats": {
           "strength": 10,
@@ -4595,7 +4596,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-nemo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652212,
         "stats": {
           "strength": 10,
@@ -4615,7 +4616,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-saba",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652213,
         "stats": {
           "strength": 10,
@@ -4635,7 +4636,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-small-24b-instruct-2501",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652214,
         "stats": {
           "strength": 10,
@@ -4655,7 +4656,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-small-2603",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652215,
         "stats": {
           "strength": 10,
@@ -4675,7 +4676,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-small-3.1-24b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652216,
         "stats": {
           "strength": 10,
@@ -4695,7 +4696,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mistral-small-3.2-24b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652217,
         "stats": {
           "strength": 10,
@@ -4715,7 +4716,7 @@
         "speech_mode": "raw",
         "title": "mistralai/mixtral-8x22b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652218,
         "stats": {
           "strength": 10,
@@ -4735,7 +4736,7 @@
         "speech_mode": "unavailable",
         "title": "mistralai/voxtral-mini-transcribe",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652219,
         "stats": {
           "strength": 10,
@@ -4755,7 +4756,7 @@
         "speech_mode": "unavailable",
         "title": "mistralai/voxtral-mini-tts-2603",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652220,
         "stats": {
           "strength": 10,
@@ -4775,7 +4776,7 @@
         "speech_mode": "raw",
         "title": "mistralai/voxtral-small-24b-2507",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652221,
         "stats": {
           "strength": 10,
@@ -4795,7 +4796,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652222,
         "stats": {
           "strength": 10,
@@ -4815,7 +4816,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2-0905",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652223,
         "stats": {
           "strength": 10,
@@ -4835,7 +4836,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652224,
         "stats": {
           "strength": 10,
@@ -4855,7 +4856,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652225,
         "stats": {
           "strength": 10,
@@ -4875,7 +4876,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652226,
         "stats": {
           "strength": 10,
@@ -4895,7 +4896,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k2.7-code",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652227,
         "stats": {
           "strength": 10,
@@ -4915,7 +4916,7 @@
         "speech_mode": "raw",
         "title": "moonshotai/kimi-k3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652228,
         "stats": {
           "strength": 10,
@@ -4935,7 +4936,7 @@
         "speech_mode": "raw",
         "title": "morph/morph-v3-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652229,
         "stats": {
           "strength": 10,
@@ -4955,7 +4956,7 @@
         "speech_mode": "raw",
         "title": "morph/morph-v3-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652230,
         "stats": {
           "strength": 10,
@@ -4975,7 +4976,7 @@
         "speech_mode": "raw",
         "title": "nex-agi/nex-n2-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652231,
         "stats": {
           "strength": 10,
@@ -4995,7 +4996,7 @@
         "speech_mode": "raw",
         "title": "nex-agi/nex-n2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652232,
         "stats": {
           "strength": 10,
@@ -5015,7 +5016,7 @@
         "speech_mode": "raw",
         "title": "nousresearch/hermes-3-llama-3.1-405b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652233,
         "stats": {
           "strength": 10,
@@ -5035,7 +5036,7 @@
         "speech_mode": "raw",
         "title": "nousresearch/hermes-3-llama-3.1-70b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652234,
         "stats": {
           "strength": 10,
@@ -5055,7 +5056,7 @@
         "speech_mode": "raw",
         "title": "nousresearch/hermes-4-405b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652235,
         "stats": {
           "strength": 10,
@@ -5075,7 +5076,7 @@
         "speech_mode": "raw",
         "title": "nousresearch/hermes-4-70b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652236,
         "stats": {
           "strength": 10,
@@ -5095,7 +5096,7 @@
         "speech_mode": "unavailable",
         "title": "nvidia/llama-nemotron-embed-vl-1b-v2:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652237,
         "stats": {
           "strength": 10,
@@ -5115,7 +5116,7 @@
         "speech_mode": "unavailable",
         "title": "nvidia/llama-nemotron-rerank-vl-1b-v2:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652238,
         "stats": {
           "strength": 10,
@@ -5135,7 +5136,7 @@
         "speech_mode": "unavailable",
         "title": "nvidia/nemotron-3-embed-1b:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652239,
         "stats": {
           "strength": 10,
@@ -5155,7 +5156,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-nano-30b-a3b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652240,
         "stats": {
           "strength": 10,
@@ -5175,7 +5176,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-nano-30b-a3b:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652241,
         "stats": {
           "strength": 10,
@@ -5195,7 +5196,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652242,
         "stats": {
           "strength": 10,
@@ -5215,7 +5216,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-super-120b-a12b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652243,
         "stats": {
           "strength": 10,
@@ -5235,7 +5236,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-super-120b-a12b:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652244,
         "stats": {
           "strength": 10,
@@ -5255,7 +5256,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-ultra-550b-a55b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652245,
         "stats": {
           "strength": 10,
@@ -5275,7 +5276,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3-ultra-550b-a55b:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652246,
         "stats": {
           "strength": 10,
@@ -5295,7 +5296,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-3.5-content-safety:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652247,
         "stats": {
           "strength": 10,
@@ -5315,7 +5316,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-nano-12b-v2-vl:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652248,
         "stats": {
           "strength": 10,
@@ -5335,7 +5336,7 @@
         "speech_mode": "raw",
         "title": "nvidia/nemotron-nano-9b-v2:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652249,
         "stats": {
           "strength": 10,
@@ -5355,7 +5356,7 @@
         "speech_mode": "unavailable",
         "title": "nvidia/parakeet-tdt-0.6b-v3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652250,
         "stats": {
           "strength": 10,
@@ -5375,7 +5376,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-3.5-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652251,
         "stats": {
           "strength": 10,
@@ -5395,7 +5396,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-3.5-turbo-0613",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652252,
         "stats": {
           "strength": 10,
@@ -5415,7 +5416,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-3.5-turbo-16k",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652253,
         "stats": {
           "strength": 10,
@@ -5435,7 +5436,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-3.5-turbo-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652254,
         "stats": {
           "strength": 10,
@@ -5455,7 +5456,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652255,
         "stats": {
           "strength": 10,
@@ -5475,7 +5476,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652256,
         "stats": {
           "strength": 10,
@@ -5495,7 +5496,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4-turbo-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652257,
         "stats": {
           "strength": 10,
@@ -5515,7 +5516,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652258,
         "stats": {
           "strength": 10,
@@ -5535,7 +5536,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4.1-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652259,
         "stats": {
           "strength": 10,
@@ -5555,7 +5556,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4.1-nano",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652260,
         "stats": {
           "strength": 10,
@@ -5575,7 +5576,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652261,
         "stats": {
           "strength": 10,
@@ -5595,7 +5596,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o-2024-05-13",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652262,
         "stats": {
           "strength": 10,
@@ -5615,7 +5616,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o-2024-08-06",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652263,
         "stats": {
           "strength": 10,
@@ -5635,7 +5636,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o-2024-11-20",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652264,
         "stats": {
           "strength": 10,
@@ -5655,7 +5656,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652265,
         "stats": {
           "strength": 10,
@@ -5675,7 +5676,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-4o-mini-2024-07-18",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652266,
         "stats": {
           "strength": 10,
@@ -5695,7 +5696,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-4o-mini-transcribe",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652267,
         "stats": {
           "strength": 10,
@@ -5715,7 +5716,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-4o-transcribe",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652268,
         "stats": {
           "strength": 10,
@@ -5735,7 +5736,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652269,
         "stats": {
           "strength": 10,
@@ -5755,7 +5756,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-image",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652270,
         "stats": {
           "strength": 10,
@@ -5775,7 +5776,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-image-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652271,
         "stats": {
           "strength": 10,
@@ -5795,7 +5796,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652272,
         "stats": {
           "strength": 10,
@@ -5815,7 +5816,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-mini:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652273,
         "stats": {
           "strength": 10,
@@ -5835,7 +5836,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-nano",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652274,
         "stats": {
           "strength": 10,
@@ -5855,7 +5856,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-nano:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652275,
         "stats": {
           "strength": 10,
@@ -5875,7 +5876,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652276,
         "stats": {
           "strength": 10,
@@ -5895,7 +5896,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652277,
         "stats": {
           "strength": 10,
@@ -5915,7 +5916,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652278,
         "stats": {
           "strength": 10,
@@ -5935,7 +5936,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1-chat",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652279,
         "stats": {
           "strength": 10,
@@ -5955,7 +5956,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1-codex",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652280,
         "stats": {
           "strength": 10,
@@ -5975,7 +5976,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1-codex-max",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652281,
         "stats": {
           "strength": 10,
@@ -5995,7 +5996,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1-codex-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652282,
         "stats": {
           "strength": 10,
@@ -6015,7 +6016,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.1:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652283,
         "stats": {
           "strength": 10,
@@ -6035,7 +6036,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652284,
         "stats": {
           "strength": 10,
@@ -6055,7 +6056,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.2-chat",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652285,
         "stats": {
           "strength": 10,
@@ -6075,7 +6076,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.2-codex",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652286,
         "stats": {
           "strength": 10,
@@ -6095,7 +6096,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652287,
         "stats": {
           "strength": 10,
@@ -6115,7 +6116,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.2:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652288,
         "stats": {
           "strength": 10,
@@ -6135,7 +6136,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.3-chat",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652289,
         "stats": {
           "strength": 10,
@@ -6155,7 +6156,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.3-codex",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652290,
         "stats": {
           "strength": 10,
@@ -6175,7 +6176,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652291,
         "stats": {
           "strength": 10,
@@ -6195,7 +6196,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-image-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652292,
         "stats": {
           "strength": 10,
@@ -6215,7 +6216,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652293,
         "stats": {
           "strength": 10,
@@ -6235,7 +6236,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-mini:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652294,
         "stats": {
           "strength": 10,
@@ -6255,7 +6256,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-nano",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652295,
         "stats": {
           "strength": 10,
@@ -6275,7 +6276,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-nano:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652296,
         "stats": {
           "strength": 10,
@@ -6295,7 +6296,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652297,
         "stats": {
           "strength": 10,
@@ -6315,7 +6316,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.4:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652298,
         "stats": {
           "strength": 10,
@@ -6335,7 +6336,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652299,
         "stats": {
           "strength": 10,
@@ -6355,7 +6356,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652300,
         "stats": {
           "strength": 10,
@@ -6375,7 +6376,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.5:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652301,
         "stats": {
           "strength": 10,
@@ -6395,7 +6396,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-luna",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652302,
         "stats": {
           "strength": 10,
@@ -6415,7 +6416,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-luna-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652303,
         "stats": {
           "strength": 10,
@@ -6435,7 +6436,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-sol",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652304,
         "stats": {
           "strength": 10,
@@ -6455,7 +6456,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-sol-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652305,
         "stats": {
           "strength": 10,
@@ -6475,7 +6476,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-terra",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652306,
         "stats": {
           "strength": 10,
@@ -6495,7 +6496,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-5.6-terra-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652307,
         "stats": {
           "strength": 10,
@@ -6515,7 +6516,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-audio",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652308,
         "stats": {
           "strength": 10,
@@ -6535,7 +6536,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-audio-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652309,
         "stats": {
           "strength": 10,
@@ -6555,7 +6556,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-chat-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652310,
         "stats": {
           "strength": 10,
@@ -6575,7 +6576,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-image-1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652311,
         "stats": {
           "strength": 10,
@@ -6595,7 +6596,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-image-1-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652312,
         "stats": {
           "strength": 10,
@@ -6615,7 +6616,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-image-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652313,
         "stats": {
           "strength": 10,
@@ -6635,7 +6636,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-oss-120b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652314,
         "stats": {
           "strength": 10,
@@ -6655,7 +6656,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-oss-20b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652315,
         "stats": {
           "strength": 10,
@@ -6675,7 +6676,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-oss-20b:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652316,
         "stats": {
           "strength": 10,
@@ -6695,7 +6696,7 @@
         "speech_mode": "raw",
         "title": "openai/gpt-oss-safeguard-20b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652317,
         "stats": {
           "strength": 10,
@@ -6715,7 +6716,7 @@
         "speech_mode": "raw",
         "title": "openai/o1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652318,
         "stats": {
           "strength": 10,
@@ -6735,7 +6736,7 @@
         "speech_mode": "raw",
         "title": "openai/o1-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652319,
         "stats": {
           "strength": 10,
@@ -6755,7 +6756,7 @@
         "speech_mode": "raw",
         "title": "openai/o3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652320,
         "stats": {
           "strength": 10,
@@ -6775,7 +6776,7 @@
         "speech_mode": "raw",
         "title": "openai/o3-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652321,
         "stats": {
           "strength": 10,
@@ -6795,7 +6796,7 @@
         "speech_mode": "raw",
         "title": "openai/o3-mini-high",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652322,
         "stats": {
           "strength": 10,
@@ -6815,7 +6816,7 @@
         "speech_mode": "raw",
         "title": "openai/o3-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652323,
         "stats": {
           "strength": 10,
@@ -6835,7 +6836,7 @@
         "speech_mode": "raw",
         "title": "openai/o4-mini",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652324,
         "stats": {
           "strength": 10,
@@ -6855,7 +6856,7 @@
         "speech_mode": "raw",
         "title": "openai/o4-mini-high",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652325,
         "stats": {
           "strength": 10,
@@ -6875,7 +6876,7 @@
         "speech_mode": "unavailable",
         "title": "openai/sora-2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652326,
         "stats": {
           "strength": 10,
@@ -6895,7 +6896,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-3-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652327,
         "stats": {
           "strength": 10,
@@ -6915,7 +6916,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-3-large:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652328,
         "stats": {
           "strength": 10,
@@ -6935,7 +6936,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-3-small",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652329,
         "stats": {
           "strength": 10,
@@ -6955,7 +6956,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-3-small:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652330,
         "stats": {
           "strength": 10,
@@ -6975,7 +6976,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-ada-002",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652331,
         "stats": {
           "strength": 10,
@@ -6995,7 +6996,7 @@
         "speech_mode": "unavailable",
         "title": "openai/text-embedding-ada-002:batch",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652332,
         "stats": {
           "strength": 10,
@@ -7015,7 +7016,7 @@
         "speech_mode": "unavailable",
         "title": "openai/whisper-1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652333,
         "stats": {
           "strength": 10,
@@ -7035,7 +7036,7 @@
         "speech_mode": "unavailable",
         "title": "openai/whisper-large-v3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652334,
         "stats": {
           "strength": 10,
@@ -7055,7 +7056,7 @@
         "speech_mode": "unavailable",
         "title": "openai/whisper-large-v3-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652335,
         "stats": {
           "strength": 10,
@@ -7075,7 +7076,7 @@
         "speech_mode": "raw",
         "title": "openrouter/auto",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652336,
         "stats": {
           "strength": 10,
@@ -7095,7 +7096,7 @@
         "speech_mode": "raw",
         "title": "openrouter/auto-beta",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652337,
         "stats": {
           "strength": 10,
@@ -7115,7 +7116,7 @@
         "speech_mode": "raw",
         "title": "openrouter/bodybuilder",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652338,
         "stats": {
           "strength": 10,
@@ -7135,7 +7136,7 @@
         "speech_mode": "raw",
         "title": "openrouter/free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652339,
         "stats": {
           "strength": 10,
@@ -7155,7 +7156,7 @@
         "speech_mode": "raw",
         "title": "openrouter/fusion",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652340,
         "stats": {
           "strength": 10,
@@ -7175,7 +7176,7 @@
         "speech_mode": "raw",
         "title": "openrouter/pareto-code",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652341,
         "stats": {
           "strength": 10,
@@ -7195,7 +7196,7 @@
         "speech_mode": "raw",
         "title": "perceptron/perceptron-mk1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652342,
         "stats": {
           "strength": 10,
@@ -7215,7 +7216,7 @@
         "speech_mode": "unavailable",
         "title": "perplexity/pplx-embed-v1-0.6b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652343,
         "stats": {
           "strength": 10,
@@ -7235,7 +7236,7 @@
         "speech_mode": "unavailable",
         "title": "perplexity/pplx-embed-v1-4b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652344,
         "stats": {
           "strength": 10,
@@ -7255,7 +7256,7 @@
         "speech_mode": "raw",
         "title": "perplexity/sonar",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652345,
         "stats": {
           "strength": 10,
@@ -7275,7 +7276,7 @@
         "speech_mode": "raw",
         "title": "perplexity/sonar-deep-research",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652346,
         "stats": {
           "strength": 10,
@@ -7295,7 +7296,7 @@
         "speech_mode": "raw",
         "title": "perplexity/sonar-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652347,
         "stats": {
           "strength": 10,
@@ -7315,7 +7316,7 @@
         "speech_mode": "raw",
         "title": "perplexity/sonar-pro-search",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652348,
         "stats": {
           "strength": 10,
@@ -7335,7 +7336,7 @@
         "speech_mode": "raw",
         "title": "perplexity/sonar-reasoning-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652349,
         "stats": {
           "strength": 10,
@@ -7355,7 +7356,7 @@
         "speech_mode": "raw",
         "title": "poolside/laguna-s-2.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652350,
         "stats": {
           "strength": 10,
@@ -7375,7 +7376,7 @@
         "speech_mode": "raw",
         "title": "poolside/laguna-s-2.1:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652351,
         "stats": {
           "strength": 10,
@@ -7395,7 +7396,7 @@
         "speech_mode": "raw",
         "title": "poolside/laguna-xs-2.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652352,
         "stats": {
           "strength": 10,
@@ -7415,7 +7416,7 @@
         "speech_mode": "raw",
         "title": "poolside/laguna-xs-2.1:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652353,
         "stats": {
           "strength": 10,
@@ -7435,7 +7436,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-2.5-72b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652354,
         "stats": {
           "strength": 10,
@@ -7455,7 +7456,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-2.5-7b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652355,
         "stats": {
           "strength": 10,
@@ -7475,7 +7476,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-2.5-coder-32b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652356,
         "stats": {
           "strength": 10,
@@ -7495,7 +7496,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen-audio-3.0-tts-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652357,
         "stats": {
           "strength": 10,
@@ -7515,7 +7516,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen-audio-3.0-tts-plus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652358,
         "stats": {
           "strength": 10,
@@ -7535,7 +7536,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-plus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652359,
         "stats": {
           "strength": 10,
@@ -7555,7 +7556,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-plus-2025-07-28",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652360,
         "stats": {
           "strength": 10,
@@ -7575,7 +7576,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen-plus-2025-07-28:thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652361,
         "stats": {
           "strength": 10,
@@ -7595,7 +7596,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen2.5-vl-72b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652362,
         "stats": {
           "strength": 10,
@@ -7615,7 +7616,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-14b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652363,
         "stats": {
           "strength": 10,
@@ -7635,7 +7636,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-235b-a22b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652364,
         "stats": {
           "strength": 10,
@@ -7655,7 +7656,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-235b-a22b-2507",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652365,
         "stats": {
           "strength": 10,
@@ -7675,7 +7676,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-235b-a22b-thinking-2507",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652366,
         "stats": {
           "strength": 10,
@@ -7695,7 +7696,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-30b-a3b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652367,
         "stats": {
           "strength": 10,
@@ -7715,7 +7716,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-30b-a3b-instruct-2507",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652368,
         "stats": {
           "strength": 10,
@@ -7735,7 +7736,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-30b-a3b-thinking-2507",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652369,
         "stats": {
           "strength": 10,
@@ -7755,7 +7756,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-32b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652370,
         "stats": {
           "strength": 10,
@@ -7775,7 +7776,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-8b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652371,
         "stats": {
           "strength": 10,
@@ -7795,7 +7796,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen3-asr-flash-2026-02-10",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652372,
         "stats": {
           "strength": 10,
@@ -7815,7 +7816,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-coder",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652373,
         "stats": {
           "strength": 10,
@@ -7835,7 +7836,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-coder-30b-a3b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652374,
         "stats": {
           "strength": 10,
@@ -7855,7 +7856,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-coder-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652375,
         "stats": {
           "strength": 10,
@@ -7875,7 +7876,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-coder-next",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652376,
         "stats": {
           "strength": 10,
@@ -7895,7 +7896,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-coder-plus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652377,
         "stats": {
           "strength": 10,
@@ -7915,7 +7916,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen3-embedding-4b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652378,
         "stats": {
           "strength": 10,
@@ -7935,7 +7936,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen3-embedding-8b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652379,
         "stats": {
           "strength": 10,
@@ -7955,7 +7956,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-max",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652380,
         "stats": {
           "strength": 10,
@@ -7975,7 +7976,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-max-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652381,
         "stats": {
           "strength": 10,
@@ -7995,7 +7996,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-next-80b-a3b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652382,
         "stats": {
           "strength": 10,
@@ -8015,7 +8016,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-next-80b-a3b-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652383,
         "stats": {
           "strength": 10,
@@ -8035,7 +8036,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-235b-a22b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652384,
         "stats": {
           "strength": 10,
@@ -8055,7 +8056,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-235b-a22b-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652385,
         "stats": {
           "strength": 10,
@@ -8075,7 +8076,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-30b-a3b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652386,
         "stats": {
           "strength": 10,
@@ -8095,7 +8096,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-30b-a3b-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652387,
         "stats": {
           "strength": 10,
@@ -8115,7 +8116,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-32b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652388,
         "stats": {
           "strength": 10,
@@ -8135,7 +8136,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-8b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652389,
         "stats": {
           "strength": 10,
@@ -8155,7 +8156,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3-vl-8b-thinking",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652390,
         "stats": {
           "strength": 10,
@@ -8175,7 +8176,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-122b-a10b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652391,
         "stats": {
           "strength": 10,
@@ -8195,7 +8196,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-27b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652392,
         "stats": {
           "strength": 10,
@@ -8215,7 +8216,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-35b-a3b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652393,
         "stats": {
           "strength": 10,
@@ -8235,7 +8236,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-397b-a17b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652394,
         "stats": {
           "strength": 10,
@@ -8255,7 +8256,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-9b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652395,
         "stats": {
           "strength": 10,
@@ -8275,7 +8276,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-flash-02-23",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652396,
         "stats": {
           "strength": 10,
@@ -8295,7 +8296,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-plus-02-15",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652397,
         "stats": {
           "strength": 10,
@@ -8315,7 +8316,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.5-plus-20260420",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652398,
         "stats": {
           "strength": 10,
@@ -8335,7 +8336,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.6-27b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652399,
         "stats": {
           "strength": 10,
@@ -8355,7 +8356,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.6-35b-a3b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652400,
         "stats": {
           "strength": 10,
@@ -8375,7 +8376,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.6-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652401,
         "stats": {
           "strength": 10,
@@ -8395,7 +8396,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.6-max-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652402,
         "stats": {
           "strength": 10,
@@ -8415,7 +8416,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.6-plus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652403,
         "stats": {
           "strength": 10,
@@ -8435,7 +8436,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.7-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652404,
         "stats": {
           "strength": 10,
@@ -8455,7 +8456,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.7-max",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652405,
         "stats": {
           "strength": 10,
@@ -8475,7 +8476,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.7-plus",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652406,
         "stats": {
           "strength": 10,
@@ -8495,7 +8496,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652407,
         "stats": {
           "strength": 10,
@@ -8515,7 +8516,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652408,
         "stats": {
           "strength": 10,
@@ -8535,7 +8536,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652409,
         "stats": {
           "strength": 10,
@@ -8555,7 +8556,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4-pro-vector",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652410,
         "stats": {
           "strength": 10,
@@ -8575,7 +8576,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4-vector",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652411,
         "stats": {
           "strength": 10,
@@ -8595,7 +8596,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652412,
         "stats": {
           "strength": 10,
@@ -8615,7 +8616,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652413,
         "stats": {
           "strength": 10,
@@ -8635,7 +8636,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1-pro-vector",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652414,
         "stats": {
           "strength": 10,
@@ -8655,7 +8656,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1-utility",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652415,
         "stats": {
           "strength": 10,
@@ -8675,7 +8676,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1-utility-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652416,
         "stats": {
           "strength": 10,
@@ -8695,7 +8696,7 @@
         "speech_mode": "unavailable",
         "title": "recraft/recraft-v4.1-vector",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652417,
         "stats": {
           "strength": 10,
@@ -8715,7 +8716,7 @@
         "speech_mode": "raw",
         "title": "rekaai/reka-edge",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652418,
         "stats": {
           "strength": 10,
@@ -8735,7 +8736,7 @@
         "speech_mode": "raw",
         "title": "rekaai/reka-flash-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652419,
         "stats": {
           "strength": 10,
@@ -8755,7 +8756,7 @@
         "speech_mode": "raw",
         "title": "relace/relace-apply-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652420,
         "stats": {
           "strength": 10,
@@ -8775,7 +8776,7 @@
         "speech_mode": "raw",
         "title": "relace/relace-search",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652421,
         "stats": {
           "strength": 10,
@@ -8795,7 +8796,7 @@
         "speech_mode": "unavailable",
         "title": "runway/aleph-2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652422,
         "stats": {
           "strength": 10,
@@ -8815,7 +8816,7 @@
         "speech_mode": "unavailable",
         "title": "runway/gen-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652423,
         "stats": {
           "strength": 10,
@@ -8835,7 +8836,7 @@
         "speech_mode": "raw",
         "title": "sakana/fugu-ultra",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652424,
         "stats": {
           "strength": 10,
@@ -8855,7 +8856,7 @@
         "speech_mode": "raw",
         "title": "sao10k/l3-lunaris-8b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652425,
         "stats": {
           "strength": 10,
@@ -8875,7 +8876,7 @@
         "speech_mode": "raw",
         "title": "sao10k/l3.1-euryale-70b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652426,
         "stats": {
           "strength": 10,
@@ -8895,7 +8896,7 @@
         "speech_mode": "raw",
         "title": "sao10k/l3.3-euryale-70b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652427,
         "stats": {
           "strength": 10,
@@ -8915,7 +8916,7 @@
         "speech_mode": "unavailable",
         "title": "sentence-transformers/all-minilm-l12-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652428,
         "stats": {
           "strength": 10,
@@ -8935,7 +8936,7 @@
         "speech_mode": "unavailable",
         "title": "sentence-transformers/all-minilm-l6-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652429,
         "stats": {
           "strength": 10,
@@ -8955,7 +8956,7 @@
         "speech_mode": "unavailable",
         "title": "sentence-transformers/all-mpnet-base-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652430,
         "stats": {
           "strength": 10,
@@ -8975,7 +8976,7 @@
         "speech_mode": "unavailable",
         "title": "sentence-transformers/multi-qa-mpnet-base-dot-v1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652431,
         "stats": {
           "strength": 10,
@@ -8995,7 +8996,7 @@
         "speech_mode": "unavailable",
         "title": "sentence-transformers/paraphrase-minilm-l6-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652432,
         "stats": {
           "strength": 10,
@@ -9015,7 +9016,7 @@
         "speech_mode": "unavailable",
         "title": "sesame/csm-1b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652433,
         "stats": {
           "strength": 10,
@@ -9035,7 +9036,7 @@
         "speech_mode": "unavailable",
         "title": "sourceful/riverflow-v2-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652434,
         "stats": {
           "strength": 10,
@@ -9055,7 +9056,7 @@
         "speech_mode": "unavailable",
         "title": "sourceful/riverflow-v2-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652435,
         "stats": {
           "strength": 10,
@@ -9075,7 +9076,7 @@
         "speech_mode": "unavailable",
         "title": "sourceful/riverflow-v2.5-fast",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652436,
         "stats": {
           "strength": 10,
@@ -9095,7 +9096,7 @@
         "speech_mode": "unavailable",
         "title": "sourceful/riverflow-v2.5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652437,
         "stats": {
           "strength": 10,
@@ -9115,7 +9116,7 @@
         "speech_mode": "raw",
         "title": "stepfun/step-3.5-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652438,
         "stats": {
           "strength": 10,
@@ -9135,7 +9136,7 @@
         "speech_mode": "raw",
         "title": "stepfun/step-3.7-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652439,
         "stats": {
           "strength": 10,
@@ -9155,7 +9156,7 @@
         "speech_mode": "raw",
         "title": "tencent/hunyuan-a13b-instruct",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652440,
         "stats": {
           "strength": 10,
@@ -9175,7 +9176,7 @@
         "speech_mode": "raw",
         "title": "tencent/hy3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652441,
         "stats": {
           "strength": 10,
@@ -9195,7 +9196,7 @@
         "speech_mode": "raw",
         "title": "tencent/hy3-preview",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652442,
         "stats": {
           "strength": 10,
@@ -9215,7 +9216,7 @@
         "speech_mode": "raw",
         "title": "thedrummer/cydonia-24b-v4.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652443,
         "stats": {
           "strength": 10,
@@ -9235,7 +9236,7 @@
         "speech_mode": "raw",
         "title": "thedrummer/rocinante-12b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652444,
         "stats": {
           "strength": 10,
@@ -9255,7 +9256,7 @@
         "speech_mode": "raw",
         "title": "thedrummer/skyfall-36b-v2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652445,
         "stats": {
           "strength": 10,
@@ -9275,7 +9276,7 @@
         "speech_mode": "raw",
         "title": "thedrummer/unslopnemo-12b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652446,
         "stats": {
           "strength": 10,
@@ -9295,7 +9296,7 @@
         "speech_mode": "unavailable",
         "title": "thenlper/gte-base",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652447,
         "stats": {
           "strength": 10,
@@ -9315,7 +9316,7 @@
         "speech_mode": "unavailable",
         "title": "thenlper/gte-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652448,
         "stats": {
           "strength": 10,
@@ -9335,7 +9336,7 @@
         "speech_mode": "raw",
         "title": "thinkingmachines/inkling",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652449,
         "stats": {
           "strength": 10,
@@ -9355,7 +9356,7 @@
         "speech_mode": "raw",
         "title": "undi95/remm-slerp-l2-13b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652450,
         "stats": {
           "strength": 10,
@@ -9375,7 +9376,7 @@
         "speech_mode": "raw",
         "title": "upstage/solar-pro-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652451,
         "stats": {
           "strength": 10,
@@ -9395,7 +9396,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/rerank-2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652452,
         "stats": {
           "strength": 10,
@@ -9415,7 +9416,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/rerank-2.5-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652453,
         "stats": {
           "strength": 10,
@@ -9435,7 +9436,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/voyage-4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652454,
         "stats": {
           "strength": 10,
@@ -9455,7 +9456,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/voyage-4-large",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652455,
         "stats": {
           "strength": 10,
@@ -9475,7 +9476,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/voyage-4-lite",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652456,
         "stats": {
           "strength": 10,
@@ -9495,7 +9496,7 @@
         "speech_mode": "unavailable",
         "title": "voyageai/voyage-multimodal-3.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652457,
         "stats": {
           "strength": 10,
@@ -9515,7 +9516,7 @@
         "speech_mode": "raw",
         "title": "writer/palmyra-x5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652458,
         "stats": {
           "strength": 10,
@@ -9535,7 +9536,7 @@
         "speech_mode": "raw",
         "title": "x-ai/grok-4.20",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652459,
         "stats": {
           "strength": 10,
@@ -9555,7 +9556,7 @@
         "speech_mode": "raw",
         "title": "x-ai/grok-4.20-multi-agent",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652460,
         "stats": {
           "strength": 10,
@@ -9575,7 +9576,7 @@
         "speech_mode": "raw",
         "title": "x-ai/grok-4.3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652461,
         "stats": {
           "strength": 10,
@@ -9595,7 +9596,7 @@
         "speech_mode": "raw",
         "title": "x-ai/grok-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652462,
         "stats": {
           "strength": 10,
@@ -9615,7 +9616,7 @@
         "speech_mode": "raw",
         "title": "x-ai/grok-build-0.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652463,
         "stats": {
           "strength": 10,
@@ -9635,7 +9636,7 @@
         "speech_mode": "unavailable",
         "title": "x-ai/grok-imagine-image-quality",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652464,
         "stats": {
           "strength": 10,
@@ -9655,7 +9656,7 @@
         "speech_mode": "unavailable",
         "title": "x-ai/grok-imagine-video",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652465,
         "stats": {
           "strength": 10,
@@ -9675,7 +9676,7 @@
         "speech_mode": "unavailable",
         "title": "x-ai/grok-imagine-video-1.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652466,
         "stats": {
           "strength": 10,
@@ -9695,7 +9696,7 @@
         "speech_mode": "unavailable",
         "title": "x-ai/grok-stt-1.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652467,
         "stats": {
           "strength": 10,
@@ -9715,7 +9716,7 @@
         "speech_mode": "unavailable",
         "title": "x-ai/grok-voice-tts-1.0",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652468,
         "stats": {
           "strength": 10,
@@ -9735,7 +9736,7 @@
         "speech_mode": "raw",
         "title": "xiaomi/mimo-v2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652469,
         "stats": {
           "strength": 10,
@@ -9755,7 +9756,7 @@
         "speech_mode": "raw",
         "title": "xiaomi/mimo-v2.5-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652470,
         "stats": {
           "strength": 10,
@@ -9775,7 +9776,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652471,
         "stats": {
           "strength": 10,
@@ -9795,7 +9796,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.5-air",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652472,
         "stats": {
           "strength": 10,
@@ -9815,7 +9816,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.5v",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652473,
         "stats": {
           "strength": 10,
@@ -9835,7 +9836,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.6",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652474,
         "stats": {
           "strength": 10,
@@ -9855,7 +9856,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.6v",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652475,
         "stats": {
           "strength": 10,
@@ -9875,7 +9876,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.7",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652476,
         "stats": {
           "strength": 10,
@@ -9895,7 +9896,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-4.7-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652477,
         "stats": {
           "strength": 10,
@@ -9915,7 +9916,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652478,
         "stats": {
           "strength": 10,
@@ -9935,7 +9936,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-5-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652479,
         "stats": {
           "strength": 10,
@@ -9955,7 +9956,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-5.1",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652480,
         "stats": {
           "strength": 10,
@@ -9975,7 +9976,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-5.2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652481,
         "stats": {
           "strength": 10,
@@ -9995,7 +9996,7 @@
         "speech_mode": "raw",
         "title": "z-ai/glm-5v-turbo",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652482,
         "stats": {
           "strength": 10,
@@ -10015,7 +10016,7 @@
         "speech_mode": "unavailable",
         "title": "zyphra/zonos-v0.1-hybrid",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652483,
         "stats": {
           "strength": 10,
@@ -10035,7 +10036,7 @@
         "speech_mode": "unavailable",
         "title": "zyphra/zonos-v0.1-transformer",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652484,
         "stats": {
           "strength": 10,
@@ -10055,7 +10056,7 @@
         "speech_mode": "raw",
         "title": "~deepseek/deepseek-v4-flash-latest",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652485,
         "stats": {
           "strength": 10,
@@ -10075,7 +10076,7 @@
         "speech_mode": "unavailable",
         "title": "black-forest-labs/flux-3-video",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652486,
         "stats": {
           "strength": 10,
@@ -10095,7 +10096,7 @@
         "speech_mode": "unavailable",
         "title": "bytedance/seedance-2.5",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652487,
         "stats": {
           "strength": 10,
@@ -10115,7 +10116,7 @@
         "speech_mode": "raw",
         "title": "deepseek/deepseek-v4-flash-0731",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652488,
         "stats": {
           "strength": 10,
@@ -10135,7 +10136,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ling-3.0-flash",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652489,
         "stats": {
           "strength": 10,
@@ -10155,7 +10156,7 @@
         "speech_mode": "raw",
         "title": "inclusionai/ling-3.0-tiny:free",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652490,
         "stats": {
           "strength": 10,
@@ -10175,7 +10176,7 @@
         "speech_mode": "raw",
         "title": "meta/muse-glimmer-30b",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652491,
         "stats": {
           "strength": 10,
@@ -10195,7 +10196,7 @@
         "speech_mode": "raw",
         "title": "meta/muse-spark-1.2",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652492,
         "stats": {
           "strength": 10,
@@ -10215,7 +10216,7 @@
         "speech_mode": "unavailable",
         "title": "openai/gpt-transcribe",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652493,
         "stats": {
           "strength": 10,
@@ -10235,7 +10236,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen-image-3",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652494,
         "stats": {
           "strength": 10,
@@ -10255,7 +10256,7 @@
         "speech_mode": "unavailable",
         "title": "qwen/qwen-image-3-pro",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652495,
         "stats": {
           "strength": 10,
@@ -10275,7 +10276,7 @@
         "speech_mode": "raw",
         "title": "qwen/qwen3.8-max",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652496,
         "stats": {
           "strength": 10,
@@ -10295,7 +10296,7 @@
         "speech_mode": "raw",
         "title": "sakana/namazu",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652497,
         "stats": {
           "strength": 10,
@@ -10315,7 +10316,7 @@
         "speech_mode": "raw",
         "title": "thinkingmachines/inkling-small",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652498,
         "stats": {
           "strength": 10,
@@ -10335,7 +10336,7 @@
         "speech_mode": "raw",
         "title": "upstage/solar-pro4",
         "description": "An avatar with an exact OpenRouter model binding.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 652499,
         "stats": {
           "strength": 10,

@@ -28,7 +28,6 @@ fn initialize_tracing() {
 
 struct BackgroundServices {
     _projection_refresh: tokio::task::JoinHandle<()>,
-    _resident_autonomy: tokio::task::JoinHandle<()>,
     _canonical_capacity: Option<tokio::task::JoinHandle<()>>,
     _ai_readiness: Option<tokio::task::JoinHandle<()>>,
 }
@@ -36,7 +35,6 @@ struct BackgroundServices {
 impl BackgroundServices {
     fn start(state: &AppState) -> Self {
         let projection_refresh = start_projection_refresh_scheduler(state.clone());
-        let resident_autonomy = start_resident_autonomy_scheduler(state.clone());
         let canonical_capacity = start_canonical_capacity_scheduler(state.clone());
         start_focused_encounter_scheduler(state.clone());
         start_actor_job_worker(state.clone());
@@ -50,7 +48,6 @@ impl BackgroundServices {
 
         Self {
             _projection_refresh: projection_refresh,
-            _resident_autonomy: resident_autonomy,
             _canonical_capacity: canonical_capacity,
             _ai_readiness: ai_readiness,
         }

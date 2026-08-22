@@ -71,7 +71,7 @@ function bridgeCount(nodeIds, edges) {
 }
 
 function assertExchangeCycle(actors, itemIds) {
-  assert.ok(actors.every((actor) => actor.ambient_autonomy === true));
+  assert.ok(actors.every((actor) => actor.event_autonomy === true));
   assert.deepEqual(
     new Set(actors.flatMap((actor) => actor.attachments.map((entry) => entry.item_id))),
     itemIds,
@@ -305,7 +305,7 @@ test("Project 89 seeds Callum and activates owner-first-connect Proxim8 material
   assert.equal(policy.ownership.wallet_signature_proves_ownership, false);
   assert.equal(policy.custody_changes_control, false);
   assert.equal(policy.direct_actor_session, false);
-  assert.equal(policy.ambient_autonomy, true);
+  assert.equal(policy.event_autonomy, true);
   assert.equal(policy.media.trigger_word, "P89");
   assert.equal(policy.media.base_model, "flux-1");
   assert.equal(policy.media.lora_strength, 1);
@@ -315,7 +315,7 @@ test("Project 89 seeds Callum and activates owner-first-connect Proxim8 material
   const callum = actors.find((actor) => actor.id === policy.pilot.actor_id);
   assert.equal(callum.name, "Callum Synclaire");
   assert.equal(callum.location_id, 8900);
-  assert.equal(callum.ambient_autonomy, true);
+  assert.equal(callum.event_autonomy, true);
   assert.match(JSON.stringify(callum.goals), /other Proxim8s/i);
   assert.ok(callum.attachments.some(({ item_id }) => item_id === 8984));
   assert.ok(items.some((item) => item.id === 8984 && /no right to command/i.test(item.description)));
