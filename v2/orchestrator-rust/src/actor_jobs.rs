@@ -6,6 +6,10 @@ pub(super) struct ActorJob {
     pub(super) kind: String,
     pub(super) actor_id: u64,
     pub(super) attempts: u32,
+    pub(super) cause_event_seq: Option<u64>,
+    pub(super) source_tick: u64,
+    pub(super) observed_through_seq: u64,
+    pub(super) location_id: Option<u64>,
     pub(super) payload: ActorJobPayload,
 }
 
@@ -13,9 +17,9 @@ pub(super) struct ActorJob {
 #[serde(tag = "payload_kind", content = "payload", rename_all = "snake_case")]
 pub(super) enum ActorJobPayload {
     PlayerTick(PlayerTickObservation),
-    OrbChat(OrbChatJob),
+    OrbChat(Box<OrbChatJob>),
     ModelInteraction(ModelInteractionJob),
-    AvatarReflection(AvatarReflectionJob),
+    AvatarReflection(Box<AvatarReflectionJob>),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -64,7 +68,8 @@ fn claim_next_actor_job_filtered(
     let row = conn
         .query_row(
             "SELECT id, kind, actor_id, attempts, context_json,
-                    status, lease_until_ms, available_at_ms
+                    status, lease_until_ms, available_at_ms,
+                    cause_event_seq, source_tick, observed_through_seq, location_id
              FROM actor_jobs
              WHERE ((status = 'pending' AND available_at_ms <= ?1)
                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?1))
@@ -90,6 +95,10 @@ fn claim_next_actor_job_filtered(
                     row.get::<_, String>(5)?,
                     row.get::<_, Option<i64>>(6)?,
                     row.get::<_, i64>(7)?,
+                    row.get::<_, Option<i64>>(8)?,
+                    row.get::<_, i64>(9)?,
+                    row.get::<_, i64>(10)?,
+                    row.get::<_, Option<i64>>(11)?,
                 ))
             },
         )
@@ -104,6 +113,10 @@ fn claim_next_actor_job_filtered(
         selected_status,
         selected_lease_until,
         selected_available_at,
+        cause_event_seq,
+        source_tick,
+        observed_through_seq,
+        location_id,
     )) = row
     else {
         return Ok(None);
@@ -184,6 +197,10 @@ fn claim_next_actor_job_filtered(
         kind,
         actor_id: actor_id.max(0) as u64,
         attempts: next_attempt.max(0) as u32,
+        cause_event_seq: cause_event_seq.map(|value| value.max(0) as u64),
+        source_tick: source_tick.max(0) as u64,
+        observed_through_seq: observed_through_seq.max(0) as u64,
+        location_id: location_id.map(|value| value.max(0) as u64),
         payload,
     }))
 }
@@ -219,7 +236,7 @@ pub(super) fn fail_actor_job_for_runtime_state(
         ),
         _ => (false, 0),
     };
-    if readiness_retry_floor_ms > 0 {
+    if readiness_retry_floor_ms > 0 && job.attempts < ACTOR_JOB_MAX_ATTEMPTS {
         return requeue_actor_job(
             path,
             job,

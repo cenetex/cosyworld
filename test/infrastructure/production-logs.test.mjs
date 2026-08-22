@@ -66,6 +66,27 @@ describe("durable production logs", () => {
     );
   });
 
+  it("retains exact avatar-opening rejection and retry causality", () => {
+    for (const field of [
+      "actor_job_id",
+      "actor_attempt",
+      "actor_id",
+      "target_actor_id",
+      "source_event_id",
+      "location_id",
+      "failure_stage",
+      "rejection_reason",
+      "retry_decision",
+      "commit_status",
+      "commit_error_kind",
+    ]) {
+      expect(vector).toContain(`"${field}": runtime.${field}`);
+    }
+    expect(vector).toContain('"event": "avatar_opening_publication_rejected"');
+    expect(vector).not.toContain('"prompt": runtime.prompt');
+    expect(vector).not.toContain('"actor_session": runtime.actor_session');
+  });
+
   it("keeps the shipper private and smoke-checks both app/request pairs", () => {
     expect(shipperFly).not.toContain("[http_service]");
     expect(shipperFly).toContain("[checks.vector]");

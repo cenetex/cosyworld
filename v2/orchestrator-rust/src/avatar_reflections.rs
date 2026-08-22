@@ -937,7 +937,7 @@ pub(super) fn insert_avatar_reflection_job(
     let Some(job) = job.clone().with_committed_check(trigger_events) else {
         return Ok(false);
     };
-    let payload = ActorJobPayload::AvatarReflection(job.clone());
+    let payload = ActorJobPayload::AvatarReflection(Box::new(job.clone()));
     insert_actor_job_payload(
         conn,
         ACTOR_JOB_KIND_AVATAR_REFLECTION,
@@ -983,7 +983,7 @@ pub(super) fn attach_avatar_reflection_check(record: &mut JournalRecord, job: Av
             source_location_id: job.source_location_id,
             seed: check_seed,
         });
-    record.queued_actor_job = Some(ActorJobPayload::AvatarReflection(job.clone()));
+    record.queued_actor_job = Some(ActorJobPayload::AvatarReflection(Box::new(job.clone())));
 }
 
 #[cfg(test)]

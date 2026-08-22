@@ -10,7 +10,126 @@ pub(super) struct CommittedOrbChatLine {
 }
 
 pub(super) const MAX_CHAT_FLOOR_ROUNDS: u8 = 3;
-pub(super) const CHAT_CONTEXT_CHANGED_ERROR: &str = "chat_context_changed";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ChatContinuationRejection {
+    StaleSourceSequence,
+    InitiatorMissing,
+    TargetMissing,
+    InitiatorUnavailable,
+    TargetUnavailable,
+    InitiatorMoved,
+    TargetMoved,
+    TargetInferenceUnsupported,
+    TargetTextReplyUnsupported,
+    PairBlocked,
+    TargetMuted,
+}
+
+impl ChatContinuationRejection {
+    pub(super) fn code(self) -> &'static str {
+        match self {
+            Self::StaleSourceSequence => "stale_source_sequence",
+            Self::InitiatorMissing => "initiator_missing",
+            Self::TargetMissing => "target_missing",
+            Self::InitiatorUnavailable => "initiator_unavailable",
+            Self::TargetUnavailable => "target_unavailable",
+            Self::InitiatorMoved => "initiator_moved",
+            Self::TargetMoved => "target_moved",
+            Self::TargetInferenceUnsupported => "target_inference_unsupported",
+            Self::TargetTextReplyUnsupported => "target_text_reply_unsupported",
+            Self::PairBlocked => "pair_blocked",
+            Self::TargetMuted => "target_muted",
+        }
+    }
+
+    pub(super) fn player_reason(self) -> &'static str {
+        match self {
+            Self::StaleSourceSequence => {
+                "the conversation ended because its starting moment is no longer current"
+            }
+            Self::InitiatorMissing | Self::TargetMissing => {
+                "the conversation ended because a participant is no longer present"
+            }
+            Self::InitiatorUnavailable | Self::TargetUnavailable => {
+                "the conversation ended because a participant became unavailable"
+            }
+            Self::InitiatorMoved => "the conversation ended because you moved away",
+            Self::TargetMoved => "the conversation ended because the other participant moved away",
+            Self::TargetInferenceUnsupported | Self::TargetTextReplyUnsupported => {
+                "the conversation ended because that resident can no longer reply here"
+            }
+            Self::PairBlocked | Self::TargetMuted => {
+                "the conversation ended because its safety settings changed"
+            }
+        }
+    }
+
+    pub(super) fn from_code(code: &str) -> Option<Self> {
+        Some(match code {
+            "stale_source_sequence" => Self::StaleSourceSequence,
+            "initiator_missing" => Self::InitiatorMissing,
+            "target_missing" => Self::TargetMissing,
+            "initiator_unavailable" => Self::InitiatorUnavailable,
+            "target_unavailable" => Self::TargetUnavailable,
+            "initiator_moved" => Self::InitiatorMoved,
+            "target_moved" => Self::TargetMoved,
+            "target_inference_unsupported" => Self::TargetInferenceUnsupported,
+            "target_text_reply_unsupported" => Self::TargetTextReplyUnsupported,
+            "pair_blocked" => Self::PairBlocked,
+            "target_muted" => Self::TargetMuted,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum AvatarOpeningCommitFailure {
+    Storage(io::ErrorKind),
+    Status(u32),
+    Empty,
+}
+
+impl AvatarOpeningCommitFailure {
+    pub(super) fn code(self) -> &'static str {
+        match self {
+            Self::Storage(_) => "storage_failure",
+            Self::Status(CW_ERR_FULL) => "commit_full",
+            Self::Status(CW_ERR_RULE) => "commit_rule",
+            Self::Status(CW_ERR_INVALID) => "commit_invalid",
+            Self::Status(CW_ERR_NOT_FOUND) => "commit_not_found",
+            Self::Status(_) => "commit_status_unknown",
+            Self::Empty => "commit_empty",
+        }
+    }
+
+    pub(super) fn retryable(self) -> bool {
+        matches!(self, Self::Storage(_) | Self::Status(CW_ERR_FULL))
+    }
+
+    pub(super) fn commit_status(self) -> Option<u32> {
+        match self {
+            Self::Status(status) => Some(status),
+            Self::Storage(_) | Self::Empty => None,
+        }
+    }
+
+    pub(super) fn error_kind(self) -> Option<io::ErrorKind> {
+        match self {
+            Self::Storage(kind) => Some(kind),
+            Self::Status(_) | Self::Empty => None,
+        }
+    }
+}
+
+pub(super) enum AvatarOpeningPublication {
+    Committed {
+        content_id: u64,
+        events: Vec<EventView>,
+    },
+    ContextRejected(ChatContinuationRejection),
+    CommitFailed(AvatarOpeningCommitFailure),
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ChatFloorPresentation {
@@ -97,7 +216,140 @@ pub(super) fn orb_chat_attempt_stage(stage: &str, attempt: u32) -> String {
     format!("{stage}:attempt:{}", attempt.max(1))
 }
 
-pub(super) async fn commit_chat_status(
+pub(super) fn chat_continuation_rejection(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+) -> Option<ChatContinuationRejection> {
+    chat_continuation_rejection_with(
+        runtime,
+        actor_id,
+        target_actor_id,
+        location_id,
+        resident_supports_text_reply,
+    )
+}
+
+fn chat_continuation_rejection_with(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+    supports_text_reply: impl Fn(u64) -> bool,
+) -> Option<ChatContinuationRejection> {
+    let Some(actor) = runtime.actor_by_id(actor_id) else {
+        return Some(ChatContinuationRejection::InitiatorMissing);
+    };
+    let Some(target) = runtime.actor_by_id(target_actor_id) else {
+        return Some(ChatContinuationRejection::TargetMissing);
+    };
+    if !RuntimeWorld::actor_can_act(actor) {
+        return Some(ChatContinuationRejection::InitiatorUnavailable);
+    }
+    if !RuntimeWorld::actor_can_act(target) {
+        return Some(ChatContinuationRejection::TargetUnavailable);
+    }
+    if actor.location_id != location_id {
+        return Some(ChatContinuationRejection::InitiatorMoved);
+    }
+    if target.location_id != location_id {
+        return Some(ChatContinuationRejection::TargetMoved);
+    }
+    if !runtime.actor_uses_inference(target_actor_id) {
+        return Some(ChatContinuationRejection::TargetInferenceUnsupported);
+    }
+    if !supports_text_reply(target_actor_id) {
+        return Some(ChatContinuationRejection::TargetTextReplyUnsupported);
+    }
+    if runtime.actors_blocked(actor_id, target_actor_id) {
+        return Some(ChatContinuationRejection::PairBlocked);
+    }
+    if runtime.actor_muted(actor_id, target_actor_id) {
+        return Some(ChatContinuationRejection::TargetMuted);
+    }
+    None
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn durable_chat_source_rejection(
+    state: &AppState,
+    actor_job: Option<&ActorJob>,
+    actor_id: u64,
+    target_actor_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    location_id: u64,
+) -> io::Result<Option<ChatContinuationRejection>> {
+    let Some(actor_job) = actor_job else {
+        return Ok(None);
+    };
+    let row_matches_payload = actor_job.kind == ACTOR_JOB_KIND_ORB_CHAT
+        && actor_job.actor_id == actor_id
+        && actor_job.cause_event_seq == queue_event_id
+        && source_world_tick == Some(actor_job.source_tick)
+        && observed_through_seq == Some(actor_job.observed_through_seq)
+        && actor_job.location_id == Some(location_id)
+        && queue_event_id == observed_through_seq;
+    let (Some(path), Some(queue_event_id)) = (state.event_store_path.as_deref(), queue_event_id)
+    else {
+        return Ok(Some(ChatContinuationRejection::StaleSourceSequence));
+    };
+    if !row_matches_payload {
+        return Ok(Some(ChatContinuationRejection::StaleSourceSequence));
+    }
+    let source_event = read_event_store_event(path, queue_event_id)?;
+    let source_is_current = source_event.is_some_and(|event| {
+        event.seq == queue_event_id
+            && event.type_name == "chat.queued"
+            && event.success
+            && event.actor_id == Some(actor_id)
+            && event.target_actor_id == Some(target_actor_id)
+            && event.location_id == Some(location_id)
+    });
+    Ok((!source_is_current).then_some(ChatContinuationRejection::StaleSourceSequence))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn log_avatar_opening_rejection(
+    actor_job: Option<&ActorJob>,
+    attempt: u32,
+    actor_id: u64,
+    target_actor_id: u64,
+    source_event_id: Option<u64>,
+    location_id: u64,
+    failure_stage: &str,
+    rejection_reason: &str,
+    retry_decision: &str,
+    commit_status: Option<u32>,
+    commit_error_kind: Option<io::ErrorKind>,
+) {
+    let commit_status = commit_status
+        .map(|status| status.to_string())
+        .unwrap_or_default();
+    let commit_error_kind = commit_error_kind
+        .map(|kind| format!("{kind:?}").to_ascii_lowercase())
+        .unwrap_or_default();
+    warn!(
+        event = "avatar_opening_publication_rejected",
+        actor_job_id = actor_job.map(|job| job.id).unwrap_or_default(),
+        actor_attempt = attempt,
+        actor_id,
+        target_actor_id,
+        source_event_id = source_event_id.unwrap_or_default(),
+        location_id,
+        failure_stage,
+        rejection_reason,
+        retry_decision,
+        commit_status,
+        commit_error_kind,
+        "avatar opening was not published"
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn commit_chat_status_result(
     state: &AppState,
     actor_id: u64,
     target_actor_id: u64,
@@ -107,7 +359,7 @@ pub(super) async fn commit_chat_status(
     source_world_tick: Option<u64>,
     observed_through_seq: Option<u64>,
     source_location_id: Option<u64>,
-) -> Vec<EventView> {
+) -> io::Result<(u32, Vec<EventView>)> {
     let mut runtime = state.inner.lock().await;
     let mut record = JournalRecord::new(
         CwAction {
@@ -128,15 +380,138 @@ pub(super) async fn commit_chat_status(
             status: status.to_string(),
             reason: reason.to_string(),
         });
-    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
-        return Vec::new();
-    };
+    let (commit_status, events) = commit_journal_record(state, &mut runtime, record)?;
     drop(runtime);
     if commit_status == CW_OK {
         broadcast_events(state, &events);
-        events
-    } else {
-        Vec::new()
+    }
+    Ok((commit_status, events))
+}
+
+pub(super) async fn commit_chat_status(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    status: &str,
+    reason: &str,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: Option<u64>,
+) -> Vec<EventView> {
+    match commit_chat_status_result(
+        state,
+        actor_id,
+        target_actor_id,
+        status,
+        reason,
+        caused_by_event_seq,
+        source_world_tick,
+        observed_through_seq,
+        source_location_id,
+    )
+    .await
+    {
+        Ok((CW_OK, events)) => events,
+        Ok(_) | Err(_) => Vec::new(),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn complete_chat_after_context_rejection(
+    state: &AppState,
+    actor_job: Option<&ActorJob>,
+    attempt: u32,
+    actor_id: u64,
+    target_actor_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: u64,
+    failure_stage: &str,
+    rejection: ChatContinuationRejection,
+) -> Result<(), String> {
+    let completed_already = {
+        let runtime = state.inner.lock().await;
+        orb_chat_status_already_committed(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            "completed",
+            source_location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+        )
+    };
+    if completed_already {
+        return Ok(());
+    }
+
+    log_avatar_opening_rejection(
+        actor_job,
+        attempt,
+        actor_id,
+        target_actor_id,
+        queue_event_id,
+        source_location_id,
+        failure_stage,
+        rejection.code(),
+        "terminal",
+        None,
+        None,
+    );
+    match commit_chat_status_result(
+        state,
+        actor_id,
+        target_actor_id,
+        "completed",
+        rejection.player_reason(),
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        Some(source_location_id),
+    )
+    .await
+    {
+        Ok((CW_OK, events)) if !events.is_empty() => Ok(()),
+        Ok((status, _)) => {
+            log_avatar_opening_rejection(
+                actor_job,
+                attempt,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_location_id,
+                "terminal_status_commit",
+                "terminal_status_commit_rejected",
+                "retry",
+                Some(status),
+                None,
+            );
+            Err(format!(
+                "the ended conversation status was rejected with commit status {status}"
+            ))
+        }
+        Err(error) => {
+            log_avatar_opening_rejection(
+                actor_job,
+                attempt,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_location_id,
+                "terminal_status_commit",
+                "storage_failure",
+                "retry",
+                None,
+                Some(error.kind()),
+            );
+            Err(format!(
+                "the ended conversation status could not be stored ({:?})",
+                error.kind()
+            ))
+        }
     }
 }
 
@@ -180,9 +555,470 @@ async fn complete_queued_orb_chat(
         queue_event_id,
         source_world_tick,
         observed_through_seq,
+        None,
         1,
     )
     .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn complete_queued_orb_chat_attempt(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    plan: AvatarChatPlan,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    actor_job: Option<&ActorJob>,
+    attempt: u32,
+) -> Result<(), String> {
+    let mut plan = plan.with_publication_beat(
+        &orb_chat_attempt_stage("avatar-chat", attempt),
+        queue_event_id,
+        source_world_tick,
+    );
+    if plan.initiative_order.is_empty() {
+        plan.initiative_order.push(target_actor_id);
+    }
+    let will_retry = state.event_store_path.is_some() && attempt < ACTOR_JOB_MAX_ATTEMPTS;
+    let started_at = Instant::now();
+    let usage_config = state.ai_config.as_ref().clone();
+    let (terminal_status_already_committed, committed_lines) = {
+        let runtime = state.inner.lock().await;
+        (
+            orb_chat_terminal_status_already_committed(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                plan.location_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+            ),
+            committed_orb_chat_lines(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                plan.location_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                &plan.initiative_order,
+            )?,
+        )
+    };
+    if terminal_status_already_committed {
+        return Ok(());
+    }
+    if committed_lines.is_empty() {
+        match durable_chat_source_rejection(
+            state,
+            actor_job,
+            actor_id,
+            target_actor_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            plan.location_id,
+        ) {
+            Ok(Some(rejection)) => {
+                return complete_chat_after_context_rejection(
+                    state,
+                    actor_job,
+                    attempt,
+                    actor_id,
+                    target_actor_id,
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    plan.location_id,
+                    "source_validation",
+                    rejection,
+                )
+                .await;
+            }
+            Ok(None) => {}
+            Err(error) => {
+                log_avatar_opening_rejection(
+                    actor_job,
+                    attempt,
+                    actor_id,
+                    target_actor_id,
+                    queue_event_id,
+                    plan.location_id,
+                    "source_validation",
+                    "storage_failure",
+                    if will_retry { "retry" } else { "terminal" },
+                    None,
+                    Some(error.kind()),
+                );
+                let _ = commit_chat_status_result(
+                    state,
+                    actor_id,
+                    target_actor_id,
+                    if will_retry { "retrying" } else { "failed" },
+                    if will_retry {
+                        "the conversation could not be checked safely; retrying"
+                    } else {
+                        "the conversation could not be checked safely; try talking again"
+                    },
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    Some(plan.location_id),
+                )
+                .await;
+                return Err(format!(
+                    "avatar opening source validation failed ({:?})",
+                    error.kind()
+                ));
+            }
+        }
+        let context_rejection = {
+            let runtime = state.inner.lock().await;
+            chat_continuation_rejection(&runtime, actor_id, target_actor_id, plan.location_id)
+        };
+        if let Some(rejection) = context_rejection {
+            return complete_chat_after_context_rejection(
+                state,
+                actor_job,
+                attempt,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                plan.location_id,
+                "pre_inference",
+                rejection,
+            )
+            .await;
+        }
+        announce_chat_typing(
+            state,
+            actor_id,
+            target_actor_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            Some(plan.location_id),
+        )
+        .await;
+        if state.avatar_chat_delay > Duration::ZERO {
+            tokio::time::sleep(state.avatar_chat_delay).await;
+        }
+        let certified = match avatar_chat_text(state, &plan).await {
+            Ok(content) => content,
+            Err(error) => {
+                let config = state.ai_config.as_ref().as_ref();
+                let will_retry = will_retry
+                    && !chat_target_route_is_permanently_unavailable(config, target_actor_id);
+                warn!("queued AI avatar inference failed: {}", error);
+                log_avatar_opening_rejection(
+                    actor_job,
+                    attempt,
+                    actor_id,
+                    target_actor_id,
+                    queue_event_id,
+                    plan.location_id,
+                    "inference",
+                    error.code(),
+                    if will_retry { "retry" } else { "terminal" },
+                    None,
+                    None,
+                );
+                record_rejected_ai_publication(state, &error);
+                commit_chat_status(
+                    state,
+                    actor_id,
+                    target_actor_id,
+                    if will_retry { "retrying" } else { "failed" },
+                    if will_retry {
+                        "the reply got lost; retrying the conversation"
+                    } else {
+                        "the reply got lost; try talking again"
+                    },
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    Some(plan.location_id),
+                )
+                .await;
+                record_ai_usage(
+                    state,
+                    Some(actor_id),
+                    "avatar_chat",
+                    "cosyworld_system",
+                    usage_config.as_ref(),
+                    "failed",
+                    queue_event_id,
+                    0,
+                    Some(error.code()),
+                    started_at.elapsed(),
+                );
+                return Err(error.to_string());
+            }
+        };
+        let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
+        let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
+        let publication = {
+            let mut runtime = state.inner.lock().await;
+            if let Some(rejection) =
+                chat_continuation_rejection(&runtime, actor_id, target_actor_id, plan.location_id)
+            {
+                AvatarOpeningPublication::ContextRejected(rejection)
+            } else {
+                let content_id = runtime.next_content_id_value();
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_SAY,
+                        actor_id,
+                        content_id,
+                        ..CwAction::default()
+                    },
+                    runtime.next_seed_value(),
+                );
+                record.caused_by_event_seq = queue_event_id;
+                record.source_world_tick = source_world_tick;
+                record.observed_through_seq = observed_through_seq;
+                record.source_location_id = Some(plan.location_id);
+                record.content_upserts.insert(content_id, content.clone());
+                record.ai_publication = Some(publication_receipt);
+                runtime.attach_reasoning_thought_memory(
+                    &mut record,
+                    actor_id,
+                    plan.location_id,
+                    reasoning_trace.as_deref(),
+                );
+                match commit_journal_record(state, &mut runtime, record) {
+                    Ok((CW_OK, events)) if !events.is_empty() => {
+                        AvatarOpeningPublication::Committed { content_id, events }
+                    }
+                    Ok((CW_OK, _)) => {
+                        AvatarOpeningPublication::CommitFailed(AvatarOpeningCommitFailure::Empty)
+                    }
+                    Ok((status, _)) => AvatarOpeningPublication::CommitFailed(
+                        AvatarOpeningCommitFailure::Status(status),
+                    ),
+                    Err(error) => AvatarOpeningPublication::CommitFailed(
+                        AvatarOpeningCommitFailure::Storage(error.kind()),
+                    ),
+                }
+            }
+        };
+
+        let (content_id, events) = match publication {
+            AvatarOpeningPublication::Committed { content_id, events } => (content_id, events),
+            AvatarOpeningPublication::ContextRejected(rejection) => {
+                record_ai_usage(
+                    state,
+                    Some(actor_id),
+                    "avatar_chat",
+                    "cosyworld_system",
+                    usage_config.as_ref(),
+                    "failed",
+                    queue_event_id,
+                    0,
+                    Some(rejection.code()),
+                    started_at.elapsed(),
+                );
+                return complete_chat_after_context_rejection(
+                    state,
+                    actor_job,
+                    attempt,
+                    actor_id,
+                    target_actor_id,
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    plan.location_id,
+                    "post_inference",
+                    rejection,
+                )
+                .await;
+            }
+            AvatarOpeningPublication::CommitFailed(failure) => {
+                let retrying = failure.retryable() && will_retry;
+                log_avatar_opening_rejection(
+                    actor_job,
+                    attempt,
+                    actor_id,
+                    target_actor_id,
+                    queue_event_id,
+                    plan.location_id,
+                    "opening_commit",
+                    failure.code(),
+                    if retrying { "retry" } else { "terminal" },
+                    failure.commit_status(),
+                    failure.error_kind(),
+                );
+                let status_commit = commit_chat_status_result(
+                    state,
+                    actor_id,
+                    target_actor_id,
+                    if retrying { "retrying" } else { "failed" },
+                    if retrying {
+                        "the conversation could not be saved; retrying from its last committed line"
+                    } else {
+                        "the conversation could not be published safely; try talking again"
+                    },
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    Some(plan.location_id),
+                )
+                .await;
+                let status_persisted =
+                    matches!(&status_commit, Ok((CW_OK, events)) if !events.is_empty());
+                match &status_commit {
+                    Ok((CW_OK, events)) if !events.is_empty() => {}
+                    Ok((status, _)) => log_avatar_opening_rejection(
+                        actor_job,
+                        attempt,
+                        actor_id,
+                        target_actor_id,
+                        queue_event_id,
+                        plan.location_id,
+                        "failure_status_commit",
+                        "failure_status_commit_rejected",
+                        "retry",
+                        Some(*status),
+                        None,
+                    ),
+                    Err(error) => log_avatar_opening_rejection(
+                        actor_job,
+                        attempt,
+                        actor_id,
+                        target_actor_id,
+                        queue_event_id,
+                        plan.location_id,
+                        "failure_status_commit",
+                        "storage_failure",
+                        "retry",
+                        None,
+                        Some(error.kind()),
+                    ),
+                }
+                record_ai_usage(
+                    state,
+                    Some(actor_id),
+                    "avatar_chat",
+                    "cosyworld_system",
+                    usage_config.as_ref(),
+                    "failed",
+                    queue_event_id,
+                    0,
+                    Some(failure.code()),
+                    started_at.elapsed(),
+                );
+                if failure.retryable() || !status_persisted {
+                    return Err(format!(
+                        "avatar opening publication failed: {}",
+                        failure.code()
+                    ));
+                }
+                return Ok(());
+            }
+        };
+        broadcast_events(state, &events);
+        record_ai_usage(
+            state,
+            Some(actor_id),
+            "avatar_chat",
+            "cosyworld_system",
+            usage_config.as_ref(),
+            "ok",
+            queue_event_id.or_else(|| source_event_id_for_chat(&events, actor_id, content_id)),
+            0,
+            None,
+            started_at.elapsed(),
+        );
+    }
+    let exchange_result = complete_orb_chat_exchange(
+        state,
+        actor_id,
+        target_actor_id,
+        plan.clone(),
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        attempt,
+    )
+    .await;
+    if let Err(error) = exchange_result {
+        if let Some(rejection) = error
+            .strip_prefix("chat_context_changed:")
+            .and_then(ChatContinuationRejection::from_code)
+        {
+            complete_chat_after_context_rejection(
+                state,
+                actor_job,
+                attempt,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                plan.location_id,
+                "exchange_publication",
+                rejection,
+            )
+            .await?;
+            return Ok(());
+        }
+        let config = state.ai_config.as_ref().as_ref();
+        let will_retry =
+            will_retry && !chat_target_route_is_permanently_unavailable(config, target_actor_id);
+        warn!("bounded avatar chat ended early: {}", error);
+        commit_chat_status(
+            state,
+            actor_id,
+            target_actor_id,
+            if will_retry { "retrying" } else { "failed" },
+            if will_retry {
+                "the conversation ended early; retrying from its last line"
+            } else {
+                "the conversation ended early; try talking again"
+            },
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            Some(plan.location_id),
+        )
+        .await;
+        return Err(error);
+    }
+    let completed_already = {
+        let runtime = state.inner.lock().await;
+        orb_chat_status_already_committed(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            "completed",
+            plan.location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+        )
+    };
+    if completed_already {
+        return Ok(());
+    }
+    let completed_events = commit_completed_chat(
+        state,
+        actor_id,
+        target_actor_id,
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        plan.location_id,
+    )
+    .await;
+    if completed_events.is_empty() {
+        return Err("the completed conversation status could not be committed".to_string());
+    }
+    Ok(())
 }
 
 fn orb_chat_event_matches_job(
@@ -366,6 +1202,30 @@ pub(super) fn orb_chat_status_already_committed(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(super) fn orb_chat_terminal_status_already_committed(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) -> bool {
+    runtime.event_log.iter().any(|event| {
+        matches!(event.type_name.as_str(), "chat.completed" | "chat.failed")
+            && event.actor_id == Some(actor_id)
+            && event.target_actor_id == Some(target_actor_id)
+            && orb_chat_event_matches_job(
+                event,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                location_id,
+            )
+    })
+}
+
 pub(super) async fn chat(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -499,14 +1359,14 @@ pub(super) async fn chat(
             status: "queued".to_string(),
             reason: "the conversation is unfolding".to_string(),
         });
-    record.queued_actor_job = Some(ActorJobPayload::OrbChat(OrbChatJob {
+    record.queued_actor_job = Some(ActorJobPayload::OrbChat(Box::new(OrbChatJob {
         actor_id: payload.actor_id,
         target_actor_id: payload.target_actor_id,
         plan: plan.clone(),
         queue_event_id: None,
         source_world_tick: None,
         observed_through_seq: None,
-    }));
+    })));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -677,29 +1537,28 @@ pub(super) async fn complete_orb_chat_exchange(
         let opening = lines[0].clone();
         let first_reply_plan = {
             let runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
+            if let Some(rejection) = chat_continuation_rejection(
                 &runtime,
                 actor_id,
                 target_actor_id,
                 chat_plan.location_id,
             ) {
-                None
-            } else {
-                runtime
-                    .resident_reply_plan_for_target(actor_id, target_actor_id, &opening.content)
-                    .map(|mut reply_plan| {
-                        if let Some(turn) = reply_plan.incoming_turn.as_mut() {
-                            turn.source_event_seq = Some(opening.seq);
-                        }
-                        reply_plan.with_publication_causality(
-                            &orb_chat_attempt_stage("avatar-chat-reply", attempt),
-                            queue_event_id,
-                            source_world_tick,
-                            Some(observed_through_seq.unwrap_or_default().max(opening.seq)),
-                            Some(chat_plan.location_id),
-                        )
-                    })
+                return Err(format!("chat_context_changed:{}", rejection.code()));
             }
+            runtime
+                .resident_reply_plan_for_target(actor_id, target_actor_id, &opening.content)
+                .map(|mut reply_plan| {
+                    if let Some(turn) = reply_plan.incoming_turn.as_mut() {
+                        turn.source_event_seq = Some(opening.seq);
+                    }
+                    reply_plan.with_publication_causality(
+                        &orb_chat_attempt_stage("avatar-chat-reply", attempt),
+                        queue_event_id,
+                        source_world_tick,
+                        Some(observed_through_seq.unwrap_or_default().max(opening.seq)),
+                        Some(chat_plan.location_id),
+                    )
+                })
         }
         .ok_or_else(|| "the target could not answer the opening line".to_string())?;
         announce_chat_typing(
@@ -720,25 +1579,24 @@ pub(super) async fn complete_orb_chat_exchange(
             })?;
         let first_reply_events = {
             let mut runtime = state.inner.lock().await;
-            chat_participants_can_continue(
+            if let Some(rejection) = chat_continuation_rejection(
                 &runtime,
                 actor_id,
                 target_actor_id,
                 chat_plan.location_id,
+            ) {
+                return Err(format!("chat_context_changed:{}", rejection.code()));
+            }
+            commit_resident_reply_record(
+                state,
+                &mut runtime,
+                &first_reply_plan,
+                first_proposal,
+                None,
+                None,
             )
-            .then(|| {
-                commit_resident_reply_record(
-                    state,
-                    &mut runtime,
-                    &first_reply_plan,
-                    first_proposal,
-                    None,
-                    None,
-                )
-            })
-            .flatten()
         }
-        .ok_or_else(|| CHAT_CONTEXT_CHANGED_ERROR.to_string())?;
+        .ok_or_else(|| "resident_reply_commit_rejected".to_string())?;
         broadcast_events(state, &first_reply_events);
         lines = load_lines().await?;
     }
@@ -1101,83 +1959,125 @@ mod tests {
     use axum::{routing::post, Router};
 
     #[test]
-    fn bounded_chat_requires_original_room_and_current_safety_consent() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Room Anchor");
-        assert!(chat_participants_can_continue(
-            &runtime,
-            5000,
-            RATI_ACTOR_ID,
-            COSY_COTTAGE_LOCATION_ID,
-        ));
+    fn bounded_chat_names_each_exact_context_rejection() {
+        let mut baseline = RuntimeWorld::seeded();
+        create_test_human(&mut baseline, 5000, COSY_COTTAGE_LOCATION_ID, "Room Anchor");
+        assert_eq!(
+            chat_continuation_rejection(&baseline, 5000, RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID,),
+            None,
+        );
+        assert_eq!(
+            chat_continuation_rejection(
+                &baseline,
+                999_998,
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+            ),
+            Some(ChatContinuationRejection::InitiatorMissing),
+        );
+        assert_eq!(
+            chat_continuation_rejection(&baseline, 5000, 999_999, COSY_COTTAGE_LOCATION_ID,),
+            Some(ChatContinuationRejection::TargetMissing),
+        );
 
-        runtime
-            .actor_safety
-            .entry(5000)
+        let mut initiator_unavailable = baseline.clone();
+        initiator_unavailable.world.actors[..initiator_unavailable.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("Chat initiator")
+            .status = CW_ACTOR_KNOCKED_OUT;
+        assert_eq!(
+            chat_continuation_rejection(
+                &initiator_unavailable,
+                5000,
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+            ),
+            Some(ChatContinuationRejection::InitiatorUnavailable),
+        );
+
+        let mut target_unavailable = baseline.clone();
+        target_unavailable.world.actors[..target_unavailable.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Chat target")
+            .status = CW_ACTOR_KNOCKED_OUT;
+        assert_eq!(
+            chat_continuation_rejection(
+                &target_unavailable,
+                5000,
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+            ),
+            Some(ChatContinuationRejection::TargetUnavailable),
+        );
+
+        for (actor_id, expected) in [
+            (5000, ChatContinuationRejection::InitiatorMoved),
+            (RATI_ACTOR_ID, ChatContinuationRejection::TargetMoved),
+        ] {
+            let mut moved = baseline.clone();
+            moved.world.actors[..moved.world.actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == actor_id)
+                .expect("Chat participant")
+                .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            assert_eq!(
+                chat_continuation_rejection(&moved, 5000, RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID,),
+                Some(expected),
+            );
+        }
+
+        let mut unsupported_inference = baseline.clone();
+        unsupported_inference
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
             .or_default()
-            .muted_actor_ids
-            .insert(RATI_ACTOR_ID);
-        assert!(!chat_participants_can_continue(
-            &runtime,
-            5000,
-            RATI_ACTOR_ID,
-            COSY_COTTAGE_LOCATION_ID,
-        ));
-        runtime
-            .actor_safety
-            .get_mut(&5000)
-            .expect("safety state")
-            .muted_actor_ids
-            .clear();
-        runtime
+            .control_mode = ActorControlMode::DirectInput;
+        assert_eq!(
+            chat_continuation_rejection(
+                &unsupported_inference,
+                5000,
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+            ),
+            Some(ChatContinuationRejection::TargetInferenceUnsupported),
+        );
+
+        assert_eq!(
+            chat_continuation_rejection_with(
+                &baseline,
+                5000,
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+                |_| false,
+            ),
+            Some(ChatContinuationRejection::TargetTextReplyUnsupported),
+        );
+
+        let mut blocked = baseline.clone();
+        blocked
             .actor_safety
             .entry(RATI_ACTOR_ID)
             .or_default()
             .blocked_actor_ids
             .insert(5000);
-        assert!(!chat_participants_can_continue(
-            &runtime,
-            5000,
-            RATI_ACTOR_ID,
-            COSY_COTTAGE_LOCATION_ID,
-        ));
-        runtime
-            .actor_safety
-            .get_mut(&RATI_ACTOR_ID)
-            .expect("safety state")
-            .blocked_actor_ids
-            .clear();
-        let original_control_mode = runtime.actor_control_mode(RATI_ACTOR_ID);
-        runtime
-            .actor_autonomy
-            .entry(RATI_ACTOR_ID)
-            .or_default()
-            .control_mode = ActorControlMode::DirectInput;
-        assert!(!chat_participants_can_continue(
-            &runtime,
-            5000,
-            RATI_ACTOR_ID,
-            COSY_COTTAGE_LOCATION_ID,
-        ));
-        runtime
-            .actor_autonomy
-            .get_mut(&RATI_ACTOR_ID)
-            .expect("autonomy state")
-            .control_mode = original_control_mode;
+        assert_eq!(
+            chat_continuation_rejection(&blocked, 5000, RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID,),
+            Some(ChatContinuationRejection::PairBlocked),
+        );
 
-        for actor_id in [5000, RATI_ACTOR_ID] {
-            let actor = runtime.world.actors[..runtime.world.actor_count]
-                .iter_mut()
-                .find(|actor| actor.id == actor_id)
-                .expect("Chat participant exists");
-            actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
-        }
-        assert!(!chat_participants_can_continue(
-            &runtime,
-            5000,
-            RATI_ACTOR_ID,
-            COSY_COTTAGE_LOCATION_ID,
-        ));
+        let mut muted = baseline;
+        muted
+            .actor_safety
+            .entry(5000)
+            .or_default()
+            .muted_actor_ids
+            .insert(RATI_ACTOR_ID);
+        assert_eq!(
+            chat_continuation_rejection(&muted, 5000, RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID,),
+            Some(ChatContinuationRejection::TargetMuted),
+        );
     }
 
     #[test]
@@ -1495,21 +2395,254 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stale_durable_source_survives_snapshot_restart_without_inference() {
+        let event_store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-stale-chat-source-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-stale-chat-source-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&event_store_path);
+        let _ = fs::remove_file(&snapshot_path);
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(event_store_path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "must-not-be-used".to_string(),
+            base_url: "http://127.0.0.1:9".to_string(),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
+        {
+            let mut runtime = state.inner.lock().await;
+            create_test_human(
+                &mut runtime,
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                "Stale Source Tester",
+            );
+        }
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let response = chat(
+            ConnectInfo("127.0.0.1:44100".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert!(
+            snapshot_path.exists(),
+            "the queued beat writes a restart snapshot"
+        );
+        let claimed = claim_next_actor_job_of_kind(&event_store_path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim durable Chat job")
+            .expect("queued durable Chat job");
+        let ActorJobPayload::OrbChat(job) = claimed.payload.clone() else {
+            panic!("queued the wrong durable job kind");
+        };
+        assert_eq!(
+            durable_chat_source_rejection(
+                &state,
+                Some(&claimed),
+                job.actor_id,
+                job.target_actor_id,
+                job.queue_event_id,
+                job.source_world_tick,
+                job.observed_through_seq,
+                job.plan.location_id,
+            )
+            .expect("read durable source"),
+            None,
+        );
+
+        let restored = rebuild_runtime_from_durable_state(&state, &event_store_path)
+            .expect("restart from snapshot and journal");
+        let canonical_owner_id = state.canonical_owner_id.clone();
+        drop(state);
+        let mut restarted = test_app_state(*restored, Some(event_store_path.clone()));
+        restarted.canonical_owner_id = canonical_owner_id;
+        let stale_observation = job
+            .observed_through_seq
+            .map(|sequence| sequence.saturating_sub(1));
+        complete_queued_orb_chat_attempt(
+            &restarted,
+            job.actor_id,
+            job.target_actor_id,
+            job.plan,
+            job.queue_event_id,
+            job.source_world_tick,
+            stale_observation,
+            Some(&claimed),
+            claimed.attempts,
+        )
+        .await
+        .expect("stale source is an intentional terminal outcome");
+
+        let runtime = restarted.inner.lock().await;
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.completed"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("starting moment is no longer current"))
+        }));
+        assert!(!runtime
+            .event_log
+            .iter()
+            .any(|event| event.type_name == "message.created"));
+        drop(runtime);
+        complete_actor_job(&event_store_path, claimed.id).expect("complete stale Chat job");
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-wal"));
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-shm"));
+        let _ = fs::remove_file(event_store_path);
+        let _ = fs::remove_file(snapshot_path);
+    }
+
+    #[tokio::test]
+    async fn opening_storage_failure_is_visible_and_retryable_without_stale_dialogue() {
+        let event_store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-chat-storage-retry-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&event_store_path);
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let calls = calls.clone();
+                move |Json(_request): Json<serde_json::Value>| {
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    async move {
+                        Json(serde_json::json!({
+                            "model": "test-chat-model",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": {
+                                    "content": "I found a quiet minute. How is the cottage treating you?"
+                                }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind storage retry inference server");
+        let address = listener.local_addr().expect("storage retry server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(event_store_path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
+        let plan = {
+            let mut runtime = state.inner.lock().await;
+            let create = CwAction {
+                kind: CW_ACTION_CREATE_ACTOR,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            };
+            let mut record = JournalRecord::new(create, 75_000);
+            record.actor_meta_upserts.insert(
+                5000,
+                ActorMeta {
+                    name: "Storage Retry Tester".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Relay Test Avatar".to_string(),
+                    description: "A durable test avatar.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, record)
+                    .expect("persist test avatar")
+                    .0,
+                CW_OK,
+            );
+            runtime
+                .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+                .expect("co-present inference resident is a Chat target")
+        };
+        let conn = open_event_store(&event_store_path).expect("open storage retry store");
+        conn.execute_batch(
+            "CREATE TRIGGER reject_avatar_opening
+             BEFORE INSERT ON world_events
+             WHEN NEW.event_type = 'message.created'
+             BEGIN SELECT RAISE(ABORT, 'injected avatar opening storage failure'); END;",
+        )
+        .expect("inject opening storage failure");
+
+        let error = complete_queued_orb_chat_attempt(
+            &state,
+            5000,
+            RATI_ACTOR_ID,
+            plan,
+            Some(61),
+            Some(9),
+            Some(60),
+            None,
+            1,
+        )
+        .await
+        .expect_err("storage failure keeps the durable attempt retryable");
+        assert!(error.contains("storage_failure"), "exact error: {error}");
+        assert!(calls.load(std::sync::atomic::Ordering::SeqCst) > 0);
+        let runtime = state.inner.lock().await;
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.retrying"
+                && event.content.as_deref().is_some_and(|content| {
+                    content.contains("could not be saved") && content.contains("retrying")
+                })
+        }));
+        assert!(!runtime
+            .event_log
+            .iter()
+            .any(|event| event.type_name == "message.created"));
+        drop(runtime);
+        conn.execute_batch("DROP TRIGGER reject_avatar_opening;")
+            .expect("remove opening storage failure");
+        drop(conn);
+        server.abort();
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-wal"));
+        let _ = fs::remove_file(event_store_path.with_extension("sqlite-shm"));
+        let _ = fs::remove_file(event_store_path);
+    }
+
+    #[tokio::test]
     async fn moving_during_opening_inference_completes_chat_without_a_false_failure() {
         let inference_started = Arc::new(Notify::new());
         let inference_released = Arc::new(Notify::new());
         let released = Arc::new(AtomicU8::new(0));
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let app = Router::new().route(
             "/chat/completions",
             post({
                 let inference_started = inference_started.clone();
                 let inference_released = inference_released.clone();
                 let released = released.clone();
+                let calls = calls.clone();
                 move |Json(_request): Json<serde_json::Value>| {
                     let inference_started = inference_started.clone();
                     let inference_released = inference_released.clone();
                     let released = released.clone();
+                    let calls = calls.clone();
                     async move {
+                        calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         inference_started.notify_one();
                         while released.load(AtomicOrdering::SeqCst) == 0 {
                             inference_released.notified().await;
@@ -1558,12 +2691,13 @@ mod tests {
         };
 
         let worker_state = state.clone();
+        let worker_plan = plan.clone();
         let worker = tokio::spawn(async move {
             complete_queued_orb_chat(
                 &worker_state,
                 5000,
                 RATI_ACTOR_ID,
-                plan,
+                worker_plan,
                 Some(71),
                 Some(10),
                 Some(70),
@@ -1591,11 +2725,29 @@ mod tests {
             .expect("moved Chat worker joins")
             .expect("moving ends the queued Chat cleanly");
 
+        let calls_after_terminal_status = calls.load(std::sync::atomic::Ordering::SeqCst);
+        complete_queued_orb_chat(
+            &state,
+            5000,
+            RATI_ACTOR_ID,
+            plan,
+            Some(71),
+            Some(10),
+            Some(70),
+        )
+        .await
+        .expect("a reclaimed terminal conversation stays complete");
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            calls_after_terminal_status,
+            "a deterministically invalid context must not trigger another paid inference",
+        );
+
         let runtime = state.inner.lock().await;
         assert!(runtime.event_log.iter().any(|event| {
             event.type_name == "chat.completed"
                 && event.caused_by_event_seq == Some(71)
-                && event.content.as_deref() == Some("the conversation moved out of reach")
+                && event.content.as_deref() == Some("the conversation ended because you moved away")
         }));
         assert!(!runtime.event_log.iter().any(|event| {
             matches!(event.type_name.as_str(), "chat.retrying" | "chat.failed")
@@ -1808,7 +2960,7 @@ mod tests {
     }
 
     #[test]
-    fn orb_chat_provider_retry_waits_out_the_voice_health_cooldown_only_for_chat() {
+    fn orb_chat_provider_retry_waits_for_health_but_stops_at_the_attempt_budget() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-chat-retry-floor-{}-{}.sqlite",
             std::process::id(),
@@ -1859,18 +3011,47 @@ mod tests {
         assert_eq!(status, "pending");
         assert_eq!(last_error.as_deref(), Some("voice_provider_unavailable"));
         assert!(available_at_ms as u64 >= before.saturating_add(2_000));
+
+        let mut probing = AiConfig::default();
+        probing.readiness =
+            crate::ai_readiness::AiReadiness::probing_with_low_credit_threshold(5.0);
+        state.ai_config = Arc::new(Some(probing));
+        let mut exhausted = claimed.clone();
+        exhausted.attempts = ACTOR_JOB_MAX_ATTEMPTS;
+        fail_actor_job_for_runtime_state(
+            &path,
+            &state,
+            &exhausted,
+            "voice_provider_unavailable",
+            retry_floor,
+        )
+        .expect("exhausted Chat retry becomes terminal even while readiness is probing");
+        let status: String = conn
+            .query_row(
+                "SELECT status FROM actor_jobs WHERE id = ?1",
+                params![claimed.id],
+                |row| row.get(0),
+            )
+            .expect("read exhausted Chat retry status");
+        assert_eq!(status, "dead");
         drop(conn);
         let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
-    async fn retry_resumes_after_the_last_committed_line_without_replaying_it() {
+    async fn retry_resumes_across_snapshot_restart_without_replaying_the_opening() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-chat-resume-{}-{}.sqlite",
             std::process::id(),
             now_seed()
         ));
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-chat-resume-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
         let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&snapshot_path);
         let fail_after_opening = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let app = Router::new().route(
@@ -1922,6 +3103,7 @@ mod tests {
         });
 
         let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
         state.ai_config = Arc::new(Some(AiConfig {
             api_key: "test".to_string(),
             base_url: format!("http://{address}"),
@@ -1949,6 +3131,7 @@ mod tests {
             Some(61),
             Some(9),
             Some(60),
+            None,
             1,
         )
         .await;
@@ -1974,7 +3157,20 @@ mod tests {
                         .as_deref()
                         .is_some_and(|content| content.contains("retrying"))
             }));
+            runtime
+                .save_snapshot(&snapshot_path)
+                .expect("snapshot the partially committed Chat transcript");
         }
+
+        let restored = rebuild_runtime_from_durable_state(&state, &path)
+            .expect("restart from the partial Chat snapshot and journal");
+        let canonical_owner_id = state.canonical_owner_id.clone();
+        let ai_config = state.ai_config.clone();
+        drop(state);
+        let mut state = test_app_state(*restored, Some(path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        state.canonical_owner_id = canonical_owner_id;
+        state.ai_config = ai_config;
 
         fail_after_opening.store(false, std::sync::atomic::Ordering::SeqCst);
         // The failed resident route opened the model's two-second health
@@ -1989,6 +3185,7 @@ mod tests {
             Some(61),
             Some(9),
             Some(60),
+            None,
             2,
         )
         .await
@@ -2002,6 +3199,7 @@ mod tests {
             Some(61),
             Some(9),
             Some(60),
+            None,
             3,
         )
         .await
@@ -2042,6 +3240,9 @@ mod tests {
         );
         drop(runtime);
         server.abort();
+        let _ = fs::remove_file(path.with_extension("sqlite-wal"));
+        let _ = fs::remove_file(path.with_extension("sqlite-shm"));
         let _ = fs::remove_file(path);
+        let _ = fs::remove_file(snapshot_path);
     }
 }

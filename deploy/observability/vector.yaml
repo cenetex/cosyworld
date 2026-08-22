@@ -93,8 +93,16 @@ transforms:
         "actor_job_id": runtime.actor_job_id,
         "actor_job_kind": runtime.actor_job_kind,
         "actor_attempts": runtime.actor_attempts,
+        "actor_attempt": runtime.actor_attempt,
         "actor_id": runtime.actor_id,
         "target_actor_id": runtime.target_actor_id,
+        "source_event_id": runtime.source_event_id,
+        "location_id": runtime.location_id,
+        "failure_stage": runtime.failure_stage,
+        "rejection_reason": runtime.rejection_reason,
+        "retry_decision": runtime.retry_decision,
+        "commit_status": runtime.commit_status,
+        "commit_error_kind": runtime.commit_error_kind,
         "interaction_id": runtime.interaction_id,
         "queue_event_id": runtime.queue_event_id
       }, nullish: true, string: true, object: true, array: true)
@@ -328,6 +336,48 @@ tests:
               assert_eq!(.request_id, "incident-nginx-7")
               assert_eq!(.details.method, "GET")
               assert_eq!(.details.status, "200")
+
+  - name: avatar opening rejection keeps exact operational causality
+    inputs:
+      - insert_at: allowlisted_apps
+        type: vrl
+        source: |
+          . = {
+            "timestamp": "2026-08-22T12:00:00Z",
+            "host": "machine-primary",
+            "level": "warn",
+            "fly": {"app": {"name": "cosyworld"}, "region": "sjc"},
+            "message": encode_json({
+              "level": "WARN",
+              "event": "avatar_opening_publication_rejected",
+              "message": "avatar opening was not published",
+              "actor_job_id": 2323,
+              "actor_attempt": 2,
+              "actor_id": 5000,
+              "target_actor_id": 77,
+              "source_event_id": 981,
+              "location_id": 1,
+              "failure_stage": "opening_commit",
+              "rejection_reason": "storage_failure",
+              "retry_decision": "retry",
+              "commit_status": "",
+              "commit_error_kind": "other"
+            })
+          }
+    outputs:
+      - extract_from: normalize_and_redact
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event, "avatar_opening_publication_rejected")
+              assert_eq!(.details.actor_job_id, 2323)
+              assert_eq!(.details.actor_attempt, 2)
+              assert_eq!(.details.source_event_id, 981)
+              assert_eq!(.details.location_id, 1)
+              assert_eq!(.details.failure_stage, "opening_commit")
+              assert_eq!(.details.rejection_reason, "storage_failure")
+              assert_eq!(.details.retry_decision, "retry")
+              assert_eq!(.details.commit_error_kind, "other")
 
   - name: unrelated Fly apps are rejected before normalization
     no_outputs_from: [allowlisted_apps]
