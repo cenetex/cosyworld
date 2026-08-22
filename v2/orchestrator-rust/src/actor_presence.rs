@@ -1557,9 +1557,7 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Quiet Witness",
         );
-        let resident = runtime
-            .actor_by_id(BLUE_SQUIRREL_ACTOR_ID)
-            .expect("Blue Squirrel exists");
+        let resident = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(resident)
             .into_iter()

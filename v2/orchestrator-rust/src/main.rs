@@ -55576,9 +55576,7 @@ mod tests {
     fn resident_search_uses_the_player_offer_and_replays_route_discovery() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
-        let actor = runtime
-            .actor_by_id(BLUE_SQUIRREL_ACTOR_ID)
-            .expect("Blue Squirrel exists");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.location_id, COSY_COTTAGE_LOCATION_ID);
         let undiscovered = runtime
             .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
@@ -56482,7 +56480,7 @@ mod tests {
             CW_OK
         );
 
-        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let actor = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
             .into_iter()
