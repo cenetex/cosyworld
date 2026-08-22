@@ -816,7 +816,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f",
+    "bundle_hash": "sha256:0118f492a0d2253e68023f8471ce54269649959d8b985961a3d990f78fb6b447",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2405,7 +2405,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:5c351e2b082b1219a057a8256af0c9800d2add7596e75295ab7dc84a849c4fda"
+        "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -3192,7 +3192,7 @@
           "type": "workspace",
           "path": "../../content/ruby-high-first-bell"
         },
-        "integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2"
+        "integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929"
       },
       {
         "id": "cosyworld.composition.core-ruby",
@@ -15645,7 +15645,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "world-art",
       "root": "ruby-high-first-bell",
@@ -15658,7 +15658,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "cards",
       "root": "ruby-high-first-bell",
