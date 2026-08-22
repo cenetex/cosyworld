@@ -7141,10 +7141,11 @@ async function main() {
     });
     assert(
       pathwayContract.subject === "location:990001"
-        && pathwayContract.label === "add one Orb · 0/1"
+        && pathwayContract.label === "add one Orb"
         && pathwayContract.disabled === false
         && pathwayContract.live === "polite"
-        && pathwayContract.copy.includes("1 Orb is still needed from the community"),
+        && pathwayContract.copy.includes("Orb slot 0/1")
+        && pathwayContract.copy.includes("1 Orb fills this slot"),
       `a revealed generated pathway item should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
 
@@ -7245,20 +7246,31 @@ async function main() {
     });
     assert(
       communityArtStates.noEarnedOrbs.button === ""
-        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs are still needed from the community"),
-      `players without an earned Orb should see image funding state without a contribution CTA: ${JSON.stringify(communityArtStates)}`,
+        && communityArtStates.noEarnedOrbs.copy.includes("Orb slot 0/2")
+        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs fill this slot"),
+      `players without an earned Orb should see the slot without a contribution CTA: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
-      communityArtStates.contributedPending.button === "add one Orb · 1/2"
-        && communityArtStates.contributedPending.copy.toLowerCase().includes("your orb is already helping")
-        && communityArtStates.contributedPending.copy.includes("1 Orb is still needed from the community"),
-      `a player who already contributed should be able to finish funding the community image: ${JSON.stringify(communityArtStates)}`,
+      communityArtStates.contributedPending.button === "add one Orb"
+        && communityArtStates.contributedPending.copy.includes("Orb slot 1/2")
+        && communityArtStates.contributedPending.copy.includes("1 more Orb fills this slot"),
+      `a player who already contributed should be able to finish filling the slot: ${JSON.stringify(communityArtStates)}`,
+    );
+    // The player fills a slot; generation, review, retries and their failures
+    // are the server's problem. A funded slot reads the same whether the job
+    // is mid-flight or has failed behind the scenes, and offers no button,
+    // because there is nothing for the player to do either way.
+    assert(
+      communityArtStates.generating.button === ""
+        && communityArtStates.generating.copy.includes("Orb slot 2/2 · filled"),
+      `a funded slot should read as filled while the server works: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
       communityArtStates.failed.button === ""
-        && communityArtStates.failed.copy.includes("no more provider credits will be used")
-        && !/buy|purchase/i.test(JSON.stringify(communityArtStates)),
-      `a terminal generation failure should be explicit and purchase-free: ${JSON.stringify(communityArtStates)}`,
+        && communityArtStates.failed.copy.includes("Orb slot 2/2 · filled")
+        && !/provider|credit|workshop|review|attempt|retry|error|unavailable|withheld/i
+          .test(JSON.stringify(communityArtStates)),
+      `a failure behind a filled slot must not surface job machinery to the player: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
       Object.values(communityArtStates).every((entry) => entry.formatted),
@@ -7281,18 +7293,15 @@ async function main() {
         role: "location",
         aspect: "wide",
       };
-      const failedArt = {
+      const emptySlot = {
         level: 1,
         required_orbs: 1,
-        funded_orbs: 1,
-        remaining_orbs: 0,
-        viewer_contributed: true,
-        status: "failed",
-        provider_attempts: 1,
-        max_provider_attempts: 3,
-        retryable_without_orbs: true,
+        funded_orbs: 0,
+        remaining_orbs: 1,
+        viewer_contributed: false,
+        status: "available",
       };
-      const mount = (communityArt = failedArt) => {
+      const mount = (communityArt = emptySlot) => {
         const card = { ...baseCard, community_art: { ...communityArt } };
         state = {
           ...previousState,
@@ -7350,10 +7359,11 @@ async function main() {
           const generating = {
             ...baseCard,
             community_art: {
-              ...failedArt,
+              ...emptySlot,
+              funded_orbs: 1,
+              remaining_orbs: 0,
+              viewer_contributed: true,
               status: "generating",
-              provider_attempts: 2,
-              retryable_without_orbs: false,
             },
           };
           state = {
@@ -7431,16 +7441,19 @@ async function main() {
         && communityArtRetryLifecycle.starting.hidden === false
         && communityArtRetryLifecycle.starting.buttons === 0
         && communityArtRetryLifecycle.starting.formatted
-        && communityArtRetryLifecycle.starting.copy.toLowerCase().includes("image workshop starting"),
-      `a rapid repeated retry should coalesce and expose immediate starting state: ${JSON.stringify(communityArtRetryLifecycle)}`,
+        && communityArtRetryLifecycle.starting.copy.toLowerCase().includes("filling"),
+      `a rapid repeated click should coalesce into one fill: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
     assert(
       communityArtRetryLifecycle.generating.hidden === false
         && communityArtRetryLifecycle.generating.buttons === 0
         && communityArtRetryLifecycle.generating.formatted
-        && communityArtRetryLifecycle.generating.copy.includes("saved job is still in progress"),
-      `authoritative generation state should replace the starting latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
+        && communityArtRetryLifecycle.generating.copy.includes("filled"),
+      `authoritative state should replace the filling latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
+    // A dropped request leaves the Orb unspent, so the only truthful report is
+    // that the slot is still fillable. Anything else asks the player to act on
+    // a workshop they do not operate.
     for (const [failureKind, failure] of [
       ["rejected fetch", communityArtRetryLifecycle.rejectedFetch],
       ["non-JSON response", communityArtRetryLifecycle.nonJsonFailure],
@@ -7448,8 +7461,9 @@ async function main() {
       assert(
         failure.hidden === false
           && failure.buttons === 1
-          && failure.copy.includes("could not be reached"),
-        `${failureKind} should leave visible recovery copy and an enabled retry: ${JSON.stringify(communityArtRetryLifecycle)}`,
+          && failure.copy.includes("Orb slot 0/1")
+          && !/could not be reached|error|unavailable|try again/i.test(failure.copy),
+        `${failureKind} should leave a quiet fillable slot: ${JSON.stringify(communityArtRetryLifecycle)}`,
       );
     }
     assert(
@@ -7509,7 +7523,8 @@ async function main() {
         && brokenArtFallback.missing === "true"
         && brokenArtFallback.placeholder === "community image pending"
         && brokenArtFallback.overlay.includes("community image pending")
-        && brokenArtFallback.panel.toLowerCase().includes("your orb is already helping"),
+        && brokenArtFallback.panel.includes("Orb slot 1/2")
+        && brokenArtFallback.panel.includes("1 more Orb fills this slot"),
       `an unresolvable generated-art URL should render the authored, state-aware placeholder: ${JSON.stringify(brokenArtFallback)}`,
     );
     await page.evaluate(() => {

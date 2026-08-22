@@ -10666,7 +10666,9 @@
         actorSessionHandoffChecked = false;
       }
       if (!result.ok) {
-        setError(actionFailureMessage(path, result));
+        // Orb slots absorb their own failures: the slot state is the whole
+        // report, and the player has nothing to act on.
+        if (path !== "/actions/fund-image") setError(actionFailureMessage(path, result));
       } else {
         await refresh();
       }
@@ -10704,19 +10706,6 @@
       if (path === "/actions/timeout" && timeoutRefusal?.content) {
         return String(timeoutRefusal.content);
       }
-      if (status === 402 && path.includes("fund-image")) {
-        return "You need one Orb to add to this community image.";
-      }
-      if (path.includes("fund-image") && result.error_code === "community_art_evolution_reference_unavailable") {
-        return "The earlier portrait is not available for a safe evolution, so no Orb was taken.";
-      }
-      if (path.includes("fund-image") && result.error_code === "community_art_storage_failed") {
-        return "The saved image job needs repair before it can start. No Orb was taken.";
-      }
-      if (status === 502 && path.includes("fund-image")) {
-        return "The image workshop could not be reached. Check the current status and try again.";
-      }
-      if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
@@ -16464,6 +16453,11 @@
       communityArtClientStates.delete(key);
     }
 
+    // An Orb slot, not a job console. The player fills a slot; generation,
+    // review, retries and their failures are the server's problem and never
+    // reach this panel. Exposing that machinery meant a failed provider call
+    // showed the player an error they could do nothing about, and swapped the
+    // slot for a retry button.
     function communityArtPanelHtml(card) {
       const art = card?.community_art;
       const subject = communityArtSubject(card);
@@ -16480,49 +16474,26 @@
       const funded = Math.max(0, Number(art.funded_orbs || 0));
       const remaining = Math.max(0, Number(art.remaining_orbs ?? (required - funded)));
       const status = String(art.status || "available");
-      const providerAttempts = Math.max(0, Number(art.provider_attempts || 0));
-      const maxProviderAttempts = Math.max(1, Number(art.max_provider_attempts || 3));
-      const retryableWithoutOrbs = Boolean(art.retryable_without_orbs);
       const viewerContributed = Boolean(art.viewer_contributed);
-      if (clientState?.status === "starting") {
-        return `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Image workshop starting…</strong></div>`;
-      }
+      const slot = `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Orb slot ${funded}/${required}`;
+
       if (status === "ready") {
         return `<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
       }
+      if (clientState?.status === "filling") {
+        return `${slot} · filling.</strong></div>`;
+      }
+      if (remaining <= 0) {
+        return `${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
+      }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
-      const needsOrb = remaining > 0;
-      const working = status === "generating" || status === "reviewing";
-      const buttonLabel = needsOrb
-        ? `add one Orb · ${funded}/${required}`
-        : (working
-          ? (status === "reviewing" ? "check the saved image review" : "check the image workshop")
-          : (status === "review_failed" || status === "review_unavailable"
-            ? (retryableWithoutOrbs ? "retry the saved image review" : "image review unavailable")
-            : (status === "rejected" || status === "policy_rejected"
-              ? (retryableWithoutOrbs ? "try a different image" : "image withheld")
-              : (status === "failed"
-                ? (retryableWithoutOrbs ? "try the image again" : "image workshop unavailable")
-                : "start the image workshop"))));
-      const canAct = needsOrb
-        ? balance >= 1
-        : retryableWithoutOrbs;
-      const detail = needsOrb
-        ? `${viewerContributed ? "your Orb is already helping; " : ""}${remaining} ${remaining === 1 ? "Orb is" : "Orbs are"} still needed from the community`
-        : (working
-          ? "fully funded; the saved job is still in progress"
-          : (status === "review_failed" || status === "review_unavailable"
-            ? "candidate saved; no new image will be bought while review is unavailable"
-            : (!retryableWithoutOrbs && providerAttempts >= maxProviderAttempts
-              ? `stopped after ${providerAttempts} image ${providerAttempts === 1 ? "attempt" : "attempts"}; no more provider credits will be used`
-              : "fully funded; no more Orbs will be taken")));
-      const action = canAct
-        ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">${escapeHtml(buttonLabel)}</button>`
+      const detail = viewerContributed
+        ? `${remaining} more ${remaining === 1 ? "Orb fills" : "Orbs fill"} this slot.`
+        : `${remaining} ${remaining === 1 ? "Orb fills" : "Orbs fill"} this slot.`;
+      const action = balance >= 1
+        ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">add one Orb</button>`
         : "";
-      const clientError = clientState?.status === "error"
-        ? `<div class="card-art-status error"><span>portrait update</span> <strong>${escapeHtml(clientState.message)}</strong></div>`
-        : "";
-      return `<div class="card-art-status"><span>level ${level} portrait</span> <strong>${escapeHtml(finishSentence(detail))}</strong></div>${clientError}${action}`;
+      return `${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
     }
 
     function communityArtPlaceholderLabel(card) {
@@ -17007,56 +16978,50 @@
       $("card-modal-economy").innerHTML = "";
     }
 
-    async function retryCommunityArt(subjectKind, subjectId) {
+    // Filling a slot has exactly two outcomes for the player: the slot shows
+    // filled, or it stays fillable. Provider errors, review pauses and retries
+    // are handled server side and are never surfaced here.
+    async function fillCommunityArtOrbSlot(subjectKind, subjectId) {
       const subject = { kind: subjectKind, id: Number(subjectId) };
       const subjectKey = communityArtSubjectKey(subject);
       const card = subjectKind === "actor"
         ? cardForActor(subject.id)
         : (subjectKind === "item" ? cardForItem(subject.id) : cardForLocation(subject.id));
       const art = card?.community_art;
-      if (!subjectKey || !art || communityArtClientStates.get(subjectKey)?.status === "starting") return;
+      if (!subjectKey || !art || communityArtClientStates.get(subjectKey)?.status === "filling") return;
 
       const clientState = {
-        status: "starting",
+        status: "filling",
         authoritativeSignature: communityArtStateSignature(art),
         timeout: null,
       };
       communityArtClientStates.set(subjectKey, clientState);
+      // The latch is a spinner, not a deadline. If the server is slow the slot
+      // simply returns to fillable; nothing is announced.
       clientState.timeout = window.setTimeout(() => {
         if (communityArtClientStates.get(subjectKey) !== clientState) return;
-        clientState.status = "error";
-        clientState.message = "The image workshop is taking longer than expected. Check the current status and try again.";
-        setError(clientState.message);
+        clearCommunityArtClientState(subjectKey);
         syncOpenCardModal();
         void queueRefresh();
       }, 45_000);
       syncOpenCardModal();
 
       try {
-        const result = await action("/actions/fund-image", {
+        await action("/actions/fund-image", {
           actor_id: actorId,
           subject_kind: subjectKind,
           subject_id: subject.id,
           intent_id: `web-image:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`,
         });
-        if (!result?.ok) {
-          const failure = new Error(actionFailureMessage("/actions/fund-image", result));
-          failure.communityArtSafe = true;
-          throw failure;
-        }
-        await queueRefresh();
-        syncOpenCardModal();
-      } catch (error) {
-        if (clientState.timeout) window.clearTimeout(clientState.timeout);
-        if (communityArtClientStates.get(subjectKey) !== clientState) return;
-        clientState.status = "error";
-        clientState.message = error?.communityArtSafe
-          ? String(error.message || "")
-          : "The image workshop could not be reached. Check the current status and try again.";
-        setError(clientState.message);
-        await queueRefresh();
-        syncOpenCardModal();
+      } catch {
+        // A dropped request leaves the Orb unspent, so the slot is still
+        // fillable and that is the whole story the player needs.
       }
+      if (communityArtClientStates.get(subjectKey) === clientState) {
+        clearCommunityArtClientState(subjectKey);
+      }
+      await queueRefresh();
+      syncOpenCardModal();
     }
 
     function shapeForCard(card, fallback = "item") {
@@ -19474,7 +19439,7 @@
         const [subjectKind, subjectId] = String(fundImage.getAttribute("data-fund-community-image") || "").split(":");
         if (!subjectKind || !Number(subjectId)) return;
         fundImage.disabled = true;
-        void retryCommunityArt(subjectKind, Number(subjectId));
+        void fillCommunityArtOrbSlot(subjectKind, Number(subjectId));
         return;
       }
       if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {

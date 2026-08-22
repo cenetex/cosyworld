@@ -420,9 +420,17 @@
 # helpers into their existing focused modules.
 # 61539 -> 61165: move avatar-opening validation, publication, and bounded
 # retry handling into chat_action.rs beside the command's durable chat seam.
-# 61165 -> 61069: move player-tick observation, resident initiative selection,
-# and room-heartbeat scheduling into actor_jobs.rs while adding durable ordinary
-# room initiative.
-# 61069 -> 61092: stamp queued actor work with reset generations and make reset
-# deletion atomic so busy workers cannot cross development reset worlds.
-61092
+# 61165 -> 61181: sixteen test-only lines pin the Orb slot contract in both
+# directions -- the three slot readings plus the retired job vocabulary that
+# must never return to the panel. The behaviour lives in index.html; main.rs
+# owns the cross-surface INDEX_HTML contract beside it.
+# 61181 -> 60015: move the resident trade, gift, and feature-use regressions
+# into resident_economy_tests.rs. Their production code already moved to
+# autonomy.rs, which owns the trade/gift/delivery candidate generators; only
+# the tests stayed behind in the root inline module. Fourteen tests moved
+# verbatim, no assertion or fixture changed, and the suite count is unmoved
+# at 1,265. First slice of #325 and #61.
+# 60015 -> 59942: move player-tick observation, resident initiative selection,
+# and room-heartbeat scheduling into actor_jobs.rs while adding durable room
+# initiative, reset generations, and atomic development reset deletion.
+59942
