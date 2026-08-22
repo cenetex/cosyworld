@@ -123,11 +123,13 @@ deterministic behavior. Their actions occur on played time and become public
 events. A resident seeking a lost keepsake may travel toward its known
 location. They do not teleport to private information.
 
-Ordinary co-present play is concurrent. Players need not wait in a universal
-room queue. Actions against the same contested target are serialized by the
-server, and stale attempts are rejected or recomposed. Only an explicitly
-ordered scene, such as combat, uses scene-turn order. Speech and emotes remain
-turn-exempt, subject to ordinary presence and moderation checks.
+Ordinary co-present play follows room initiative. Directly controlled and
+inference-controlled avatars take turns in one durable order and use the same
+legal Story Hand. Inspection and local settings remain available while another
+avatar acts. Actions against the same contested target are also serialized by
+the server, and stale attempts are rejected rather than silently recomposed.
+Authored reactions may answer a committed action, but they do not grant a
+second mechanical activation.
 
 ::: {.rule}
 **CORE RULE - Controller parity.** Human-controlled and inference-controlled
@@ -135,9 +137,12 @@ avatars use the same legal actions. The controller chooses; it does not gain
 different possession, costs, targets, checks, Bonds, or access rules.
 :::
 
+An AI mode may change how an avatar chooses among cards. It does not turn a
+mechanical initiative seat into a speech-only response.
+
 A contextual action may invite one bounded resident response. Rapid actions
-should not stack a chorus of replies. Authored priority decides who responds
-first.
+must not stack a chorus of replies. Room initiative decides which resident may
+take the next mechanical action.
 
 ## 8. The Journal and Growth {#journal-growth}
 

@@ -427,6 +427,19 @@ async function fetchInspectableState(baseUrl, actorId, actorSession) {
   };
 }
 
+async function waitForActorTurn(baseUrl, actorId, actorSession, description) {
+  const deadline = Date.now() + 60_000;
+  let state;
+  while (Date.now() < deadline) {
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    if (!state.turn?.enabled || state.turn.is_current_actor) return state;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+  }
+  throw new Error(
+    `${description} never regained room initiative: ${JSON.stringify(state?.turn)}`,
+  );
+}
+
 function inspectedRulesContext(state) {
   return (state?.__inspection?.actions || [])
     .map((action) => action.composition_trace?.rules_context)
@@ -514,9 +527,19 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   const maxWriteAuthorityRefreshes = 12;
   let writeAuthorityRefreshes = 0;
   while (true) {
-    state = await fetchInspectableState(baseUrl, actorId, actorSession);
-    offer = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
+    state = await waitForActorTurn(baseUrl, actorId, actorSession, description);
+    offer = state.action_offers?.find(
+      (candidate) => !candidate.disabled && predicate(candidate),
+    );
     if (offer) break;
+    if (
+      passAttempts > 0 &&
+      !state.__inspection?.actions?.some(
+        (candidate) => !candidate.disabled && predicate(candidate),
+      )
+    ) {
+      break;
+    }
     if (maxPassAttempts === 0) {
       maxPassAttempts = Math.max(
         1,
@@ -581,7 +604,8 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
 }
 
 async function command(baseUrl, actorId, actorSession, value) {
-  const turnExempt = /^(wield|unwield|prepare-spell|unprepare-spell|stow|unstow)\b/i.test(value);
+  const usesRawCommand =
+    /^(wield|unwield|prepare-spell|unprepare-spell|stow|unstow)\b/i.test(value);
   const requestedKind = value.trim().toLowerCase();
   const matchesRequestedOffer = (candidate) =>
     candidate.command === value
@@ -591,9 +615,15 @@ async function command(baseUrl, actorId, actorSession, value) {
   let staleRedeals = 0;
   let turnLockedRedeals = 0;
   while (true) {
-    const dealt = turnExempt ? {} : await dealOffer(
-      baseUrl, actorId, actorSession, matchesRequestedOffer, value,
-    );
+    const dealt = usesRawCommand
+      ? { state: await waitForActorTurn(baseUrl, actorId, actorSession, value) }
+      : await dealOffer(
+          baseUrl,
+          actorId,
+          actorSession,
+          matchesRequestedOffer,
+          value,
+        );
     const payload = {
       actor_id: actorId,
       actor_session: actorSession,
@@ -604,8 +634,13 @@ async function command(baseUrl, actorId, actorSession, value) {
       }),
     };
     const submitted = await postJsonWithStatus(`${baseUrl}/commands`, payload);
-    if (!turnExempt && submitted.status === 409 && staleRedeals++ < maxRedeals) continue;
-    if (!turnExempt && submitted.status === 423 && turnLockedRedeals++ < 2) continue;
+    if (
+      !usesRawCommand &&
+      submitted.status === 409 &&
+      staleRedeals++ < maxRedeals
+    )
+      continue;
+    if (submitted.status === 423 && turnLockedRedeals++ < 2) continue;
     const result = submitted.body;
     assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
     return result;
@@ -613,7 +648,12 @@ async function command(baseUrl, actorId, actorSession, value) {
 }
 
 async function passCurrentHand(baseUrl, actorId, actorSession) {
-  const state = await fetchInspectableState(baseUrl, actorId, actorSession);
+  const state = await waitForActorTurn(
+    baseUrl,
+    actorId,
+    actorSession,
+    "replay-marker Think",
+  );
   const thinkEntries = (state.action_hand?.entries || [])
     .filter((entry) => entry.think?.available && entry.think.offer_id)
     .sort((left, right) =>
@@ -635,9 +675,42 @@ async function passCurrentHand(baseUrl, actorId, actorSession) {
   return passed.body;
 }
 
-async function commitReplayMarker(baseUrl, actorId, actorSession) {
+async function ensureScoutedRoute(
+  baseUrl,
+  actorId,
+  actorSession,
+  destinationId,
+  destinationName,
+) {
   const state = await fetchInspectableState(baseUrl, actorId, actorSession);
-  if ((state.action_hand?.entries || []).some((entry) => entry.think?.available)) {
+  const alreadyDiscovered = state.__inspection?.actions?.some(
+    (offer) =>
+      offer.kind === "move" &&
+      Number(offer.target?.id) === Number(destinationId),
+  );
+  if (alreadyDiscovered) return;
+  const scouted = await command(
+    baseUrl,
+    actorId,
+    actorSession,
+    `scout ${destinationName}`,
+  );
+  assert(
+    scouted.events?.filter(routeDiscoveryEvent).length === 1,
+    `The room did not reveal the route to ${destinationName} exactly once: ${JSON.stringify(scouted)}`,
+  );
+}
+
+async function commitReplayMarker(baseUrl, actorId, actorSession) {
+  const state = await waitForActorTurn(
+    baseUrl,
+    actorId,
+    actorSession,
+    "replay marker",
+  );
+  if (
+    (state.action_hand?.entries || []).some((entry) => entry.think?.available)
+  ) {
     return passCurrentHand(baseUrl, actorId, actorSession);
   }
   const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
@@ -890,10 +963,12 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper could not equip its public camp-shelter tool: ${JSON.stringify(equippedCampKit)}`,
   );
 
-  const scouted = await command(baseUrl, actorId, actorSession, "scout Mothwood Path");
-  assert(
-    scouted.events?.filter(routeDiscoveryEvent).length === 1,
-    `Lantern Keeper did not reveal the route to Mothwood exactly once: ${JSON.stringify(scouted)}`,
+  await ensureScoutedRoute(
+    baseUrl,
+    actorId,
+    actorSession,
+    801,
+    "Mothwood Path",
   );
   await command(baseUrl, actorId, actorSession, "go Mothwood Path");
   const mothwood = await fetchInspectableState(baseUrl, actorId, actorSession);
@@ -918,7 +993,13 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     placedLens.events?.some((event) => event.type === "item.used" && event.item_id === 8402),
     `Lantern Keeper did not use Mothwood evidence on its authored feature: ${JSON.stringify(placedLens)}`,
   );
-  await command(baseUrl, actorId, actorSession, "scout Saint Orra's Ruin");
+  await ensureScoutedRoute(
+    baseUrl,
+    actorId,
+    actorSession,
+    802,
+    "Saint Orra's Ruin",
+  );
   await command(baseUrl, actorId, actorSession, "go Saint Orra's Ruin");
   const saintOrra = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
@@ -954,7 +1035,13 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     turnedKey.events?.some((event) => event.type === "item.used" && event.item_id === 8401),
     `Lantern Keeper did not use Saint Orra evidence on its authored feature: ${JSON.stringify(turnedKey)}`,
   );
-  await command(baseUrl, actorId, actorSession, "scout Flooded Barrow");
+  await ensureScoutedRoute(
+    baseUrl,
+    actorId,
+    actorSession,
+    803,
+    "Flooded Barrow",
+  );
   await command(baseUrl, actorId, actorSession, "go Flooded Barrow");
   const barrow = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
@@ -988,7 +1075,13 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   traceLantern("lantern Flooded Barrow resolved", barrowResolved);
 
-  await command(baseUrl, actorId, actorSession, "scout Lantern Tower");
+  await ensureScoutedRoute(
+    baseUrl,
+    actorId,
+    actorSession,
+    804,
+    "Lantern Tower",
+  );
   await command(baseUrl, actorId, actorSession, "go Lantern Tower");
   const tower = await fetchInspectableState(baseUrl, actorId, actorSession);
   assert(
@@ -1034,106 +1127,172 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     );
     towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
   }
-  const initialWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
-    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the finale Work card");
-  towerReady = initialWorkDeal.state;
-  const initialWorkOffer = initialWorkDeal.offer;
-  assert(
-    initialWorkOffer?.offer_id && initialWorkOffer?.command === "contribute rekindle-beacon",
-    `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+  const earlyCompletedQuestion = towerReady.shared_questions?.find(
+    (question) => question.id === "lantern-keeper:rekindle-the-beacon",
   );
-  traceLantern("lantern Tower ready", towerReady);
-  const dangerBeforeFinale = Number(towerReady.shared_questions?.find((question) =>
-    question.id === "lantern-keeper:rekindle-the-beacon")?.danger_filled || 0);
-
-  const tamperedOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
-    actor_id: actorId,
-    actor_session: actorSession,
-    offer_id: `${initialWorkOffer.offer_id}:tampered`,
-    command: initialWorkOffer.command,
-  }, 404);
-  assert(
-    tamperedOffer.ok === false
-      && tamperedOffer.status === 404
-      && tamperedOffer.error_kind === "unknown_offer"
-      && tamperedOffer.events?.length === 0,
-    `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
-  );
-
-  await passCurrentHand(baseUrl, actorId, actorSession);
-  const staleOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
-    actor_id: actorId,
-    actor_session: actorSession,
-    offer_id: initialWorkOffer.offer_id,
-    command: initialWorkOffer.command,
-  }, 409);
-  assert(
-    staleOffer.ok === false
-      && staleOffer.status === 409
-      && staleOffer.error_kind === "stale_offer"
-      && staleOffer.events?.length === 0,
-    `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
-  );
-
-  towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const freshWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
-    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the refreshed finale Work card");
-  towerReady = freshWorkDeal.state;
-  const freshWorkOffer = freshWorkDeal.offer;
-  const readyQuestion = towerReady.shared_questions?.find((question) =>
-    question.id === "lantern-keeper:rekindle-the-beacon");
-  assert(
-    readyQuestion?.filled === 0
-      && readyQuestion?.danger_filled === dangerBeforeFinale
-      && freshWorkOffer?.offer_id,
-    `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
-  );
-
-  const finalePayload = {
-    actor_id: actorId,
-    actor_session: actorSession,
-    offer_id: freshWorkOffer.offer_id,
-    command: freshWorkOffer.command,
-    envelope: { ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id), intent_id: "smoke:lantern-golden-finale" },
-  };
+  const autonomousFinale =
+    earlyCompletedQuestion?.presentation_state === "completed_memory";
+  const dangerBeforeFinale = Number(earlyCompletedQuestion?.danger_filled || 0);
+  let finalePayload = null;
+  let finale = null;
   const beforeFinaleOrbs = towerReady.economy?.orbs;
-  const finale = await postJson(`${baseUrl}/commands`, finalePayload);
-  assert(
-    finale.ok === true
-      && finale.events?.filter((event) => event.type === "job.contribution.resolved").length === 1
-      && finale.events?.filter((event) =>
-        event.type === "job.updated" && event.content?.includes(":completed:")).length === 1
-      && finale.events?.filter((event) => event.type === "story.receipt").length === 1,
-    `Lantern Keeper finale did not resolve with one coherent receipt: ${JSON.stringify(finale)}`,
-  );
-  const retriedFinale = await postJson(`${baseUrl}/commands`, finalePayload);
-  assert(
-    JSON.stringify(retriedFinale) === JSON.stringify(finale),
-    `Lantern Keeper finale retry was not idempotent: ${JSON.stringify({ finale, retriedFinale })}`,
-  );
-  const conflictingRetry = await postJsonExpectingStatus(`${baseUrl}/commands`, {
-    ...finalePayload,
-    offer_id: `${freshWorkOffer.offer_id}:tampered-retry`,
-  }, 409);
-  assert(
-    conflictingRetry.ok === false
-      && conflictingRetry.status === 409
-      && conflictingRetry.output?.includes("intent_id is already bound")
-      && conflictingRetry.events?.length === 0,
-    `Lantern Keeper accepted a conflicting finale retry: ${JSON.stringify(conflictingRetry)}`,
-  );
+  if (autonomousFinale) {
+    const events = await fetchAllActorEvents(baseUrl, actorId, actorSession);
+    assert(
+      events.filter(
+        (event) =>
+          event.type === "job.contribution.resolved" &&
+          event.actor_id === 8304 &&
+          event.content?.includes("lantern-keeper:rekindle-the-beacon"),
+      ).length === 1,
+      `Rowan's autonomous finale was not committed exactly once: ${JSON.stringify(earlyCompletedQuestion)}`,
+    );
+  } else {
+    const initialWorkDeal = await dealOffer(
+      baseUrl,
+      actorId,
+      actorSession,
+      (offer) =>
+        offer.kind === "work" &&
+        matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
+      "the finale Work card",
+    );
+    towerReady = initialWorkDeal.state;
+    const initialWorkOffer = initialWorkDeal.offer;
+    assert(
+      initialWorkOffer?.offer_id &&
+        initialWorkOffer?.command === "contribute rekindle-beacon",
+      `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+    );
+    traceLantern("lantern Tower ready", towerReady);
 
-  const completedAtTower = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const completedQuestion = completedAtTower.shared_questions?.find((question) =>
-    question.id === "lantern-keeper:rekindle-the-beacon");
+    const tamperedOffer = await postJsonExpectingStatus(
+      `${baseUrl}/commands`,
+      {
+        actor_id: actorId,
+        actor_session: actorSession,
+        offer_id: `${initialWorkOffer.offer_id}:tampered`,
+        command: initialWorkOffer.command,
+      },
+      404,
+    );
+    assert(
+      tamperedOffer.ok === false &&
+        tamperedOffer.status === 404 &&
+        tamperedOffer.error_kind === "unknown_offer" &&
+        tamperedOffer.events?.length === 0,
+      `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
+    );
+
+    await passCurrentHand(baseUrl, actorId, actorSession);
+    const staleOffer = await postJsonExpectingStatus(
+      `${baseUrl}/commands`,
+      {
+        actor_id: actorId,
+        actor_session: actorSession,
+        offer_id: initialWorkOffer.offer_id,
+        command: initialWorkOffer.command,
+      },
+      409,
+    );
+    assert(
+      staleOffer.ok === false &&
+        staleOffer.status === 409 &&
+        staleOffer.error_kind === "stale_offer" &&
+        staleOffer.events?.length === 0,
+      `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
+    );
+
+    towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
+    const freshWorkDeal = await dealOffer(
+      baseUrl,
+      actorId,
+      actorSession,
+      (offer) =>
+        offer.kind === "work" &&
+        matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
+      "the refreshed finale Work card",
+    );
+    towerReady = freshWorkDeal.state;
+    const freshWorkOffer = freshWorkDeal.offer;
+    const readyQuestion = towerReady.shared_questions?.find(
+      (question) => question.id === "lantern-keeper:rekindle-the-beacon",
+    );
+    assert(
+      readyQuestion?.filled === 0 &&
+        readyQuestion?.danger_filled === dangerBeforeFinale &&
+        freshWorkOffer?.offer_id,
+      `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+    );
+
+    finalePayload = {
+      actor_id: actorId,
+      actor_session: actorSession,
+      offer_id: freshWorkOffer.offer_id,
+      command: freshWorkOffer.command,
+      envelope: {
+        ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id),
+        intent_id: "smoke:lantern-golden-finale",
+      },
+    };
+    finale = await postJson(`${baseUrl}/commands`, finalePayload);
+    assert(
+      finale.ok === true &&
+        finale.events?.filter(
+          (event) => event.type === "job.contribution.resolved",
+        ).length === 1 &&
+        finale.events?.filter(
+          (event) =>
+            event.type === "job.updated" &&
+            event.content?.includes(":completed:"),
+        ).length === 1 &&
+        finale.events?.filter((event) => event.type === "story.receipt")
+          .length === 1,
+      `Lantern Keeper finale did not resolve with one coherent receipt: ${JSON.stringify(finale)}`,
+    );
+    const retriedFinale = await postJson(`${baseUrl}/commands`, finalePayload);
+    assert(
+      JSON.stringify(retriedFinale) === JSON.stringify(finale),
+      `Lantern Keeper finale retry was not idempotent: ${JSON.stringify({ finale, retriedFinale })}`,
+    );
+    const conflictingRetry = await postJsonExpectingStatus(
+      `${baseUrl}/commands`,
+      {
+        ...finalePayload,
+        offer_id: `${freshWorkOffer.offer_id}:tampered-retry`,
+      },
+      409,
+    );
+    assert(
+      conflictingRetry.ok === false &&
+        conflictingRetry.status === 409 &&
+        conflictingRetry.output?.includes("intent_id is already bound") &&
+        conflictingRetry.events?.length === 0,
+      `Lantern Keeper accepted a conflicting finale retry: ${JSON.stringify(conflictingRetry)}`,
+    );
+  }
+
+  const completedAtTower = await fetchInspectableState(
+    baseUrl,
+    actorId,
+    actorSession,
+  );
+  const completedQuestion = completedAtTower.shared_questions?.find(
+    (question) => question.id === "lantern-keeper:rekindle-the-beacon",
+  );
   assert(
-    completedQuestion?.presentation_state === "completed_memory"
-      && completedQuestion?.filled === 6
-      && completedQuestion?.danger_filled === dangerBeforeFinale
-      && completedQuestion?.situation?.includes("Mothwood beacon")
-      && completedAtTower.tags?.some((tag) => tag.id === "room:804:beacon_rekindled")
-      && completedAtTower.economy?.orbs === beforeFinaleOrbs + 2
-      && !completedAtTower.action_offers?.some((offer) => matchesContributionKind(offer.kind)),
+    completedQuestion?.presentation_state === "completed_memory" &&
+      completedQuestion?.filled === 6 &&
+      completedQuestion?.danger_filled === dangerBeforeFinale &&
+      completedQuestion?.situation?.includes("Mothwood beacon") &&
+      completedAtTower.tags?.some(
+        (tag) => tag.id === "room:804:beacon_rekindled",
+      ) &&
+      (autonomousFinale ||
+        completedAtTower.economy?.orbs === beforeFinaleOrbs + 2) &&
+      !completedAtTower.action_offers?.some((offer) =>
+        matchesContributionKind(offer.kind),
+      ),
     `Lantern Keeper completion did not foreground one durable world change: ${JSON.stringify(lanternJourneySummary(completedAtTower))}`,
   );
 
@@ -1636,6 +1795,21 @@ async function runWorldLoop(spec) {
       Number(inspection.compaction.action_journal_floor_seq),
       Number(inspection.window.last_seq ?? 0),
     );
+    const routeDiscoveriesBeforeRestart = readDurableWorldEvents(
+      eventDbPath,
+    ).filter(routeDiscoveryEvent);
+    if (spec.scoutDestination) {
+      const discoveredDestinationIds = new Set(
+        routeDiscoveriesBeforeRestart.map(
+          (event) => event.destination_location_id,
+        ),
+      );
+      assert(
+        routeDiscoveriesBeforeRestart.length >= 1 &&
+          discoveredDestinationIds.size === routeDiscoveriesBeforeRestart.length,
+        `${spec.label} repeated a route discovery instead of preserving distinct player/avatar discoveries: ${JSON.stringify(routeDiscoveriesBeforeRestart)}`,
+      );
+    }
     assert(
       durableJournalHead >= 3
         && inspection.records.length >= 1
@@ -1667,7 +1841,12 @@ async function runWorldLoop(spec) {
       spec.entryLocationId,
       { production: Boolean(spec.legacyGeneratedCheckpoint) },
     );
-    assertMountedComposition(restarted.meta, spec, 1, spec.multiStepScoutPath ? 1 : 0);
+    assertMountedComposition(
+      restarted.meta,
+      spec,
+      1,
+      spec.multiStepScoutPath ? routeDiscoveriesBeforeRestart.length : 0,
+    );
     assert(
       restarted.output.some((line) => line.includes("loaded journal checkpoint")),
       `${spec.label} restart did not use its journal checkpoint: ${
@@ -1757,24 +1936,37 @@ async function runWorldLoop(spec) {
     if (spec.scoutDestination) {
       const durableRouteDiscoveries = durableEvents.filter(routeDiscoveryEvent);
       assert(
-        durableRouteDiscoveries.length === 1,
-        `${spec.label} replay did not retain exactly one durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
+        durableRouteDiscoveries.length === routeDiscoveriesBeforeRestart.length,
+        `${spec.label} replay lost or duplicated a durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
       );
     }
     if (goldenJourney) {
-      assertLanternGoldenReplay(replayed, durableEvents, goldenJourney.expected);
-      const restartedFinale = await postJson(
-        `${restarted.baseUrl}/commands`,
-        goldenJourney.expected.finalePayload,
+      assertLanternGoldenReplay(
+        replayed,
+        durableEvents,
+        goldenJourney.expected,
       );
-      assert(
-        JSON.stringify(restartedFinale) === JSON.stringify(goldenJourney.expected.finaleResponse),
-        `${spec.label} did not preserve the canonical finale receipt across restart: ${JSON.stringify({
-          expected: goldenJourney.expected.finaleResponse,
-          actual: restartedFinale,
-        })}`,
+      if (goldenJourney.expected.finalePayload) {
+        const restartedFinale = await postJson(
+          `${restarted.baseUrl}/commands`,
+          goldenJourney.expected.finalePayload,
+        );
+        assert(
+          JSON.stringify(restartedFinale) ===
+            JSON.stringify(goldenJourney.expected.finaleResponse),
+          `${spec.label} did not preserve the canonical finale receipt across restart: ${JSON.stringify(
+            {
+              expected: goldenJourney.expected.finaleResponse,
+              actual: restartedFinale,
+            },
+          )}`,
+        );
+      }
+      const afterRestartRetry = await fetchInspectableState(
+        restarted.baseUrl,
+        actorId,
+        actorSession,
       );
-      const afterRestartRetry = await fetchInspectableState(restarted.baseUrl, actorId, actorSession);
       assert(
         afterRestartRetry.world_seq === replayed.world_seq
           && afterRestartRetry.economy?.orbs === replayed.economy?.orbs,

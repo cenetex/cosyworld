@@ -293,6 +293,19 @@ async function fetchInspectableState(baseUrl, actorId, actorSession) {
   };
 }
 
+async function waitForActorTurn(baseUrl, actorId, actorSession, description) {
+  const deadline = Date.now() + 60_000;
+  let state;
+  while (Date.now() < deadline) {
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    if (!state.turn?.enabled || state.turn.is_current_actor) return state;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+  }
+  throw new Error(
+    `${description} never regained room initiative: ${JSON.stringify(state?.turn)}`,
+  );
+}
+
 function inspectedRulesContext(state) {
   return (state?.__inspection?.actions || [])
     .map((action) => action.composition_trace?.rules_context)
@@ -330,9 +343,12 @@ function storyHandSlotForOffer(offer = {}) {
 async function passCurrentHand(baseUrl, actorId, actorSession, initialState, desiredSlot = "") {
   let state = initialState;
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    if (!state || attempt > 0) {
-      state = await fetchInspectableState(baseUrl, actorId, actorSession);
-    }
+    state = await waitForActorTurn(
+      baseUrl,
+      actorId,
+      actorSession,
+      "Story Hand Think",
+    );
     const thinkEntries = (state.action_hand?.entries || [])
       .filter((entry) => entry.think?.available && entry.think.offer_id)
       .sort((left, right) =>
@@ -363,19 +379,26 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState, des
   throw new Error("Think remained stale or turn-locked after five refreshed attempts");
 }
 
-async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
-  let state = await fetchInspectableState(baseUrl, actorId, actorSession);
+async function drawExactOffer(
+  baseUrl,
+  actorId,
+  actorSession,
+  predicate,
+  label,
+) {
+  let state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   const boundedThinks = Math.max(
     1,
     (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
   );
-  for (let attempt = 0; attempt < boundedThinks; attempt += 1) {
+  for (let attempt = 0; attempt <= boundedThinks; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
+    if (attempt === boundedThinks) break;
     await passCurrentHand(baseUrl, actorId, actorSession, state);
-    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   }
   throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);
 }
@@ -403,6 +426,41 @@ async function commandExactOffer(baseUrl, actorId, actorSession, value) {
   });
   assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
   return result;
+}
+
+async function completeFirstTale(baseUrl, actorId, actorSession) {
+  let state = await waitForActorTurn(baseUrl, actorId, actorSession, "first tale");
+  for (let step = 0; step < 16 && state.first_tale?.phase !== "complete"; step += 1) {
+    const offerId = state.first_tale?.advancing_offer_id;
+    const handMatches = (state.action_hand?.entries || []).filter((entry) =>
+      entry.offer_id === offerId);
+    const offer = (state.action_offers || []).find((candidate) =>
+      candidate.offer_id === offerId);
+    assert(
+      typeof offerId === "string" && offerId && handMatches.length === 1 && offer,
+      `first tale step ${step + 1} did not expose one advancing card: ${JSON.stringify({
+        first_tale: state.first_tale,
+        action_hand: state.action_hand,
+      })}`,
+    );
+    const result = await postJson(`${baseUrl}/commands`, {
+      actor_id: actorId,
+      actor_session: actorSession,
+      command: offer.command,
+      offer_id: offer.offer_id,
+      envelope: offerEnvelope(state, actorId, offer.offer_id),
+    });
+    assert(
+      result.ok === true,
+      `first tale step ${step + 1} failed: ${JSON.stringify(result)}`,
+    );
+    state = await waitForActorTurn(baseUrl, actorId, actorSession, "first tale");
+  }
+  assert(
+    state.first_tale?.phase === "complete" && state.location?.id === 2,
+    `first tale did not finish in Rain-Soft Garden: ${JSON.stringify(state.first_tale)}`,
+  );
+  return state;
 }
 
 async function move(baseUrl, actorId, actorSession, destinationLocationId) {
@@ -601,6 +659,8 @@ async function main() {
           && offer.composition_trace?.pack_mount_revision === 1),
       "cold-mounted offers did not bind the committed composition revision",
     );
+    await completeFirstTale(first.baseUrl, actorId, actorSession);
+    await move(first.baseUrl, actorId, actorSession, 1);
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
     const travelOffer = await drawExactOffer(
       first.baseUrl,

@@ -1,5 +1,17 @@
 use super::*;
 
+fn isolate_story_hand_actor(runtime: &mut RuntimeWorld, actor_id: u64) {
+    let location_id = runtime
+        .actor_by_id(actor_id)
+        .map(|actor| actor.location_id)
+        .expect("Story Hand actor exists");
+    for actor in runtime.world.actors[..runtime.world.actor_count].iter_mut() {
+        if actor.id != actor_id && actor.location_id == location_id {
+            actor.location_id = DARK_ABYSS_LOCATION_ID;
+        }
+    }
+}
+
 #[test]
 fn story_hand_scene_change_resets_each_slot_generation() {
     let mut runtime = RuntimeWorld::seeded();
@@ -235,6 +247,7 @@ async fn live_story_button_hand_lifecycle() {
         COSY_COTTAGE_LOCATION_ID,
         "Story Button Golden Witness",
     );
+    isolate_story_hand_actor(&mut runtime, actor_id);
     complete_guided_story_for_test(&mut runtime, actor_id);
     runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
     runtime.hide_loose_items_at_location(RAIN_SOFT_GARDEN_LOCATION_ID);
@@ -1856,6 +1869,7 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         COSY_COTTAGE_LOCATION_ID,
         "Pass Metric Witness",
     );
+    isolate_story_hand_actor(&mut runtime, actor_id);
     complete_guided_story_for_test(&mut runtime, actor_id);
     let event_store_path = std::env::temp_dir().join(format!(
         "cosyworld-certified-pass-window-{}-{}.sqlite",

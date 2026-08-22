@@ -8669,15 +8669,15 @@
             run: () => action("/actions/timeout", { actor_id: actorId }),
           });
         }
-        // Ordered-combat status belongs in the turn banner, not the card hand.
+        // Ordered-scene status belongs in the turn banner, not the card hand.
         // A waiting player receives no dealt card here, so nothing can bypass
-      // or crowd the combat floor. See issue #461.
+      // or crowd the initiative floor. See issue #461.
       return waitingActions.map(decorateActionHand);
     }
 
       // Pass and Need time are timing controls, not ranked combat actions.
       // They render in the turn banner so the card row stays reserved for
-      // legal combat choices. See issue #461 and turnBannerControlSpecs.
+      // legal current-activation choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
       const discoveryKinds = new Set([
         "focused_notice",
@@ -9022,7 +9022,11 @@
           const [, itemIdText, targetIdText, targetItemIdText] = String(offer.id || "").split(":");
           const item = itemForId(Number(itemIdText));
           const target = actorTargets.find((actor) => Number(actor.id) === Number(targetIdText));
-          const targetItem = itemForId(Number(targetItemIdText));
+          const targetItemId = Number(targetItemIdText);
+          const targetItem = itemForId(targetItemId) || (targetItemId ? {
+            id: targetItemId,
+            name: offer.target?.label || itemNameForId(targetItemId),
+          } : null);
           if (!item || !target || !targetItem) continue;
           built.push({
             ...semanticAction(offer, "trade"), label: "trade", detail: `${item.name} for ${targetItem.name} with ${actorLabel(target)}`,
@@ -10135,12 +10139,18 @@
     function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
       if (!turn?.enabled) return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
+      const sceneKind = String(turn.scene_kind || "");
       // scene-turn is the ordered-combat protocol identity even when the
-      // adjacent combat projection has not arrived yet.
-      const combatCopy = Boolean(combat || turn.policy === "scene-turn");
+      // adjacent combat projection has not arrived yet, so it has to keep
+      // reading as combat rather than falling through to the generic scene.
+      const combatCopy = sceneKind === "combat"
+        || Boolean(combat)
+        || (!sceneKind && turn.policy === "scene-turn");
       const copy = combatCopy
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
-        : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
+        : sceneKind === "room"
+          ? (turn.is_current_actor ? "room initiative — your turn" : `room initiative — ${currentName} acts now`)
+          : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
       const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
       // Urgency carries a glyph and distinct wording, never colour alone.
       const mark = turn.is_current_actor
@@ -12405,6 +12415,7 @@
         || event.type === "turn.ping_skipped"
         || event.type === "turn.timeout_requested"
         || event.type === "turn.timeout_passed"
+        || event.type === "room.turn.advanced"
         || event.type === "message.created"
         || event.type === "image.created"
         || event.type === "model_interaction.output"
@@ -17569,7 +17580,7 @@
         && actorId
         && actorSession
         && state?.primary_action?.kind !== "create_avatar"
-        && (!state?.combat || state?.turn?.is_current_actor)
+        && (!state?.turn?.enabled || state?.turn?.is_current_actor)
         && handCardThink(action)?.available
         && handCardThink(action)?.offer_id
       );
@@ -17812,7 +17823,7 @@
         && actorSession
         && discardCertificate?.available
         && discardCertificate?.offer_id
-        && (!state?.combat || state?.turn?.is_current_actor);
+        && (!state?.turn?.enabled || state?.turn?.is_current_actor);
       discardButton.hidden = handCard ? false : !canDiscard;
       discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
       discardButton.textContent = handCard ? "discard" : (discardCertificate?.free ? "discard · free" : "discard");

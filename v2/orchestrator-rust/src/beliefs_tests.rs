@@ -207,7 +207,7 @@ fn legacy_search_and_resident_memories_migrate_into_canonical_beliefs() {
 
     let current = serde_json::to_value(RuntimeSnapshot::from_runtime(&restored))
         .expect("current snapshot serializes");
-    assert_eq!(current["version"], 20);
+    assert_eq!(current["version"], 21);
     assert!(current.get("beliefs").is_some());
     assert!(current.get("resident_memories").is_none());
     assert!(current.get("search_memories").is_none());
