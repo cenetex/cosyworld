@@ -239,7 +239,53 @@ pub(super) fn fail_actor_job_for_runtime_state(
         params![job.id, now_millis() as i64, trim_to_chars(error, 500),],
     )
     .map_err(sqlite_error)?;
+    log_dead_actor_job(job, "provider_terminal");
     Ok(())
+}
+
+pub(super) fn fail_or_retry_actor_job(
+    path: &Path,
+    job: &ActorJob,
+    error: &str,
+    retry_floor_ms: u64,
+) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    let terminal = job.attempts >= ACTOR_JOB_MAX_ATTEMPTS;
+    let backoff_ms = 250_u64
+        .saturating_mul(1_u64 << job.attempts.saturating_sub(1).min(5))
+        .max(retry_floor_ms);
+    let now = now_millis();
+    let updated = conn
+        .execute(
+            "UPDATE actor_jobs
+         SET status = ?2, lease_until_ms = NULL, available_at_ms = ?3,
+             last_error = ?4, updated_at_ms = ?5
+         WHERE id = ?1",
+            params![
+                job.id,
+                if terminal { "dead" } else { "pending" },
+                now.saturating_add(backoff_ms) as i64,
+                trim_to_chars(error, 500),
+                now as i64,
+            ],
+        )
+        .map_err(sqlite_error)?;
+    if terminal && updated > 0 {
+        log_dead_actor_job(job, "attempt_budget_exhausted");
+    }
+    Ok(())
+}
+
+pub(super) fn log_dead_actor_job(job: &ActorJob, disposition: &'static str) {
+    error!(
+        event = "actor_job_dead",
+        actor_job_id = job.id,
+        actor_job_kind = job.kind,
+        actor_id = job.actor_id,
+        actor_attempts = job.attempts,
+        disposition,
+        "actor job entered the durable dead state"
+    );
 }
 
 fn requeue_actor_job(

@@ -66,6 +66,7 @@ run_world() {
   supervisor_pid="${11}"
   shutdown_grace_secs="${12}"
   shutdown_marker_dir="${13}"
+  worldpack="$(basename "$(dirname "$registry")")"
   active_child=""
 
   # Invoked indirectly by the signal trap below.
@@ -106,6 +107,8 @@ run_world() {
       env -u COSYWORLD_ENTRY_LOCATION_ID \
         COSYWORLD_V2_ADDR="127.0.0.1:$port" \
         COSYWORLD_PROCESS_ID="lonelyforest-$slug" \
+        COSYWORLD_LOG_TENANT="$slug" \
+        COSYWORLD_LOG_WORLDPACK="$worldpack" \
         COSYWORLD_V2_SHARD_ID="lonelyforest-$slug" \
         COSYWORLD_CONTENT_REGISTRY_PATH="$registry" \
         COSYWORLD_V2_SNAPSHOT_PATH="$snapshot_path" \
@@ -120,6 +123,8 @@ run_world() {
       env -u COSYWORLD_REQUIRED_HEALTH_URLS \
         COSYWORLD_V2_ADDR="127.0.0.1:$port" \
         COSYWORLD_PROCESS_ID="lonelyforest-$slug" \
+        COSYWORLD_LOG_TENANT="$slug" \
+        COSYWORLD_LOG_WORLDPACK="$worldpack" \
         COSYWORLD_V2_SHARD_ID="lonelyforest-$slug" \
         COSYWORLD_CONTENT_REGISTRY_PATH="$registry" \
         COSYWORLD_ENTRY_LOCATION_ID="$entry_location_id" \
