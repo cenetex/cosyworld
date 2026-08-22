@@ -52,7 +52,7 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
    wall time.
 3. **AI proposes; it never mutates.** Every AI output is validated, sanitized, and committed as a public event or discarded. AI never grants items, fills clocks, deepens bonds, changes access, or spends currency directly. This extends to generated content: crafted-item names and generated evolution quest lists are proposals that must survive a fail-closed compiler before becoming authoritative.
 4. **Events are append-only and replayable.** The journal is the source of truth; snapshots are disposable. Every visible dice roll carries die, roll, modifier, total, and DC/AC.
-5. **Every mint, spend, ledger mark, and one-shot effect is claim-key gated.** Keys are pure functions of authoritative facts — never wall-clock time or RNG. Review checks key granularity in both directions (too coarse swallows legitimate repeats; too fine lets retries double-mint). This applies to NPC behavior too: resident ambient lines and autonomous acts carry cooldown/claim discipline like player rewards.
+5. **Every mint, spend, ledger mark, and one-shot effect is claim-key gated.** Keys are pure functions of authoritative facts — never wall-clock time or RNG. Review checks key granularity in both directions (too coarse swallows legitimate repeats; too fine lets retries double-mint). This applies to NPC behavior too: player-turn resident replies and consequence actions carry cooldown/claim discipline like player rewards.
 6. **The client is untrusted.** Affordability, access, ownership, outcomes, and primary-action state are server-derived. Client-supplied card ids are ignored outside explicit local dev flags.
 7. **Turn discipline has a fixed taxonomy.** Committed cards consume a room turn; reports and reads never do; browsing the hand is free. A present player is never hostage to an absent one — ping/pong (or its successor) must always provide a bounded path past an unresponsive turn-holder.
 8. **Core world actions do not depend on AI.** Travel, Listen, Search, item actions, growth, projects, and conflict keep deterministic kernel paths. Dialogue is an explicit inference capability: when unavailable it fails visibly before charging or committing speech, and incidental replies are skipped.
@@ -115,7 +115,7 @@ Durable `media_jobs`/`media_assets` (idempotent, contributor-attributed, intent-
 The gap between "operator console exists" and "open public traffic":
 
 - Pre-commit content filtering on player-typed text and AI output, beyond the current sanitizer — this becomes load-bearing when crafting starts naming items.
-- Resident line-variety cooldowns: ambient and autonomy lines rotate through authored pools with per-(actor, behavior, context) claim discipline — no more identical lines thirteen times in a feed.
+- Resident line-variety cooldowns: player-turn reply lines rotate through authored pools with per-(actor, behavior, context) claim discipline — no more identical lines thirteen times in a feed.
 - Turn legibility: visible ping countdowns on both sides, a "you've been pinged — play or pass" signal for the current player, and collapsed/updating rows for repeated turn events.
 - Operator workflow with a resolution-time target; richer mute/timeout primitives between "nothing" and suspension; per-room AI spend budgets; a written abuse-response runbook before wide traffic.
 

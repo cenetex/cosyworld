@@ -67,11 +67,11 @@ test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
   assert.match(hoppy?.identity?.appearance ?? "", /blue hoodie/i);
   assert.match(hoppy?.identity?.appearance ?? "", /microphone/i);
   assert.equal(hoppy?.control_mode, "direct_input");
-  assert.equal(hoppy?.ambient_autonomy, false);
+  assert.equal(hoppy?.event_autonomy, false);
   assert.equal(hoppy?.roaming, false);
 
   const inferenceResidents = actors.filter((actor) => actor.id !== hoppy.id);
-  assert.ok(inferenceResidents.every((actor) => actor.ambient_autonomy === true));
+  assert.ok(inferenceResidents.every((actor) => actor.event_autonomy === true));
   assert.ok(inferenceResidents.every((actor) => actor.roaming === true));
 
   const roster = new Map(actors.map((actor) => [actor.name, actor]));

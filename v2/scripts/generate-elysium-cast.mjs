@@ -163,7 +163,7 @@ function actorsFromBindings(bindings) {
     speech_mode: binding.speech_mode,
     title: binding.requested_model_id,
     description: "An avatar with an exact OpenRouter model binding.",
-    ambient_autonomy: true,
+    event_autonomy: true,
     location_id: LOCATION_BASE + index,
     stats: {
       strength: 10,
@@ -397,8 +397,8 @@ function generatedResources(bindings) {
 function assertVoidTopology(bindings, resources) {
   const nodeCount = bindings.length;
   assert(
-    resources.actors.every((actor) => actor.ambient_autonomy === true),
-    "Elysium avatars must participate in ambient autonomy",
+    resources.actors.every((actor) => actor.event_autonomy === true),
+    "Elysium avatars must participate in event-triggered autonomy",
   );
   const adjacency = new Map(bindings.map((_binding, index) => [index, new Set()]));
   const directions = new Set();

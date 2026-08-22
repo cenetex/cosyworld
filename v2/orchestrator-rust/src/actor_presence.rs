@@ -562,7 +562,7 @@ impl RuntimeWorld {
     }
 }
 
-// --- moved from main.rs: autonomy credit/tick + ambient entry points ---
+// --- moved from main.rs: autonomy credit/tick boundaries ---
 impl crate::RuntimeWorld {
     pub(crate) fn ensure_actor_autonomy(&mut self) {
         let actors = self.world.actors[..self.world.actor_count].to_vec();
@@ -617,18 +617,6 @@ impl crate::RuntimeWorld {
         }
     }
 
-    pub(crate) fn replenish_ambient_autonomy_credits(&mut self) {
-        self.ensure_actor_autonomy();
-        for actor in &self.world.actors[..self.world.actor_count] {
-            if !Self::actor_can_act(*actor) || !self.actor_uses_inference(actor.id) {
-                continue;
-            }
-            if let Some(autonomy) = self.actor_autonomy.get_mut(&actor.id) {
-                autonomy.attention_credits = autonomy.attention_credits.saturating_add(1).min(2);
-            }
-        }
-    }
-
     pub(crate) fn autonomy_allows_action(&self, actor_id: u64, action_kind: u8) -> bool {
         let Some(autonomy) = self.actor_autonomy.get(&actor_id) else {
             return false;
@@ -672,78 +660,6 @@ impl crate::RuntimeWorld {
                 && event.source_world_tick == Some(observation.source_world_tick)
                 && event.caused_by_event_seq == Some(caused_by_event_seq)
         })
-    }
-
-    pub(crate) fn ambient_actor(&self) -> Option<CwActor> {
-        let directly_controlled_locations: BTreeSet<u64> = self.world.actors
-            [..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| Self::actor_can_act(*actor) && !self.actor_uses_inference(actor.id))
-            .map(|actor| actor.location_id)
-            .collect();
-        if directly_controlled_locations.is_empty() {
-            return None;
-        }
-
-        let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| {
-                Self::actor_can_act(*actor)
-                    && self.actor_uses_inference(actor.id)
-                    && directly_controlled_locations.contains(&actor.location_id)
-            })
-            .collect();
-        if candidates.is_empty() {
-            return None;
-        }
-
-        Some(candidates[(self.world.tick as usize) % candidates.len()])
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ambient_line(&self) -> Option<(u64, String)> {
-        let actor = self.ambient_actor()?;
-        let pick = |lines: &[&str]| -> String {
-            let index = ((self.world.tick / 2) as usize) % lines.len();
-            lines[index].to_string()
-        };
-        let text = match actor.id {
-            1001 => pick(&[
-                "Rati smooths the blue scarf, leaving one stitch loose for the next noticed thing.",
-                "Rati taps her needles together, then listens as if the rain answered back.",
-                "Rati folds a scrap of story into her knitting basket for later.",
-            ]),
-            1002 => pick(&["🫖✨🌧️", "🌙🧶☁️", "🌿🫧✨"]),
-            1003 => pick(&[
-                "*Skull shifts closer to the low doorway, silent and awake.*",
-                "*Skull lowers his head beside the hearth, listening past the rain.*",
-                "*Skull's ears turn toward the door before the room does.*",
-            ]),
-            1005 => pick(&[
-                "Root: The path remembers. Ring: The question has been here before.",
-                "Leaf: Something changed today. Hollow: Not everything has answered yet.",
-                "Ring: Years make patient witnesses. Root: Step carefully.",
-            ]),
-            _ => format!(
-                "{} settles into the room's quiet rhythm.",
-                self.actor_name(actor.id)
-                    .unwrap_or_else(|| "Someone".to_string())
-            ),
-        };
-        Some((actor.id, text))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ambient_autonomy_action(&mut self) -> Option<CwAction> {
-        self.refresh_beliefs_for_autonomy();
-        self.resident_economy_autonomy_action_by_priority()
-    }
-
-    pub(crate) fn ambient_autonomy_record(&mut self, seed: u64) -> Option<JournalRecord> {
-        self.refresh_beliefs_for_autonomy();
-        self.resident_economy_autonomy_record_for_seed(seed)
     }
 }
 #[cfg(test)]
@@ -1642,8 +1558,8 @@ mod tests {
             "Quiet Witness",
         );
         let resident = runtime
-            .ambient_actor()
-            .expect("active helper makes resident action available");
+            .actor_by_id(BLUE_SQUIRREL_ACTOR_ID)
+            .expect("Blue Squirrel exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(resident)
             .into_iter()
