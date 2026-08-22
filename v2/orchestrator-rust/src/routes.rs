@@ -294,6 +294,9 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/rest", post(legacy_action_requires_certificate))
         .route("/actions/bank-ledger", post(bank_ledger))
         .route("/actions/revise-calling", post(revise_calling))
+        // Releasing a knocked-out avatar is a lifecycle action with no dealt
+        // offer, so it needs its own route rather than an offer certificate.
+        .route("/actions/abandon-avatar", post(abandon_avatar))
         .route(
             "/actions/create-bond",
             post(legacy_action_requires_certificate),
@@ -353,6 +356,55 @@ pub(super) fn app_router(state: AppState) -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn registered_route_paths(router_source: &str) -> BTreeSet<&str> {
+        router_source
+            .split(".route(")
+            .skip(1)
+            .filter_map(|segment| segment.split('"').nth(1))
+            .collect()
+    }
+
+    fn quoted_action_paths(source: &str) -> BTreeSet<&str> {
+        source
+            .split('"')
+            .filter(|value| value.starts_with("/actions/"))
+            .collect()
+    }
+
+    fn posted_action_paths(source: &str) -> BTreeSet<&str> {
+        source
+            .split("action(\"")
+            .skip(1)
+            .filter_map(|segment| segment.split('"').next())
+            .filter(|path| path.starts_with("/actions/"))
+            .collect()
+    }
+
+    /// The browser client posts a plain action path unless that path is offer
+    /// bound, in which case it travels through /actions/submit with a
+    /// certificate. A path that is neither served nor offer bound answers 404
+    /// on every attempt: that is how Abandon Avatar shipped unreachable and
+    /// left knocked-out players with no way back into play.
+    #[test]
+    fn every_client_action_path_stays_reachable() {
+        let registered = registered_route_paths(include_str!("routes.rs"));
+        let offer_bound_block = INDEX_HTML
+            .split("const offerBoundPaths = new Set([")
+            .nth(1)
+            .and_then(|block| block.split("]);").next())
+            .expect("the client declares its offer-bound action paths");
+        let offer_bound = quoted_action_paths(offer_bound_block);
+        assert!(offer_bound.contains("/actions/chat"));
+        let posted = posted_action_paths(INDEX_HTML);
+        assert!(posted.contains("/actions/abandon-avatar"));
+        for path in posted {
+            assert!(
+                registered.contains(path) || offer_bound.contains(path),
+                "the client posts to {path}, but no route serves it and it is not offer bound",
+            );
+        }
+    }
 
     #[test]
     fn model_interaction_has_its_own_certificate_bound_path() {

@@ -20991,7 +20991,7 @@ async fn command_with_forwarding(
             return canonical_command_error(
                 &payload.command,
                 403,
-                "Reconnect your account to restore this same avatar; the world will not replace it.",
+                actor_presence::actor_refusal_message(&runtime, payload.actor_id),
             );
         }
     }
@@ -22158,7 +22158,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Reconnect your account to restore this same avatar; the world will not replace it."
+                        actor_presence::actor_refusal_message(&runtime, payload.actor_id)
                             .to_string(),
                     ),
                     error_kind: None,
@@ -22536,7 +22536,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Reconnect your account to restore this same avatar; the world will not replace it."
+                        actor_presence::actor_refusal_message(&runtime, payload.actor_id)
                             .to_string(),
                     ),
                     error_kind: None,
