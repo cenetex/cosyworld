@@ -48,9 +48,10 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
   weapons, spells, tools, and relics are roles of playable Item cards, not new
   entity families with separate interfaces.
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
-- **Chat is visible growth.** `Chat` appears only when banked advancement can
-  begin a friendship with an eligible nearby resident. It spends advancement,
-  never Orbs, and it never accepts player text.
+- **Conversation is earned.** `Befriend` converts accumulated relationship
+  into a Bond, and `Chat` appears only toward bonded co-present avatars. Both
+  spend activations, never Orbs, and neither accepts player text. See
+  [The Relationship Meter](#the-relationship-meter).
 - **Cards invite one contextual room voice.** A successful scene card arms one
   delayed resident heartbeat per room. Rapid cards coalesce, resident priority
   follows authored card order, and the reply sees recent card/log history.
@@ -117,6 +118,124 @@ Bonds are first-class entities (kind `bond`), edges between actors. They:
 - **Drive non-AI behavior.** With generation unavailable, a resident reads its bonds and reaction state to choose authored responses — how the world stays warm when the AI is quiet.
 
 Bonds are the cozy game's true progression: relationships you own inside a world you share.
+
+### The Relationship Meter
+
+> **Notice progress is relationship progress.** There is exactly one meter per
+> ordered actor pair, and every social action feeds it.
+
+#### Status: specified, not yet implemented
+
+This section is normative for new work and supersedes advancement-gated Chat.
+It lands alongside ordinary-room initiative; until then, existing Chat gating
+remains in force.
+
+#### One meter, two gates
+
+Each avatar tracks one relationship value toward each other avatar. The value
+lives on the bond edge (the `strength` deepening track); stages are derived
+from thresholds, never stored separately:
+
+```text
+relationship: 0 ────────────────────────────────────▶
+                  │                 │                │
+               stranger         acquainted        bonded
+             (no record or     (meter above      (active Bond)
+              zero)            zero, no Bond)
+                                   │                │
+                             Befriend offer      Chat offer
+                             becomes legal       becomes legal
+```
+
+- **Stranger → acquainted** requires Notice-type gains. At relationship zero,
+  Focused Notice on an avatar is the *only* card that can move the meter.
+- **Acquainted → bonded** happens by playing **Befriend**, whose offer appears
+  only once the meter reaches the authored befriend threshold. A successful
+  Befriend creates the Bond (with its statement) and unlocks Chat.
+- **Chat** offers exist only toward bonded co-present avatars. An unearned Chat
+  does not appear with an explanation; an offer that is not unlocked has the
+  same standing as any other illegal offer — it simply does not exist.
+
+#### Social actions feed the same meter
+
+Every resolved social action grants relationship progress to both parties per
+an authored gain table. Doing things *with* someone *is* the relationship:
+
+| Source | Meter effect |
+| --- | --- |
+| Successful focused Notice on an avatar | Base notice gain (entry path). |
+| Accepted Give | Gain for giver and recipient. |
+| Completed Trade | Gain for both traders. |
+| Resolved Help | Gain for helper and helped. |
+| Chat exchange between bonded avatars | Small sustain gain. |
+| Failed check | No gain. |
+
+The kernel owns the curve shape and records every gain as a journal event;
+worldpacks may author threshold and gain values within declared bounds.
+
+#### Checks shape velocity, not existence
+
+Ability checks modify how fast the meter fills; they never gate whether the
+system exists. Perception colors notice-type gains and Charisma colors
+befriend-type gains. A failed check is an ordinary deterministic event that
+grants no progress and makes no AI request, matching the Think and Rest
+precedent.
+
+#### Controller symmetry is automatic
+
+Residents accumulate relationship toward players through the identical
+mechanics. A resident cannot open a conversation with a stranger either, so a
+resident that Notices you twice, Befriends you, and only then speaks is
+telling a legible social story through the same rules players use. Gates read
+the acting avatar's own meter toward its target; blocks remain the hard
+moderation override above every other predicate.
+
+#### Supersession
+
+Chat no longer spends banked advancement and no longer creates the initial
+Bond directly; **Befriend** creates Bonds and joins the Cosy advancement
+domain. Advancement remains spendable on evolution, bond slots, Calling
+revision, and future growth choices.
+
+#### Seed relationships
+
+Cold start is a designed moment, not an accident. A player's first session
+must already contain someone who can speak to them:
+
+- **Rati is the canonical seeded chat partner** for new avatars in Core.
+- Worldpacks may author **seed relationships** — starting stages or active
+  Bonds between specific actors — applied deterministically at world creation
+  and recorded as journal events like every other meter fact.
+- Faction membership may later imply group-level seed stages; until a faction
+  contract exists, seeds are pairwise and authored.
+
+Seeds never bypass session ownership or moderation blocks; they only pre-fill
+the same meter every other interaction writes.
+
+#### Daily budget
+
+Relationship gains are farmable unless the meter has a clock. Gains are
+budgeted per in-world day:
+
+- Each ordered pair accrues at most the authored daily gain budget between
+  long Rests; further interactions that day advance nothing.
+- A long Rest resets the budgets. Long Rests are themselves limited per
+  in-world day (Core default: one), so the whole loop stays bounded.
+- Repeated identical interactions draw down the same budget: alternating
+  Give and Take cannot outpace genuine play.
+
+Budget counters are deterministic kernel state, journaled and replayed like
+the meter itself.
+
+#### Open decision: combat as the second conversion
+
+Befriend converts accumulated relationship into a *friendly* Bond. Combat
+could be the Honor-path twin: challenging (or being challenged by) someone you
+have history with converts the same meter into a rivalry or hostile Bond,
+giving fights narrative grounding instead of spawning them from nothing. Chat
+would remain locked on the hostile path. Whether combat joins Befriend as a
+conversion ceremony — and how hostile Bonds resolve back — is deferred to the
+combat-system contract and deliberately not specified here.
 
 ## Sanctuary And Frontier
 
@@ -470,7 +589,8 @@ The primary action is helpful, not exhaustive. As risk/effect metadata lands, it
 6. Give a matching evolution/job item.
 7. Use a meaningful carried or equipped item card.
 8. Take a useful visible item.
-9. Chat with an eligible target, only when advancement can create the friendship.
+9. Befriend an acquainted target, then Chat with a bonded target — conversation
+   is unlocked by relationship progress, not purchased.
 10. Notice, Inspect, Scout, Travel, or Contribute.
 
 The primary action may vary by context, but the result is always public.
@@ -510,7 +630,7 @@ Clocks give CosyWorld persistent pressure without heavy rules.
 
 ### Clock Movement
 
-Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest refreshes by the grade contract in [ADR 0004](../decisions/0004-rest-grades-and-expedition-depth.md), and only Camp may carry an authored frontier danger or season tick. Lodging gates come from access, an existing Bond, a completed Job, or an authored room resource and never debit Orbs. Work fills project progress; later actions may deepen an existing Bond; combat fills objective clocks rather than only dealing damage. Chat creates the initial Bond by spending advancement and does not silently fill unrelated clocks.
+Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest refreshes by the grade contract in [ADR 0004](../decisions/0004-rest-grades-and-expedition-depth.md), and only Camp may carry an authored frontier danger or season tick. Lodging gates come from access, an existing Bond, a completed Job, or an authored room resource and never debit Orbs. Work fills project progress; later actions may deepen an existing Bond; combat fills objective clocks rather than only dealing damage. Social actions advance the relationship meter (see [The Relationship Meter](#the-relationship-meter)); a successful Befriend creates the initial Bond, and Chat deepens existing Bonds without silently filling unrelated clocks.
 
 **Offscreen movement is frontier-only.** A clock advances between visits only if its `zone` is frontier and it belongs to a goal the player opted into. Sanctuary clocks never move on their own.
 
@@ -658,7 +778,7 @@ Their sole spend is community image generation for eligible generated cards. A c
 
 Location imagery is non-authoritative and fails closed: prompts prohibit people, characters, creatures, text, logos, and watermarks; a separate vision-policy decision must approve visible pixels before publication; rejected or unavailable review keeps the deterministic landscape fallback. Moderation can invalidate a ready image without changing topology, presence, funding, or any other world mechanic.
 
-Chat, Say, resident heartbeats, Listen/Notice, Help, bond, travel, combat, access, and progression never spend Orbs. Chat instead spends one banked advancement point to create a new Bond. Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs. The negative ledger is equally strict: new actions may use only `community_image_generation`, capped by `{subject, level}`.
+Chat, Say, resident heartbeats, Listen/Notice, Help, bond, travel, combat, access, and progression never spend Orbs. Chat is unlocked by relationship progress instead of spending advancement (see [The Relationship Meter](#the-relationship-meter)). Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs. The negative ledger is equally strict: new actions may use only `community_image_generation`, capped by `{subject, level}`.
 
 ## Claim Keys And Idempotency
 
