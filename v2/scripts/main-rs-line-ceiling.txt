@@ -400,7 +400,9 @@
 # 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
 # idle speaker/reply planning, and scheduler-only tests. Resident consequences
 # remain causally attached to committed player turns.
-# 61693 -> 61673: move HTTP response-contract handling into routes.rs and run
+# 61693 -> 61691: align the stale ratchet with main.rs after the ambient
+# scheduler removal; the tracked source was already 61,691 lines.
+# 61691 -> 61673: move HTTP response-contract handling into routes.rs and run
 # routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
 # threads stay available for health while JSON error policy remains at routing.
 # 61673 -> 61640: replace main.rs's unbounded signal helpers with the shutdown
