@@ -28865,7 +28865,41 @@ fn canonical_fallback_command_response(
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
+/// Run blocking work on a worker that is allowed to stall.
+///
+/// A durable commit does synchronous SQLite I/O while holding
+/// `&mut RuntimeWorld`, so it cannot move into `spawn_blocking` -- that
+/// borrow is not `'static`. `block_in_place` is built for exactly this shape:
+/// it migrates the other tasks off this worker before we stall it.
+///
+/// Without it a slow commit blocks a tokio worker outright. Production showed
+/// commits reaching 11.5s; on the four-CPU Lonely Forest machine a few
+/// concurrent commits blocked every worker, so `/health` -- which takes no
+/// lock and does almost nothing -- could not be scheduled at all. Fly read the
+/// timeout as an unhealthy machine and pulled it from rotation while the app
+/// was busy but alive, which is what made a loaded tenant look like a dead one.
+///
+/// `block_in_place` panics on a current-thread runtime, which is what
+/// `#[tokio::test]` builds by default, so run inline when the flavor is not
+/// multi-thread.
+fn block_in_place_if_multi_thread<T>(f: impl FnOnce() -> T) -> T {
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+            tokio::task::block_in_place(f)
+        }
+        _ => f(),
+    }
+}
+
 fn commit_journal_record(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    record: JournalRecord,
+) -> io::Result<(u32, Vec<EventView>)> {
+    block_in_place_if_multi_thread(move || commit_journal_record_blocking(state, runtime, record))
+}
+
+fn commit_journal_record_blocking(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     mut record: JournalRecord,
@@ -31424,6 +31458,59 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
 
 #[cfg(test)]
 mod tests {
+
+    /// The bug this guards: a slow durable commit used to block a tokio worker
+    /// outright, so on a small machine a few concurrent commits starved every
+    /// worker and `/health` -- lock-free and nearly free -- could not be
+    /// scheduled. Fly read that timeout as a dead machine and pulled a busy but
+    /// alive tenant out of rotation.
+    ///
+    /// The runtime here has exactly one worker, which is the adversarial case:
+    /// a stall on it starves everything unless the runtime is told to hand the
+    /// remaining tasks to a replacement worker. Verified to fail when
+    /// `block_in_place_if_multi_thread` is reduced to calling `f` inline.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn blocking_work_does_not_starve_a_cheap_task() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let stalling = Arc::new(AtomicBool::new(false));
+        let stall_flag = stalling.clone();
+
+        let blocker = tokio::spawn(async move {
+            stall_flag.store(true, Ordering::SeqCst);
+            block_in_place_if_multi_thread(|| {
+                std::thread::sleep(Duration::from_millis(300));
+            });
+        });
+
+        while !stalling.load(Ordering::SeqCst) {
+            tokio::task::yield_now().await;
+        }
+
+        let cheap_started = Instant::now();
+        let cheap = tokio::spawn(async { 41 + 1 });
+        let answer = tokio::time::timeout(Duration::from_millis(250), cheap)
+            .await
+            .expect("a cheap task must still be scheduled while a commit stalls a worker")
+            .expect("cheap task joins");
+
+        assert_eq!(answer, 42);
+        assert!(
+            cheap_started.elapsed() < Duration::from_millis(250),
+            "the cheap task waited on the stalled worker: {:?}",
+            cheap_started.elapsed()
+        );
+        blocker.await.expect("blocking task joins");
+    }
+
+    /// `block_in_place` panics on a current-thread runtime, which is what the
+    /// bare `#[tokio::test]` used by most tests here builds. The helper must
+    /// run inline there instead of taking the whole suite down.
+    #[tokio::test]
+    async fn blocking_helper_runs_inline_on_a_current_thread_runtime() {
+        assert_eq!(block_in_place_if_multi_thread(|| 7), 7);
+    }
     use super::*;
     #[path = "action_hand_tests.rs"]
     mod action_hand_tests;
