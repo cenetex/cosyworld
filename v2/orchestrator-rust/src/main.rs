@@ -19476,7 +19476,6 @@ async fn complete_queued_orb_chat_attempt(
                 return Err(error.to_string());
             }
         };
-        let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
         let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
         let (context_changed, committed) = {
             let mut runtime = state.inner.lock().await;
@@ -19504,12 +19503,6 @@ async fn complete_queued_orb_chat_attempt(
                 record.source_location_id = Some(plan.location_id);
                 record.content_upserts.insert(content_id, content.clone());
                 record.ai_publication = Some(publication_receipt);
-                runtime.attach_reasoning_thought_memory(
-                    &mut record,
-                    actor_id,
-                    plan.location_id,
-                    reasoning_trace.as_deref(),
-                );
                 let committed = match commit_journal_record(state, &mut runtime, record) {
                     Ok((CW_OK, events)) if !events.is_empty() => Some((content_id, events)),
                     _ => None,
@@ -22809,7 +22802,6 @@ fn commit_resident_reply_record(
         speech,
         mut planning,
     } = certified;
-    let reasoning_trace = speech.reasoning_trace().map(ToString::to_string);
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
@@ -22882,12 +22874,6 @@ fn commit_resident_reply_record(
                 reason: presentation.content(),
             });
     }
-    runtime.attach_reasoning_thought_memory(
-        &mut record,
-        plan.speaker_actor_id,
-        plan.location_id,
-        reasoning_trace.as_deref(),
-    );
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };

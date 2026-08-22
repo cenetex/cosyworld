@@ -395,6 +395,7 @@ async fn request_ai_avatar_chat(
     plan: &AvatarChatPlan,
     followup: bool,
 ) -> Result<CertifiedSpeech, VoiceRoutingError> {
+    let gate = avatar_chat_gate_context(plan, followup);
     route_certified_voice(
         config,
         store_path,
@@ -409,14 +410,14 @@ async fn request_ai_avatar_chat(
             } else {
                 "dialogue-avatar-context-spine-v6"
             },
-            prompt: avatar_chat_prompt(plan, followup),
+            prompt: avatar_chat_prompt(plan, followup, &gate.requirements),
             temperature: 0.8,
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(plan.location_id),
         },
-        avatar_chat_gate_context(plan, followup),
+        gate,
     )
     .await
 }
@@ -539,12 +540,24 @@ fn avatar_chat_context_spine(plan: &AvatarChatPlan, followup: bool) -> AvatarCon
                 .map(|subject| format!("A live subject between them is {subject}."))
         })
         .unwrap_or_else(|| spine.current_beat.clone());
+    if spine.current_concern.is_none() {
+        spine.current_concern = plan
+            .fresh_subject
+            .clone()
+            .or_else(|| (!beat.trim().is_empty()).then(|| beat.clone()));
+    }
     spine.with_incoming_turn(directed).with_current_beat(beat)
 }
 
-fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
+fn avatar_chat_prompt(
+    plan: &AvatarChatPlan,
+    followup: bool,
+    requirements: &VoiceBeatRequirements,
+) -> PromptEnvelope {
     let word_budget = if followup { 28 } else { 34 };
-    avatar_chat_context_spine(plan, followup).prompt(AvatarContextPromptOptions {
+    let mut spine = avatar_chat_context_spine(plan, followup);
+    apply_voice_beat_requirements(&mut spine, requirements);
+    spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::Respond,
         speech_mode: SpeechMode::Prose,
         max_words: word_budget,
@@ -555,7 +568,7 @@ fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
             )
         } else {
             format!(
-                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, observation, intention, or mild disagreement rather than announcing a place name. Vary sentence form; do not default to a rhetorical question or ask what everyone is avoiding. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
+                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, observation, intention, or mild disagreement rather than announcing a place name. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
                 plan.target_actor_name, plan.actor_name
             )
         },
@@ -564,7 +577,10 @@ fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
 
 #[cfg(test)]
 fn avatar_chat_user_prompt(plan: &AvatarChatPlan, followup: bool) -> String {
-    avatar_chat_prompt(plan, followup).render_for_test().user
+    let gate = avatar_chat_gate_context(plan, followup);
+    avatar_chat_prompt(plan, followup, &gate.requirements)
+        .render_for_test()
+        .user
 }
 
 pub(super) async fn request_ai_avatar_intent(
@@ -588,20 +604,21 @@ pub(super) async fn request_ai_avatar_intent(
             resident_disposition_for_voice(plan).0
         };
         let planning_brief = resident_voice_planning_brief(&planning);
+        let gate = resident_gate_context(plan, false);
         let speech = route_certified_voice(
             config,
             store_path,
             VoiceAttemptRequest {
                 feature: "dialogue_resident_raw",
                 prompt_version: "dialogue-resident-raw-context-spine-v3",
-                prompt: resident_voice_prompt(plan, &planning_brief),
+                prompt: resident_voice_prompt(plan, &planning_brief, &gate.requirements),
                 temperature: 0.0,
                 max_tokens: 160,
                 referer: "http://127.0.0.1:3102",
                 model_binding: Some(binding),
                 room_id: Some(plan.location_id),
             },
-            resident_gate_context(plan, false),
+            gate,
         )
         .await?;
         let proposal = AvatarIntentProposal {
@@ -630,7 +647,8 @@ pub(super) async fn request_ai_avatar_intent(
         proposed_action: voice_action,
         trace: planning.trace.clone(),
     });
-    let prompt = resident_voice_prompt(plan, &planning_brief);
+    let gate = resident_gate_context(plan, planning.proposed_action.is_some());
+    let prompt = resident_voice_prompt(plan, &planning_brief, &gate.requirements);
 
     let speech = route_certified_voice(
         config,
@@ -645,7 +663,7 @@ pub(super) async fn request_ai_avatar_intent(
             model_binding: None,
             room_id: Some(plan.location_id),
         },
-        resident_gate_context(plan, planning.proposed_action.is_some()),
+        gate,
     )
     .await?;
     let proposal = AvatarIntentProposal {
@@ -664,7 +682,11 @@ pub(super) async fn request_ai_avatar_intent(
     })
 }
 
-fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> PromptEnvelope {
+fn resident_voice_prompt(
+    plan: &AvatarReplyPlan,
+    planning_brief: &str,
+    requirements: &VoiceBeatRequirements,
+) -> PromptEnvelope {
     let mut spine = if plan.context_spine.is_current() {
         plan.context_spine.clone()
     } else {
@@ -738,6 +760,16 @@ fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> Prompt
     spine.public_room_memory = plan.public_room_memory.clone();
     spine.cast = plan.cast.clone();
     spine.recent_activity = plan.recent_activity.clone();
+    // The plan's continuity has already been filtered for the actor's control
+    // mode and pack boundary. Never revive a stale concern copied into an older
+    // context spine.
+    spine.current_concern = plan
+        .resident_continuity
+        .current_intent
+        .clone()
+        .or_else(|| plan.resident_continuity.open_obligations.first().cloned())
+        .or_else(|| (!plan.user_text.trim().is_empty()).then(|| plan.user_text.clone()));
+    apply_voice_beat_requirements(&mut spine, requirements);
     spine = spine
         .with_incoming_turn(plan.incoming_turn.clone())
         .with_current_beat(plan.user_text.clone());
@@ -766,7 +798,8 @@ fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> Prompt
 
 #[cfg(test)]
 pub(super) fn resident_voice_user_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> String {
-    resident_voice_prompt(plan, planning_brief)
+    let gate = resident_gate_context(plan, false);
+    resident_voice_prompt(plan, planning_brief, &gate.requirements)
         .render_for_test()
         .user
 }
@@ -842,6 +875,64 @@ fn opening_place_names(current: &str, spine: &AvatarContextSpine) -> Vec<String>
     names
 }
 
+fn apply_voice_beat_requirements(
+    spine: &mut AvatarContextSpine,
+    requirements: &VoiceBeatRequirements,
+) {
+    spine.required_beat_form = requirements.required_form;
+    spine.consecutive_action_deferrals = requirements.consecutive_deferrals;
+    spine.must_act_or_block = requirements.must_act_or_block;
+    for anomaly in &requirements.anomalies {
+        if !spine.observation_anomalies.contains(anomaly) {
+            spine.observation_anomalies.push(anomaly.clone());
+        }
+    }
+}
+
+fn voice_beat_requirements(
+    mode: SpeechMode,
+    completed_beats: u64,
+    recent_lines: &[String],
+    speaker_name: &str,
+    mut anomalies: Vec<String>,
+) -> VoiceBeatRequirements {
+    anomalies.retain(|anomaly| !anomaly.trim().is_empty());
+    anomalies.sort();
+    anomalies.dedup();
+    let consecutive_deferrals = consecutive_speaker_deferrals(recent_lines, speaker_name);
+    VoiceBeatRequirements {
+        required_form: (mode == SpeechMode::Prose).then(|| BeatForm::for_beat(completed_beats)),
+        consecutive_deferrals,
+        must_act_or_block: consecutive_deferrals >= 2,
+        anomalies,
+    }
+}
+
+fn plan_observation_anomalies(
+    spine: &AvatarContextSpine,
+    plan_location_id: u64,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) -> Vec<String> {
+    let mut anomalies = spine.observation_anomalies.clone();
+    if spine.location.location_id != 0
+        && plan_location_id != 0
+        && spine.location.location_id != plan_location_id
+    {
+        anomalies.push(
+            "The reply plan and the current observation disagree about the location.".to_string(),
+        );
+    }
+    if source_world_tick.is_some_and(|tick| tick > spine.world_tick) {
+        anomalies.push("The source turn is later than the observed world state.".to_string());
+    }
+    if observed_through_seq.is_some_and(|seq| seq > spine.observed_through_seq) {
+        anomalies
+            .push("The requested event range extends beyond the observed world state.".to_string());
+    }
+    anomalies
+}
+
 fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGateContext {
     let recent_lines = if followup && !plan.exchange_turns.is_empty() {
         plan.exchange_turns
@@ -888,6 +979,23 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         )
         .filter(|name| !name.eq_ignore_ascii_case(&plan.actor_name))
         .collect();
+    let completed_beats = plan
+        .actor_continuity
+        .as_ref()
+        .map(|continuity| continuity.voice_beat_count)
+        .unwrap_or_default();
+    let requirements = voice_beat_requirements(
+        SpeechMode::Prose,
+        completed_beats,
+        &recent_lines,
+        &plan.actor_name,
+        plan_observation_anomalies(
+            &avatar_chat_context_spine(plan, followup),
+            plan.location_id,
+            None,
+            None,
+        ),
+    );
     SpeechGateContext {
         feature: if followup {
             "dialogue_avatar_followup"
@@ -913,6 +1021,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         recent_lines,
         recent_speaker_shingle_hashes: plan.recent_speaker_shingle_hashes.clone(),
         has_proposed_action: false,
+        requirements,
         envelope_valid: true,
         candidate_round: 1,
     }
@@ -958,6 +1067,19 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         )
         .filter(|name| !name.eq_ignore_ascii_case(&plan.speaker_name))
         .collect();
+    let mode = SpeechMode::from_name(&plan.speech_mode);
+    let requirements = voice_beat_requirements(
+        mode,
+        plan.resident_continuity.voice_beat_count,
+        &plan.recent_lines,
+        &plan.speaker_name,
+        plan_observation_anomalies(
+            &plan.context_spine,
+            plan.location_id,
+            plan.source_world_tick,
+            plan.observed_through_seq,
+        ),
+    );
     SpeechGateContext {
         feature: if plan.speech_mode == "raw" {
             "dialogue_resident_raw"
@@ -972,7 +1094,7 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         speaker_actor_id: plan.speaker_actor_id,
         speaker_name: plan.speaker_name.clone(),
         other_speaker_names,
-        mode: SpeechMode::from_name(&plan.speech_mode),
+        mode,
         max_words: resident_word_budget(plan),
         anchors,
         signpost_openers: if plan.incoming_turn.is_some() {
@@ -983,6 +1105,7 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         recent_lines: plan.recent_lines.clone(),
         recent_speaker_shingle_hashes: plan.resident_continuity.recent_voice_shingle_hashes.clone(),
         has_proposed_action,
+        requirements,
         envelope_valid: true,
         candidate_round: 1,
     }
@@ -1073,16 +1196,12 @@ pub(super) fn format_resident_continuity_for(
     continuity: &ResidentContinuityState,
     relationship_actor_id: Option<u64>,
 ) -> String {
-    let identity = continuity_thought(&continuity.stable_identity);
     let pending_action_intent = continuity
         .pending_action
         .as_ref()
         .and_then(resident_proposed_action_intent)
         .map(|intent| continuity_thought(&intent));
     let mut lines = Vec::new();
-    if !identity.is_empty() {
-        lines.push(format!("i am {identity}."));
-    }
     if let Some(intent) = continuity.current_intent.as_deref() {
         let intent = continuity_thought(intent);
         if !intent.is_empty() && pending_action_intent.as_deref() != Some(intent.as_str()) {
@@ -1202,9 +1321,9 @@ mod publication_tests {
     }
 
     #[test]
-    fn resident_continuity_reads_as_interior_thought_not_telemetry() {
+    fn resident_continuity_keeps_live_concerns_separate_from_stable_identity() {
         let rendered = format_resident_continuity(&populated_continuity());
-        assert!(rendered.starts_with("i am Pip Marrow, a travelling scholar."));
+        assert!(!rendered.contains("Pip Marrow, a travelling scholar"));
         assert!(rendered.contains("what i mean to do next: reach Emmaus before dark."));
         assert!(rendered.contains("Elsie keeps offering biscuits and i keep taking them."));
         assert!(rendered.contains("i still owe: an answer to the Wayside Supplicant."));
@@ -1280,6 +1399,33 @@ mod publication_tests {
         for chorus in ["Root", "Ring", "Leaf", "Hollow"] {
             assert!(oak.contains(chorus), "Oak lost {chorus}:\n{oak}");
         }
+    }
+
+    #[test]
+    fn voice_prompts_split_stable_traits_current_concern_and_world_observation() {
+        let (chat, reply) = seeded_plans();
+        let resident = resident_voice_user_prompt(&reply, "");
+        for field in [
+            "STABLE TRAITS ·",
+            "IDIOLECT ·",
+            "CURRENT CONCERN ·",
+            "OBSERVATION_JSON ·",
+            "\"location\":",
+            "\"turns_remaining\":",
+            "\"present\":",
+            "\"changed_since_last_beat\":",
+            "\"anomalies\":",
+            "\"beat_form\":",
+            "\"action_budget\":",
+        ] {
+            assert!(resident.contains(field), "missing {field:?}:\n{resident}");
+        }
+        assert!(!resident.contains("do not reuse"));
+        assert!(!resident.contains("fresh wording"));
+
+        let opener = avatar_chat_user_prompt(&chat, false);
+        assert!(opener.contains("OBSERVATION_JSON ·"));
+        assert!(!opener.contains("Vary sentence form"));
     }
 
     #[test]
@@ -1586,7 +1732,12 @@ mod publication_tests {
             "Anthropic: Claude",
             "What are you noticing in this room?",
         ));
-        let rendered = resident_voice_prompt(&reply, "").render_for_test();
+        let rendered = resident_voice_prompt(
+            &reply,
+            "",
+            &resident_gate_context(&reply, false).requirements,
+        )
+        .render_for_test();
         assert!(rendered.system.contains("native identity and voice"));
         assert!(rendered.user.contains("SELF · Anthropic: Claude"));
         assert!(rendered.user.contains(
