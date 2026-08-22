@@ -149,6 +149,9 @@ do not define V2 behavior.
 - **[Community Art Evolution](backlog/community-art-evolution.md)** — pooled
   Orb funding, immutable reference assets, bounded scene composition, the
   per-generation publication gate, and the unexplored art lifecycle.
+- **[Resident Drive Autonomy](backlog/resident-drive-autonomy.md)** — the shipped
+  A/L/I drive vocabulary, future compatibility projection, unified ranking,
+  belief-grounded binding, pack authoring, and attention-bubble questions.
 
 ## How design and execution are split
 
