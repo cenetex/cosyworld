@@ -33,8 +33,10 @@ async function candidateHashes() {
 }
 
 test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly health, and deployment", async () => {
-  const [nginx, supervisor, healthMonitor, fly, workflow, dockerfile, entrypoint] = await Promise.all([
+  const [nginx, proxyJsonApi, jsonApiUnavailable, supervisor, healthMonitor, fly, workflow, dockerfile, entrypoint] = await Promise.all([
     readFile(resolve(deploymentRoot, "nginx.conf"), "utf8"),
+    readFile(resolve(deploymentRoot, "proxy-json-api.conf"), "utf8"),
+    readFile(resolve(deploymentRoot, "json-api-unavailable.conf"), "utf8"),
     readFile(resolve(deploymentRoot, "run-multitenant.sh"), "utf8"),
     readFile(resolve(deploymentRoot, "check-required-health.sh"), "utf8"),
     readFile(resolve(repoRoot, "fly.lonelyforest.toml"), "utf8"),
@@ -126,6 +128,70 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
     "non-root workers must not recursively probe the sibling health list",
   );
   assert.match(nginx, /location = \/health\/live/);
+  assert.equal(
+    (nginx.match(/include \/app\/deploy\/lonelyforest\/proxy-json-api\.conf;/g) ?? []).length,
+    tenants.length + 2,
+    "each world plus both default health routes must use the bounded JSON proxy contract",
+  );
+  assert.equal(
+    (nginx.match(/include \/app\/deploy\/lonelyforest\/json-api-unavailable\.conf;/g) ?? []).length,
+    tenants.length + 1,
+    "every nginx server must install the JSON upstream-failure location",
+  );
+  assert.match(nginx, /location ~ \^\/\(commands\|state\|health\(\?:\/live\)\?\)\$/);
+  assert.match(proxyJsonApi, /^proxy_buffering on;$/m);
+  assert.match(proxyJsonApi, /^proxy_request_buffering on;$/m);
+  assert.match(proxyJsonApi, /^client_max_body_size 2m;$/m);
+  assert.match(proxyJsonApi, /^client_body_timeout 15s;$/m);
+  assert.match(proxyJsonApi, /^proxy_read_timeout 15s;$/m);
+  assert.match(proxyJsonApi, /^proxy_send_timeout 15s;$/m);
+  assert.match(proxyJsonApi, /^proxy_intercept_errors on;$/m);
+  assert.match(proxyJsonApi, /^error_page 408 = @json_api_request_timeout;$/m);
+  assert.match(proxyJsonApi, /^error_page 413 = @json_api_payload_too_large;$/m);
+  assert.match(proxyJsonApi, /^error_page 502 504 =503 @json_api_unavailable;$/m);
+  const errorBodies = new Map(
+    [...jsonApiUnavailable.matchAll(/return (408|413|503) '([^']+)'/gu)].map((match) => [
+      Number(match[1]),
+      JSON.parse(match[2]),
+    ]),
+  );
+  assert.deepEqual(errorBodies.get(503), {
+    ok: false,
+    status: 503,
+    command: "",
+    verb: "",
+    output: "The world is temporarily unavailable. Retry this request; commands must reuse the same intent_id.",
+    error_kind: "server_unavailable",
+    action: null,
+    receipt: null,
+    events: [],
+  });
+  assert.deepEqual(errorBodies.get(408), {
+    ok: false,
+    status: 408,
+    command: "",
+    verb: "",
+    output: "The command request timed out before it could be accepted. Retry with the same intent_id.",
+    error_kind: "invalid_request",
+    action: null,
+    receipt: null,
+    events: [],
+  });
+  assert.deepEqual(errorBodies.get(413), {
+    ok: false,
+    status: 413,
+    command: "",
+    verb: "",
+    output: "The command request body is too large.",
+    error_kind: "invalid_request",
+    action: null,
+    receipt: null,
+    events: [],
+  });
+  assert.match(
+    nginx,
+    /location ~ \^\/\(commands\|state\)\$[\s\S]*?return 421 '\{"ok":false,"status":421,[^']+"error_kind":"invalid_request"/,
+  );
   assert.match(nginx, /listen 0\.0\.0\.0:3000 default_server;[\s\S]*?return 421;/);
   assert.doesNotMatch(nginx, /^user\s+/m, "nginx runs as the non-root entrypoint user");
   assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
