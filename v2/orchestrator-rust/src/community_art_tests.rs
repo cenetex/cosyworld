@@ -112,6 +112,82 @@ fn higher_level_without_prior_art_uses_a_base_generation_catch_up() {
     let _ = fs::remove_dir_all(generated_dir);
 }
 
+fn review_failed_generation(review_attempts: u8) -> CommunityArtGenerationState {
+    CommunityArtGenerationState {
+        subject_kind: "actor".to_string(),
+        subject_id: 906_220_117_126,
+        level: 1,
+        generation_profile_version: community_art_generation_profile_version("actor"),
+        generation_policy: GeneratedPolicyBinding::default(),
+        required_orbs: 1,
+        funded_orbs: 1,
+        contributions: BTreeMap::from([(992_630_739_740, 1)]),
+        funding_intent_ids: BTreeSet::from(["web-image:review-cap".to_string()]),
+        status: "review_failed".to_string(),
+        history_through_seq: 6_625,
+        revision: 3,
+        provider_attempts: 1,
+        review_attempts,
+        last_prediction_id: Some("928bg416f9rmy0czx1g8wa77c4".to_string()),
+        last_error_code: Some("community_art_policy_review_failed".to_string()),
+        status_event_seq: None,
+        evolution_job: None,
+        frozen_plan: None,
+    }
+}
+
+/// A saved candidate whose review failed used to be retryable forever. One
+/// Lonely Forest job re-ran 975 times over seven days because the reviewer was
+/// paused by the daily spend cap and nothing counted the attempts.
+#[test]
+fn a_failed_review_stops_retrying_once_its_attempts_are_spent() {
+    for attempts in 0..MAX_COMMUNITY_ART_REVIEW_ATTEMPTS {
+        assert!(
+            community_art_generation_retryable(&review_failed_generation(attempts), true),
+            "attempt {attempts} is still within the review budget",
+        );
+    }
+    assert!(
+        !community_art_generation_retryable(
+            &review_failed_generation(MAX_COMMUNITY_ART_REVIEW_ATTEMPTS),
+            true,
+        ),
+        "a spent review budget must not keep re-running a funded job",
+    );
+    assert_eq!(
+        review_failed_generation(MAX_COMMUNITY_ART_REVIEW_ATTEMPTS).funded_orbs,
+        1,
+        "the paid Orb stays with the job; only the retrying stops",
+    );
+}
+
+/// A newer generation profile is the documented way back in, and it must still
+/// reopen a job whose review budget is spent.
+#[test]
+fn a_newer_generation_profile_reopens_a_spent_review_budget() {
+    let spent = review_failed_generation(MAX_COMMUNITY_ART_REVIEW_ATTEMPTS);
+    assert!(community_art_generation_retryable_for_profile(
+        &spent,
+        true,
+        spent.generation_profile_version.saturating_add(1),
+    ));
+}
+
+/// Every state written before this counter existed belongs to a job that was
+/// already looping, so it loads as exhausted rather than earning a new budget.
+#[test]
+fn a_legacy_state_without_the_counter_loads_as_exhausted() {
+    let mut value = serde_json::to_value(review_failed_generation(0)).expect("serialize");
+    value
+        .as_object_mut()
+        .expect("object")
+        .remove("review_attempts");
+    let restored: CommunityArtGenerationState =
+        serde_json::from_value(value).expect("legacy state loads");
+    assert_eq!(restored.review_attempts, MAX_COMMUNITY_ART_REVIEW_ATTEMPTS);
+    assert!(!community_art_generation_retryable(&restored, true));
+}
+
 #[test]
 fn actor_item_profile_reopens_paid_policy_exhaustion_with_stronger_typography_guards() {
     let exhausted = CommunityArtGenerationState {
@@ -128,6 +204,7 @@ fn actor_item_profile_reopens_paid_policy_exhaustion_with_stronger_typography_gu
         history_through_seq: 1_041,
         revision: 3,
         provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
+        review_attempts: 0,
         last_prediction_id: Some("third-policy-rejected-candidate".to_string()),
         last_error_code: Some("community_art_policy_rejected".to_string()),
         status_event_seq: Some(1_041),
