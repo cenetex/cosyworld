@@ -131,6 +131,15 @@ fields @timestamp, app, process, tenant, worldpack, provider, event, message, de
 | sort @timestamp desc
 ```
 
+Diagnose an avatar opening that ended or retried without retaining generated
+dialogue or private prompt context:
+
+```text
+fields @timestamp, app, machine_id, process, tenant, details.actor_job_id, details.actor_attempt, details.actor_id, details.target_actor_id, details.source_event_id, details.location_id, details.failure_stage, details.rejection_reason, details.retry_decision, details.commit_status, details.commit_error_kind
+| filter event = "avatar_opening_publication_rejected"
+| sort @timestamp asc
+```
+
 ## Retention, cost, and deletion
 
 - The default 30-day age policy exceeds the 14-day incident requirement.

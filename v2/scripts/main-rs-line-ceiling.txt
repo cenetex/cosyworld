@@ -418,4 +418,6 @@
 # durable dead-state transition and its incident event share one queue seam.
 # 61553 -> 61539: keep provider reasoning private and move narration-state
 # helpers into their existing focused modules.
-61539
+# 61539 -> 61165: move avatar-opening validation, publication, and bounded
+# retry handling into chat_action.rs beside the command's durable chat seam.
+61165
