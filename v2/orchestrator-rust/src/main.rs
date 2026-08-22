@@ -309,6 +309,7 @@ struct AppState {
     room_memory_retries: Arc<StdMutex<RoomMemoryRetries>>,
     room_chat_heartbeats: Arc<StdMutex<BTreeSet<u64>>>,
     actor_job_notify: Arc<Notify>,
+    actor_job_generation: Arc<AtomicU64>,
     avatar_chat_delay: Duration,
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
@@ -2176,6 +2177,8 @@ struct RippleBudget {
 struct PlayerTickObservation {
     source_actor_id: u64,
     source_world_tick: u64,
+    #[serde(default)]
+    actor_job_generation: u64,
     caused_by_event_seq: Option<u64>,
     observed_through_seq: u64,
     source_location_id: Option<u64>,
@@ -4934,6 +4937,7 @@ impl AppState {
             room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
+            actor_job_generation: Arc::new(AtomicU64::new(0)),
             avatar_chat_delay,
             moderation_token,
             moderation_report_retention,
@@ -18269,6 +18273,7 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     };
     let mut fresh = RuntimeWorld::seeded();
     let reset_event = fresh.append_world_reset_event();
+    let mut runtime = state.inner.lock().await;
     if let Some(path) = state.event_store_path.as_deref() {
         if let Err(error) = reset_event_store(path, &fresh.event_log) {
             warn!(
@@ -18283,12 +18288,16 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
             });
         }
     }
+    let prior_generation = state.actor_job_generation.load(AtomicOrdering::Acquire);
+    let next_generation = now_seed().max(prior_generation.saturating_add(1)).max(1);
+    state
+        .actor_job_generation
+        .store(next_generation, AtomicOrdering::Release);
     {
         let mut ownership_index = state.ownership_index.write().await;
         *ownership_index = ownership;
     }
 
-    let mut runtime = state.inner.lock().await;
     *runtime = fresh;
     persist_runtime(&state, &runtime);
     drop(runtime);
@@ -28441,7 +28450,11 @@ fn commit_journal_record_blocking(
                     status,
                     &events,
                 )
-                .map(|observation| insert_actor_job(&tx, &observation))
+                .map(|mut observation| {
+                    observation.actor_job_generation =
+                        state.actor_job_generation.load(AtomicOrdering::Acquire);
+                    insert_actor_job(&tx, &observation)
+                })
                 .transpose()?
                 .unwrap_or(false)
             } else {
@@ -29320,7 +29333,8 @@ fn update_action_journal_record(
 
 fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
     format!(
-        "player-tick:{}:{}:{}",
+        "player-tick:{}:{}:{}:{}",
+        observation.actor_job_generation,
         observation.source_world_tick,
         observation.caused_by_event_seq.unwrap_or(0),
         observation.source_actor_id
@@ -29339,7 +29353,7 @@ fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> i
         observation.source_location_id,
         &actor_job_dedupe_key(observation),
         &payload,
-        CARD_REACTION_HEARTBEAT_DELAY_MS,
+        card_reaction_heartbeat_delay_ms(),
     )
 }
 
@@ -30033,9 +30047,13 @@ fn mark_wooden_box_receipt_opened(path: &Path, pack_id: &str) -> io::Result<()> 
 
 fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    conn.execute_batch(
-        "DELETE FROM world_events;
+    let mut conn = open_event_store(path)?;
+    let transaction = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    transaction
+        .execute_batch(
+            "DELETE FROM world_events;
          DELETE FROM canonical_commits;
          DELETE FROM canonical_compacted_commit_ranges;
          DELETE FROM canonical_claims;
@@ -30062,8 +30080,9 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM activation_backfills;
          DELETE FROM story_metric_events;
          DELETE FROM story_metric_backfills;",
-    )
-    .map_err(sqlite_error)?;
+        )
+        .map_err(sqlite_error)?;
+    transaction.commit().map_err(sqlite_error)?;
     drop(conn);
     // The DELETEs above wiped the seed rows the version-gated initializer
     // skips (for example canonical_world_state), so run the full schema and
@@ -40458,6 +40477,7 @@ mod tests {
         let observation = |source_world_tick, caused_by_event_seq| PlayerTickObservation {
             source_actor_id: 5000,
             source_world_tick,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(caused_by_event_seq),
             observed_through_seq: caused_by_event_seq,
             source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
@@ -40538,6 +40558,7 @@ mod tests {
         let observation = PlayerTickObservation {
             source_actor_id: 5000,
             source_world_tick: 41,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(401),
             observed_through_seq: 401,
             source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
@@ -58850,6 +58871,7 @@ mod tests {
         let observation = PlayerTickObservation {
             source_actor_id: 5000,
             source_world_tick: 12,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(77),
             observed_through_seq: 77,
             source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
@@ -58909,6 +58931,7 @@ mod tests {
         let observation = PlayerTickObservation {
             source_actor_id: 5000,
             source_world_tick: 12,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(88),
             observed_through_seq: 88,
             source_location_id: Some(COSY_COTTAGE_LOCATION_ID),

@@ -134,6 +134,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
         room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
         actor_job_notify: Arc::new(Notify::new()),
+        actor_job_generation: Arc::new(AtomicU64::new(0)),
         avatar_chat_delay: Duration::ZERO,
         moderation_token: None,
         moderation_report_retention: ModerationReportRetention {

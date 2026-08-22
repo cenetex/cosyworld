@@ -423,4 +423,6 @@
 # 61165 -> 61069: move player-tick observation, resident initiative selection,
 # and room-heartbeat scheduling into actor_jobs.rs while adding durable ordinary
 # room initiative.
-61069
+# 61069 -> 61092: stamp queued actor work with reset generations and make reset
+# deletion atomic so busy workers cannot cross development reset worlds.
+61092

@@ -70,6 +70,7 @@ fn autonomous_result_dedup_uses_event_causality_after_a_tick_restore() {
     let observation = PlayerTickObservation {
         source_actor_id: 5000,
         source_world_tick,
+        actor_job_generation: 0,
         caused_by_event_seq: Some(caused_by_event_seq),
         observed_through_seq: caused_by_event_seq,
         source_location_id: Some(COSY_COTTAGE_LOCATION_ID),

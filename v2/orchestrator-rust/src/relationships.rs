@@ -434,6 +434,10 @@ pub(super) async fn complete_player_tick_reply(
     plan: Option<AvatarReplyPlan>,
     relationship_reply: Option<RelationshipReplyExpectation>,
 ) -> Result<(), String> {
+    let current_generation = state.actor_job_generation.load(AtomicOrdering::Acquire);
+    if current_generation != 0 && observation.actor_job_generation != current_generation {
+        return Ok(());
+    }
     let Some(expectation) = relationship_reply else {
         if let Some(plan) = plan {
             complete_avatar_reply(state, plan, None).await?;
@@ -1050,6 +1054,7 @@ mod tests {
         let ordinary = PlayerTickObservation {
             source_actor_id: TEST_ACTOR_ID,
             source_world_tick: 40,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(400),
             observed_through_seq: 400,
             source_location_id: Some(MARA_LOCATION_ID),
@@ -1061,6 +1066,7 @@ mod tests {
         let relationship = PlayerTickObservation {
             source_actor_id: TEST_ACTOR_ID,
             source_world_tick: 41,
+            actor_job_generation: 0,
             caused_by_event_seq: Some(401),
             observed_through_seq: 401,
             source_location_id: Some(MARA_LOCATION_ID),

@@ -9022,7 +9022,11 @@
           const [, itemIdText, targetIdText, targetItemIdText] = String(offer.id || "").split(":");
           const item = itemForId(Number(itemIdText));
           const target = actorTargets.find((actor) => Number(actor.id) === Number(targetIdText));
-          const targetItem = itemForId(Number(targetItemIdText));
+          const targetItemId = Number(targetItemIdText);
+          const targetItem = itemForId(targetItemId) || (targetItemId ? {
+            id: targetItemId,
+            name: offer.target?.label || itemNameForId(targetItemId),
+          } : null);
           if (!item || !target || !targetItem) continue;
           built.push({
             ...semanticAction(offer, "trade"), label: "trade", detail: `${item.name} for ${targetItem.name} with ${actorLabel(target)}`,
@@ -12416,6 +12420,7 @@
         || event.type === "turn.ping_skipped"
         || event.type === "turn.timeout_requested"
         || event.type === "turn.timeout_passed"
+        || event.type === "room.turn.advanced"
         || event.type === "message.created"
         || event.type === "image.created"
         || event.type === "model_interaction.output"

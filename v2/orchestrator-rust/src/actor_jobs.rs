@@ -48,6 +48,14 @@ pub(super) const ROOM_INITIATIVE_CHAIN_LIMIT: usize = CW_MAX_ACTORS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
+pub(super) fn card_reaction_heartbeat_delay_ms() -> u64 {
+    std::env::var("COSYWORLD_CARD_REACTION_HEARTBEAT_DELAY_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| value.clamp(25, 60_000))
+        .unwrap_or(CARD_REACTION_HEARTBEAT_DELAY_MS)
+}
+
 fn room_handoff_from_observation(observation: &PlayerTickObservation) -> Option<(u64, u64, u64)> {
     observation
         .source_events
@@ -173,6 +181,7 @@ pub(super) fn player_tick_observation(
     Some(PlayerTickObservation {
         source_actor_id: actor_id,
         source_world_tick: runtime.world.tick,
+        actor_job_generation: 0,
         caused_by_event_seq,
         observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
         source_location_id,
@@ -198,6 +207,10 @@ pub(super) async fn complete_player_tick_observation(
     let active_direct_actor_ids = active_actor_ids_for_state(state);
     let (ripple_events, reply_plan, next_observation) = {
         let mut runtime = state.inner.lock().await;
+        let current_generation = state.actor_job_generation.load(AtomicOrdering::Acquire);
+        if current_generation != 0 && observation.actor_job_generation != current_generation {
+            return Ok((None, None, None));
+        }
         // A worker may be reclaimed after its reaction committed but before the
         // outbox row was acknowledged. Match the exact triggering event rather
         // than a persisted world-tick watermark: restored worlds can legitimately
@@ -306,7 +319,7 @@ pub(super) async fn complete_player_tick_observation(
                 let action = record.action;
                 match commit_journal_record(state, &mut runtime, record) {
                     Ok((CW_OK, events)) if !events.is_empty() => {
-                        let next_observation = (state.event_store_path.is_none()
+                        let mut next_observation = (state.event_store_path.is_none()
                             && observation.source_location_id.is_some_and(|location_id| {
                                 room_initiative_needs_actor_job(
                                     &runtime,
@@ -324,6 +337,9 @@ pub(super) async fn complete_player_tick_observation(
                             )
                         })
                         .flatten();
+                        if let Some(next) = next_observation.as_mut() {
+                            next.actor_job_generation = observation.actor_job_generation;
+                        }
                         let ripple_reply_plan = observation
                             .allow_ordinary_speech
                             .then(|| runtime.resident_economy_action_reply_plan(&action))
@@ -368,8 +384,11 @@ pub(super) async fn complete_player_tick_observation(
 
 pub(super) fn schedule_player_tick_observation(
     state: &AppState,
-    observation: PlayerTickObservation,
+    mut observation: PlayerTickObservation,
 ) {
+    if observation.actor_job_generation == 0 {
+        observation.actor_job_generation = state.actor_job_generation.load(AtomicOrdering::Acquire);
+    }
     if state.event_store_path.is_some() {
         // The observation was inserted in the same SQLite transaction as the
         // card journal and events. This call only wakes the durable worker;
@@ -399,7 +418,7 @@ pub(super) fn schedule_player_tick_observation(
             let Some(current_observation) = next_observation.take() else {
                 break;
             };
-            tokio::time::sleep(Duration::from_millis(CARD_REACTION_HEARTBEAT_DELAY_MS)).await;
+            tokio::time::sleep(Duration::from_millis(card_reaction_heartbeat_delay_ms())).await;
             match complete_player_tick_observation(&state, current_observation.clone()).await {
                 Ok((plan, relationship_reply, followup)) => {
                     if let Err(error) = complete_player_tick_reply(

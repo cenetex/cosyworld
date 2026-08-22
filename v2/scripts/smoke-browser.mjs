@@ -640,7 +640,24 @@ async function main() {
             || slotOrder.indexOf(String(leftEntry?.slot || ""))
               - slotOrder.indexOf(String(rightEntry?.slot || ""));
         })[0];
-      if (!candidate) return null;
+      if (!candidate) {
+        return {
+          key: "",
+          turn: state?.turn || null,
+          handKeys: [...handKeys],
+          hand: (state?.action_hand?.entries || []).map((entry) => ({
+            offerId: entry.offer_id,
+            slot: entry.slot,
+            replacementCount: entry.replacement_count,
+            thinkAvailable: entry.think?.available === true,
+          })),
+          actions: actions.map((action) => ({
+            label: action?.label || "",
+            intention: action?.intention || "",
+            offerIds: (action?.offerIds || []).map(String),
+          })),
+        };
+      }
       focusIndex = candidate.actionIndex;
       focusedKey = actionHandKey(candidate);
       renderCommands();
@@ -649,7 +666,7 @@ async function main() {
         slot: projectedHandEntryForAction(candidate)?.slot || "",
       };
     }, preferredSlot);
-    assert(focused?.key, `${label} needs a Story Hand card with an available Think`);
+    assert(focused?.key, `${label} needs a Story Hand card with an available Think: ${JSON.stringify(focused)}`);
     return focused;
   }
 
@@ -969,6 +986,7 @@ async function main() {
           const turn = {
             enabled: true,
             policy: "scene-turn",
+            scene_kind: "combat",
             is_current_actor: false,
             current_actor_id: 5001,
             current_actor_name: "Mabel Crumblethorn",
@@ -984,6 +1002,7 @@ async function main() {
           const turn = {
             enabled: true,
             policy: "scene-turn",
+            scene_kind: "combat",
             is_current_actor: true,
             can_pass: true,
             can_need_time: true,
@@ -4602,7 +4621,6 @@ async function main() {
         ],
         items: [
           { id: 2005, name: "Story Button", kind: "evolution", holder_actor_id: 5000 },
-          { id: 2002, name: "Dewbright Button", kind: "evolution", holder_actor_id: 1001 },
         ],
         exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
         room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
@@ -10205,6 +10223,7 @@ async function main() {
         && after.generation === 0
     );
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await waitForPlayerRoomTurn();
       await focusThinkableCard(label, preferredSlot);
       await page.waitForFunction(() => (
         actionBusy === false
@@ -10276,6 +10295,7 @@ async function main() {
         ));
         await page.evaluate(() => refresh());
         await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+        await waitForPlayerRoomTurn();
         const after = await currentThinkState(before.slot);
         assert(
           reconciledAsOneSlotAdvance(before, after)
@@ -10477,8 +10497,11 @@ async function main() {
       };
     }, needle);
     let last = null;
-    const rotationSlots = await storyHandRotationSlots();
-    for (let attempt = 0; attempt <= rotationSlots.length; attempt += 1) {
+    const initialRotationSlots = await storyHandRotationSlots();
+    const maxRouteDraws = runLivingWorldStress
+      ? Math.min(36, Math.max(18, initialRotationSlots.length + 12))
+      : initialRotationSlots.length;
+    for (let attempt = 0; attempt <= maxRouteDraws; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
       const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
@@ -10502,10 +10525,12 @@ async function main() {
         return primary;
       }
       last = { result, primary };
-      if (attempt < rotationSlots.length) {
+      if (attempt < maxRouteDraws) {
+        const liveRotationSlots = await storyHandRotationSlots();
+        if (!liveRotationSlots.length) break;
         await passCertifiedHandForDraw(
           `route ${text} draw ${attempt + 1}`,
-          rotationSlots[attempt],
+          runLivingWorldStress ? "" : initialRotationSlots[attempt],
         );
       }
     }
@@ -10604,9 +10629,51 @@ async function main() {
     return false;
   }
 
-  async function clickPrimary(label, { allowStale = false } = {}) {
+  async function waitForPlayerRoomTurn() {
+    await page.waitForFunction(() => actionBusy === false && refreshInFlight === null, null, {
+      timeout: 35_000,
+    });
+    const waitingForRoomTurn = await page.evaluate(() => (
+      state?.turn?.enabled === true
+        && state.turn.scene_kind === "room"
+        && state.turn.is_current_actor === false
+    ));
+    if (!waitingForRoomTurn) return;
+    if (runLivingWorldStress) {
+      let turn = null;
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        turn = await page.evaluate(async () => {
+          await queueRefresh();
+          while (refreshInFlight) await refreshInFlight;
+          return state?.turn || null;
+        });
+        if (turn?.enabled !== true || turn.scene_kind !== "room" || turn.is_current_actor === true) {
+          return;
+        }
+        await page.waitForTimeout(500);
+      }
+      throw new Error(`room initiative did not return to the stress player: ${JSON.stringify(turn)}`);
+    }
+    try {
+      await page.waitForFunction(() => (
+        state?.turn?.enabled !== true
+          || state.turn.scene_kind !== "room"
+          || state.turn.is_current_actor === true
+      ), null, { timeout: 45_000 });
+    } catch (error) {
+      const turn = await page.evaluate(() => state?.turn || null);
+      throw new Error(`room initiative did not return to the player: ${JSON.stringify(turn)}`, {
+        cause: error,
+      });
+    }
+    await page.waitForFunction(() => actionBusy === false && refreshInFlight === null, null, {
+      timeout: 35_000,
+    });
+  }
+
+  async function clickPrimary(label, { allowStale = false, waitForRoomTurn = true } = {}) {
     if (useFocusedActionOnNextClick && focusedSelectionIdentity) {
-      const result = await commitFocusedCertifiedAction(label);
+      const result = await commitFocusedCertifiedAction(label, { waitForRoomTurn });
       if (!result.ok && !allowStale) {
         throw new Error(`${label} exact selected certificate became stale before commit`);
       }
@@ -10620,6 +10687,7 @@ async function main() {
     }
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
+    if (waitForRoomTurn) await waitForPlayerRoomTurn();
     await assertNoVisibleOverflow();
     steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
   }
@@ -10634,6 +10702,7 @@ async function main() {
       expectedStrategyId,
       expectedItemId = 0,
       expectedLocationId = 0,
+      waitForRoomTurn = true,
     } = options;
     const expectedSelection = focusedSelectionIdentity;
     focusedSelectionIdentity = null;
@@ -10862,6 +10931,7 @@ async function main() {
       await page.evaluate(() => refresh());
       return { ok: false, stale: true, submission, body };
     }
+    if (waitForRoomTurn) await waitForPlayerRoomTurn();
     await assertNoVisibleOverflow();
     steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
     return {
@@ -11859,7 +11929,7 @@ async function main() {
         && noticeBefore.focused?.isCertified === true,
       `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
     );
-    await clickPrimary("notice");
+    await clickPrimary("notice", { waitForRoomTurn: false });
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -11890,6 +11960,7 @@ async function main() {
         && Number(scene.ledger?.unbanked_count || 0) === 0,
       `actor Notice should record one generic observation without a roll or growth mutation: ${JSON.stringify({ noticeBefore, scene })}`,
     );
+    await waitForPlayerRoomTurn();
     await assertActionBarCapped("notice action bar");
   }
 
@@ -12772,7 +12843,7 @@ async function main() {
   async function assertRoomMultiplayerBroadcast() {
     const context = await browser.newContext({ viewport: { width: 430, height: 860 } });
     const other = await context.newPage();
-    other.setDefaultTimeout(10_000);
+    other.setDefaultTimeout(35_000);
     const multiplayerUrl = new URL(targetUrl);
     multiplayerUrl.searchParams.delete("reset");
     try {
@@ -12801,18 +12872,79 @@ async function main() {
         actorId = Number(id);
         actorSession = String(session);
         await refresh();
+        await pingPresence();
         startPresenceHeartbeat();
+        connectStream();
       }, { id: secondCoreAvatar.actor.id, session: secondCoreAvatar.actor_session });
       await other.waitForFunction(() => (
         presenceHeartbeatTimer !== null
           && (state?.actors || []).some((actor) => actor.id === actorId)
-          && !document.querySelector("#primary")?.disabled
       ));
       const otherIdentity = await other.evaluate(() => ({
         actorId,
         actorName: (state?.actors || []).find((actor) => actor.id === actorId)?.name || "",
       }));
       assert(otherIdentity.actorId > 0, `second player needs an actor id: ${JSON.stringify(otherIdentity)}`);
+
+      await page.evaluate(() => queueRefresh());
+      await page.waitForFunction(() => refreshInFlight === null && refreshQueued === false);
+      await page.waitForFunction(
+        (otherActorId) => (state?.actors || []).some((actor) => actor.id === otherActorId),
+        otherIdentity.actorId,
+        { timeout: 35_000 },
+      );
+      const firstActorId = await page.evaluate(() => Number(actorId || 0));
+      const handOffRoomTurn = async (attempt) => {
+        await page.evaluate(() => queueRefresh());
+        await waitForPlayerRoomTurn();
+        const handoffCard = await page.evaluate(() => {
+          const action = actionBarActions().find((candidate) => ![
+            "move",
+            "travel",
+            "flee",
+          ].includes(String(candidate?.intention || "").toLowerCase()));
+          if (!action) return null;
+          focusIndex = action.actionIndex;
+          focusedKey = actionHandKey(action);
+          return {
+            handKey: actionHandKey(action),
+            offerIds: (action.offerIds || []).map(String),
+            generation: Number(state?.action_hand?.generation || 0),
+          };
+        });
+        assert(handoffCard?.offerIds?.length === 1, `the first player needs a safe dealt card to hand off room round ${attempt}: ${JSON.stringify(handoffCard)}`);
+        focusedSelectionIdentity = handoffCard;
+        useFocusedActionOnNextClick = true;
+        const handedOff = await clickPrimary(`hand off multiplayer room round ${attempt}`, { waitForRoomTurn: false });
+        assert(handedOff?.ok === true, `the first player should hand off room round ${attempt}: ${JSON.stringify(handedOff)}`);
+      };
+      let newcomerTurn = null;
+      let newcomerReceivedTurn = false;
+      for (let roomRound = 1; roomRound <= 3 && !newcomerReceivedTurn; roomRound += 1) {
+        await handOffRoomTurn(roomRound);
+        let initiativeLeftFirstActor = false;
+        for (let attempt = 0; attempt < 45; attempt += 1) {
+          newcomerTurn = await other.evaluate(async () => {
+            await queueRefresh();
+            while (refreshInFlight) await refreshInFlight;
+            return {
+              turn: state?.turn || null,
+              primaryDisabled: document.querySelector("#primary")?.disabled === true,
+            };
+          });
+          const currentActorId = Number(newcomerTurn.turn?.current_actor_id || 0);
+          newcomerReceivedTurn = newcomerTurn.turn?.is_current_actor === true
+            && !newcomerTurn.primaryDisabled;
+          if (newcomerReceivedTurn) break;
+          if (currentActorId > 0 && currentActorId !== firstActorId) initiativeLeftFirstActor = true;
+          if (initiativeLeftFirstActor && currentActorId === firstActorId) break;
+          await other.waitForTimeout(1_000);
+        }
+      }
+      assert(
+        newcomerReceivedTurn,
+        `the newcomer should receive the handed-off room turn: ${JSON.stringify(newcomerTurn)}`,
+      );
 
       const playOtherPrimary = async (label, settled) => {
         let lastResult = null;
@@ -12895,10 +13027,8 @@ async function main() {
       }));
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.visibleLabels.length >= 1
-          && afterFirstListen.visibleLabels.length <= 3
-          && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
-        `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
+        afterFirstListen.visibleLabels.length === 0,
+        `the newcomer should receive no bypass actions while another room participant acts: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(
         !/earned one|\+1/i.test(afterFirstListen.economy)
@@ -12909,11 +13039,11 @@ async function main() {
       );
       const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
-        afterFirstListen.currentActorId === sharedTurnOwner
+        afterFirstListen.currentActorId !== sharedTurnOwner
           && afterFirstListen.firstTale?.phase === "follow_lead"
           && /Rain-Soft Garden/i.test(afterFirstListen.guide)
           && !/your first tale is yours/i.test(afterFirstListen.guide),
-        `truthful observation should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+        `truthful observation should reveal the shared-world lead and advance the shared room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
         label: "waiting player shared-world lead",
@@ -14972,6 +15102,7 @@ async function main() {
 
   const residentRoom = await joinNearbyResident();
   await page.evaluate(() => refresh());
+  await waitForPlayerRoomTurn();
   if (runLivingWorldStress) {
     steps.push({ label: "living-world social card coverage", result: "covered by the deterministic browser pass" });
   } else {
