@@ -37554,11 +37554,27 @@ mod tests {
         assert!(INDEX_HTML.contains("error.payload = payload && typeof payload === \"object\""));
         assert!(INDEX_HTML.contains("return error.payload"));
         assert!(!INDEX_HTML.contains("!viewerContributed && balance >= 1"));
-        assert!(INDEX_HTML.contains("The saved image job needs repair before it can start."));
-        assert!(INDEX_HTML.contains("retry the saved image review"));
-        assert!(INDEX_HTML.contains("no new image will be bought while review is unavailable"));
-        assert!(INDEX_HTML.contains("no more provider credits will be used"));
-        assert!(INDEX_HTML.contains("art.retryable_without_orbs"));
+        // The community-art panel is an Orb slot, not a job console. Generation,
+        // review, retries and their failures are handled server side and must
+        // never reach the player, who cannot act on any of them.
+        assert!(INDEX_HTML.contains("function fillCommunityArtOrbSlot"));
+        assert!(INDEX_HTML.contains("Orb slot ${funded}/${required}"));
+        assert!(INDEX_HTML.contains("The portrait appears here when it is ready."));
+        assert!(INDEX_HTML.contains("if (path !== \"/actions/fund-image\") setError("));
+        for retired in [
+            "The saved image job needs repair before it can start.",
+            "retry the saved image review",
+            "no new image will be bought while review is unavailable",
+            "no more provider credits will be used",
+            "image workshop starting",
+            "try a different image",
+            "image withheld",
+        ] {
+            assert!(
+                !INDEX_HTML.contains(retired),
+                "the Orb slot must not surface job machinery: {retired}",
+            );
+        }
         assert!(INDEX_HTML.contains("Inspect ${firstSearch.target} for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
