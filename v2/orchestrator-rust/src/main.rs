@@ -23951,9 +23951,9 @@ async fn trade_item(
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
         let target_item_id = payload.target_item_id.unwrap_or_default();
-        if !runtime.economy_known_by(payload.actor_id, target_actor_id) {
-            return action_offer_rejected("You do not know what that avatar is carrying yet.");
-        }
+        // The current exact offer may come from a remembered carried-item
+        // observation without disclosing the resident's whole inventory.
+        // Planning below revalidates that exact item, target, and trade.
         let planned_action = match runtime.plan_transfer_choice_action(
             payload.actor_id,
             "trade_item",
