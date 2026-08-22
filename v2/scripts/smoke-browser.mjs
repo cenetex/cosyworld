@@ -3368,7 +3368,7 @@ async function main() {
       && result.documentWidth <= result.viewportWidth, `chat typography and tables should stay readable without viewport overflow: ${JSON.stringify(result)}`);
   }
 
-  async function assertThoughtsAttachToTheirMessages() {
+  async function assertThoughtsStaySeparateFromMessages() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
@@ -3380,7 +3380,6 @@ async function main() {
         accountPanelPinned,
         libraryPanelPinned,
         renderedChatTailKey,
-        expandedThoughtKeys: [...expandedMessageThoughtKeys],
       };
       try {
         actorId = 5000;
@@ -3396,7 +3395,6 @@ async function main() {
         pendingModelInteractions = [];
         accountPanelPinned = false;
         libraryPanelPinned = false;
-        expandedMessageThoughtKeys.clear();
         logEvents = [
           {
             seq: 900,
@@ -3417,21 +3415,14 @@ async function main() {
         ];
         renderedChatTailKey = "";
         renderLog();
-        const line = document.querySelector("#log .line.chat.has-thought");
-        const toggle = line?.querySelector("[data-message-thought-toggle]");
-        const panel = line?.querySelector(".message-thought");
-        const collapsed = Boolean(toggle && panel?.hidden && toggle.getAttribute("aria-expanded") === "false");
-        toggle?.click();
+        const message = document.querySelector("#log .line.chat:not(.reflection)");
+        const thought = document.querySelector("#log .line.chat.reflection.thought");
         return {
           rows: document.querySelectorAll("#log .line.chat").length,
           standaloneThoughtRows: document.querySelectorAll("#log .line.chat.reflection.thought").length,
-          sameMessage: Boolean(line && toggle && panel && line.contains(toggle) && line.contains(panel)),
-          besideSpeaker: toggle?.parentElement?.classList.contains("message-speaker-line") || false,
-          toggleText: toggle?.textContent?.trim() || "",
-          collapsed,
-          expanded: Boolean(panel && !panel.hidden && toggle?.getAttribute("aria-expanded") === "true"),
-          thoughtText: panel?.textContent?.trim() || "",
-          orphanPreserved: chatTranscriptWithAttachedThoughts([logEvents[1]])[0]?.type === "avatar.thought",
+          messageText: message?.textContent?.trim() || "",
+          thoughtText: thought?.textContent?.trim() || "",
+          attachedToggleCount: document.querySelectorAll("[data-message-thought-toggle]").length,
         };
       } finally {
         state = previous.state;
@@ -3443,17 +3434,14 @@ async function main() {
         accountPanelPinned = previous.accountPanelPinned;
         libraryPanelPinned = previous.libraryPanelPinned;
         renderedChatTailKey = previous.renderedChatTailKey;
-        expandedMessageThoughtKeys.clear();
-        for (const key of previous.expandedThoughtKeys) expandedMessageThoughtKeys.add(key);
         renderLog();
       }
     });
-    assert(result.rows === 1 && result.standaloneThoughtRows === 0 && result.sameMessage,
-      `a thought should render as part of its preceding avatar message: ${JSON.stringify(result)}`);
-    assert(result.besideSpeaker && result.toggleText === "thinks" && result.collapsed && result.expanded,
-      `the subtle thought attachment should sit beside the speaker and expand on tap: ${JSON.stringify(result)}`);
-    assert(result.thoughtText === "I hope it remembers the way home." && result.orphanPreserved,
-      `thought content and unmatched-history fallbacks should remain intact: ${JSON.stringify(result)}`);
+    assert(result.rows === 2 && result.standaloneThoughtRows === 1 && result.attachedToggleCount === 0,
+      `fictional thoughts should remain a separate transcript lane: ${JSON.stringify(result)}`);
+    assert(result.messageText.includes("The little light is still warm.")
+      && result.thoughtText.includes("I hope it remembers the way home."),
+    `separate speech and thought rows should keep their own content: ${JSON.stringify(result)}`);
   }
 
   async function assertModelInteractionLifecycleRehydratesAfterReloadAndGap() {
@@ -14599,7 +14587,7 @@ async function main() {
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
   await assertChatMarkdownTypography();
-  await assertThoughtsAttachToTheirMessages();
+  await assertThoughtsStaySeparateFromMessages();
   // Before an avatar exists there are core and optional campaign onboarding
   // commands, rather than a dealt Story Hand. The three slots begin in play.
   await assertActionBarCapped("avatar gate", 2);

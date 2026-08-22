@@ -416,4 +416,6 @@
 # only the /meta boundary fields.
 # 61582 -> 61553: move actor-job failure persistence into actor_jobs.rs so the
 # durable dead-state transition and its incident event share one queue seam.
-61553
+# 61553 -> 61539: keep provider reasoning private and move narration-state
+# helpers into their existing focused modules.
+61539

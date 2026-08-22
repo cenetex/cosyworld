@@ -1707,14 +1707,16 @@ mod tests {
             plan
         };
 
+        let source_world_tick = plan.context_spine.world_tick;
+        let observed_through_seq = plan.context_spine.observed_through_seq;
         complete_queued_orb_chat(
             &state,
             5000,
             RATI_ACTOR_ID,
             plan,
             Some(51),
-            Some(8),
-            Some(50),
+            Some(source_world_tick),
+            Some(observed_through_seq),
         )
         .await
         .expect("the scripted bounded Chat completes");
@@ -1941,14 +1943,16 @@ mod tests {
                 .expect("co-present inference resident is a Chat target")
         };
 
+        let source_world_tick = plan.context_spine.world_tick;
+        let observed_through_seq = plan.context_spine.observed_through_seq;
         let first = complete_queued_orb_chat_attempt(
             &state,
             5000,
             RATI_ACTOR_ID,
             plan.clone(),
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             1,
         )
         .await;
@@ -1987,8 +1991,8 @@ mod tests {
             RATI_ACTOR_ID,
             plan.clone(),
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             2,
         )
         .await
@@ -2000,8 +2004,8 @@ mod tests {
             RATI_ACTOR_ID,
             plan,
             Some(61),
-            Some(9),
-            Some(60),
+            Some(source_world_tick),
+            Some(observed_through_seq),
             3,
         )
         .await

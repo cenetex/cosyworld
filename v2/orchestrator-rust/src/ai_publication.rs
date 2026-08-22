@@ -16,6 +16,43 @@ const VOICE_SIGNATURE_WORD_LIMIT: usize = 64;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum BeatForm {
+    PureDialogue,
+    SingleSentence,
+    UnresolvedQuestion,
+    NoSimile,
+}
+
+impl BeatForm {
+    pub(crate) fn for_beat(completed_beats: u64) -> Self {
+        match completed_beats % 4 {
+            0 => Self::PureDialogue,
+            1 => Self::SingleSentence,
+            2 => Self::UnresolvedQuestion,
+            _ => Self::NoSimile,
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::PureDialogue => "pure_dialogue",
+            Self::SingleSentence => "single_sentence",
+            Self::UnresolvedQuestion => "unresolved_question",
+            Self::NoSimile => "no_simile",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct VoiceBeatRequirements {
+    pub(crate) required_form: Option<BeatForm>,
+    pub(crate) consecutive_deferrals: u8,
+    pub(crate) must_act_or_block: bool,
+    pub(crate) anomalies: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum SpeechMode {
     Prose,
     EmojiOnly,
@@ -65,6 +102,11 @@ pub(crate) enum PublicationCheckCode {
     VoiceFallbackIdentity,
     VoiceSignpostOpening,
     VoiceQuestionMonoculture,
+    VoiceBeatFormMismatch,
+    VoiceTerminalAphorism,
+    VoiceUnbackedActionIntent,
+    VoiceActionBudgetExceeded,
+    VoiceAnomalyOmitted,
 }
 
 impl PublicationCheckCode {
@@ -86,6 +128,11 @@ impl PublicationCheckCode {
             Self::VoiceFallbackIdentity => "voice_fallback_identity",
             Self::VoiceSignpostOpening => "voice_signpost_opening",
             Self::VoiceQuestionMonoculture => "voice_question_monoculture",
+            Self::VoiceBeatFormMismatch => "voice_beat_form_mismatch",
+            Self::VoiceTerminalAphorism => "voice_terminal_aphorism",
+            Self::VoiceUnbackedActionIntent => "voice_unbacked_action_intent",
+            Self::VoiceActionBudgetExceeded => "voice_action_budget_exceeded",
+            Self::VoiceAnomalyOmitted => "voice_anomaly_omitted",
         }
     }
 }
@@ -107,6 +154,7 @@ pub(crate) struct SpeechGateContext {
     pub(crate) recent_lines: Vec<String>,
     pub(crate) recent_speaker_shingle_hashes: Vec<u64>,
     pub(crate) has_proposed_action: bool,
+    pub(crate) requirements: VoiceBeatRequirements,
     pub(crate) envelope_valid: bool,
     pub(crate) candidate_round: u8,
 }
@@ -260,10 +308,9 @@ impl CertifiedSpeech {
 pub(crate) struct PublicationRejection {
     pub(crate) receipt: AiPublicationReceipt,
     pub(crate) failure_code: PublicationCheckCode,
-    /// The normalized run of words that tripped the recent-duplicate check, so
-    /// a retry can be told which phrase to drop. Deliberately kept off the
-    /// receipt: the receipt is persisted, and only this in-memory hint is
-    /// allowed to carry wording from a rejected candidate.
+    /// The normalized run of words that tripped the recent-duplicate check.
+    /// This is diagnostic only and never returns to a model prompt. It stays
+    /// off the durable receipt so rejected prose does not become world state.
     pub(crate) repeated_phrase: Option<String>,
 }
 
@@ -390,6 +437,7 @@ pub(crate) fn certified_test_speech(
         recent_lines: Vec::new(),
         recent_speaker_shingle_hashes: Vec::new(),
         has_proposed_action: false,
+        requirements: VoiceBeatRequirements::default(),
         envelope_valid: true,
         candidate_round: 1,
     };
@@ -688,7 +736,9 @@ fn evaluate_checks(
         (
             PublicationCheckCode::VoiceRecentDuplicate,
             !repeats_recent_dialogue(text, context)
-                && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes),
+                && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes)
+                && !reuses_overused_voice_term(text, &context.recent_speaker_shingle_hashes)
+                && !reuses_recent_closing(text, &context.recent_speaker_shingle_hashes),
         ),
         (
             PublicationCheckCode::VoiceUnsafeTone,
@@ -714,13 +764,238 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceQuestionMonoculture,
-            context.mode != SpeechMode::Prose || !question_shape_is_overused(text, context),
+            context.mode != SpeechMode::Prose
+                || context.requirements.required_form == Some(BeatForm::UnresolvedQuestion)
+                || !question_shape_is_overused(text, context),
+        ),
+        (
+            PublicationCheckCode::VoiceBeatFormMismatch,
+            context.mode != SpeechMode::Prose
+                || context
+                    .requirements
+                    .required_form
+                    .is_none_or(|form| beat_form_matches(text, form)),
+        ),
+        (
+            PublicationCheckCode::VoiceTerminalAphorism,
+            context.mode != SpeechMode::Prose || !has_terminal_aphorism(text),
+        ),
+        (
+            PublicationCheckCode::VoiceUnbackedActionIntent,
+            context.mode != SpeechMode::Prose
+                || context.has_proposed_action
+                || !announces_action_intent(text)
+                || states_blocking_reason(text),
+        ),
+        (
+            PublicationCheckCode::VoiceActionBudgetExceeded,
+            context.mode != SpeechMode::Prose
+                || !context.requirements.must_act_or_block
+                || context.has_proposed_action
+                || states_blocking_reason(text),
+        ),
+        (
+            PublicationCheckCode::VoiceAnomalyOmitted,
+            context.requirements.anomalies.is_empty()
+                || mentions_supplied_anomaly(text, &context.requirements.anomalies),
         ),
     ];
     checks
         .into_iter()
         .map(|(code, passed)| PublicationCheck { code, passed })
         .collect()
+}
+
+fn beat_form_matches(value: &str, form: BeatForm) -> bool {
+    match form {
+        BeatForm::PureDialogue => !contains_stage_direction(value),
+        BeatForm::SingleSentence => sentence_count(value) == 1,
+        BeatForm::UnresolvedQuestion => value.trim_end().ends_with('?'),
+        BeatForm::NoSimile => !contains_simile(value),
+    }
+}
+
+fn contains_stage_direction(value: &str) -> bool {
+    value.contains('*') || value.contains('[') || value.contains(']') || value.lines().count() > 1
+}
+
+fn sentence_count(value: &str) -> usize {
+    let mut count = 0usize;
+    let mut in_terminal_run = false;
+    for character in value.chars() {
+        if matches!(character, '.' | '!' | '?') {
+            if !in_terminal_run {
+                count += 1;
+                in_terminal_run = true;
+            }
+        } else if !character.is_whitespace()
+            && !matches!(character, '"' | '\'' | '”' | '’' | ')' | ']' | '}')
+        {
+            in_terminal_run = false;
+        }
+    }
+    if count == 0 && value.chars().any(char::is_alphanumeric) {
+        1
+    } else {
+        count
+    }
+}
+
+fn contains_simile(value: &str) -> bool {
+    let lowered = format!(" {} ", value.to_ascii_lowercase());
+    [
+        " like a ",
+        " like an ",
+        " like the ",
+        " as if ",
+        " as though ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+        || normalized_words(value)
+            .windows(3)
+            .any(|window| window[0] == "as" && window[2] == "as" && window[1].chars().count() >= 3)
+}
+
+fn terminal_clause(value: &str) -> &str {
+    value
+        .trim()
+        .rsplit_once(['.', '!', '?'])
+        .map(|(_, tail)| tail.trim())
+        .filter(|tail| !tail.is_empty())
+        .or_else(|| {
+            value
+                .trim_end_matches(|character: char| {
+                    character.is_whitespace()
+                        || matches!(character, '.' | '!' | '?' | '"' | '”' | '\'')
+                })
+                .rsplit_once(['.', '!', '?'])
+                .map(|(_, tail)| tail.trim())
+                .filter(|tail| !tail.is_empty())
+        })
+        .unwrap_or_else(|| value.trim())
+}
+
+fn has_terminal_aphorism(value: &str) -> bool {
+    let closing = terminal_clause(value).to_ascii_lowercase();
+    let words = normalized_words(&closing);
+    if words.len() < 4 {
+        return false;
+    }
+    matches!(
+        words.first().map(String::as_str),
+        Some("sometimes" | "perhaps" | "maybe" | "ultimately")
+    ) || closing.starts_with("after all ")
+        || closing.starts_with("in the end ")
+        || closing.starts_with("the thing about ")
+        || words
+            .iter()
+            .any(|word| matches!(word.as_str(), "always" | "never"))
+            && words.iter().any(|word| {
+                matches!(
+                    word.as_str(),
+                    "life" | "truth" | "world" | "people" | "things" | "heart"
+                )
+            })
+}
+
+fn announces_action_intent(value: &str) -> bool {
+    const ACTION_VERBS: &[&str] = &[
+        "answer", "ask", "bring", "call", "carry", "check", "choose", "close", "cook", "deliver",
+        "drop", "fetch", "fix", "follow", "give", "go", "help", "hold", "inspect", "knit", "leave",
+        "lift", "light", "lock", "look", "make", "mend", "move", "open", "pick", "place", "plant",
+        "pour", "put", "read", "repair", "return", "search", "seek", "send", "set", "show",
+        "speak", "stitch", "sweep", "take", "tell", "touch", "travel", "try", "unlock", "use",
+        "wait", "walk", "watch", "water", "work", "write",
+    ];
+    let words = normalized_words(value);
+    words.iter().enumerate().any(|(index, word)| {
+        let action_index = match word.as_str() {
+            "i'll" => index + 1,
+            "will" | "shall" | "should" if index > 0 && words[index - 1] == "i" => index + 1,
+            "intend" | "mean"
+                if index > 0
+                    && words[index - 1] == "i"
+                    && words.get(index + 1).is_some_and(|word| word == "to") =>
+            {
+                index + 2
+            }
+            "going"
+                if words.get(index + 1).is_some_and(|word| word == "to")
+                    && ((index > 1 && words[index - 2] == "i" && words[index - 1] == "am")
+                        || (index > 0 && words[index - 1] == "i'm")) =>
+            {
+                index + 2
+            }
+            "let" if words.get(index + 1).is_some_and(|word| word == "me") => index + 2,
+            _ => return false,
+        };
+        words
+            .get(action_index)
+            .is_some_and(|verb| ACTION_VERBS.contains(&verb.as_str()))
+    })
+}
+
+fn states_blocking_reason(value: &str) -> bool {
+    let lowered = format!(" {} ", normalized_words(value).join(" "));
+    [
+        " because ",
+        " until ",
+        " cannot ",
+        " can't ",
+        " blocked ",
+        " waiting for ",
+        " need ",
+        " needs ",
+        " missing ",
+        " no route ",
+        " no way ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+}
+
+pub(crate) fn line_defers_action(value: &str) -> bool {
+    let lowered = format!(" {} ", normalized_words(value).join(" "));
+    [
+        " not yet ",
+        " for now ",
+        " later ",
+        " wait before ",
+        " leave it ",
+        " won't touch ",
+        " will not touch ",
+        " shouldn't touch ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+}
+
+pub(crate) fn consecutive_speaker_deferrals(recent_lines: &[String], speaker_name: &str) -> u8 {
+    recent_lines
+        .iter()
+        .rev()
+        .filter_map(|line| {
+            let (speaker, spoken) = line.split_once(':')?;
+            speaker
+                .trim()
+                .eq_ignore_ascii_case(speaker_name.trim())
+                .then_some(spoken.trim())
+        })
+        .take_while(|spoken| line_defers_action(spoken))
+        .count()
+        .min(u8::MAX as usize) as u8
+}
+
+fn mentions_supplied_anomaly(value: &str, anomalies: &[String]) -> bool {
+    let candidate = normalized_words(value).into_iter().collect::<BTreeSet<_>>();
+    anomalies.iter().all(|anomaly| {
+        let terms = normalized_words(anomaly)
+            .into_iter()
+            .filter(|word| word.chars().count() >= 4)
+            .collect::<BTreeSet<_>>();
+        !terms.is_empty() && candidate.intersection(&terms).count() >= 2.min(terms.len())
+    })
 }
 
 fn question_shape_is_overused(value: &str, context: &SpeechGateContext) -> bool {
@@ -963,6 +1238,51 @@ pub(crate) fn voice_signature_shingle_hashes(value: &str) -> Vec<u64> {
         .collect()
 }
 
+pub(crate) fn voice_overused_term_hash(value: &str) -> u64 {
+    crate::stable_hash_u64(&["voice-overused-term/v1", value])
+}
+
+pub(crate) fn voice_closing_hash(value: &str) -> Option<u64> {
+    let words = normalized_words(value);
+    let start = words.len().checked_sub(4)?;
+    Some(crate::stable_hash_u64(&[
+        "voice-closing/v1",
+        &words[start..].join("\u{1f}"),
+    ]))
+}
+
+pub(crate) fn voice_content_terms(value: &str) -> BTreeSet<String> {
+    const STOP_WORDS: &[&str] = &[
+        "about", "after", "again", "also", "because", "before", "being", "could", "every", "from",
+        "have", "here", "into", "just", "more", "only", "other", "should", "still", "than", "that",
+        "their", "there", "these", "they", "this", "those", "through", "under", "very", "what",
+        "when", "where", "which", "while", "with", "would", "your",
+    ];
+    normalized_words(value)
+        .into_iter()
+        .filter(|word| word.chars().count() >= 4)
+        .filter(|word| !STOP_WORDS.contains(&word.as_str()))
+        .collect()
+}
+
+fn reuses_overused_voice_term(value: &str, recent_hashes: &[u64]) -> bool {
+    if recent_hashes.is_empty() {
+        return false;
+    }
+    let recent = recent_hashes.iter().copied().collect::<BTreeSet<_>>();
+    voice_content_terms(value)
+        .iter()
+        .map(|term| voice_overused_term_hash(term))
+        .any(|hash| recent.contains(&hash))
+}
+
+fn reuses_recent_closing(value: &str, recent_hashes: &[u64]) -> bool {
+    let Some(hash) = voice_closing_hash(value) else {
+        return false;
+    };
+    recent_hashes.contains(&hash)
+}
+
 fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> bool {
     shared_speaker_phrase(value, recent_shingle_hashes).is_some()
 }
@@ -992,10 +1312,8 @@ fn shared_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> Option<S
 }
 
 /// The concrete wording behind a `VoiceRecentDuplicate` verdict, checked along
-/// the same two paths `evaluate_checks` uses to fail it. A retry that is told
-/// which phrase to drop can keep the rest of an otherwise good line, where a
-/// bare "use fresh wording" leaves the model guessing — and with one pinned
-/// model it usually guesses the same way twice.
+/// the same two paths `evaluate_checks` uses to fail it. This exists for bounded
+/// diagnostics only; routing never copies it into a retry prompt.
 fn duplicated_phrase(text: &str, context: &SpeechGateContext) -> Option<String> {
     shared_speaker_phrase(text, &context.recent_speaker_shingle_hashes)
         .or_else(|| repeated_dialogue_phrase(text, context))
@@ -1648,6 +1966,7 @@ mod tests {
             recent_lines: recent.to_vec(),
             recent_speaker_shingle_hashes: Vec::new(),
             has_proposed_action: false,
+            requirements: VoiceBeatRequirements::default(),
             envelope_valid: true,
             candidate_round: 1,
         }
@@ -1671,6 +1990,137 @@ mod tests {
         certify_speech(None, completion(text), text, context)
             .expect_err("candidate should fail")
             .failure_code
+    }
+
+    fn check_passed(text: &str, context: &SpeechGateContext, code: PublicationCheckCode) -> bool {
+        evaluate_checks(text, text, "stop", context)
+            .into_iter()
+            .find(|check| check.code == code)
+            .expect("publication check exists")
+            .passed
+    }
+
+    #[test]
+    fn beat_forms_rotate_and_are_enforced_by_the_gate() {
+        assert_eq!(BeatForm::for_beat(0), BeatForm::PureDialogue);
+        assert_eq!(BeatForm::for_beat(1), BeatForm::SingleSentence);
+        assert_eq!(BeatForm::for_beat(2), BeatForm::UnresolvedQuestion);
+        assert_eq!(BeatForm::for_beat(3), BeatForm::NoSimile);
+        assert_eq!(BeatForm::for_beat(4), BeatForm::PureDialogue);
+
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.requirements.required_form = Some(BeatForm::SingleSentence);
+        assert!(!check_passed(
+            "The teapot clicks. Rain follows.",
+            &gate,
+            PublicationCheckCode::VoiceBeatFormMismatch,
+        ));
+        assert!(check_passed(
+            "The teapot clicks once.",
+            &gate,
+            PublicationCheckCode::VoiceBeatFormMismatch,
+        ));
+
+        gate.requirements.required_form = Some(BeatForm::UnresolvedQuestion);
+        assert!(check_passed(
+            "Does the teapot need another minute?",
+            &gate,
+            PublicationCheckCode::VoiceBeatFormMismatch,
+        ));
+        gate.requirements.required_form = Some(BeatForm::NoSimile);
+        assert!(!check_passed(
+            "The teapot shakes like a wet boot.",
+            &gate,
+            PublicationCheckCode::VoiceBeatFormMismatch,
+        ));
+    }
+
+    #[test]
+    fn repeated_terms_and_closing_clauses_stay_out_of_retry_prompts() {
+        let mut gate = context(&["marker".to_string(), "gate".to_string()], &[]);
+        gate.recent_speaker_shingle_hashes = vec![
+            voice_overused_term_hash("marker"),
+            voice_closing_hash("I left it beside the old gate.").expect("closing hash"),
+        ];
+        assert_eq!(
+            rejected_code("The marker is cold.", gate.clone()),
+            PublicationCheckCode::VoiceRecentDuplicate,
+        );
+        assert_eq!(
+            rejected_code("Tea waits beside the old gate.", gate),
+            PublicationCheckCode::VoiceRecentDuplicate,
+        );
+    }
+
+    #[test]
+    fn terminal_aphorisms_are_rejected_as_shape_not_vocabulary() {
+        let gate = context(&["teapot".to_string()], &[]);
+        assert!(!check_passed(
+            "The teapot clicks. In the end, truth always arrives late.",
+            &gate,
+            PublicationCheckCode::VoiceTerminalAphorism,
+        ));
+        assert!(!check_passed(
+            "Sometimes the heart always knows the road.",
+            &gate,
+            PublicationCheckCode::VoiceTerminalAphorism,
+        ));
+        assert!(check_passed(
+            "The teapot clicks. Its lid is loose.",
+            &gate,
+            PublicationCheckCode::VoiceTerminalAphorism,
+        ));
+    }
+
+    #[test]
+    fn intentions_need_actions_and_exhausted_deferrals_need_blockers() {
+        let recent = vec![
+            "Gust: The window is open.".to_string(),
+            "Rati: I won't touch the latch yet.".to_string(),
+            "Rati: The latch can wait for now.".to_string(),
+        ];
+        assert_eq!(consecutive_speaker_deferrals(&recent, "Rati"), 2);
+        let mut gate = context(&["tea".to_string(), "kettle".to_string()], &[]);
+        assert_eq!(
+            rejected_code("I'll pour the tea.", gate.clone()),
+            PublicationCheckCode::VoiceUnbackedActionIntent,
+        );
+        gate.requirements.must_act_or_block = true;
+        assert!(!check_passed(
+            "The tea can wait for now.",
+            &gate,
+            PublicationCheckCode::VoiceActionBudgetExceeded,
+        ));
+        assert!(check_passed(
+            "I can't pour because the kettle is missing.",
+            &gate,
+            PublicationCheckCode::VoiceActionBudgetExceeded,
+        ));
+        gate.has_proposed_action = true;
+        assert!(check_passed(
+            "I'll pour the tea.",
+            &gate,
+            PublicationCheckCode::VoiceUnbackedActionIntent,
+        ));
+    }
+
+    #[test]
+    fn supplied_anomalies_must_be_surfaced_not_reconciled() {
+        let mut gate = context(&["journey".to_string(), "teapot".to_string()], &[]);
+        gate.requirements.anomalies = vec![
+            "Journey arithmetic says two turns remain, but the route implies one.".to_string(),
+            "The reply plan and current observation disagree about the location.".to_string(),
+        ];
+        assert!(!check_passed(
+            "The teapot is warm.",
+            &gate,
+            PublicationCheckCode::VoiceAnomalyOmitted,
+        ));
+        assert!(check_passed(
+            "The journey says two turns remain, but the route arithmetic says one; the reply plan also disagrees with the observed location.",
+            &gate,
+            PublicationCheckCode::VoiceAnomalyOmitted,
+        ));
     }
 
     /// Issue #555: `writing-style.md` §2 bans "objects that remember, weather
@@ -1940,13 +2390,10 @@ mod tests {
     fn own_speaker_label_and_harmless_wrap_are_normalized() {
         let raw = "Rati:\nTeapot ready.\nRati: \"I'll pour.\"";
         let published = "Teapot ready. I'll pour.";
-        let speech = certify_speech(
-            None,
-            completion(raw),
-            raw,
-            context(&["teapot".to_string()], &[]),
-        )
-        .expect("one speaker's harmless formatting certifies");
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.has_proposed_action = true;
+        let speech = certify_speech(None, completion(raw), raw, gate)
+            .expect("one speaker's harmless formatting certifies");
 
         assert_eq!(speech.text(), published);
         assert_eq!(speech.receipt().candidate_hash, sha256_hex(raw.as_bytes()));
@@ -2119,9 +2566,9 @@ mod tests {
 
     /// Production rejected eight of nine generations in an hour with
     /// `voice_recent_duplicate`, and with a single pinned voice model the
-    /// retry only asked for "fresh wording" and resampled the same phrase. The
-    /// rejection now carries the run that tripped it so a retry can be told
-    /// exactly what to drop.
+    /// old retry prompt asked for "fresh wording" and resampled the same phrase.
+    /// The rejection now carries the run for diagnostics while routing performs
+    /// a clean resample without copying it back into the prompt.
     #[test]
     fn a_reused_speaker_phrase_is_named_on_the_rejection() {
         let prior = "Bethlehem at last! My biscuit survived the journey, though my knees are filing a formal complaint.";
@@ -2610,6 +3057,7 @@ mod tests {
                 recent_lines: Vec::new(),
                 recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
+                requirements: VoiceBeatRequirements::default(),
                 envelope_valid: true,
                 candidate_round: 1,
             },
@@ -2673,6 +3121,7 @@ mod tests {
                 recent_lines: Vec::new(),
                 recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
+                requirements: VoiceBeatRequirements::default(),
                 envelope_valid: true,
                 candidate_round: 1,
             },
