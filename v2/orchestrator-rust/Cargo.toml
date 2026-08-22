@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.0.89"
+version = "1.0.90"
 edition = "2021"
 publish = false
 
@@ -13,6 +13,7 @@ base64 = "0.22"
 bs58 = "0.5"
 cosyworld-ai-model = { path = "../ai-model-rust" }
 ed25519-dalek = "2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 qrcode = "0.14"
 rand = "0.8"

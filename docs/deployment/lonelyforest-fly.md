@@ -118,6 +118,26 @@ silently disappear while nginx remains available. Internal required-tenant
 failures use a nonzero supervisor exit; normal operator `TERM`/`INT`/`HUP`
 shutdown remains clean.
 
+## Bounded shutdown
+
+Fly sends one signal to the multitenant supervisor, not directly to each
+orchestrator. On the first `TERM`, `INT`, or `HUP`, the supervisor stops Nginx
+from accepting public traffic and forwards `TERM` once to every tenant. Each
+orchestrator immediately rejects new work, closes active SSE responses for
+client reconnect, drains HTTP for at most `COSYWORLD_SHUTDOWN_DRAIN_MS`, and
+then flushes its final snapshot. The production value is three seconds.
+
+The supervisor independently enforces
+`COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS` (four seconds in production) for
+each tenant and for Nginx. It force-stops a process that misses that deadline,
+reaps auxiliary health and log processes, ignores repeated shutdown signals,
+and exits normally after every child is gone. Structured
+`tenant_shutdown_started`, `tenant_shutdown_forced`, `shutdown_started`,
+`shutdown_forced`, and `shutdown_complete` records expose elapsed time and
+forced-process counts. This nested three-/four-second budget stays inside
+Fly's five-second escalation while preserving the rolling, one-Machine,
+single-writer volume contract.
+
 ### Recovery when a tenant is already unavailable
 
 Do not bypass the guard and do not blindly redeploy the previous image. A

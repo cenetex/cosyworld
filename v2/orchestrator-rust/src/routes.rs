@@ -61,11 +61,33 @@ pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     }
 }
 
+#[cfg(test)]
 pub(super) fn app_router(state: AppState) -> Router {
-    app_router_with_command_capacity(state, Arc::new(Semaphore::new(COMMAND_CONCURRENCY_LIMIT)))
+    app_router_with_dependencies(
+        state,
+        Arc::new(Semaphore::new(COMMAND_CONCURRENCY_LIMIT)),
+        ShutdownSubscription::idle(),
+    )
 }
 
+#[cfg(test)]
 fn app_router_with_command_capacity(state: AppState, command_capacity: Arc<Semaphore>) -> Router {
+    app_router_with_dependencies(state, command_capacity, ShutdownSubscription::idle())
+}
+
+pub(super) fn app_router_with_shutdown(state: AppState, shutdown: ShutdownSubscription) -> Router {
+    app_router_with_dependencies(
+        state,
+        Arc::new(Semaphore::new(COMMAND_CONCURRENCY_LIMIT)),
+        shutdown,
+    )
+}
+
+fn app_router_with_dependencies(
+    state: AppState,
+    command_capacity: Arc<Semaphore>,
+    shutdown: ShutdownSubscription,
+) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/moderation", get(moderation_console))
@@ -361,7 +383,7 @@ fn app_router_with_command_capacity(state: AppState, command_capacity: Arc<Semap
             "/internal/canonical/imports",
             post(internal_canonical_legacy_import),
         )
-        .route("/stream", get(stream))
+        .route("/stream", get(stream).layer(Extension(shutdown.clone())))
         // Action handlers return JSON envelopes with their authoritative
         // status field. Promote that field to the HTTP status after handlers
         // finish, before compression obscures the JSON body.
@@ -369,10 +391,50 @@ fn app_router_with_command_capacity(state: AppState, command_capacity: Arc<Semap
         // Extractor and method rejections happen before the command handler.
         // Normalize those last so /commands never leaks Axum's plain-text body.
         .layer(middleware::from_fn(command_response_json_contract))
+        // Existing keep-alive connections must not submit fresh work after the
+        // process begins draining. Liveness remains available to distinguish a
+        // draining process from a dead one.
+        .layer(middleware::from_fn_with_state(shutdown, shutdown_admission))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)
+}
+
+async fn shutdown_admission(
+    State(shutdown): State<ShutdownSubscription>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if !shutdown.is_draining() || request.uri().path() == "/health/live" {
+        return next.run(request).await;
+    }
+
+    let mut response = if request.uri().path() == "/commands" {
+        canonical_command_error_with_kind(
+            "",
+            503,
+            "The server is restarting. Reconnect and retry with the same intent_id.",
+            Some(CommandErrorKind::ServerUnavailable),
+        )
+        .into_response()
+    } else {
+        Json(serde_json::json!({
+            "ok": false,
+            "status": 503,
+            "error": "server_draining",
+            "output": "The server is restarting. Reconnect and retry."
+        }))
+        .into_response()
+    };
+    *response.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+    response
+        .headers_mut()
+        .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+    response
+        .headers_mut()
+        .insert(header::CONNECTION, HeaderValue::from_static("close"));
+    response
 }
 
 async fn command_admission(
@@ -677,6 +739,42 @@ mod tests {
         .await
         .expect("health must bypass command admission")
         .expect("health response");
+        assert_eq!(health.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn shutdown_rejects_new_work_but_keeps_liveness_available() {
+        let (trigger, shutdown) = shutdown_channel();
+        let app = app_router_with_shutdown(test_app_state(RuntimeWorld::seeded(), None), shutdown);
+        trigger.notify(ShutdownReason::Test);
+
+        let command = request(
+            "POST",
+            Body::from(r#"{"actor_id":1,"actor_session":null,"wallet_session":null}"#),
+            Some("application/json"),
+        );
+        let draining = assert_command_error(
+            app.clone()
+                .oneshot(command)
+                .await
+                .expect("draining response"),
+            StatusCode::SERVICE_UNAVAILABLE,
+        )
+        .await;
+        assert_eq!(
+            draining.error_kind,
+            Some(CommandErrorKind::ServerUnavailable)
+        );
+
+        let health = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health/live")
+                    .body(Body::empty())
+                    .expect("liveness request"),
+            )
+            .await
+            .expect("liveness response");
         assert_eq!(health.status(), StatusCode::OK);
     }
 

@@ -8,6 +8,10 @@ primary_region = "sjc"
 [env]
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_MULTITENANT_DATA_ROOT = "/data/worldpacks"
+  # Children close streams within three seconds; the supervisor independently
+  # force-stops a wedged child or Nginx before Fly escalates at five seconds.
+  COSYWORLD_SHUTDOWN_DRAIN_MS = "3000"
+  COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS = "4"
   # One volume can attach to only one Machine, so a five-second stale-owner
   # fence is sufficient and bounds write unavailability after process restart.
   COSYWORLD_CANONICAL_LEASE_TTL_MS = "5000"
