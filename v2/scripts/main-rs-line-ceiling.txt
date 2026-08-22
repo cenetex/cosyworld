@@ -400,9 +400,18 @@
 # 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
 # idle speaker/reply planning, and scheduler-only tests. Resident consequences
 # remain causally attached to committed player turns.
-# 61691 -> 61633: move the persistence storage report into snapshot_persistence.rs,
-# where the retention and compaction policy it describes already lives, and drop
-# the ineffective auto_vacuum block from schema initialization. The mode is now
-# chosen ahead of WAL by open_canonical_store_for_initialization in
-# canonical_journal.rs; main.rs keeps only the /meta boundary fields.
-61633
+# 61693 -> 61691: align the stale ratchet with main.rs after the ambient
+# scheduler removal; the tracked source was already 61,691 lines.
+# 61691 -> 61673: move HTTP response-contract handling into routes.rs and run
+# routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
+# threads stay available for health while JSON error policy remains at routing.
+# 61673 -> 61640: replace main.rs's unbounded signal helpers with the shutdown
+# module and route SSE through its notification subscription. Drain policy,
+# timing, and tests live in shutdown.rs, startup.rs, and routes.rs.
+# 61640 -> 61582: move the persistence storage report into
+# snapshot_persistence.rs, where the retention and compaction policy it
+# describes already lives, and drop the ineffective auto_vacuum block from
+# schema initialization. The mode is now chosen ahead of WAL by
+# open_canonical_store_for_initialization in canonical_journal.rs; main.rs keeps
+# only the /meta boundary fields.
+61582

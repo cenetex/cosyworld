@@ -102,6 +102,7 @@ mod rpg;
 mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
+mod shutdown;
 mod snapshot_persistence;
 mod solana;
 mod spatial;
@@ -136,7 +137,7 @@ use avatar_reflections::*;
 use avatar_rescue::*;
 use axum::{
     body::{to_bytes, Body},
-    extract::{ConnectInfo, Path as AxumPath, Query, State},
+    extract::{ConnectInfo, Extension, Path as AxumPath, Query, State},
     http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -219,6 +220,7 @@ pub(crate) use config::{
     canonical_routing_config, resolve_process_id, DeploymentProfile, DEFAULT_CANONICAL_REGION_ID,
 };
 use keys::*;
+use shutdown::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -237,7 +239,6 @@ use story_metrics::*;
 use test_support::*;
 use tokio::{
     net::TcpListener,
-    signal,
     sync::{broadcast, Mutex, Notify, RwLock},
 };
 use tokio_stream::{
@@ -4442,30 +4443,6 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
         status: RATE_LIMITED_STATUS,
         events: Vec::new(),
     })
-}
-
-async fn action_response_http_status(response: Response) -> Response {
-    let (mut parts, body) = response.into_parts();
-    let is_json = parts
-        .headers
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.starts_with("application/json"));
-    if !is_json {
-        return Response::from_parts(parts, body);
-    }
-    let Ok(bytes) = to_bytes(body, 2 * 1024 * 1024).await else {
-        return Response::from_parts(parts, Body::empty());
-    };
-    if let Some(status) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        .ok()
-        .and_then(|value| value.get("status").and_then(serde_json::Value::as_u64))
-        .and_then(|status| u16::try_from(status).ok())
-        .and_then(|status| StatusCode::from_u16(status).ok())
-    {
-        parts.status = status;
-    }
-    Response::from_parts(parts, Body::from(bytes))
 }
 
 #[tokio::main]
@@ -23194,10 +23171,23 @@ fn refresh_canonical_process_route(state: &AppState) -> io::Result<()> {
 }
 
 async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventView>> {
-    let Some(path) = state.event_store_path.as_deref() else {
+    let Some(path) = state.event_store_path.as_deref().cloned() else {
         return Ok(Vec::new());
     };
-    let latest_journal_seq = latest_action_journal_seq(path)?;
+    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
+    let read_path = path.clone();
+    let (latest_journal_seq, events) = tokio::task::spawn_blocking(move || {
+        let latest_journal_seq = latest_action_journal_seq(&read_path)?;
+        let through_seq = current_world_seq(&open_event_store(&read_path)?, OFFICIAL_WORLD_ID)?;
+        let events = if through_seq > after {
+            read_event_store_forward_between(&read_path, after, through_seq, MAX_EVENT_STORE_SCAN)?
+        } else {
+            Vec::new()
+        };
+        Ok::<_, io::Error>((latest_journal_seq, events))
+    })
+    .await
+    .map_err(|error| io::Error::other(format!("canonical capacity read task failed: {error}")))??;
     if latest_journal_seq
         > state
             .canonical_applied_journal_seq
@@ -23209,20 +23199,13 @@ async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventV
             .load(AtomicOrdering::Acquire);
         if latest_journal_seq > applied {
             let presence_states = runtime.presence_states.clone();
-            restore_runtime_from_durable_state(state, &mut runtime, path)?;
+            restore_runtime_from_durable_state(state, &mut runtime, &path)?;
             runtime.presence_states = presence_states;
             state
                 .canonical_applied_journal_seq
                 .store(latest_journal_seq, AtomicOrdering::Release);
         }
     }
-
-    let through_seq = current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?;
-    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
-    if through_seq <= after {
-        return Ok(Vec::new());
-    }
-    let events = read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)?;
     Ok(events)
 }
 
@@ -26853,6 +26836,7 @@ fn client_actor_rejected_response() -> Json<ActionResponse> {
 
 async fn stream(
     headers: HeaderMap,
+    Extension(shutdown): Extension<ShutdownSubscription>,
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
@@ -26910,7 +26894,7 @@ async fn stream(
     }
     let replay_stream = tokio_stream::iter(replay_messages);
     let live_stream = live_event_stream(rx, visible_locations);
-    let stream = replay_stream.chain(live_stream);
+    let stream = shutdown.finish_stream(replay_stream.chain(live_stream));
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -29318,41 +29302,6 @@ fn journal_commit_recovery_error(
 /// Coalesce instead: write at most once per interval, and let the journal cover
 /// the gap. A snapshot that trails the journal by a few seconds only costs a
 /// slightly longer replay at boot. See issue #481.
-/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
-///
-/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
-/// restart, and the composition smoke stops servers with it before running the
-/// offline pack-mount migration. That migration requires the on-disk snapshot
-/// to match the journal head, so an unhandled SIGTERM — which kills the process
-/// before the final forced snapshot — would leave a snapshot trailing the
-/// journal now that ordinary writes are coalesced.
-async fn terminate_signal() {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{signal as unix_signal, SignalKind};
-        match unix_signal(SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                warn!("failed to install SIGTERM handler: {}", error);
-                std::future::pending::<()>().await;
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        std::future::pending::<()>().await;
-    }
-}
-
-async fn shutdown_signal() {
-    tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate_signal() => {}
-    }
-}
-
 fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
@@ -31338,7 +31287,7 @@ mod tests {
             events: Vec::new(),
         })
         .into_response();
-        let response = action_response_http_status(response).await;
+        let response = routes::action_response_http_status(response).await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
         let body = to_bytes(response.into_body(), 1024)
             .await

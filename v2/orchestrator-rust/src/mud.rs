@@ -36,6 +36,7 @@ pub(crate) struct CommandRequest {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommandErrorKind {
     ParseFailure,
+    InvalidRequest,
     InvalidOfferId,
     StaleOffer,
     UnknownOffer,
@@ -43,6 +44,9 @@ pub(crate) enum CommandErrorKind {
     StaleActorVersion,
     StaleLocationVersion,
     StaleEntityVersion,
+    ServerOverloaded,
+    ServerUnavailable,
+    ResponseEncodingFailed,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
