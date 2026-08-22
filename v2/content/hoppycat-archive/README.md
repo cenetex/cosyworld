@@ -24,8 +24,9 @@ replace avatar, location, or item art. The shared item-art direction and prompt
 subjects are recorded in `ART_GENERATION.md`.
 
 Hoppy Cat starts in direct-input mode at the Halfway Tea Garden. The other 15
-residents have ambient autonomy and explicit roaming enabled: they pursue useful
-goals first, then choose a legal adjacent route when idle, with recent-route
+residents have event-triggered autonomy and explicit roaming enabled: after a
+committed player turn they pursue useful goals first, then may choose a legal
+adjacent route, with recent-route
 checks keeping them from simply bouncing back and forth. Seven roster companions
 use pack-pinned OpenRouter models; the eight original fantasy residents keep the
 ordinary Cosyworld inference route.

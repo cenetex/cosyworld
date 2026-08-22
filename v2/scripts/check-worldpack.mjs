@@ -1608,14 +1608,14 @@ for (const actor of actors) {
         .has(actor.control_mode)) {
     fail(`actor ${actor.id} has invalid control_mode`);
   }
-  if (actor.ambient_autonomy !== undefined && typeof actor.ambient_autonomy !== "boolean") {
-    fail(`actor ${actor.id} has invalid ambient_autonomy`);
+  if (actor.event_autonomy !== undefined && typeof actor.event_autonomy !== "boolean") {
+    fail(`actor ${actor.id} has invalid event_autonomy`);
   }
   if (actor.roaming !== undefined && typeof actor.roaming !== "boolean") {
     fail(`actor ${actor.id} has invalid roaming`);
   }
-  if (actor.roaming === true && actor.ambient_autonomy === false) {
-    fail(`actor ${actor.id} cannot roam while ambient_autonomy is disabled`);
+  if (actor.roaming === true && actor.event_autonomy === false) {
+    fail(`actor ${actor.id} cannot roam while event_autonomy is disabled`);
   }
   if (!has(locationIds, actor.location_id)) {
     fail(`actor ${actor.id} references missing location ${actor.location_id}`);

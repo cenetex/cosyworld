@@ -9081,11 +9081,12 @@
           offer.kind === "search"
             && (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))
         ));
-        if (!searchOffers.length && projectedSearchOfferIds.size) {
-          // The authoritative hand contains no Search certificate. Do not
-          // synthesize an offerless card from the broad room affordance.
-        } else {
-        const searchCandidates = (searchOffers.length ? searchOffers : [null]).map((offer, index) => {
+        // A Search card exists only where the server dealt a certificate for
+        // it. A bare room affordance never becomes a card: the server refuses
+        // an offerless submission, so synthesizing one only hands the player
+        // something unplayable.
+        if (searchOffers.length) {
+        const searchCandidates = searchOffers.map((offer, index) => {
           const target = String(offer?.target?.label || locationName).trim() || locationName;
           return {
             offer,
@@ -10715,7 +10716,9 @@
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
-      if (status === 403) return "Reconnect your account to restore this same avatar. The world will not replace it.";
+      if (status === 403) return avatarIsKnockedOut()
+        ? "This avatar is knocked out and cannot act. Wait for a rescue, or abandon this avatar to begin again."
+        : "Reconnect your account to restore this same avatar. The world will not replace it.";
       if (status === 400 && path.includes("/actions/rest")) return "You are already steady enough to keep going.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
@@ -10731,7 +10734,9 @@
       const output = String(result.output || "").trim();
       if (output) return output;
       const status = Number(result.status || 0);
-      if (status === 403) return "Reconnect your account to restore this same avatar. The world will not replace it.";
+      if (status === 403) return avatarIsKnockedOut()
+        ? "This avatar is knocked out and cannot act. Wait for a rescue, or abandon this avatar to begin again."
+        : "Reconnect your account to restore this same avatar. The world will not replace it.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; look again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
@@ -18044,6 +18049,15 @@
       const hp = Number(actor?.hp ?? 0);
       const maxHp = Number(actor?.stats?.hp_base ?? 0);
       return actor?.status === "knocked_out" || (actor?.status === "active" && maxHp > 0 && hp < maxHp);
+    }
+
+    // A knocked-out avatar keeps a valid session, so a refusal must not send
+    // the player off to reconnect an account that is already connected.
+    function avatarIsKnockedOut(view = state) {
+      if (!actorId) return false;
+      return (view?.actors || []).some((actor) => (
+        Number(actor?.id || 0) === Number(actorId) && actor?.status === "knocked_out"
+      ));
     }
 
     function actorIsTired(view = state) {

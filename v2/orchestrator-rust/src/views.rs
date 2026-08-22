@@ -3970,7 +3970,12 @@ impl RuntimeWorld {
         visible_primary_action
             .options
             .retain(|option| hand_kinds.contains(option.kind.as_str()));
-        if let Some(offer) = visible_action_offers.first() {
+        let lifecycle_primary_action =
+            actor_presence::primary_action_is_avatar_lifecycle(&visible_primary_action.kind);
+        if let Some(offer) = visible_action_offers
+            .first()
+            .filter(|_| !lifecycle_primary_action)
+        {
             visible_primary_action.kind = if offer.kind == "move" {
                 "travel".to_string()
             } else {
@@ -4042,8 +4047,14 @@ impl RuntimeWorld {
             scene_notices: client_actor_id
                 .map(|id| self.discovery_scene_notices(id))
                 .unwrap_or_default(),
+            // Only an avatar that can act may be told a search is here. A
+            // downed avatar that hears otherwise is handed a card it cannot
+            // play.
             search_available: client_actor_id
-                .map(|id| self.default_search_target(id).is_some())
+                .map(|id| {
+                    self.actor_by_id(id).is_some_and(Self::actor_can_act)
+                        && self.default_search_target(id).is_some()
+                })
                 .unwrap_or(false),
             clocks: self.clock_views(location_id),
             shared_questions,

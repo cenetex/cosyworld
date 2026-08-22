@@ -1473,7 +1473,7 @@ mod publication_tests {
             resident_gate_context(&reply, false)
                 .signpost_openers
                 .is_empty(),
-            "a directed reply is not an ambient opening"
+            "a directed reply is not an unsolicited opening"
         );
     }
 

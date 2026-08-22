@@ -79,7 +79,7 @@
 # append so recent-room and same-speaker publication context stays current.
 # 74291 -> 74648: preserve speaker/recipient ownership through the existing
 # bounded Chat worker. The new lines carry committed directed turns instead of
-# rebuilding from ambient room history, bind reply causality to those events,
+# rebuilding from unscoped room history, bind reply causality to those events,
 # keep observed actions distinct from literal speech, and re-check room, safety
 # consent, and inference ownership at each asynchronous commit. The added lines
 # also pin those context and causality boundaries with focused regressions.
@@ -315,11 +315,9 @@
 # helpers (append_event_store, now_millis, now_seed, load/save_snapshot), and
 # the moved pub(super) room_memory fns via the `use super::*;` glob. Pure,
 # behavior-preserving; no test count or assertion changed.
-# 65394 -> 65212: move 10 autonomy RuntimeWorld methods (ensure_actor_autonomy,
-# observe_player_tick_for_autonomy, replenish_ambient_autonomy_credits,
-# autonomy_allows_action, record_autonomous_action,
-# player_tick_already_has_autonomous_result, ambient_actor, ambient_line,
-# ambient_autonomy_action, ambient_autonomy_record) from main.rs into
+# 65394 -> 65212: move autonomy RuntimeWorld methods (ensure_actor_autonomy,
+# observe_player_tick_for_autonomy, autonomy_allows_action,
+# record_autonomous_action, and player_tick_already_has_autonomous_result) from main.rs into
 # actor_presence.rs as `impl crate::RuntimeWorld` pub(crate) methods.
 # #[cfg(test)] attributes preserved. Pure, behavior-preserving.
 # 65212 -> 65157: move 3 ripple RuntimeWorld methods
@@ -399,4 +397,7 @@
 # (`block_in_place` panics on the current-thread runtime `#[tokio::test]`
 # builds). The commit body itself only gained a wrapper; existing persistence
 # seam, no new system.
-61990
+# 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
+# idle speaker/reply planning, and scheduler-only tests. Resident consequences
+# remain causally attached to committed player turns.
+61691

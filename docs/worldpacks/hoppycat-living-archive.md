@@ -126,9 +126,10 @@ These residents can remember world events through the normal CosyWorld journal,
 but they have no runtime access to GitHub and no claim to source identity.
 
 Hoppy moves only when the authenticated holder chooses a travel action. The
-other 15 residents have ambient autonomy plus an explicit roaming flag: useful
-item, healing, trade, memory, and quest actions take priority; when no such
-action is available, a resident chooses a legal adjacent route. The recent-event
+other 15 residents have event-triggered autonomy plus an explicit roaming flag:
+useful item, healing, trade, memory, and quest actions take priority after a
+committed player turn; when no such action is available, a resident may choose
+a legal adjacent route. The recent-event
 guard prevents immediate route ping-pong. Of those autonomous residents, the
 seven named roster companions are exact-model actors and the eight original
 fantasy residents retain the ordinary configured inference route. Player-created
