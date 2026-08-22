@@ -391,11 +391,12 @@ async function drawExactOffer(
     1,
     (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
   );
-  for (let attempt = 0; attempt < boundedThinks; attempt += 1) {
+  for (let attempt = 0; attempt <= boundedThinks; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
+    if (attempt === boundedThinks) break;
     await passCurrentHand(baseUrl, actorId, actorSession, state);
     state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   }
@@ -425,6 +426,41 @@ async function commandExactOffer(baseUrl, actorId, actorSession, value) {
   });
   assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
   return result;
+}
+
+async function completeFirstTale(baseUrl, actorId, actorSession) {
+  let state = await waitForActorTurn(baseUrl, actorId, actorSession, "first tale");
+  for (let step = 0; step < 16 && state.first_tale?.phase !== "complete"; step += 1) {
+    const offerId = state.first_tale?.advancing_offer_id;
+    const handMatches = (state.action_hand?.entries || []).filter((entry) =>
+      entry.offer_id === offerId);
+    const offer = (state.action_offers || []).find((candidate) =>
+      candidate.offer_id === offerId);
+    assert(
+      typeof offerId === "string" && offerId && handMatches.length === 1 && offer,
+      `first tale step ${step + 1} did not expose one advancing card: ${JSON.stringify({
+        first_tale: state.first_tale,
+        action_hand: state.action_hand,
+      })}`,
+    );
+    const result = await postJson(`${baseUrl}/commands`, {
+      actor_id: actorId,
+      actor_session: actorSession,
+      command: offer.command,
+      offer_id: offer.offer_id,
+      envelope: offerEnvelope(state, actorId, offer.offer_id),
+    });
+    assert(
+      result.ok === true,
+      `first tale step ${step + 1} failed: ${JSON.stringify(result)}`,
+    );
+    state = await waitForActorTurn(baseUrl, actorId, actorSession, "first tale");
+  }
+  assert(
+    state.first_tale?.phase === "complete" && state.location?.id === 2,
+    `first tale did not finish in Rain-Soft Garden: ${JSON.stringify(state.first_tale)}`,
+  );
+  return state;
 }
 
 async function move(baseUrl, actorId, actorSession, destinationLocationId) {
@@ -623,6 +659,8 @@ async function main() {
           && offer.composition_trace?.pack_mount_revision === 1),
       "cold-mounted offers did not bind the committed composition revision",
     );
+    await completeFirstTale(first.baseUrl, actorId, actorSession);
+    await move(first.baseUrl, actorId, actorSession, 1);
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
     const travelOffer = await drawExactOffer(
       first.baseUrl,
