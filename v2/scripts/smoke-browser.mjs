@@ -986,7 +986,6 @@ async function main() {
           const turn = {
             enabled: true,
             policy: "scene-turn",
-            scene_kind: "combat",
             is_current_actor: false,
             current_actor_id: 5001,
             current_actor_name: "Mabel Crumblethorn",
@@ -1014,6 +1013,19 @@ async function main() {
             copy: host.querySelector(".turn-ping-copy")?.textContent || "",
             controls: turnBannerControlSpecs(turn).map((spec) => spec.label),
           };
+        })(),
+        roomTurnBanner: (() => {
+          const turn = {
+            enabled: true,
+            policy: "scene-turn",
+            scene_kind: "room",
+            is_current_actor: false,
+            current_actor_id: 1003,
+            current_actor_name: "Skull",
+          };
+          const host = document.createElement("div");
+          host.innerHTML = turnPingPillHtml(turn, null);
+          return host.querySelector(".turn-ping-copy")?.textContent || "";
         })(),
         welcomingListenWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
@@ -1365,6 +1377,10 @@ async function main() {
       guide.currentTurnBanner?.copy === "ordered combat — your turn"
         && guide.currentTurnBanner?.controls?.join(",") === "need time",
       `the acting combat participant should reach the certified Think control from the action bar and need time from the banner: ${JSON.stringify(guide.currentTurnBanner)}`,
+    );
+    assert(
+      guide.roomTurnBanner === "room initiative — Skull acts now",
+      `an explicit room turn should not fall back to ordered-combat copy: ${JSON.stringify(guide.roomTurnBanner)}`,
     );
   }
 

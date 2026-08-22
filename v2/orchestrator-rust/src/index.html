@@ -10143,7 +10143,9 @@
       // scene-turn is the ordered-combat protocol identity even when the
       // adjacent combat projection has not arrived yet, so it has to keep
       // reading as combat rather than falling through to the generic scene.
-      const combatCopy = sceneKind === "combat" || Boolean(combat) || turn.policy === "scene-turn";
+      const combatCopy = sceneKind === "combat"
+        || Boolean(combat)
+        || (!sceneKind && turn.policy === "scene-turn");
       const copy = combatCopy
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
         : sceneKind === "room"
