@@ -1672,6 +1672,92 @@ mod tests {
         }));
     }
 
+    /// The planner, the projection, and the route were all correct while the
+    /// endpoint refused every real attempt: its authorization gate required an
+    /// ACTIVE actor, and only a knocked-out one may abandon. Driving the
+    /// handler is the only way to catch that -- planning-level coverage passes
+    /// either way.
+    #[tokio::test]
+    async fn the_abandon_endpoint_accepts_a_knocked_out_avatar_holding_its_session() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let response = crate::avatar_rescue::abandon_avatar(
+            ConnectInfo("127.0.0.1:45001".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(
+            response.ok,
+            "a knocked-out avatar must be able to release itself: status {} {:?}",
+            response.status, response.events,
+        );
+        assert_eq!(response.status, CW_OK);
+
+        let runtime = state.inner.lock().await;
+        assert!(
+            !runtime.actor_control_mode(5000).is_direct_input(),
+            "the released avatar must leave direct control",
+        );
+    }
+
+    #[tokio::test]
+    async fn the_abandon_endpoint_refuses_a_session_that_does_not_own_the_avatar() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Fallen");
+        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "Bystander");
+        {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("the avatar exists");
+            actor.status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let state = test_app_state(runtime, None);
+        let (other_session, _) = issue_actor_session(&state, 5001);
+
+        let response = crate::avatar_rescue::abandon_avatar(
+            ConnectInfo("127.0.0.1:45002".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(other_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(!response.ok);
+        assert_eq!(
+            response.status, 403,
+            "another player's session must never release someone else's avatar",
+        );
+    }
+
     #[tokio::test]
     async fn knocked_out_avatar_can_be_abandoned_to_roaming_ai() {
         let mut runtime = RuntimeWorld::seeded();
