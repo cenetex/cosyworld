@@ -540,11 +540,9 @@ mod tests {
 
     #[test]
     fn the_incremental_vacuum_budget_stays_bounded() {
-        assert_eq!(
-            incremental_vacuum_page_budget(),
-            DEFAULT_INCREMENTAL_VACUUM_PAGES,
-        );
-        assert!(DEFAULT_INCREMENTAL_VACUUM_PAGES <= MAX_INCREMENTAL_VACUUM_PAGES);
+        let budget = incremental_vacuum_page_budget();
+        assert_eq!(budget, DEFAULT_INCREMENTAL_VACUUM_PAGES);
+        assert!(budget <= MAX_INCREMENTAL_VACUUM_PAGES);
     }
 
     #[test]
