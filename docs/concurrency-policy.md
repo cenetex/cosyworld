@@ -1,24 +1,24 @@
 # Scene concurrency policy
 
-Ordinary co-present play is asynchronous. No avatar owns a room-wide turn merely because two or
-more controllers are present. Controller mode and legacy actor kind do not change action legality.
+Ordinary co-present play uses one room initiative order when two or more eligible avatars are
+present. Directly controlled and inference-controlled avatars share that order and the same finite
+Story Hand. Inspection and local configuration remain available while another avatar acts.
 
 Every operation belongs to one concurrency policy:
 
-- **concurrent** — chat, inspection, personal reflection, independent movement,
-  exploration, and compatible contributions commit in canonical journal order without waiting for
-  another avatar;
+- **concurrent** — inspection, personal reflection, and local configuration do not spend an
+  activation;
 - **target-serialized** — writes to the same item, slot, offer, or decision commit under the world
   lock. One write wins deterministically and the losing client receives an `action.conflict`
   explanation without a duplicate effect;
-- **scene-turn** — combat and another explicitly authored ordered procedure name the current
-  participant and reject out-of-order mechanics with a causal explanation;
+- **scene-turn** — ordinary room play, combat, and another explicitly authored ordered procedure
+  name the current participant and reject out-of-order mechanics with a causal explanation;
 - **governed-choice** — scarce communal choices use a versioned chooser, covenant, competing-project,
   explicit-delegation, or authored-automatic policy rather than turn ownership.
 
-Serialization of the journal remains authoritative for every policy. “Concurrent” describes what
-players may attempt without an artificial room gate; it does not permit races to bypass ownership,
-authorization, capacity, governance, or compare-and-set checks.
+Serialization of the journal remains authoritative for every policy. Each turn-consuming ordinary
+room record carries a replayable activation certificate. A stale player request or resident worker
+cannot act after the room has handed initiative onward.
 
 ## Governed choices
 
@@ -36,8 +36,18 @@ construction opportunity rather than becoming a sanctuary automatically.
 
 ## Ordered scenes
 
-Combat projects `policy: "scene-turn"` in both `state.turn` and `state.combat`. It explains the
-ordered rule before an action, while chat and inspection remain available.
+An ordinary multi-avatar room projects `policy: "scene-turn"` and `scene_kind: "room"` in
+`state.turn`. Combat projects the same policy in both `state.turn` and `state.combat`. The current
+Story Hand can be played only by the named avatar; inspection remains available.
+
+The first active directly controlled avatar opens a fresh room. The server rolls the remaining
+stable order from initiative and Dexterity, persists every handoff, and removes unavailable avatars
+without allowing one avatar to take another avatar's activation. A resident worker may choose only
+from the current inference-controlled avatar's legal Story Hand. If the next avatar is directly
+controlled, automation stops and waits for that player.
+
+Reactive, local, roaming, and delegated AI modes may rank or describe choices differently, but they
+do not reduce the legal mechanical cards available on that avatar's initiative seat.
 
 The authored base grace is 45 seconds. Numeric time is visual-only and hidden from assistive
 technology; the polite live-region announcement changes once per handoff rather than on a timer.
@@ -56,6 +66,6 @@ does not surrender the turn. Browser buttons and MUD commands call the same auth
 
 ## Replay and conflicts
 
-Pass, Need time, and target races are action-journal records. Replaying from the same checkpoint
-reproduces the same winner, losing status, combat handoff, and world tick. Reconnects therefore
-cannot duplicate or steal a committed action.
+Pass, Need time, ordinary-room activations, and target races are action-journal records. Replaying
+from the same checkpoint reproduces the same winner, losing status, room or combat handoff, and
+world tick. Reconnects and reclaimed workers therefore cannot duplicate or steal an activation.

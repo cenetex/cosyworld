@@ -430,4 +430,7 @@
 # the tests stayed behind in the root inline module. Fourteen tests moved
 # verbatim, no assertion or fixture changed, and the suite count is unmoved
 # at 1,265. First slice of #325 and #61.
-60015
+# 60015 -> 59942: move player-tick observation, resident initiative selection,
+# and room-heartbeat scheduling into actor_jobs.rs while adding durable room
+# initiative, reset generations, and atomic development reset deletion.
+59942

@@ -23,6 +23,34 @@ const FOCUSED_ENCOUNTER_SCHEMA_VERSION: u8 = 1;
 const FOCUSED_JOB_STATE_VERSION: u8 = 1;
 const FOCUSED_ENCOUNTER_MIN_PARTICIPANTS: usize = 2;
 const FOCUSED_ENCOUNTER_MAX_PARTICIPANTS: usize = 6;
+const ROOM_INITIATIVE_SCHEMA_VERSION: u8 = 1;
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct RoomInitiativeState {
+    pub(super) schema_version: u8,
+    pub(super) participant_order: Vec<u64>,
+    pub(super) current_index: usize,
+    pub(super) round: u64,
+    pub(super) activation: u64,
+}
+
+impl RoomInitiativeState {
+    pub(super) fn current_actor_id(&self) -> Option<u64> {
+        self.participant_order.get(self.current_index).copied()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct RoomActivationJournalContext {
+    pub(super) schema_version: u8,
+    pub(super) location_id: u64,
+    pub(super) actor_id: u64,
+    pub(super) activation: u64,
+    pub(super) participant_order: Vec<u64>,
+    pub(super) current_index: usize,
+    pub(super) round: u64,
+    pub(super) active_direct_actor_ids: Vec<u64>,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -450,6 +478,345 @@ impl RoomTurnView {
             round: 0,
         }
     }
+}
+
+fn room_initiative_actor_is_eligible(
+    runtime: &RuntimeWorld,
+    actor: CwActor,
+    location_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> bool {
+    RuntimeWorld::actor_can_act(actor)
+        && actor.location_id == location_id
+        && (runtime.actor_uses_inference(actor.id) || active_direct_actor_ids.contains(&actor.id))
+}
+
+fn rolled_room_initiative_order(
+    runtime: &RuntimeWorld,
+    location_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> Vec<u64> {
+    let room = location_id.to_string();
+    let mut initiative = runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .copied()
+        .filter(|actor| {
+            room_initiative_actor_is_eligible(runtime, *actor, location_id, active_direct_actor_ids)
+        })
+        .map(|actor| {
+            let actor_id = actor.id.to_string();
+            let roll = 1
+                + (stable_hash_u64(&["ordinary-room-initiative-v1", &room, &actor_id]) % 20) as i16;
+            (
+                actor.id,
+                roll.saturating_add(ability_score_modifier(actor.stats.dexterity)),
+            )
+        })
+        .collect::<Vec<_>>();
+    initiative.sort_by(|(left_id, left_score), (right_id, right_score)| {
+        right_score
+            .cmp(left_score)
+            .then_with(|| left_id.cmp(right_id))
+    });
+    let mut order = initiative
+        .into_iter()
+        .map(|(actor_id, _)| actor_id)
+        .collect::<Vec<_>>();
+
+    // The first directly controlled avatar to enter an unordered room opens
+    // play. After that bootstrap, the durable rolled order owns every handoff.
+    if let Some(anchor) = order
+        .iter()
+        .position(|actor_id| active_direct_actor_ids.contains(actor_id))
+    {
+        order.rotate_left(anchor);
+    }
+    order
+}
+
+fn reconciled_room_initiative(
+    runtime: &RuntimeWorld,
+    location_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> Option<RoomInitiativeState> {
+    let rolled = rolled_room_initiative_order(runtime, location_id, active_direct_actor_ids);
+    if rolled.len() < 2 {
+        return None;
+    }
+    let Some(stored) = runtime.room_initiatives.get(&location_id) else {
+        return Some(RoomInitiativeState {
+            schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
+            participant_order: rolled,
+            current_index: 0,
+            round: 1,
+            activation: 1,
+        });
+    };
+    let eligible = rolled.iter().copied().collect::<BTreeSet<_>>();
+    let previous_current = stored.current_actor_id();
+    let mut participant_order = stored
+        .participant_order
+        .iter()
+        .copied()
+        .filter(|actor_id| eligible.contains(actor_id))
+        .collect::<Vec<_>>();
+    for actor_id in rolled {
+        if !participant_order.contains(&actor_id) {
+            participant_order.push(actor_id);
+        }
+    }
+    let current_actor_id = previous_current
+        .filter(|actor_id| participant_order.contains(actor_id))
+        .or_else(|| {
+            if stored.participant_order.is_empty() {
+                return participant_order.first().copied();
+            }
+            (1..=stored.participant_order.len()).find_map(|offset| {
+                let index = (stored.current_index + offset) % stored.participant_order.len();
+                let actor_id = stored.participant_order[index];
+                participant_order.contains(&actor_id).then_some(actor_id)
+            })
+        })
+        .or_else(|| participant_order.first().copied())?;
+    let current_index = participant_order
+        .iter()
+        .position(|actor_id| *actor_id == current_actor_id)?;
+    Some(RoomInitiativeState {
+        schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
+        participant_order,
+        current_index,
+        round: stored.round.max(1),
+        activation: stored.activation.max(1),
+    })
+}
+
+pub(super) fn current_room_initiative_actor(
+    runtime: &RuntimeWorld,
+    location_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> Option<u64> {
+    reconciled_room_initiative(runtime, location_id, active_direct_actor_ids)
+        .and_then(|initiative| initiative.current_actor_id())
+}
+
+fn ordinary_room_turn_view(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    room_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> Option<RoomTurnView> {
+    let initiative = reconciled_room_initiative(runtime, room_id, active_direct_actor_ids)?;
+    let current_actor_id = initiative.current_actor_id()?;
+    let current_actor_name = runtime.actor_name(current_actor_id);
+    let is_current_actor = current_actor_id == actor_id;
+    Some(RoomTurnView {
+        enabled: true,
+        policy: ConcurrencyPolicy::SceneTurn.as_str(),
+        scene_kind: Some("room"),
+        focused: None,
+        explanation: Some(format!(
+            "The room follows initiative. {} acts now; inspection stays available.",
+            current_actor_name
+                .clone()
+                .unwrap_or_else(|| format!("Avatar {current_actor_id}"))
+        )),
+        room_id,
+        current_actor_id: Some(current_actor_id),
+        current_actor_name,
+        is_current_actor,
+        can_pass: is_current_actor,
+        can_need_time: false,
+        grace_period_ms: 0,
+        need_time_extension_ms: 0,
+        handoff_key: Some(format!(
+            "room:{room_id}:round:{}:activation:{}:actor:{current_actor_id}",
+            initiative.round, initiative.activation
+        )),
+        can_request_timeout: false,
+        timeout_requests: Vec::new(),
+        waiting_actor_ids: initiative
+            .participant_order
+            .iter()
+            .copied()
+            .filter(|participant_id| *participant_id != current_actor_id)
+            .collect(),
+        ping_active: false,
+        ping_remaining_ms: 0,
+        ping_expires_at_ms: None,
+        ping_responder_ids: Vec::new(),
+        ping_target_actor_id: None,
+        round: initiative.round,
+    })
+}
+
+pub(super) fn journal_record_consumes_room_activation(record: &JournalRecord) -> bool {
+    (matches!(record.origin, JournalOrigin::PlayerCard)
+        // A knocked-out avatar is not an initiative participant, but releasing
+        // it is still a durable player card that advances the world tick.
+        && record.offer_kind.as_deref() != Some("abandon_avatar"))
+        || (record.origin == JournalOrigin::ActorConsequence && record.resident_decision.is_some())
+        || (record.offer_kind.as_deref() == Some("chat")
+            && matches!(record.queued_actor_job, Some(ActorJobPayload::OrbChat(_))))
+}
+
+pub(super) fn bind_room_activation_context(
+    runtime: &RuntimeWorld,
+    record: &mut JournalRecord,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) {
+    if record.room_activation.is_some()
+        || !journal_record_consumes_room_activation(record)
+        || focused_encounter_for_actor(runtime, record.action.actor_id).is_some()
+    {
+        return;
+    }
+    let Some(actor) = runtime.actor_by_id(record.action.actor_id) else {
+        return;
+    };
+    if !runtime.room_initiatives.contains_key(&actor.location_id)
+        && active_direct_actor_ids.is_empty()
+    {
+        return;
+    }
+    let Some(initiative) =
+        reconciled_room_initiative(runtime, actor.location_id, active_direct_actor_ids)
+    else {
+        return;
+    };
+    record.room_activation = Some(RoomActivationJournalContext {
+        schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
+        location_id: actor.location_id,
+        actor_id: actor.id,
+        activation: initiative.activation,
+        participant_order: initiative.participant_order,
+        current_index: initiative.current_index,
+        round: initiative.round,
+        active_direct_actor_ids: active_direct_actor_ids.iter().copied().collect(),
+    });
+}
+
+pub(super) fn room_activation_record_preconditions_hold(
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> bool {
+    let Some(context) = record.room_activation.as_ref() else {
+        return true;
+    };
+    if context.schema_version != ROOM_INITIATIVE_SCHEMA_VERSION
+        || context.actor_id != record.action.actor_id
+        || context.location_id == 0
+        || !journal_record_consumes_room_activation(record)
+        || focused_encounter_for_actor(runtime, context.actor_id).is_some()
+    {
+        return false;
+    }
+    let active_direct_actor_ids = context
+        .active_direct_actor_ids
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    reconciled_room_initiative(runtime, context.location_id, &active_direct_actor_ids).is_some_and(
+        |initiative| {
+            initiative.activation == context.activation
+                && initiative.current_actor_id() == Some(context.actor_id)
+                && initiative.participant_order == context.participant_order
+                && initiative.current_index == context.current_index
+                && initiative.round == context.round
+        },
+    )
+}
+
+pub(super) fn apply_room_activation_record(
+    runtime: &mut RuntimeWorld,
+    record: &JournalRecord,
+    status: u32,
+) -> Vec<EventView> {
+    if status != CW_OK {
+        return Vec::new();
+    }
+    let Some(context) = record.room_activation.as_ref() else {
+        return Vec::new();
+    };
+    let active_direct_actor_ids = context
+        .active_direct_actor_ids
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let before = RoomInitiativeState {
+        schema_version: context.schema_version,
+        participant_order: context.participant_order.clone(),
+        current_index: context.current_index,
+        round: context.round,
+        activation: context.activation,
+    };
+    let rolled =
+        rolled_room_initiative_order(runtime, context.location_id, &active_direct_actor_ids);
+    if rolled.len() < 2 {
+        runtime.room_initiatives.remove(&context.location_id);
+        return Vec::new();
+    }
+    let eligible = rolled.iter().copied().collect::<BTreeSet<_>>();
+    let mut participant_order = before
+        .participant_order
+        .iter()
+        .copied()
+        .filter(|actor_id| eligible.contains(actor_id))
+        .collect::<Vec<_>>();
+    for actor_id in rolled {
+        if !participant_order.contains(&actor_id) {
+            participant_order.push(actor_id);
+        }
+    }
+    let prior_actor_index = before
+        .participant_order
+        .iter()
+        .position(|actor_id| *actor_id == context.actor_id)
+        .unwrap_or(before.current_index);
+    let mut wrapped = false;
+    let next_actor_id = (1..=before.participant_order.len())
+        .find_map(|offset| {
+            let raw_index = prior_actor_index + offset;
+            let actor_id = before.participant_order[raw_index % before.participant_order.len()];
+            if participant_order.contains(&actor_id) {
+                wrapped = raw_index >= before.participant_order.len();
+                Some(actor_id)
+            } else {
+                None
+            }
+        })
+        .or_else(|| participant_order.first().copied());
+    let Some(next_actor_id) = next_actor_id else {
+        runtime.room_initiatives.remove(&context.location_id);
+        return Vec::new();
+    };
+    let current_index = participant_order
+        .iter()
+        .position(|actor_id| *actor_id == next_actor_id)
+        .unwrap_or_default();
+    let next = RoomInitiativeState {
+        schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
+        participant_order,
+        current_index,
+        round: before.round.saturating_add(u64::from(wrapped)),
+        activation: before.activation.saturating_add(1),
+    };
+    runtime
+        .room_initiatives
+        .insert(context.location_id, next.clone());
+    let actor_name = runtime
+        .actor_name(next_actor_id)
+        .unwrap_or_else(|| format!("Avatar {next_actor_id}"));
+    let mut event = runtime.append_async_job_event(
+        "room.turn.advanced",
+        next_actor_id,
+        None,
+        Some(format!("Initiative passes to {actor_name}.")),
+    );
+    event.location_id = Some(context.location_id);
+    event.content_id = Some(next.activation);
+    event.success = true;
+    runtime.replace_projected_event(&event);
+    vec![event]
 }
 
 pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
@@ -1178,7 +1545,9 @@ pub(super) fn room_turn_view_for_runtime(
 ) -> RoomTurnView {
     viewer_actor_id
         .and_then(|actor_id| {
-            focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids))
+            focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids)).or_else(
+                || ordinary_room_turn_view(runtime, actor_id, location_id, active_actor_ids),
+            )
         })
         .unwrap_or_else(|| RoomTurnView::idle(location_id))
 }
@@ -1243,15 +1612,38 @@ fn actor_ordered_scene_rejection(
 }
 
 pub(super) fn actor_turn_rejection(
-    _state: &AppState,
+    state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
 ) -> Option<Json<ActionResponse>> {
-    actor_ordered_scene_rejection(runtime, actor_id)
+    actor_ordered_scene_rejection(runtime, actor_id).or_else(|| {
+        let actor = runtime.actor_by_id(actor_id)?;
+        let active_direct_actor_ids = active_actor_ids_for_state(state);
+        let view = ordinary_room_turn_view(
+            runtime,
+            actor_id,
+            actor.location_id,
+            &active_direct_actor_ids,
+        )
+        .filter(|view| !view.is_current_actor)?;
+        Some(Json(ActionResponse {
+            ok: false,
+            status: 423,
+            events: vec![EventView {
+                type_name: "room.turn.waiting".to_string(),
+                success: false,
+                actor_id: view.current_actor_id,
+                actor_name: view.current_actor_name,
+                location_id: Some(view.room_id),
+                content: view.explanation,
+                ..EventView::default()
+            }],
+        }))
+    })
 }
 
 pub(super) fn actor_action_turn_rejection(
-    _state: &AppState,
+    state: &AppState,
     runtime: &RuntimeWorld,
     action: &CwAction,
 ) -> Option<Json<ActionResponse>> {
@@ -1271,10 +1663,11 @@ pub(super) fn actor_action_turn_rejection(
     {
         return None;
     }
-    actor_ordered_scene_rejection(runtime, action.actor_id)
+    actor_turn_rejection(state, runtime, action.actor_id)
 }
 
 pub(super) fn actor_offer_turn_rejection(
+    state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
     offer_kind: &str,
@@ -1282,7 +1675,7 @@ pub(super) fn actor_offer_turn_rejection(
     if focused_encounter_offer_context(runtime, actor_id, offer_kind).is_some() {
         return None;
     }
-    actor_ordered_scene_rejection(runtime, actor_id)
+    actor_turn_rejection(state, runtime, actor_id)
 }
 
 pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) -> bool {
@@ -1326,7 +1719,7 @@ pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatc
 }
 
 pub(super) fn command_actor_turn_rejection(
-    _state: &AppState,
+    state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
     dispatch: &CommandDispatch,
@@ -1364,7 +1757,26 @@ pub(super) fn command_actor_turn_rejection(
     {
         return None;
     }
-    ordered_scene_rejection_view(runtime, actor_id)
+    if let Some(focused) = ordered_scene_rejection_view(runtime, actor_id) {
+        return Some(focused);
+    }
+    let actor = runtime.actor_by_id(actor_id)?;
+    let active_direct_actor_ids = active_actor_ids_for_state(state);
+    if let Some(focused) = focused_turn_view(
+        runtime,
+        actor_id,
+        actor.location_id,
+        Some(&active_direct_actor_ids),
+    ) {
+        return Some(focused);
+    }
+    ordinary_room_turn_view(
+        runtime,
+        actor_id,
+        actor.location_id,
+        &active_direct_actor_ids,
+    )
+    .filter(|view| !view.is_current_actor)
 }
 
 pub(super) fn direct_command_turn_rejection(
@@ -1895,11 +2307,35 @@ pub(super) async fn pass_action(
             events: Vec::new(),
         });
     }
-    if ordered_scene_rejection_view(&runtime, payload.actor_id)
-        .is_some_and(|view| !view.is_current_actor)
-    {
-        let response = actor_ordered_scene_rejection(&runtime, payload.actor_id)
-            .expect("the ordered scene rejection remains current");
+    let active_direct_actor_ids = active_actor_ids_for_state(&state);
+    let room_turn = room_turn_view_for_runtime(
+        &state,
+        &runtime,
+        actor.location_id,
+        Some(payload.actor_id),
+        &active_direct_actor_ids,
+    );
+    if room_turn.enabled && !room_turn.is_current_actor {
+        let response = Json(ActionResponse {
+            ok: false,
+            status: 423,
+            events: vec![EventView {
+                type_name: if room_turn.scene_kind == Some("combat") {
+                    "combat.turn.waiting"
+                } else if room_turn.scene_kind == Some("work") {
+                    "focused.turn.waiting"
+                } else {
+                    "room.turn.waiting"
+                }
+                .to_string(),
+                success: false,
+                actor_id: room_turn.current_actor_id,
+                actor_name: room_turn.current_actor_name,
+                location_id: Some(room_turn.room_id),
+                content: room_turn.explanation,
+                ..EventView::default()
+            }],
+        });
         drop(runtime);
         return response;
     }
@@ -2397,22 +2833,110 @@ mod tests {
     }
 
     #[test]
-    fn ordinary_rooms_never_enable_a_global_turn() {
-        let runtime = RuntimeWorld::seeded();
-        assert!(combat_turn_view(&runtime, 1001, 1).is_none());
-        let view = RoomTurnView::idle(1);
-        assert!(!view.enabled);
-        assert_eq!(view.policy, "concurrent");
-        assert!(view.focused.is_none());
-        assert!(
-            serde_json::to_value(&view)
-                .expect("idle turn serializes")
-                .get("focused")
-                .is_none(),
-            "ordinary rooms omit the focused encounter envelope"
+    fn ordinary_rooms_expose_one_shared_initiative_turn() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Player");
+        create_test_human(&mut runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, "Fable");
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        runtime.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::ReactiveAi;
+        let active = BTreeSet::from([5000]);
+
+        let player = ordinary_room_turn_view(&runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
+            .expect("a multi-avatar room has initiative");
+        let fable = ordinary_room_turn_view(&runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
+            .expect("every participant sees the same initiative");
+        assert!(player.enabled);
+        assert_eq!(player.policy, "scene-turn");
+        assert_eq!(player.scene_kind, Some("room"));
+        assert_eq!(player.current_actor_id, Some(5000));
+        assert!(player.is_current_actor);
+        assert!(!fable.is_current_actor);
+        assert_eq!(player.handoff_key, fable.handoff_key);
+    }
+
+    #[test]
+    fn ordinary_room_activation_is_journaled_replayable_and_rejects_reuse() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Player");
+        create_test_human(&mut runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, "Fable");
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        runtime.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::ReactiveAi;
+        let before = runtime.clone();
+        let active = BTreeSet::from([5000]);
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                ..CwAction::default()
+            },
+            83_050,
+        )
+        .into_player_card();
+        record.bind_offer_kind("pass");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ShuffleHand {
+                reason: "initiative_test".to_string(),
+            });
+        bind_room_activation_context(&runtime, &mut record, &active);
+        assert!(record.room_activation.is_some());
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "room.turn.advanced"));
+        assert_eq!(
+            current_room_initiative_actor(&runtime, RAIN_SOFT_GARDEN_LOCATION_ID, &active,),
+            Some(5001)
         );
-        assert!(!view.ping_active);
-        assert_eq!(view.grace_period_ms, 0);
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_ERR_RULE);
+
+        let mut replay = before;
+        assert_eq!(replay.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(replay.room_initiatives, runtime.room_initiatives);
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("room initiative survives a snapshot");
+        assert_eq!(restored.room_initiatives, runtime.room_initiatives);
+
+        let context = RippleContext {
+            source_actor_id: 5000,
+            source_action_kind: CW_ACTION_NONE,
+            source_event_seqs: vec![events.last().map(|event| event.seq).unwrap_or_default()],
+            source_location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+            affected_location_ids: BTreeSet::from([RAIN_SOFT_GARDEN_LOCATION_ID]),
+            zone: ZONE_SANCTUARY.to_string(),
+            budget: RippleBudget {
+                resident_actions: 0,
+                allow_wander: false,
+                allow_movement: false,
+            },
+        };
+        let mut resident_record = runtime
+            .resident_ripple_record_for_actor(&context, 5001, 83_051)
+            .expect("the initiative resident can always play or pass");
+        assert_eq!(resident_record.action.actor_id, 5001);
+        assert_ne!(resident_record.offer_kind.as_deref(), Some("pass"));
+        bind_room_activation_context(&runtime, &mut resident_record, &active);
+        let (resident_status, resident_events) = runtime.apply_journal_record(&resident_record);
+        assert_eq!(resident_status, CW_OK);
+        assert!(resident_events
+            .iter()
+            .any(|event| event.type_name == "room.turn.advanced"));
+        assert_eq!(
+            current_room_initiative_actor(&runtime, RAIN_SOFT_GARDEN_LOCATION_ID, &active),
+            Some(5000)
+        );
+        assert!(
+            runtime
+                .resident_ripple_record_for_actor(&context, 5000, 83_052)
+                .is_none(),
+            "automation stops when initiative returns to the directly controlled avatar"
+        );
     }
 
     #[test]

@@ -1348,6 +1348,33 @@ pub(super) async fn chat(
     }
 
     let mut runtime = state.inner.lock().await;
+    let active_direct_actor_ids = active_actor_ids_for_state(&state);
+    let actor_location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id)
+        .unwrap_or_default();
+    let turn = room_turn_view_for_runtime(
+        &state,
+        &runtime,
+        actor_location_id,
+        Some(payload.actor_id),
+        &active_direct_actor_ids,
+    );
+    if turn.enabled && !turn.is_current_actor {
+        return Json(ActionResponse {
+            ok: false,
+            status: 423,
+            events: vec![EventView {
+                type_name: "room.turn.waiting".to_string(),
+                success: false,
+                actor_id: turn.current_actor_id,
+                actor_name: turn.current_actor_name,
+                location_id: Some(turn.room_id),
+                content: turn.explanation,
+                ..EventView::default()
+            }],
+        });
+    }
     let target_is_available = runtime.actor_uses_inference(payload.target_actor_id)
         && resident_supports_text_reply(payload.target_actor_id)
         && !runtime.actors_blocked(payload.actor_id, payload.target_actor_id)
@@ -1379,7 +1406,8 @@ pub(super) async fn chat(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record.offer_kind = Some("chat".to_string());
     record
         .projection_mutations
@@ -2268,7 +2296,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn co_present_chat_is_free_and_not_owned_by_a_room_turn() {
+    async fn co_present_chat_spends_only_the_current_room_activation() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-concurrent-chat-{}-{}.sqlite",
             std::process::id(),
@@ -2306,7 +2334,7 @@ mod tests {
             Some(false)
         );
 
-        let before_tick = {
+        let (before_tick, current_actor_id) = {
             let runtime = state.inner.lock().await;
             let active_direct_actors = active_actor_ids_for_state(&state);
             let turn = room_turn_view_for_runtime(
@@ -2316,40 +2344,50 @@ mod tests {
                 Some(5000),
                 &active_direct_actors,
             );
-            assert!(!turn.enabled);
-            assert_eq!(turn.policy, "concurrent");
-            runtime.world.tick
-        };
-
-        for (actor_id, actor_session, port) in
-            [(5001, session_5001, 44002), (5000, session_5000, 44003)]
-        {
-            let response = chat(
-                ConnectInfo(format!("127.0.0.1:{port}").parse().expect("client address")),
-                State(state.clone()),
-                Json(ChatRequest {
-                    actor_id,
-                    actor_session: Some(actor_session),
-                    target_actor_id: RATI_ACTOR_ID,
-                }),
+            assert!(turn.enabled);
+            assert_eq!(turn.policy, "scene-turn");
+            (
+                runtime.world.tick,
+                turn.current_actor_id.expect("current room actor"),
             )
-            .await
-            .0;
-            assert!(
-                response.ok,
-                "each co-present avatar can chat without owning a room turn"
-            );
-            assert!(response
-                .events
-                .iter()
-                .any(|event| event.type_name == "chat.queued"));
-            assert!(!response.events.iter().any(|event| {
-                matches!(
-                    event.type_name.as_str(),
-                    "bond.created" | "advancement.spent"
-                )
-            }));
-        }
+        };
+        let session_for = |actor_id| {
+            if actor_id == 5000 {
+                session_5000.clone()
+            } else {
+                session_5001.clone()
+            }
+        };
+        let waiting_actor_id = if current_actor_id == 5000 { 5001 } else { 5000 };
+        let waiting = chat(
+            ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: waiting_actor_id,
+                actor_session: Some(session_for(waiting_actor_id)),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(waiting.status, 423);
+
+        let response = chat(
+            ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: current_actor_id,
+                actor_session: Some(session_for(current_actor_id)),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok, "the current avatar can play Chat");
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "chat.queued"));
 
         let runtime = state.inner.lock().await;
         let active_direct_actors = active_actor_ids_for_state(&state);
@@ -2361,17 +2399,17 @@ mod tests {
             &active_direct_actors,
         );
         assert_eq!(
-            runtime.world.tick, before_tick,
-            "queued conversation is asynchronous system work, not a player-card tick"
+            runtime.world.tick,
+            before_tick + 1,
+            "Chat is a turn-consuming Story Hand action"
         );
         for actor_id in [5000, 5001] {
             assert_eq!(runtime.advancement_points_available(actor_id), 0);
             assert!(runtime.active_bond(actor_id, RATI_ACTOR_ID).is_none());
         }
-        assert!(!turn.enabled);
-        assert_eq!(turn.policy, "concurrent");
-        assert_eq!(turn.current_actor_id, None);
-        assert!(!turn.is_current_actor);
+        assert!(turn.enabled);
+        assert_eq!(turn.policy, "scene-turn");
+        assert_ne!(turn.current_actor_id, Some(current_actor_id));
         drop(runtime);
         let _ = fs::remove_file(path);
     }

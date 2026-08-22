@@ -205,6 +205,76 @@ async fn trade_action_without_ai_emits_no_fallback_reply() {
     assert!(!saw_reply, "no fallback reply should follow without AI");
 }
 
+#[tokio::test]
+async fn remembered_exact_trade_offer_commits_without_full_inventory_disclosure() {
+    let mut runtime = RuntimeWorld::seeded();
+    let mut create = CwAction::default();
+    create.kind = CW_ACTION_CREATE_ACTOR;
+    create.actor_id = 5000;
+    create.location_id = COSY_COTTAGE_LOCATION_ID;
+    assert_eq!(
+        runtime
+            .apply_journal_record(&JournalRecord::new(create, 7832))
+            .0,
+        CW_OK
+    );
+    for item in &mut runtime.world.items[..runtime.world.item_count] {
+        match item.id {
+            STORY_BUTTON_ITEM_ID => {
+                item.location_id = 0;
+                item.holder_actor_id = 5000;
+            }
+            DEWBRIGHT_BUTTON_ITEM_ID => {
+                item.location_id = 0;
+                item.holder_actor_id = RATI_ACTOR_ID;
+            }
+            _ => {}
+        }
+    }
+    runtime.observe_room_for_actor(5000, COSY_COTTAGE_LOCATION_ID);
+    assert!(!runtime.economy_known_by(5000, RATI_ACTOR_ID));
+    assert!(runtime.resident_remembers_actor_holding_item_at(
+        5000,
+        RATI_ACTOR_ID,
+        DEWBRIGHT_BUTTON_ITEM_ID,
+        COSY_COTTAGE_LOCATION_ID,
+    ));
+    assert!(runtime
+        .state_response(Some(5000), &AccessContext::default())
+        .action_offers
+        .iter()
+        .any(|offer| {
+            offer.kind == "trade_item"
+                && offer.id
+                    == format!(
+                        "trade_item:{STORY_BUTTON_ITEM_ID}:{RATI_ACTOR_ID}:{DEWBRIGHT_BUTTON_ITEM_ID}"
+                    )
+        }));
+
+    let state = test_app_state(runtime, None);
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+    let response = trade_item(
+        ConnectInfo("127.0.0.1:44103".parse().expect("client address")),
+        State(state),
+        Json(ItemRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            item_id: STORY_BUTTON_ITEM_ID,
+            target_item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
+            target_actor_id: Some(RATI_ACTOR_ID),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(response.ok, "remembered exact trade should commit");
+    assert!(response.events.iter().any(|event| {
+        event.type_name == "item.traded"
+            && event.item_id == Some(STORY_BUTTON_ITEM_ID)
+            && event.target_item_id == Some(DEWBRIGHT_BUTTON_ITEM_ID)
+    }));
+}
+
 #[test]
 fn ordinary_keepsakes_drive_resident_trade_without_evolution() {
     let mut runtime = RuntimeWorld::seeded();
