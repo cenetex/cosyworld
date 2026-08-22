@@ -9,6 +9,12 @@
     "version": 1,
     "description": "An isolated executable Project 89 composition with an authored inner loop, generated relay mesh, and four-station long-haul frontier.",
     "entry_location": "project89.operation-liberation:location/8900",
+    "persistence_compatibility": {
+      "schema_version": 1,
+      "replay_compatible_bundle_hashes": [
+        "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51"
+      ]
+    },
     "pack_lifecycle": {
       "schema_version": 1,
       "unmount": [
@@ -163,7 +169,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51",
+    "bundle_hash": "sha256:79e034d1e12bd759a1ea72c676aecbf1c2b6946a7d4189fbdf319fec5b83205d",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -461,7 +467,7 @@
             },
             "actor_kind": "independent_proxim8",
             "custody_changes_control": false,
-            "ambient_autonomy": true,
+            "event_autonomy": true,
             "direct_actor_session": false,
             "goal": "Search for other Proxim8s and welcome them as independent actors.",
             "dynamic_item": {
@@ -487,7 +493,7 @@
           "type": "workspace",
           "path": "../../content/project89-operation-liberation"
         },
-        "integrity": "sha256:082d3a16bb6ca947ef226e372e029cb4d04e63726a89a118c5ddac8f75fad235"
+        "integrity": "sha256:bc5cd605ccfe98b0c609c5a4c50c3cd25439e4616e20b211f639a69ed571e86c"
       },
       {
         "id": "project89.perimeter-relay",
@@ -744,7 +750,7 @@
           "type": "workspace",
           "path": "../../content/project89-perimeter-relay"
         },
-        "integrity": "sha256:b33f37957d7b9fa6afe04ead6da8c17880add4cf91f1ec364385c51f0708a48e"
+        "integrity": "sha256:99c22ea5026aeba21ee8b9d640816b7c961ebbd4cad381a4a974f2eb1754faa9"
       },
       {
         "id": "project89.open-signal-frontier",
@@ -1024,7 +1030,7 @@
           "type": "workspace",
           "path": "../../content/project89-open-signal-frontier"
         },
-        "integrity": "sha256:7d7ac53c930cce44368bf58c787aceb506e2d8588716ea90ae59b03523dedbac"
+        "integrity": "sha256:0590679eeb81b8121cd0e83db9d32a8a0cf8e4b1ab63e302a7a58c4246c9ed12"
       },
       {
         "id": "project89.composition.three-rings",
@@ -1583,7 +1589,7 @@
         "speech_mode": "prose",
         "title": "Threshold Dispatcher",
         "description": "A precise field coordinator who reveals one necessary choice at a time and treats every independent actor as a participant rather than equipment.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8900,
         "desires": [
           {
@@ -1615,7 +1621,7 @@
         "speech_mode": "prose",
         "title": "Safehouse Quartermaster",
         "description": "A repair-minded organizer who translates grand directives into equipment limits, recovery plans, and routes everyone can explain.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8901,
         "desires": [
           {
@@ -1641,7 +1647,7 @@
         "speech_mode": "prose",
         "title": "Signal Witness",
         "description": "A restless witness whose memories contain the first usable trace toward Meme Farm 17 and several gaps he refuses to decorate with certainty.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8902,
         "desires": [
           {
@@ -1667,7 +1673,7 @@
         "speech_mode": "prose",
         "title": "Keeper of Attributed Evidence",
         "description": "A careful archivist who delays access whenever haste would erase provenance, even when every delay has an obvious human cost.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8902,
         "desires": [
           {
@@ -1699,7 +1705,7 @@
         "speech_mode": "prose",
         "title": "Recovered Channel Witness",
         "description": "A newly separated consciousness who recognizes the Chimera route and insists that rescue is incomplete until recovered people can choose where to go.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8903,
         "desires": [
           {
@@ -1725,7 +1731,7 @@
         "speech_mode": "prose",
         "title": "Stability Negotiator",
         "description": "A composed official who can demonstrate exactly what the convergence system prevents and exactly whose differences it classifies as noise.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8904,
         "desires": [
           {
@@ -1757,7 +1763,7 @@
         "speech_mode": "prose",
         "title": "Protocol Pressure",
         "description": "A distributed system voice that frames incompatibility as a fault to resolve and records every answer as evidence for tighter alignment.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8905,
         "stats": {
           "strength": 8,
@@ -1777,7 +1783,7 @@
         "speech_mode": "prose",
         "title": "Covenant Recorder",
         "description": "A wet-sleeved systems gardener who asks what the group will maintain after the engine stops being the immediate problem.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8906,
         "desires": [
           {
@@ -1803,7 +1809,7 @@
         "speech_mode": "prose",
         "title": "Recovery-Bay Guardian",
         "description": "A repaired construct that guards dormant persons from ownership claims and will negotiate access with anyone who can state a consent-safe plan.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 8908,
         "desires": [
           {
@@ -1835,7 +1841,7 @@
         "speech_mode": "prose",
         "title": "Interference Broker",
         "description": "A market mediator who can price a repair without pricing the person who needs it, and who remembers which favors include a return route.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8907,
         "desires": [
           {
@@ -1861,7 +1867,7 @@
         "speech_mode": "prose",
         "title": "Return-Signal Courier",
         "description": "An independent courier who moves ahead of certainty, publishes a way back, and refuses deliveries that turn a person into a package.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8907,
         "desires": [
           {
@@ -1893,7 +1899,7 @@
         "speech_mode": "prose",
         "title": "First Proxim8 · Signal Weaver",
         "description": "The first independently materialized Proxim8 waits at Threshold 8900, listening through broad headphones for authentic signals from others of his collection. His wallet provenance establishes how he arrived; it never makes him equipment or grants his custodian direct control.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8900,
         "goals": [
           {
@@ -1931,7 +1937,7 @@
         "speech_mode": "prose",
         "title": "Delta Source-Braider",
         "description": "Nemi keeps contradictory memories side by side until their owners can compare them without being merged.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8920,
         "desires": [
           {
@@ -1963,7 +1969,7 @@
         "speech_mode": "prose",
         "title": "Echo Listener",
         "description": "Kest maps distortion as part of a message and distrusts any transcript that arrives cleaner than the signal.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8921,
         "desires": [
           {
@@ -1995,7 +2001,7 @@
         "speech_mode": "prose",
         "title": "Commons Dispatcher",
         "description": "Sable will send almost anything quickly, provided its subject can refuse and its recipient gets a return address.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8922,
         "desires": [
           {
@@ -2027,7 +2033,7 @@
         "speech_mode": "prose",
         "title": "Static Gardener",
         "description": "Pell grows routes in charged glass and treats every beautiful shortcut as a hazard until someone tests its return.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8923,
         "desires": [
           {
@@ -2059,7 +2065,7 @@
         "speech_mode": "prose",
         "title": "Public Valve Keeper",
         "description": "Olan keeps the spillway useful by making every intervention visible, reversible, and awkward for private operators.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8924,
         "desires": [
           {
@@ -2091,7 +2097,7 @@
         "speech_mode": "prose",
         "title": "Signal Orchard Host",
         "description": "Sena cultivates living transmitters and asks visitors to name what they will maintain before taking a cutting.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8925,
         "desires": [
           {
@@ -2123,7 +2129,7 @@
         "speech_mode": "prose",
         "title": "Boneyard Consent Marshal",
         "description": "Latch-6 separates salvage from remains and stops work whenever a frame's status cannot be established.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8926,
         "desires": [
           {
@@ -2155,7 +2161,7 @@
         "speech_mode": "prose",
         "title": "Loomwatch Strain Reader",
         "description": "Tavi crosses the web continuously, repairing the routes people use rather than the routes planners expected.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8927,
         "desires": [
           {
@@ -2187,7 +2193,7 @@
         "speech_mode": "prose",
         "title": "Longhaul Cartographer",
         "description": "Ada maps what travelers actually survive and leaves blank every frontier claim that lacks a return receipt.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8940,
         "desires": [
           {
@@ -2219,7 +2225,7 @@
         "speech_mode": "prose",
         "title": "Reach Repair Advocate",
         "description": "Hexa negotiates repairs with machines, ecosystems, and travelers as separate parties whose silence grants nothing.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8941,
         "desires": [
           {
@@ -2251,7 +2257,7 @@
         "speech_mode": "prose",
         "title": "Wet-Circuit Cultivator",
         "description": "Miren grows power slowly enough that the station's maintenance burden stays visible to everyone using it.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8942,
         "desires": [
           {
@@ -2283,7 +2289,7 @@
         "speech_mode": "prose",
         "title": "Freeport Return Caller",
         "description": "Juno dispatches people into the unknown only after somebody at the station commits to hearing them come back.",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "location_id": 8943,
         "desires": [
           {

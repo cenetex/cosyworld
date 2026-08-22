@@ -143,10 +143,11 @@ Autonomy and authorship are complementary. The
 [GDC talk on NPCs in *The Division*](https://www.gdcvault.com/play/1023383/Blending-Autonomy-and-Control-Creating)
 describes systemic open-world behavior combined with designer influence, while
 the [Free-Range AI talk](https://www.gdcvault.com/play/1020110/Free-Range-AI-Creating-Compelling)
-frames ambient autonomy alongside structured narrative. In CosyWorld, actors
+frames NPC autonomy alongside structured narrative. In CosyWorld, actors
 rank only legal authored actions. Inference may phrase an intention; it does
 not invent an action, spend another player's resources, cross a gate, or commit
-world state.
+world state. Resident actions are considered only as consequences of committed
+player turns; wall-clock quiet never creates a beat.
 
 Characters should disagree inside factions and cooperate across them. If every
 member has the faction's exact opinion, the faction is a uniform and the

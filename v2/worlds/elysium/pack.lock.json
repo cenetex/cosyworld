@@ -83,7 +83,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:09d774965b96f6f07e337d2f750baf4da54432e3ea326c43419cfab0b15c06bd",
+      "integrity": "sha256:65306806229dd97d8ed88f35dde61353dcd842829be24b96563bdb0f2b2c94c1",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",

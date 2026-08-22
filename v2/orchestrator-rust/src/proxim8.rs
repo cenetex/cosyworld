@@ -60,7 +60,8 @@ pub(super) struct Proxim8MaterializationConfig {
     pilot: Proxim8PilotConfig,
     actor_kind: String,
     custody_changes_control: bool,
-    ambient_autonomy: bool,
+    #[serde(alias = "ambient_autonomy")]
+    event_autonomy: bool,
     direct_actor_session: bool,
     goal: String,
     dynamic_item: Proxim8MemoryItemConfig,
@@ -153,7 +154,7 @@ pub(super) fn proxim8_materialization_record(
         || config.trigger != "first_verified_wallet_connection"
         || config.actor_kind != "independent_proxim8"
         || config.custody_changes_control
-        || !config.ambient_autonomy
+        || !config.event_autonomy
         || config.direct_actor_session
         || config.ownership.authority != "trusted_server_feed"
         || config.ownership.wallet_signature_proves_ownership
