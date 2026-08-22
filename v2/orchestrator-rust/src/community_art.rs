@@ -41,6 +41,13 @@ use crate::{
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
+/// Mirrors `MAX_REVIEW_FAILURES` in the media verdict store, which already
+/// counts and clamps review failures per candidate.
+pub(super) const MAX_COMMUNITY_ART_REVIEW_ATTEMPTS: u8 = 3;
+
+fn exhausted_community_art_review_attempts() -> u8 {
+    MAX_COMMUNITY_ART_REVIEW_ATTEMPTS
+}
 pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
 pub(super) const ACTOR_ITEM_GENERATION_PROFILE_VERSION: u8 = 2;
 pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 5;
@@ -106,6 +113,21 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) revision: u32,
     #[serde(default)]
     pub(super) provider_attempts: u8,
+    /// Review attempts spent on a saved candidate.
+    ///
+    /// A job whose candidate exists but whose review failed used to be
+    /// retryable forever. On Lonely Forest one such job re-ran 975 times
+    /// between 2026-08-15 and 2026-08-22, accelerating to 239 attempts a day,
+    /// because the reviewer was paused by the daily spend cap and nothing
+    /// counted the attempts. `MAX_REVIEW_FAILURES` existed in the verdict
+    /// record and saturated at 3 while the retry decision never read it.
+    ///
+    /// A state that predates this counter is treated as exhausted: it is only
+    /// reachable through a status this field now governs, and a job already
+    /// looping must stop rather than earn a fresh budget. Replay converges on
+    /// the same value because the counter saturates at the cap.
+    #[serde(default = "exhausted_community_art_review_attempts")]
+    pub(super) review_attempts: u8,
     #[serde(default)]
     pub(super) last_prediction_id: Option<String>,
     #[serde(default)]
@@ -400,7 +422,9 @@ pub(super) fn community_art_generation_retryable(
     }
     match generation.status.as_str() {
         "ready" => false,
-        "review_failed" | "review_unavailable" if candidate_exists => true,
+        "review_failed" | "review_unavailable" if candidate_exists => {
+            generation.review_attempts < MAX_COMMUNITY_ART_REVIEW_ATTEMPTS
+        }
         "funded" | "generating" | "reviewing" | "failed" | "rejected" | "policy_rejected" => {
             candidate_exists || generation.provider_attempts < MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
         }
@@ -882,6 +906,7 @@ impl RuntimeWorld {
                 history_through_seq,
                 revision: 0,
                 provider_attempts: 0,
+                review_attempts: 0,
                 last_prediction_id: None,
                 last_error_code: None,
                 status_event_seq: None,
@@ -1016,6 +1041,14 @@ impl RuntimeWorld {
         if generation.status != status && matches!(status, "ready" | "rejected" | "policy_rejected")
         {
             generation.revision = generation.revision.saturating_add(1);
+        }
+        if matches!(status, "review_failed" | "review_unavailable") {
+            // Saturating keeps journal replay and snapshot load on the same
+            // value once the cap is reached.
+            generation.review_attempts = generation
+                .review_attempts
+                .saturating_add(1)
+                .min(MAX_COMMUNITY_ART_REVIEW_ATTEMPTS);
         }
         generation.status = status.to_string();
         generation.last_prediction_id = prediction_id.map(ToString::to_string);

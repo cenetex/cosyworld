@@ -346,6 +346,11 @@ pub(crate) struct MediaVerdictDashboard {
     review_retries: u64,
     provider_failures: u64,
     cooldown_routes: u64,
+    /// Directories left by a storage preflight whose job never produced a
+    /// candidate. They are reported rather than fatal: 19 of the primary's 40
+    /// verdict directories were in this state, and failing the listing on the
+    /// first one made the whole moderation surface answer 500.
+    incomplete_records: u64,
     slices: Vec<MediaVerdictSlice>,
 }
 
@@ -655,9 +660,10 @@ pub(crate) fn make_visual_verdict(
 }
 
 pub(crate) fn media_verdict_dashboard(root: &Path) -> Result<MediaVerdictDashboard, String> {
-    let records = list_records(root)?;
+    let (records, incomplete_records) = list_records(root)?;
     let mut dashboard = MediaVerdictDashboard {
         records: records.len() as u64,
+        incomplete_records,
         ..MediaVerdictDashboard::default()
     };
     let mut slices = BTreeMap::<(String, String), MediaVerdictSlice>::new();
@@ -1144,22 +1150,36 @@ fn load_record(root: &Path, record_id: &str) -> Result<PersistedMediaVerdict, St
     Ok(record)
 }
 
-fn list_records(root: &Path) -> Result<Vec<PersistedMediaVerdict>, String> {
+/// Returns every readable verdict record, plus the count of directories that
+/// hold no record yet.
+///
+/// A storage preflight creates the record and candidate directories before the
+/// provider is paid, so a job that never returns an image leaves a directory
+/// with no `record.json`. Propagating that as an error made one abandoned job
+/// hide every healthy record behind a 500.
+fn list_records(root: &Path) -> Result<(Vec<PersistedMediaVerdict>, u64), String> {
     let directory = root.join(MEDIA_VERDICT_DIR);
     let Ok(entries) = fs::read_dir(directory) else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), 0));
     };
     let mut records = Vec::new();
+    let mut incomplete = 0u64;
     for entry in entries {
         let entry = entry.map_err(|error| error.to_string())?;
         let Some(record_id) = entry.file_name().to_str().map(ToString::to_string) else {
             continue;
         };
         if valid_digest(&record_id) && entry.path().is_dir() {
-            records.push(load_record(root, &record_id)?);
+            match load_record(root, &record_id) {
+                Ok(record) => records.push(record),
+                Err(error) if error.contains("not found") => {
+                    incomplete = incomplete.saturating_add(1);
+                }
+                Err(error) => return Err(error),
+            }
         }
     }
-    Ok(records)
+    Ok((records, incomplete))
 }
 
 fn store_record(root: &Path, record: &PersistedMediaVerdict) -> Result<(), String> {
