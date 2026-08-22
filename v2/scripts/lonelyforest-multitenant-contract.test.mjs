@@ -204,7 +204,20 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
   assert.doesNotMatch(nginx, /\/var\/lib\/nginx/, "non-root nginx must not retain default temp paths");
   assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
-  assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log combined;$/m);
+  // The proxy boundary logs through the redacting cosyworld_safe format, not
+  // nginx's combined format, which retains query strings, cookies, and user
+  // agents. This assertion only runs in the deployment gate, so pinning the
+  // named format here is what keeps a later revert from reaching production
+  // through a green PR.
+  assert.match(
+    nginx,
+    /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log cosyworld_safe;$/m,
+  );
+  assert.doesNotMatch(
+    nginx,
+    /access_log[^;]*\bcombined;/,
+    "the combined format retains credential-bearing request detail",
+  );
   assert.match(supervisor, /mkdir -p[\s\S]*?\/tmp\/cosyworld-nginx \\/);
   assert.match(supervisor, /tail -n 0 -F \/tmp\/cosyworld-nginx\/error\.log \/tmp\/cosyworld-nginx\/access\.log/);
   assert.match(supervisor, /kill -TERM "\$nginx_log_pid"/);
