@@ -424,4 +424,10 @@
 # directions -- the three slot readings plus the retired job vocabulary that
 # must never return to the panel. The behaviour lives in index.html; main.rs
 # owns the cross-surface INDEX_HTML contract beside it.
-61181
+# 61181 -> 60015: move the resident trade, gift, and feature-use regressions
+# into resident_economy_tests.rs. Their production code already moved to
+# autonomy.rs, which owns the trade/gift/delivery candidate generators; only
+# the tests stayed behind in the root inline module. Fourteen tests moved
+# verbatim, no assertion or fixture changed, and the suite count is unmoved
+# at 1,265. First slice of #325 and #61.
+60015
