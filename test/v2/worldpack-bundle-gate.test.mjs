@@ -34,9 +34,11 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
+const LANTERN_CANDIDATE_HASH = "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88";
 const LANTERN_ACTIVE_HASH = "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183";
 const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:75a8ad1bb47c1bb3a94803bb2077a2f1928250cf6e1851ca18e8aca508dc9ba8";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
+const ELYSIUM_CANDIDATE_HASH = "sha256:8854e9c436496541fbd4581df7abc908ce34e95d95518c2e89cf9fb93246d805";
 const ELYSIUM_ACTIVE_HASH = "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c";
 const ELYSIUM_FAILED_CANDIDATE_HASH = "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099";
 const ELYSIUM_PRODUCTION_HASH = "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee";
@@ -284,7 +286,8 @@ describe("worldpack deploy gate CLI", () => {
   it("accepts the exact deployed Lantern Keeper journal bundle migration", async () => {
     const registry = JSON.parse(await readFile(lanternRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
-    expect(candidate.bundleHash).toBe(LANTERN_ACTIVE_HASH);
+    expect(candidate.bundleHash).toBe(LANTERN_CANDIDATE_HASH);
+    expect(candidate.replayCompatible).toContain(LANTERN_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(LANTERN_PREVIOUS_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(LANTERN_PERSISTED_HASH);
     expect(evaluateWorldpackGate({
@@ -292,26 +295,27 @@ describe("worldpack deploy gate CLI", () => {
       candidateReplayCompatible: candidate.replayCompatible,
       liveHash: LANTERN_PERSISTED_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
-    // The deployed world is persisted at the outgoing active hash, so mounting
-    // the character art pack must not strand it.
+    // The deployed world is persisted at the outgoing active hash, so the
+    // event-autonomy migration must not strand it.
     expect(evaluateWorldpackGate({
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,
-      liveHash: LANTERN_PREVIOUS_ACTIVE_HASH,
+      liveHash: LANTERN_ACTIVE_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 
   it("accepts the exact deployed Elysium journal bundle migration", async () => {
     const registry = JSON.parse(await readFile(elysiumRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
-    expect(candidate.bundleHash).toBe(ELYSIUM_ACTIVE_HASH);
+    expect(candidate.bundleHash).toBe(ELYSIUM_CANDIDATE_HASH);
+    expect(candidate.replayCompatible).toContain(ELYSIUM_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(ELYSIUM_PRODUCTION_HASH);
     expect(candidate.replayCompatible).toContain(ELYSIUM_OLDER_PERSISTED_HASH);
     expect(candidate.replayCompatible).not.toContain(ELYSIUM_FAILED_CANDIDATE_HASH);
     expect(evaluateWorldpackGate({
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,
-      liveHash: ELYSIUM_PRODUCTION_HASH,
+      liveHash: ELYSIUM_ACTIVE_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 });

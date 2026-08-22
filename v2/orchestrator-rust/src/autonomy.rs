@@ -503,6 +503,7 @@ impl RuntimeWorld {
         candidates
     }
 
+    #[cfg(test)]
     fn fairest_top_resident_candidate(
         &self,
         candidates: Vec<ResidentAutonomyCandidate>,
@@ -533,6 +534,7 @@ impl RuntimeWorld {
             })
     }
 
+    #[cfg(test)]
     pub(super) fn best_resident_economy_autonomy_candidate(
         &mut self,
         seed: u64,
@@ -644,7 +646,7 @@ impl RuntimeWorld {
     /// 4. Give an item to a co-present actor.
     /// 5. Move toward a delivery target (unless waiting/staying).
     /// 6. Pick up a sought item at this location, or move toward its memory.
-    /// 7. Roaming fallback (ambient wander / search).
+    /// 7. Roaming fallback (route choice / search).
     ///
     /// `waiting_for_player_gift` and `staying_with_active_job` suppress movement
     /// and remote seeking so a resident stays near the player.
@@ -1577,6 +1579,7 @@ impl RuntimeWorld {
         self.actor_by_id(actor_id)
     }
 
+    #[cfg(test)]
     pub(crate) fn resident_economy_autonomy_candidate_ids(&self) -> Vec<u64> {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
             .iter()
@@ -1953,16 +1956,19 @@ impl RuntimeWorld {
         candidate
     }
 
+    #[cfg(test)]
     pub(crate) fn resident_economy_autonomy_record_for_seed(
         &mut self,
         seed: u64,
     ) -> Option<JournalRecord> {
+        self.refresh_beliefs_for_autonomy();
         self.best_resident_economy_autonomy_candidate(seed)
             .map(|candidate| candidate.record)
     }
 
     #[cfg(test)]
     pub(crate) fn resident_economy_autonomy_action_by_priority(&mut self) -> Option<CwAction> {
+        self.refresh_beliefs_for_autonomy();
         let actor_ids = self.resident_economy_autonomy_candidate_ids();
         if actor_ids.is_empty() {
             return None;
@@ -2273,7 +2279,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_ties_prefer_the_resident_waiting_longest() {
+    fn resident_selection_ties_prefer_the_resident_waiting_longest() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.ensure_actor_autonomy();
         runtime
@@ -2495,7 +2501,7 @@ mod tests {
                 .first()
                 .map(|candidate| (candidate.0, candidate.1.as_str())),
             Some((RATI_ACTOR_ID, "trade_item")),
-            "mutually desired physical exchange should beat ambient filler: {summary:?}"
+            "mutually desired physical exchange should beat a fallback action: {summary:?}"
         );
     }
 }

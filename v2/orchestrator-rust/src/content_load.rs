@@ -722,8 +722,8 @@ pub(super) struct SeedActorContent {
     pub(super) voice: String,
     #[serde(default)]
     pub(super) control_mode: Option<ActorControlMode>,
-    #[serde(default)]
-    pub(super) ambient_autonomy: Option<bool>,
+    #[serde(default, alias = "ambient_autonomy")]
+    pub(super) event_autonomy: Option<bool>,
     #[serde(default)]
     pub(super) roaming: Option<bool>,
     #[serde(default)]
@@ -743,7 +743,7 @@ pub(super) struct SeedActorContent {
 impl SeedActorContent {
     pub(super) fn authored_default_control_mode(&self) -> ActorControlMode {
         self.control_mode.unwrap_or_else(|| {
-            if self.ambient_autonomy.unwrap_or(true) {
+            if self.event_autonomy.unwrap_or(true) {
                 ActorControlMode::LocalAi
             } else {
                 ActorControlMode::ReactiveAi

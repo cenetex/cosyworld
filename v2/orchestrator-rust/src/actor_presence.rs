@@ -498,6 +498,31 @@ pub(super) fn abandon_avatar_primary_action() -> PrimaryAction {
     }
 }
 
+/// Avatar lifecycle actions answer "who are you playing", not "what can this
+/// avatar do here". Offer filtering may empty the hand of a downed or absent
+/// avatar, and that must never replace the lifecycle path with Wait: doing so
+/// strands the player with no way back into play.
+pub(super) fn primary_action_is_avatar_lifecycle(kind: &str) -> bool {
+    matches!(
+        kind,
+        "create_avatar" | "create_rescuer" | "summon_avatar" | "abandon_avatar"
+    )
+}
+
+/// A knocked-out avatar holds a valid session and no legal action. Telling
+/// that player to reconnect sends them to repair something that is not broken,
+/// so the downed case answers with the way back into play instead.
+pub(super) fn actor_refusal_message(runtime: &RuntimeWorld, actor_id: u64) -> &'static str {
+    let downed = runtime.actor_by_id(actor_id).is_some_and(|actor| {
+        RuntimeWorld::actor_is_present(actor) && !RuntimeWorld::actor_can_act(actor)
+    });
+    if downed {
+        "This avatar is knocked out and cannot act. Wait for a rescue, or abandon this avatar to begin again."
+    } else {
+        "Reconnect your account to restore this same avatar; the world will not replace it."
+    }
+}
+
 impl RuntimeWorld {
     pub(super) fn default_bondable_resident_with_presence(
         &self,
@@ -562,7 +587,7 @@ impl RuntimeWorld {
     }
 }
 
-// --- moved from main.rs: autonomy credit/tick + ambient entry points ---
+// --- moved from main.rs: autonomy credit/tick boundaries ---
 impl crate::RuntimeWorld {
     pub(crate) fn ensure_actor_autonomy(&mut self) {
         let actors = self.world.actors[..self.world.actor_count].to_vec();
@@ -617,18 +642,6 @@ impl crate::RuntimeWorld {
         }
     }
 
-    pub(crate) fn replenish_ambient_autonomy_credits(&mut self) {
-        self.ensure_actor_autonomy();
-        for actor in &self.world.actors[..self.world.actor_count] {
-            if !Self::actor_can_act(*actor) || !self.actor_uses_inference(actor.id) {
-                continue;
-            }
-            if let Some(autonomy) = self.actor_autonomy.get_mut(&actor.id) {
-                autonomy.attention_credits = autonomy.attention_credits.saturating_add(1).min(2);
-            }
-        }
-    }
-
     pub(crate) fn autonomy_allows_action(&self, actor_id: u64, action_kind: u8) -> bool {
         let Some(autonomy) = self.actor_autonomy.get(&actor_id) else {
             return false;
@@ -672,78 +685,6 @@ impl crate::RuntimeWorld {
                 && event.source_world_tick == Some(observation.source_world_tick)
                 && event.caused_by_event_seq == Some(caused_by_event_seq)
         })
-    }
-
-    pub(crate) fn ambient_actor(&self) -> Option<CwActor> {
-        let directly_controlled_locations: BTreeSet<u64> = self.world.actors
-            [..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| Self::actor_can_act(*actor) && !self.actor_uses_inference(actor.id))
-            .map(|actor| actor.location_id)
-            .collect();
-        if directly_controlled_locations.is_empty() {
-            return None;
-        }
-
-        let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| {
-                Self::actor_can_act(*actor)
-                    && self.actor_uses_inference(actor.id)
-                    && directly_controlled_locations.contains(&actor.location_id)
-            })
-            .collect();
-        if candidates.is_empty() {
-            return None;
-        }
-
-        Some(candidates[(self.world.tick as usize) % candidates.len()])
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ambient_line(&self) -> Option<(u64, String)> {
-        let actor = self.ambient_actor()?;
-        let pick = |lines: &[&str]| -> String {
-            let index = ((self.world.tick / 2) as usize) % lines.len();
-            lines[index].to_string()
-        };
-        let text = match actor.id {
-            1001 => pick(&[
-                "Rati smooths the blue scarf, leaving one stitch loose for the next noticed thing.",
-                "Rati taps her needles together, then listens as if the rain answered back.",
-                "Rati folds a scrap of story into her knitting basket for later.",
-            ]),
-            1002 => pick(&["🫖✨🌧️", "🌙🧶☁️", "🌿🫧✨"]),
-            1003 => pick(&[
-                "*Skull shifts closer to the low doorway, silent and awake.*",
-                "*Skull lowers his head beside the hearth, listening past the rain.*",
-                "*Skull's ears turn toward the door before the room does.*",
-            ]),
-            1005 => pick(&[
-                "Root: The path remembers. Ring: The question has been here before.",
-                "Leaf: Something changed today. Hollow: Not everything has answered yet.",
-                "Ring: Years make patient witnesses. Root: Step carefully.",
-            ]),
-            _ => format!(
-                "{} settles into the room's quiet rhythm.",
-                self.actor_name(actor.id)
-                    .unwrap_or_else(|| "Someone".to_string())
-            ),
-        };
-        Some((actor.id, text))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ambient_autonomy_action(&mut self) -> Option<CwAction> {
-        self.refresh_beliefs_for_autonomy();
-        self.resident_economy_autonomy_action_by_priority()
-    }
-
-    pub(crate) fn ambient_autonomy_record(&mut self, seed: u64) -> Option<JournalRecord> {
-        self.refresh_beliefs_for_autonomy();
-        self.resident_economy_autonomy_record_for_seed(seed)
     }
 }
 #[cfg(test)]
@@ -939,6 +880,48 @@ mod tests {
                 .iter()
                 .map(|offer| offer.kind.clone())
                 .collect::<Vec<_>>(),
+        );
+    }
+
+    /// The configured projection is what production serves, and it filters
+    /// offers by the model routes an operator enabled. That filter used to
+    /// replace an empty hand with a disabled Wait, which erased the release
+    /// path from every knocked-out player's screen while the unconfigured
+    /// projection kept passing.
+    #[tokio::test]
+    async fn the_configured_projection_keeps_the_release_path_for_a_downed_avatar() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Downed Traveler",
+        );
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("the avatar exists");
+        actor.status = CW_ACTOR_KNOCKED_OUT;
+
+        let downed = runtime.state_response_configured(
+            Some(5000),
+            &AccessContext::default(),
+            Some(&BTreeSet::from([5000])),
+            None,
+        );
+        assert_eq!(
+            downed.primary_action.kind, "abandon_avatar",
+            "offer filtering must not replace the release path",
+        );
+        assert_eq!(downed.visible_primary_action.kind, "abandon_avatar");
+        assert!(!downed.primary_action.disabled);
+        assert!(downed.action_offers.is_empty());
+        assert!(
+            !downed.search_available,
+            "a downed avatar told a search is available is handed a card it cannot play",
         );
     }
 
@@ -1641,9 +1624,7 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Quiet Witness",
         );
-        let resident = runtime
-            .ambient_actor()
-            .expect("active helper makes resident action available");
+        let resident = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(resident)
             .into_iter()

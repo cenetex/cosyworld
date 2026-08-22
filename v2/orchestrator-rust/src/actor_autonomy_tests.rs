@@ -1,6 +1,6 @@
 use super::*;
 
-fn roaming_actor(ambient_autonomy: Option<bool>, roaming: Option<bool>) -> SeedActorContent {
+fn roaming_actor(event_autonomy: Option<bool>, roaming: Option<bool>) -> SeedActorContent {
     SeedActorContent {
         pack_id: "test.roaming".to_string(),
         id: 900_001,
@@ -12,7 +12,7 @@ fn roaming_actor(ambient_autonomy: Option<bool>, roaming: Option<bool>) -> SeedA
         level_track_id: None,
         voice: String::new(),
         control_mode: None,
-        ambient_autonomy,
+        event_autonomy,
         roaming,
         location_id: Some(COSY_COTTAGE_LOCATION_ID),
         stats: None,
@@ -40,7 +40,7 @@ fn authored_control_mode_overrides_the_autonomy_default() {
 }
 
 #[test]
-fn authored_roaming_requires_ambient_autonomy_and_an_explicit_opt_in() {
+fn authored_roaming_requires_event_autonomy_and_an_explicit_opt_in() {
     assert!(movement::seed_actor_roaming_enabled(&roaming_actor(
         Some(true),
         Some(true)
