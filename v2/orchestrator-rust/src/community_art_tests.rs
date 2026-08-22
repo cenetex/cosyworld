@@ -382,6 +382,17 @@ fn funded_avatar_generation_is_selected_for_boot_resumption() {
         .community_art_generations
         .get_mut(&key)
         .expect("stale-brief generation");
+    generation.status = "policy_rejected".to_string();
+    generation.last_error_code = Some("community_art_policy_rejected".to_string());
+    assert!(
+        pending_community_art_resumption_plans(&runtime, &asset_root).is_empty(),
+        "policy rejection waits for an explicit no-Orb retry instead of spending on boot"
+    );
+
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("stale-brief generation");
     generation.status = "failed".to_string();
     generation.last_error_code = Some("community_art_storage_failed".to_string());
     let stale_brief_resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);

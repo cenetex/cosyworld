@@ -102,6 +102,7 @@ mod rpg;
 mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
+mod shutdown;
 mod snapshot_persistence;
 mod solana;
 mod spatial;
@@ -136,7 +137,7 @@ use avatar_reflections::*;
 use avatar_rescue::*;
 use axum::{
     body::{to_bytes, Body},
-    extract::{ConnectInfo, Path as AxumPath, Query, State},
+    extract::{ConnectInfo, Extension, Path as AxumPath, Query, State},
     http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -219,6 +220,7 @@ pub(crate) use config::{
     canonical_routing_config, resolve_process_id, DeploymentProfile, DEFAULT_CANONICAL_REGION_ID,
 };
 use keys::*;
+use shutdown::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -237,7 +239,6 @@ use story_metrics::*;
 use test_support::*;
 use tokio::{
     net::TcpListener,
-    signal,
     sync::{broadcast, Mutex, Notify, RwLock},
 };
 use tokio_stream::{
@@ -280,11 +281,9 @@ struct AppState {
     generation_controls: Arc<GenerationControls>,
     avatar_art_config: Arc<Option<ReplicateAvatarArtConfig>>,
     generated_asset_dir: Arc<PathBuf>,
-    ambient: AmbientConfig,
     ownership_feed: Arc<OwnershipFeedConfig>,
     ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
     rendezvous_party_config: Arc<RendezvousPartyConfig>,
-    last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
     wallet_actor_links: Arc<StdMutex<BTreeMap<String, u64>>>,
@@ -393,12 +392,6 @@ struct RoomMemoryChapter {
     latest_seq: u64,
     summary: String,
     source: String,
-}
-
-#[derive(Clone, Debug)]
-struct AmbientConfig {
-    quiet_after: Duration,
-    interval: Duration,
 }
 
 #[derive(Clone, Copy)]
@@ -2343,7 +2336,6 @@ struct MetaFeatureFlags {
     ai_enabled: bool,
     generation_default_mode: &'static str,
     pathway_content_mode: &'static str,
-    ambient_enabled: bool,
     dev_reset_enabled: bool,
     moderation_audit_enabled: bool,
     avatar_chat_delay_ms: u128,
@@ -2373,6 +2365,9 @@ struct MetaPersistence {
     event_store_bytes: Option<u64>,
     event_store_live_bytes: Option<u64>,
     event_store_reusable_bytes: Option<u64>,
+    event_store_auto_vacuum: Option<&'static str>,
+    generated_asset_bytes: Option<u64>,
+    generated_asset_count: Option<u64>,
     snapshot_bytes: Option<u64>,
     snapshot_temp_bytes: Option<u64>,
     moderation_report_retention_days: Option<u64>,
@@ -2405,15 +2400,6 @@ struct PersistenceCompactionReport {
     deleted_action_journal_rows: u64,
     deleted_canonical_commit_rows: u64,
     deleted_world_event_rows: u64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct PersistenceStorageReport {
-    event_store_bytes: Option<u64>,
-    event_store_live_bytes: Option<u64>,
-    event_store_reusable_bytes: Option<u64>,
-    snapshot_bytes: Option<u64>,
-    snapshot_temp_bytes: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4459,30 +4445,6 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
     })
 }
 
-async fn action_response_http_status(response: Response) -> Response {
-    let (mut parts, body) = response.into_parts();
-    let is_json = parts
-        .headers
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.starts_with("application/json"));
-    if !is_json {
-        return Response::from_parts(parts, body);
-    }
-    let Ok(bytes) = to_bytes(body, 2 * 1024 * 1024).await else {
-        return Response::from_parts(parts, Body::empty());
-    };
-    if let Some(status) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        .ok()
-        .and_then(|value| value.get("status").and_then(serde_json::Value::as_u64))
-        .and_then(|status| u16::try_from(status).ok())
-        .and_then(|status| StatusCode::from_u16(status).ok())
-    {
-        parts.status = status;
-    }
-    Response::from_parts(parts, Body::from(bytes))
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     startup::run().await
@@ -4652,7 +4614,6 @@ impl AppState {
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
         let generated_asset_dir = generated_asset_dir_from_env();
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
-        let ambient = AmbientConfig::from_env();
         deployment.validate_runtime_options(
             &ownership_feed,
             trust_client_card_ids,
@@ -4939,11 +4900,9 @@ impl AppState {
             generation_controls,
             avatar_art_config,
             generated_asset_dir: Arc::new(generated_asset_dir),
-            ambient,
             ownership_feed: Arc::new(ownership_feed),
             ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
             rendezvous_party_config,
-            last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(wallet_actor_links)),
@@ -4980,12 +4939,6 @@ impl AppState {
         })
     }
 
-    fn mark_activity(&self) {
-        if let Ok(mut last) = self.last_world_event_at.lock() {
-            *last = Instant::now();
-        }
-    }
-
     fn record_event_store_read_success(&self) {
         if let Ok(mut health) = self.event_store_health.lock() {
             health.record_read_success();
@@ -5008,13 +4961,6 @@ impl AppState {
         if let Ok(mut health) = self.event_store_health.lock() {
             health.record_append_failure(error);
         }
-    }
-
-    fn quiet_for(&self) -> Duration {
-        self.last_world_event_at
-            .lock()
-            .map(|last| last.elapsed())
-            .unwrap_or(Duration::ZERO)
     }
 
     fn allow_rate_limit(&self, key: impl Into<String>, limit: RateLimit) -> bool {
@@ -5164,23 +5110,6 @@ fn validate_journal_rule_binding(record: &JournalRecord) -> io::Result<()> {
         )));
     }
     Ok(())
-}
-
-impl AmbientConfig {
-    fn from_env() -> Self {
-        let quiet_secs = std::env::var("COSYWORLD_AMBIENT_QUIET_SECS")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(20);
-        let interval_secs = std::env::var("COSYWORLD_AMBIENT_INTERVAL_SECS")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(5);
-        Self {
-            quiet_after: Duration::from_secs(quiet_secs.max(1)),
-            interval: Duration::from_secs(interval_secs.max(1)),
-        }
-    }
 }
 
 impl RuntimeSnapshot {
@@ -17138,6 +17067,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let storage_report = persistence_storage_report(
         state.event_store_path.as_deref().map(PathBuf::as_path),
         state.snapshot_path.as_deref().map(PathBuf::as_path),
+        Some(state.generated_asset_dir.as_path()),
     );
     let region_authority = state.event_store_path.as_deref().and_then(|path| {
         current_region_authority(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH).ok()
@@ -17181,7 +17111,6 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             ai_enabled: state.ai_config.as_ref().is_some(),
             generation_default_mode: state.generation_controls.default_mode().as_str(),
             pathway_content_mode: state.generation_controls.mode("pathway_content").as_str(),
-            ambient_enabled: false,
             dev_reset_enabled: state.dev_reset_enabled,
             moderation_audit_enabled: state.moderation_token.is_some(),
             avatar_chat_delay_ms: state.avatar_chat_delay.as_millis(),
@@ -17233,6 +17162,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             event_store_bytes: storage_report.event_store_bytes,
             event_store_live_bytes: storage_report.event_store_live_bytes,
             event_store_reusable_bytes: storage_report.event_store_reusable_bytes,
+            event_store_auto_vacuum: storage_report.event_store_auto_vacuum,
+            generated_asset_bytes: storage_report.generated_asset_bytes,
+            generated_asset_count: storage_report.generated_asset_count,
             snapshot_bytes: storage_report.snapshot_bytes,
             snapshot_temp_bytes: storage_report.snapshot_temp_bytes,
             moderation_report_retention_days: state.moderation_report_retention.days,
@@ -18347,7 +18279,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     let mut runtime = state.inner.lock().await;
     *runtime = fresh;
     persist_runtime(&state, &runtime);
-    state.mark_activity();
     drop(runtime);
     if let Ok(mut sessions) = state.actor_sessions.lock() {
         sessions.sessions.clear();
@@ -21035,7 +20966,7 @@ async fn command_with_forwarding(
             return canonical_command_error(
                 &payload.command,
                 403,
-                "Reconnect your account to restore this same avatar; the world will not replace it.",
+                actor_presence::actor_refusal_message(&runtime, payload.actor_id),
             );
         }
     }
@@ -22202,7 +22133,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Reconnect your account to restore this same avatar; the world will not replace it."
+                        actor_presence::actor_refusal_message(&runtime, payload.actor_id)
                             .to_string(),
                     ),
                     error_kind: None,
@@ -22580,7 +22511,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Reconnect your account to restore this same avatar; the world will not replace it."
+                        actor_presence::actor_refusal_message(&runtime, payload.actor_id)
                             .to_string(),
                     ),
                     error_kind: None,
@@ -23240,10 +23171,23 @@ fn refresh_canonical_process_route(state: &AppState) -> io::Result<()> {
 }
 
 async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventView>> {
-    let Some(path) = state.event_store_path.as_deref() else {
+    let Some(path) = state.event_store_path.as_deref().cloned() else {
         return Ok(Vec::new());
     };
-    let latest_journal_seq = latest_action_journal_seq(path)?;
+    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
+    let read_path = path.clone();
+    let (latest_journal_seq, events) = tokio::task::spawn_blocking(move || {
+        let latest_journal_seq = latest_action_journal_seq(&read_path)?;
+        let through_seq = current_world_seq(&open_event_store(&read_path)?, OFFICIAL_WORLD_ID)?;
+        let events = if through_seq > after {
+            read_event_store_forward_between(&read_path, after, through_seq, MAX_EVENT_STORE_SCAN)?
+        } else {
+            Vec::new()
+        };
+        Ok::<_, io::Error>((latest_journal_seq, events))
+    })
+    .await
+    .map_err(|error| io::Error::other(format!("canonical capacity read task failed: {error}")))??;
     if latest_journal_seq
         > state
             .canonical_applied_journal_seq
@@ -23255,20 +23199,13 @@ async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventV
             .load(AtomicOrdering::Acquire);
         if latest_journal_seq > applied {
             let presence_states = runtime.presence_states.clone();
-            restore_runtime_from_durable_state(state, &mut runtime, path)?;
+            restore_runtime_from_durable_state(state, &mut runtime, &path)?;
             runtime.presence_states = presence_states;
             state
                 .canonical_applied_journal_seq
                 .store(latest_journal_seq, AtomicOrdering::Release);
         }
     }
-
-    let through_seq = current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?;
-    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
-    if through_seq <= after {
-        return Ok(Vec::new());
-    }
-    let events = read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)?;
     Ok(events)
 }
 
@@ -23555,90 +23492,6 @@ fn start_story_metrics_retention_scheduler(state: AppState) {
             tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
         }
     });
-}
-
-async fn maybe_emit_ambient_event(state: AppState) {
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    let ai_config = state.ai_config.as_ref().clone();
-    let mut runtime = state.inner.lock().await;
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    runtime.replenish_ambient_autonomy_credits();
-    let seed = runtime.next_seed_value();
-    if let Some(record) = runtime.ambient_autonomy_record(seed).filter(|record| {
-        runtime.autonomy_allows_action(record.action.actor_id, record.action.kind)
-            && runtime.kernel_offer_allows_action(&record.action)
-    }) {
-        let action = record.action;
-        let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-            return;
-        };
-        let reply_plan = if status == CW_OK && !events.is_empty() {
-            runtime.resident_economy_action_reply_plan(&action)
-        } else {
-            None
-        };
-        drop(runtime);
-        if status == CW_OK {
-            broadcast_events(&state, &events);
-        }
-        if let Some(plan) = reply_plan {
-            let _ = complete_avatar_reply(&state, plan, None).await;
-        }
-        return;
-    }
-    let Some(config) = ai_config else {
-        return;
-    };
-    let Some(plan) = runtime
-        .ambient_reply_plan()
-        .filter(|plan| runtime.autonomy_allows_action(plan.speaker_actor_id, CW_ACTION_SAY))
-    else {
-        return;
-    };
-    drop(runtime);
-
-    let proposal = match request_ai_avatar_intent(&config, None, &plan).await {
-        Ok(proposal) => proposal,
-        Err(error) => {
-            warn!(
-                "AI ambient resident intent failed; skipping ambient chat: {}",
-                error
-            );
-            record_rejected_ai_publication(&state, &error);
-            return;
-        }
-    };
-
-    let mut runtime = state.inner.lock().await;
-    if state.quiet_for() < state.ambient.quiet_after {
-        return;
-    }
-    let Some(speaker) = runtime.actor_by_id(plan.speaker_actor_id) else {
-        return;
-    };
-    if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
-        return;
-    }
-    let Some(events) =
-        commit_resident_reply_record(&state, &mut runtime, &plan, proposal, None, None)
-    else {
-        return;
-    };
-    drop(runtime);
-    broadcast_events(&state, &events);
-}
-
-fn start_resident_autonomy_scheduler(state: AppState) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(state.ambient.interval).await;
-            maybe_emit_ambient_event(state.clone()).await;
-        }
-    })
 }
 
 fn trim_to_chars(value: &str, max_chars: usize) -> String {
@@ -26983,6 +26836,7 @@ fn client_actor_rejected_response() -> Json<ActionResponse> {
 
 async fn stream(
     headers: HeaderMap,
+    Extension(shutdown): Extension<ShutdownSubscription>,
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
@@ -27040,7 +26894,7 @@ async fn stream(
     }
     let replay_stream = tokio_stream::iter(replay_messages);
     let live_stream = live_event_stream(rx, visible_locations);
-    let stream = replay_stream.chain(live_stream);
+    let stream = shutdown.finish_stream(replay_stream.chain(live_stream));
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
@@ -29339,9 +29193,6 @@ fn commit_journal_record_blocking(
         }
         (status, events, false, 0)
     };
-    if !events.is_empty() {
-        state.mark_activity();
-    }
     if committed_journal_seq > 0 {
         runtime.action_journal_seq = committed_journal_seq;
     }
@@ -29451,41 +29302,6 @@ fn journal_commit_recovery_error(
 /// Coalesce instead: write at most once per interval, and let the journal cover
 /// the gap. A snapshot that trails the journal by a few seconds only costs a
 /// slightly longer replay at boot. See issue #481.
-/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
-///
-/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
-/// restart, and the composition smoke stops servers with it before running the
-/// offline pack-mount migration. That migration requires the on-disk snapshot
-/// to match the journal head, so an unhandled SIGTERM — which kills the process
-/// before the final forced snapshot — would leave a snapshot trailing the
-/// journal now that ordinary writes are coalesced.
-async fn terminate_signal() {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{signal as unix_signal, SignalKind};
-        match unix_signal(SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                warn!("failed to install SIGTERM handler: {}", error);
-                std::future::pending::<()>().await;
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        std::future::pending::<()>().await;
-    }
-}
-
-async fn shutdown_signal() {
-    tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate_signal() => {}
-    }
-}
-
 fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
@@ -29622,18 +29438,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
             fs::create_dir_all(parent)?;
         }
     }
-    let conn = open_event_store(path)?;
-    let table_count = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sqlite_error)?;
-    if table_count == 0 {
-        conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
-            .map_err(sqlite_error)?;
-    }
+    let conn = open_canonical_store_for_initialization(path)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS world_events (
             seq INTEGER PRIMARY KEY,
@@ -30019,51 +29824,6 @@ fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
         )
         .map_err(sqlite_error)?;
     u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
-}
-
-fn persistence_storage_report(
-    event_store_path: Option<&Path>,
-    snapshot_path: Option<&Path>,
-) -> PersistenceStorageReport {
-    let snapshot_bytes =
-        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
-    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
-        fs::metadata(snapshot_temp_path(path))
-            .ok()
-            .map(|meta| meta.len())
-    });
-    let Some(event_store_path) = event_store_path else {
-        return PersistenceStorageReport {
-            snapshot_bytes,
-            snapshot_temp_bytes,
-            ..PersistenceStorageReport::default()
-        };
-    };
-    let event_store_bytes = fs::metadata(event_store_path).ok().map(|meta| meta.len());
-    let sqlite_pages = open_event_store(event_store_path).ok().and_then(|conn| {
-        let page_count = conn
-            .query_row("PRAGMA page_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let free_pages = conn
-            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        let page_size = conn
-            .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
-            .ok()?;
-        Some((
-            page_count
-                .saturating_sub(free_pages)
-                .saturating_mul(page_size),
-            free_pages.saturating_mul(page_size),
-        ))
-    });
-    PersistenceStorageReport {
-        event_store_bytes,
-        event_store_live_bytes: sqlite_pages.map(|pages| pages.0),
-        event_store_reusable_bytes: sqlite_pages.map(|pages| pages.1),
-        snapshot_bytes,
-        snapshot_temp_bytes,
-    }
 }
 
 #[cfg(test)]
@@ -31527,7 +31287,7 @@ mod tests {
             events: Vec::new(),
         })
         .into_response();
-        let response = action_response_http_status(response).await;
+        let response = routes::action_response_http_status(response).await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
         let body = to_bytes(response.into_body(), 1024)
             .await
@@ -53737,12 +53497,6 @@ mod tests {
             combat_turn_view(&runtime, 5000, COSY_COTTAGE_LOCATION_ID).is_none(),
             "controller mode does not create an ordinary room turn"
         );
-        assert_eq!(
-            runtime.ambient_actor().map(|actor| actor.id),
-            Some(5000),
-            "the human-kind avatar is scheduled because its controller uses inference"
-        );
-
         let legacy: ActorControlMode =
             serde_json::from_str("\"human\"").expect("legacy snapshots remain readable");
         assert_eq!(legacy, ActorControlMode::DirectInput);
@@ -55370,59 +55124,11 @@ mod tests {
     }
 
     #[test]
-    fn ambient_line_requires_human_presence_and_ignores_legacy_branch_state() {
-        let mut runtime = RuntimeWorld::seeded();
-        assert!(runtime.ambient_line().is_none());
-
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 1;
-        let mut record = JournalRecord::new(create, 7061);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Ambient Guest".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Quiet Tester".to_string(),
-                description: "A test avatar waiting in the room.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        let line = runtime
-            .ambient_line()
-            .expect("ambient line with human present");
-        assert!([1001, 1002, 1003].contains(&line.0));
-        assert!(!line.1.is_empty());
-        let plan = runtime
-            .ambient_reply_plan()
-            .expect("ambient AI reply plan with human present");
-        assert!([1001, 1002, 1003].contains(&plan.speaker_actor_id));
-        assert_eq!(plan.location_name, "The Cosy Cottage");
-        assert!(plan.user_text.contains("fresh in-character ambient beat"));
-
-        let branch = runtime
-            .dialogue_branch_for(5000, 1001)
-            .expect("branch available");
-        runtime.branches.insert(5000, branch);
-        assert!(runtime.ambient_line().is_some());
-
-        runtime
-            .branches
-            .get_mut(&5000)
-            .expect("stored branch")
-            .expires_at_tick = runtime.world.tick.saturating_sub(1);
-        assert!(runtime.ambient_line().is_some());
-    }
-
-    #[tokio::test]
-    async fn resident_economy_autonomy_can_act_without_human_presence() {
+    fn resident_economy_planning_does_not_require_direct_actor_presence() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
-        assert!(runtime.ambient_line().is_none());
-        assert!(runtime.ambient_reply_plan().is_none());
 
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
@@ -55449,36 +55155,6 @@ mod tests {
         assert_eq!(action.kind, CW_ACTION_MOVE);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
         assert_eq!(action.destination_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-
-        runtime.ensure_actor_autonomy();
-        for (actor_id, autonomy) in &mut runtime.actor_autonomy {
-            autonomy.control_mode = if *actor_id == RATI_ACTOR_ID {
-                ActorControlMode::LocalAi
-            } else if autonomy.control_mode.uses_inference() {
-                ActorControlMode::ReactiveAi
-            } else {
-                autonomy.control_mode
-            };
-        }
-        runtime
-            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
-                candidate.kind == "move"
-                    && candidate.target.as_ref().and_then(|target| target.id)
-                        == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-            })
-            .expect("Rati's ambient movement card is dealt before the heartbeat");
-        let initial_event_seq = runtime.world.next_event_seq;
-        let mut state = test_app_state(runtime, None);
-        state.ambient.quiet_after = Duration::ZERO;
-        maybe_emit_ambient_event(state.clone()).await;
-        let runtime = state.inner.lock().await;
-        assert!(runtime.event_log.iter().any(|event| {
-            event.seq >= initial_event_seq
-                && event.type_name == "actor.moved"
-                && event
-                    .actor_id
-                    .is_some_and(|actor_id| runtime.actor_control_mode(actor_id).uses_inference())
-        }));
     }
 
     #[test]
@@ -56399,7 +56075,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_notice_visible_sought_items_without_prior_memory() {
+    fn resident_economy_planning_notices_visible_sought_items_without_prior_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56418,7 +56094,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident notices a visible wanted item");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -56438,7 +56114,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_prioritizes_local_keepsake_pickup_over_remote_walking() {
+    fn resident_economy_planning_prioritizes_local_keepsake_over_remote_walking() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56480,7 +56156,7 @@ mod tests {
         assert_eq!(rati_action.kind, CW_ACTION_MOVE);
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("ranked resident economy action");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, BLUE_SQUIRREL_ACTOR_ID);
@@ -56502,7 +56178,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_record_residents_use_held_room_feature_items() {
+    fn resident_economy_record_uses_held_room_feature_items() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.beliefs.clear();
@@ -56522,10 +56198,10 @@ mod tests {
                     SCARF_BASKET_FEATURE_KEY,
                 )
             })
-            .expect("the Story Button feature card is dealt before ambient LocalAI selects it");
+            .expect("the Story Button feature card is dealt before LocalAI selects it");
 
         let record = runtime
-            .ambient_autonomy_record(70700)
+            .resident_economy_autonomy_record_for_seed(70700)
             .expect("resident feature use is recordable autonomy");
         assert_eq!(record.action.kind, CW_ACTION_NONE);
         assert_eq!(record.action.actor_id, RATI_ACTOR_ID);
@@ -56617,7 +56293,7 @@ mod tests {
             .expect("the resident feature-use offer is dealt before it is committed");
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let record = runtime
-            .ambient_autonomy_record(70702)
+            .resident_economy_autonomy_record_for_seed(70702)
             .expect("resident decision is recordable");
         let state = test_app_state(runtime.clone(), Some(path.clone()));
 
@@ -56682,7 +56358,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_pick_up_sought_items() {
+    fn resident_economy_actions_pick_up_sought_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56695,9 +56371,7 @@ mod tests {
             CW_OK
         );
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
             .into_iter()
@@ -56737,9 +56411,7 @@ mod tests {
                     && event.item_id == Some(sought_item_id)
             })
             .expect("resident pickup event");
-        let actor_name = runtime
-            .actor_name(actor.id)
-            .expect("ambient resident has name");
+        let actor_name = runtime.actor_name(actor.id).expect("resident has name");
         let item_name = runtime
             .item_name(sought_item_id)
             .expect("sought item has name");
@@ -56807,7 +56479,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_resident_can_add_wanted_card_without_self_evolving() {
+    fn resident_economy_action_can_add_wanted_card_without_self_evolving() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56878,7 +56550,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_swap_expendable_item_on_pickup_at_capacity() {
+    fn resident_economy_actions_swap_expendable_item_on_pickup_at_capacity() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -56956,7 +56628,7 @@ mod tests {
         );
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident swaps before taking a wanted item");
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -56994,7 +56666,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_do_not_evict_attached_items_for_pickup() {
+    fn resident_economy_actions_do_not_evict_attached_items_for_pickup() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57067,7 +56739,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_use_held_healing_items_when_hurt() {
+    fn resident_economy_actions_use_held_healing_items_when_hurt() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57099,7 +56771,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("hurt resident uses held medicine");
         assert_eq!(action.kind, CW_ACTION_USE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -57130,7 +56802,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_use_held_healing_items_for_hurt_companions() {
+    fn resident_economy_actions_use_held_healing_items_for_hurt_companions() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57162,7 +56834,7 @@ mod tests {
         }
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident uses medicine for a hurt companion");
         assert_eq!(action.kind, CW_ACTION_USE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -57188,7 +56860,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_seek_remembered_healing_items_when_hurt() {
+    fn resident_economy_actions_seek_remembered_healing_items_when_hurt() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57323,7 +56995,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_move_toward_nearby_sought_items() {
+    fn resident_economy_actions_move_toward_nearby_sought_items() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57337,9 +57009,7 @@ mod tests {
         );
         hide_seed_items(&mut runtime);
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
             .into_iter()
@@ -57403,7 +57073,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_follow_item_memory_across_rooms() {
+    fn resident_economy_actions_follow_item_memory_across_rooms() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -57418,9 +57088,7 @@ mod tests {
         runtime.world.tick = 0;
         runtime.beliefs.clear();
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
@@ -58243,7 +57911,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_trade_mutually_desired_items() {
+    fn resident_economy_actions_trade_mutually_desired_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -58273,9 +57941,7 @@ mod tests {
             }
         }
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         assert!(
             runtime.resident_mutual_trade_candidate(actor).is_none(),
@@ -58414,80 +58080,8 @@ mod tests {
         assert!(reply_plan.economy_note.contains("carrying:"));
     }
 
-    #[tokio::test]
-    async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 0;
-        runtime.beliefs.clear();
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            match item.id {
-                DEWBRIGHT_BUTTON_ITEM_ID => {
-                    item.holder_actor_id = RATI_ACTOR_ID;
-                    item.location_id = 0;
-                    item.held_since_tick = runtime.world.tick;
-                }
-                STORY_BUTTON_ITEM_ID => {
-                    item.holder_actor_id = WHISKERWIND_ACTOR_ID;
-                    item.location_id = 0;
-                    item.held_since_tick = runtime.world.tick;
-                }
-                _ => {}
-            }
-        }
-        runtime.record_economy_disclosure(RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID);
-        runtime
-            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
-                candidate.kind == "trade_item"
-                    && candidate.id
-                        == format!(
-                            "trade_item:{DEWBRIGHT_BUTTON_ITEM_ID}:{WHISKERWIND_ACTOR_ID}:{STORY_BUTTON_ITEM_ID}"
-                        )
-            })
-            .expect("the ambient trade card is dealt before the resident heartbeat");
-
-        let mut state = test_app_state(runtime, None);
-        state.ambient.quiet_after = Duration::ZERO;
-        maybe_emit_ambient_event(state.clone()).await;
-
-        let after_trade_seq = {
-            let runtime = state.inner.lock().await;
-            runtime
-                .event_log
-                .iter()
-                .find(|event| {
-                    event.type_name == "item.traded"
-                        && event.actor_id == Some(RATI_ACTOR_ID)
-                        && event.target_actor_id == Some(WHISKERWIND_ACTOR_ID)
-                })
-                .map(|event| event.seq)
-                .expect("ambient autonomy trade event")
-        };
-
-        let mut saw_reply = false;
-        for _ in 0..20 {
-            {
-                let runtime = state.inner.lock().await;
-                saw_reply = runtime.event_log.iter().any(|event| {
-                    event.seq > after_trade_seq
-                        && event.type_name == "message.created"
-                        && event.actor_id == Some(RATI_ACTOR_ID)
-                        && event.location_id == Some(COSY_COTTAGE_LOCATION_ID)
-                        && event
-                            .content
-                            .as_deref()
-                            .is_some_and(|content| !content.trim().is_empty())
-                });
-            }
-            if saw_reply {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        assert!(!saw_reply, "no fallback speech should follow without AI");
-    }
-
     #[test]
-    fn ambient_autonomy_residents_give_sought_items_when_trade_is_not_needed() {
+    fn resident_economy_actions_give_sought_items_when_trade_is_not_needed() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -58517,9 +58111,7 @@ mod tests {
             }
         }
 
-        let actor = runtime
-            .ambient_actor()
-            .expect("ambient resident with human present");
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(actor.id, RATI_ACTOR_ID);
         assert!(
             runtime.resident_gift_candidate(actor).is_none(),
@@ -58555,7 +58147,7 @@ mod tests {
         );
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action_by_priority()
             .expect("resident gives autonomously");
         assert_eq!(action.kind, CW_ACTION_GIVE_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
@@ -59051,7 +58643,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_residents_carry_sought_items_to_remembered_residents() {
+    fn resident_economy_actions_carry_sought_items_to_remembered_residents() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.beliefs.clear();

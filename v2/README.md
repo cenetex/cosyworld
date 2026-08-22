@@ -256,6 +256,25 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
+### Shutdown contract
+
+The first `SIGINT` or `SIGTERM` begins a bounded drain. The listener stops
+accepting connections, existing SSE responses close so clients can reconnect
+with their `Last-Event-ID`, and requests arriving on an existing keep-alive
+connection receive JSON `503` responses with `Retry-After: 1` and
+`Connection: close`. `/health/live` remains available during the drain so an
+operator can distinguish a restarting process from a dead one.
+
+`COSYWORLD_SHUTDOWN_DRAIN_MS` sets the HTTP drain deadline. It defaults to
+`3000` and startup accepts only `100` through `4000` milliseconds, preserving
+time before Fly's next shutdown escalation. A second signal or the deadline
+force-finishes the HTTP server; the final snapshot is flushed after that
+bounded drain. Structured `shutdown_signal_received`,
+`shutdown_drain_started`, `shutdown_drain_forced`, and `shutdown_complete`
+records report timing, signal count, forced drains, and notified or remaining
+streams. Clients must treat a closed stream or a draining `503` as a reconnect
+boundary and reuse the same `intent_id` when retrying a command.
+
 The production Fly profile requires moderation and the event store. Configure
 the protected avatar feed only when linked-avatar discovery is enabled:
 
@@ -656,6 +675,8 @@ Returning players keep their local avatar id plus an opaque `actor_session` mint
 
 When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same present human actor — active or knocked out — and issue a fresh actor session without emitting duplicate `actor.created` world events. Knockout never mints or links a replacement identity. Dev reset clears those links along with the reseeded world.
 
+A knocked-out avatar stays in the world and holds a valid session, so its state answers with the release path rather than a playable hand: `primary_action` is `abandon_avatar`, `action_offers` is empty, and `search_available` is false. `POST /actions/abandon-avatar` frees the account to begin again and leaves the fallen avatar behind as a resident. Offer filtering never replaces an avatar lifecycle action with `wait`, and the browser never builds a card the server did not deal, so a downed player always keeps a way back into play.
+
 `POST /avatar/session` renews credentials only for the same canonical actor. A current actor session may rotate itself; an expired actor session requires the signed wallet already linked to that actor. The route returns `409` for a terminal actor and never creates an avatar. Browser action retries use it once after a credential-specific failure and reuse the original command intent.
 
 Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and `/state` use the same current-room roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible until turn recovery hands off, but remains absent from actor-target offers and commands. The browser and terminal clients maintain explicit presence heartbeats. NPC residents stay visible according to world placement.
@@ -835,6 +856,17 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
+
+Every `POST /commands` rejection is a JSON command envelope whose `status`
+matches the HTTP status. Malformed requests, extractor failures, rate limits,
+and local command-admission overload therefore never fall back to Axum's plain
+text error body. The runtime admits at most 16 concurrent public commands;
+additional callers fail fast with `503`,
+`error_kind: "server_overloaded"`, and `Retry-After: 1`; retrying a mutation
+must reuse the same `intent_id`. The Lonely Forest proxy applies the same
+contract to upstream `502`/`504` failures, returning a bounded JSON `503`
+instead of an empty or HTML response.
+
 There is no collection materialize/unmaterialize route. `GET /meta` exposes
 `migration_archive.item_materialization`: the permanent `archived` / `audit_only`
 state, disabled mutation flags, and read-only migration receipt counts. Verified
@@ -1044,10 +1076,31 @@ the replay window, or set `COSYWORLD_V2_PERSISTENCE_COMPACTION=off` before a
 store is compacted to preserve full history. Canonical routing and regional
 recovery require uncompacted prefix history and refuse a previously compacted
 store. A new database is required to re-enable those modes after compaction.
-New SQLite stores use incremental auto-vacuum; existing stores reuse freed
-pages even when their outer file cannot immediately shrink. On boot, the
-orchestrator removes the exact stale `*.json.tmp` file left by an interrupted
-snapshot without touching the committed snapshot.
+A new SQLite store chooses incremental auto-vacuum before it enters WAL mode.
+The order matters: SQLite records `auto_vacuum` in the database header and
+silently ignores the pragma once the store is in WAL mode, so setting it after
+the first open left every store at `none`, where compaction frees pages onto
+the freelist and the file can only ever grow. After each compaction the
+runtime hands back the pages it just freed, bounded by
+`COSYWORLD_V2_INCREMENTAL_VACUUM_PAGES` (default 512), which keeps a burst
+recoverable without holding the world lock through a full rewrite.
+
+`/meta.persistence.event_store_auto_vacuum` reports which mode a store is in.
+A store reporting `none` predates this ordering fix and cannot return a byte
+until one full `VACUUM` runs in a maintenance window, which needs roughly twice
+the file size free on the volume. `/meta.persistence.generated_asset_bytes` and
+`generated_asset_count` report the generated-art directory, which has no
+retention policy of its own and grows for as long as a world is played.
+
+`node v2/scripts/check-storage-budget.mjs <target>` compares both figures
+against the committed ceilings in `v2/scripts/storage-budgets.json` and fails
+when a store passes its budget. The scheduled volume-headroom workflow runs it
+for each deployment beside the disk check, so growth is caught while there is
+still room to choose a response rather than at the point a full volume
+crash-loops the release.
+
+On boot, the orchestrator removes the exact stale `*.json.tmp` file left by an
+interrupted snapshot without touching the committed snapshot.
 
 The startup log line reports how many milliseconds boot took from process
 start to listening, so a regression to full replay is visible. A rejected

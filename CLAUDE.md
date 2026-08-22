@@ -72,7 +72,11 @@ npm run v2:worldpack        # import, lock, compile, content and voice checks
 npm run v2:kernel           # compile and run the C kernel tests
 npm run v2:rust:test        # Rust format check and tests
 npm run v2:syntax           # JS/Python smoke-script syntax
-npm run check:version       # PR version guard
+npm run check:version       # PR version guard (also verifies the Rust crate
+                            # version matches package.json)
+npm run version:bump        # one-step version bump across package.json,
+                            # package-lock.json, and the orchestrator
+                            # Cargo.toml/Cargo.lock
 git diff --check
 ```
 
@@ -84,8 +88,10 @@ visual smoke paths. Local HTTP tests may require permission to bind loopback
 ports; `listen EPERM` from a restricted sandbox is not a test assertion.
 
 Every PR must bump the root package version because CI runs
-`npm run check:version`. Update both `package.json` and the root package entries
-in `package-lock.json`.
+`npm run check:version`. Run `npm run version:bump` to update `package.json`,
+the root entries in `package-lock.json`, and the orchestrator crate's
+`Cargo.toml`/`Cargo.lock` together; CI rejects a PR whose version matches the
+base branch or whose crate version has drifted.
 
 ## Non-negotiable invariants
 

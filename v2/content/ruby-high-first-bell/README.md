@@ -7,9 +7,9 @@ default rules capability, and school vocabulary.
 
 The school is inhabited by six students (Lyra, Sami, Ravi, Indra, Mika, and
 Noor) and three teachers (Ruby, Sally Science, and Professor Edward). All nine
-are authored actors with ambient autonomy and explicit roaming enabled, so
-they can act and move through the school's ordinary exits without becoming
-directly controlled player pieces. Six school items are materialized alongside
+are authored actors with event-triggered autonomy and explicit roaming enabled,
+so they can react to committed player turns and move through the school's
+ordinary exits without becoming directly controlled player pieces. Six school items are materialized alongside
 them as ordinary world objects.
 
 World presentation uses the borderless source artwork under `assets/world`:

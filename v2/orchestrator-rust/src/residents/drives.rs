@@ -344,7 +344,7 @@ impl ActorDriveState {
     }
 
     /// Recovers all drives by one tick fraction. Call this alongside
-    /// `replenish_ambient_autonomy_credits`.
+    /// observations of committed player actions.
     pub(crate) fn recover_all(&mut self) {
         for drive in &mut self.drives {
             drive.recover();

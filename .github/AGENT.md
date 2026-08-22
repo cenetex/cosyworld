@@ -28,8 +28,13 @@ Always run:
 
 ```sh
 git diff --check
-npm run check:version
+npm run version:bump   # bumps package.json, package-lock.json, and the
+                       # orchestrator Cargo.toml/Cargo.lock together; CI's
+                       # check:version then accepts the PR
 ```
+
+`npm run check:version` also fails early when the Rust crate version drifts
+from `package.json`, so run it after any manual version edit.
 
 Then run every row that matches the change:
 

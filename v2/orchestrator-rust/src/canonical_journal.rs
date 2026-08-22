@@ -2399,6 +2399,47 @@ pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> 
     Ok(connection)
 }
 
+/// Opens a store that is about to be given its schema, choosing the vacuum
+/// mode before WAL is enabled.
+///
+/// `auto_vacuum` is recorded in the database header and SQLite silently
+/// ignores a change to it once the store is in WAL mode or holds any table.
+/// `open_canonical_store` enables WAL on first open, so a store initialized
+/// through it could never accept the mode afterwards, and every deployment ran
+/// with `auto_vacuum = none`: compaction freed pages onto the freelist and the
+/// file could only ever grow. Ordering the pragma ahead of WAL on the same
+/// connection that then creates the tables is what makes the header stick.
+///
+/// An existing store cannot be converted here. That needs one full `VACUUM` in
+/// a maintenance window, and `/meta.persistence.event_store_auto_vacuum`
+/// reports which stores still need it.
+pub(super) fn open_canonical_store_for_initialization(path: &Path) -> io::Result<Connection> {
+    let conn = Connection::open(path).map_err(sqlite_error)?;
+    conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
+        .map_err(sqlite_error)?;
+    let journal_mode = conn
+        .query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0))
+        .map_err(sqlite_error)?;
+    let table_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    if table_count == 0 && !journal_mode.eq_ignore_ascii_case("wal") {
+        conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
+            .map_err(sqlite_error)?;
+    }
+    if !journal_mode.eq_ignore_ascii_case("wal") {
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(sqlite_error)?;
+    }
+    conn.pragma_update(None, "synchronous", "NORMAL")
+        .map_err(sqlite_error)?;
+    Ok(conn)
+}
+
 fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)

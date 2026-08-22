@@ -16,6 +16,7 @@ const deployedBundleHashes = [
   "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
   "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
   "sha256:18d7c38d6fd234817cae5fd9ad1bc473fd27eef7924986cffc7c3bd67bc36eab",
+  "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5",
 ];
 
 function readJson(fileName) {
@@ -67,11 +68,11 @@ test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
   assert.match(hoppy?.identity?.appearance ?? "", /blue hoodie/i);
   assert.match(hoppy?.identity?.appearance ?? "", /microphone/i);
   assert.equal(hoppy?.control_mode, "direct_input");
-  assert.equal(hoppy?.ambient_autonomy, false);
+  assert.equal(hoppy?.event_autonomy, false);
   assert.equal(hoppy?.roaming, false);
 
   const inferenceResidents = actors.filter((actor) => actor.id !== hoppy.id);
-  assert.ok(inferenceResidents.every((actor) => actor.ambient_autonomy === true));
+  assert.ok(inferenceResidents.every((actor) => actor.event_autonomy === true));
   assert.ok(inferenceResidents.every((actor) => actor.roaming === true));
 
   const roster = new Map(actors.map((actor) => [actor.name, actor]));

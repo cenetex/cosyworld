@@ -57,7 +57,7 @@ describe("Ruby High: First Bell peer pack", () => {
     expect(rubyOnly.resources.actors.map((actor) => actor.name)).toEqual(residentNames);
     expect(rubyOnly.resources.actors.every((actor) =>
       actor.pack_id === "ruby-high.first-bell"
-      && actor.ambient_autonomy === true
+      && actor.event_autonomy === true
       && actor.roaming === true))
       .toBe(true);
     expect(rubyOnly.resources.factions.find((faction) => faction.id === "ruby_high")?.member_actor_ids)

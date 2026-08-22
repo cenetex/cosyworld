@@ -963,7 +963,7 @@
     "speech_mode": "prose",
     "title": "Retired Lantern Keeper",
     "description": "A broad-shouldered innkeeper who retired from the lantern road but still oils every lamp before bed.",
-    "ambient_autonomy": false,
+    "event_autonomy": false,
     "location_id": 800,
     "desires": [
       {
@@ -997,7 +997,7 @@
     "speech_mode": "prose",
     "title": "Mothwood Lamp-Sprite",
     "description": "A thumb-sized fey guide with a pin sword, bright opinions, and soot on both wings.",
-    "ambient_autonomy": false,
+    "event_autonomy": false,
     "location_id": 801,
     "desires": [
       {
@@ -1023,7 +1023,7 @@
     "speech_mode": "silent",
     "title": "Barrow Road Sentinel",
     "description": "An empty suit of road-warden mail packed with wet moths and the reflex to bar every crossing.",
-    "ambient_autonomy": false,
+    "event_autonomy": false,
     "location_id": 803,
     "stats": {
       "strength": 14,
@@ -1043,7 +1043,7 @@
     "speech_mode": "prose",
     "title": "The Hollow Keeper",
     "description": "The missing keeper stands inside a coat of moving shadow, one hand still clenched around an ember that refuses to die.",
-    "ambient_autonomy": false,
+    "event_autonomy": false,
     "location_id": 804,
     "desires": [
       {

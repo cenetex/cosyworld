@@ -13,7 +13,8 @@
       "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
       "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
       "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
-      "sha256:18d7c38d6fd234817cae5fd9ad1bc473fd27eef7924986cffc7c3bd67bc36eab"
+      "sha256:18d7c38d6fd234817cae5fd9ad1bc473fd27eef7924986cffc7c3bd67bc36eab",
+      "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -184,7 +185,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5",
+  "bundle_hash": "sha256:95263c868c4120f18ca927ead1186b2254edcd5b8ffb1b7e150f66ba257644b5",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -549,7 +550,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:bcbcd2e834dabfe8d3566a2442307b1f50349ae30a17c6ba0ac83f54ddaeede3"
+      "integrity": "sha256:18ec727baaca5b98bb1eecd5679d645d06776c8c2ebd3da6ed76aee5d9fe3246"
     }
   ],
   "files": {

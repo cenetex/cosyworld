@@ -62,7 +62,8 @@
         "sha256:5dfb1c6d4e3b65c58ac9291ff71c729bd3981dbb23b5603d918a74d6e2cdc713",
         "sha256:955e562292235ee87d68fbc16457f89fad70102c9bb71556e26814e8f461f8bc",
         "sha256:884d0123b8ada90815ec388e705d36040f887fe4b4c2487d70aa6d8c97136986",
-        "sha256:617a4af665a2bb0f8cd8765da696438304f088f8bcc095f38841c03820d60a60"
+        "sha256:617a4af665a2bb0f8cd8765da696438304f088f8bcc095f38841c03820d60a60",
+        "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f"
       ]
     },
     "pack_lifecycle": {
@@ -816,7 +817,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f",
+    "bundle_hash": "sha256:0118f492a0d2253e68023f8471ce54269649959d8b985961a3d990f78fb6b447",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2405,7 +2406,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:5c351e2b082b1219a057a8256af0c9800d2add7596e75295ab7dc84a849c4fda"
+        "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -3192,7 +3193,7 @@
           "type": "workspace",
           "path": "../../content/ruby-high-first-bell"
         },
-        "integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2"
+        "integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929"
       },
       {
         "id": "cosyworld.composition.core-ruby",
@@ -4491,7 +4492,7 @@
         "speech_mode": "prose",
         "title": "Retired Lantern Keeper",
         "description": "A broad-shouldered innkeeper who retired from the lantern road but still oils every lamp before bed.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 800,
         "desires": [
           {
@@ -4525,7 +4526,7 @@
         "speech_mode": "prose",
         "title": "Mothwood Lamp-Sprite",
         "description": "A thumb-sized fey guide with a pin sword, bright opinions, and soot on both wings.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 801,
         "desires": [
           {
@@ -4551,7 +4552,7 @@
         "speech_mode": "silent",
         "title": "Barrow Road Sentinel",
         "description": "An empty suit of road-warden mail packed with wet moths and the reflex to bar every crossing.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 803,
         "stats": {
           "strength": 14,
@@ -4571,7 +4572,7 @@
         "speech_mode": "prose",
         "title": "The Hollow Keeper",
         "description": "The missing keeper stands inside a coat of moving shadow, one hand still clenched around an ember that refuses to die.",
-        "ambient_autonomy": false,
+        "event_autonomy": false,
         "location_id": 804,
         "desires": [
           {
@@ -4971,7 +4972,7 @@
         "id": 1110,
         "name": "Lyra",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Color-Coded Spare",
         "description": "A prepared but anxious junior with pink hair, three backup plans, and the right answer waiting just behind her nerves.",
@@ -5005,7 +5006,7 @@
         "id": 1111,
         "name": "Sami",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Side Door Whatever",
         "description": "A dry, observant sophomore in a red overshirt who acts unimpressed until a genuinely interesting idea catches him.",
@@ -5039,7 +5040,7 @@
         "id": 1112,
         "name": "Ravi",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Field Trip Fact Slip",
         "description": "An exuberant science fan in a varsity jacket whose hands and facts arrive in the conversation at the same speed.",
@@ -5073,7 +5074,7 @@
         "id": 1113,
         "name": "Indra",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Quiet Perfect Exit",
         "description": "A watchful junior with a book in hand who prefers one exact contribution to a room full of performance.",
@@ -5107,7 +5108,7 @@
         "id": 1114,
         "name": "Mika",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Locker Room Shortcut",
         "description": "A kinetic sophomore in a teal jacket who treats encouragement as team equipment and knows every social shortcut through the school.",
@@ -5141,7 +5142,7 @@
         "id": 1115,
         "name": "Noor",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Deadpan Detour",
         "description": "A sharply dressed reader whose perfectly level delivery exposes plot holes, social scripts, and the joke everyone else is avoiding.",
@@ -5175,7 +5176,7 @@
         "id": 1120,
         "name": "Ruby",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Homeroom Teacher",
         "description": "Ruby High's warm, incisive host, recognizable by pink hair, round glasses, and a standard that makes praise worth earning.",
@@ -5209,7 +5210,7 @@
         "id": 1121,
         "name": "Sally Science",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "STEM Teacher",
         "description": "A sharp, curious scientist in a white coat who loves clean experiments, named principles, and explanations that actually do the math.",
@@ -5243,7 +5244,7 @@
         "id": 1122,
         "name": "Professor Edward",
         "speech_mode": "prose",
-        "ambient_autonomy": true,
+        "event_autonomy": true,
         "roaming": true,
         "title": "Literature Teacher",
         "description": "A measured, endlessly curious literature teacher who carries a book like an invitation and revises his reading every spring.",
@@ -15645,7 +15646,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "world-art",
       "root": "ruby-high-first-bell",
@@ -15658,7 +15659,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "pack_version": "1.4.0",
-      "pack_integrity": "sha256:f05e98fa46dd48ec6f17c30219b5c700e31a558f25d12ffea6eff818c7d764e2",
+      "pack_integrity": "sha256:566ad0fabd110d3504b10977686cb1eb8dba34aeb266602882a15f4c5bcba929",
       "provider": "ruby-high.first-bell/assets",
       "mount": "cards",
       "root": "ruby-high-first-bell",
