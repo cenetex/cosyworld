@@ -1,3 +1,5 @@
+use super::*;
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -242,6 +244,233 @@ pub(super) fn command_request_hash(
     digest.update(last_world_seq.to_le_bytes());
     digest.update(serde_json::to_vec(observed).unwrap_or_default());
     format!("sha256:{:x}", digest.finalize())
+}
+
+// --- moved from main.rs: canonical identity/version RuntimeWorld methods ---
+impl crate::RuntimeWorld {
+    pub(crate) fn ensure_canonical_identities(&mut self, mint_seed: u64) {
+        let generated_location_refs = self
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| {
+                pathway
+                    .waypoints
+                    .iter()
+                    .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+            })
+            .filter(|(_, canonical_id)| !canonical_id.is_empty())
+            .collect::<BTreeMap<_, _>>();
+        let actor_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .map(|actor| actor.id)
+            .collect::<Vec<_>>();
+        let item_ids = self.world.items[..self.world.item_count]
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        let location_ids = self.world.locations[..self.world.location_count]
+            .iter()
+            .map(|location| location.id)
+            .chain(
+                self.generated_pathways
+                    .values()
+                    .flat_map(|pathway| pathway.waypoints.iter().map(|waypoint| waypoint.id)),
+            )
+            .collect::<BTreeSet<_>>();
+
+        for actor_id in actor_ids {
+            let candidate_ref = content_registry()
+                .content_reference("actor", actor_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .unwrap_or_else(|| opaque_runtime_ref("actor", &format!("{actor_id}:{mint_seed}")));
+            let canonical_ref = self
+                .canonical_identities
+                .actor_refs
+                .entry(actor_id)
+                .or_insert(candidate_ref)
+                .clone();
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref.clone())
+                .or_insert(1);
+            let journal_ref = self
+                .canonical_identities
+                .journal_refs
+                .entry(actor_id)
+                .or_insert_with(|| opaque_runtime_ref("journal", &canonical_ref))
+                .clone();
+            self.canonical_identities
+                .entity_versions
+                .entry(journal_ref)
+                .or_insert(1);
+        }
+        for item_id in item_ids {
+            let candidate_ref = content_registry()
+                .content_reference("item", item_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .unwrap_or_else(|| opaque_runtime_ref("item", &format!("{item_id}:{mint_seed}")));
+            let canonical_ref = self
+                .canonical_identities
+                .item_refs
+                .entry(item_id)
+                .or_insert(candidate_ref)
+                .clone();
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+        for location_id in location_ids {
+            let candidate_ref = content_registry()
+                .content_reference("location", location_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .or_else(|| generated_location_refs.get(&location_id).cloned())
+                .unwrap_or_else(|| {
+                    opaque_runtime_ref("location", &format!("{location_id}:{mint_seed}"))
+                });
+            let canonical_ref = self
+                .canonical_identities
+                .location_refs
+                .entry(location_id)
+                .or_insert(candidate_ref)
+                .clone();
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+        for bond_id in self.bonds.keys() {
+            let canonical_ref = opaque_runtime_ref("pact", bond_id);
+            self.canonical_identities
+                .pact_refs
+                .entry(bond_id.clone())
+                .or_insert_with(|| canonical_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+    }
+
+    pub(crate) fn canonical_ref(&self, kind: &str, runtime_handle: u64) -> Option<&str> {
+        match kind {
+            "actor" => self.canonical_identities.actor_refs.get(&runtime_handle),
+            "item" => self.canonical_identities.item_refs.get(&runtime_handle),
+            "location" => self.canonical_identities.location_refs.get(&runtime_handle),
+            "journal" => self.canonical_identities.journal_refs.get(&runtime_handle),
+            _ => None,
+        }
+        .map(String::as_str)
+    }
+
+    pub(crate) fn runtime_handle_for_canonical_ref(
+        &self,
+        kind: &str,
+        canonical_ref: &str,
+    ) -> Option<u64> {
+        let refs = match kind {
+            "actor" => &self.canonical_identities.actor_refs,
+            "item" => &self.canonical_identities.item_refs,
+            "location" => &self.canonical_identities.location_refs,
+            "journal" => &self.canonical_identities.journal_refs,
+            _ => return None,
+        };
+        refs.iter()
+            .find_map(|(runtime_handle, value)| (value == canonical_ref).then_some(*runtime_handle))
+    }
+
+    pub(crate) fn canonical_pact_ref(&self, bond_id: &str) -> Option<&str> {
+        self.canonical_identities
+            .pact_refs
+            .get(bond_id)
+            .map(String::as_str)
+    }
+
+    pub(crate) fn entity_version(&self, canonical_ref: &str) -> u64 {
+        self.canonical_identities
+            .entity_versions
+            .get(canonical_ref)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn event_entity_refs(&self, event: &EventView) -> BTreeSet<String> {
+        [
+            ("actor", event.actor_id),
+            ("actor", event.target_actor_id),
+            ("location", event.location_id),
+            ("location", event.destination_location_id),
+            ("location", event.source_location_id),
+            ("item", event.item_id),
+            ("item", event.target_item_id),
+        ]
+        .into_iter()
+        .filter_map(|(kind, handle)| handle.and_then(|handle| self.canonical_ref(kind, handle)))
+        .map(ToString::to_string)
+        .collect()
+    }
+
+    pub(crate) fn bump_entity_versions_for_events(&mut self, events: &[EventView]) {
+        let mut affected = events
+            .iter()
+            .filter(|event| event.success)
+            .flat_map(|event| self.event_entity_refs(event))
+            .collect::<BTreeSet<_>>();
+        for actor_id in events
+            .iter()
+            .filter(|event| event.success)
+            .flat_map(|event| {
+                [event.actor_id, event.target_actor_id]
+                    .into_iter()
+                    .flatten()
+            })
+        {
+            if let Some(journal_ref) = self.canonical_ref("journal", actor_id) {
+                affected.insert(journal_ref.to_string());
+            }
+        }
+        if events.iter().any(|event| {
+            event.success
+                && matches!(
+                    event.type_name.as_str(),
+                    "bond.created" | "bond.revised" | "bond.deepened" | "bond.resolved"
+                )
+        }) {
+            affected.extend(self.canonical_identities.pact_refs.values().cloned());
+        }
+        for canonical_ref in affected {
+            let version = self
+                .canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+            *version = version.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn refresh_canonical_events(&mut self, events: &mut [EventView]) {
+        for event in events.iter_mut() {
+            event.world_id = official_world_id();
+            event.world_epoch = official_world_epoch();
+        }
+        for event in events.iter().filter(|event| event.seq > 0) {
+            if let Some(logged) = self
+                .event_log
+                .iter_mut()
+                .rev()
+                .find(|logged| logged.seq == event.seq)
+            {
+                *logged = event.clone();
+            }
+        }
+    }
+
+    pub(crate) fn refresh_all_canonical_events(&mut self) {
+        for event in &mut self.event_log {
+            event.world_id = official_world_id();
+            event.world_epoch = official_world_epoch();
+        }
+    }
 }
 
 #[cfg(test)]
