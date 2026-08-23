@@ -56,6 +56,15 @@ pub(super) fn card_reaction_heartbeat_delay_ms() -> u64 {
         .unwrap_or(CARD_REACTION_HEARTBEAT_DELAY_MS)
 }
 
+pub(super) fn actor_job_idle_poll() -> Duration {
+    let milliseconds = std::env::var("COSYWORLD_ACTOR_JOB_IDLE_POLL_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| value.clamp(25, ACTOR_JOB_IDLE_POLL.as_millis() as u64))
+        .unwrap_or(ACTOR_JOB_IDLE_POLL.as_millis() as u64);
+    Duration::from_millis(milliseconds)
+}
+
 fn room_handoff_from_observation(observation: &PlayerTickObservation) -> Option<(u64, u64, u64)> {
     observation
         .source_events

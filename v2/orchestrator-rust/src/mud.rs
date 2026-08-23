@@ -925,6 +925,9 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             let returned = event
                 .target_item_name
                 .as_deref()
+                // An empty returned-item name renders as "hands you  to make
+                // room"; treat it as absent so the clause is omitted instead.
+                .filter(|item| !item.is_empty())
                 .map(|item| format!(", who hands you {item} to make room"))
                 .unwrap_or_default();
             Some(format!(
@@ -4209,29 +4212,30 @@ mod hand_honest_help_tests {
         dealt_verbs.dedup();
 
         let output = help_output(&runtime, 5000);
-        assert!(
-            output.contains("Playable from your Story Hand now:"),
-            "help names the dealt hand: {output}"
+        let playable_line = output.lines().next().expect("help has a hand summary");
+        assert_eq!(
+            playable_line,
+            format!(
+                "Playable from your Story Hand now: {}. Think replaces one dealt card.",
+                command_list_or_none(&dealt_verbs)
+            ),
+            "the playable summary must contain exactly the dealt verbs"
         );
-        assert!(output.contains("Think replaces one dealt card"));
-        for verb in &dealt_verbs {
-            assert!(
-                output.contains(&format!("Playable from your Story Hand now: {verb}"))
-                    || output.contains(&format!(", {verb}")),
-                "dealt verb {verb} appears in the playable list: {output}"
-            );
-        }
-        // An undelat command verb stays in the reference without being claimed
-        // as immediately playable.
-        for dealt_verb in &dealt_verbs {
-            let reference_claims = output
-                .matches(&format!(
-                    "Playable from your Story Hand now: {dealt_verb}, "
-                ))
-                .count()
-                + output.matches(&format!(", {dealt_verb}, ")).count();
-            let _ = reference_claims;
-        }
+
+        let dealt = dealt_verbs.iter().cloned().collect::<BTreeSet<_>>();
+        let undealt_verb = offers
+            .iter()
+            .map(|offer| offer.verb.to_lowercase())
+            .find(|verb| !dealt.contains(verb))
+            .expect("the legal offer pool is larger than the three-card hand");
+        assert!(
+            !playable_line
+                .split(':')
+                .nth(1)
+                .unwrap_or_default()
+                .contains(&undealt_verb),
+            "an undealt verb must not be claimed as playable: {playable_line}"
+        );
     }
 
     #[test]
@@ -4249,80 +4253,101 @@ mod hand_honest_help_tests {
             "rope_test_discovery",
         ));
 
-        // Deal a Travel card whose destination is this room's first exit.
-        let dealt_travel = runtime.draw_until_test_offer(5000, &access, |offer| {
-            offer.kind == "move" && offer.target.as_ref().is_some_and(|t| t.kind == "location")
-        });
-        let dealt_destination = dealt_travel
-            .as_ref()
-            .and_then(|offer| offer.target.as_ref())
-            .and_then(|target| target.id);
+        // Deal a Travel card, then derive the complete set of destinations
+        // that the current hand really makes playable.
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                offer.kind == "move" && offer.target.as_ref().is_some_and(|t| t.kind == "location")
+            })
+            .expect("a Travel offer can be dealt");
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &access);
+        let travelable_destinations = runtime
+            .current_action_hand_offers(5000, &offers)
+            .iter()
+            .filter(|offer| offer.kind == "move")
+            .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+            .collect::<BTreeSet<_>>();
+        assert!(!travelable_destinations.is_empty());
 
         let output = look_output(&runtime, 5000);
         assert!(output.contains("Ways onward:"), "{output}");
-        assert!(
-            output.contains("(travelable now)") || output.contains("(needs a Travel draw)"),
-            "exits carry hand-honest markers: {output}"
-        );
 
-        if let Some(destination) = dealt_destination {
-            if output.contains("(needs a Travel draw)") {
-                // The dealt travel card's exit must be the travelable one.
-                let exits = runtime.exit_views(
-                    Some(5000),
-                    COSY_COTTAGE_LOCATION_ID,
-                    &AccessContext::default(),
-                );
-                let dealt_name = exits
-                    .iter()
-                    .find(|exit| exit.destination_location_id == destination)
-                    .map(|exit| exit.destination_location_name.clone());
-                if let Some(name) = dealt_name {
-                    assert!(
-                        !output.contains(&format!("{name} (needs a Travel draw)")),
-                        "the dealt destination must not be marked as awaiting a draw: {output}"
-                    );
-                }
-            }
+        let exits = runtime
+            .exit_views(Some(5000), COSY_COTTAGE_LOCATION_ID, &access)
+            .into_iter()
+            .filter(|exit| exit.accessible && !exit.locked)
+            .collect::<Vec<_>>();
+        assert!(!exits.is_empty(), "the revealed route is visible");
+        let mut needs_draw = false;
+        for exit in exits {
+            let base = exit
+                .direction
+                .as_deref()
+                .map(|direction| format!("{direction}: {}", exit.destination_location_name))
+                .unwrap_or(exit.destination_location_name);
+            let expected = if travelable_destinations.contains(&exit.destination_location_id) {
+                format!("{base} (travelable now)")
+            } else {
+                needs_draw = true;
+                format!("{base} (needs a Travel draw)")
+            };
+            assert!(
+                output.contains(&expected),
+                "missing `{expected}` in: {output}"
+            );
         }
-        if output.contains("(needs a Travel draw)") {
+        if needs_draw {
             assert!(
                 output.contains("Travel needs its exact card"),
                 "an awaiting exit explains the hand gate: {output}"
             );
         }
     }
+}
 
-    #[test]
-    fn a_room_without_exits_adds_no_draw_guidance() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Opal");
-        let output = look_output(&runtime, 5000);
-        if !output.contains("(needs a Travel draw)") {
-            // Either no exits exist here or all are travelable now; either way
-            // no draw guidance line may appear.
-            assert!(!output.contains("Travel needs its exact card"));
+#[cfg(test)]
+mod give_receipt_tests {
+    use super::*;
+
+    fn given_event(target_item_name: Option<String>) -> EventView {
+        EventView {
+            type_name: "item.given".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Wick".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_id: None,
+            item_name: Some("Hearth Tonic".to_string()),
+            target_actor_id: Some(1002),
+            target_actor_name: Some("Gust".to_string()),
+            target_item_name,
+            ..EventView::default()
         }
     }
 
-    #[tokio::test]
-    async fn reconnect_derives_help_from_the_freshly_restored_hand() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Opal");
-        let before = help_output(&runtime, 5000);
+    #[test]
+    fn an_empty_returned_item_name_omits_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some(String::new())))
+            .expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
+        assert!(!output.contains("  "), "no double spaces in the receipt");
+        assert!(!output.contains("hands you"));
+    }
 
-        // A Think rotates exactly one slot; help must re-derive from offers.
-        let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
-        let hand_before = runtime.action_hand_for(Some(5000), &offers);
-        let after = runtime.action_hand_after_think_for(5000, &offers, 0);
-        let _ = (hand_before, after);
-        let refreshed = help_output(&runtime, 5000);
+    #[test]
+    fn a_named_returned_item_keeps_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some("Dandelion Tea".to_string())))
+            .expect("item.given always renders a receipt");
         assert_eq!(
-            before.split('\n').next(),
-            refreshed
-                .split('\n')
-                .next()
-                .or(Some(before.split('\n').next().unwrap())),
+            output,
+            "You give Hearth Tonic to Gust, who hands you Dandelion Tea to make room."
         );
+    }
+
+    #[test]
+    fn an_absent_returned_item_name_omits_the_make_room_clause() {
+        let output =
+            command_event_output(&given_event(None)).expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
     }
 }
