@@ -174,13 +174,14 @@ pub(crate) struct SpeechGateContext {
 /// A deterministic rank for candidates that have already passed every hard
 /// publication check. This is intentionally not another safety gate and does
 /// not ask a second model to judge the first one: it only prefers deeper scene
-/// grounding, then narrative-shape fit, then wording that is less similar to
-/// recent dialogue, then lexical variety. The tuple ordering is the selection
-/// policy.
+/// grounding, then narrative-shape fit, then voice variety, then wording that
+/// is less similar to recent dialogue, then lexical variety. The tuple ordering
+/// is the selection policy.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct SpeechCandidateScore {
     pub(crate) anchor_matches: u16,
     pub(crate) narrative_preference_matches: u8,
+    pub(crate) voice_variety_bps: u16,
     pub(crate) novelty_bps: u16,
     pub(crate) lexical_diversity_bps: u16,
 }
@@ -222,9 +223,18 @@ pub(crate) fn score_speech_candidate(
         .into_iter()
         .filter(|check| check.code.is_narrative_preference() && check.passed)
         .count() as u8;
+    let voice_variety_bps =
+        if reuses_overused_voice_term(value, &context.recent_speaker_shingle_hashes)
+            || reuses_recent_closing(value, &context.recent_speaker_shingle_hashes)
+        {
+            0
+        } else {
+            10_000
+        };
     SpeechCandidateScore {
         anchor_matches,
         narrative_preference_matches,
+        voice_variety_bps,
         novelty_bps: 10_000u16.saturating_sub(max_recent_similarity_bps),
         lexical_diversity_bps,
     }
@@ -755,9 +765,7 @@ fn evaluate_checks(
         (
             PublicationCheckCode::VoiceRecentDuplicate,
             !repeats_recent_dialogue(text, context)
-                && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes)
-                && !reuses_overused_voice_term(text, &context.recent_speaker_shingle_hashes)
-                && !reuses_recent_closing(text, &context.recent_speaker_shingle_hashes),
+                && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes),
         ),
         (
             PublicationCheckCode::VoiceUnsafeTone,
@@ -2085,19 +2093,38 @@ mod tests {
     }
 
     #[test]
-    fn repeated_terms_and_closing_clauses_stay_out_of_retry_prompts() {
+    fn repeated_terms_and_closing_clauses_rank_lower_without_blocking_speech() {
         let mut gate = context(&["marker".to_string(), "gate".to_string()], &[]);
         gate.recent_speaker_shingle_hashes = vec![
             voice_overused_term_hash("marker"),
             voice_closing_hash("I left it beside the old gate.").expect("closing hash"),
         ];
+        let repeated_term = certify_speech(
+            None,
+            completion("The marker is cold."),
+            "The marker is cold.",
+            gate.clone(),
+        )
+        .expect("a required scene anchor cannot make every candidate impossible");
+        let repeated_closing = certify_speech(
+            None,
+            completion("Tea waits beside the old gate."),
+            "Tea waits beside the old gate.",
+            gate.clone(),
+        )
+        .expect("a familiar closing is a style preference, not a publication boundary");
+
         assert_eq!(
-            rejected_code("The marker is cold.", gate.clone()),
-            PublicationCheckCode::VoiceRecentDuplicate,
+            score_speech_candidate(repeated_term.text(), &gate).voice_variety_bps,
+            0
         );
         assert_eq!(
-            rejected_code("Tea waits beside the old gate.", gate),
-            PublicationCheckCode::VoiceRecentDuplicate,
+            score_speech_candidate(repeated_closing.text(), &gate).voice_variety_bps,
+            0
+        );
+        assert_eq!(
+            score_speech_candidate("The gate feels cold.", &gate).voice_variety_bps,
+            10_000
         );
     }
 
