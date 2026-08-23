@@ -1596,6 +1596,24 @@
       color: var(--dim);
       font-style: italic;
     }
+    .line.story-card-activity {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.38em;
+      padding: 2px 0;
+      color: rgba(185, 184, 167, 0.58);
+      font: 650 10px/1.3 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.045em;
+    }
+    .story-card-activity::before,
+    .story-card-activity::after {
+      content: "";
+      width: min(7vw, 38px);
+      height: 1px;
+      background: rgba(222, 194, 141, 0.12);
+    }
+    .story-card-activity-card { color: rgba(222, 194, 141, 0.68); }
     .chat-thinking-dots {
       display: inline-flex;
       gap: 4px;
@@ -6175,6 +6193,10 @@
       border-top: 1px solid rgba(var(--slot-accent-rgb), 0.42);
       background: rgba(7, 8, 5, 0.58);
     }
+    .story-card-actions[hidden],
+    .story-card-actions button[hidden] { display: none !important; }
+    .story-card-actions.progress-only { grid-template-columns: minmax(0, 1fr); }
+    .story-card-actions.progress-only .story-card-play { border-left: 0; }
     .story-card-actions button {
       min-width: 0;
       min-height: 46px;
@@ -6222,6 +6244,18 @@
     }
     .story-card-actions button:disabled:not(.turn-progress) { opacity: 0.5; }
     .story-card-actions button:disabled { cursor: default; }
+    .prompt:not(.hand-expanded) .story-card-slot:has(.story-card-play.turn-progress:not([hidden])) {
+      grid-template-rows: 58px 20px;
+    }
+    .prompt:not(.hand-expanded) .story-card-actions.progress-only {
+      display: grid;
+      min-height: 20px;
+    }
+    .prompt:not(.hand-expanded) .story-card-actions.progress-only button {
+      min-height: 20px;
+      padding: 2px 4px;
+      font-size: 8px;
+    }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6304,6 +6338,9 @@
     .prompt.hand-expanded .story-card-slot {
       height: clamp(326px, 49dvh, 438px);
       grid-template-rows: minmax(0, 1fr) 46px;
+    }
+    .prompt.hand-expanded .story-card-slot:has(> .story-card-actions[hidden]) {
+      grid-template-rows: minmax(0, 1fr);
     }
     .prompt.hand-expanded .story-card-actions { display: grid; }
     .prompt.hand-expanded .cmd {
@@ -11939,6 +11976,7 @@
       "model_interaction.output",
       "avatar.thought",
       "avatar.dream",
+      "story.card.played",
     ]);
     const combatTranscriptEventTypes = new Set([
       "combat.encounter.started",
@@ -14283,7 +14321,7 @@
 
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
-      if (["message.created", "image.created", "avatar.thought", "avatar.dream"].includes(event.type)) {
+      if (["message.created", "image.created", "avatar.thought", "avatar.dream", "story.card.played"].includes(event.type)) {
         return null;
       }
       if (
@@ -15032,7 +15070,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream"].includes(event?.type);
+      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream", "story.card.played"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
@@ -15040,8 +15078,16 @@
       if (event?.type === "image.created") return residentImageHtml(event);
       if (event?.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
+      if (event?.type === "story.card.played") return storyCardPlayedHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
+    }
+
+    function storyCardPlayedHtml(event) {
+      const actor = cleanStatusText(event?.actor_name || "Someone") || "Someone";
+      const card = cleanStatusText(event?.content || "a card").toLowerCase() || "a card";
+      const text = `${actor} played ${card}`;
+      return `<div class="line story-card-activity" aria-label="${escapeAttr(text)}"><span>${escapeHtml(actor)} played</span><span class="story-card-activity-card">${escapeHtml(card)}</span></div>`;
     }
 
     function combatAttackTranscriptBeatHtml(event) {
@@ -17650,8 +17696,8 @@
         startActivation: turnActivation(),
         participantCount: Math.max(1, participants.size),
       };
-      storyHandExpanded = true;
-      storyHandActiveKey = storyHandKey(played);
+      storyHandExpanded = false;
+      storyHandActiveKey = "";
     }
 
     function activeHeldStoryHandActions() {
@@ -17750,6 +17796,7 @@
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
         const card = slot.querySelector(".cmd");
+        const cardActions = slot.querySelector(".story-card-actions");
         const play = document.querySelector(`[data-hand-play="${id}"]`);
         const discard = document.querySelector(`[data-hand-discard="${id}"]`);
         slot.hidden = !action;
@@ -17769,6 +17816,11 @@
         const progress = held && storyHandKey(action) === heldStoryHand?.playedKey
           ? heldStoryHandProgress()
           : null;
+        const hideTurnActions = waitingForTurn && !progress;
+        play.hidden = hideTurnActions;
+        discard.hidden = waitingForTurn || Boolean(progress);
+        cardActions.hidden = hideTurnActions;
+        cardActions.classList.toggle("progress-only", Boolean(progress));
         play.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
         play.classList.toggle("turn-progress", Boolean(progress));
         if (progress) {

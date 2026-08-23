@@ -318,6 +318,7 @@ pub(super) fn room_memory_entry_for_event_at_location(
                 | "actor.presence"
                 | "message.created"
                 | "image.created"
+                | "story.card.played"
                 | "combat.participant.joined"
                 | "combat.initiative.rolled"
                 | "combat.turn.started"
@@ -1546,6 +1547,7 @@ mod tests {
             "pathway.refined",
             "community_art.funded",
             "community_art.ready",
+            "story.card.played",
         ] {
             let event = EventView {
                 type_name: type_name.to_string(),
