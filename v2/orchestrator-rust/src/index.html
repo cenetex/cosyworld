@@ -5747,7 +5747,8 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .hand-toggle-chevron,
-      .prompt.hand-expanded .cmd {
+      .prompt.hand-expanded .cmd,
+      .story-card-actions .story-card-play.turn-progress::before {
         transition: none;
       }
     }
@@ -6045,7 +6046,18 @@
     }
     .turn-banner {
       grid-column: 1;
+      justify-content: flex-end;
       margin: 6px 8px 0;
+    }
+    /* Turn status remains available to assistive technology, but initiative
+       should not become a fourth card above the Story Hand. */
+    .turn-status {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip-path: inset(50%) !important;
+      white-space: nowrap !important;
     }
     .hand-header {
       width: 100%;
@@ -6177,15 +6189,39 @@
     }
     .story-card-actions button + button { border-left: 1px solid rgba(var(--slot-accent-rgb), 0.28); }
     .story-card-actions .story-card-play {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
       background: rgba(var(--slot-accent-rgb), 0.12);
       color: var(--slot-accent);
+    }
+    .story-card-actions .story-card-play.turn-progress {
+      --turn-progress: 8%;
+      background: rgba(var(--slot-accent-rgb), 0.06);
+      color: var(--text);
+      opacity: 1;
+    }
+    .story-card-actions .story-card-play.turn-progress::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      z-index: -1;
+      width: var(--turn-progress);
+      background: rgba(var(--slot-accent-rgb), 0.28);
+      border-right: 1px solid rgba(var(--slot-accent-rgb), 0.62);
+      transition: width 240ms ease;
+    }
+    .story-card-play .turn-progress-copy {
+      position: relative;
+      z-index: 1;
     }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
       background: rgba(var(--slot-accent-rgb), 0.2);
       color: var(--text);
     }
-    .story-card-actions button:disabled { opacity: 0.5; cursor: default; }
+    .story-card-actions button:disabled:not(.turn-progress) { opacity: 0.5; }
+    .story-card-actions button:disabled { cursor: default; }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6797,8 +6833,8 @@
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt" aria-label="Story Hand">
+      <div class="turn-ping-pill turn-status" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="turn-banner" id="turn-banner" hidden>
-        <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
       <div class="hand-header">
@@ -6979,6 +7015,7 @@
     let handPassSubmission = null;
     let storyHandExpanded = false;
     let storyHandActiveKey = "";
+    let heldStoryHand = null;
     let storyHandScrollPending = false;
     let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
@@ -10173,7 +10210,7 @@
 
     function renderTurnBannerControls() {
       const host = $("turn-banner-controls");
-      if (!host) return;
+      if (!host) return 0;
       const specs = turnBannerControlSpecs();
       turnBannerControlRuns = new Map(specs.map((spec) => [spec.key, spec.run]));
       const html = specs
@@ -10182,6 +10219,7 @@
         ))
         .join("");
       if (host.innerHTML !== html) host.innerHTML = html;
+      return specs.length;
     }
 
     function renderTurnPingPill() {
@@ -10189,8 +10227,8 @@
       if (!pill) return;
       const html = turnPingPillHtml();
       const banner = $("turn-banner");
-      if (banner) banner.hidden = !html;
-      renderTurnBannerControls();
+      const controlCount = renderTurnBannerControls();
+      if (banner) banner.hidden = controlCount === 0;
       pill.classList.toggle("urgent", Boolean(state?.turn?.enabled && state?.turn?.is_current_actor));
       const handoffKey = html ? String(state?.turn?.handoff_key || "") : "";
       if (!html) {
@@ -17590,7 +17628,6 @@
       return Boolean(
         !state?.branch
         && state?.primary_action?.kind !== "create_avatar"
-        && !actionBusy
       );
     }
 
@@ -17599,10 +17636,67 @@
     }
 
     function originalStoryHandAction(action) {
+      if (action?.heldStoryHandAction) return action;
       const index = Number(action?.actionIndex);
       return Number.isInteger(index) && index >= 0 && index < actions.length
         ? actions[index]
         : action;
+    }
+
+    function turnActivation(turn = state?.turn) {
+      const match = String(turn?.handoff_key || "").match(/(?:^|:)activation:(\d+)(?:$|:)/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    function holdStoryHandForAction(action) {
+      if (!usesInlineStoryHand() || (state?.turn?.enabled && !state.turn.is_current_actor)) return;
+      const actionIndex = actions.indexOf(action);
+      const visibleActions = actionBarActions().slice(0, handCapacity());
+      const played = visibleActions.find((candidate) => candidate.actionIndex === actionIndex);
+      if (!played) return;
+      const participants = new Set([
+        Number(actorId || 0),
+        ...((state?.turn?.waiting_actor_ids || []).map((id) => Number(id || 0))),
+      ].filter(Boolean));
+      heldStoryHand = {
+        actions: visibleActions.map((candidate) => ({
+          ...candidate,
+          heldStoryHandAction: true,
+        })),
+        playedKey: storyHandKey(played),
+        startActivation: turnActivation(),
+        participantCount: Math.max(1, participants.size),
+      };
+      storyHandExpanded = true;
+      storyHandActiveKey = storyHandKey(played);
+    }
+
+    function activeHeldStoryHandActions() {
+      if (!heldStoryHand) return null;
+      if (actionBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) {
+        return heldStoryHand.actions;
+      }
+      heldStoryHand = null;
+      return null;
+    }
+
+    function heldStoryHandProgress() {
+      if (!heldStoryHand) return null;
+      const total = Math.max(1, Number(heldStoryHand.participantCount || 1));
+      const activation = turnActivation();
+      const advanced = Math.max(
+        actionBusy ? 0 : 1,
+        activation && heldStoryHand.startActivation
+          ? activation - heldStoryHand.startActivation
+          : 0,
+      );
+      const percent = Math.max(8, Math.min(92, Math.round((advanced / total) * 100)));
+      return {
+        percent,
+        value: Math.min(total, Math.max(0, advanced)),
+        max: total,
+        label: total > 1 ? "other turns…" : (actionSlow ? "still playing…" : "playing…"),
+      };
     }
 
     function storyHandRowsHtml(action) {
@@ -17654,8 +17748,8 @@
     function renderStoryHandChrome(visibleActions) {
       const prompt = document.querySelector(".prompt");
       const inline = usesInlineStoryHand();
-      const expanded = inline && storyHandExpanded && !actionBusy && visibleActions.length > 0;
-      if (!expanded && storyHandExpanded && (!inline || !visibleActions.length || actionBusy)) {
+      const expanded = inline && storyHandExpanded && visibleActions.length > 0;
+      if (!expanded && storyHandExpanded && (!inline || !visibleActions.length)) {
         storyHandExpanded = false;
         storyHandActiveKey = "";
       }
@@ -17672,9 +17766,22 @@
         if (!action) return;
         const original = originalStoryHandAction(action);
         const title = actionTitle(original);
-        play.disabled = !inline || Boolean(original.busy);
-        play.setAttribute("aria-label", `Play ${title}`);
-        discard.disabled = !inline || !canDiscardHandCard(original) || handShuffleBusy;
+        const held = Boolean(action.heldStoryHandAction);
+        const progress = held && storyHandKey(action) === heldStoryHand?.playedKey
+          ? heldStoryHandProgress()
+          : null;
+        play.disabled = !inline || Boolean(original.busy) || held || actionBusy;
+        play.classList.toggle("turn-progress", Boolean(progress));
+        if (progress) {
+          play.style.setProperty("--turn-progress", `${progress.percent}%`);
+          play.innerHTML = `<span class="turn-progress-copy" role="progressbar" aria-valuemin="0" aria-valuemax="${progress.max}" aria-valuenow="${progress.value}" aria-valuetext="${escapeAttr(progress.label)}">${escapeHtml(progress.label)}</span>`;
+          play.setAttribute("aria-label", `${progress.label} after playing ${title}`);
+        } else {
+          play.style.removeProperty("--turn-progress");
+          play.textContent = "Play";
+          play.setAttribute("aria-label", `Play ${title}`);
+        }
+        discard.disabled = !inline || held || actionBusy || !canDiscardHandCard(original) || handShuffleBusy;
         discard.setAttribute("aria-label", `Discard ${title}`);
         discard.title = discard.disabled
           ? "No replacement is available for this card right now."
@@ -17689,7 +17796,7 @@
       if (!usesInlineStoryHand()) return false;
       storyHandExpanded = Boolean(expanded);
       if (storyHandExpanded) {
-        const visibleActions = actionBarActions();
+        const visibleActions = activeHeldStoryHandActions() || actionBarActions();
         const actionIndex = actions.indexOf(action);
         const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex)
           || visibleActions.find((candidate) => storyHandKey(candidate) === storyHandActiveKey)
@@ -18409,7 +18516,7 @@
           busyDetail: presentation.pending[pending.stage] || presentation.pending.queued,
         };
       }
-      button.disabled = Boolean(action.busy);
+      button.disabled = Boolean(action.busy || action.heldStoryHandAction);
       if (action.busy) button.setAttribute("aria-busy", "true");
       else button.removeAttribute("aria-busy");
       if (action.command) button.dataset.command = action.command;
@@ -18501,6 +18608,7 @@
           storyGuideLabel,
           count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
+          action.heldStoryHandAction ? "waiting for other turns" : "",
         ].filter(Boolean).join(", ")
       );
       // A journey travel card keeps the endpoint's Location art — the card is
@@ -18658,7 +18766,26 @@
       const buttonIds = ["primary", "secondary", "tertiary"];
       renderTurnPingPill();
       prompt.classList.toggle("onboarding-mode", state?.primary_action?.kind === "create_avatar");
-      prompt.classList.toggle("single-action", actionBusy);
+      const heldActions = activeHeldStoryHandActions();
+      prompt.classList.toggle("single-action", actionBusy && !heldActions);
+      if (heldActions) {
+        prompt.classList.remove("choice-mode");
+        prompt.classList.toggle("combat-mode", Boolean(state?.combat));
+        for (let index = 0; index < buttonIds.length; index += 1) {
+          const id = buttonIds[index];
+          const visibleAction = heldActions[index]
+            ? {
+                ...heldActions[index],
+                suggestionIndex: index,
+                suggestionCount: heldActions.length,
+              }
+            : null;
+          renderButton(id, visibleAction);
+          $(id).style.display = visibleAction ? "flex" : "none";
+        }
+        renderStoryHandChrome(heldActions);
+        return;
+      }
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
         const busyDetail = typeof pendingAction?.busyDetail === "function"
@@ -18721,6 +18848,7 @@
         render();
         return;
       }
+      holdStoryHandForAction(action);
       actionBusy = true;
       actionSlow = false;
       pendingAction = action;

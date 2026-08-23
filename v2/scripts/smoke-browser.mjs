@@ -855,6 +855,146 @@ async function main() {
     });
   }
 
+  async function assertPlayedHandStaysVisibleDuringOtherTurns() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        state,
+        actions,
+        actorId,
+        actorSession,
+        handKeys: [...handKeys],
+        discardedHandKeys: [...discardedHandKeys],
+        authoritativeHandIdentity,
+        focusIndex,
+        focusedKey,
+        actionBusy,
+        actionSlow,
+        pendingAction,
+        storyHandExpanded,
+        storyHandActiveKey,
+        heldStoryHand,
+        announcedTurnHandoffKey,
+        turnBannerControlRuns,
+      };
+      try {
+        const visible = actionBarActions().slice(0, handCapacity());
+        const played = originalStoryHandAction(visible[0]);
+        if (!played || !visible.length) return { skipped: true };
+        actorId = Number(actorId || 5000);
+        actorSession = actorSession || "story-hand-progress-fixture";
+        state = {
+          ...state,
+          turn: {
+            enabled: true,
+            policy: "scene-turn",
+            scene_kind: "room",
+            current_actor_id: actorId,
+            current_actor_name: "Progress Player",
+            is_current_actor: true,
+            can_need_time: false,
+            waiting_actor_ids: [9001, 9002],
+            handoff_key: "room:1:round:2:activation:10:actor:5000",
+          },
+        };
+        storyHandExpanded = true;
+        holdStoryHandForAction(played);
+        actionBusy = true;
+        pendingAction = played;
+        renderCommands();
+        const playedKey = heldStoryHand?.playedKey || "";
+        const progressButton = [...document.querySelectorAll("[data-hand-play]")]
+          .find((button) => {
+            const id = button.getAttribute("data-hand-play");
+            return storyHandKey(originalStoryHandAction(actionForButton(id))) === playedKey;
+          }) || document.querySelector("[data-hand-play]");
+        const busy = {
+          cards: document.querySelectorAll(".story-card-slot:not([hidden])").length,
+          expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
+          progressText: progressButton?.textContent.trim() || "",
+          progressClass: progressButton?.classList.contains("turn-progress") === true,
+          progressValue: progressButton?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
+          handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
+          bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
+          statusOutsideBanner: !document.querySelector("#turn-ping-pill")?.closest("#turn-banner"),
+          statusPosition: getComputedStyle(document.querySelector("#turn-ping-pill")).position,
+        };
+
+        actionBusy = false;
+        pendingAction = null;
+        state = {
+          ...state,
+          turn: {
+            ...state.turn,
+            current_actor_id: 9001,
+            current_actor_name: "Other Player",
+            is_current_actor: false,
+            handoff_key: "room:1:round:2:activation:11:actor:9001",
+          },
+        };
+        actions = [];
+        renderCommands();
+        const waitingProgress = document.querySelector(".story-card-play.turn-progress");
+        const waiting = {
+          cards: document.querySelectorAll(".story-card-slot:not([hidden])").length,
+          expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
+          progressText: waitingProgress?.textContent.trim() || "",
+          progressValue: waitingProgress?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
+          progressWidth: waitingProgress?.style.getPropertyValue("--turn-progress") || "",
+          handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
+          allCardsDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")]
+            .every((button) => button.disabled),
+          bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
+        };
+        return { skipped: false, visibleCount: visible.length, busy, waiting };
+      } finally {
+        state = previous.state;
+        actions = previous.actions;
+        actorId = previous.actorId;
+        actorSession = previous.actorSession;
+        handKeys = previous.handKeys;
+        discardedHandKeys = previous.discardedHandKeys;
+        authoritativeHandIdentity = previous.authoritativeHandIdentity;
+        focusIndex = previous.focusIndex;
+        focusedKey = previous.focusedKey;
+        actionBusy = previous.actionBusy;
+        actionSlow = previous.actionSlow;
+        pendingAction = previous.pendingAction;
+        storyHandExpanded = previous.storyHandExpanded;
+        storyHandActiveKey = previous.storyHandActiveKey;
+        heldStoryHand = previous.heldStoryHand;
+        announcedTurnHandoffKey = previous.announcedTurnHandoffKey;
+        turnBannerControlRuns = previous.turnBannerControlRuns;
+        render();
+      }
+    });
+    assert(
+      !result.skipped
+        && result.busy.cards === result.visibleCount
+        && result.busy.expanded
+        && result.busy.progressText === "other turns…"
+        && result.busy.progressClass
+        && result.busy.progressValue === "0"
+        && result.busy.handStatus === `${result.visibleCount} cards`
+        && result.busy.bannerHidden
+        && result.busy.statusOutsideBanner
+        && result.busy.statusPosition === "absolute"
+        && result.waiting.cards === result.visibleCount
+        && result.waiting.expanded
+        && result.waiting.progressText === "other turns…"
+        && result.waiting.progressValue === "1"
+        && result.waiting.progressWidth === "33%"
+        && result.waiting.handStatus === `${result.visibleCount} cards`
+        && result.waiting.allCardsDisabled
+        && result.waiting.bannerHidden,
+      `playing a card should keep the hand visible and move initiative progress onto its Play button: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label: "played hand stays visible through other turns",
+      cards: result.visibleCount,
+      progress: result.waiting.progressWidth,
+    });
+  }
+
   async function assertFirstThreadGuide() {
     const guide = await page.evaluate(() => {
       const node = document.querySelector("#updates");
@@ -5382,6 +5522,8 @@ async function main() {
           footerBannerHidden: document.querySelector("#turn-banner").hidden,
           needTimeInFooter: Boolean(document.querySelector('#turn-banner [data-turn-control="need-time"]')),
           footerCopy: document.querySelector("#turn-ping-pill")?.textContent.replace(/\s+/g, " ").trim() || "",
+          footerStatusSeparate: !document.querySelector("#turn-ping-pill")?.closest("#turn-banner"),
+          footerStatusPosition: getComputedStyle(document.querySelector("#turn-ping-pill")).position,
         };
 
         const overflow = rescueRow.querySelector(".combat-rescue-overflow");
@@ -5464,7 +5606,9 @@ async function main() {
       && !result.combat.hasSecondStage, `the existing room rail should be the only combat roster and must not synthesize range zones: ${JSON.stringify(result)}`);
     assert(!result.combat.footerBannerHidden
       && result.combat.needTimeInFooter
-      && result.combat.footerCopy.includes("ordered combat — your turn"), `ordered-combat timing and controls should remain in the banner above the hand: ${JSON.stringify(result)}`);
+      && result.combat.footerCopy.includes("ordered combat — your turn")
+      && result.combat.footerStatusSeparate
+      && result.combat.footerStatusPosition === "absolute", `ordered-combat status should be screen-reader-only while the small need-time control stays available: ${JSON.stringify(result)}`);
     assert(result.ordinary.ariaLabel === "Avatars in this location"
       && result.ordinary.portraitCount === 9
       && result.ordinary.hasOnlooker
@@ -14799,6 +14943,7 @@ async function main() {
   await assertFirstThreadGuide();
   await assertStalePassRefreshesAndRotatesReceipt();
   await assertBrowserDrawReachesEveryLegalAction();
+  await assertPlayedHandStaysVisibleDuringOtherTurns();
   await assertNoComposerOrDebugChrome();
   const itemAvailable = await page.evaluate(() => actions.some((action) => (
     [compactActionLabel(action), action?.detail, action?.command]
