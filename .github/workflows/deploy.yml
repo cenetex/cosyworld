@@ -312,7 +312,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
-        run: npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com --expect-elysium --allow-remote-mutations
+        run: npm run v2:lonelyforest:smoke -- --base-url=https://cosyworld-lonelyforest.fly.dev --shared-transport --expect-elysium --allow-remote-mutations
 
   github-release:
     name: Create GitHub release

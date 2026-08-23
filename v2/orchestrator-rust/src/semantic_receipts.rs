@@ -445,7 +445,24 @@ fn build_lantern_story_receipt(
 }
 
 impl RuntimeWorld {
-    pub(crate) fn append_lantern_story_receipt(
+    pub(crate) fn append_story_presentation_receipts(
+        &mut self,
+        record: &JournalRecord,
+        events: &mut Vec<EventView>,
+    ) {
+        self.append_lantern_story_receipt(record, events);
+        let Some(card_label) = story_card_activity_label(record) else {
+            return;
+        };
+        events.push(self.append_async_job_event(
+            "story.card.played",
+            record.action.actor_id,
+            None,
+            Some(card_label),
+        ));
+    }
+
+    fn append_lantern_story_receipt(
         &mut self,
         record: &JournalRecord,
         events: &mut Vec<EventView>,
@@ -479,6 +496,49 @@ impl RuntimeWorld {
     }
 }
 
+fn story_card_activity_label(record: &JournalRecord) -> Option<String> {
+    if record.version < 19
+        || !matches!(
+            record.origin,
+            JournalOrigin::PlayerCard | JournalOrigin::ActorConsequence
+        )
+    {
+        return None;
+    }
+    let kind = record.offer_kind.as_deref()?.trim();
+    if kind.is_empty()
+        || matches!(
+            kind,
+            "pass"
+                | "draw"
+                | "wait"
+                | "think"
+                | "prepare"
+                | "need_time"
+                | "nudge"
+                | "timeout"
+                | "abandon_avatar"
+        )
+    {
+        return None;
+    }
+    let label = match kind {
+        "explore_path" => "scout",
+        "move" => "travel",
+        "notice_actor" => "notice",
+        "model_interaction" => "ask",
+        "create_bond" => "befriend",
+        "resolve_bond" => "bond",
+        "pick_up" | "pick_up_item" => "take",
+        "drop_item" => "drop",
+        "use_item" | "use_feature" => "use",
+        "give_item" => "give",
+        "trade_item" => "trade",
+        other => other,
+    };
+    Some(label.replace('_', " "))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,6 +570,21 @@ mod tests {
 
     fn receipt(kind: &str, events: &[EventView]) -> SemanticStoryReceipt {
         build_lantern_story_receipt(&record(kind), events).expect("Lantern action receipt")
+    }
+
+    #[test]
+    fn played_cards_get_quiet_activity_labels() {
+        let mut played = record("explore_path").into_player_card();
+        played.version = JOURNAL_RECORD_VERSION;
+        assert_eq!(story_card_activity_label(&played).as_deref(), Some("scout"));
+
+        let mut historical = played.clone();
+        historical.version = 18;
+        assert_eq!(story_card_activity_label(&historical), None);
+        assert_eq!(
+            story_card_activity_label(&record("wait").into_player_card()),
+            None
+        );
     }
 
     #[test]

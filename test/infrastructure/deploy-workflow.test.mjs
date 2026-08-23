@@ -133,7 +133,7 @@ describe('deploy workflow', () => {
     expect(cardPolicyModel.subarray(0, 8).toString('utf8')).toBe('CWRANK2\n');
     expect(cardPolicyModel).toHaveLength(516);
     expect(createHash('sha256').update(cardPolicyModel).digest('hex')).toBe(
-      'c670bf6efac8e95f9bed910955aded920d3570c8c483d0533ea980c9f53e2962'
+      '778558accea1d57cc7fbb1a169cbc2c29d37672971141e2800421c9131775cf4'
     );
     expect(dockerignore).toContain('!models/card-policy/**');
     expect(dockerfile).toContain(
