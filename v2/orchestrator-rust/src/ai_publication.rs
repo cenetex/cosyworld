@@ -135,6 +135,18 @@ impl PublicationCheckCode {
             Self::VoiceAnomalyOmitted => "voice_anomaly_omitted",
         }
     }
+
+    /// Narrative variety is useful for ranking, but it is not a safety,
+    /// grounding, or action-authority boundary. A safe grounded line must not
+    /// disappear merely because its prose shape differs from the requested
+    /// rotation.
+    pub(crate) fn blocks_publication(self) -> bool {
+        self != Self::VoiceBeatFormMismatch
+    }
+
+    fn is_narrative_preference(self) -> bool {
+        !self.blocks_publication()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -162,11 +174,13 @@ pub(crate) struct SpeechGateContext {
 /// A deterministic rank for candidates that have already passed every hard
 /// publication check. This is intentionally not another safety gate and does
 /// not ask a second model to judge the first one: it only prefers deeper scene
-/// grounding, then wording that is less similar to recent dialogue, then
-/// lexical variety. The tuple ordering is the selection policy.
+/// grounding, then narrative-shape fit, then wording that is less similar to
+/// recent dialogue, then lexical variety. The tuple ordering is the selection
+/// policy.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct SpeechCandidateScore {
     pub(crate) anchor_matches: u16,
+    pub(crate) narrative_preference_matches: u8,
     pub(crate) novelty_bps: u16,
     pub(crate) lexical_diversity_bps: u16,
 }
@@ -204,8 +218,13 @@ pub(crate) fn score_speech_candidate(
     } else {
         ((candidate_words.len() * 10_000) / words.len()).min(10_000) as u16
     };
+    let narrative_preference_matches = evaluate_checks(value, value, "stop", context)
+        .into_iter()
+        .filter(|check| check.code.is_narrative_preference() && check.passed)
+        .count() as u8;
     SpeechCandidateScore {
         anchor_matches,
+        narrative_preference_matches,
         novelty_bps: 10_000u16.saturating_sub(max_recent_similarity_bps),
         lexical_diversity_bps,
     }
@@ -390,7 +409,7 @@ pub(crate) fn certify_speech(
     if let Some(failure_code) = receipt
         .checks
         .iter()
-        .find_map(|check| (!check.passed).then_some(check.code))
+        .find_map(|check| (!check.passed && check.code.blocks_publication()).then_some(check.code))
     {
         return Err(Box::new(PublicationRejection {
             receipt,
@@ -2001,7 +2020,7 @@ mod tests {
     }
 
     #[test]
-    fn beat_forms_rotate_and_are_enforced_by_the_gate() {
+    fn beat_forms_rotate_and_are_recorded_without_blocking_safe_speech() {
         assert_eq!(BeatForm::for_beat(0), BeatForm::PureDialogue);
         assert_eq!(BeatForm::for_beat(1), BeatForm::SingleSentence);
         assert_eq!(BeatForm::for_beat(2), BeatForm::UnresolvedQuestion);
@@ -2020,6 +2039,16 @@ mod tests {
             &gate,
             PublicationCheckCode::VoiceBeatFormMismatch,
         ));
+        let speech = certify_speech(
+            None,
+            completion("The teapot clicks. Rain follows."),
+            "The teapot clicks. Rain follows.",
+            gate.clone(),
+        )
+        .expect("a narrative-shape preference must not discard safe grounded speech");
+        assert!(speech.receipt().checks.iter().any(|check| {
+            check.code == PublicationCheckCode::VoiceBeatFormMismatch && !check.passed
+        }));
 
         gate.requirements.required_form = Some(BeatForm::UnresolvedQuestion);
         assert!(check_passed(
@@ -2033,6 +2062,26 @@ mod tests {
             &gate,
             PublicationCheckCode::VoiceBeatFormMismatch,
         ));
+    }
+
+    #[test]
+    fn narrative_shape_preferences_rank_but_never_become_hard_failures() {
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.requirements.required_form = Some(BeatForm::SingleSentence);
+
+        let preferred = score_speech_candidate("The teapot clicks once.", &gate);
+        let safe_alternative = score_speech_candidate("The teapot clicks. Rain follows.", &gate);
+        assert!(
+            preferred.narrative_preference_matches > safe_alternative.narrative_preference_matches
+        );
+        assert!(preferred > safe_alternative);
+
+        assert!(!PublicationCheckCode::VoiceBeatFormMismatch.blocks_publication());
+        assert!(PublicationCheckCode::VoiceQuestionMonoculture.blocks_publication());
+        assert!(PublicationCheckCode::VoiceTerminalAphorism.blocks_publication());
+        assert!(PublicationCheckCode::VoiceUnsafeTone.blocks_publication());
+        assert!(PublicationCheckCode::VoiceAnchorMissing.blocks_publication());
+        assert!(PublicationCheckCode::VoiceUnbackedActionIntent.blocks_publication());
     }
 
     #[test]
