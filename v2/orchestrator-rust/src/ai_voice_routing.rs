@@ -518,6 +518,7 @@ async fn route_certified_voice_with(
                                 candidate_round = candidate.decision.ordinal,
                                 anchor_matches = score.anchor_matches,
                                 narrative_preference_matches = score.narrative_preference_matches,
+                                voice_variety_bps = score.voice_variety_bps,
                                 novelty_bps = score.novelty_bps,
                                 lexical_diversity_bps = score.lexical_diversity_bps,
                                 "AI voice candidate passed the gate and entered ranking"
@@ -577,6 +578,7 @@ async fn route_certified_voice_with(
             certified_pool_size,
             anchor_matches = winner.score.anchor_matches,
             narrative_preference_matches = winner.score.narrative_preference_matches,
+            voice_variety_bps = winner.score.voice_variety_bps,
             novelty_bps = winner.score.novelty_bps,
             lexical_diversity_bps = winner.score.lexical_diversity_bps,
             "selected the highest-ranked certified AI voice candidate"
