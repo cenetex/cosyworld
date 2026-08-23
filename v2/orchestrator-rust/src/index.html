@@ -1596,6 +1596,24 @@
       color: var(--dim);
       font-style: italic;
     }
+    .line.story-card-activity {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.38em;
+      padding: 2px 0;
+      color: rgba(185, 184, 167, 0.58);
+      font: 650 10px/1.3 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.045em;
+    }
+    .story-card-activity::before,
+    .story-card-activity::after {
+      content: "";
+      width: min(7vw, 38px);
+      height: 1px;
+      background: rgba(222, 194, 141, 0.12);
+    }
+    .story-card-activity-card { color: rgba(222, 194, 141, 0.68); }
     .chat-thinking-dots {
       display: inline-flex;
       gap: 4px;
@@ -6175,6 +6193,10 @@
       border-top: 1px solid rgba(var(--slot-accent-rgb), 0.42);
       background: rgba(7, 8, 5, 0.58);
     }
+    .story-card-actions[hidden],
+    .story-card-actions button[hidden] { display: none !important; }
+    .story-card-actions.progress-only { grid-template-columns: minmax(0, 1fr); }
+    .story-card-actions.progress-only .story-card-play { border-left: 0; }
     .story-card-actions button {
       min-width: 0;
       min-height: 46px;
@@ -6222,6 +6244,18 @@
     }
     .story-card-actions button:disabled:not(.turn-progress) { opacity: 0.5; }
     .story-card-actions button:disabled { cursor: default; }
+    .prompt:not(.hand-expanded) .story-card-slot:has(.story-card-play.turn-progress:not([hidden])) {
+      grid-template-rows: 58px 20px;
+    }
+    .prompt:not(.hand-expanded) .story-card-actions.progress-only {
+      display: grid;
+      min-height: 20px;
+    }
+    .prompt:not(.hand-expanded) .story-card-actions.progress-only button {
+      min-height: 20px;
+      padding: 2px 4px;
+      font-size: 8px;
+    }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6304,6 +6338,9 @@
     .prompt.hand-expanded .story-card-slot {
       height: clamp(326px, 49dvh, 438px);
       grid-template-rows: minmax(0, 1fr) 46px;
+    }
+    .prompt.hand-expanded .story-card-slot:has(> .story-card-actions[hidden]) {
+      grid-template-rows: minmax(0, 1fr);
     }
     .prompt.hand-expanded .story-card-actions { display: grid; }
     .prompt.hand-expanded .cmd {
@@ -8681,38 +8718,11 @@
         chatAction.run = () => action("/actions/create-bond", chatAction.selectedPayload());
         return chatAction;
       };
-      if (turn.enabled && !turn.is_current_actor) {
-        const currentName = turn.current_actor_name || "another avatar";
-        const waitingActions = [];
-        if (turn.can_request_timeout) {
-          waitingActions.push({
-            handProvider: {
-              kind: "rules",
-              id: "rules:ordered-scene-timeout",
-              label: "Ordered scene",
-              reason: "Ask the current participant to play or pass",
-              priority: 0,
-            },
-            label: "nudge",
-            detail: `ask ${currentName} to play or pass`,
-            command: "nudge",
-            focusKey: "scene-timeout",
-            card: cardForActor(turn.current_actor_id) || cardForLocation(view.location?.id),
-            shape: "avatar",
-            priority: 0,
-            modalTitle: `gently nudge ${currentName}`,
-            modalSummary: `Ask ${currentName} to play or pass.`,
-            effect: "passes the ordered floor to the next eligible participant",
-            run: () => action("/actions/timeout", { actor_id: actorId }),
-          });
-        }
-        // Ordered-scene status belongs in the turn banner, not the card hand.
-        // A waiting player receives no dealt card here, so nothing can bypass
-      // or crowd the initiative floor. See issue #461.
-      return waitingActions.map(decorateActionHand);
-    }
+      // Initiative controls whether a card can be played or discarded. It
+      // must not replace the player's hand: cards remain available to inspect
+      // while another participant has the floor.
 
-      // Pass and Need time are timing controls, not ranked combat actions.
+      // Pass, Need time, and Nudge are timing controls, not ranked actions.
       // They render in the turn banner so the card row stays reserved for
       // legal current-activation choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
@@ -10197,7 +10207,17 @@
     }
 
     function turnBannerControlSpecs(turn = state?.turn) {
-      if (!turn?.enabled || turn?.policy !== "scene-turn" || !turn?.is_current_actor) return [];
+      if (!turn?.enabled || turn?.policy !== "scene-turn") return [];
+      if (!turn.is_current_actor) {
+        if (!turn.can_request_timeout) return [];
+        const currentName = turn.current_actor_name || "the current player";
+        return [{
+          key: "nudge",
+          label: "nudge",
+          title: `Ask ${currentName} to play or pass.`,
+          run: () => action("/actions/timeout", { actor_id: actorId }),
+        }];
+      }
       if (!turn.can_need_time) return [];
       const seconds = Math.round(Number(turn.need_time_extension_ms || 60000) / 1000);
       return [{
@@ -11956,6 +11976,7 @@
       "model_interaction.output",
       "avatar.thought",
       "avatar.dream",
+      "story.card.played",
     ]);
     const combatTranscriptEventTypes = new Set([
       "combat.encounter.started",
@@ -14300,7 +14321,7 @@
 
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
-      if (["message.created", "image.created", "avatar.thought", "avatar.dream"].includes(event.type)) {
+      if (["message.created", "image.created", "avatar.thought", "avatar.dream", "story.card.played"].includes(event.type)) {
         return null;
       }
       if (
@@ -15049,7 +15070,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream"].includes(event?.type);
+      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream", "story.card.played"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
@@ -15057,8 +15078,16 @@
       if (event?.type === "image.created") return residentImageHtml(event);
       if (event?.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
+      if (event?.type === "story.card.played") return storyCardPlayedHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
+    }
+
+    function storyCardPlayedHtml(event) {
+      const actor = cleanStatusText(event?.actor_name || "Someone") || "Someone";
+      const card = cleanStatusText(event?.content || "a card").toLowerCase() || "a card";
+      const text = `${actor} played ${card}`;
+      return `<div class="line story-card-activity" aria-label="${escapeAttr(text)}"><span>${escapeHtml(actor)} played</span><span class="story-card-activity-card">${escapeHtml(card)}</span></div>`;
     }
 
     function combatAttackTranscriptBeatHtml(event) {
@@ -17667,8 +17696,8 @@
         startActivation: turnActivation(),
         participantCount: Math.max(1, participants.size),
       };
-      storyHandExpanded = true;
-      storyHandActiveKey = storyHandKey(played);
+      storyHandExpanded = false;
+      storyHandActiveKey = "";
     }
 
     function activeHeldStoryHandActions() {
@@ -17741,7 +17770,9 @@
       const card = [...rail.querySelectorAll(".cmd[data-hand-key]")]
         .find((button) => String(button.dataset.handKey || "") === key);
       if (!card) return;
-      const left = card.offsetLeft - Math.max(0, (rail.clientWidth - card.offsetWidth) / 2);
+      const slot = card.closest(".story-card-slot");
+      if (!slot) return;
+      const left = slot.offsetLeft - Math.max(0, (rail.clientWidth - slot.offsetWidth) / 2);
       rail.scrollTo({ left, behavior });
     }
 
@@ -17757,20 +17788,40 @@
       $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
       const count = visibleActions.length;
       $("hand-toggle-status").textContent = `${count} ${count === 1 ? "card" : "cards"}`;
+      const selected = visibleActions.find((action) => storyHandKey(action) === storyHandActiveKey)
+        || visibleActions[0]
+        || null;
+      if (expanded && selected && !storyHandActiveKey) storyHandActiveKey = storyHandKey(selected);
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
+        const card = slot.querySelector(".cmd");
+        const cardActions = slot.querySelector(".story-card-actions");
         const play = document.querySelector(`[data-hand-play="${id}"]`);
         const discard = document.querySelector(`[data-hand-discard="${id}"]`);
         slot.hidden = !action;
-        if (!action) return;
+        if (!action) {
+          card.removeAttribute("aria-current");
+          return;
+        }
+        if (expanded && storyHandKey(action) === storyHandKey(selected)) {
+          card.setAttribute("aria-current", "true");
+        } else {
+          card.removeAttribute("aria-current");
+        }
         const original = originalStoryHandAction(action);
         const title = actionTitle(original);
         const held = Boolean(action.heldStoryHandAction);
+        const waitingForTurn = Boolean(state?.turn?.enabled && !state.turn.is_current_actor);
         const progress = held && storyHandKey(action) === heldStoryHand?.playedKey
           ? heldStoryHandProgress()
           : null;
-        play.disabled = !inline || Boolean(original.busy) || held || actionBusy;
+        const hideTurnActions = waitingForTurn && !progress;
+        play.hidden = hideTurnActions;
+        discard.hidden = waitingForTurn || Boolean(progress);
+        cardActions.hidden = hideTurnActions;
+        cardActions.classList.toggle("progress-only", Boolean(progress));
+        play.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
         play.classList.toggle("turn-progress", Boolean(progress));
         if (progress) {
           play.style.setProperty("--turn-progress", `${progress.percent}%`);
@@ -17787,8 +17838,11 @@
           ? "No replacement is available for this card right now."
           : `Discard ${title} and draw its replacement`;
       });
-      for (const button of $("hand-rail").querySelectorAll(".cmd")) button.removeAttribute("aria-current");
+      const shouldScroll = storyHandScrollPending;
       storyHandScrollPending = false;
+      if (expanded && selected && shouldScroll) {
+        window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
+      }
       renderStoryHandInspector(null);
     }
 
@@ -17818,8 +17872,9 @@
     }
 
     function activateStoryHandAction(action) {
-      if (!action || actionBusy) return;
+      if (!action) return;
       if (!usesInlineStoryHand()) {
+        if (actionBusy) return;
         openActionModal(action, { handCard: true });
         return;
       }
@@ -17841,7 +17896,7 @@
 
     function playStoryHandCard(id) {
       const action = actionForButton(id);
-      if (!action || actionBusy) return;
+      if (!action || actionBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) return;
       if (Array.isArray(action.choices) && action.choices.length > 1) {
         openActionModal(action);
         return;
@@ -17859,9 +17914,15 @@
         .filter((button) => getComputedStyle(button).display !== "none");
       if (!cards.length) return;
       const railCenter = rail.scrollLeft + rail.clientWidth / 2;
+      const cardCenter = (button) => {
+        const slot = button.closest(".story-card-slot");
+        return slot
+          ? slot.offsetLeft + slot.offsetWidth / 2
+          : button.offsetLeft + button.offsetWidth / 2;
+      };
       const card = cards.reduce((nearest, candidate) => {
-        const candidateCenter = candidate.offsetLeft + candidate.offsetWidth / 2;
-        const nearestCenter = nearest.offsetLeft + nearest.offsetWidth / 2;
+        const candidateCenter = cardCenter(candidate);
+        const nearestCenter = cardCenter(nearest);
         return Math.abs(candidateCenter - railCenter) < Math.abs(nearestCenter - railCenter)
           ? candidate
           : nearest;
@@ -18516,7 +18577,8 @@
           busyDetail: presentation.pending[pending.stage] || presentation.pending.queued,
         };
       }
-      button.disabled = Boolean(action.busy || action.heldStoryHandAction);
+      button.disabled = Boolean(action.busy || action.heldStoryHandAction)
+        && !action.inspectableStoryHandAction;
       if (action.busy) button.setAttribute("aria-busy", "true");
       else button.removeAttribute("aria-busy");
       if (action.command) button.dataset.command = action.command;
@@ -18776,6 +18838,7 @@
           const visibleAction = heldActions[index]
             ? {
                 ...heldActions[index],
+                inspectableStoryHandAction: true,
                 suggestionIndex: index,
                 suggestionCount: heldActions.length,
               }
@@ -18817,6 +18880,7 @@
         const visibleAction = visibleActions[index]
           ? {
               ...visibleActions[index],
+              inspectableStoryHandAction: true,
               suggestionIndex: index,
               suggestionCount: visibleActions.length,
             }
@@ -18829,6 +18893,9 @@
 
     function actionForButton(id) {
       const button = $(id);
+      const handKey = String(button?.dataset?.handKey || "");
+      const held = heldStoryHand?.actions?.find((action) => storyHandKey(action) === handKey);
+      if (held) return held;
       const actionIndex = Number(button?.dataset?.actionIndex);
       if (!Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex >= actions.length) {
         return null;

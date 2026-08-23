@@ -912,7 +912,11 @@ async function main() {
           expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
           progressText: progressButton?.textContent.trim() || "",
           progressClass: progressButton?.classList.contains("turn-progress") === true,
+          progressVisible: Boolean(progressButton?.getClientRects().length),
           progressValue: progressButton?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
+          compactHeight: document.querySelector("#hand-rail")?.getBoundingClientRect().height || 0,
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play]:not(.turn-progress), .story-card-slot:not([hidden]) [data-hand-discard]")]
+            .every((button) => button.getClientRects().length === 0),
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
           statusOutsideBanner: !document.querySelector("#turn-ping-pill")?.closest("#turn-banner"),
@@ -934,6 +938,13 @@ async function main() {
         actions = [];
         renderCommands();
         const waitingProgress = document.querySelector(".story-card-play.turn-progress");
+        const inspectableCards = [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")];
+        const selectedCard = inspectableCards.at(-1) || null;
+        selectedCard?.click();
+        scrollStoryHandCardIntoView(actionForButton(selectedCard?.id || ""), "auto");
+        const selectedSlot = selectedCard?.closest(".story-card-slot");
+        const selectedRect = selectedSlot?.getBoundingClientRect();
+        const railRect = document.querySelector("#hand-rail")?.getBoundingClientRect();
         const waiting = {
           cards: document.querySelectorAll(".story-card-slot:not([hidden])").length,
           expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
@@ -941,11 +952,38 @@ async function main() {
           progressValue: waitingProgress?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
           progressWidth: waitingProgress?.style.getPropertyValue("--turn-progress") || "",
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
-          allCardsDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")]
+          allCardsInspectable: inspectableCards.every((button) => !button.disabled),
+          playAndDiscardDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.disabled),
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play]:not(.turn-progress), .story-card-slot:not([hidden]) [data-hand-discard]")]
+            .every((button) => button.getClientRects().length === 0),
+          selectedCardCurrent: selectedCard?.getAttribute("aria-current") === "true",
+          selectedCardActive: String(selectedCard?.dataset.handKey || "") === storyHandActiveKey,
+          selectedCardInView: Boolean(selectedRect && railRect
+            && selectedRect.left >= railRect.left - 1
+            && selectedRect.right <= railRect.right + 1),
+          selectedRect: selectedRect ? { left: selectedRect.left, right: selectedRect.right, width: selectedRect.width } : null,
+          railRect: railRect ? { left: railRect.left, right: railRect.right, width: railRect.width } : null,
+          railScrollLeft: document.querySelector("#hand-rail")?.scrollLeft || 0,
+          selectedSlot: selectedSlot?.dataset.storyCardSlot || "",
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
         };
-        return { skipped: false, visibleCount: visible.length, busy, waiting };
+        const activityEvents = [
+          { type: "message.created", seq: 101, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "Let me check the path." },
+          { type: "story.card.played", seq: 102, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "scout" },
+          { type: "message.created", seq: 103, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "There is a trail here." },
+        ];
+        const activityTranscript = sharedRoomTranscriptEvents(activityEvents);
+        const activityHtml = activityTranscript.map(transcriptEventHtml).join("");
+        const activityRow = transcriptEventHtml(activityEvents[1]);
+        const activity = {
+          order: activityTranscript.map((event) => event.type).join(","),
+          exactText: /Marnie played<\/span><span class="story-card-activity-card">scout<\/span>/.test(activityHtml),
+          subtleRow: activityHtml.includes('class="line story-card-activity"'),
+          noAvatar: !activityRow.includes("chat-pfp"),
+          notRoomMemory: roomMemoryEntryForEvent(activityEvents[1]) === null,
+        };
+        return { skipped: false, visibleCount: visible.length, busy, waiting, activity };
       } finally {
         state = previous.state;
         actions = previous.actions;
@@ -970,10 +1008,13 @@ async function main() {
     assert(
       !result.skipped
         && result.busy.cards === result.visibleCount
-        && result.busy.expanded
+        && !result.busy.expanded
         && result.busy.progressText === "other turns…"
         && result.busy.progressClass
+        && result.busy.progressVisible
         && result.busy.progressValue === "0"
+        && result.busy.compactHeight <= 100
+        && result.busy.turnLocksHidden
         && result.busy.handStatus === `${result.visibleCount} cards`
         && result.busy.bannerHidden
         && result.busy.statusOutsideBanner
@@ -984,12 +1025,23 @@ async function main() {
         && result.waiting.progressValue === "1"
         && result.waiting.progressWidth === "33%"
         && result.waiting.handStatus === `${result.visibleCount} cards`
-        && result.waiting.allCardsDisabled
-        && result.waiting.bannerHidden,
-      `playing a card should keep the hand visible and move initiative progress onto its Play button: ${JSON.stringify(result)}`,
+        && result.waiting.allCardsInspectable
+        && result.waiting.playAndDiscardDisabled
+        && result.waiting.turnLocksHidden
+        && result.waiting.selectedCardCurrent
+        && result.waiting.selectedCardActive
+        && result.waiting.selectedCardInView
+        && result.waiting.selectedSlot === "tertiary"
+        && result.waiting.bannerHidden
+        && result.activity.order === "message.created,story.card.played,message.created"
+        && result.activity.exactText
+        && result.activity.subtleRow
+        && result.activity.noAvatar
+        && result.activity.notRoomMemory,
+      `playing a card should collapse the hand, hide turn locks, keep inspection available, and add subtle card activity to chat: ${JSON.stringify(result)}`,
     );
     steps.push({
-      label: "played hand stays visible through other turns",
+      label: "played hand collapses with subtle turn progress",
       cards: result.visibleCount,
       progress: result.waiting.progressWidth,
     });
@@ -1127,6 +1179,7 @@ async function main() {
             enabled: true,
             policy: "scene-turn",
             is_current_actor: false,
+            can_request_timeout: true,
             current_actor_id: 5001,
             current_actor_name: "Mabel Crumblethorn",
           };
@@ -1187,6 +1240,16 @@ async function main() {
         waitingWelcomeWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [] },
+          action_offers: [{
+            offer_id: "core:1:notice-rati",
+            kind: "notice_actor",
+            command: "notice Rati",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            provider: { kind: "actor", id: "actor:1001", priority: 40 },
+          }],
+          action_hand: {
+            entries: [{ offer_id: "core:1:notice-rati", kind: "notice_actor" }],
+          },
           economy: { listen_attempted_here: false },
           ledger: { unbanked_count: 1, unbanked_marks: [{ category: "witness" }] },
           turn: {
@@ -1493,25 +1556,22 @@ async function main() {
         && guide.roomThreadHand.buttonCue === "",
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
-    // Issue #461: ordered-scene timing is banner status, never a dealt card.
-    // The floor is preserved by dealing a waiting player no bypass action at
-    // all, which is stricter than the previous single observational card.
-    assert(guide.arrivalActions.length === 0, `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits, dealing no bypass card: ${JSON.stringify(guide)}`);
+    // Initiative limits action, not inspection. The current hand stays dealt
+    // while Play and Discard enforce the ordered floor.
+    assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "look", `an explicitly ordered scene should keep an inspectable fallback hand: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
-    assert(guide.waitingWelcomeWithoutOption.length === 0, `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
-    assert(guide.waitingActions.length === 0, `ordinary ordered-scene waiting should preserve the combat floor without a timer card: ${JSON.stringify(guide)}`);
+    assert(guide.waitingWelcomeWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `another player's turn should leave the projected hand available to inspect: ${JSON.stringify(guide)}`);
+    assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "look", `ordinary ordered-scene waiting should keep an inspectable hand: ${JSON.stringify(guide)}`);
     assert(
       guide.nudgeActions.length === 1
-        && guide.nudgeActions[0]?.label === "nudge"
-        && guide.nudgeActions[0]?.focusKey === "scene-timeout"
-        && /play or pass/i.test(guide.nudgeActions[0]?.detail || ""),
-      `an eligible waiting participant should receive the nudge and nothing else: ${JSON.stringify(guide.nudgeActions)}`,
+        && guide.nudgeActions[0]?.label === "look",
+      `a timeout affordance should not replace the inspectable Story Hand: ${JSON.stringify(guide.nudgeActions)}`,
     );
-    assert(guide.gatheringActions.length === 0, `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "look", `a pending ordered-scene handoff should keep the Story Hand inspectable: ${JSON.stringify(guide)}`);
     assert(
       guide.orderedTurnBanner?.copy === "ordered combat — Mabel Crumblethorn acts now"
-        && guide.orderedTurnBanner?.controls?.length === 0,
-      `a waiting combat participant should read the ordered status from the banner: ${JSON.stringify(guide.orderedTurnBanner)}`,
+        && guide.orderedTurnBanner?.controls?.join(",") === "nudge",
+      `a waiting combat participant should reach the timeout affordance without replacing the hand: ${JSON.stringify(guide.orderedTurnBanner)}`,
     );
     assert(
       guide.currentTurnBanner?.copy === "ordered combat — your turn"
@@ -12123,10 +12183,21 @@ async function main() {
           event.type === "ledger.marked" || event.type === "ledger.banked"),
         ledger: state?.ledger || {},
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
-        nonChatRows: rows.filter((node) => node.classList.contains("line") && !node.classList.contains("chat")).length,
+        nonChatRows: rows.filter((node) => (
+          node.classList.contains("line")
+            && !node.classList.contains("chat")
+            && !node.classList.contains("story-card-activity")
+        )).length,
+        cardActivity: [...document.querySelectorAll("#log .story-card-activity")]
+          .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
       };
     }, noticeBefore);
-    assert(scene.eventRows === 0 && scene.nonChatRows === 0, `Notice outcomes should stay out of group chat: ${JSON.stringify(scene)}`);
+    assert(
+      scene.eventRows === 0
+        && scene.nonChatRows === 0
+        && scene.cardActivity.some((line) => /played\s*notice$/i.test(line)),
+      `Notice outcomes should stay out of group chat except for the subtle played-card line: ${JSON.stringify(scene)}`,
+    );
     assert(
       scene.observed === true
         && scene.rolled === false
@@ -13197,20 +13268,31 @@ async function main() {
         && actionBusy === false
         && document.querySelector("#action-modal")?.hidden === true
       ));
-      const afterFirstListen = await other.evaluate(() => ({
-        currentActorId: Number(state?.turn?.current_actor_id || 0),
-        isCurrentActor: state?.turn?.is_current_actor === true,
-        visibleLabels: actionBarActions().map((action) => action.label),
-        primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
-        economy: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        firstTale: state?.first_tale || null,
-        ledger: state?.ledger || {},
-      }));
+      const afterFirstListen = await other.evaluate(() => {
+        setStoryHandExpanded(true, visibleFocusedAction());
+        return {
+          currentActorId: Number(state?.turn?.current_actor_id || 0),
+          isCurrentActor: state?.turn?.is_current_actor === true,
+          visibleLabels: actionBarActions().map((action) => action.label),
+          primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
+          handExpanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
+          cardsInspectable: [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")]
+            .every((button) => !button.disabled),
+          turnActionsDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+            .every((button) => button.disabled),
+          economy: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
+          guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
+          firstTale: state?.first_tale || null,
+          ledger: state?.ledger || {},
+        };
+      });
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.visibleLabels.length === 0,
-        `the newcomer should receive no bypass actions while another room participant acts: ${JSON.stringify(afterFirstListen)}`,
+        afterFirstListen.visibleLabels.length > 0
+          && afterFirstListen.handExpanded
+          && afterFirstListen.cardsInspectable
+          && afterFirstListen.turnActionsDisabled,
+        `the newcomer should be able to inspect their hand without bypassing another participant's turn: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(
         !/earned one|\+1/i.test(afterFirstListen.economy)
@@ -13856,10 +13938,11 @@ async function main() {
         transcriptVisible: visible(document.querySelector("#log")),
         promptVisible: visible(document.querySelector("footer.prompt")),
         chatRows: document.querySelectorAll("#log .line.chat").length,
+        activityRows: document.querySelectorAll("#log .story-card-activity").length,
         roomRows: document.querySelectorAll("#log .line.event.room").length,
         sceneRows: document.querySelectorAll("#log .line.event.scene-card, #log .roll-line").length,
         quietScene: document.querySelectorAll("#log .chat-empty").length,
-        unexpectedRows: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card)").length,
+        unexpectedRows: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card):not(.story-card-activity)").length,
         stateSignature: JSON.stringify({
           sharedQuestions: state?.shared_questions,
           roomMemory: state?.room_memory,
@@ -13881,8 +13964,8 @@ async function main() {
     assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
     assert(room.unexpectedRows === 0 && room.roomRows === 0 && room.sceneRows === 0, `${label}: normal chat should keep system chrome out of the transcript: ${JSON.stringify(room)}`);
     assert(
-      room.chatRows > 0 || room.quietScene === 1,
-      `${label}: the room should show speech or a single quiet chat invitation: ${JSON.stringify(room)}`,
+      room.chatRows > 0 || room.activityRows > 0 || room.quietScene === 1,
+      `${label}: the room should show speech, subtle card activity, or a single quiet chat invitation: ${JSON.stringify(room)}`,
     );
 
     const emptyTicker = await page.evaluate(() => {
@@ -14170,6 +14253,7 @@ async function main() {
         logRole: document.querySelector("#log")?.getAttribute("role") || "",
         lineCount: document.querySelectorAll("#log .line").length,
         chatLineCount: document.querySelectorAll("#log .line.chat").length,
+        activityLineCount: document.querySelectorAll("#log .story-card-activity").length,
         roomLineCount: document.querySelectorAll("#log .line.event.room").length,
         sceneLineCount: document.querySelectorAll("#log .line.event.scene-card").length,
         chatFailureSceneCount: [...document.querySelectorAll("#log .line.event.scene-card")]
@@ -14178,7 +14262,7 @@ async function main() {
         roomFallbackStacked: !roomRow || Boolean(roomLabelRect && roomTextRect && roomLabelRect.bottom <= roomTextRect.top + 1),
         roomFallbackClipped: Boolean(roomText && roomText.scrollHeight > roomText.clientHeight + 1),
         speakerClippedCount,
-        unexpectedLineCount: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card)").length,
+        unexpectedLineCount: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card):not(.story-card-activity)").length,
         legacyListChromeCount: document.querySelectorAll("#route-map,#presence,#features,.route-node,.chip,.feature-pill").length,
         avatarRailCount: document.querySelectorAll(".room-avatar-pfp").length,
         handThumbCount: document.querySelectorAll("footer.prompt .thumb").length,
@@ -14210,8 +14294,8 @@ async function main() {
         && shell.rollLineCount === 0
         && shell.sceneLineCount === 0
         && shell.chatFailureSceneCount === 0
-        && shell.lineCount === shell.chatLineCount,
-      `${label}: group chat should contain speech and no system rows: ${JSON.stringify(shell)}`,
+        && shell.lineCount === shell.chatLineCount + shell.activityLineCount,
+      `${label}: group chat should contain speech and subtle card activity, with no system rows: ${JSON.stringify(shell)}`,
     );
     assert(shell.unexpectedLineCount === 0, `${label}: normal feed should not show bookkeeping rows: ${JSON.stringify(shell)}`);
     assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);

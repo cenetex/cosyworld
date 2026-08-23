@@ -1980,7 +1980,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 18;
+const JOURNAL_RECORD_VERSION: u32 = 19;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -7691,7 +7691,7 @@ impl RuntimeWorld {
             events.extend(self.apply_avatar_level_progression(record.seed, &events.clone()));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
-            self.append_lantern_story_receipt(record, &mut events);
+            self.append_story_presentation_receipts(record, &mut events);
             if record.source_world_tick.is_some() {
                 for event in &mut events {
                     event.apply_async_causality(record);
@@ -37155,7 +37155,7 @@ mod tests {
             "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
-            "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
+            "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\", \"story.card.played\"].includes(event?.type);"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
