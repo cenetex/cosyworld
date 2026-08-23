@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM lukemathwalker/cargo-chef:0.1.77-rust-1-bookworm AS chef
 
 WORKDIR /app/v2/orchestrator-rust
@@ -27,13 +28,12 @@ COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
-# The remote builder's OOM killer SIGKILLs rustc partway through the release
-# build of the orchestrator bin crate, which has kept main undeployable.
-# Cargo hands rustc one jobserver token per job, and rustc sizes its parallel
-# LLVM codegen against those tokens, so serialising jobs keeps a single
-# optimising codegen unit resident instead of many. This trades build time for
-# peak memory and does not change the emitted binary.
-RUN CARGO_BUILD_JOBS=1 cargo build --release
+# Keep release incremental data outside the image layer so the remote builder
+# can reuse unchanged code after the application source COPY invalidates this
+# step. Serial Cargo jobs still cap memory after prior parallel builds were
+# killed by the builder's OOM guard.
+RUN --mount=type=cache,id=cosyworld-release-incremental,target=/app/v2/orchestrator-rust/target/release/incremental,sharing=locked \
+  CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1 cargo build --release
 
 FROM debian:bookworm-slim AS runtime
 
