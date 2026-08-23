@@ -186,6 +186,31 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      # Exactly one actor drives production. An older queued run yields loudly
+      # when main has advanced, and two runs for the same SHA refuse to race.
+      - name: Own this SHA's deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Explicit deployment owns its target directly."
+            exit 0
+          fi
+          main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ -n "$main_sha" ] && [ "$main_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Superseded: main advanced to ${main_sha:0:7}; yielding deployment to the newer commit's run."
+            exit 1
+          fi
+          for status in in_progress queued; do
+            duplicates="$(gh api "repos/${GH_REPO}/actions/runs?status=${status}&head_sha=${GITHUB_SHA}" \
+              --jq "[.workflow_runs[] | select(.name == \"Deploy\" and .id != ${GITHUB_RUN_ID})] | length")"
+            if [ "${duplicates:-0}" -gt 0 ]; then
+              echo "::error::Another ${status} Deploy run already owns ${GITHUB_SHA:0:7}; exactly one actor may drive production."
+              exit 1
+            fi
+          done
+
       # An unreachable primary app fails this gate closed, which blocks the very
       # deploy that would fix it. Supply a reviewed committed capture of the
       # last known /meta to recover; the captured hash is still evaluated
@@ -313,6 +338,48 @@ jobs:
 
       - name: Verify Lonely Forest readiness and persistence
         run: npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com --expect-elysium --allow-remote-mutations
+
+  deploy-outcome:
+    name: Report production deployment outcome
+    runs-on: ubuntu-latest
+    needs: [deployment-impact, production-gate, primary-fly, lonelyforest-fly]
+    if: always()
+    permissions:
+      issues: write
+    steps:
+      # A merge to main that produces no successful deploy must be visible
+      # without anyone going to look.
+      - name: Open a loud tracking issue when a required production deploy did not succeed
+        if: >-
+          needs.deployment-impact.outputs.deploy == 'true' &&
+          (needs.production-gate.result != 'success' ||
+           needs.primary-fly.result == 'failure' ||
+           needs.lonelyforest-fly.result == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GATE_RESULT: ${{ needs.production-gate.result }}
+          PRIMARY_RESULT: ${{ needs.primary-fly.result }}
+          LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
+        run: |
+          title="Production did not deploy ${GITHUB_SHA:0:7}"
+          body=$(cat <<BODY
+          Merge of ${GITHUB_SHA} did not complete a production deployment.
+
+          - Deployment gate: ${GATE_RESULT}
+          - Primary Fly deploy: ${PRIMARY_RESULT}
+          - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
+          - Run log: ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}
+
+          Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
+          BODY
+          )
+          existing="$(gh issue list --state open --search "${title} in:title" --json number --jq 'length')"
+          if [ "${existing:-0}" -eq 0 ]; then
+            gh issue create --title "$title" --body "$body"
+          else
+            echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
+          fi
 
   github-release:
     name: Create GitHub release
