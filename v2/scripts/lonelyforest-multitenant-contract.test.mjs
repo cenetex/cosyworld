@@ -310,6 +310,28 @@ test("Lonely Forest deploy gate proves every configured tenant before image repl
   assert.ok(results.every((result) => result.ok));
 });
 
+test("Lonely Forest deploy gate retries a transient live meta read and still checks the hash", async () => {
+  const hashes = await candidateHashes();
+  const rootTenant = tenants.find((tenant) => tenant.slug === "root");
+  let attempts = 0;
+  const logs = [];
+  const results = await verifyLonelyForestTenants({
+    tenants: [rootTenant],
+    fetchImpl: async (url) => {
+      attempts += 1;
+      if (attempts < 3) throw new Error("temporary network failure");
+      const host = new URL(url).host;
+      return new Response(JSON.stringify({ worldpack: { bundle_hash: hashes.get(host) } }), { status: 200 });
+    },
+    liveFetchRetryDelayMs: 0,
+    log: (message) => logs.push(message),
+  });
+
+  assert.equal(attempts, 3);
+  assert.equal(results[0].status, "exact");
+  assert.equal(logs.filter((message) => message.includes("retrying in 0ms")).length, 2);
+});
+
 test("a new tenant can bootstrap only while its live identity is absent", async () => {
   const hashes = await candidateHashes();
   const unavailableHoppycat = async (url) => {
@@ -320,6 +342,7 @@ test("a new tenant can bootstrap only while its live identity is absent", async 
   const results = await verifyLonelyForestTenants({
     fetchImpl: unavailableHoppycat,
     freshEmptyTenants: new Set(["hoppycat"]),
+    liveFetchRetryDelayMs: 0,
     log: () => {},
   });
   assert.equal(results.find((result) => result.tenant.slug === "hoppycat")?.status, "fresh_install");
@@ -364,7 +387,11 @@ test("an unavailable tenant needs an explicit audited captured identity, never a
     return new Response(JSON.stringify({ worldpack: { bundle_hash: hashes.get(host) } }), { status: 200 });
   };
   await assert.rejects(
-    verifyLonelyForestTenants({ fetchImpl: unavailableLantern, log: () => {} }),
+    verifyLonelyForestTenants({
+      fetchImpl: unavailableLantern,
+      liveFetchRetryDelayMs: 0,
+      log: () => {},
+    }),
     /tenant=lantern.*Refusing to replace the image/,
   );
 
@@ -382,6 +409,7 @@ test("an unavailable tenant needs an explicit audited captured identity, never a
     const results = await verifyLonelyForestTenants({
       fetchImpl: unavailableLantern,
       recoveryCaptures: captures,
+      liveFetchRetryDelayMs: 0,
       log: () => {},
     });
     assert.equal(results.find((result) => result.tenant.slug === "lantern")?.identitySource.includes("recovery capture"), true);

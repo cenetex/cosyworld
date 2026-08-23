@@ -36,6 +36,8 @@ import {
 
 const scriptPath = fileURLToPath(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_LIVE_FETCH_ATTEMPTS = 3;
+const DEFAULT_LIVE_FETCH_RETRY_DELAY_MS = 1_000;
 const CAPTURE_SOURCES = new Set(["tenant-volume", "operator-capture"]);
 
 export class LonelyForestGateError extends Error {}
@@ -112,6 +114,31 @@ function registryForTenant(tenant, root) {
   }
 }
 
+async function fetchLiveWorldpackHashWithRetries({
+  baseUrl,
+  timeoutMs,
+  fetchImpl,
+  attempts,
+  retryDelayMs,
+  tenant,
+  log,
+}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fetchLiveWorldpackHash({ baseUrl, timeoutMs, fetchImpl });
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+      log(`::warning::tenant=${tenant.slug} live /meta read attempt ${attempt}/${attempts} failed (${error.message}); retrying in ${retryDelayMs}ms`);
+      if (retryDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export async function verifyLonelyForestTenants({
   tenants = readLonelyForestTenants(),
   root = repoRoot,
@@ -120,6 +147,8 @@ export async function verifyLonelyForestTenants({
   freshEmptyTenants = new Set(),
   fetchImpl = fetch,
   log = console.log,
+  liveFetchAttempts = DEFAULT_LIVE_FETCH_ATTEMPTS,
+  liveFetchRetryDelayMs = DEFAULT_LIVE_FETCH_RETRY_DELAY_MS,
 }) {
   const results = [];
   const usedRecoveryCaptures = new Set();
@@ -139,7 +168,15 @@ export async function verifyLonelyForestTenants({
     let liveHash;
     let identitySource = "live /meta";
     try {
-      liveHash = await fetchLiveWorldpackHash({ baseUrl, timeoutMs, fetchImpl });
+      liveHash = await fetchLiveWorldpackHashWithRetries({
+        baseUrl,
+        timeoutMs,
+        fetchImpl,
+        attempts: liveFetchAttempts,
+        retryDelayMs: liveFetchRetryDelayMs,
+        tenant,
+        log,
+      });
     } catch (error) {
       if (freshEmptyTenants.has(tenant.slug)) {
         usedFreshEmptyTenants.add(tenant.slug);
