@@ -60,6 +60,12 @@ fn deterministic_voice_response(prompt: &str, sequence: u64) -> String {
     let speaker = prompt
         .lines()
         .find_map(|line| line.strip_prefix("current speech owner: "))
+        .or_else(|| {
+            prompt
+                .lines()
+                .find_map(|line| line.strip_prefix("SELF · "))
+                .and_then(|line| line.split(" — ").next())
+        })
         .unwrap_or_default();
     if speaker == "Gust" {
         return "☕🌧️🔥".to_string();
@@ -67,10 +73,37 @@ fn deterministic_voice_response(prompt: &str, sequence: u64) -> String {
     if speaker == "Skull" {
         return "*hearth watch continues*".to_string();
     }
+    let counterpart = prompt
+        .lines()
+        .find_map(|line| line.strip_prefix("OTHER · "))
+        .and_then(|line| line.split(" — ").next())
+        .filter(|line| !line.trim().is_empty());
+    if let Some(counterpart) = counterpart {
+        let observations = [
+            "one detail here has my attention",
+            "something nearby seems worth noticing",
+            "the room has given me a practical thought",
+            "I want to look at what changed here",
+            "there is a small detail I do not want to miss",
+            "I am weighing what this place offers",
+            "one quiet change here seems important",
+            "I have a preference about what happens next",
+        ];
+        return format!(
+            "{counterpart}, {}.",
+            observations[(sequence as usize) % observations.len()]
+        );
+    }
     let location = prompt
         .lines()
         .find_map(|line| line.strip_prefix("where i am: "))
         .and_then(|line| line.split(" — ").next())
+        .or_else(|| {
+            prompt
+                .split("\"location\":\"")
+                .nth(1)
+                .and_then(|tail| tail.split('"').next())
+        })
         .filter(|line| !line.trim().is_empty())
         .unwrap_or("this room");
     let lines = [
@@ -143,5 +176,14 @@ mod tests {
             deterministic_voice_response("current speech owner: Skull", 0),
             "*hearth watch continues*"
         );
+    }
+
+    #[test]
+    fn current_context_spine_voice_names_the_grounded_counterpart() {
+        let response = deterministic_voice_response(
+            "SELF · Policy Collector — Careful Listener\nOTHER · Rati — Landlady\nOBSERVATION_JSON · {\"location\":\"The Cosy Cottage\"}",
+            0,
+        );
+        assert_eq!(response, "Rati, one detail here has my attention.");
     }
 }

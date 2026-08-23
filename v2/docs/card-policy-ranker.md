@@ -162,10 +162,10 @@ them. The simulation is deterministic except for elapsed-time and throughput
 fields.
 
 On the current fixed-seed 10,000-avatar, top-3 regression population, the
-learned policy found treasure in all 10,000 episodes with 8.190 mean turns,
-p50/p90/p99 of 8/12/15 turns, and a 38.0% draw rate. Clearing avatar history
-reduced success to 10.2% and timed out 8,980 episodes; history changed the top
-card on 82.5% and the final A/B/DRAW action on 70.8% of decisions made after
+learned policy found treasure in all 10,000 episodes with 8.174 mean turns,
+p50/p90/p99 of 8/12/15 turns, and a 38.6% draw rate. Clearing avatar history
+reduced success to 10.0% and timed out 9,000 episodes; history changed the top
+card on 78.6% and the final A/B/DRAW action on 68.3% of decisions made after
 history existed. The exact oracle averaged 4.338 turns. This regression exists
 specifically to prevent a policy that accepts history-shaped inputs but ignores
 them, or the former permissive top-3 behavior, from returning.
@@ -280,10 +280,12 @@ bash scripts/collect-card-policy-objectives.sh 500
 ```
 
 `COSYWORLD_CARD_POLICY_COLLECT_TREASURE_IDS` accepts a comma-separated item-id
-list for controlled canaries. `COSYWORLD_CARD_POLICY_COLLECT_MAX_TURNS` and
-`COSYWORLD_CARD_POLICY_COLLECT_ACTIONS` can drive longer objectives; the action
-sequence needs at least `max_turns + 1` response triggers. Only enabled,
-authoritative offers are submitted.
+list for controlled canaries. By default the collector notices a resident,
+rotates Chat into view, starts a two-turn objective, then plays Chat and one
+pickup trigger. `COSYWORLD_CARD_POLICY_COLLECT_SETUP_ACTIONS`,
+`COSYWORLD_CARD_POLICY_COLLECT_MAX_TURNS`, and
+`COSYWORLD_CARD_POLICY_COLLECT_ACTIONS` can drive other objectives. Only
+enabled, authoritative offers are submitted.
 
 Prepare one or more completed shard datasets for learning with a deterministic
 world-level 70/15/15 split:
