@@ -175,11 +175,15 @@ The router is bounded by:
 Each generation is a durable leased job in the orchestrator SQLite store.
 Every provider request is pinned to one selected candidate with provider-local
 retries disabled. All responses completed inside the configured bounds pass
-through the hard publication gate. Certified responses are ranked
-deterministically by scene-anchor depth, novelty against recent dialogue, and
-lexical diversity; candidate ID is the stable final tie-break. The highest
-ranked response wins one atomic compare-and-set. Duplicate or restarted work
-returns the accepted text and receipt without selecting again; an expired lease
+through the publication gate. Safety, grounding, envelope, completion,
+repetition, speech mode, prose-quality, and action-authority checks remain hard
+failures. The rotating beat-form check remains recorded in the receipt but is a
+ranking preference, so sentence shape alone cannot turn a safe grounded Chat
+into a visible failure. Certified responses are ranked deterministically by
+scene-anchor depth, beat-form fit, novelty against recent dialogue, and lexical
+diversity; candidate ID is the stable final tie-break. The highest ranked
+response wins one atomic compare-and-set. Duplicate or restarted work returns
+the accepted text and receipt without selecting again; an expired lease
 receives at most one named retry. Exhausted bounds return a stable typed
 unavailable code. Rejected candidates persist hashes, evidence, and decision
 metadata, never raw output bytes. The existing publication journal precondition
