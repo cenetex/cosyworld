@@ -5751,9 +5751,6 @@
       .story-card-actions .story-card-play.turn-progress::before {
         transition: none;
       }
-      .story-card-play .turn-progress-copy.turn-activity-live {
-        animation: none;
-      }
     }
     /* Combat is a live game state, not a kind of chat. Keep the immediate
        result beside the encounter and disclose the deeper ledger on demand. */
@@ -6231,11 +6228,6 @@
       color: var(--slot-accent);
       letter-spacing: 0.035em;
       text-transform: none;
-      animation: turn-activity-live 2600ms ease-out both;
-    }
-    @keyframes turn-activity-live {
-      0%, 72% { opacity: 1; }
-      100% { opacity: 0; }
     }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
@@ -7054,7 +7046,6 @@
     let storyHandActiveKey = "";
     let heldStoryHand = null;
     let storyHandTurnActivity = "";
-    let storyHandTurnActivityTimer = null;
     let storyHandScrollPending = false;
     let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
@@ -17698,8 +17689,6 @@
     }
 
     function clearStoryHandTurnActivity() {
-      if (storyHandTurnActivityTimer) window.clearTimeout(storyHandTurnActivityTimer);
-      storyHandTurnActivityTimer = null;
       storyHandTurnActivity = "";
     }
 
@@ -17708,12 +17697,6 @@
       const actor = cleanStatusText(event.actor_name || "Someone") || "Someone";
       const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
       storyHandTurnActivity = `${actor} played ${card}`;
-      if (storyHandTurnActivityTimer) window.clearTimeout(storyHandTurnActivityTimer);
-      storyHandTurnActivityTimer = window.setTimeout(() => {
-        storyHandTurnActivityTimer = null;
-        storyHandTurnActivity = "";
-        if (state) renderCommands();
-      }, 2600);
       return true;
     }
 

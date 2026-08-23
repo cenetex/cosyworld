@@ -984,9 +984,26 @@ async function main() {
           presented: activityPresented,
           onCardText: activityProgress?.textContent.trim() || "",
           live: activityProgress?.querySelector(".turn-activity-live") !== null,
+          timerFree: !presentStoryHandTurnActivity.toString().includes("setTimeout"),
           notInChat: !activityHtml.includes("played scout"),
           notRoomMemory: roomMemoryEntryForEvent(activityEvents[1]) === null,
         };
+        activity.unrelatedPresented = presentStoryHandTurnActivity(activityEvents[2]);
+        renderCommands();
+        const persistentProgress = document.querySelector(".story-card-play.turn-progress");
+        activity.persistentText = persistentProgress?.textContent.trim() || "";
+        const replacementPresented = presentStoryHandTurnActivity({
+          type: "story.card.played",
+          seq: 104,
+          actor_id: 9002,
+          actor_name: "Ruby",
+          location_id: state.location?.id,
+          content: "notice",
+        });
+        renderCommands();
+        const replacementProgress = document.querySelector(".story-card-play.turn-progress");
+        activity.replacementPresented = replacementPresented;
+        activity.replacementText = replacementProgress?.textContent.trim() || "";
         return { skipped: false, visibleCount: visible.length, busy, waiting, activity };
       } finally {
         state = previous.state;
@@ -1043,9 +1060,14 @@ async function main() {
         && result.activity.presented
         && result.activity.onCardText === "Marnie played scout"
         && result.activity.live
+        && result.activity.timerFree
+        && !result.activity.unrelatedPresented
+        && result.activity.persistentText === "Marnie played scout"
+        && result.activity.replacementPresented
+        && result.activity.replacementText === "Ruby played notice"
         && result.activity.notInChat
         && result.activity.notRoomMemory,
-      `playing a card should collapse the hand, hide turn locks, keep inspection available, and show card activity on its progress strip: ${JSON.stringify(result)}`,
+      `playing a card should collapse the hand, hide turn locks, keep inspection available, and keep card activity on its progress strip until the next play: ${JSON.stringify(result)}`,
     );
     steps.push({
       label: "played hand collapses with subtle turn progress",
