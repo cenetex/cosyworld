@@ -244,6 +244,20 @@ impl RuntimeWorld {
             .any(|objective| objective.actor_id == actor_id && objective.active())
     }
 
+    pub(super) fn prepare_card_policy_objective_plan(
+        &self,
+        mut plan: AvatarReplyPlan,
+    ) -> AvatarReplyPlan {
+        // A moderator-created objective is explicit supervised intent work.
+        // Direct Chat normally needs voice only, but while this private
+        // objective is active it must also capture the bounded card decision
+        // and counterfactual label used by shadow training.
+        if self.actor_has_active_treasure_objective(plan.speaker_actor_id) {
+            plan.planner_requested = true;
+        }
+        self.prepare_resident_planner_snapshot(plan)
+    }
+
     pub(super) fn apply_treasure_objective_start(
         &mut self,
         start: &TreasureObjectiveStart,
@@ -752,7 +766,7 @@ pub(super) async fn complete_avatar_reply(
 ) -> Result<bool, String> {
     let (plan, committed) = {
         let mut runtime = state.inner.lock().await;
-        let plan = runtime.prepare_resident_planner_snapshot(plan);
+        let plan = runtime.prepare_card_policy_objective_plan(plan);
         let committed = state
             .card_policy
             .as_deref()
@@ -901,6 +915,30 @@ mod tests {
             .expect("rank test observation")
             .action_for_hand(snapshot.hand_candidate_indices, 1)
             .expect("adapt test ranking")
+    }
+
+    #[test]
+    fn active_objective_promotes_a_voice_reply_to_a_labeled_planner_turn() {
+        let mut runtime = RuntimeWorld::seeded();
+        active_test_treasure_objective(&mut runtime, 8);
+        let plan = runtime
+            .resident_reply_plan_for_target(
+                SKULL_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "Which path should we take?",
+            )
+            .expect("seeded resident reply plan");
+        assert!(!plan.planner_requested);
+
+        let prepared = runtime.prepare_card_policy_objective_plan(plan);
+
+        assert!(prepared.planner_requested);
+        assert!(!prepared.planner_candidates.is_empty());
+        assert!(prepared
+            .card_policy_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.branch_label.as_ref())
+            .is_some_and(|label| label.objective_id == "test-card-policy-treasure"));
     }
 
     #[tokio::test]

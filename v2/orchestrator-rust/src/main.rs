@@ -22812,12 +22812,12 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
             Ok(None) => {
                 tokio::select! {
                     _ = state.actor_job_notify.notified() => {},
-                    _ = tokio::time::sleep(ACTOR_JOB_IDLE_POLL) => {},
+                    _ = tokio::time::sleep(actor_job_idle_poll()) => {},
                 }
             }
             Err(error) => {
                 warn!("durable actor worker could not claim a job: {}", error);
-                tokio::time::sleep(ACTOR_JOB_IDLE_POLL).await;
+                tokio::time::sleep(actor_job_idle_poll()).await;
             }
         }
     }
