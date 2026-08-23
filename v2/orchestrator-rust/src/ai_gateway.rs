@@ -72,7 +72,7 @@ const OPENROUTER_CURRENT_KEY_ENDPOINT: &str = "key";
 const OPENROUTER_KEY_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 const OPENROUTER_KEY_RESPONSE_MAX_BYTES: usize = 64 * 1024;
 const OPENROUTER_ROOM_SESSION_PREFIX: &str = "cosyworld-room-";
-const SERVER_PAID_DAILY_LIMIT_USD: f64 = 10.0;
+const SERVER_PAID_DAILY_LIMIT_USD: f64 = 20.0;
 static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 // The exact-bound STT gateway is intentionally dormant until a server-authored
 // transcription action owns its input provenance and publication contract.
@@ -905,7 +905,7 @@ impl AiGatewayError {
                 terminal: true,
             },
             message: format!(
-                "AI {feature} is paused because the $10 UTC daily server budget is exhausted"
+                "AI {feature} is paused because the ${SERVER_PAID_DAILY_LIMIT_USD:.0} UTC daily server budget is exhausted"
             ),
             attempts: 0,
             latency: Duration::ZERO,
@@ -4453,10 +4453,10 @@ mod tests {
     use tokio::net::TcpListener;
 
     #[test]
-    fn server_budget_closes_at_ten_dollars_and_resets_on_utc_boundary() {
-        assert!(!server_daily_spend_exhausted(9.999_999));
-        assert!(server_daily_spend_exhausted(10.0));
-        assert!(server_daily_spend_exhausted(10.01));
+    fn server_budget_closes_at_twenty_dollars_and_resets_on_utc_boundary() {
+        assert!(!server_daily_spend_exhausted(19.999_999));
+        assert!(server_daily_spend_exhausted(20.0));
+        assert!(server_daily_spend_exhausted(20.01));
         assert_eq!(next_utc_day_unix(0), 86_400);
         assert_eq!(next_utc_day_unix(86_399), 86_400);
         assert_eq!(next_utc_day_unix(86_400), 172_800);
