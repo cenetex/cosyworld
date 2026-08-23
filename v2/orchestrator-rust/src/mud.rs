@@ -925,6 +925,9 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             let returned = event
                 .target_item_name
                 .as_deref()
+                // An empty returned-item name renders as "hands you  to make
+                // room"; treat it as absent so the clause is omitted instead.
+                .filter(|item| !item.is_empty())
                 .map(|item| format!(", who hands you {item} to make room"))
                 .unwrap_or_default();
             Some(format!(
@@ -4097,5 +4100,52 @@ mod tests {
             None
         );
         assert_eq!(canonical_command_verb("speak"), "speak");
+    }
+}
+
+#[cfg(test)]
+mod give_receipt_tests {
+    use super::*;
+
+    fn given_event(target_item_name: Option<String>) -> EventView {
+        EventView {
+            type_name: "item.given".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Wick".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_id: None,
+            item_name: Some("Hearth Tonic".to_string()),
+            target_actor_id: Some(1002),
+            target_actor_name: Some("Gust".to_string()),
+            target_item_name,
+            ..EventView::default()
+        }
+    }
+
+    #[test]
+    fn an_empty_returned_item_name_omits_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some(String::new())))
+            .expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
+        assert!(!output.contains("  "), "no double spaces in the receipt");
+        assert!(!output.contains("hands you"));
+    }
+
+    #[test]
+    fn a_named_returned_item_keeps_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some("Dandelion Tea".to_string())))
+            .expect("item.given always renders a receipt");
+        assert_eq!(
+            output,
+            "You give Hearth Tonic to Gust, who hands you Dandelion Tea to make room."
+        );
+    }
+
+    #[test]
+    fn an_absent_returned_item_name_omits_the_make_room_clause() {
+        let output =
+            command_event_output(&given_event(None)).expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
     }
 }

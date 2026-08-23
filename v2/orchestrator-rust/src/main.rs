@@ -664,6 +664,10 @@ struct JourneyNarrationPlan {
     current_step: usize,
     total_steps: usize,
     discovery: bool,
+    /// True only when the planned action actually moves the actor this turn.
+    /// Pathway discovery plans a route without moving, so its narration must
+    /// never claim the actor has already left.
+    moved: bool,
 }
 
 const JOB_CONTRIBUTION_SCHEMA_VERSION: u8 = 1;
@@ -1980,7 +1984,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 18;
+const JOURNAL_RECORD_VERSION: u32 = 19;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -7715,7 +7719,7 @@ impl RuntimeWorld {
             events.extend(self.apply_avatar_level_progression(record.seed, &events.clone()));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
-            self.append_lantern_story_receipt(record, &mut events);
+            self.append_story_presentation_receipts(record, &mut events);
             if record.source_world_tick.is_some() {
                 for event in &mut events {
                     event.apply_async_causality(record);
@@ -11352,6 +11356,7 @@ impl RuntimeWorld {
                         1
                     },
                     discovery: false,
+                    moved: true,
                 };
                 return Ok(Some((
                     CwAction {
@@ -11406,6 +11411,7 @@ impl RuntimeWorld {
                 current_step: next_step,
                 total_steps: current.path.len().saturating_sub(1),
                 discovery: false,
+                moved: true,
             };
             return Ok(Some((
                 CwAction {
@@ -11491,6 +11497,7 @@ impl RuntimeWorld {
                         current_step: 1,
                         total_steps: path.len().saturating_sub(1),
                         discovery: false,
+                        moved: true,
                     },
                 )));
             }
@@ -11554,6 +11561,7 @@ impl RuntimeWorld {
             current_step: 1,
             total_steps: path.len().saturating_sub(1),
             discovery: discovering_pathway,
+            moved: false,
         };
         Ok((
             CwAction {
@@ -11619,6 +11627,7 @@ impl RuntimeWorld {
             current_step: next_step,
             total_steps: current.path.len().saturating_sub(1),
             discovery: true,
+            moved: false,
         };
         Ok((
             CwAction {
@@ -22836,12 +22845,12 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
             Ok(None) => {
                 tokio::select! {
                     _ = state.actor_job_notify.notified() => {},
-                    _ = tokio::time::sleep(ACTOR_JOB_IDLE_POLL) => {},
+                    _ = tokio::time::sleep(actor_job_idle_poll()) => {},
                 }
             }
             Err(error) => {
                 warn!("durable actor worker could not claim a job: {}", error);
-                tokio::time::sleep(ACTOR_JOB_IDLE_POLL).await;
+                tokio::time::sleep(actor_job_idle_poll()).await;
             }
         }
     }
@@ -22954,34 +22963,6 @@ fn trim_to_chars(value: &str, max_chars: usize) -> String {
         .collect::<String>();
     out.push('…');
     out
-}
-
-fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
-    if plan.current_step >= plan.total_steps {
-        return format!(
-            "The last turn of the path gives way, and {} arrives in {}.",
-            plan.actor_name, plan.destination_name
-        );
-    }
-    if plan.discovery {
-        return format!(
-            "{} reads the ground beyond {}. A way into {} takes shape, one usable landmark at a time.",
-            plan.actor_name, plan.from_name, plan.to_name
-        );
-    }
-    format!(
-        "{} leaves {} behind. The path gathers itself around {}, with {} turn{} still between here and {}.",
-        plan.actor_name,
-        plan.from_name,
-        plan.to_name,
-        plan.total_steps.saturating_sub(plan.current_step),
-        if plan.total_steps.saturating_sub(plan.current_step) == 1 {
-            ""
-        } else {
-            "s"
-        },
-        plan.destination_name
-    )
 }
 
 async fn generate_hidden_pathway_content(

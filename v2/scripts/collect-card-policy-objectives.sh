@@ -8,8 +8,9 @@ OBJECTIVE_COUNT="${1:-600}"
 START_EPISODE="${COSYWORLD_CARD_POLICY_COLLECT_START_EPISODE:-0}"
 RUN_ID="${COSYWORLD_CARD_POLICY_COLLECT_RUN_ID:-local}"
 SETTLE_SECONDS="${COSYWORLD_CARD_POLICY_COLLECT_SETTLE_SECONDS:-0.35}"
-OBJECTIVE_MAX_TURNS="${COSYWORLD_CARD_POLICY_COLLECT_MAX_TURNS:-1}"
-ACTION_SEQUENCE="${COSYWORLD_CARD_POLICY_COLLECT_ACTIONS:-pick_up,pick_up}"
+OBJECTIVE_MAX_TURNS="${COSYWORLD_CARD_POLICY_COLLECT_MAX_TURNS:-2}"
+SETUP_ACTION_SEQUENCE="${COSYWORLD_CARD_POLICY_COLLECT_SETUP_ACTIONS:-notice_actor}"
+ACTION_SEQUENCE="${COSYWORLD_CARD_POLICY_COLLECT_ACTIONS:-chat,pick_up}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORCHESTRATOR_DIR="$(cd "${SCRIPT_DIR}/../orchestrator-rust" && pwd)"
 LAB_BIN="${COSYWORLD_CARD_POLICY_LAB_BIN:-${ORCHESTRATOR_DIR}/target/debug/card-policy-lab}"
@@ -30,8 +31,12 @@ if ! [[ "$OBJECTIVE_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 IFS=',' read -r -a ACTIONS <<<"$ACTION_SEQUENCE"
-if ((${#ACTIONS[@]} < OBJECTIVE_MAX_TURNS + 1)); then
-  echo "action sequence must contain at least max turns plus one trigger" >&2
+SETUP_ACTIONS=()
+if [[ -n "$SETUP_ACTION_SEQUENCE" ]]; then
+  IFS=',' read -r -a SETUP_ACTIONS <<<"$SETUP_ACTION_SEQUENCE"
+fi
+if ((${#ACTIONS[@]} < 1)); then
+  echo "action sequence must contain at least one trigger" >&2
   exit 2
 fi
 
@@ -72,6 +77,14 @@ post_json() {
   local path="$1"
   local body="$2"
   curl -fsS --max-time 10 -X POST "${BASE_URL}${path}" \
+    -H 'Content-Type: application/json' \
+    -d "$body"
+}
+
+post_json_lenient() {
+  local path="$1"
+  local body="$2"
+  curl -sS --max-time 10 -X POST "${BASE_URL}${path}" \
     -H 'Content-Type: application/json' \
     -d "$body"
 }
@@ -117,12 +130,13 @@ objective_terminal_count() {
     2>/dev/null || echo 0
 }
 
-wait_for_resident_message() {
+wait_for_resident_turn() {
   local before="$1"
+  local objective_id="$2"
   local current="$before"
   for _ in {1..120}; do
     current="$(resident_message_count)"
-    if ((current > before)); then
+    if ((current > before)) || (( $(objective_terminal_count "$objective_id") > 0 )); then
       sleep "$SETTLE_SECONDS"
       return 0
     fi
@@ -139,6 +153,23 @@ state_for() {
     "${BASE_URL}/state?actor_id=${actor_id}&actor_session=${actor_session}"
 }
 
+wait_for_player_turn() {
+  local actor_id="$1"
+  local actor_session="$2"
+  local state
+  for _ in {1..240}; do
+    state="$(state_for "$actor_id" "$actor_session")"
+    if jq -e --argjson actor "$actor_id" \
+      '(.turn.enabled | not) or .turn.is_current_actor or (.turn.current_actor_id == $actor)' \
+      <<<"$state" >/dev/null; then
+      return 0
+    fi
+    sleep 0.05
+  done
+  echo "player turn did not return for actor ${actor_id}" >&2
+  return 1
+}
+
 submit_offer() {
   local actor_id="$1"
   local actor_session="$2"
@@ -149,11 +180,20 @@ submit_offer() {
     'first(.action_offers[] | select(.kind == $kind and (.disabled | not)))' \
     <<<"$state")"
   if [[ -z "$offer" || "$offer" == "null" ]]; then
-    echo "no enabled ${requested_kind} offer" >&2
+    echo "no enabled ${requested_kind} offer; current offers: $(jq -c '[.action_offers[] | select(.disabled | not) | {kind,target}]' <<<"$state")" >&2
     return 1
   fi
 
   case "$requested_kind" in
+    notice_actor)
+      path="/actions/notice"
+      body="$(jq -cn \
+        --argjson offer "$offer" \
+        --arg path "$path" \
+        --arg session "$actor_session" \
+        --argjson actor "$actor_id" \
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,target_actor_id:$offer.target.id}}')"
+      ;;
     pick_up)
       path="/actions/pick-up"
       item_id="$(jq -r '.target.id' <<<"$offer")"
@@ -163,7 +203,7 @@ submit_offer() {
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
         --argjson item "$item_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_item_id:null,target_actor_id:null}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_item_id:null,target_actor_id:null}}')"
       ;;
     check)
       path="/actions/check"
@@ -172,7 +212,7 @@ submit_offer() {
         --arg path "$path" \
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,ability:"wisdom",dc:null,target_actor_id:null}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,ability:"wisdom",dc:null,target_actor_id:null}}')"
       ;;
     use_feature)
       path="/actions/use-item"
@@ -185,7 +225,7 @@ submit_offer() {
         --arg feature "$feature_key" \
         --argjson actor "$actor_id" \
         --argjson item "$item_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_actor_id:null,location_id:$offer.target.id,feature_key:$feature}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_actor_id:null,location_id:$offer.target.id,feature_key:$feature}}')"
       ;;
     rest)
       path="/actions/rest"
@@ -194,7 +234,7 @@ submit_offer() {
         --arg path "$path" \
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session}}')"
       ;;
     craft)
       path="/actions/craft"
@@ -203,7 +243,7 @@ submit_offer() {
         --arg path "$path" \
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,recipe_id:$offer.target.id,receipt_id:null}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,recipe_id:$offer.target.id,receipt_id:null}}')"
       ;;
     chat)
       path="/actions/chat"
@@ -212,7 +252,7 @@ submit_offer() {
         --arg path "$path" \
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,target_actor_id:$offer.target.id}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,target_actor_id:$offer.target.id}}')"
       ;;
     give_item)
       path="/actions/give-item"
@@ -223,7 +263,7 @@ submit_offer() {
         --arg session "$actor_session" \
         --argjson actor "$actor_id" \
         --argjson item "$item_id" \
-        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,rules_action:$offer.rules_action,operation:$offer.operation,rules_profile:$offer.rules_profile,state_revision:$offer.state_revision,route:$offer.route,target:$offer.target,cost:$offer.cost,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_actor_id:$offer.target.id}}')"
+        '{path:$path,offer_id:$offer.offer_id,composition_id:$offer.composition_id,kind:$offer.kind,payload:{actor_id:$actor,actor_session:$session,item_id:$item,target_actor_id:$offer.target.id}}')"
       ;;
     *)
       echo "unsupported collection offer kind: ${requested_kind}" >&2
@@ -239,6 +279,48 @@ submit_offer() {
   fi
 }
 
+seek_offer() {
+  local actor_id="$1"
+  local actor_session="$2"
+  local requested_kind="$3"
+  local state think body response
+  for _ in {1..64}; do
+    state="$(state_for "$actor_id" "$actor_session")"
+    if jq -e --arg kind "$requested_kind" \
+      'any(.action_offers[]; .kind == $kind and (.disabled | not))' \
+      <<<"$state" >/dev/null; then
+      return 0
+    fi
+    # Prefer the Self slot for Heart-card collection actions such as Chat.
+    # Fall back to any rotatable slot for other custom collection actions.
+    think="$(jq -c \
+      '([.action_hand.entries[] | select(.slot == "self" and .think.available) | .think]
+        + [.action_hand.entries[] | select(.think.available) | .think]) | first' \
+      <<<"$state")"
+    if [[ -z "$think" || "$think" == "null" ]]; then
+      echo "cannot rotate Story Hand to ${requested_kind}" >&2
+      return 1
+    fi
+    body="$(jq -cn \
+      --arg session "$actor_session" \
+      --argjson actor "$actor_id" \
+      --arg offer_id "$(jq -r '.offer_id' <<<"$think")" \
+      '{actor_id:$actor,actor_session:$session,command:"think",offer_id:$offer_id}')"
+    response="$(post_json_lenient /commands "$body")"
+    if [[ "$(jq -r '.ok' <<<"$response")" != "true" ]]; then
+      if [[ "$(jq -r '.status // 0' <<<"$response")" =~ ^(409|423)$ ]]; then
+        wait_for_player_turn "$actor_id" "$actor_session"
+        continue
+      fi
+      echo "Story Hand rotation failed: ${response}" >&2
+      return 1
+    fi
+    wait_for_player_turn "$actor_id" "$actor_session"
+  done
+  echo "Story Hand did not expose ${requested_kind} after 64 rotations" >&2
+  return 1
+}
+
 collected_labeled="$START_EPISODE"
 collected_terminal="$START_EPISODE"
 for ((episode = START_EPISODE; episode < OBJECTIVE_COUNT; episode += 1)); do
@@ -250,6 +332,18 @@ for ((episode = START_EPISODE; episode < OBJECTIVE_COUNT; episode += 1)); do
     echo "avatar creation failed: ${avatar}" >&2
     exit 1
   fi
+
+  # Optional setup cards run before the labeled objective. This is useful for
+  # custom datasets that require an unlocked card or a carried item.
+  if [[ -n "$SETUP_ACTION_SEQUENCE" ]]; then
+    for setup_action_kind in "${SETUP_ACTIONS[@]}"; do
+      submit_offer "$actor_id" "$actor_session" "$setup_action_kind"
+      wait_for_player_turn "$actor_id" "$actor_session"
+    done
+  fi
+  for action_kind in "${ACTIONS[@]}"; do
+    seek_offer "$actor_id" "$actor_session" "$action_kind"
+  done
 
   treasure_index=$(((episode * 7) % ${#TREASURES[@]}))
   treasure_id="${TREASURES[$treasure_index]}"
@@ -268,7 +362,8 @@ for ((episode = START_EPISODE; episode < OBJECTIVE_COUNT; episode += 1)); do
   for action_kind in "${ACTIONS[@]}"; do
     before="$(resident_message_count)"
     submit_offer "$actor_id" "$actor_session" "$action_kind"
-    wait_for_resident_message "$before"
+    wait_for_resident_turn "$before" "$objective_id"
+    wait_for_player_turn "$actor_id" "$actor_session"
   done
 
   episode_labeled="$(objective_labeled_count "$objective_id")"
