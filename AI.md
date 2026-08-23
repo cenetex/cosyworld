@@ -167,12 +167,12 @@ The server key pays for autonomous/public text inference, including the resident
 reply after Chat and other card plays. Failure is skipped or remains visible as
 appropriate, but no reservation, debit, or refund touches the Orb ledger.
 
-Server-paid OpenRouter inference has a $10 UTC daily admission limit. Before
+Server-paid OpenRouter inference has a $20 UTC daily admission limit. Before
 each request, the gateway checks the server key's authoritative `usage_daily`
 value through `/api/v1/key`, serializes in-process admissions, and fails closed
-when usage cannot be verified. Once the reported value reaches $10, inference
+when usage cannot be verified. Once the reported value reaches $20, inference
 pauses until the next UTC day. Because OpenRouter reports cost after a request,
-the last admitted request can take the final total slightly over $10.
+the last admitted request can take the final total slightly over $20.
 
 Community image generation is different: the server validates a level-scoped shared funding pool before starting Replicate. One card gets one generation at each level, the pooled Orb price equals that level, and retries after full funding are free.
 
@@ -891,7 +891,7 @@ Current status: browser-owned PKCE connection implemented.
   daily usage, and disconnect removes the local key.
 - Explicit public model interactions may carry the key transiently and record
   `player_openrouter` as payer; autonomous inference remains server-paid.
-- The server-paid OpenRouter lane stops admitting work at $10 reported daily
+- The server-paid OpenRouter lane stops admitting work at $20 reported daily
   usage and fails closed if usage cannot be checked.
 
 ### Stage 3: Community-Funded Card Images
