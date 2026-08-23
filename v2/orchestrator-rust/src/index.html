@@ -1596,24 +1596,6 @@
       color: var(--dim);
       font-style: italic;
     }
-    .line.story-card-activity {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.38em;
-      padding: 2px 0;
-      color: rgba(185, 184, 167, 0.58);
-      font: 650 10px/1.3 ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.045em;
-    }
-    .story-card-activity::before,
-    .story-card-activity::after {
-      content: "";
-      width: min(7vw, 38px);
-      height: 1px;
-      background: rgba(222, 194, 141, 0.12);
-    }
-    .story-card-activity-card { color: rgba(222, 194, 141, 0.68); }
     .chat-thinking-dots {
       display: inline-flex;
       gap: 4px;
@@ -5769,6 +5751,9 @@
       .story-card-actions .story-card-play.turn-progress::before {
         transition: none;
       }
+      .story-card-play .turn-progress-copy.turn-activity-live {
+        animation: none;
+      }
     }
     /* Combat is a live game state, not a kind of chat. Keep the immediate
        result beside the encounter and disclose the deeper ledger on demand. */
@@ -6234,8 +6219,23 @@
       transition: width 240ms ease;
     }
     .story-card-play .turn-progress-copy {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
       position: relative;
       z-index: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .story-card-play .turn-progress-copy.turn-activity-live {
+      color: var(--slot-accent);
+      letter-spacing: 0.035em;
+      text-transform: none;
+      animation: turn-activity-live 2600ms ease-out both;
+    }
+    @keyframes turn-activity-live {
+      0%, 72% { opacity: 1; }
+      100% { opacity: 0; }
     }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
@@ -7053,6 +7053,8 @@
     let storyHandExpanded = false;
     let storyHandActiveKey = "";
     let heldStoryHand = null;
+    let storyHandTurnActivity = "";
+    let storyHandTurnActivityTimer = null;
     let storyHandScrollPending = false;
     let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
@@ -11424,6 +11426,7 @@
       const pendingInteractionCountBefore = pendingModelInteractions.length;
       let chatProgressChanged = false;
       let modelInteractionProgressChanged = false;
+      let storyHandActivityChanged = false;
       for (const event of events) {
         if (captureDefeatTransition(event)) changed = true;
         if (applyActionReceipt(event)) {
@@ -11438,6 +11441,7 @@
         const authoritativeSeq = Number(event?.seq || 0);
         if (!event || eventIsMuted(event) || (authoritativeSeq > 0 && seenSeq.has(authoritativeSeq))) continue;
         if (authoritativeSeq > 0) seenSeq.add(authoritativeSeq);
+        if (presentStoryHandTurnActivity(event)) storyHandActivityChanged = true;
         if (resolvePendingChat(event)) {
           changed = true;
           chatProgressChanged = true;
@@ -11492,7 +11496,8 @@
       logEvents = logEvents.slice(-90);
       if (pendingChats.length !== pendingChatCountBefore
           || pendingModelInteractions.length !== pendingInteractionCountBefore
-          || chatProgressChanged || modelInteractionProgressChanged) renderCommands();
+          || chatProgressChanged || modelInteractionProgressChanged
+          || storyHandActivityChanged) renderCommands();
       renderJournalActivity();
       return changed;
     }
@@ -11976,7 +11981,6 @@
       "model_interaction.output",
       "avatar.thought",
       "avatar.dream",
-      "story.card.played",
     ]);
     const combatTranscriptEventTypes = new Set([
       "combat.encounter.started",
@@ -15070,7 +15074,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream", "story.card.played"].includes(event?.type);
+      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
@@ -15078,16 +15082,8 @@
       if (event?.type === "image.created") return residentImageHtml(event);
       if (event?.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
-      if (event?.type === "story.card.played") return storyCardPlayedHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
-    }
-
-    function storyCardPlayedHtml(event) {
-      const actor = cleanStatusText(event?.actor_name || "Someone") || "Someone";
-      const card = cleanStatusText(event?.content || "a card").toLowerCase() || "a card";
-      const text = `${actor} played ${card}`;
-      return `<div class="line story-card-activity" aria-label="${escapeAttr(text)}"><span>${escapeHtml(actor)} played</span><span class="story-card-activity-card">${escapeHtml(card)}</span></div>`;
     }
 
     function combatAttackTranscriptBeatHtml(event) {
@@ -17687,6 +17683,7 @@
         Number(actorId || 0),
         ...((state?.turn?.waiting_actor_ids || []).map((id) => Number(id || 0))),
       ].filter(Boolean));
+      clearStoryHandTurnActivity();
       heldStoryHand = {
         actions: visibleActions.map((candidate) => ({
           ...candidate,
@@ -17700,12 +17697,33 @@
       storyHandActiveKey = "";
     }
 
+    function clearStoryHandTurnActivity() {
+      if (storyHandTurnActivityTimer) window.clearTimeout(storyHandTurnActivityTimer);
+      storyHandTurnActivityTimer = null;
+      storyHandTurnActivity = "";
+    }
+
+    function presentStoryHandTurnActivity(event) {
+      if (!heldStoryHand || event?.type !== "story.card.played") return false;
+      const actor = cleanStatusText(event.actor_name || "Someone") || "Someone";
+      const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
+      storyHandTurnActivity = `${actor} played ${card}`;
+      if (storyHandTurnActivityTimer) window.clearTimeout(storyHandTurnActivityTimer);
+      storyHandTurnActivityTimer = window.setTimeout(() => {
+        storyHandTurnActivityTimer = null;
+        storyHandTurnActivity = "";
+        if (state) renderCommands();
+      }, 2600);
+      return true;
+    }
+
     function activeHeldStoryHandActions() {
       if (!heldStoryHand) return null;
       if (actionBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) {
         return heldStoryHand.actions;
       }
       heldStoryHand = null;
+      clearStoryHandTurnActivity();
       return null;
     }
 
@@ -17724,7 +17742,8 @@
         percent,
         value: Math.min(total, Math.max(0, advanced)),
         max: total,
-        label: total > 1 ? "other turns…" : (actionSlow ? "still playing…" : "playing…"),
+        label: storyHandTurnActivity || (total > 1 ? "" : (actionSlow ? "still playing…" : "playing…")),
+        activity: Boolean(storyHandTurnActivity),
       };
     }
 
@@ -17824,9 +17843,10 @@
         play.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
         play.classList.toggle("turn-progress", Boolean(progress));
         if (progress) {
+          const progressAria = progress.label || "Waiting for the next turn";
           play.style.setProperty("--turn-progress", `${progress.percent}%`);
-          play.innerHTML = `<span class="turn-progress-copy" role="progressbar" aria-valuemin="0" aria-valuemax="${progress.max}" aria-valuenow="${progress.value}" aria-valuetext="${escapeAttr(progress.label)}">${escapeHtml(progress.label)}</span>`;
-          play.setAttribute("aria-label", `${progress.label} after playing ${title}`);
+          play.innerHTML = `<span class="turn-progress-copy${progress.activity ? " turn-activity-live" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${progress.max}" aria-valuenow="${progress.value}" aria-valuetext="${escapeAttr(progressAria)}">${escapeHtml(progress.label)}</span>`;
+          play.setAttribute("aria-label", `${progressAria} after playing ${title}`);
         } else {
           play.style.removeProperty("--turn-progress");
           play.textContent = "Play";
@@ -18670,7 +18690,7 @@
           storyGuideLabel,
           count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
-          action.heldStoryHandAction ? "waiting for other turns" : "",
+          action.heldStoryHandAction ? "turn in progress" : "",
         ].filter(Boolean).join(", ")
       );
       // A journey travel card keeps the endpoint's Location art — the card is

@@ -873,6 +873,7 @@ async function main() {
         storyHandExpanded,
         storyHandActiveKey,
         heldStoryHand,
+        storyHandTurnActivity,
         announcedTurnHandoffKey,
         turnBannerControlRuns,
       };
@@ -975,12 +976,15 @@ async function main() {
         ];
         const activityTranscript = sharedRoomTranscriptEvents(activityEvents);
         const activityHtml = activityTranscript.map(transcriptEventHtml).join("");
-        const activityRow = transcriptEventHtml(activityEvents[1]);
+        const activityPresented = presentStoryHandTurnActivity(activityEvents[1]);
+        renderCommands();
+        const activityProgress = document.querySelector(".story-card-play.turn-progress");
         const activity = {
           order: activityTranscript.map((event) => event.type).join(","),
-          exactText: /Marnie played<\/span><span class="story-card-activity-card">scout<\/span>/.test(activityHtml),
-          subtleRow: activityHtml.includes('class="line story-card-activity"'),
-          noAvatar: !activityRow.includes("chat-pfp"),
+          presented: activityPresented,
+          onCardText: activityProgress?.textContent.trim() || "",
+          live: activityProgress?.querySelector(".turn-activity-live") !== null,
+          notInChat: !activityHtml.includes("played scout"),
           notRoomMemory: roomMemoryEntryForEvent(activityEvents[1]) === null,
         };
         return { skipped: false, visibleCount: visible.length, busy, waiting, activity };
@@ -1000,6 +1004,8 @@ async function main() {
         storyHandExpanded = previous.storyHandExpanded;
         storyHandActiveKey = previous.storyHandActiveKey;
         heldStoryHand = previous.heldStoryHand;
+        clearStoryHandTurnActivity();
+        storyHandTurnActivity = previous.storyHandTurnActivity;
         announcedTurnHandoffKey = previous.announcedTurnHandoffKey;
         turnBannerControlRuns = previous.turnBannerControlRuns;
         render();
@@ -1009,7 +1015,7 @@ async function main() {
       !result.skipped
         && result.busy.cards === result.visibleCount
         && !result.busy.expanded
-        && result.busy.progressText === "other turns…"
+        && result.busy.progressText === ""
         && result.busy.progressClass
         && result.busy.progressVisible
         && result.busy.progressValue === "0"
@@ -1021,7 +1027,7 @@ async function main() {
         && result.busy.statusPosition === "absolute"
         && result.waiting.cards === result.visibleCount
         && result.waiting.expanded
-        && result.waiting.progressText === "other turns…"
+        && result.waiting.progressText === ""
         && result.waiting.progressValue === "1"
         && result.waiting.progressWidth === "33%"
         && result.waiting.handStatus === `${result.visibleCount} cards`
@@ -1033,12 +1039,13 @@ async function main() {
         && result.waiting.selectedCardInView
         && result.waiting.selectedSlot === "tertiary"
         && result.waiting.bannerHidden
-        && result.activity.order === "message.created,story.card.played,message.created"
-        && result.activity.exactText
-        && result.activity.subtleRow
-        && result.activity.noAvatar
+        && result.activity.order === "message.created,message.created"
+        && result.activity.presented
+        && result.activity.onCardText === "Marnie played scout"
+        && result.activity.live
+        && result.activity.notInChat
         && result.activity.notRoomMemory,
-      `playing a card should collapse the hand, hide turn locks, keep inspection available, and add subtle card activity to chat: ${JSON.stringify(result)}`,
+      `playing a card should collapse the hand, hide turn locks, keep inspection available, and show card activity on its progress strip: ${JSON.stringify(result)}`,
     );
     steps.push({
       label: "played hand collapses with subtle turn progress",
@@ -12186,17 +12193,15 @@ async function main() {
         nonChatRows: rows.filter((node) => (
           node.classList.contains("line")
             && !node.classList.contains("chat")
-            && !node.classList.contains("story-card-activity")
         )).length,
-        cardActivity: [...document.querySelectorAll("#log .story-card-activity")]
-          .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+        cardPlayed: newEvents.some((event) => event.type === "story.card.played"),
       };
     }, noticeBefore);
     assert(
       scene.eventRows === 0
         && scene.nonChatRows === 0
-        && scene.cardActivity.some((line) => /played\s*notice$/i.test(line)),
-      `Notice outcomes should stay out of group chat except for the subtle played-card line: ${JSON.stringify(scene)}`,
+        && scene.cardPlayed,
+      `Notice outcomes and card-play receipts should stay out of group chat: ${JSON.stringify(scene)}`,
     );
     assert(
       scene.observed === true
@@ -13938,11 +13943,10 @@ async function main() {
         transcriptVisible: visible(document.querySelector("#log")),
         promptVisible: visible(document.querySelector("footer.prompt")),
         chatRows: document.querySelectorAll("#log .line.chat").length,
-        activityRows: document.querySelectorAll("#log .story-card-activity").length,
         roomRows: document.querySelectorAll("#log .line.event.room").length,
         sceneRows: document.querySelectorAll("#log .line.event.scene-card, #log .roll-line").length,
         quietScene: document.querySelectorAll("#log .chat-empty").length,
-        unexpectedRows: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card):not(.story-card-activity)").length,
+        unexpectedRows: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card)").length,
         stateSignature: JSON.stringify({
           sharedQuestions: state?.shared_questions,
           roomMemory: state?.room_memory,
@@ -13964,8 +13968,8 @@ async function main() {
     assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
     assert(room.unexpectedRows === 0 && room.roomRows === 0 && room.sceneRows === 0, `${label}: normal chat should keep system chrome out of the transcript: ${JSON.stringify(room)}`);
     assert(
-      room.chatRows > 0 || room.activityRows > 0 || room.quietScene === 1,
-      `${label}: the room should show speech, subtle card activity, or a single quiet chat invitation: ${JSON.stringify(room)}`,
+      room.chatRows > 0 || room.quietScene === 1,
+      `${label}: the room should show speech or a single quiet chat invitation: ${JSON.stringify(room)}`,
     );
 
     const emptyTicker = await page.evaluate(() => {
@@ -14253,7 +14257,6 @@ async function main() {
         logRole: document.querySelector("#log")?.getAttribute("role") || "",
         lineCount: document.querySelectorAll("#log .line").length,
         chatLineCount: document.querySelectorAll("#log .line.chat").length,
-        activityLineCount: document.querySelectorAll("#log .story-card-activity").length,
         roomLineCount: document.querySelectorAll("#log .line.event.room").length,
         sceneLineCount: document.querySelectorAll("#log .line.event.scene-card").length,
         chatFailureSceneCount: [...document.querySelectorAll("#log .line.event.scene-card")]
@@ -14262,7 +14265,7 @@ async function main() {
         roomFallbackStacked: !roomRow || Boolean(roomLabelRect && roomTextRect && roomLabelRect.bottom <= roomTextRect.top + 1),
         roomFallbackClipped: Boolean(roomText && roomText.scrollHeight > roomText.clientHeight + 1),
         speakerClippedCount,
-        unexpectedLineCount: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card):not(.story-card-activity)").length,
+        unexpectedLineCount: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card)").length,
         legacyListChromeCount: document.querySelectorAll("#route-map,#presence,#features,.route-node,.chip,.feature-pill").length,
         avatarRailCount: document.querySelectorAll(".room-avatar-pfp").length,
         handThumbCount: document.querySelectorAll("footer.prompt .thumb").length,
@@ -14294,8 +14297,8 @@ async function main() {
         && shell.rollLineCount === 0
         && shell.sceneLineCount === 0
         && shell.chatFailureSceneCount === 0
-        && shell.lineCount === shell.chatLineCount + shell.activityLineCount,
-      `${label}: group chat should contain speech and subtle card activity, with no system rows: ${JSON.stringify(shell)}`,
+        && shell.lineCount === shell.chatLineCount,
+      `${label}: group chat should contain speech with no system rows: ${JSON.stringify(shell)}`,
     );
     assert(shell.unexpectedLineCount === 0, `${label}: normal feed should not show bookkeeping rows: ${JSON.stringify(shell)}`);
     assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);
