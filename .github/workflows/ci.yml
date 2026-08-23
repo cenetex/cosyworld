@@ -57,10 +57,82 @@ jobs:
           npm run v2:lonelyforest:contract
 
   runtime:
-    name: Rust and browser checks
+    name: Rust build and tests
     runs-on: ubuntu-latest
     env:
       CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-orchestrator-
+
+      - name: Test Rust orchestrator
+        run: bash v2/scripts/check-rust.sh test
+
+      - name: Build V2 binary
+        run: bash v2/scripts/check-rust.sh build
+
+      - name: Prepare smoke-test binary
+        run: |
+          mkdir -p dist/ci
+          cp v2/orchestrator-rust/target/debug/cosyworld-orchestrator dist/ci/
+          strip --strip-debug dist/ci/cosyworld-orchestrator
+
+      - name: Share smoke-test binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: cosyworld-smoke-binary
+          path: dist/ci/cosyworld-orchestrator
+          if-no-files-found: error
+          retention-days: 1
+
+  rust-quality:
+    name: Rust architecture and lint
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check Rust architecture
+        run: |
+          bash v2/scripts/check-main-size.sh
+          bash v2/scripts/check-rust-lint.sh
+
+  composition:
+    name: Composition checks (${{ matrix.suite }})
+    needs: runtime
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [standalone, core-ruby]
+    env:
+      CI: true
+      COSYWORLD_COMPOSITION_SMOKE_BINARY: ${{ github.workspace }}/dist/ci/cosyworld-orchestrator
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -77,34 +149,55 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Restore Cargo build cache
-        uses: actions/cache@v6
+      - name: Download smoke-test binary
+        uses: actions/download-artifact@v8
         with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-            v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-orchestrator-
+          name: cosyworld-smoke-binary
+          path: dist/ci
 
-      - name: Test Rust orchestrator
-        run: npm run v2:rust:test
-
-      - name: Check Rust architecture
-        run: npm run v2:architecture
-
-      - name: Build V2 release binary
-        run: npm run v2:rust:build
-
-      - name: Verify composition action loops
-        run: npm run v2:composition:smoke
+      - name: Verify composition action loop
+        run: |
+          chmod 0755 "$COSYWORLD_COMPOSITION_SMOKE_BINARY"
+          npm run "v2:composition:smoke:${COMPOSITION_SUITE}"
         env:
-          COSYWORLD_COMPOSITION_SMOKE_BINARY: ${{ github.workspace }}/v2/orchestrator-rust/target/debug/cosyworld-orchestrator
+          COMPOSITION_SUITE: ${{ matrix.suite }}
+
+  browser:
+    name: Browser checks (${{ matrix.mode }})
+    needs: runtime
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [baseline, living-world]
+    env:
+      CI: true
+      COSYWORLD_BROWSER_CHECK_MODE: ${{ matrix.mode }}
+      COSYWORLD_SMOKE_BINARY: ${{ github.workspace }}/dist/ci/cosyworld-orchestrator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Download smoke-test binary
+        uses: actions/download-artifact@v8
+        with:
+          name: cosyworld-smoke-binary
+          path: dist/ci
+
+      - name: Mark smoke-test binary executable
+        run: chmod 0755 "$COSYWORLD_SMOKE_BINARY"
 
       - name: Restore Playwright browsers
         id: playwright-cache
@@ -197,15 +290,21 @@ jobs:
   build:
     name: build
     if: ${{ always() }}
-    needs: [node, runtime, publication]
+    needs: [node, runtime, rust-quality, composition, browser, publication]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all CI jobs passed
         env:
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          COMPOSITION_RESULT: ${{ needs.composition.result }}
           NODE_RESULT: ${{ needs.node.result }}
           PUBLICATION_RESULT: ${{ needs.publication.result }}
           RUNTIME_RESULT: ${{ needs.runtime.result }}
+          RUST_QUALITY_RESULT: ${{ needs.rust-quality.result }}
         run: |
+          test "$BROWSER_RESULT" = success
+          test "$COMPOSITION_RESULT" = success
           test "$NODE_RESULT" = success
           test "$PUBLICATION_RESULT" = success
           test "$RUNTIME_RESULT" = success
+          test "$RUST_QUALITY_RESULT" = success

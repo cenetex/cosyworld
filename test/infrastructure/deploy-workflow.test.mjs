@@ -105,11 +105,15 @@ const runBackup = (fakeFlyctl, profile = 'primary', timeoutSecs = '1') => {
   }
 };
 
-const job = (name, nextName) => {
-  const start = workflow.indexOf(`\n  ${name}:`);
-  const end = nextName ? workflow.indexOf(`\n  ${nextName}:`, start + 1) : workflow.length;
-  return workflow.slice(start, end);
+const workflowJob = (source, name, nextName) => {
+  const start = source.indexOf(`\n  ${name}:`);
+  const end = nextName
+    ? source.indexOf(`\n  ${nextName}:`, start + 1)
+    : source.length;
+  return source.slice(start, end);
 };
+const job = (name, nextName) => workflowJob(workflow, name, nextName);
+const ciJob = (name, nextName) => workflowJob(ciWorkflow, name, nextName);
 
 describe('deploy workflow', () => {
   it('only invokes package scripts that exist', () => {
@@ -160,20 +164,66 @@ describe('deploy workflow', () => {
   });
 
   it('blocks deployment on the real v2 gates before either Fly job runs', () => {
+    const nodeGate = job('production-node-gate', 'production-rust-gate');
+    const rustGate = job('production-rust-gate', 'production-gate');
     const gate = job('production-gate', 'primary-fly');
-    expect(gate).toContain('npm run v2:worldpack');
-    expect(gate).toContain('npm run v2:kernel');
-    expect(gate).toContain('npm run v2:syntax');
-    expect(gate).toContain('npm run v2:architecture');
-    expect(gate).toContain('npm run v2:lonelyforest:contract');
-    expect(gate).toContain('npx vitest run test/infrastructure/deploy-workflow.test.mjs');
-    expect(gate).toContain('npm run v2:rust:test');
-    expect(gate).not.toContain('npm test');
-    expect(gate).not.toContain('v2:deployment:check');
-    expect(workflow).toContain('needs: production-gate');
+    expect(nodeGate).toContain('npm run v2:worldpack');
+    expect(nodeGate).toContain('npm run v2:kernel');
+    expect(nodeGate).toContain('npm run v2:syntax');
+    expect(nodeGate).toContain('npm run v2:lonelyforest:contract');
+    expect(nodeGate).toContain(
+      'npx vitest run test/infrastructure/deploy-workflow.test.mjs'
+    );
+    expect(nodeGate).not.toContain('npm test');
+    expect(rustGate).toContain('bash v2/scripts/check-rust.sh test');
+    expect(rustGate).toContain('bash v2/scripts/check-main-size.sh');
+    expect(rustGate).toContain('bash v2/scripts/check-rust-lint.sh');
+    expect(gate).toContain(
+      'needs: [deployment-impact, production-node-gate, production-rust-gate]'
+    );
+    expect(gate).toContain('test "$NODE_RESULT" = success');
+    expect(gate).toContain('test "$RUST_RESULT" = success');
+    expect(job('primary-fly', 'lonelyforest-fly')).toContain(
+      'needs: [deployment-impact, production-gate]'
+    );
+    expect(job('lonelyforest-fly', 'github-release')).toContain(
+      'needs: [deployment-impact, production-gate]'
+    );
     expect(
       workflow.indexOf('Guard primary worldpack bundle compatibility')
     ).toBeLessThan(workflow.indexOf('Create rollback backup'));
+  });
+
+  it('runs the long CI smoke suites in parallel from one shared binary', () => {
+    const runtime = ciJob('runtime', 'rust-quality');
+    const composition = ciJob('composition', 'browser');
+    const browser = ciJob('browser', 'publication');
+    const build = ciJob('build');
+
+    expect(runtime).toContain('actions/upload-artifact@v7');
+    expect(runtime).not.toContain('v2:composition:smoke');
+    expect(runtime).not.toContain('v2:browser:check');
+    expect(composition).toContain('needs: runtime');
+    expect(composition).toContain('suite: [standalone, core-ruby]');
+    expect(composition).toContain('actions/download-artifact@v8');
+    expect(browser).toContain('needs: runtime');
+    expect(browser).toContain('mode: [baseline, living-world]');
+    expect(browser).toContain('actions/download-artifact@v8');
+    expect(build).toContain(
+      'needs: [node, runtime, rust-quality, composition, browser, publication]'
+    );
+  });
+
+  it('skips docs-only deploys and reuses release compilation work', () => {
+    const impact = job('deployment-impact', 'production-node-gate');
+    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+
+    expect(impact).toContain('scripts/check-deployment-impact.mjs');
+    expect(primaryFly).toContain(
+      "needs.deployment-impact.outputs.deploy == 'true'"
+    );
+    expect(dockerfile).toContain('id=cosyworld-release-incremental');
+    expect(dockerfile).toContain('CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1');
   });
 
   it('checks a fresh Hoppycat volume with direct remote commands', () => {

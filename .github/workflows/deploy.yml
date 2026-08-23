@@ -42,8 +42,33 @@ permissions:
   contents: read
 
 jobs:
-  production-gate:
-    name: V2 production deployment gate
+  deployment-impact:
+    name: Check production impact
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.impact.outputs.deploy }}
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Check whether production inputs changed
+        id: impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "reason=explicit deployment or tag release" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/check-deployment-impact.mjs "$BEFORE_SHA" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+  production-node-gate:
+    name: Production Node and content gate
+    needs: deployment-impact
+    if: needs.deployment-impact.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -66,9 +91,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
@@ -77,20 +99,74 @@ jobs:
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
-          npm run v2:architecture
           npm run v2:lonelyforest:contract
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
 
+  production-rust-gate:
+    name: Production Rust gate
+    needs: deployment-impact
+    if: needs.deployment-impact.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-orchestrator-
+
       - name: Verify Rust orchestrator tests
-        run: npm run v2:rust:test
+        run: bash v2/scripts/check-rust.sh test
+
+      - name: Check Rust architecture
+        run: |
+          bash v2/scripts/check-main-size.sh
+          bash v2/scripts/check-rust-lint.sh
+
+  production-gate:
+    name: V2 production deployment gate
+    if: ${{ always() }}
+    needs: [deployment-impact, production-node-gate, production-rust-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required production gates passed
+        env:
+          DEPLOY: ${{ needs.deployment-impact.outputs.deploy }}
+          NODE_RESULT: ${{ needs.production-node-gate.result }}
+          RUST_RESULT: ${{ needs.production-rust-gate.result }}
+        run: |
+          if [ "$DEPLOY" != true ]; then
+            echo "No production inputs changed; deployment is not needed."
+            exit 0
+          fi
+          test "$NODE_RESULT" = success
+          test "$RUST_RESULT" = success
 
   primary-fly:
     name: Deploy primary to Fly
-    needs: production-gate
+    needs: [deployment-impact, production-gate]
     if: >-
-      github.event_name == 'push' ||
-      inputs.target == 'both' ||
-      inputs.target == 'primary'
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      (github.event_name == 'push' ||
+       inputs.target == 'both' ||
+       inputs.target == 'primary')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -154,14 +230,15 @@ jobs:
 
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
-    needs: production-gate
+    needs: [deployment-impact, production-gate]
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (inputs.target == 'both' || inputs.target == 'lonelyforest'))
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'both' || inputs.target == 'lonelyforest')))
     runs-on: ubuntu-latest
     environment: lonelyforest-production
     concurrency:

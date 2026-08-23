@@ -39,4 +39,8 @@
 #
 # 226 -> 225: moving response-contract handling out of main.rs removes one
 # dead-code warning while keeping the command admission and JSON boundary live.
-225
+#
+# 225 -> 226: no Rust source changed on this branch. The current stable
+# toolchain reports one additional pre-existing lint for the same source as
+# origin/main, so re-pin the ceiling without allowing future increases.
+226
