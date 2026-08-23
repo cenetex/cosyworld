@@ -18,9 +18,17 @@ pub(super) struct ActorJob {
 #[serde(tag = "payload_kind", content = "payload", rename_all = "snake_case")]
 pub(super) enum ActorJobPayload {
     PlayerTick(PlayerTickObservation),
+    RoomRope(RoomRopeJob),
     OrbChat(Box<OrbChatJob>),
     ModelInteraction(ModelInteractionJob),
     AvatarReflection(Box<AvatarReflectionJob>),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct RoomRopeJob {
+    pub(super) location_id: u64,
+    pub(super) actor_id: u64,
+    pub(super) activation: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -37,6 +45,7 @@ pub(super) struct OrbChatJob {
 }
 
 pub(super) const ACTOR_JOB_KIND_PLAYER_TICK: &str = "player_tick_observation";
+pub(super) const ACTOR_JOB_KIND_ROOM_ROPE: &str = "room_rope";
 pub(super) const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
 pub(super) const ACTOR_JOB_KIND_MODEL_INTERACTION: &str = "model_interaction";
 pub(super) const ACTOR_JOB_KIND_AVATAR_REFLECTION: &str = "avatar_reflection";
@@ -45,6 +54,9 @@ pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
 pub(super) const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 3_000;
 pub(super) const ROOM_INITIATIVE_CHAIN_LIMIT: usize = CW_MAX_ACTORS;
+/// How long a directly controlled avatar may hold a room-initiative seat
+/// without acting before the server commits a certified Pass on its behalf.
+pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
@@ -85,6 +97,64 @@ pub(super) fn room_initiative_needs_actor_job(
         && current_room_initiative_actor(runtime, location_id, active_direct_actor_ids)
             .and_then(|actor_id| runtime.actor_by_id(actor_id))
             .is_some_and(|actor| runtime.actor_uses_inference(actor.id))
+}
+
+/// The room-initiative rope: when a directly controlled avatar's seat window
+/// elapses without a committed action, the server commits one certified Pass
+/// on that avatar's behalf and hands initiative onward. The seat certificate
+/// is re-checked under the world lock, so a seat that already moved on (the
+/// player acted, left, or a later rope fired) completes without any effect.
+pub(super) async fn complete_room_rope_job(
+    state: &AppState,
+    job: &RoomRopeJob,
+) -> Result<(), String> {
+    let mut runtime = state.inner.lock().await;
+    let seat_still_held =
+        runtime
+            .room_initiatives
+            .get(&job.location_id)
+            .is_some_and(|initiative| {
+                initiative.activation == job.activation
+                    && initiative.current_actor_id() == Some(job.actor_id)
+            });
+    if !seat_still_held {
+        return Ok(());
+    }
+    let active_direct_actor_ids = active_actor_ids_for_state(state);
+    let actor_is_ropeable = runtime.actor_by_id(job.actor_id).is_some_and(|actor| {
+        RuntimeWorld::actor_can_act(actor)
+            && actor.location_id == job.location_id
+            && !runtime.actor_uses_inference(actor.id)
+    }) && active_direct_actor_ids.contains(&job.actor_id);
+    if !actor_is_ropeable {
+        return Ok(());
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: job.actor_id,
+            location_id: job.location_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_card();
+    record.bind_offer_kind("pass");
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ShuffleHand {
+            reason: "room_initiative_rope".to_string(),
+        });
+    let commit = commit_journal_record(state, &mut runtime, record);
+    drop(runtime);
+    match commit {
+        Ok((CW_OK, events)) => {
+            broadcast_events(state, &events);
+            Ok(())
+        }
+        Ok((_status, _events)) => Err("room_initiative_rope_rejected".to_string()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 impl RuntimeWorld {
@@ -757,4 +827,151 @@ fn requeue_actor_job(
     )
     .map_err(sqlite_error)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod rope_tests {
+    use super::*;
+
+    async fn rope_test_state(suffix: &str) -> (AppState, std::path::PathBuf) {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-room-rope-{suffix}-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Opal");
+        create_test_human(&mut runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, "Fable");
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        runtime.actor_autonomy.entry(5001).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (session_5000, _) = issue_actor_session(&state, 5000);
+        let (session_5001, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &session_5000),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &session_5001),
+            Some(false)
+        );
+        (state, path)
+    }
+
+    fn player_pass_record(runtime: &RuntimeWorld, actor_id: u64) -> JournalRecord {
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id,
+                location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_player_card();
+        record.bind_offer_kind("pass");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ShuffleHand {
+                reason: "rope_test".to_string(),
+            });
+        record
+    }
+
+    #[tokio::test]
+    async fn a_player_seat_handoff_schedules_and_fires_the_rope() {
+        let (state, path) = rope_test_state("fires").await;
+        {
+            let mut runtime = state.inner.lock().await;
+            let record = player_pass_record(&runtime, 5000);
+            let (status, events) = commit_journal_record(&state, &mut runtime, record)
+                .expect("the opening pass commits");
+            assert_eq!(status, CW_OK);
+            assert!(events
+                .iter()
+                .any(|event| event.type_name == "room.turn.advanced"));
+        }
+        let _ = release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE);
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("rope job claim reads the store")
+            .expect("the durable handoff scheduled exactly one room rope job");
+        let ActorJobPayload::RoomRope(rope) = job.payload else {
+            panic!("room rope jobs carry the room rope payload");
+        };
+        assert_eq!(rope.actor_id, 5001);
+        assert_eq!(rope.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+
+        complete_room_rope_job(&state, &rope)
+            .await
+            .expect("the rope commits or no-ops without erroring");
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime
+            .room_initiatives
+            .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
+            .is_some_and(|initiative| initiative.current_actor_id() == Some(5000)));
+    }
+
+    #[tokio::test]
+    async fn a_rope_for_a_moved_seat_completes_without_effect() {
+        let (state, _path) = rope_test_state("stale").await;
+        {
+            let mut runtime = state.inner.lock().await;
+            let record = player_pass_record(&runtime, 5000);
+            let (status, _) = commit_journal_record(&state, &mut runtime, record)
+                .expect("the opening pass commits");
+            assert_eq!(status, CW_OK);
+        }
+        // The activation counter moved past the stale certificate.
+        let stale = RoomRopeJob {
+            location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            actor_id: 5001,
+            activation: 1,
+        };
+        complete_room_rope_job(&state, &stale)
+            .await
+            .expect("a stale rope completes silently");
+        let runtime = state.inner.lock().await;
+        let active = active_actor_ids_for_state(&state);
+        assert_eq!(
+            current_room_initiative_actor(&runtime, RAIN_SOFT_GARDEN_LOCATION_ID, &active),
+            Some(5001),
+            "a stale rope never advances the room"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_absent_seat_holder_is_not_rope_passed() {
+        let (state, path) = rope_test_state("absent").await;
+        {
+            let mut runtime = state.inner.lock().await;
+            let record = player_pass_record(&runtime, 5000);
+            let (status, _) = commit_journal_record(&state, &mut runtime, record)
+                .expect("the opening pass commits");
+            assert_eq!(status, CW_OK);
+        }
+        let _ = release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE);
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("rope job claim reads the store")
+            .expect("the durable handoff scheduled one room rope job");
+        let ActorJobPayload::RoomRope(rope) = job.payload else {
+            panic!("room rope jobs carry the room rope payload");
+        };
+        // Drop every active session so the seated avatar is not connected.
+        if let Ok(mut sessions) = state.actor_sessions.lock() {
+            sessions.sessions.clear();
+        }
+        complete_room_rope_job(&state, &rope)
+            .await
+            .expect("an absent holder completes the rope silently");
+        let runtime = state.inner.lock().await;
+        let empty: BTreeSet<u64> = BTreeSet::new();
+        assert!(
+            current_room_initiative_actor(&runtime, RAIN_SOFT_GARDEN_LOCATION_ID, &empty)
+                .is_none_or(|current| current != rope.actor_id)
+        );
+    }
 }

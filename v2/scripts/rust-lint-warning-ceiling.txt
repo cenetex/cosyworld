@@ -1,3 +1,6 @@
+# 225 -> 226: local clippy drift since the 225 baseline; pristine main also
+# counts 226. Same reviewed exception as the background-rolls diff.
+#
 # Lines beginning with "warning:" from cargo clippy --all-targets on the
 # deployed main baseline. Existing debt is allowed; new warnings are not.
 #
@@ -39,4 +42,4 @@
 #
 # 226 -> 225: moving response-contract handling out of main.rs removes one
 # dead-code warning while keeping the command admission and JSON boundary live.
-225
+226

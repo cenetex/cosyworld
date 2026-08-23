@@ -44,7 +44,11 @@ The first active directly controlled avatar opens a fresh room. The server rolls
 stable order from initiative and Dexterity, persists every handoff, and removes unavailable avatars
 without allowing one avatar to take another avatar's activation. A resident worker may choose only
 from the current inference-controlled avatar's legal Story Hand. If the next avatar is directly
-controlled, automation stops and waits for that player.
+controlled, automation stops and waits for that player — for one seat window. When the seat window
+elapses without a committed action, the server commits one certified Pass on the seated avatar's
+behalf (the room rope) and hands initiative onward. The rope re-checks the exact seat certificate
+under the world lock, so a player who acted, left, or was already passed is never double-passed,
+and replaying the journal reproduces every rope handoff exactly.
 
 Reactive, local, roaming, and delegated AI modes may rank or describe choices differently, but they
 do not reduce the legal mechanical cards available on that avatar's initiative seat.

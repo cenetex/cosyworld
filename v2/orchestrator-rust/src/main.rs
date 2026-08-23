@@ -22555,6 +22555,7 @@ fn start_actor_job_worker(state: AppState) {
     let gameplay_state = state.clone();
     let reflection_state = state.clone();
     let interaction_state = state.clone();
+    let rope_state = state.clone();
     tokio::spawn(async move {
         run_actor_job_worker(gameplay_state, ACTOR_JOB_KIND_PLAYER_TICK).await;
     });
@@ -22566,6 +22567,9 @@ fn start_actor_job_worker(state: AppState) {
     });
     tokio::spawn(async move {
         run_actor_job_worker(reflection_state, ACTOR_JOB_KIND_AVATAR_REFLECTION).await;
+    });
+    tokio::spawn(async move {
+        run_actor_job_worker(rope_state, ACTOR_JOB_KIND_ROOM_ROPE).await;
     });
 }
 
@@ -22770,6 +22774,11 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         )
                         .await
                         .map(|_| true)
+                    }
+                    (ACTOR_JOB_KIND_ROOM_ROPE, ActorJobPayload::RoomRope(rope))
+                        if job.actor_id == rope.actor_id =>
+                    {
+                        complete_room_rope_job(&state, rope).await.map(|_| true)
                     }
                     (
                         ACTOR_JOB_KIND_AVATAR_REFLECTION,
@@ -28494,6 +28503,19 @@ fn commit_journal_record_blocking(
             } else {
                 false
             };
+            if status == CW_OK {
+                if let Some((rope_location_id, rope_actor_id, rope_activation)) =
+                    room_rope_target_from_events(runtime, &events)
+                {
+                    insert_room_rope_job(
+                        &tx,
+                        runtime.world.tick,
+                        rope_location_id,
+                        rope_actor_id,
+                        rope_activation,
+                    )?;
+                }
+            }
             persistence_phases.push(("actor_jobs", phase_started_at.elapsed()));
             phase_started_at = Instant::now();
             let owner_fencing_epoch = authority_leases
@@ -28647,6 +28669,24 @@ fn commit_journal_record_blocking(
         record.finalize_resident_decision_outcome(status, &events, new_deed_ids);
         if let Some(context) = command_context.as_ref() {
             context.finish_commit();
+        }
+        if status == CW_OK {
+            if let Some((rope_location_id, rope_actor_id, rope_activation)) =
+                room_rope_target_from_events(runtime, &events)
+            {
+                let rope_state = state.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(ROOM_SEAT_GRACE_MS)).await;
+                    let job = RoomRopeJob {
+                        location_id: rope_location_id,
+                        actor_id: rope_actor_id,
+                        activation: rope_activation,
+                    };
+                    if let Err(error) = complete_room_rope_job(&rope_state, &job).await {
+                        warn!("room initiative rope failed: {}", error);
+                    }
+                });
+            }
         }
         (status, events, false, 0)
     };
@@ -29388,6 +29428,54 @@ fn insert_orb_chat_job(
         &payload,
         0,
     )
+}
+
+fn insert_room_rope_job(
+    conn: &Connection,
+    source_tick: u64,
+    location_id: u64,
+    actor_id: u64,
+    activation: u64,
+) -> io::Result<bool> {
+    insert_actor_job_payload(
+        conn,
+        ACTOR_JOB_KIND_ROOM_ROPE,
+        actor_id,
+        None,
+        source_tick,
+        0,
+        Some(location_id),
+        &format!("room-rope:{location_id}:{actor_id}:{activation}"),
+        &ActorJobPayload::RoomRope(RoomRopeJob {
+            location_id,
+            actor_id,
+            activation,
+        }),
+        ROOM_SEAT_GRACE_MS,
+    )
+}
+
+/// The seat a fresh `room.turn.advanced` event just handed to a directly
+/// controlled avatar, if that avatar can still act in the room.
+fn room_rope_target_from_events(
+    runtime: &RuntimeWorld,
+    events: &[EventView],
+) -> Option<(u64, u64, u64)> {
+    let event = events
+        .iter()
+        .rev()
+        .find(|event| event.success && event.type_name == "room.turn.advanced")?;
+    let location_id = event.location_id?;
+    let actor_id = event.actor_id?;
+    let activation = event.content_id?;
+    let actor = runtime.actor_by_id(actor_id)?;
+    if !RuntimeWorld::actor_can_act(actor)
+        || actor.location_id != location_id
+        || runtime.actor_uses_inference(actor.id)
+    {
+        return None;
+    }
+    Some((location_id, actor_id, activation))
 }
 
 #[allow(clippy::too_many_arguments)]
