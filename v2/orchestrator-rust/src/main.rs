@@ -4494,6 +4494,30 @@ impl AppState {
         }
         if let Some(path) = event_store_path.as_deref() {
             init_event_store(path)?;
+            if one_time_auto_vacuum_requested() {
+                let started_at = Instant::now();
+                match convert_existing_store_to_incremental_auto_vacuum(path) {
+                    Ok(true) => {
+                        warn!(
+                            path = %path.display(),
+                            elapsed_ms = started_at.elapsed().as_millis() as u64,
+                            "one-time event store auto_vacuum conversion complete; unset COSYWORLD_ONE_TIME_AUTO_VACUUM on the next deploy"
+                        );
+                    }
+                    Ok(false) => {
+                        warn!(
+                            path = %path.display(),
+                            "COSYWORLD_ONE_TIME_AUTO_VACUUM is set but the store already uses incremental auto_vacuum; nothing to convert"
+                        );
+                    }
+                    Err(error) => {
+                        return Err(deployment_config_error(format!(
+                            "one-time event store auto_vacuum conversion failed for {}: {error}; fix the volume before deploying",
+                            path.display()
+                        )));
+                    }
+                }
+            }
             let report = read_persistence_compaction_report(path)?;
             if (report.action_journal_floor_seq > 0 || report.world_event_floor_seq > 0)
                 && (canonical_routing.enabled() || canonical_recovery.is_some())
@@ -28840,6 +28864,14 @@ fn load_snapshot_or_seed_with_policy(
         },
         None => Ok(RuntimeWorld::seeded()),
     }
+}
+
+/// Operator opt-in for the one-time event store auto_vacuum conversion
+/// (issue #886). Set only for the maintenance-window deploy; unset after.
+fn one_time_auto_vacuum_requested() -> bool {
+    std::env::var("COSYWORLD_ONE_TIME_AUTO_VACUUM")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
 }
 
 fn event_store_path_from_env() -> Option<PathBuf> {
