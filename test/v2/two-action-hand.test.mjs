@@ -67,7 +67,7 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('scoutAction.selectedPayload = () => ({');
   });
 
-  it("keeps the pending campaign Class card visible outside ranked action offers", () => {
+  it("keeps the pending campaign Class card visible and playable outside room initiative", () => {
     const classSelectionBlock = browser.slice(
       browser.indexOf("if (characterIdentity?.class_selection_ready"),
       browser.indexOf("const turn = view.turn || {}"),
@@ -79,8 +79,13 @@ describe("three-slot Story Hand", () => {
 
     expect(classSelectionBlock).toContain('kind: "choose-class"');
     expect(classSelectionBlock).toContain("standaloneHandProjection: true");
+    expect(classSelectionBlock).toContain('concurrencyPolicy: "concurrent"');
     expect(handOrderBlock).toContain("actions[index]?.standaloneHandProjection === true");
     expect(handOrderBlock).toContain("if (standaloneIndexes.length) return standaloneIndexes;");
+    expect(browser).toContain("function storyHandActionWaitsForTurn(action)");
+    expect(browser).toContain('String(action?.concurrencyPolicy || "") !== "concurrent"');
+    expect(browser).toContain("const waitingForTurn = storyHandActionWaitsForTurn(original);");
+    expect(browser).toContain("if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;");
   });
 
   it("shows Travel and the destination without route-type copy in the hand", () => {

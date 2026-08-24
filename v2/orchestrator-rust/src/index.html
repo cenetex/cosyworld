@@ -8412,6 +8412,7 @@
               priority: 20,
             },
             kind: "choose-class",
+            concurrencyPolicy: "concurrent",
             label: "campaign class",
             detail: "optional rules for this campaign",
             command: "choose campaign class",
@@ -17632,6 +17633,14 @@
       return projectedHandEntryForAction(action)?.think || null;
     }
 
+    function storyHandActionWaitsForTurn(action) {
+      return Boolean(
+        state?.turn?.enabled
+        && !state.turn.is_current_actor
+        && String(action?.concurrencyPolicy || "") !== "concurrent"
+      );
+    }
+
     function canDiscardHandCard(action) {
       return Boolean(
         !state?.branch
@@ -17818,7 +17827,7 @@
         const original = originalStoryHandAction(action);
         const title = actionTitle(original);
         const held = Boolean(action.heldStoryHandAction);
-        const waitingForTurn = Boolean(state?.turn?.enabled && !state.turn.is_current_actor);
+        const waitingForTurn = storyHandActionWaitsForTurn(original);
         const progress = held && storyHandKey(action) === heldStoryHand?.playedKey
           ? heldStoryHandProgress()
           : null;
@@ -17903,7 +17912,7 @@
 
     function playStoryHandCard(id) {
       const action = actionForButton(id);
-      if (!action || actionBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) return;
+      if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;
       if (Array.isArray(action.choices) && action.choices.length > 1) {
         openActionModal(action);
         return;
