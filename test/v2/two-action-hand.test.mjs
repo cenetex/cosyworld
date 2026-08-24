@@ -55,6 +55,28 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('No attack is made yet; ordinary advancement pauses while combat is active.');
   });
 
+  it("shows discard cost and shares one expandable turn log", () => {
+    expect(browser).toContain('id="turn-rope-toggle"');
+    expect(browser).toContain('id="turn-log"');
+    expect(browser).not.toContain('id="combat-dock"');
+    expect(browser).toContain('think?.available ? `Discard · ${discardCost}` : "Discard"');
+    expect(browser).toContain('discardCertificate.free ? "discard · free" : "discard · turn"');
+    expect(browser).toContain('const spendsTurn = think.consumes_turn === true || think.free === false;');
+    expect(browser).toContain('if (spendsTurn) holdStoryHandForAction(focused, { kind: "discard" });');
+    expect(browser).toContain('function turnEventsForPresentation(events, view = state)');
+    expect(browser).toContain('if (view?.combat) return combatEventsForPresentation(events);');
+    expect(browser).toContain('const canReviewLatestTurn = Boolean(actorId && view?.turn?.enabled && latestBeat);');
+    expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
+  });
+
+  it("keeps free campaign Class selection playable outside room initiative", () => {
+    expect(browser).toContain('kind: "choose-class",\n            concurrencyPolicy: "concurrent",');
+    expect(browser).toContain("function storyHandActionWaitsForTurn(action)");
+    expect(browser).toContain('String(action?.concurrencyPolicy || "") !== "concurrent"');
+    expect(browser).toContain("const waitingForTurn = storyHandActionWaitsForTurn(original);");
+    expect(browser).toContain("if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;");
+  });
+
   it("keeps same-kind Search and Scout targets bound to their dealt certificates", () => {
     expect(browser).toContain('const projectedSearchOfferIds = new Set((view.action_hand?.entries || [])');
     expect(browser).toContain('&& (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))');

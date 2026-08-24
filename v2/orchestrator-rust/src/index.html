@@ -5769,113 +5769,119 @@
     @media (prefers-reduced-motion: reduce) {
       .hand-toggle-chevron,
       .prompt.hand-expanded .cmd,
-      .story-card-actions .story-card-play.turn-progress::before {
+      .turn-rope-toggle::before {
         transition: none;
       }
     }
-    /* Combat is a live game state, not a kind of chat. Keep the immediate
-       result beside the encounter and disclose the deeper ledger on demand. */
-    .combat-dock {
+    /* Play, turn-spending discard, and combat share one compact turn rope.
+       After a turn resolves, its latest beat stays available as a quiet log handle. */
+    .turn-rope {
+      --rope-rgb: 222, 194, 141;
+      --rope-accent: var(--amber);
+      grid-column: 1 / -1;
       min-width: 0;
-      margin: 0 0 9px;
       overflow: hidden;
-      border: 1px solid rgba(var(--type-combat-rgb), 0.34);
-      border-radius: 5px;
-      background:
-        linear-gradient(90deg, rgba(var(--type-combat-rgb), 0.09), transparent 44%),
-        rgba(14, 12, 10, 0.82);
+      border-top: 1px solid rgba(var(--rope-rgb), 0.32);
+      background: #0b0c09;
     }
-    .combat-dock[hidden] { display: none; }
-    .combat-dock-head {
+    .turn-rope.combat {
+      --rope-rgb: var(--type-combat-rgb);
+      --rope-accent: var(--red);
+    }
+    .turn-rope[hidden] { display: none; }
+    .turn-rope-toggle {
+      --turn-progress: 0%;
+      width: 100%;
       min-height: 44px;
-      display: flex;
+      position: relative;
+      isolation: isolate;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) auto auto;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 6px 8px 5px 10px;
-      border-bottom: 1px solid rgba(var(--type-combat-rgb), 0.18);
-    }
-    .combat-dock-state {
-      min-width: 0;
-      display: flex;
-      align-items: baseline;
-      gap: 7px;
+      gap: 8px;
       overflow: hidden;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 6px 10px;
+      text-align: left;
+      cursor: pointer;
     }
-    .combat-dock-round {
-      flex: 0 0 auto;
-      color: var(--red);
+    .turn-rope-toggle::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      z-index: -1;
+      width: var(--turn-progress);
+      border-right: 1px solid rgba(var(--rope-rgb), 0.62);
+      background: linear-gradient(90deg, rgba(var(--rope-rgb), 0.24), rgba(var(--rope-rgb), 0.08));
+      transition: width 240ms ease;
+    }
+    .turn-rope-toggle:hover,
+    .turn-rope-toggle:focus-visible,
+    .turn-rope-toggle[aria-expanded="true"] {
+      background: rgba(var(--rope-rgb), 0.06);
+      outline: 0;
+    }
+    .turn-rope-icon {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(var(--rope-rgb), 0.48);
+      border-radius: 999px;
+      color: var(--rope-accent);
       font-size: 10px;
       font-weight: 900;
-      text-transform: uppercase;
-      white-space: nowrap;
     }
-    .combat-dock-turn {
+    .turn-rope-copy {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+    .turn-rope-title,
+    .turn-rope-detail {
       min-width: 0;
       overflow: hidden;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 820;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .combat-history-toggle {
-      flex: 0 0 auto;
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      border: 0;
-      border-bottom: 1px solid var(--line-strong);
-      border-radius: 0;
-      background: transparent;
-      color: var(--dim);
-      padding: 4px 2px;
-      font: inherit;
-      font-size: 10px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .combat-history-toggle:hover,
-    .combat-history-toggle:focus-visible,
-    .combat-history-toggle[aria-expanded="true"] {
-      border-bottom-color: var(--red);
-      color: var(--text);
-      outline: 0;
-    }
-    .combat-history-toggle-count {
-      min-width: 17px;
-      height: 17px;
+    .turn-rope-title { font-size: 11px; font-weight: 850; }
+    .turn-rope-detail { color: var(--dim); font-size: 9px; }
+    .turn-rope-count {
+      min-width: 18px;
+      height: 18px;
       display: grid;
       place-items: center;
-      border: 1px solid rgba(var(--type-combat-rgb), 0.42);
+      border: 1px solid rgba(var(--rope-rgb), 0.4);
       border-radius: 999px;
-      color: var(--red);
+      color: var(--rope-accent);
       font-size: 9px;
+      font-weight: 850;
     }
-    .combat-latest,
-    .combat-latest-inner,
-    .combat-history-row {
+    .turn-rope-chevron {
+      color: var(--rope-accent);
+      font-size: 9px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .turn-log-row {
       min-width: 0;
       display: grid;
       grid-template-columns: 24px minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
     }
-    .combat-latest {
-      min-height: 46px;
-      padding: 7px 10px;
-    }
-    .combat-latest-inner { display: contents; }
     .combat-beat-icon {
       width: 24px;
       height: 24px;
       display: grid;
       place-items: center;
-      border: 1px solid rgba(var(--type-combat-rgb), 0.42);
+      border: 1px solid rgba(var(--rope-rgb), 0.42);
       border-radius: 999px;
-      background: rgba(var(--type-combat-rgb), 0.1);
-      color: var(--red);
+      background: rgba(var(--rope-rgb), 0.1);
+      color: var(--rope-accent);
       font-size: 11px;
       font-weight: 900;
     }
@@ -5903,10 +5909,10 @@
     .combat-beat-result {
       max-width: none;
       overflow: hidden;
-      border: 1px solid rgba(var(--type-combat-rgb), 0.34);
+      border: 1px solid rgba(var(--rope-rgb), 0.34);
       border-radius: 999px;
-      background: rgba(var(--type-combat-rgb), 0.09);
-      color: var(--red);
+      background: rgba(var(--rope-rgb), 0.09);
+      color: var(--rope-accent);
       padding: 3px 7px;
       font-size: 9px;
       font-weight: 900;
@@ -5921,28 +5927,28 @@
       color: var(--dim);
     }
     .combat-beat-result.critical {
-      border-color: rgba(var(--type-combat-rgb), 0.7);
-      background: rgba(var(--type-combat-rgb), 0.2);
+      border-color: rgba(var(--rope-rgb), 0.7);
+      background: rgba(var(--rope-rgb), 0.2);
       color: #fff;
     }
-    .combat-history {
+    .turn-log {
       max-height: min(28vh, 230px);
       overflow: auto;
       overscroll-behavior: contain;
-      border-top: 1px solid rgba(var(--type-combat-rgb), 0.18);
+      border-top: 1px solid rgba(var(--rope-rgb), 0.18);
       background: rgba(6, 6, 5, 0.46);
       scrollbar-width: thin;
     }
-    .combat-history[hidden] { display: none; }
-    .combat-history-row {
+    .turn-log[hidden] { display: none; }
+    .turn-log-row {
       min-height: 42px;
       align-items: start;
       padding: 6px 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.055);
     }
-    .combat-history-row .combat-beat-icon,
-    .combat-history-row .combat-beat-result { margin-top: 1px; }
-    .combat-history-row .combat-beat-detail {
+    .turn-log-row .combat-beat-icon,
+    .turn-log-row .combat-beat-result { margin-top: 1px; }
+    .turn-log-row .combat-beat-detail {
       display: -webkit-box;
       overflow: hidden;
       line-height: 1.25;
@@ -5950,8 +5956,8 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
-    .combat-history-row:last-child { border-bottom: 0; }
-    .combat-history-empty {
+    .turn-log-row:last-child { border-bottom: 0; }
+    .turn-log-empty {
       margin: 0;
       padding: 12px;
       color: var(--dim);
@@ -5959,21 +5965,21 @@
       text-align: center;
     }
     @media (max-width: 900px) {
-      .combat-dock { margin-bottom: 7px; }
-      .combat-dock-head { min-height: 44px; padding-inline: 8px; }
-      .combat-latest { padding-inline: 8px; }
-      .combat-history-row { padding-inline: 8px; }
+      .turn-rope-toggle,
+      .turn-log-row { padding-inline: 8px; }
+      .turn-rope-detail,
+      .turn-rope-chevron { font-size: 10px; }
+      .turn-log { max-height: min(24dvh, 190px); }
     }
-    body.large-text .combat-dock-turn,
+    body.large-text .turn-rope-title,
     body.large-text .combat-beat-summary { font-size: 1rem; }
-    body.large-text .combat-dock-round,
+    body.large-text .turn-rope-detail,
     body.large-text .combat-beat-detail,
-    body.large-text .combat-history-toggle { font-size: 0.82rem; }
+    body.large-text .turn-rope-chevron { font-size: 0.82rem; }
     @media (max-width: 360px) {
-      .combat-dock-state { gap: 5px; }
-      .combat-dock-turn { font-size: 11px; }
-      .combat-history-toggle { font-size: 0; }
-      .combat-history-toggle::before { content: "log"; font-size: 10px; }
+      .turn-rope-toggle { grid-template-columns: 24px minmax(0, 1fr) auto; }
+      .turn-rope-count { display: none; }
+      .turn-log { max-height: min(22dvh, 160px); }
     }
 
     /* Chat is the game table. Supporting controls use square, illustrated
@@ -6198,8 +6204,6 @@
     }
     .story-card-actions[hidden],
     .story-card-actions button[hidden] { display: none !important; }
-    .story-card-actions.progress-only { grid-template-columns: minmax(0, 1fr); }
-    .story-card-actions.progress-only .story-card-play { border-left: 0; }
     .story-card-actions button {
       min-width: 0;
       min-height: 46px;
@@ -6220,55 +6224,12 @@
       background: rgba(var(--slot-accent-rgb), 0.12);
       color: var(--slot-accent);
     }
-    .story-card-actions .story-card-play.turn-progress {
-      --turn-progress: 8%;
-      background: rgba(var(--slot-accent-rgb), 0.06);
-      color: var(--text);
-      opacity: 1;
-    }
-    .story-card-actions .story-card-play.turn-progress::before {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      z-index: -1;
-      width: var(--turn-progress);
-      background: rgba(var(--slot-accent-rgb), 0.28);
-      border-right: 1px solid rgba(var(--slot-accent-rgb), 0.62);
-      transition: width 240ms ease;
-    }
-    .story-card-play .turn-progress-copy {
-      display: block;
-      max-width: 100%;
-      overflow: hidden;
-      position: relative;
-      z-index: 1;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .story-card-play .turn-progress-copy.turn-activity-live {
-      color: var(--slot-accent);
-      letter-spacing: 0.035em;
-      text-transform: none;
-    }
     .story-card-actions button:hover,
     .story-card-actions button:focus-visible {
       background: rgba(var(--slot-accent-rgb), 0.2);
       color: var(--text);
     }
-    .story-card-actions button:disabled:not(.turn-progress) { opacity: 0.5; }
-    .story-card-actions button:disabled { cursor: default; }
-    .prompt:not(.hand-expanded) .story-card-slot:has(.story-card-play.turn-progress:not([hidden])) {
-      grid-template-rows: 58px 20px;
-    }
-    .prompt:not(.hand-expanded) .story-card-actions.progress-only {
-      display: grid;
-      min-height: 20px;
-    }
-    .prompt:not(.hand-expanded) .story-card-actions.progress-only button {
-      min-height: 20px;
-      padding: 2px 4px;
-      font-size: 8px;
-    }
+    .story-card-actions button:disabled { opacity: 0.5; cursor: default; }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6842,14 +6803,6 @@
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
         </div>
-        <section class="combat-dock" id="combat-dock" aria-label="Combat status" hidden>
-          <header class="combat-dock-head">
-            <div class="combat-dock-state"><span class="combat-dock-round" id="combat-dock-round"></span><strong class="combat-dock-turn" id="combat-dock-turn"></strong></div>
-            <button class="combat-history-toggle" id="combat-history-toggle" type="button" aria-expanded="false" aria-controls="combat-history">History <span class="combat-history-toggle-count" id="combat-history-count" aria-hidden="true">0</span></button>
-          </header>
-          <div class="combat-latest" id="combat-latest" role="status" aria-live="polite" aria-atomic="true"></div>
-          <div class="combat-history" id="combat-history" role="log" aria-label="Combat history" hidden></div>
-        </section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -6918,6 +6871,15 @@
           </div>
         </article>
       </div>
+      <section class="turn-rope" id="turn-rope" aria-label="Turn status and log" hidden>
+        <button class="turn-rope-toggle" id="turn-rope-toggle" type="button" aria-expanded="false" aria-controls="turn-log">
+          <span class="turn-rope-icon" id="turn-rope-icon" aria-hidden="true">▶</span>
+          <span class="turn-rope-copy"><strong class="turn-rope-title" id="turn-rope-title"></strong><span class="turn-rope-detail" id="turn-rope-detail"></span></span>
+          <span class="turn-rope-count" id="turn-rope-count" aria-hidden="true">0</span>
+          <span class="turn-rope-chevron" id="turn-rope-chevron" aria-hidden="true">Log</span>
+        </button>
+        <div class="turn-log" id="turn-log" role="log" aria-label="Recent turns" hidden></div>
+      </section>
       <section class="hand-inspector" id="hand-inspector" aria-label="Selected card details" hidden>
         <h2 class="action-title" id="hand-title"></h2>
         <div class="action-summary" id="hand-summary"></div>
@@ -7118,8 +7080,8 @@
     let openRouterConnection = loadOpenRouterConnection();
     let roomCopyExpanded = false;
     let journalOpen = false;
-    let combatHistoryOpen = false;
-    let combatHistoryEncounterId = 0;
+    let turnLogOpen = false;
+    let turnLogEncounterId = 0;
     let journalPageIndex = -1;
     let roomLogTickerFrame = null;
     let journalRowOverflowFrame = null;
@@ -10219,7 +10181,7 @@
       builtActions.push(merged);
     }
 
-    function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
+    function turnStatusCopy(turn = state?.turn, combat = state?.combat) {
       if (!turn?.enabled) return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
       const sceneKind = String(turn.scene_kind || "");
@@ -10234,6 +10196,12 @@
         : sceneKind === "room"
           ? (turn.is_current_actor ? "room initiative — your turn" : `room initiative — ${currentName} acts now`)
           : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
+      return copy;
+    }
+
+    function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
+      const copy = turnStatusCopy(turn, combat);
+      if (!copy) return "";
       const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
       // Urgency carries a glyph and distinct wording, never colour alone.
       const mark = turn.is_current_actor
@@ -13335,8 +13303,44 @@
       };
     }
 
-    function combatBeatHtml(event, className) {
-      const beat = combatBeatPresentation(event);
+    function turnBeatPresentation(event) {
+      const type = String(event?.type || "");
+      const actor = cleanStatusText(event?.actor_name || "Someone") || "Someone";
+      if (type === "story.card.played") {
+        const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
+        return {
+          icon: "▶",
+          summary: `${actor} played ${card}`,
+          detail: "The turn moved on",
+          result: "play",
+          resultKind: "wait",
+        };
+      }
+      if (type === "hand.thought") {
+        const free = /(?:^|:)free=true(?:$|:)/.test(String(event.content || ""));
+        return {
+          icon: "↻",
+          summary: `${actor} discarded a card`,
+          detail: "A new Story Hand card was drawn",
+          result: free ? "free" : "turn",
+          resultKind: free ? "wait" : "hit",
+        };
+      }
+      return combatBeatPresentation(event);
+    }
+
+    function turnEventsForPresentation(events, view = state) {
+      if (view?.combat) return combatEventsForPresentation(events);
+      const currentLocationId = Number(view?.location?.id || 0);
+      return (events || []).filter((event) => {
+        const eventLocationId = Number(event?.location_id || 0);
+        return ["story.card.played", "hand.thought"].includes(event?.type)
+          && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
+      }).slice(-24);
+    }
+
+    function turnBeatHtml(event, className = "turn-log-row") {
+      const beat = turnBeatPresentation(event);
       const result = beat.result
         ? '<span class="combat-beat-result ' + escapeAttr(beat.resultKind) + '">' + escapeHtml(beat.result) + "</span>"
         : "";
@@ -13344,58 +13348,71 @@
         ? '<span class="combat-beat-detail">' + escapeHtml(beat.detail) + "</span>"
         : "";
       const aria = [beat.summary, beat.detail, beat.result].filter(Boolean).join(". ");
-      return '<div class="' + escapeAttr(className) + '" data-combat-history-seq="' + Number(event?.transcript_tail_seq || event?.seq || 0) + '" aria-label="' + escapeAttr(aria) + '"><span class="combat-beat-icon" aria-hidden="true">' + escapeHtml(beat.icon) + '</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(beat.summary) + "</span>" + detail + "</span>" + result + "</div>";
+      return '<div class="' + escapeAttr(className) + '" data-turn-log-seq="' + Number(event?.transcript_tail_seq || event?.seq || 0) + '" aria-label="' + escapeAttr(aria) + '"><span class="combat-beat-icon" aria-hidden="true">' + escapeHtml(beat.icon) + '</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(beat.summary) + "</span>" + detail + "</span>" + result + "</div>";
     }
 
-    function renderCombatDock(view = state) {
-      const dock = $("combat-dock");
-      const history = $("combat-history");
-      const toggle = $("combat-history-toggle");
-      if (!dock || !history || !toggle) return;
+    function renderTurnRope(view = state) {
+      const rope = $("turn-rope");
+      const log = $("turn-log");
+      const toggle = $("turn-rope-toggle");
+      if (!rope || !log || !toggle) return;
       const combat = view?.combat || null;
-      if (!combat) {
-        dock.hidden = true;
-        combatHistoryOpen = false;
-        combatHistoryEncounterId = 0;
-        history.hidden = true;
+      const progress = heldStoryHandProgress();
+      const beats = turnEventsForPresentation(logEvents, view);
+      const latest = beats.at(-1);
+      const latestBeat = latest ? turnBeatPresentation(latest) : null;
+      const canReviewLatestTurn = Boolean(actorId && view?.turn?.enabled && latestBeat);
+      if (!combat && !progress && !canReviewLatestTurn) {
+        rope.hidden = true;
+        turnLogOpen = false;
+        turnLogEncounterId = 0;
+        log.hidden = true;
         toggle.setAttribute("aria-expanded", "false");
         return;
       }
-      const encounterId = Number(combat.encounter_id || 0);
-      if (encounterId !== combatHistoryEncounterId) {
-        combatHistoryEncounterId = encounterId;
-        combatHistoryOpen = false;
+      const encounterId = Number(combat?.encounter_id || 0);
+      if (encounterId && encounterId !== turnLogEncounterId) {
+        turnLogEncounterId = encounterId;
+        turnLogOpen = false;
       }
-      const beats = combatEventsForPresentation(logEvents);
-      const historicalBeats = beats.slice(0, -1);
-      const currentActor = combat.current_actor_name
-        || actorForId(combat.current_actor_id)?.name
-        || "The next combatant";
-      const round = Math.max(1, Number(combat.round || 1));
-      const turnCopy = combat.is_current_actor || Number(combat.current_actor_id) === Number(actorId)
-        ? "Your turn"
-        : currentActor + "'s turn";
-      $("combat-dock-round").textContent = "Round " + round;
-      $("combat-dock-turn").textContent = turnCopy;
-      $("combat-history-count").textContent = String(beats.length);
-      const latest = beats.at(-1);
-      $("combat-latest").innerHTML = latest
-        ? combatBeatHtml(latest, "combat-latest-inner")
-        : '<span class="combat-beat-icon" aria-hidden="true">…</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(currentActor) + ' is choosing</span><span class="combat-beat-detail">The encounter state is up to date</span></span><span class="combat-beat-result wait">waiting</span>';
-      history.innerHTML = historicalBeats.length
-        ? historicalBeats.map((event) => combatBeatHtml(event, "combat-history-row")).join("")
-        : '<p class="combat-history-empty">No earlier combat actions yet.</p>';
-      history.hidden = !combatHistoryOpen;
-      toggle.setAttribute("aria-expanded", combatHistoryOpen ? "true" : "false");
-      toggle.setAttribute("aria-label", (combatHistoryOpen ? "Hide" : "Show") + " combat history, " + beats.length + " " + (beats.length === 1 ? "event" : "events"));
-      const latestBeat = latest ? combatBeatPresentation(latest) : null;
-      dock.setAttribute("aria-label", [
-        "Combat, round " + round,
-        turnCopy,
-        latestBeat ? "Latest: " + latestBeat.summary + ", " + (latestBeat.result || latestBeat.detail) : "No actions resolved yet",
-      ].join(". "));
-      dock.hidden = false;
-      if (combatHistoryOpen) history.scrollTop = history.scrollHeight;
+      let icon = progress?.kind === "discard" ? "↻" : (latestBeat?.icon || "▶");
+      let title = progress
+        ? (progress.activity
+          ? progress.label
+          : `${progress.kind === "discard" ? "Discard" : "Play"} · ${progress.title}`)
+        : (latestBeat?.summary || "Recent turns");
+      let detail = turnStatusCopy(view?.turn, combat)
+        || latestBeat?.detail
+        || "Review the latest turn";
+      if (combat) {
+        const currentActor = combat.current_actor_name
+          || actorForId(combat.current_actor_id)?.name
+          || "The next combatant";
+        const turnCopy = combat.is_current_actor || Number(combat.current_actor_id) === Number(actorId)
+          ? "Your turn"
+          : currentActor + "'s turn";
+        icon = "⚔";
+        title = `Round ${Math.max(1, Number(combat.round || 1))} · ${turnCopy}`;
+        detail = latestBeat
+          ? [latestBeat.summary, latestBeat.result || latestBeat.detail].filter(Boolean).join(" · ")
+          : `${currentActor} is choosing`;
+      }
+      $("turn-rope-icon").textContent = icon;
+      $("turn-rope-title").textContent = title;
+      $("turn-rope-detail").textContent = detail;
+      $("turn-rope-count").textContent = String(beats.length);
+      $("turn-rope-chevron").textContent = turnLogOpen ? "Close" : "Log";
+      toggle.style.setProperty("--turn-progress", `${progress?.percent || 0}%`);
+      toggle.setAttribute("aria-expanded", turnLogOpen ? "true" : "false");
+      toggle.setAttribute("aria-label", `${title}. ${detail}. ${turnLogOpen ? "Hide" : "Show"} turn log, ${beats.length} ${beats.length === 1 ? "event" : "events"}`);
+      log.innerHTML = beats.length
+        ? beats.map((event) => turnBeatHtml(event)).join("")
+        : '<p class="turn-log-empty">No earlier turns here yet.</p>';
+      log.hidden = !turnLogOpen;
+      rope.classList.toggle("combat", Boolean(combat));
+      rope.classList.toggle("resolving", Boolean(progress));
+      rope.hidden = false;
+      if (turnLogOpen) log.scrollTop = log.scrollHeight;
     }
 
     function journalSentence(value) {
@@ -13513,7 +13530,7 @@
       renderJournalActivity();
       renderRoomMemory();
       renderJournalLog();
-      renderCombatDock();
+      renderTurnRope();
       renderLog();
       syncJournalRegions();
       syncJournalMode();
@@ -17784,9 +17801,11 @@
       return match ? Number(match[1]) : 0;
     }
 
-    function holdStoryHandForAction(action) {
+    function holdStoryHandForAction(action, { kind = "play" } = {}) {
       if (!usesInlineStoryHand() || (state?.turn?.enabled && !state.turn.is_current_actor)) return;
-      const actionIndex = actions.indexOf(action);
+      const actionIndex = actions.indexOf(action) >= 0
+        ? actions.indexOf(action)
+        : Number(action?.actionIndex);
       const visibleActions = actionBarActions().slice(0, handCapacity());
       const played = visibleActions.find((candidate) => candidate.actionIndex === actionIndex);
       if (!played) return;
@@ -17801,6 +17820,8 @@
           heldStoryHandAction: true,
         })),
         playedKey: storyHandKey(played),
+        actionKind: kind === "discard" ? "discard" : "play",
+        actionTitle: actionTitle(originalStoryHandAction(played)),
         startActivation: turnActivation(),
         participantCount: Math.max(1, participants.size),
       };
@@ -17813,16 +17834,20 @@
     }
 
     function presentStoryHandTurnActivity(event) {
-      if (!heldStoryHand || event?.type !== "story.card.played") return false;
+      if (!heldStoryHand || !["story.card.played", "hand.thought"].includes(event?.type)) return false;
       const actor = cleanStatusText(event.actor_name || "Someone") || "Someone";
-      const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
-      storyHandTurnActivity = `${actor} played ${card}`;
+      if (event.type === "hand.thought") {
+        storyHandTurnActivity = `${actor} discarded a card`;
+      } else {
+        const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
+        storyHandTurnActivity = `${actor} played ${card}`;
+      }
       return true;
     }
 
     function activeHeldStoryHandActions() {
       if (!heldStoryHand) return null;
-      if (actionBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) {
+      if (actionBusy || handShuffleBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) {
         return heldStoryHand.actions;
       }
       heldStoryHand = null;
@@ -17834,8 +17859,9 @@
       if (!heldStoryHand) return null;
       const total = Math.max(1, Number(heldStoryHand.participantCount || 1));
       const activation = turnActivation();
+      const pending = actionBusy || handShuffleBusy;
       const advanced = Math.max(
-        actionBusy ? 0 : 1,
+        pending ? 0 : 1,
         activation && heldStoryHand.startActivation
           ? activation - heldStoryHand.startActivation
           : 0,
@@ -17845,8 +17871,12 @@
         percent,
         value: Math.min(total, Math.max(0, advanced)),
         max: total,
-        label: storyHandTurnActivity || (total > 1 ? "" : (actionSlow ? "still playing…" : "playing…")),
+        label: storyHandTurnActivity || (actionSlow
+          ? `still ${heldStoryHand.actionKind === "discard" ? "discarding" : "playing"}…`
+          : `${heldStoryHand.actionKind === "discard" ? "discarding" : "playing"}…`),
         activity: Boolean(storyHandTurnActivity),
+        kind: heldStoryHand.actionKind || "play",
+        title: heldStoryHand.actionTitle || "Story Hand card",
       };
     }
 
@@ -17935,31 +17965,30 @@
         const title = actionTitle(original);
         const held = Boolean(action.heldStoryHandAction);
         const waitingForTurn = storyHandActionWaitsForTurn(original);
-        const progress = held && storyHandKey(action) === heldStoryHand?.playedKey
-          ? heldStoryHandProgress()
-          : null;
-        const hideTurnActions = waitingForTurn && !progress;
+        const hideTurnActions = waitingForTurn || held;
         play.hidden = hideTurnActions;
-        discard.hidden = waitingForTurn || Boolean(progress);
+        discard.hidden = hideTurnActions;
         cardActions.hidden = hideTurnActions;
-        cardActions.classList.toggle("progress-only", Boolean(progress));
+        cardActions.classList.remove("progress-only");
         play.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
-        play.classList.toggle("turn-progress", Boolean(progress));
-        if (progress) {
-          const progressAria = progress.label || "Waiting for the next turn";
-          play.style.setProperty("--turn-progress", `${progress.percent}%`);
-          play.innerHTML = `<span class="turn-progress-copy${progress.activity ? " turn-activity-live" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${progress.max}" aria-valuenow="${progress.value}" aria-valuetext="${escapeAttr(progressAria)}">${escapeHtml(progress.label)}</span>`;
-          play.setAttribute("aria-label", `${progressAria} after playing ${title}`);
-        } else {
-          play.style.removeProperty("--turn-progress");
-          play.textContent = "Play";
-          play.setAttribute("aria-label", `Play ${title}`);
-        }
+        play.classList.remove("turn-progress");
+        play.style.removeProperty("--turn-progress");
+        play.textContent = "Play";
+        play.setAttribute("aria-label", `Play ${title}`);
+        const think = handCardThink(original);
+        const discardCost = think?.free ? "Free" : "Turn";
         discard.disabled = !inline || held || actionBusy || !canDiscardHandCard(original) || handShuffleBusy;
-        discard.setAttribute("aria-label", `Discard ${title}`);
+        discard.textContent = think?.available ? `Discard · ${discardCost}` : "Discard";
+        discard.setAttribute("aria-label", !think?.available
+          ? `${title} cannot be discarded right now`
+          : think.free
+            ? `Discard ${title} for free`
+            : `Discard ${title}; uses this turn`);
         discard.title = discard.disabled
           ? "No replacement is available for this card right now."
-          : `Discard ${title} and draw its replacement`;
+          : think?.free
+            ? `Discard ${title} and draw its replacement for free`
+            : `Discard ${title}, draw its replacement, and use this turn`;
       });
       const shouldScroll = storyHandScrollPending;
       storyHandScrollPending = false;
@@ -17967,6 +17996,7 @@
         window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
       }
       renderStoryHandInspector(null);
+      renderTurnRope();
     }
 
     function setStoryHandExpanded(expanded, action = null) {
@@ -18117,7 +18147,9 @@
         && (!state?.turn?.enabled || state?.turn?.is_current_actor);
       discardButton.hidden = handCard ? false : !canDiscard;
       discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
-      discardButton.textContent = handCard ? "discard" : (discardCertificate?.free ? "discard · free" : "discard");
+      discardButton.textContent = discardCertificate?.available
+        ? (discardCertificate.free ? "discard · free" : "discard · turn")
+        : "discard";
       discardButton.setAttribute(
         "aria-label",
         canDiscard
@@ -18901,14 +18933,17 @@
         || state?.primary_action?.kind === "create_avatar") {
         return null;
       }
+      const entry = projectedHandEntryForAction(focused);
+      const think = entry?.think;
+      if (!think?.available || !think?.offer_id) {
+        setError("That Story Hand card has no other current possibility to discard into.");
+        return null;
+      }
+      const spendsTurn = think.consumes_turn === true || think.free === false;
+      if (spendsTurn) holdStoryHandForAction(focused, { kind: "discard" });
       handShuffleBusy = true;
+      renderCommands();
       try {
-        const entry = projectedHandEntryForAction(focused);
-        const think = entry?.think;
-        if (!think?.available || !think?.offer_id) {
-          setError("That Story Hand card has no other current possibility to discard into.");
-          return null;
-        }
         if (handPassSubmission?.offer_id !== think.offer_id) {
           handPassSubmission = {
             offer_id: think.offer_id,
@@ -19602,9 +19637,9 @@
     $("room-log-latest").addEventListener("click", () => {
       setJournalOpen(!journalOpen);
     });
-    $("combat-history-toggle").addEventListener("click", () => {
-      combatHistoryOpen = !combatHistoryOpen;
-      renderCombatDock();
+    $("turn-rope-toggle").addEventListener("click", () => {
+      turnLogOpen = !turnLogOpen;
+      renderTurnRope();
     });
 
     $("card-modal").addEventListener("click", (event) => {
