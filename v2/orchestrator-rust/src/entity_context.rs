@@ -385,6 +385,17 @@ impl RuntimeWorld {
             .map(|(_, identity)| identity.clone())
     }
 
+    pub(crate) fn avatar_level_identity(
+        &self,
+        actor_id: u64,
+        level: u8,
+    ) -> Option<AvatarLevelIdentity> {
+        self.entity_memories
+            .get(&WorldEntityRef::avatar(actor_id).key())
+            .and_then(|state| state.identity_by_level.get(&level))
+            .cloned()
+    }
+
     pub(crate) fn world_entity_self_description_due(&self, subject: WorldEntityRef) -> bool {
         let Some(level) = self.world_entity_level(subject) else {
             return false;

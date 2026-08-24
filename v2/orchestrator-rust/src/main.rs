@@ -7976,9 +7976,11 @@ impl RuntimeWorld {
                     ));
                 }
                 ProjectionMutation::RecordAvatarSelfDescription(projection) => {
-                    events.push(
-                        self.append_avatar_self_description_projection(action.actor_id, projection),
-                    );
+                    if let Some(event) =
+                        self.append_avatar_self_description_projection(action.actor_id, projection)
+                    {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::RecordEntitySelfDescription(projection) => {
                     if let Some(event) = self.append_entity_self_description_projection(projection)
@@ -8051,6 +8053,19 @@ impl RuntimeWorld {
                     physical_description,
                 } => {
                     if !physical_description.trim().is_empty() {
+                        if let Some(level) = self
+                            .actor_by_id(*actor_id)
+                            .map(|actor| actor.stats.level.max(1))
+                            .filter(|level| self.avatar_self_description_due(*actor_id, *level))
+                        {
+                            self.entity_memories
+                                .entry(WorldEntityRef::avatar(*actor_id).key())
+                                .or_default()
+                                .identity_by_level
+                                .entry(level)
+                                .or_default()
+                                .appearance = compact_whitespace(physical_description);
+                        }
                         if let Some(identity) = self.character_identities.get_mut(actor_id) {
                             identity.physical_description =
                                 compact_whitespace(physical_description);
@@ -15117,129 +15132,6 @@ The relationship statement they are preserving is: {statement}"
             .unwrap_or_else(|| BTreeSet::from([1]))
     }
 
-    fn community_art_subject_level(&self, subject_kind: &str, subject_id: u64) -> Option<u8> {
-        match subject_kind {
-            "actor" => {
-                let actor = self.actor_by_id(subject_id)?;
-                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
-                    name: format!("Avatar {subject_id}"),
-                    speech_mode: "prose".to_string(),
-                    title: "World Traveler".to_string(),
-                    description: String::new(),
-                });
-                community_art_eligible_card(&card_for_actor(
-                    subject_id,
-                    &meta.name,
-                    &meta.title,
-                    &meta.description,
-                    actor.stats.level,
-                ))
-                .then_some(actor.stats.level.max(1))
-            }
-            "item" => {
-                let item = self.world.items[..self.world.item_count]
-                    .iter()
-                    .find(|item| item.id == subject_id)?;
-                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
-                    name: format!("Item {subject_id}"),
-                    description: "A found keepsake.".to_string(),
-                    skill_id: None,
-                    skill_bonus: 0,
-                    mechanics: None,
-                });
-                community_art_eligible_card(&card_for_item(item.id, &meta.name, &meta.description))
-                    .then(|| self.world_entity_level(WorldEntityRef::item(subject_id)))
-                    .flatten()
-            }
-            "location" => {
-                let name = self.location_name(subject_id)?;
-                let meta = self.location_meta_for(subject_id);
-                let card = card_for_location(subject_id, &name, Some(&meta));
-                if !community_art_eligible_card(&card) {
-                    return None;
-                }
-                if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
-                    return (pathway.art_eligible
-                        && self.generated_places.contains_key(&subject_id))
-                    .then(|| self.world_entity_level(WorldEntityRef::location(subject_id)))
-                    .flatten();
-                }
-                self.world_entity_level(WorldEntityRef::location(subject_id))
-            }
-            _ => None,
-        }
-    }
-
-    fn decorate_community_art_card(
-        &self,
-        mut card: CardView,
-        subject_kind: &str,
-        subject_id: u64,
-        viewer_actor_id: Option<u64>,
-    ) -> CardView {
-        if subject_kind == "location" {
-            card = self.decorate_generated_location_card(card, subject_id);
-        }
-        let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
-            return card;
-        };
-        let key = community_art_generation_key(subject_kind, subject_id, level);
-        let generation = self.community_art_generations.get(&key);
-        let published_generation = (1..=level).rev().find_map(|published_level| {
-            self.community_art_generations
-                .get(&community_art_generation_key(
-                    subject_kind,
-                    subject_id,
-                    published_level,
-                ))
-                .filter(|state| state.status == "ready")
-        });
-        let required_orbs = i32::from(level.max(1));
-        let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
-        let status =
-            generation.map_or_else(|| "available".to_string(), |state| state.status.clone());
-        let provider_attempts = generation
-            .map(|state| state.provider_attempts)
-            .unwrap_or_default();
-        let generation_profile_version = community_art_generation_profile_version(subject_kind);
-        let retryable_without_orbs = generation.is_some_and(|state| {
-            community_art_generation_retryable_for_profile(state, false, generation_profile_version)
-        });
-        if let Some(published) = published_generation {
-            card.image_url = Some(community_art_image_url(
-                subject_kind,
-                subject_id,
-                published.level,
-                published.revision,
-            ));
-            card.asset_status = "community_art".to_string();
-        }
-        card.level = level;
-        card.evolved = level >= 2;
-        card.community_art = Some(CommunityArtView {
-            level,
-            required_orbs,
-            funded_orbs,
-            remaining_orbs: required_orbs.saturating_sub(funded_orbs),
-            viewer_contributed: viewer_actor_id.is_some_and(|actor_id| {
-                generation.is_some_and(|state| {
-                    state
-                        .contributions
-                        .get(&actor_id)
-                        .is_some_and(|amount| *amount > 0)
-                })
-            }),
-            status,
-            history_through_seq: generation
-                .map(|state| state.history_through_seq)
-                .unwrap_or_else(|| self.world.next_event_seq.saturating_sub(1)),
-            provider_attempts,
-            max_provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
-            retryable_without_orbs,
-        });
-        card
-    }
-
     fn branch_is_active(&self, branch: &DialogueBranch) -> bool {
         self.world.tick <= branch.expires_at_tick
     }
@@ -19118,6 +19010,9 @@ async fn fund_community_image(
             payload.subject_id,
         ) {
             Ok(plan) => plan,
+            Err(error) if error == AVATAR_APPEARANCE_REQUIRED_CODE => {
+                return FundCommunityImageResponse::failure(409, AVATAR_APPEARANCE_REQUIRED_CODE);
+            }
             Err(_) => {
                 return FundCommunityImageResponse::action(false, 404, Vec::new());
             }
@@ -22587,6 +22482,7 @@ fn start_actor_job_worker(state: AppState) {
     }
     let gameplay_state = state.clone();
     let reflection_state = state.clone();
+    let self_description_state = state.clone();
     let interaction_state = state.clone();
     let rope_state = state.clone();
     tokio::spawn(async move {
@@ -22600,6 +22496,13 @@ fn start_actor_job_worker(state: AppState) {
     });
     tokio::spawn(async move {
         run_actor_job_worker(reflection_state, ACTOR_JOB_KIND_AVATAR_REFLECTION).await;
+    });
+    tokio::spawn(async move {
+        run_actor_job_worker(
+            self_description_state,
+            ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+        )
+        .await;
     });
     tokio::spawn(async move {
         run_actor_job_worker(rope_state, ACTOR_JOB_KIND_ROOM_ROPE).await;
@@ -22818,6 +22721,14 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         ActorJobPayload::AvatarReflection(reflection),
                     ) if job.actor_id == reflection.actor_id => {
                         complete_avatar_reflection(&state, reflection.as_ref().clone())
+                            .await
+                            .map(|_| true)
+                    }
+                    (
+                        ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+                        ActorJobPayload::AvatarSelfDescription(self_description),
+                    ) if job.actor_id == self_description.actor_id => {
+                        complete_avatar_self_description(&state, self_description.as_ref())
                             .await
                             .map(|_| true)
                     }
@@ -37644,7 +37555,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("resolve bond"));
         assert!(!INDEX_HTML.contains("return \"make bond\""));
         assert!(!INDEX_HTML.contains("prompt("));
-        assert!(!INDEX_HTML.contains("<textarea"));
+        assert_eq!(INDEX_HTML.matches("<textarea").count(), 1);
+        assert!(INDEX_HTML.contains("data-avatar-appearance-form"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));
         assert!(INDEX_HTML.contains("class=\"chat-table-scroll\""));

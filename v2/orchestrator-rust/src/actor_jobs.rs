@@ -22,6 +22,7 @@ pub(super) enum ActorJobPayload {
     OrbChat(Box<OrbChatJob>),
     ModelInteraction(ModelInteractionJob),
     AvatarReflection(Box<AvatarReflectionJob>),
+    AvatarSelfDescription(Box<AvatarReflectionJob>),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -49,6 +50,7 @@ pub(super) const ACTOR_JOB_KIND_ROOM_ROPE: &str = "room_rope";
 pub(super) const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
 pub(super) const ACTOR_JOB_KIND_MODEL_INTERACTION: &str = "model_interaction";
 pub(super) const ACTOR_JOB_KIND_AVATAR_REFLECTION: &str = "avatar_reflection";
+pub(super) const ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION: &str = "avatar_self_description";
 pub(super) const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);

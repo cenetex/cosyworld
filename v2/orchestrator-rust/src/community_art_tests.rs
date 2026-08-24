@@ -14,6 +14,216 @@ use std::{
     },
 };
 
+fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64, name: &str) {
+    crate::test_support::create_test_human(runtime, actor_id, location_id, name);
+    let level = runtime
+        .actor_by_id(actor_id)
+        .map(|actor| actor.stats.level.max(1))
+        .unwrap_or(1);
+    runtime
+        .entity_memories
+        .entry(WorldEntityRef::avatar(actor_id).key())
+        .or_default()
+        .identity_by_level
+        .entry(level)
+        .or_default()
+        .appearance =
+        "A round-faced traveler with copper curls, brown eyes, and a moss-green coat.".to_string();
+}
+
+#[test]
+fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Portrait Author",
+    );
+
+    assert_eq!(
+        runtime
+            .community_art_plan(5000, "actor", 5000)
+            .expect_err("a generic fallback must not be funded"),
+        AVATAR_APPEARANCE_REQUIRED_CODE
+    );
+
+    let appearance =
+        "A freckled traveler with short copper curls, grey eyes, and a moss-green wool coat.";
+    let identity = runtime
+        .manual_avatar_level_identity(5000, appearance)
+        .expect("manual level identity");
+    let content_id = 91_001;
+    runtime
+        .content
+        .insert(content_id, avatar_level_identity_content(&identity));
+    runtime
+        .append_avatar_self_description_projection(
+            5000,
+            &AvatarSelfDescriptionProjection {
+                content_id,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                level: 1,
+                caused_by_event_seq: None,
+                source_world_tick: runtime.world.tick,
+                observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+                identity,
+            },
+        )
+        .expect("the first appearance at this level commits");
+
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the described avatar can fund a portrait");
+    assert!(plan.prompt.contains(appearance));
+    assert!(plan.persisted_visual_description.contains("copper curls"));
+}
+
+#[test]
+fn a_new_level_description_replaces_the_frozen_brief_and_reopens_funded_art() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Retry Portrait",
+    );
+    let old_plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("initial portrait plan");
+    fund_test_community_art(&mut runtime, 5000, &old_plan, "old-portrait", 91_010);
+    let key = community_art_generation_key("actor", 5000, 1);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("funded generation");
+    generation.status = "policy_rejected".to_string();
+    generation.provider_attempts = MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
+    generation.review_attempts = MAX_COMMUNITY_ART_REVIEW_ATTEMPTS;
+    generation.last_error_code = Some("community_art_policy_rejected".to_string());
+    generation.frozen_plan = Some(old_plan);
+
+    let appearance =
+        "A blue-skinned traveler with silver braids, dark eyes, and a saffron wrap coat.";
+    let identity = runtime
+        .manual_avatar_level_identity(5000, appearance)
+        .expect("replacement identity");
+    let content_id = 91_011;
+    runtime
+        .content
+        .insert(content_id, avatar_level_identity_content(&identity));
+    let projection = AvatarSelfDescriptionProjection {
+        content_id,
+        location_id: COSY_COTTAGE_LOCATION_ID,
+        level: 1,
+        caused_by_event_seq: None,
+        source_world_tick: runtime.world.tick,
+        observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+        identity,
+    };
+    runtime
+        .append_avatar_self_description_projection(5000, &projection)
+        .expect("replacement appearance commits");
+
+    let generation = &runtime.community_art_generations[&key];
+    assert_eq!(generation.status, "funded");
+    assert_eq!(generation.provider_attempts, 0);
+    assert_eq!(generation.review_attempts, 0);
+    assert!(generation.last_error_code.is_none());
+    assert!(generation.frozen_plan.is_none());
+    assert!(runtime
+        .append_avatar_self_description_projection(5000, &projection)
+        .is_none());
+    let replacement = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("replacement portrait plan");
+    assert!(replacement.prompt.contains(appearance));
+}
+
+#[test]
+fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
+    let registry = ContentRegistry::from_json(
+        &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
+            .expect("Elysium registry reads"),
+        content_engine_version(),
+    )
+    .expect("Elysium registry mounts");
+    let content = registry.content();
+    let actor_id = content
+        .actor_model_bindings
+        .iter()
+        .find(|binding| {
+            binding.input_modalities.iter().any(|mode| mode == "text")
+                && binding.output_modalities.iter().any(|mode| mode == "text")
+        })
+        .map(|binding| binding.actor_id)
+        .expect("Elysium has a text-capable Void");
+
+    assert!(self_authored_avatar_has_text_binding(
+        "self_authored",
+        actor_id,
+        &content.actor_model_bindings,
+    ));
+    assert!(!self_authored_avatar_has_text_binding(
+        "authored",
+        actor_id,
+        &content.actor_model_bindings,
+    ));
+}
+
+#[tokio::test]
+async fn a_direct_avatar_can_set_appearance_only_once_in_the_current_level() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Level Look");
+    let state = test_app_state(runtime, None);
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+    let request = DescribeAvatarAppearanceRequest {
+        actor_id: 5000,
+        actor_session: Some(actor_session.clone()),
+        subject_actor_id: 5000,
+        appearance: Some(
+            "Warm brown skin, a round face, short black curls, and a plum wool jacket.".to_string(),
+        ),
+    };
+
+    let first = describe_avatar_appearance(
+        ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
+        State(state.clone()),
+        Json(request),
+    )
+    .await
+    .0;
+    assert!(first.ok);
+    assert_eq!(first.status, CW_OK);
+    let runtime = state.inner.lock().await;
+    assert_eq!(
+        runtime
+            .avatar_level_identity(5000, 1)
+            .expect("saved level identity")
+            .appearance,
+        "Warm brown skin, a round face, short black curls, and a plum wool jacket."
+    );
+    assert!(!runtime.avatar_self_description_due(5000, 1));
+    drop(runtime);
+
+    let duplicate = describe_avatar_appearance(
+        ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
+        State(state),
+        Json(DescribeAvatarAppearanceRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            subject_actor_id: 5000,
+            appearance: Some(
+                "A second look that must not replace the saved level appearance.".to_string(),
+            ),
+        }),
+    )
+    .await
+    .0;
+    assert!(!duplicate.ok);
+    assert_eq!(duplicate.status, 409);
+}
+
 fn test_art_config() -> ReplicateAvatarArtConfig {
     ReplicateAvatarArtConfig {
         api_token: "test-token".to_string(),
@@ -1096,6 +1306,19 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         .expect("test avatar exists")
         .stats
         .level = 2;
+    runtime
+        .entity_memories
+        .entry(WorldEntityRef::avatar(5000).key())
+        .or_default()
+        .identity_by_level
+        .insert(
+            2,
+            AvatarLevelIdentity {
+                appearance: "Copper curls threaded with silver, a steadier gaze, and a deep green travel coat."
+                    .to_string(),
+                ..AvatarLevelIdentity::default()
+            },
+        );
     let before_tick = runtime.world.tick;
     let generated_dir = std::env::temp_dir().join(format!(
         "cosyworld-evolution-endpoint-{}-{}",

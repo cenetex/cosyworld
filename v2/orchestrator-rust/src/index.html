@@ -3233,6 +3233,27 @@
     .card-art-workshop .account-button {
       width: 100%;
     }
+    .avatar-appearance-form {
+      display: grid;
+      gap: 6px;
+    }
+    .avatar-appearance-form label {
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .avatar-appearance-form textarea {
+      width: 100%;
+      min-height: 76px;
+      resize: vertical;
+      border: 1px solid rgba(239, 201, 107, 0.28);
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text);
+      padding: 8px;
+      font: inherit;
+      line-height: 1.35;
+    }
     .card-copy {
       min-width: 0;
     }
@@ -10756,6 +10777,12 @@
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
+      if (status === 400 && path === "/actions/describe-avatar") {
+        return "Use 16–360 characters and describe only visible, all-ages features.";
+      }
+      if (status === 409 && path === "/actions/describe-avatar") {
+        return "This level’s appearance is already set, or its portrait is being made right now.";
+      }
       if (status === 403) return avatarIsKnockedOut()
         ? "This avatar is knocked out and cannot act. Wait for a rescue, or abandon this avatar to begin again."
         : "Reconnect your account to restore this same avatar. The world will not replace it.";
@@ -12470,6 +12497,7 @@
         || event.type === "relationship.beat"
         || event.type === "relationship.advanced"
         || event.type === "avatar.refined"
+        || event.type === "avatar.self_description"
         || event.type === "pathway.refined"
         || event.type === "move.blocked"
         || event.type === "feature.searched"
@@ -16581,15 +16609,38 @@
       const status = String(art.status || "available");
       const viewerContributed = Boolean(art.viewer_contributed);
       const slot = `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Orb slot ${funded}/${required}`;
+      const appearance = String(art.appearance || "").trim();
+      const appearanceDue = Boolean(art.appearance_due);
+      const appearanceRequired = Boolean(art.appearance_required);
+      const appearanceAction = String(art.appearance_action || "");
+      const appearanceStatus = appearance
+        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${escapeHtml(appearance)}</strong></div>`
+        : "";
+      let appearanceControl = "";
+      if (clientState?.status === "describing") {
+        appearanceControl = `<div class="card-art-status"><span>level ${level} appearance</span><strong>${appearanceAction === "self_authored" ? "Listening for their description…" : "Saving your description…"}</strong></div>`;
+      } else if (appearanceDue && appearanceAction === "write") {
+        appearanceControl = `<form class="avatar-appearance-form" data-avatar-appearance-form="${subject.id}"><label for="avatar-appearance-${subject.id}">Describe visible features for this level</label><textarea id="avatar-appearance-${subject.id}" name="appearance" minlength="16" maxlength="360" required placeholder="Hair, face, build, colouring, distinctive features, and practical clothes.">${escapeHtml(appearance)}</textarea><button class="account-button" type="submit">use this appearance</button></form>`;
+      } else if (appearanceDue && appearanceAction === "self_authored") {
+        appearanceControl = `<button class="account-button" type="button" data-request-avatar-appearance="${subject.id}">ask ${escapeHtml(card.display_name || "this avatar")} to describe themself</button>`;
+      }
+      const appearancePanel = `${appearanceStatus}${appearanceControl}`;
+
+      if (appearanceRequired) {
+        const waiting = appearanceAction
+          ? "A visible description is needed before this portrait can be funded."
+          : "This avatar cannot create a visible description with its current voice.";
+        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span><strong>${escapeHtml(waiting)}</strong></div>`;
+      }
 
       if (status === "ready") {
-        return `<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
+        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
       }
       if (clientState?.status === "filling") {
-        return `${slot} · filling.</strong></div>`;
+        return `${appearancePanel}${slot} · filling.</strong></div>`;
       }
       if (remaining <= 0) {
-        return `${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
+        return `${appearancePanel}${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const detail = viewerContributed
@@ -16598,7 +16649,7 @@
       const action = balance >= 1
         ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">add one Orb</button>`
         : "";
-      return `${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
+      return `${appearancePanel}${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
     }
 
     function communityArtPlaceholderLabel(card) {
@@ -17127,6 +17178,39 @@
       }
       await queueRefresh();
       syncOpenCardModal();
+    }
+
+    async function describeAvatarAppearance(subjectId, appearance = null) {
+      const subjectKey = communityArtSubjectKey({ kind: "actor", id: Number(subjectId) });
+      const card = cardForActor(Number(subjectId));
+      const art = card?.community_art;
+      if (!subjectKey || !art || communityArtClientStates.get(subjectKey)?.status) return;
+      const clientState = {
+        status: "describing",
+        authoritativeSignature: communityArtStateSignature(art),
+        timeout: null,
+      };
+      communityArtClientStates.set(subjectKey, clientState);
+      clientState.timeout = window.setTimeout(() => {
+        if (communityArtClientStates.get(subjectKey) !== clientState) return;
+        clearCommunityArtClientState(subjectKey);
+        syncOpenCardModal();
+        void queueRefresh();
+      }, 45_000);
+      syncOpenCardModal();
+      try {
+        await action("/actions/describe-avatar", {
+          actor_id: actorId,
+          subject_actor_id: Number(subjectId),
+          appearance,
+        });
+      } finally {
+        if (communityArtClientStates.get(subjectKey) === clientState) {
+          clearCommunityArtClientState(subjectKey);
+        }
+        await queueRefresh();
+        syncOpenCardModal();
+      }
     }
 
     function shapeForCard(card, fallback = "item") {
@@ -19721,6 +19805,16 @@
         void fillCommunityArtOrbSlot(subjectKind, Number(subjectId));
         return;
       }
+      const requestAppearance = event.target.closest("[data-request-avatar-appearance]");
+      if (requestAppearance) {
+        event.preventDefault();
+        event.stopPropagation();
+        const subjectId = Number(requestAppearance.getAttribute("data-request-avatar-appearance") || 0);
+        if (!subjectId) return;
+        requestAppearance.disabled = true;
+        void describeAvatarAppearance(subjectId);
+        return;
+      }
       if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {
         event.preventDefault();
         closeCardModal();
@@ -19728,6 +19822,16 @@
     });
 
     $("card-modal").addEventListener("submit", (event) => {
+      const appearanceForm = event.target.closest("[data-avatar-appearance-form]");
+      if (appearanceForm) {
+        event.preventDefault();
+        const subjectId = Number(appearanceForm.getAttribute("data-avatar-appearance-form") || 0);
+        const appearance = String(new FormData(appearanceForm).get("appearance") || "").trim();
+        if (!subjectId || appearance.length < 16) return;
+        appearanceForm.querySelector("button[type='submit']")?.setAttribute("disabled", "");
+        void describeAvatarAppearance(subjectId, appearance);
+        return;
+      }
       const form = event.target.closest("[data-avatar-report-form]");
       if (!form) return;
       event.preventDefault();
