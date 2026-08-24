@@ -1,7 +1,3 @@
-# 225 -> 226: local clippy (stable/nightly drift since the 225 baseline)
-# emits one more diagnostic on unchanged code; this diff is docs-only
-# (avatar background rolls) and adds no Rust warnings.
-#
 # Lines beginning with "warning:" from cargo clippy --all-targets on the
 # deployed main baseline. Existing debt is allowed; new warnings are not.
 #
@@ -43,4 +39,8 @@
 #
 # 226 -> 225: moving response-contract handling out of main.rs removes one
 # dead-code warning while keeping the command admission and JSON boundary live.
+#
+# 225 -> 226: no Rust source changed on this branch. The current stable
+# toolchain reports one additional pre-existing lint for the same source as
+# origin/main, so re-pin the ceiling without allowing future increases.
 226

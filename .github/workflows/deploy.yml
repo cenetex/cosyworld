@@ -42,8 +42,63 @@ permissions:
   contents: read
 
 jobs:
-  production-gate:
-    name: V2 production deployment gate
+  deployment-impact:
+    name: Check production impact
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.impact.outputs.deploy }}
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Check whether production inputs changed
+        id: impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "reason=explicit deployment or tag release" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/check-deployment-impact.mjs "$BEFORE_SHA" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+  release-owner:
+    name: Confirm committed release still owns production
+    needs: deployment-impact
+    if: needs.deployment-impact.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      owns: ${{ steps.ownership.outputs.owns }}
+    steps:
+      - name: Yield a superseded main deployment
+        id: ownership
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "owns=true" >> "$GITHUB_OUTPUT"
+            echo "Explicit deployment owns its committed target."
+            exit 0
+          fi
+          main_sha="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ "$main_sha" = "$GITHUB_SHA" ]; then
+            echo "owns=true" >> "$GITHUB_OUTPUT"
+            echo "This run owns main at ${GITHUB_SHA:0:7}."
+          else
+            echo "owns=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Superseded: main advanced to ${main_sha:0:7}; the newer commit will deploy."
+          fi
+
+  production-node-gate:
+    name: Production Node and content gate
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -66,9 +121,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
@@ -77,20 +129,84 @@ jobs:
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
-          npm run v2:architecture
           npm run v2:lonelyforest:contract
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
 
+  production-rust-gate:
+    name: Production Rust gate
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo build cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-orchestrator-
+
       - name: Verify Rust orchestrator tests
-        run: npm run v2:rust:test
+        run: bash v2/scripts/check-rust.sh test
+
+      - name: Check Rust architecture
+        run: |
+          bash v2/scripts/check-main-size.sh
+          bash v2/scripts/check-rust-lint.sh
+
+  production-gate:
+    name: V2 production deployment gate
+    if: ${{ always() }}
+    needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required production gates passed
+        env:
+          DEPLOY: ${{ needs.deployment-impact.outputs.deploy }}
+          OWNER_RESULT: ${{ needs.release-owner.result }}
+          OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
+          NODE_RESULT: ${{ needs.production-node-gate.result }}
+          RUST_RESULT: ${{ needs.production-rust-gate.result }}
+        run: |
+          if [ "$DEPLOY" != true ]; then
+            echo "No production inputs changed; deployment is not needed."
+            exit 0
+          fi
+          test "$OWNER_RESULT" = success
+          if [ "$OWNS_RELEASE" != true ]; then
+            echo "This commit was superseded before its production gates; nothing will deploy."
+            exit 0
+          fi
+          test "$NODE_RESULT" = success
+          test "$RUST_RESULT" = success
 
   primary-fly:
     name: Deploy primary to Fly
-    needs: production-gate
+    needs: [deployment-impact, release-owner, production-gate]
     if: >-
-      github.event_name == 'push' ||
-      inputs.target == 'both' ||
-      inputs.target == 'primary'
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name == 'push' ||
+       inputs.target == 'both' ||
+       inputs.target == 'primary')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -154,14 +270,16 @@ jobs:
 
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
-    needs: production-gate
+    needs: [deployment-impact, release-owner, production-gate]
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (inputs.target == 'both' || inputs.target == 'lonelyforest'))
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'both' || inputs.target == 'lonelyforest')))
     runs-on: ubuntu-latest
     environment: lonelyforest-production
     concurrency:
@@ -235,7 +353,52 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
-        run: npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com --expect-elysium --allow-remote-mutations
+        run: npm run v2:lonelyforest:smoke -- --base-url=https://cosyworld-lonelyforest.fly.dev --shared-transport --expect-elysium --allow-remote-mutations
+
+  deploy-outcome:
+    name: Report production deployment outcome
+    runs-on: ubuntu-latest
+    needs: [deployment-impact, release-owner, production-gate, primary-fly, lonelyforest-fly]
+    if: always()
+    permissions:
+      issues: write
+    steps:
+      # A merge to main that produces no successful deploy must be visible
+      # without anyone going to look.
+      - name: Open a loud tracking issue when a required production deploy did not succeed
+        if: >-
+          needs.deployment-impact.outputs.deploy == 'true' &&
+          (needs.release-owner.result == 'failure' ||
+           needs.production-gate.result != 'success' ||
+           needs.primary-fly.result == 'failure' ||
+           needs.lonelyforest-fly.result == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER_RESULT: ${{ needs.release-owner.result }}
+          GATE_RESULT: ${{ needs.production-gate.result }}
+          PRIMARY_RESULT: ${{ needs.primary-fly.result }}
+          LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
+        run: |
+          title="Production did not deploy ${GITHUB_SHA:0:7}"
+          body=$(cat <<BODY
+          Merge of ${GITHUB_SHA} did not complete a production deployment.
+
+          - Release ownership check: ${OWNER_RESULT}
+          - Deployment gate: ${GATE_RESULT}
+          - Primary Fly deploy: ${PRIMARY_RESULT}
+          - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
+          - Run log: ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}
+
+          Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
+          BODY
+          )
+          existing="$(gh issue list --state open --search "${title} in:title" --json number --jq 'length')"
+          if [ "${existing:-0}" -eq 0 ]; then
+            gh issue create --title "$title" --body "$body"
+          else
+            echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
+          fi
 
   github-release:
     name: Create GitHub release

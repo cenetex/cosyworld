@@ -197,33 +197,27 @@ Bond directly; **Befriend** creates Bonds and joins the Cosy advancement
 domain. Advancement remains spendable on evolution, bond slots, Calling
 revision, and future growth choices.
 
-#### Backgrounds
+#### Planned backgrounds (not implemented)
 
-An avatar does not enter the world as a blank stranger. At creation the
-runtime **rolls a background**: a small deterministic set of starting facts
-drawn from authored worldpack tables, covering all three collectible nouns:
+Background rolls are the proposed replacement for bespoke seed-relationship
+rules, but they are not current runtime behavior. The runtime does not yet
+roll starting items, relationships, or known locations from worldpack tables,
+and it does not yet journal a background receipt. Content and UI must not
+claim those facts until the runtime projects them.
 
-- **Items** the avatar already carries or owns — a worn charm, a tool of its
-  Calling, a debt token;
-- **Avatars** the avatar already knows, each with its relationship stage
-  pre-filled on the same meter every other interaction writes;
-- **Locations** the avatar already knows — revealed rooms, Anchors, or Leads
-  its history implies.
+The intended contract covers all three collectible nouns:
 
-The background is the cold-start contract: a player's first session must
-already contain someone who can speak to them and somewhere to stand. Core's
-canonical roll therefore gives every new avatar one known bonded resident
-(**Rati**) and one known home Anchor.
+- **Items** the avatar already carries or owns;
+- **Avatars** the avatar already knows, with a starting relationship stage;
+- **Locations** the avatar already knows, such as a home Anchor or Lead.
 
-- Rolls are deterministic kernel work: the creation seed plus avatar identity
-  selects from the authored tables, and every rolled fact is recorded as a
-  journal event, replayable like any other creation record.
-- Worldpacks author the tables and their weights; packs may add rolls but may
-  not remove Core's canonical guarantees.
-- Backgrounds never bypass session ownership, access rules, or moderation
-  blocks; they only pre-fill the same facts later play writes.
-- Faction membership may later bias the tables; until a faction contract
-  exists, backgrounds are per-avatar rolls.
+Before this contract can become live, implementation must provide deterministic
+selection from an avatar creation seed, bounded worldpack tables and weights,
+journaled replay-safe receipts, and tests that prove every projected fact comes
+from the committed roll. Session ownership, access rules, and moderation blocks
+remain hard gates. Whether Core guarantees Rati, a home Anchor, or another
+cold-start pair is still a product decision; this document does not create that
+guarantee.
 
 #### Daily budget
 
