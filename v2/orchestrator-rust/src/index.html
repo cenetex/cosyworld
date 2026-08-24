@@ -7019,17 +7019,10 @@
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
     if (wantsReset) clearLocalSession();
-    const hasExplicitAvatar = localStorage.getItem("cosyworld.avatarGateVersion") === avatarGateVersion;
-    let actorId = hasExplicitAvatar ? Number(localStorage.getItem("cosyworld.actorId") || 0) : 0;
-    let actorSession = hasExplicitAvatar ? (localStorage.getItem("cosyworld.actorSession") || "") : "";
-    let actorSessionExpiresAtUnix = hasExplicitAvatar
-      ? Number(localStorage.getItem(actorSessionExpiryStorageKey) || 0)
-      : 0;
-    if (!hasExplicitAvatar) {
-      localStorage.removeItem("cosyworld.actorId");
-      localStorage.removeItem("cosyworld.actorSession");
-      localStorage.removeItem(actorSessionExpiryStorageKey);
-    }
+    const storedCredentials = storedAvatarCredentials();
+    let actorId = storedCredentials.actorId;
+    let actorSession = storedCredentials.actorSession;
+    let actorSessionExpiresAtUnix = storedCredentials.actorSessionExpiresAtUnix;
     let state = null;
     let actions = [];
     let focusIndex = 0;
@@ -7137,6 +7130,29 @@
     sessionStorage.removeItem("cosyworld.openrouterApiKey");
     sessionStorage.removeItem("cosyworld.openrouterLabel");
     sessionStorage.removeItem("cosyworld.openrouterOauthReturn");
+
+    // Stored avatar credentials are the only binding between a browser and
+    // its avatar: ordinary play has no account sign-in to fall back on. The
+    // gate version records which creation introduction a player saw, so it
+    // must heal forward across client updates instead of deleting identity.
+    function storedAvatarCredentials() {
+      const storedActorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
+      const storedActorSession = localStorage.getItem("cosyworld.actorSession") || "";
+      if (!storedActorId || !storedActorSession) {
+        localStorage.removeItem("cosyworld.actorId");
+        localStorage.removeItem("cosyworld.actorSession");
+        localStorage.removeItem(actorSessionExpiryStorageKey);
+        return { actorId: 0, actorSession: "", actorSessionExpiresAtUnix: 0 };
+      }
+      if (localStorage.getItem("cosyworld.avatarGateVersion") !== avatarGateVersion) {
+        localStorage.setItem("cosyworld.avatarGateVersion", avatarGateVersion);
+      }
+      return {
+        actorId: storedActorId,
+        actorSession: storedActorSession,
+        actorSessionExpiresAtUnix: Number(localStorage.getItem(actorSessionExpiryStorageKey) || 0),
+      };
+    }
 
     function clearLocalSession() {
       localStorage.removeItem("cosyworld.actorId");
