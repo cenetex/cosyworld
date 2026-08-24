@@ -31,6 +31,14 @@ fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64
         "A round-faced traveler with copper curls, brown eyes, and a moss-green coat.".to_string();
 }
 
+fn test_avatar_level_identity(appearance: &str) -> AvatarLevelIdentity {
+    AvatarLevelIdentity {
+        persona: "I am curious about the shared world around me.".to_string(),
+        appearance: appearance.to_string(),
+        continuity: "I remain recognizably myself as I grow.".to_string(),
+    }
+}
+
 #[test]
 fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
     let mut runtime = RuntimeWorld::seeded();
@@ -50,9 +58,7 @@ fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
 
     let appearance =
         "A freckled traveler with short copper curls, grey eyes, and a moss-green wool coat.";
-    let identity = runtime
-        .manual_avatar_level_identity(5000, appearance)
-        .expect("manual level identity");
+    let identity = test_avatar_level_identity(appearance);
     let content_id = 91_001;
     runtime
         .content
@@ -105,9 +111,7 @@ fn a_new_level_description_replaces_the_frozen_brief_and_reopens_funded_art() {
 
     let appearance =
         "A blue-skinned traveler with silver braids, dark eyes, and a saffron wrap coat.";
-    let identity = runtime
-        .manual_avatar_level_identity(5000, appearance)
-        .expect("replacement identity");
+    let identity = test_avatar_level_identity(appearance);
     let content_id = 91_011;
     runtime
         .content
@@ -171,57 +175,87 @@ fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
     ));
 }
 
-#[tokio::test]
-async fn a_direct_avatar_can_set_appearance_only_once_in_the_current_level() {
+#[test]
+fn a_direct_avatar_asks_its_persona_for_the_current_level_appearance() {
     let mut runtime = RuntimeWorld::seeded();
-    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Level Look");
-    let state = test_app_state(runtime, None);
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Level Look",
+    );
+
+    assert_eq!(
+        runtime.avatar_appearance_action(5000, 1, Some(5000)),
+        Some("self_authored")
+    );
+    assert_eq!(runtime.avatar_appearance_action(5000, 1, Some(1002)), None);
+}
+
+#[tokio::test]
+async fn a_direct_avatar_queues_one_persona_description_without_free_text() {
+    let event_store_path = std::env::temp_dir().join(format!(
+        "cosyworld-avatar-persona-description-{}-{}.sqlite",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_file(&event_store_path);
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Level Look",
+    );
+    let state = test_app_state(runtime, Some(event_store_path.clone()));
     let (actor_session, _) = issue_actor_session(&state, 5000);
-    let request = DescribeAvatarAppearanceRequest {
-        actor_id: 5000,
-        actor_session: Some(actor_session.clone()),
-        subject_actor_id: 5000,
-        appearance: Some(
-            "Warm brown skin, a round face, short black curls, and a plum wool jacket.".to_string(),
-        ),
-    };
 
     let first = describe_avatar_appearance(
         ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
         State(state.clone()),
-        Json(request),
+        Json(DescribeAvatarAppearanceRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session.clone()),
+            _wallet_session: None,
+            subject_actor_id: 5000,
+        }),
     )
     .await
     .0;
     assert!(first.ok);
     assert_eq!(first.status, CW_OK);
-    let runtime = state.inner.lock().await;
-    assert_eq!(
-        runtime
-            .avatar_level_identity(5000, 1)
-            .expect("saved level identity")
-            .appearance,
-        "Warm brown skin, a round face, short black curls, and a plum wool jacket."
-    );
-    assert!(!runtime.avatar_self_description_due(5000, 1));
-    drop(runtime);
 
     let duplicate = describe_avatar_appearance(
         ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
-        State(state),
+        State(state.clone()),
         Json(DescribeAvatarAppearanceRequest {
             actor_id: 5000,
             actor_session: Some(actor_session),
+            _wallet_session: None,
             subject_actor_id: 5000,
-            appearance: Some(
-                "A second look that must not replace the saved level appearance.".to_string(),
-            ),
         }),
     )
     .await
     .0;
-    assert!(!duplicate.ok);
-    assert_eq!(duplicate.status, 409);
+    assert!(duplicate.ok);
+    assert_eq!(duplicate.status, CW_OK);
+
+    let conn = open_event_store(&event_store_path).expect("open persona description store");
+    let queued: i64 = conn
+        .query_row("SELECT COUNT(*) FROM actor_jobs", [], |row| row.get(0))
+        .expect("count persona description jobs");
+    assert_eq!(queued, 1);
+    let claimed =
+        claim_next_actor_job_of_kind(&event_store_path, ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION)
+            .expect("claim persona description job")
+            .expect("one persona description was queued");
+    let ActorJobPayload::AvatarSelfDescription(job) = claimed.payload else {
+        panic!("appearance request queued the wrong job kind");
+    };
+    assert_eq!(job.actor_id, 5000);
+    drop(conn);
+    drop(state);
+    let _ = fs::remove_file(event_store_path);
 }
 
 fn test_art_config() -> ReplicateAvatarArtConfig {

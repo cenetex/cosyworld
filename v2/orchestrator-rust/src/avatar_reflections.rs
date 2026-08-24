@@ -11,8 +11,6 @@ const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-descriptio
 // publish; 48 words leaves room for ordinary word lengths and punctuation.
 const SELF_DESCRIPTION_MAX_WORDS: usize = 48;
 const SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
-pub(super) const AVATAR_APPEARANCE_MIN_CHARS: usize = 16;
-pub(super) const AVATAR_APPEARANCE_MAX_CHARS: usize = 360;
 pub(super) const AVATAR_REFLECTION_DC: u16 = 18;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -28,11 +26,13 @@ pub(super) struct AvatarSelfDescriptionProjection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct DescribeAvatarAppearanceRequest {
     pub(super) actor_id: u64,
     pub(super) actor_session: Option<String>,
+    #[serde(rename = "wallet_session")]
+    pub(super) _wallet_session: Option<String>,
     pub(super) subject_actor_id: u64,
-    pub(super) appearance: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -316,68 +316,9 @@ impl RuntimeWorld {
             Some(projection.observed_through_seq),
         ))
     }
-
-    pub(super) fn manual_avatar_level_identity(
-        &self,
-        actor_id: u64,
-        appearance: &str,
-    ) -> Option<AvatarLevelIdentity> {
-        let actor = self.actor_by_id(actor_id)?;
-        let meta = self.actors.get(&actor_id)?;
-        let prior = self
-            .latest_avatar_level_identity(actor_id)
-            .unwrap_or_default();
-        let policy = self.avatar_identity_policy(actor_id).unwrap_or_default();
-        let persona = [
-            prior.persona.as_str(),
-            policy.persona.as_str(),
-            meta.description.as_str(),
-        ]
-        .into_iter()
-        .find(|value| !value.trim().is_empty())
-        .map(compact_whitespace)
-        .unwrap_or_else(|| "I am still finding my place in this world.".to_string());
-        let calling = self
-            .calling_view(actor_id)
-            .map(|calling| calling.statement)
-            .unwrap_or_default();
-        let continuity = [
-            prior.continuity.as_str(),
-            calling.as_str(),
-            policy.canonical_description.as_str(),
-        ]
-        .into_iter()
-        .find(|value| !value.trim().is_empty())
-        .map(compact_whitespace)
-        .unwrap_or_else(|| {
-            format!(
-                "I remain {} at level {}.",
-                grounded_avatar_name_for_prompt(actor_id, &meta.name),
-                actor.stats.level.max(1)
-            )
-        });
-        Some(AvatarLevelIdentity {
-            persona,
-            appearance: appearance.to_string(),
-            continuity,
-        })
-    }
 }
 
-pub(super) fn normalize_avatar_appearance(value: &str) -> Option<String> {
-    if has_disallowed_control_character(value) {
-        return None;
-    }
-    let normalized = compact_whitespace(value);
-    let count = normalized.chars().count();
-    ((AVATAR_APPEARANCE_MIN_CHARS..=AVATAR_APPEARANCE_MAX_CHARS).contains(&count)
-        && human_message_is_cozy_safe(&normalized)
-        && normalized
-            .chars()
-            .any(|character| character.is_alphanumeric()))
-    .then_some(normalized)
-}
-
+#[cfg(test)]
 pub(super) fn avatar_level_identity_content(identity: &AvatarLevelIdentity) -> String {
     format!(
         "PERSONA: {}\nAPPEARANCE: {}\nCONTINUITY: {}",
@@ -400,7 +341,7 @@ pub(super) async fn describe_avatar_appearance(
         return action_rate_limited_response();
     }
 
-    let (appearance_action, level, location_id, identity, self_description_job) = {
+    let self_description_job = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -444,7 +385,7 @@ pub(super) async fn describe_avatar_appearance(
                 events: Vec::new(),
             });
         }
-        let Some(appearance_action) = runtime.avatar_appearance_action(
+        let Some("self_authored") = runtime.avatar_appearance_action(
             payload.subject_actor_id,
             level,
             Some(payload.actor_id),
@@ -455,146 +396,34 @@ pub(super) async fn describe_avatar_appearance(
                 events: Vec::new(),
             });
         };
-        let identity = if appearance_action == "write" {
-            let Some(appearance) = payload
-                .appearance
-                .as_deref()
-                .and_then(normalize_avatar_appearance)
-            else {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 400,
-                    events: Vec::new(),
-                });
-            };
-            runtime.manual_avatar_level_identity(payload.subject_actor_id, &appearance)
-        } else {
-            if payload
-                .appearance
-                .as_deref()
-                .is_some_and(|value| !value.trim().is_empty())
-            {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 400,
-                    events: Vec::new(),
-                });
-            }
-            None
-        };
-        let self_description_job = (appearance_action == "self_authored")
-            .then(|| {
-                runtime
-                    .avatar_reflection_job(payload.subject_actor_id, AvatarReflectionKind::Thought)
-            })
-            .flatten();
-        (
-            appearance_action,
-            level,
-            subject.location_id,
-            identity,
-            self_description_job,
-        )
+        runtime.avatar_reflection_job(payload.subject_actor_id, AvatarReflectionKind::Thought)
     };
 
-    if appearance_action == "self_authored" {
-        let Some(job) = self_description_job else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        };
-        if let Some(path) = state.event_store_path.as_deref() {
-            let queued = open_event_store(path)
-                .and_then(|conn| insert_avatar_self_description_job(&conn, &job));
-            if queued.is_err() {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 500,
-                    events: Vec::new(),
-                });
-            }
-            state.actor_job_notify.notify_waiters();
-        } else {
-            schedule_avatar_self_description(&state, job);
-        }
-        return Json(ActionResponse {
-            ok: true,
-            status: CW_OK,
-            events: Vec::new(),
-        });
-    }
-
-    let Some(identity) = identity else {
+    let Some(job) = self_description_job else {
         return Json(ActionResponse {
             ok: false,
-            status: 400,
+            status: 409,
             events: Vec::new(),
         });
     };
-    let events = {
-        let mut runtime = state.inner.lock().await;
-        if !runtime.avatar_self_description_due(payload.subject_actor_id, level)
-            || runtime.avatar_community_art_generation_active(payload.subject_actor_id, level)
-        {
+    if let Some(path) = state.event_store_path.as_deref() {
+        let queued =
+            open_event_store(path).and_then(|conn| insert_avatar_self_description_job(&conn, &job));
+        if queued.is_err() {
             return Json(ActionResponse {
                 ok: false,
-                status: 409,
+                status: 500,
                 events: Vec::new(),
             });
         }
-        let content_id = runtime.next_content_id_value();
-        let mut record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: payload.subject_actor_id,
-                location_id,
-                content_id,
-                ..CwAction::default()
-            },
-            runtime.next_seed_value(),
-        );
-        record
-            .content_upserts
-            .insert(content_id, avatar_level_identity_content(&identity));
-        record
-            .projection_mutations
-            .push(ProjectionMutation::RecordAvatarSelfDescription(
-                AvatarSelfDescriptionProjection {
-                    content_id,
-                    location_id,
-                    level,
-                    caused_by_event_seq: None,
-                    source_world_tick: runtime.world.tick,
-                    observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
-                    identity,
-                },
-            ));
-        match commit_journal_record(&state, &mut runtime, record) {
-            Ok((CW_OK, events)) if !events.is_empty() => events,
-            Ok((status, events)) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status,
-                    events,
-                });
-            }
-            Err(_) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 500,
-                    events: Vec::new(),
-                });
-            }
-        }
-    };
-    broadcast_events(&state, &events);
-    resume_avatar_art_after_self_description(&state, payload.subject_actor_id).await;
+        state.actor_job_notify.notify_waiters();
+    } else {
+        schedule_avatar_self_description(&state, job);
+    }
     Json(ActionResponse {
         ok: true,
         status: CW_OK,
-        events,
+        events: Vec::new(),
     })
 }
 
@@ -1305,16 +1134,18 @@ mod tests {
     }
 
     #[test]
-    fn manual_avatar_appearance_is_bounded_and_cozy_safe() {
-        assert_eq!(
-            normalize_avatar_appearance(
-                "  Copper curls, grey eyes, warm brown skin, and a moss-green wool coat.  "
-            )
-            .as_deref(),
-            Some("Copper curls, grey eyes, warm brown skin, and a moss-green wool coat.")
-        );
-        assert!(normalize_avatar_appearance("green coat").is_none());
-        assert!(normalize_avatar_appearance("A porn costume with a bright red coat.").is_none());
+    fn avatar_appearance_request_rejects_human_written_description_fields() {
+        let request = serde_json::json!({
+            "actor_id": 5000,
+            "actor_session": "test-session",
+            "wallet_session": "test-wallet-session",
+            "subject_actor_id": 5000
+        });
+        assert!(serde_json::from_value::<DescribeAvatarAppearanceRequest>(request.clone()).is_ok());
+        let mut human_written = request;
+        human_written["appearance"] =
+            serde_json::json!("Copper curls, grey eyes, and a moss-green wool coat.");
+        assert!(serde_json::from_value::<DescribeAvatarAppearanceRequest>(human_written).is_err());
     }
 
     #[test]
