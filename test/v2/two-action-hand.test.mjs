@@ -67,6 +67,22 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('scoutAction.selectedPayload = () => ({');
   });
 
+  it("keeps the pending campaign Class card visible outside ranked action offers", () => {
+    const classSelectionBlock = browser.slice(
+      browser.indexOf("if (characterIdentity?.class_selection_ready"),
+      browser.indexOf("const turn = view.turn || {}"),
+    );
+    const handOrderBlock = browser.slice(
+      browser.indexOf("function orderedActionIndexesForHand"),
+      browser.indexOf("function handCapacity"),
+    );
+
+    expect(classSelectionBlock).toContain('kind: "choose-class"');
+    expect(classSelectionBlock).toContain("standaloneHandProjection: true");
+    expect(handOrderBlock).toContain("actions[index]?.standaloneHandProjection === true");
+    expect(handOrderBlock).toContain("if (standaloneIndexes.length) return standaloneIndexes;");
+  });
+
   it("shows Travel and the destination without route-type copy in the hand", () => {
     const routeBlock = browser.slice(
       browser.indexOf("const projectedRouteOfferIds"),

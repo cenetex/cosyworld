@@ -8416,6 +8416,10 @@
             detail: "optional rules for this campaign",
             command: "choose campaign class",
             focusKey: "choose-class",
+            // Class selection is validated by its own server endpoint rather
+            // than represented by a ranked action offer. Keep this one
+            // progression card visible while the choice is pending.
+            standaloneHandProjection: true,
             card: cardForActor(actorId),
             shape: "avatar",
             modalTitle: creationProfile.class_prompt || "which campaign path will you use?",
@@ -18365,6 +18369,10 @@
     function orderedActionIndexesForHand() {
       const indexes = actions.map((_, index) => index);
       if (state?.branch) return indexes;
+      const standaloneIndexes = indexes.filter((index) => (
+        actions[index]?.standaloneHandProjection === true
+      ));
+      if (standaloneIndexes.length) return standaloneIndexes;
       const ordered = [];
       const chosen = new Set();
       const authoritativeEntries = state?.action_hand?.entries || [];
