@@ -1602,7 +1602,7 @@ pub(super) async fn complete_orb_chat_exchange(
             ) {
                 return Err(format!("chat_context_changed:{}", rejection.code()));
             }
-            runtime
+            let reply_plan = runtime
                 .resident_reply_plan_for_target(actor_id, target_actor_id, &opening.content)
                 .map(|mut reply_plan| {
                     if let Some(turn) = reply_plan.incoming_turn.as_mut() {
@@ -1615,7 +1615,8 @@ pub(super) async fn complete_orb_chat_exchange(
                         Some(observed_through_seq.unwrap_or_default().max(opening.seq)),
                         Some(chat_plan.location_id),
                     )
-                })
+                });
+            reply_plan.map(|plan| runtime.prepare_card_policy_objective_plan(plan))
         }
         .ok_or_else(|| "the target could not answer the opening line".to_string())?;
         announce_chat_typing(
@@ -1849,7 +1850,7 @@ pub(super) async fn complete_orb_chat_exchange(
                         )
                     })
                     .collect::<Vec<_>>();
-                runtime
+                let reply_plan = runtime
                     .resident_reply_plan_for_target(
                         listener_actor_id,
                         speaker_actor_id,
@@ -1867,7 +1868,8 @@ pub(super) async fn complete_orb_chat_exchange(
                             Some(observed_through_line_seq),
                             Some(chat_plan.location_id),
                         )
-                    })
+                    });
+                reply_plan.map(|plan| runtime.prepare_card_policy_objective_plan(plan))
             };
             let Some(reply_plan) = reply_plan else {
                 commit_chat_floor_pass(

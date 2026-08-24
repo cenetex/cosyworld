@@ -211,6 +211,51 @@ impl RouteRecordState {
     }
 }
 
+/// Deterministic narration for a planned journey transition. The `moved`
+/// flag distinguishes a route that was only charted or revealed (no actor
+/// movement) from an actual travel step: discovery narration must never
+/// claim the actor has already left, because room memory feeds this copy to
+/// later AI prompts as world state.
+pub(crate) fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
+    let remaining_turns = plan.total_steps.saturating_sub(plan.current_step);
+    let turn_word = if remaining_turns == 1 { "" } else { "s" };
+    if plan.current_step >= plan.total_steps {
+        return format!(
+            "The last turn of the path gives way, and {} arrives in {}.",
+            plan.actor_name, plan.destination_name
+        );
+    }
+    if plan.discovery {
+        return format!(
+        "{} reads the ground beyond {}. A way into {} takes shape, one usable landmark at a time.",
+        plan.actor_name, plan.from_name, plan.to_name
+    );
+    }
+    if !plan.moved {
+        // The action only plans or reveals the route; the actor has not moved
+        // yet. Narrate the charted way without claiming a completed departure,
+        // so room memory never reports the actor as already gone.
+        return format!(
+            "{} charts a way from {} toward {}, with {} turn{} still between here and {}.",
+            plan.actor_name,
+            plan.from_name,
+            plan.to_name,
+            remaining_turns,
+            turn_word,
+            plan.destination_name
+        );
+    }
+    format!(
+    "{} leaves {} behind. The path gathers itself around {}, with {} turn{} still between here and {}.",
+    plan.actor_name,
+    plan.from_name,
+    plan.to_name,
+    remaining_turns,
+    turn_word,
+    plan.destination_name
+)
+}
+
 impl RuntimeWorld {
     pub(super) fn restore_canonical_topology_for_snapshot(
         &mut self,
@@ -1861,6 +1906,7 @@ impl RuntimeWorld {
                 current_step: 1,
                 total_steps: 1,
                 discovery: true,
+                moved: false,
             },
         ))
     }
@@ -2628,6 +2674,46 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{travel_narration_fallback, JourneyNarrationPlan};
+
+    /// Regression guard for the Void 004 wrong-world-state incident: a
+    /// `pathway.discovered` event whose narration said the actor had already
+    /// "left" kept entering room memory and every later chat prompt, so model
+    /// avatars were told they were "three turns gone" while still standing in
+    /// the room. Discovery plans a route; it never moves anyone.
+    #[test]
+    fn pathway_discovery_narration_never_claims_departure() {
+        let plan = |discovery: bool, moved: bool, current_step: usize| JourneyNarrationPlan {
+            actor_name: "Claude".to_string(),
+            from_name: "Void 004".to_string(),
+            to_name: "Warm Rowan Verge".to_string(),
+            destination_name: "Void 002".to_string(),
+            current_step,
+            total_steps: 4,
+            discovery,
+            moved,
+        };
+
+        // A re-used pathway on journey start: no movement happened.
+        let charted = travel_narration_fallback(&plan(false, false, 1));
+        assert!(charted.contains("charts a way from Void 004 toward Warm Rowan Verge"));
+        assert!(!charted.contains("leaves Void 004 behind"));
+        assert!(charted.contains("3 turns still between here and Void 002"));
+
+        // A fresh hidden-pathway discovery also does not move the actor.
+        let discovered = travel_narration_fallback(&plan(true, false, 1));
+        assert!(discovered.contains("reads the ground beyond Void 004"));
+        assert!(!discovered.contains("leaves"));
+
+        // An actual mid-journey step may keep the departure phrasing.
+        let progressed = travel_narration_fallback(&plan(false, true, 2));
+        assert!(progressed.contains("leaves Void 004 behind"));
+        assert!(progressed.contains("2 turns still between here and Void 002"));
+
+        // Arrival copy is unchanged.
+        let arrived = travel_narration_fallback(&plan(false, true, 4));
+        assert!(arrived.contains("arrives in Void 002"));
+    }
 
     fn lock_first_authored_route_edge(runtime: &mut RuntimeWorld) -> (String, u64, u64, u64) {
         let (route_id, from_location_id, to_location_id) = runtime

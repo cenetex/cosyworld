@@ -26,6 +26,7 @@ BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
 DETACHED_SHELL="${COSYWORLD_V2_DETACHED_SHELL:-$(command -v bash)}"
+SMOKE_BINARY="${COSYWORLD_SMOKE_BINARY:-$ROOT/orchestrator-rust/target/debug/cosyworld-orchestrator}"
 URL="${BASE_URL}/"
 
 usage() {
@@ -130,15 +131,22 @@ wait_ready() {
 
 start_server() {
   stop_server
-  (
-    cd "$ROOT/orchestrator-rust"
-    cargo build
-  )
+  if [ -n "${COSYWORLD_SMOKE_BINARY:-}" ]; then
+    if [ ! -x "$SMOKE_BINARY" ]; then
+      echo "Prebuilt smoke binary is not executable: $SMOKE_BINARY" >&2
+      exit 1
+    fi
+  else
+    (
+      cd "$ROOT/orchestrator-rust"
+      cargo build
+    )
+  fi
   if ! command -v screen >/dev/null 2>&1; then
     echo "screen is required for detached local MVP serving on this machine." >&2
     exit 1
   fi
-  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
+  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' '$SMOKE_BINARY' > '${LOG}' 2>&1"
   if ! wait_ready; then
     echo "CosyWorld v2 did not become ready. Last log lines:" >&2
     tail -60 "$LOG" >&2 || true
@@ -212,7 +220,23 @@ start_deterministic_smoke_server() {
 }
 
 run_smoke() {
-  COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" node "$ROOT/scripts/smoke-browser.mjs"
+  local mode="${COSYWORLD_BROWSER_CHECK_MODE:-all}"
+  case "$mode" in
+    all|baseline|living-world)
+      ;;
+    *)
+      echo "Unknown browser check mode: $mode" >&2
+      return 2
+      ;;
+  esac
+
+  if [ "$mode" != "living-world" ]; then
+    COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" node "$ROOT/scripts/smoke-browser.mjs"
+  fi
+  if [ "$mode" = "baseline" ]; then
+    return 0
+  fi
+
   local attempt status
   for attempt in 1 2 3; do
     if COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" \

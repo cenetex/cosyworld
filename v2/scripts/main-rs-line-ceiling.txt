@@ -1,7 +1,441 @@
-# Lines copied from the check-main-size contract: history as comments, only
-# the final line is a bare number.
+# Total physical lines in main.rs, including inline tests. Tests spend the same
+# budget as production code so extracted systems take their tests with them.
 #
-# 59942 -> 60030: the room rope adds seat-window scheduling to the commit
+# 73214 -> 73222: eight INDEX_HTML contract assertions for issue #461, pinning
+# the ordered-combat banner markup and the removal of the dealt timing cards.
+# Test-only, no new system; the behaviour itself lives in index.html.
+#
+# 73222 -> 73227: five INDEX_HTML contract assertions for issue #476, pinning
+# the image error fallback so generated art can never regress to the browser's
+# broken-image icon. Test-only; the behaviour lives in index.html.
+#
+# 73227 -> 73237: ten lines in primary_action so a dead avatar is offered a new
+# beginning instead of ordinary actions it can never submit. Existing function,
+# no new system.
+#
+# 73237 -> 73385: snapshot write coalescing for issue #481, plus its test. The
+# per-command multi-megabyte snapshot write was roughly 90% of command latency.
+# Existing persistence seam, no new system.
+#
+# 73385 -> 73573: bounded command receipt cache and receipt retention wiring.
+# The cache lives in canonical_world.rs and the retention purge in
+# canonical_journal.rs; main.rs only gains the AppState field, the retention
+# scheduler mirroring start_moderation_retention_scheduler, /meta.persistence
+# reporting, and their tests. Existing persistence seam, no new system.
+#
+# 73573 -> 73589: checkpoint rejection telemetry for issue #486. main.rs only
+# gains the AppState fields, /meta.persistence reporting, and the boot-duration
+# log; the reconciliation itself lives in topology.rs and generation_policy.rs,
+# and the rejection record in journal_checkpoint.rs. Existing persistence seam.
+#
+# 73589 -> 73597: issue #494 wires the defeated-avatar release projection in
+# primary_action (comment plus a one-line condition) and pins the knockout
+# scene copy in the INDEX_HTML contract test. The offer suppression lives in
+# composition.rs, the regression tests in actor_presence.rs. Existing
+# projection seam, no new system.
+#
+# 73597 -> 73592: avatar autonomy retry coverage moved to
+# actor_autonomy_tests.rs while the restored-clock fix replaced the larger
+# tick-watermark gate in place.
+#
+# 73592 -> 74609: reviewed integration-train exception covering the completed
+# stability and seventh-visit slices (#462, #463, #469, #482, #491, #498,
+# #500–#504). The owned systems and most new tests live in focused modules:
+# ai_registry.rs, combat.rs, community_art.rs/community_art_tests.rs,
+# crafting.rs, journal_checkpoint.rs, and movement.rs. main.rs retains the
+# existing HTTP/AppState/persistence wiring, compatibility paths, and broad
+# cross-surface regression contracts needed to integrate them atomically.
+# Follow-up decomposition remains tracked by #255; this exception authorizes
+# integration, not further feature growth in main.rs.
+# 74609 -> 74531: move ReplicateAvatarArtConfig and its environment loader
+# into the existing media-recipes seam.
+# 74516 -> 74434: extract the free bounded Chat endpoint and its concurrent-room
+# coverage into chat_action.rs.
+# 74434 -> 74454: sixteen test-only lines keep a manually locked kernel exit and
+# its new durable authored-route state aligned in the partial-effect fixture;
+# four wiring lines enforce typed lifecycle requirements before preview/apply.
+# 74454 -> 74311: move composition-owned first-tale behavior and tests into
+# first_tale.rs, and move Proxim8 ownership materialization into proxim8.rs.
+# 74311 -> 74414: restore an existing generated route from its visible return
+# segment, preserving the endpoint journey and adding its regression contract.
+# The web card additionally names the route's far endpoint so the player can
+# tell where the visible segment leads; this stays in index.html.
+# 74414 -> 74481: chat typing statuses coordinate the bounded avatar exchange
+# with its SSE transcript, and the accompanying cross-surface contract pins
+# the speaker-specific pending UI. This remains in main.rs beside the existing
+# chat orchestration and its browser integration contract.
+#
+# 74481 -> 74373: move canonical identity/version persistence regressions out
+# of the root test module and into canonical_identity_tests.rs while fixing the
+# stable-reference insertion and legacy reachability boundary.
+#
+# 74373 -> 74356: move the bounded projected-event append into the journal
+# checkpoint seam while making restore-time sequence and ledger-claim dedupe
+# authoritative there.
+# 74356 -> 74293: move Scout request/access projection and offer/choice planning into
+# movement.rs so gated routes validate and resolve against the same access set, while
+# the remaining handlers reuse the same access-aware rejection and journey seams.
+# 74293 -> 74291: route kernel events through the existing bounded projected-event
+# append so recent-room and same-speaker publication context stays current.
+# 74291 -> 74648: preserve speaker/recipient ownership through the existing
+# bounded Chat worker. The new lines carry committed directed turns instead of
+# rebuilding from unscoped room history, bind reply causality to those events,
+# keep observed actions distinct from literal speech, and re-check room, safety
+# consent, and inference ownership at each asynchronous commit. The added lines
+# also pin those context and causality boundaries with focused regressions.
+# 74648 -> 74646: replace legacy Journal detail assertions with the smaller
+# semantic-region and truthful-overflow contract.
+# 74646 -> 74647: boot wiring resumes durable, fully funded community-art jobs
+# interrupted by a process restart; selection and tests remain in the focused
+# community_art seam.
+# 74647 -> 74651: persist the frozen community-art plan with the existing
+# begin-generation projection so retries survive content evolution without
+# weakening their media-verdict binding.
+# 74651 -> 74708: replace the accepted-command full-world rollback clone with
+# durable-state recovery and pin the failure path with an exact snapshot
+# regression. The recovery wiring stays at the existing persistence boundary;
+# no new gameplay system is added.
+# 74708 -> 74498: move checkpoint compaction, canonical-commit retention, and
+# compacted event-range hydration into the existing journal_checkpoint seam.
+# 74498 -> 74462: move durable command-receipt encoding and capacity enforcement
+# into the existing canonical_journal seam.
+# 74462 -> 74460: keep the actor-job contention regression outside main.rs.
+# 74460 -> 74447: replace the full-state action receipt with bounded revision
+# metadata; clients refresh the authoritative projection after the world lock.
+# 74447 -> 74431: centralize SQLite opening in the canonical-journal seam while
+# retaining one process-lifetime WAL handle between short-lived writers.
+# 74431 -> 74305: move snapshot scheduling, serialization, ordered writes,
+# checkpoint compaction, and shutdown flushing into snapshot_persistence.rs.
+# 74305 -> 74360: bounded slow-command phase telemetry at the existing
+# canonical command and journal-commit seams. This diagnoses production-only
+# SQLite latency without logging healthy commands or adding a gameplay system.
+# 74360 -> 74376: versioned fast replay for the existing presentation-only
+# hand-shuffle projection, bypassing unrelated world reconciliation while
+# preserving the historical path for already committed journal records.
+# 74376 -> 74444: issue #360 stops reporting a default arrival calling as a
+# chosen purpose. Six lines branch the existing calling copy on the reason the
+# server already embeds; the rest is the two regressions, which need
+# `room_memory_entries` and `INDEX_HTML` and so belong beside them.
+# 74444 -> 74489: issue #464 projects the ability an ordinary check resolved
+# against -- the `resolves_against_ability` condition and its use -- plus the
+# regression that pins it, which needs `event_view` and so belongs here. The
+# fate-tag UI the issue also asks for is deliberately not here: the browser
+# smoke gate forbids exposing dice arithmetic (smoke-browser.mjs:4402), so that
+# half needs a product decision first.
+#
+# 74489 -> 73806: finish the #322 slice. The production move to
+# residents/needs.rs had already happened, but six tests were *copied* rather
+# than moved, so the suite ran each twice, and six superseded
+# `merged_inline_resident_*` helpers were left behind dead. Deleting both leaves
+# one copy of each test in the module that owns the code.
+#
+# 73806 -> 73729: issue #589 adds threshold journal and snapshot wiring while
+# moving EventView's default and context projection into its owning views.rs seam.
+# 73729 -> 73653: issue #591 moves resident pending-action execution into the
+# existing residents/continuity.rs seam while adding only the shared Open
+# submission and threshold resolution wiring at the root boundary.
+# 73653 -> 73647: issue #592 moves the shared ability parser into the existing
+# rules_context.rs seam while adding Hazard state and projection wiring.
+# 73423 -> 73369: issue #360 moves character-creation and Class-readiness
+# projections into actor_rules_facets.rs, where the frozen first-action evidence
+# and recommendation regressions now live. The root retains only persisted/view
+# types and the existing end-to-end campaign test. Its explicit non-combat check
+# disclosure supersedes #464's earlier product hold while combat stays narrative.
+# 73369 -> 73372: three net test-only lines pin the redesigned mobile
+# character card for issue #517 — the practice-evidence summary, the
+# availability label, the art-workshop describedby target, and the focus-trap
+# selector. The behaviour lives in index.html; main.rs only owns the
+# cross-surface INDEX_HTML contract beside it.
+# 73372 -> 73431: expose the presentation-only hex/close interior view hint at
+# the existing location metadata/view seams, retain the authored defaults, and
+# pin the SVG interior, bounded chat-progress, and ordered draw/pass browser
+# contracts beside the existing INDEX_HTML assertions.
+# 73406 -> 73600: v2 contract/status middleware plus direct loadout authorization
+# regressions remain at the existing HTTP/AppState boundary; the shared loadout
+# policy lives in turns.rs/mud.rs and the pagination/status contracts in their
+# owning modules. Reviewed integration exception; no new gameplay subsystem.
+# 73600 -> 73782: readiness/liveness health now reports event-store failures and
+# verifies required Lonely Forest sibling processes before Fly declares the
+# machine ready. The deployment boundary remains in main.rs because it owns
+# AppState and the existing HTTP health route; this is a reviewed operational
+# integration exception, with focused health regressions.
+# 73775 -> 73796: Kernel version 14 widened the location and exit arrays. The
+# RuntimeWorld Box keeps the resulting 285 KB C world off bootstrap and async
+# state-machine stacks; the remaining added lines are its FFI wiring plus the
+# legacy vector-backed snapshot rehydration contract. This is existing runtime
+# and persistence compatibility wiring, not a new subsystem.
+# 73796 -> 73828: image-only resident replies add only the journal projection,
+# response dispatch, transcript classification, and INDEX_HTML contract glue at
+# existing runtime seams. Generation, review, storage, serving, and their tests
+# live in resident_image.rs; this is a reviewed integration exception.
+# 73828 -> 73827: personalized card-policy execution and its regressions live in
+# card_policy_objective.rs; event projection and shared test helpers moved to
+# their existing views.rs and test_support.rs seams. Root retains only persisted
+# state, journal mutation, boot configuration, and /meta boundary wiring.
+# 73827 -> 73822: move generated avatar persona regression coverage into its
+# owning avatar_identity.rs seam while integrating checked reflections.
+# 73822 -> 73319: delete the compiler-proven dead Replicate avatar-art cluster
+# and the legacy generated-pathway sanitizers. Both were unreachable from
+# production; the pathway helpers only called each other, and the resident
+# reply wrapper's only remaining caller went with them. Its test duplicated
+# coverage that already lives in ai-model-rust/src/lib.rs, so it moved out
+# rather than being copied again.
+#
+# 71729 -> 71753: narrow one leakage-word entry in the existing
+# sanitize_room_memory_summary filter (bare "model" -> the phrase "language
+# model") plus its regression. Existing function, no new system; the same
+# collision was already fixed in the voice publication gate by #698.
+# 71753 -> 72007: reconcile the restored event cursor against the durable commit
+# point, and stop a rejected proposal from degrading event-store health. A
+# checkpoint written while the runtime led the commit point froze that lead into
+# every later boot, so the first commit proposed a sequence the journal could
+# never accept; the rejection was then counted as an append failure, which
+# failed /health, which took the machine out of the load balancer, and only a
+# successful append clears that counter. Production was unreachable for ~19h on
+# 2026-08-05. Both fixes sit on functions main.rs already owns
+# (advance_runtime_next_event_seq_from_store and the journal commit path), so
+# relocating them would be an unrelated extraction inside a behavior change.
+# ~215 of the 254 lines are the four regressions that pin the reconciliation in
+# both directions, the empty-store and inconsistent-store boundaries, and the
+# health contract; the checkpoint-refusal half lives in snapshot_persistence.rs
+# beside the writer that owns it.
+# 71479 -> 71508: integrate the extracted entity-context memory/goal ledger at
+# the existing snapshot, projection, article, and public-view boundaries, and
+# retain bounded readable model reasoning as private thought memory after a
+# certified reply. The owned logic and tests live in entity_context.rs and the
+# AI publication modules; main.rs keeps only runtime/persistence boundary glue.
+#
+# 71371 -> 71047: delete the remaining compiler-proven dead merged-inline
+# resident continuity copies; the live implementations stay in continuity.rs.
+# 71047 -> 71037: the first three ProjectionMutation variants become newtype
+# payloads owning their own apply, and the interpreter's seven positional
+# arguments collapse into one ProjectionContext. ResolveTransferOffer,
+# ConsumeGiftAutoAccept, and SetItemEquipped land; SetJobStatus was reverted
+# because seeding a JobState fixture is more than this change should carry, and
+# an unverified write-set declaration is worth less than none. Net -10 lines
+# with the context block added, so the remaining ~62 variants should each pay
+# for themselves. Payloads and their declared write sets live in projection.rs;
+# no behaviour changes and the journal encoding is pinned by test.
+# 71037 -> 70873: replace the retired public item-collectible materialization
+# implementation with a no-write compatibility tombstone for #685. Historical
+# projection replay and the separate verified Proxim8 actor adapter remain.
+# 69301 -> 68166: remove the remaining production collectible routes,
+# projections, wallet-gated location and hosted-entry plumbing, live receipt
+# merging, and ownership-driven resident relocation for #682. Historical
+# receipts remain readable for audit, and the linked-avatar adapter remains.
+# 68166 -> 68154: move observational projection-cache response types and
+# lock-independent endpoint plumbing behind projection_cache.rs while keeping
+# the authoritative runtime boundary in main.rs.
+# 68154 -> 67993: move the actor-causal delivery matcher integration coverage
+# into delivery_matching_tests.rs beside the matcher/provenance seam.
+# 67993 -> 67947: five more ProjectionMutation variants become newtype payloads
+# owning their apply -- SetItemContained, SetCharmEquipped, UnlockCharmSlot,
+# UnlockCharmSlotForCharm, SetSpellPrepared -- in projection_items.rs with
+# empirically derived write sets. Every one of the five writes
+# actor_rules_facets, including the two that never touch an item, so that looks
+# like a property of event-appending handlers generally rather than the
+# item-specific effect ADR 0008 recorded for SetItemEquipped. No behaviour
+# changes; journal encoding pinned by test for each variant.
+# 67935 -> 67912: four ledger and route ProjectionMutation variants become
+# newtype payloads owning their apply -- SetGiftAutoAccept, MarkVisitLedger,
+# StartTreasureObjective, SetRouteLifecycle -- in projection_ledger.rs with
+# empirically derived write sets. Journal encoding pinned per variant; no
+# behaviour change.
+# 67912 -> 67860: four character and bond ProjectionMutation variants become
+# newtype payloads owning their apply -- ChooseClass, ReviseCalling, DeepenBond,
+# ReviseBond -- in projection_character.rs with empirically derived write sets.
+# LegacyAcceptQuest is deliberately left inline: its handler is an unconditional
+# no-op, so no non-vacuous fixture can exist and its write set is unverifiable
+# by construction, the same reason SetJobStatus was reverted from #731. Also
+# fixes the write-set helper, which validated declared keys against a seeded
+# snapshot and so rejected correct declarations naming a normally-empty field.
+# 67860 -> 67779: move avatar creation flavor and asynchronous AI identity
+# refinement behind avatar_identity.rs while adding keyed model-pool retries.
+# 67779 -> 67765: avatar session recovery and its tests live in
+# actor_presence.rs; primary_action delegates the lifecycle boundary there.
+# 67765 -> 67763: move pathway-name novelty validation behind the AI gateway's
+# focused helper while adding the occupied distinctive-word check.
+# 67763 -> 67709: move process lifecycle composition into startup.rs, leaving
+# main as a thin async entry point without changing boot or shutdown order.
+# 67709 -> 67675: move canonical entity-version conflict coverage beside the
+# canonical identity seam while adding typed stale-observation responses.
+# 67586 -> 66712: move unified belief types, keys, writes, pruning, decay,
+# lookup/resolution, search reinforcement, and legacy migration into
+# residents/memory.rs. Room observation, disproved-memory cleanup, movement
+# observation, gossip, and belief projection remain for the sequential #324.
+# 66712 -> 66670: move the complete actor Notice fact contract, endpoint, and
+# focused replay/staleness tests into notice.rs; keep canonical capacity tests
+# on their stable certified Pass card instead of unrelated gameplay offers.
+# 66670 -> 66854: integrate the Story Hand's persisted per-slot Think state,
+# public presentation envelope, projection event, and cross-surface regression
+# contracts at the existing runtime/snapshot/HTTP boundaries, including the
+# command-boundary ordered-scene regression. Hand composition, policy, commands,
+# autonomous selection, and their focused tests remain in the owning modules;
+# this is a reviewed integration exception, not a new root-owned gameplay system.
+# 66864 -> 66856: move attack and explicit combat-declaration handlers into
+# combat.rs while separating declaration from the first attack.
+# 66856 -> 66855: route authored actor control-mode defaults through the
+# content loader while keeping avatar-session handoff persistence in its module.
+# 66789 -> 66751: move canonical event inserts into the focused room replay
+# store while adding indexed room-history hydration and migration.
+# 66751 -> 67252: integrate the linked-avatar rescue lifecycle at the existing
+# request, replay, session-handoff, and browser contract boundaries. Rescue
+# state and rules remain extracted in avatar_rescue.rs; the increase is focused
+# end-to-end replay and double-knockout regression coverage in the root harness.
+# 67252 -> 66694: move the room-memory entry/label/kind/log-text cluster
+# (room_memory_entries, _summary_entries, _entries_chronological,
+# _entry_for_event[_at_location], _label, _kind, _log_text[_at_location],
+# _text) from main.rs into room_memory.rs as pub(super) free functions. Pure,
+# behavior-preserving extraction; tests remain in main.rs for this slice.
+# 66694 -> 66264: move the room-memory view/chapter/cache/atmosphere cluster
+# (room_memory_view_for_state, load_current_room_memory_chapter_for_state,
+# _prompt_chapters, _summary_entries_since, latest_room_memory_listen_seq,
+# event_is_room_memory_listen, current_room_memory_day_index,
+# load_room_memory_prior_chapters_for_state, cache_room_memory_summary,
+# fallback_room_memory_view/_summary, room_atmosphere_sentence, first_sentence,
+# atmospheric_*_beat, split_case_insensitive, complete_sentence,
+# sentence_fragment, ROOM_MEMORY_DAY_MS, ROOM_MEMORY_PRIOR_CHAPTER_LIMIT)
+# from main.rs into room_memory.rs. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+# 66264 -> 66162: move the room-memory chapter persistence functions
+# (upsert_room_memory_chapter, load_room_memory_chapter,
+# load_room_memory_prior_chapters) from main.rs into room_memory.rs. They
+# reach shared sqlite helpers (init_event_store, open_event_store,
+# sqlite_error, params!, OptionalExtension, now_millis, trim_to_chars) via the
+# existing `use super::*;` glob. Pure, behavior-preserving; tests stay in
+# main.rs for this slice.
+# 66162 -> 66087: move the three recent_room_* RuntimeWorld methods
+# (recent_room_lines, recent_room_activity, recent_room_consequences) from
+# main.rs into room_memory.rs as `impl crate::RuntimeWorld` pub(crate) methods,
+# matching the 47-module split-impl convention. Pure, behavior-preserving;
+# tests stay in main.rs for this slice.
+# 66087 -> 65394: move the 14 inline room_memory and recent_room tests out of
+# main.rs's mod tests into room_memory.rs's mod tests. The tests reach
+# RuntimeWorld methods (seeded, location_view, push_projected_event), shared
+# helpers (append_event_store, now_millis, now_seed, load/save_snapshot), and
+# the moved pub(super) room_memory fns via the `use super::*;` glob. Pure,
+# behavior-preserving; no test count or assertion changed.
+# 65394 -> 65212: move autonomy RuntimeWorld methods (ensure_actor_autonomy,
+# observe_player_tick_for_autonomy, autonomy_allows_action,
+# record_autonomous_action, and player_tick_already_has_autonomous_result) from main.rs into
+# actor_presence.rs as `impl crate::RuntimeWorld` pub(crate) methods.
+# #[cfg(test)] attributes preserved. Pure, behavior-preserving.
+# 65212 -> 65157: move 3 ripple RuntimeWorld methods
+# (resident_ripple_candidate_ids, resident_ripple_record_for_seed,
+# ripple_move_keeps_player_company) from main.rs into resident_offer_scoring.rs,
+# which already owns best_resident_ripple_candidate and the candidate machinery.
+# pub(crate) since main.rs calls resident_ripple_record_for_seed. Pure,
+# behavior-preserving.
+# 65157 -> 63826: move 21 autonomy record/action/intent RuntimeWorld methods
+# (resident_economy_autonomy_action, _proposed_action_matches_legal_offer,
+# _stays_with_active_job, fresh_resident_autonomy_action,
+# _autonomy_action_repeats_recent_event, _feature_use_autonomy_record,
+# preferred_job_contribution_intent, _job_autonomy_record,
+# _record_for_shared_offer, _shared_offer_autonomy_record_for_kinds,
+# append_resident_autonomy_intent_projection, _autonomy_intent_for_record,
+# prepare_resident_local_memories, _economy_autonomy_candidate_ids,
+# refresh_resident_local_memories_for_ids, _record_offer_kind,
+# _offer_matches_record, _decision_trace, attach_resident_decision_trace,
+# _economy_autonomy_record_for_seed, _economy_autonomy_action_by_priority)
+# from main.rs into resident_offer_scoring.rs as pub(crate). The 3 AI-speech
+# collision methods (resident_reply_repeats_recent_event, collision_safe_*)
+# stay in main.rs. Pure, behavior-preserving.
+# Co-locate autonomy cascade candidate generators (resident_waits_for_player_gift,
+# resident_mutual_trade/gift/delivery_candidate) from main.rs into autonomy.rs
+# (was resident_offer_scoring.rs). Rename module to reflect its role as the
+# autonomy decision system home. Delete dead RippleBudget zone branch where
+# frontier and sanctuary returned identical budgets. Behavior-preserving.
+# 63585 -> 63586: one line adding ai_publication_record_already_applied to the
+# existing already-applied group in apply_journal_record, alongside the
+# threshold, discovery, and rescue claim checks it sits with. No new system --
+# the predicate itself lives in ai_publication.rs. This unbricks worlds whose
+# replay hit a colliding deterministic-fallback publication key, which left
+# three of them unbootable on 2026-08-16/17.
+# 63586 -> 63602: sixteen lines wiring Abandon Avatar at the existing
+# boundaries main.rs already owns -- the ProjectionMutation variant, its
+# precondition call and apply arm, the /actions/abandon-avatar route entry,
+# and one INDEX_HTML contract assertion. The action's planning, precondition,
+# and apply logic all live in avatar_rescue.rs beside the rescue lifecycle it
+# extends. Existing routing/projection seams, no new system in main.rs.
+# 63602 -> 63605: three lines in apply_journal_record treat settled abandon
+# records like the existing already-applied rescue/publication groups: legacy
+# kind-41 rows (rejected by the kernel at commit, so their live effect was
+# "nothing happened") and claim-settled rows replay as no-ops instead of
+# failing boot or double-advancing the tick. The predicates live in
+# avatar_rescue.rs beside the abandon lifecycle; no new system in main.rs.
+# 63605 -> 63607: two test-only lines in the browser shell contract -- the
+# pathway thumb pins now also assert the pathway-side badge, so journey
+# travel cards keep destination art with a direction badge instead of an
+# arrow replacing the art. The behaviour lives in index.html.
+# 63607 -> 63609: ensure_item learns that location 0 means "authored but not
+# placed" rather than a broken reference, so a worldpack can ship a hidden item
+# that only its discovery slot reveals. Two lines are the comment recording that
+# distinction; the condition itself changed in place. Existing seeding function,
+# no new system.
+# 63609 -> 63611: two comment lines recording why the pinned official item
+# count moved from 34 to 35 -- the core pack now authors one unplaced item for
+# its discovery slot. Test-only.
+# 63611 -> 63391: move the canonical identity/version RuntimeWorld methods
+# (ensure_canonical_identities, canonical_ref,
+# runtime_handle_for_canonical_ref, canonical_pact_ref, entity_version,
+# event_entity_refs, bump_entity_versions_for_events,
+# refresh_canonical_events, refresh_all_canonical_events) from main.rs into
+# canonical_world.rs as a pub(crate) split-impl beside the
+# CanonicalIdentityState types they operate on. Pure, behavior-preserving;
+# tests stay in main.rs and canonical_identity_tests.rs for this slice.
+# 63391 -> 61903: move the 26 projected world-event builder RuntimeWorld
+# methods (append_world_reset_event through append_bond_event) from main.rs
+# into a new world_events.rs seam as pub(crate) split-impl methods beside
+# the push_projected_event boundary they all end with. Pure,
+# behavior-preserving; tests stay in main.rs for this slice.
+# 61903 -> 61990: durable journal commits move onto `block_in_place` so a slow
+# SQLite commit can no longer block a tokio worker outright. Production showed
+# 11.5s commits; on the four-CPU Lonely Forest machine a few concurrent commits
+# starved every worker, so lock-free `/health` could not be scheduled and Fly
+# pulled a busy-but-alive machine out of rotation. Most of the added lines are
+# the two regressions plus the comment recording why the helper is flavor-aware
+# (`block_in_place` panics on the current-thread runtime `#[tokio::test]`
+# builds). The commit body itself only gained a wrapper; existing persistence
+# seam, no new system.
+# 61990 -> 61693: remove the wall-clock ambient scheduler, its quiet-time state,
+# idle speaker/reply planning, and scheduler-only tests. Resident consequences
+# remain causally attached to committed player turns.
+# 61693 -> 61691: align the stale ratchet with main.rs after the ambient
+# scheduler removal; the tracked source was already 61,691 lines.
+# 61691 -> 61673: move HTTP response-contract handling into routes.rs and run
+# routine canonical-capacity SQLite polling on Tokio's blocking pool. Request
+# threads stay available for health while JSON error policy remains at routing.
+# 61673 -> 61640: replace main.rs's unbounded signal helpers with the shutdown
+# module and route SSE through its notification subscription. Drain policy,
+# timing, and tests live in shutdown.rs, startup.rs, and routes.rs.
+# 61640 -> 61582: move the persistence storage report into
+# snapshot_persistence.rs, where the retention and compaction policy it
+# describes already lives, and drop the ineffective auto_vacuum block from
+# schema initialization. The mode is now chosen ahead of WAL by
+# open_canonical_store_for_initialization in canonical_journal.rs; main.rs keeps
+# only the /meta boundary fields.
+# 61582 -> 61553: move actor-job failure persistence into actor_jobs.rs so the
+# durable dead-state transition and its incident event share one queue seam.
+# 61553 -> 61539: keep provider reasoning private and move narration-state
+# helpers into their existing focused modules.
+# 61539 -> 61165: move avatar-opening validation, publication, and bounded
+# retry handling into chat_action.rs beside the command's durable chat seam.
+# 61165 -> 61181: sixteen test-only lines pin the Orb slot contract in both
+# directions -- the three slot readings plus the retired job vocabulary that
+# must never return to the panel. The behaviour lives in index.html; main.rs
+# owns the cross-surface INDEX_HTML contract beside it.
+# 61181 -> 60015: move the resident trade, gift, and feature-use regressions
+# into resident_economy_tests.rs. Their production code already moved to
+# autonomy.rs, which owns the trade/gift/delivery candidate generators; only
+# the tests stayed behind in the root inline module. Fourteen tests moved
+# verbatim, no assertion or fixture changed, and the suite count is unmoved
+# at 1,265. First slice of #325 and #61.
+# 60015 -> 59942: move player-tick observation, resident initiative selection,
+# and room-heartbeat scheduling into actor_jobs.rs while adding durable room
+# initiative, reset generations, and atomic development reset deletion.
+# 59942 -> 59974: the opt-in one-time auto_vacuum conversion adds the boot
+# guard, its env flag, and failure handling to the startup path (#886).
+# 59974 -> 60043: the room rope adds seat-window scheduling to the commit
 # path, a durable room_rope worker, and its payload dispatch. The long-term
 # answer is still #325/#61 extraction, not a higher ceiling.
-60030
+60043

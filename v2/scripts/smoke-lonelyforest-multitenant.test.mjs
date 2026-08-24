@@ -19,6 +19,20 @@ test("remote Lonely Forest tenant smokes connect and negotiate TLS with the tena
   );
 });
 
+test("an explicit shared transport keeps the tenant Host while using Fly DNS and TLS", () => {
+  const target = requestTarget(
+    new URL("https://cosyworld-lonelyforest.fly.dev"),
+    "0.lonelyforest.com",
+    { sharedTransport: true },
+  );
+  assert.deepEqual(target, {
+    hostname: "cosyworld-lonelyforest.fly.dev",
+    port: undefined,
+    hostHeader: "0.lonelyforest.com",
+    servername: "cosyworld-lonelyforest.fly.dev",
+  });
+});
+
 test("loopback Lonely Forest router smokes retain one transport target and vary Host", () => {
   const target = requestTarget(new URL("http://127.0.0.1:3000"), "lantern.lonelyforest.com");
   assert.deepEqual(target, {
