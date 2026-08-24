@@ -374,6 +374,22 @@ fn parse_avatar_level_identity(content: &str) -> Result<AvatarLevelIdentity, Str
     Ok(identity)
 }
 
+fn avatar_self_description_route_error(gate: AiReadinessGate) -> Option<&'static str> {
+    let reason = gate.reason_code()?;
+    Some(
+        if gate.is_retryable_block()
+            && !matches!(
+                reason,
+                AI_READINESS_PROBING | AI_RATE_LIMITED | AI_PROVIDER_UNAVAILABLE
+            )
+        {
+            AI_PROVIDER_UNAVAILABLE
+        } else {
+            reason
+        },
+    )
+}
+
 fn reflection_context_spine(job: &AvatarReflectionJob) -> AvatarContextSpine {
     if job.context_spine.is_current() {
         return job.context_spine.clone();
@@ -627,6 +643,12 @@ pub(super) async fn complete_avatar_self_description(
         .as_ref()
         .as_ref()
         .ok_or_else(|| "avatar self-description inference is not configured".to_string())?;
+    let route_gate = config
+        .voice_route_gate(model_binding.as_ref())
+        .map_err(|error| format!("avatar self-description model is unavailable: {error}"))?;
+    if let Some(error) = avatar_self_description_route_error(route_gate) {
+        return Err(error.to_string());
+    }
     let speech = route_certified_voice(
         config,
         state
@@ -956,7 +978,8 @@ pub(super) fn insert_avatar_self_description_job(
     job: &AvatarReflectionJob,
 ) -> io::Result<bool> {
     let payload = ActorJobPayload::AvatarSelfDescription(Box::new(job.clone()));
-    insert_actor_job_payload(
+    let generation_key = avatar_self_description_generation_key(job);
+    if insert_actor_job_payload(
         conn,
         ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
         job.actor_id,
@@ -964,10 +987,42 @@ pub(super) fn insert_avatar_self_description_job(
         job.source_world_tick,
         job.observed_through_seq,
         Some(job.source_location_id),
-        &avatar_self_description_generation_key(job),
+        &generation_key,
         &payload,
         0,
-    )
+    )? {
+        return Ok(true);
+    }
+    let context_json = serde_json::to_string(&payload)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let now = now_millis() as i64;
+    let revived = conn
+        .execute(
+            "UPDATE actor_jobs
+             SET actor_id = ?2, cause_event_seq = ?3, source_tick = ?4,
+                 observed_through_seq = ?5, location_id = ?6, status = 'pending',
+                 attempts = 0, lease_until_ms = NULL, available_at_ms = ?7,
+                 context_json = ?8, last_error = NULL, updated_at_ms = ?7
+             WHERE dedupe_key = ?1 AND kind = ?9 AND status = 'dead'
+               AND last_error IN (
+                   'ai_readiness_probing', 'ai_rate_limited',
+                   'ai_provider_unavailable', 'voice_latency_exhausted',
+                   'voice_provider_unavailable', 'voice_job_retry_exhausted'
+               )",
+            params![
+                generation_key,
+                job.actor_id as i64,
+                job.caused_by_event_seq.map(|seq| seq as i64),
+                job.source_world_tick as i64,
+                job.observed_through_seq as i64,
+                job.source_location_id as i64,
+                now,
+                context_json,
+                ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(revived > 0)
 }
 
 pub(super) fn insert_avatar_reflection_job(
@@ -1236,6 +1291,32 @@ mod tests {
         assert!(insert_avatar_self_description_job(&conn, &job).expect("first level job is queued"));
         assert!(!insert_avatar_self_description_job(&conn, &job)
             .expect("duplicate level job is ignored"));
+        conn.execute(
+            "UPDATE actor_jobs SET status = 'dead', attempts = 3,
+                    lease_until_ms = NULL, last_error = 'voice_no_eligible_candidates'",
+            [],
+        )
+        .expect("dead-letter the first self-description attempt");
+        assert!(!insert_avatar_self_description_job(&conn, &job)
+            .expect("a permanently failed level job stays dead"));
+        conn.execute(
+            "UPDATE actor_jobs SET last_error = 'ai_readiness_probing'",
+            [],
+        )
+        .expect("mark the dead job as a transient startup failure");
+        assert!(
+            insert_avatar_self_description_job(&conn, &job).expect("a dead level job is revived")
+        );
+        let revived: (String, u32, Option<String>) = conn
+            .query_row(
+                "SELECT status, attempts, last_error FROM actor_jobs",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read revived self-description job");
+        assert_eq!(revived, ("pending".to_string(), 0, None));
+        assert!(!insert_avatar_self_description_job(&conn, &job)
+            .expect("the revived pending level job is still deduplicated"));
         drop(conn);
         let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION)
             .expect("claim self-description job")
@@ -1245,5 +1326,31 @@ mod tests {
         };
         assert_eq!(committed.actor_id, 1002);
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn self_description_route_errors_preserve_retryable_and_terminal_meaning() {
+        let probing = AiReadiness::probing_with_low_credit_threshold(5.0);
+        assert_eq!(
+            avatar_self_description_route_error(probing.gate("chat/completions", "provider/model")),
+            Some(AI_READINESS_PROBING)
+        );
+
+        let exact_route = AiReadiness::default();
+        exact_route.record_http_failure("chat/completions", "provider/model", 404, None);
+        assert_eq!(
+            avatar_self_description_route_error(
+                exact_route.gate("chat/completions", "provider/model")
+            ),
+            Some(AI_PROVIDER_UNAVAILABLE),
+            "a temporary incompatible route stays retryable without spending an attempt"
+        );
+
+        probing.record_probe_http_failure(401);
+        assert_eq!(
+            avatar_self_description_route_error(probing.gate("chat/completions", "provider/model")),
+            Some(AI_ACCOUNT_UNAUTHORIZED),
+            "a permanent account failure must not enter the endless retry lane"
+        );
     }
 }

@@ -129,7 +129,7 @@ pub(crate) struct AiReadinessGate {
 }
 
 impl AiReadinessGate {
-    const fn ready() -> Self {
+    pub(crate) const fn ready() -> Self {
         Self {
             reason_code: None,
             retry_at_unix: None,
