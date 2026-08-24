@@ -1166,6 +1166,30 @@ fn claim_voice_job(
             Ok(JobClaim::Accepted(Box::new(speech)))
         }
         "unavailable" => {
+            if voice_terminal_code_is_retryable(row.6.as_deref()) {
+                tx.execute(
+                    "UPDATE ai_voice_jobs
+                     SET status = 'pending', lease_owner = ?2, lease_expires_ms = ?3,
+                         lease_retries = 0, policy_json = ?4, decisions_json = NULL,
+                         terminal_code = NULL, updated_at_ms = ?5
+                     WHERE generation_id = ?1 AND status = 'unavailable'",
+                    params![
+                        generation_id,
+                        owner,
+                        lease_expires as i64,
+                        policy_json,
+                        now as i64,
+                    ],
+                )
+                .map_err(crate::sqlite_error)?;
+                tx.execute(
+                    "DELETE FROM ai_voice_attempt_decisions WHERE generation_id = ?1",
+                    params![generation_id],
+                )
+                .map_err(crate::sqlite_error)?;
+                tx.commit().map_err(crate::sqlite_error)?;
+                return Ok(JobClaim::Acquired);
+            }
             tx.commit().map_err(crate::sqlite_error)?;
             Ok(JobClaim::Unavailable(row.6.unwrap_or_else(|| {
                 "voice_candidates_exhausted".to_string()
@@ -1208,6 +1232,15 @@ fn claim_voice_job(
             })
         }
     }
+}
+
+fn voice_terminal_code_is_retryable(code: Option<&str>) -> bool {
+    matches!(
+        code,
+        Some(
+            "voice_latency_exhausted" | "voice_provider_unavailable" | "voice_job_retry_exhausted"
+        )
+    )
 }
 
 fn restored_speech(
@@ -1917,6 +1950,55 @@ mod tests {
             .expect("read the migrated schema version");
         assert_eq!(version, crate::EVENT_STORE_SCHEMA_VERSION);
         drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn transiently_unavailable_voice_job_can_be_claimed_again() {
+        let path = test_path("transient-retry");
+        let _ = fs::remove_file(&path);
+        let policy = VoiceRoutingConfig::default();
+        assert!(matches!(
+            claim_voice_job(
+                &path,
+                "retry-generation",
+                "retry-key",
+                "avatar_self_description",
+                "prose",
+                "first-owner",
+                &policy,
+            )
+            .expect("claim first voice attempt"),
+            JobClaim::Acquired
+        ));
+        finish_voice_job_unavailable(
+            Some(&path),
+            "retry-generation",
+            "first-owner",
+            "voice_latency_exhausted",
+        );
+        assert!(matches!(
+            claim_voice_job(
+                &path,
+                "retry-generation",
+                "retry-key",
+                "avatar_self_description",
+                "prose",
+                "second-owner",
+                &policy,
+            )
+            .expect("reclaim transiently unavailable voice attempt"),
+            JobClaim::Acquired
+        ));
+        let state: (String, Option<String>, u32) = crate::open_event_store(&path)
+            .expect("open retried voice store")
+            .query_row(
+                "SELECT status, terminal_code, lease_retries FROM ai_voice_jobs",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read retried voice state");
+        assert_eq!(state, ("pending".to_string(), None, 0));
         let _ = fs::remove_file(path);
     }
 
