@@ -302,7 +302,7 @@ impl AvatarContextSpine {
                 options.max_words
             ),
             AvatarContextMode::SelfDescription => format!(
-                "Write {name}'s first-person identity for level {level}. Evolve how the avatar understands their desires, preferences, dislikes, social instincts, lived changes, and observable appearance while preserving established identity. Use only supplied world and journal evidence. Do not invent possessions, companions, deeds, memories, or physical changes. Output exactly three lines beginning PERSONA:, APPEARANCE:, and CONTINUITY:, together under {} words. The APPEARANCE line must describe only observable traits.",
+                "Write {name}'s first-person identity for level {level}. Evolve how the avatar understands their desires, preferences, dislikes, social instincts, lived changes, and observable appearance while preserving established identity. Use only supplied world and journal evidence. Do not invent possessions, companions, deeds, memories, or physical changes. Output exactly three lines beginning PERSONA:, APPEARANCE:, and CONTINUITY:, together under {} words. Make APPEARANCE a concrete portrait reference: describe body or form, face or main features, colouring, distinctive traits, and practical clothing where applicable. Use observable traits only; never use a generic label in place of visible details.",
                 options.max_words,
                 level = self.speaker.level,
             ),
@@ -973,6 +973,20 @@ impl RuntimeWorld {
                     && event.actor_id == Some(actor_id)
                     && event.total == Some(i16::from(level))
             })
+    }
+
+    pub(crate) fn avatar_requires_self_description(&self, actor_id: u64, level: u8) -> bool {
+        let identity_mode = self
+            .avatar_identity_policy(actor_id)
+            .map(|identity| identity.mode)
+            .unwrap_or_else(|| "direct".to_string());
+        identity_mode != "authored" && self.avatar_self_description_due(actor_id, level)
+    }
+
+    pub(crate) fn avatar_can_redescribe_appearance(&self, actor_id: u64, level: u8) -> bool {
+        self.avatar_requires_self_description(actor_id, level)
+            && (!self.actor_uses_inference(actor_id)
+                || self.avatar_has_exact_self_description_model(actor_id))
     }
 
     fn avatar_observation_anomalies(&self, actor_id: u64) -> Vec<String> {

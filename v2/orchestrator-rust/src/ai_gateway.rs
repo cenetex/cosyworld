@@ -622,6 +622,30 @@ impl AiConfig {
         self.readiness.gate(endpoint, requested_model_id)
     }
 
+    pub(crate) fn voice_route_gate(
+        &self,
+        binding: Option<&crate::content_load::SeedActorModelBinding>,
+    ) -> Result<AiReadinessGate, RegistryError> {
+        let selections = match binding {
+            Some(binding) => vec![self.pin_actor_model(binding)?],
+            None => self.pin_models(ModelCapability::Voice)?,
+        };
+        let mut blocked = None;
+        for selection in selections {
+            let gate =
+                self.exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, selection.requested_model_id());
+            if gate.is_ready() {
+                return Ok(gate);
+            }
+            if blocked.is_none_or(|current: AiReadinessGate| {
+                current.is_terminal_block() && gate.is_retryable_block()
+            }) {
+                blocked = Some(gate);
+            }
+        }
+        Ok(blocked.unwrap_or_else(AiReadinessGate::ready))
+    }
+
     #[allow(dead_code)]
     pub(crate) fn actor_image_route_is_ready(
         &self,
@@ -6277,6 +6301,18 @@ mod tests {
         }
 
         let probing = AiReadiness::probing_with_low_credit_threshold(5.0);
+        let voice_config = AiConfig {
+            model: "provider/model".to_string(),
+            readiness: probing.clone(),
+            ..AiConfig::default()
+        };
+        assert_eq!(
+            voice_config
+                .voice_route_gate(None)
+                .expect("legacy voice route")
+                .reason_code(),
+            Some(crate::ai_readiness::AI_READINESS_PROBING)
+        );
         let probing_error = AiGatewayError::readiness(
             "test",
             probing.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),

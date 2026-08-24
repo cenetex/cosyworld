@@ -98,6 +98,9 @@ pub(super) struct CommunityArtView {
     pub(super) provider_attempts: u8,
     pub(super) max_provider_attempts: u8,
     pub(super) retryable_without_orbs: bool,
+    pub(super) appearance: Option<String>,
+    pub(super) appearance_due: bool,
+    pub(super) appearance_required: bool,
 }
 
 impl Serialize for CommunityArtView {
@@ -105,7 +108,7 @@ impl Serialize for CommunityArtView {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("CommunityArtView", 9)?;
+        let mut out = serializer.serialize_struct("CommunityArtView", 12)?;
         out.serialize_field("level", &self.level)?;
         out.serialize_field("required_orbs", &self.required_orbs)?;
         out.serialize_field("funded_orbs", &self.funded_orbs)?;
@@ -115,6 +118,11 @@ impl Serialize for CommunityArtView {
         out.serialize_field("provider_attempts", &self.provider_attempts)?;
         out.serialize_field("max_provider_attempts", &self.max_provider_attempts)?;
         out.serialize_field("retryable_without_orbs", &self.retryable_without_orbs)?;
+        if let Some(value) = &self.appearance {
+            out.serialize_field("appearance", value)?;
+        }
+        out.serialize_field("appearance_due", &self.appearance_due)?;
+        out.serialize_field("appearance_required", &self.appearance_required)?;
         out.end()
     }
 }

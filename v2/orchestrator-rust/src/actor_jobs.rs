@@ -22,6 +22,7 @@ pub(super) enum ActorJobPayload {
     OrbChat(Box<OrbChatJob>),
     ModelInteraction(ModelInteractionJob),
     AvatarReflection(Box<AvatarReflectionJob>),
+    AvatarSelfDescription(Box<AvatarReflectionJob>),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -49,6 +50,7 @@ pub(super) const ACTOR_JOB_KIND_ROOM_ROPE: &str = "room_rope";
 pub(super) const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
 pub(super) const ACTOR_JOB_KIND_MODEL_INTERACTION: &str = "model_interaction";
 pub(super) const ACTOR_JOB_KIND_AVATAR_REFLECTION: &str = "avatar_reflection";
+pub(super) const ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION: &str = "avatar_self_description";
 pub(super) const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
@@ -713,6 +715,28 @@ pub(super) fn fail_actor_job_for_runtime_state(
     error: &str,
     retry_floor_ms: u64,
 ) -> io::Result<()> {
+    if matches!(
+        error,
+        AI_READINESS_PROBING | AI_RATE_LIMITED | AI_PROVIDER_UNAVAILABLE
+    ) {
+        let readiness_delay_ms = state
+            .ai_config
+            .as_ref()
+            .as_ref()
+            .map(|config| {
+                config
+                    .recommended_readiness_probe_delay()
+                    .as_millis()
+                    .min(u64::MAX as u128) as u64
+            })
+            .unwrap_or(1_000);
+        return defer_actor_job_without_attempt(
+            path,
+            job,
+            error,
+            retry_floor_ms.max(readiness_delay_ms),
+        );
+    }
     if matches!(&job.payload, ActorJobPayload::OrbChat(_))
         && pending_chat_context_rejection(error).is_some()
     {
@@ -836,6 +860,83 @@ fn requeue_actor_job(
     )
     .map_err(sqlite_error)?;
     Ok(())
+}
+
+fn defer_actor_job_without_attempt(
+    path: &Path,
+    job: &ActorJob,
+    error: &str,
+    retry_floor_ms: u64,
+) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    let now = now_millis();
+    conn.execute(
+        "UPDATE actor_jobs
+         SET status = 'pending', attempts = MAX(attempts - 1, 0),
+             lease_until_ms = NULL, available_at_ms = ?2,
+             last_error = ?3, updated_at_ms = ?4
+         WHERE id = ?1 AND status = 'running'",
+        params![
+            job.id,
+            now.saturating_add(retry_floor_ms.max(250)) as i64,
+            trim_to_chars(error, 500),
+            now as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod readiness_retry_tests {
+    use super::*;
+
+    #[test]
+    fn readiness_deferral_does_not_consume_an_actor_attempt() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-readiness-deferral-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize readiness deferral store");
+        let conn = open_event_store(&path).expect("open readiness deferral store");
+        let payload = ActorJobPayload::RoomRope(RoomRopeJob {
+            location_id: 11,
+            actor_id: 22,
+            activation: 33,
+        });
+        assert!(insert_actor_job_payload(
+            &conn,
+            ACTOR_JOB_KIND_ROOM_ROPE,
+            22,
+            None,
+            1,
+            1,
+            Some(11),
+            "readiness-deferral",
+            &payload,
+            0,
+        )
+        .expect("queue readiness deferral job"));
+        drop(conn);
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("claim readiness deferral job")
+            .expect("readiness deferral job exists");
+        assert_eq!(claimed.attempts, 1);
+        defer_actor_job_without_attempt(&path, &claimed, AI_READINESS_PROBING, 250)
+            .expect("defer readiness job");
+        let conn = open_event_store(&path).expect("inspect deferred readiness job");
+        let deferred: (String, u32, Option<i64>) = conn
+            .query_row(
+                "SELECT status, attempts, lease_until_ms FROM actor_jobs WHERE id = ?1",
+                params![claimed.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read deferred readiness job");
+        assert_eq!(deferred, ("pending".to_string(), 0, None));
+        let _ = fs::remove_file(path);
+    }
 }
 
 #[cfg(test)]

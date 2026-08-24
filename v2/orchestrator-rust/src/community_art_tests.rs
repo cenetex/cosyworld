@@ -14,6 +14,238 @@ use std::{
     },
 };
 
+fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64, name: &str) {
+    crate::test_support::create_test_human(runtime, actor_id, location_id, name);
+    let level = runtime
+        .actor_by_id(actor_id)
+        .map(|actor| actor.stats.level.max(1))
+        .unwrap_or(1);
+    let memory = runtime
+        .entity_memories
+        .entry(WorldEntityRef::avatar(actor_id).key())
+        .or_default();
+    memory
+        .identity_by_level
+        .entry(level)
+        .or_default()
+        .appearance =
+        "A round-faced traveler with copper curls, brown eyes, and a moss-green coat.".to_string();
+    memory
+        .descriptions_by_level
+        .insert(level, "A complete test persona description.".to_string());
+}
+
+fn test_avatar_level_identity(appearance: &str) -> AvatarLevelIdentity {
+    AvatarLevelIdentity {
+        persona: "I am curious about the shared world around me.".to_string(),
+        appearance: appearance.to_string(),
+        continuity: "I remain recognizably myself as I grow.".to_string(),
+    }
+}
+
+#[test]
+fn direct_avatar_portrait_can_be_funded_before_its_async_level_description() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Portrait Author",
+    );
+
+    let pending = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the Orb timeline can be funded before the persona responds");
+    assert!(runtime.avatar_requires_self_description(5000, 1));
+    assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
+    assert_eq!(pending.required_orbs, 1);
+
+    let appearance =
+        "A freckled traveler with short copper curls, grey eyes, and a moss-green wool coat.";
+    let identity = test_avatar_level_identity(appearance);
+    let content_id = 91_001;
+    runtime
+        .content
+        .insert(content_id, avatar_level_identity_content(&identity));
+    runtime
+        .append_avatar_self_description_projection(
+            5000,
+            &AvatarSelfDescriptionProjection {
+                content_id,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                level: 1,
+                caused_by_event_seq: None,
+                source_world_tick: runtime.world.tick,
+                observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+                identity,
+            },
+        )
+        .expect("the first appearance at this level commits");
+
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the described avatar can fund a portrait");
+    assert!(plan.prompt.contains(appearance));
+    assert!(plan.persisted_visual_description.contains("copper curls"));
+}
+
+#[test]
+fn a_new_level_description_replaces_the_frozen_brief_and_reopens_funded_art() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Retry Portrait",
+    );
+    let old_plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("initial portrait plan");
+    fund_test_community_art(&mut runtime, 5000, &old_plan, "old-portrait", 91_010);
+    let key = community_art_generation_key("actor", 5000, 1);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("funded generation");
+    generation.status = "policy_rejected".to_string();
+    generation.provider_attempts = MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
+    generation.review_attempts = MAX_COMMUNITY_ART_REVIEW_ATTEMPTS;
+    generation.last_error_code = Some("community_art_policy_rejected".to_string());
+    generation.frozen_plan = Some(old_plan);
+
+    let appearance =
+        "A blue-skinned traveler with silver braids, dark eyes, and a saffron wrap coat.";
+    let identity = test_avatar_level_identity(appearance);
+    let content_id = 91_011;
+    runtime
+        .content
+        .insert(content_id, avatar_level_identity_content(&identity));
+    let projection = AvatarSelfDescriptionProjection {
+        content_id,
+        location_id: COSY_COTTAGE_LOCATION_ID,
+        level: 1,
+        caused_by_event_seq: None,
+        source_world_tick: runtime.world.tick,
+        observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+        identity,
+    };
+    runtime
+        .append_avatar_self_description_projection(5000, &projection)
+        .expect("replacement appearance commits");
+
+    let generation = &runtime.community_art_generations[&key];
+    assert_eq!(generation.status, "funded");
+    assert_eq!(generation.provider_attempts, 0);
+    assert_eq!(generation.review_attempts, 0);
+    assert!(generation.last_error_code.is_none());
+    assert!(generation.frozen_plan.is_none());
+    assert!(runtime
+        .append_avatar_self_description_projection(5000, &projection)
+        .is_none());
+    let replacement = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("replacement portrait plan");
+    assert!(replacement.prompt.contains(appearance));
+}
+
+#[test]
+fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
+    let registry = ContentRegistry::from_json(
+        &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
+            .expect("Elysium registry reads"),
+        content_engine_version(),
+    )
+    .expect("Elysium registry mounts");
+    let content = registry.content();
+    let actor_id = content
+        .actor_model_bindings
+        .iter()
+        .find(|binding| {
+            binding.input_modalities.iter().any(|mode| mode == "text")
+                && binding.output_modalities.iter().any(|mode| mode == "text")
+        })
+        .map(|binding| binding.actor_id)
+        .expect("Elysium has a text-capable Void");
+
+    assert!(self_authored_avatar_has_text_binding(
+        "self_authored",
+        actor_id,
+        &content.actor_model_bindings,
+    ));
+    assert!(!self_authored_avatar_has_text_binding(
+        "authored",
+        actor_id,
+        &content.actor_model_bindings,
+    ));
+}
+
+#[test]
+fn a_direct_avatar_can_be_queued_for_its_current_level_appearance() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Level Look",
+    );
+
+    assert!(runtime.avatar_requires_self_description(5000, 1));
+    assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
+}
+
+#[tokio::test]
+async fn a_fully_funded_portrait_queues_one_persona_description_before_generation() {
+    let event_store_path = std::env::temp_dir().join(format!(
+        "cosyworld-avatar-persona-description-{}-{}.sqlite",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_file(&event_store_path);
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Level Look",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the undescribed portrait can accept Orb funding");
+    fund_test_community_art(
+        &mut runtime,
+        5000,
+        &plan,
+        "fully-funded-persona-timeline",
+        91_012,
+    );
+    let state = test_app_state(runtime, Some(event_store_path.clone()));
+    continue_community_art_generation(&state, 5000, plan.clone()).await;
+    continue_community_art_generation(&state, 5000, plan).await;
+
+    let conn = open_event_store(&event_store_path).expect("open persona description store");
+    let queued: i64 = conn
+        .query_row("SELECT COUNT(*) FROM actor_jobs", [], |row| row.get(0))
+        .expect("count persona description jobs");
+    assert_eq!(queued, 1);
+    let claimed =
+        claim_next_actor_job_of_kind(&event_store_path, ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION)
+            .expect("claim persona description job")
+            .expect("one persona description was queued");
+    let ActorJobPayload::AvatarSelfDescription(job) = claimed.payload else {
+        panic!("appearance request queued the wrong job kind");
+    };
+    assert_eq!(job.actor_id, 5000);
+    let runtime = state.inner.lock().await;
+    let generation =
+        &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 1)];
+    assert_eq!(generation.status, "funded");
+    assert_eq!(generation.provider_attempts, 0);
+    drop(runtime);
+    drop(conn);
+    drop(state);
+    let _ = fs::remove_file(event_store_path);
+}
+
 fn test_art_config() -> ReplicateAvatarArtConfig {
     ReplicateAvatarArtConfig {
         api_token: "test-token".to_string(),
@@ -478,6 +710,41 @@ fn funded_avatar_generation_is_selected_for_boot_resumption() {
         1,
         "a legacy frozen-brief failure is repaired automatically on boot"
     );
+    let _ = std::fs::remove_dir_all(asset_root);
+}
+
+#[test]
+fn a_fully_funded_rejected_avatar_without_a_level_description_resumes_at_the_persona_stage() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Recovered Persona",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the undescribed avatar can fill its Orb slot");
+    fund_test_community_art(&mut runtime, 5000, &plan, "rejected-persona-recovery", 9002);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&community_art_generation_key("actor", 5000, 1))
+        .expect("funded avatar generation");
+    generation.status = "policy_rejected".to_string();
+    generation.provider_attempts = MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
+    generation.last_error_code = Some("community_art_policy_rejected".to_string());
+
+    let asset_root = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-persona-resume-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    std::fs::create_dir_all(&asset_root).expect("create generated-asset root");
+    let resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);
+    assert_eq!(resumptions.len(), 1);
+    assert_eq!(resumptions[0].1.subject_kind, "actor");
+    assert_eq!(resumptions[0].1.subject_id, 5000);
+    assert!(runtime.avatar_requires_self_description(5000, 1));
     let _ = std::fs::remove_dir_all(asset_root);
 }
 
@@ -1096,6 +1363,19 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         .expect("test avatar exists")
         .stats
         .level = 2;
+    runtime
+        .entity_memories
+        .entry(WorldEntityRef::avatar(5000).key())
+        .or_default()
+        .identity_by_level
+        .insert(
+            2,
+            AvatarLevelIdentity {
+                appearance: "Copper curls threaded with silver, a steadier gaze, and a deep green travel coat."
+                    .to_string(),
+                ..AvatarLevelIdentity::default()
+            },
+        );
     let before_tick = runtime.world.tick;
     let generated_dir = std::env::temp_dir().join(format!(
         "cosyworld-evolution-endpoint-{}-{}",

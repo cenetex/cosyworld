@@ -12332,6 +12332,7 @@
         || event.type === "relationship.beat"
         || event.type === "relationship.advanced"
         || event.type === "avatar.refined"
+        || event.type === "avatar.self_description"
         || event.type === "pathway.refined"
         || event.type === "move.blocked"
         || event.type === "feature.searched"
@@ -16349,15 +16350,32 @@
       const status = String(art.status || "available");
       const viewerContributed = Boolean(art.viewer_contributed);
       const slot = `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Orb slot ${funded}/${required}`;
+      const appearance = String(art.appearance || "").trim();
+      const appearanceDue = Boolean(art.appearance_due);
+      const appearanceRequired = Boolean(art.appearance_required);
+      const appearanceStatus = appearance
+        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${escapeHtml(appearance)}</strong></div>`
+        : "";
+      const appearanceTimeline = appearanceDue
+        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${remaining > 0
+          ? "Their persona will describe themself when this Orb slot fills."
+          : "Their persona is describing themself before portrait generation."
+        }</strong></div>`
+        : "";
+      const appearancePanel = `${appearanceStatus}${appearanceTimeline}`;
 
-      if (status === "ready") {
-        return `<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
+      if (appearanceRequired && !appearanceDue) {
+        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span><strong>This avatar cannot create a visible description with its current voice.</strong></div>`;
+      }
+
+      if (status === "ready" && !appearanceDue) {
+        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
       }
       if (clientState?.status === "filling") {
-        return `${slot} · filling.</strong></div>`;
+        return `${appearancePanel}${slot} · filling.</strong></div>`;
       }
       if (remaining <= 0) {
-        return `${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
+        return `${appearancePanel}${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const detail = viewerContributed
@@ -16366,7 +16384,7 @@
       const action = balance >= 1
         ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">add one Orb</button>`
         : "";
-      return `${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
+      return `${appearancePanel}${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
     }
 
     function communityArtPlaceholderLabel(card) {

@@ -276,7 +276,13 @@ impl RuntimeWorld {
         &mut self,
         actor_id: u64,
         projection: &AvatarSelfDescriptionProjection,
-    ) -> EventView {
+    ) -> Option<EventView> {
+        let current_level = self.actor_by_id(actor_id)?.stats.level.max(1);
+        if projection.level != current_level
+            || !self.avatar_self_description_due(actor_id, projection.level)
+        {
+            return None;
+        }
         let content = self
             .content
             .get(&projection.content_id)
@@ -287,7 +293,8 @@ impl RuntimeWorld {
             .or_default()
             .identity_by_level
             .insert(projection.level, projection.identity.clone());
-        self.append_avatar_self_description_event(
+        self.reset_community_art_after_avatar_description(actor_id, projection.level);
+        Some(self.append_avatar_self_description_event(
             actor_id,
             projection.content_id,
             projection.location_id,
@@ -296,7 +303,44 @@ impl RuntimeWorld {
             projection.caused_by_event_seq,
             Some(projection.source_world_tick),
             Some(projection.observed_through_seq),
-        )
+        ))
+    }
+}
+
+#[cfg(test)]
+pub(super) fn avatar_level_identity_content(identity: &AvatarLevelIdentity) -> String {
+    format!(
+        "PERSONA: {}\nAPPEARANCE: {}\nCONTINUITY: {}",
+        identity.persona, identity.appearance, identity.continuity
+    )
+}
+
+pub(super) async fn queue_avatar_self_description(
+    state: &AppState,
+    actor_id: u64,
+) -> Result<bool, String> {
+    let job = {
+        let runtime = state.inner.lock().await;
+        let actor = runtime
+            .actor_by_id(actor_id)
+            .ok_or_else(|| "the self-describing avatar no longer exists".to_string())?;
+        let level = actor.stats.level.max(1);
+        if !runtime.avatar_can_redescribe_appearance(actor_id, level) {
+            return Ok(false);
+        }
+        runtime
+            .avatar_reflection_job(actor_id, AvatarReflectionKind::Thought)
+            .ok_or_else(|| "self-description context could not be constructed".to_string())?
+    };
+    if let Some(path) = state.event_store_path.as_deref() {
+        let queued = open_event_store(path)
+            .and_then(|conn| insert_avatar_self_description_job(&conn, &job))
+            .map_err(|error| error.to_string())?;
+        state.actor_job_notify.notify_waiters();
+        Ok(queued)
+    } else {
+        schedule_avatar_self_description(state, job);
+        Ok(true)
     }
 }
 
@@ -328,6 +372,22 @@ fn parse_avatar_level_identity(content: &str) -> Result<AvatarLevelIdentity, Str
         );
     }
     Ok(identity)
+}
+
+fn avatar_self_description_route_error(gate: AiReadinessGate) -> Option<&'static str> {
+    let reason = gate.reason_code()?;
+    Some(
+        if gate.is_retryable_block()
+            && !matches!(
+                reason,
+                AI_READINESS_PROBING | AI_RATE_LIMITED | AI_PROVIDER_UNAVAILABLE
+            )
+        {
+            AI_PROVIDER_UNAVAILABLE
+        } else {
+            reason
+        },
+    )
 }
 
 fn reflection_context_spine(job: &AvatarReflectionJob) -> AvatarContextSpine {
@@ -518,7 +578,7 @@ async fn complete_avatar_reflection_entry(
     Ok(())
 }
 
-async fn complete_avatar_self_description(
+pub(super) async fn complete_avatar_self_description(
     state: &AppState,
     source_job: &AvatarReflectionJob,
 ) -> Result<(), String> {
@@ -583,6 +643,12 @@ async fn complete_avatar_self_description(
         .as_ref()
         .as_ref()
         .ok_or_else(|| "avatar self-description inference is not configured".to_string())?;
+    let route_gate = config
+        .voice_route_gate(model_binding.as_ref())
+        .map_err(|error| format!("avatar self-description model is unavailable: {error}"))?;
+    if let Some(error) = avatar_self_description_route_error(route_gate) {
+        return Err(error.to_string());
+    }
     let speech = route_certified_voice(
         config,
         state
@@ -675,6 +741,7 @@ async fn complete_avatar_self_description(
         events
     };
     broadcast_events(state, &events);
+    resume_avatar_art_after_self_description(state, source_job.actor_id).await;
     Ok(())
 }
 
@@ -871,6 +938,91 @@ pub(super) fn schedule_avatar_reflection(
             warn!("asynchronous avatar reflection failed: {}", error);
         }
     });
+}
+
+static AVATAR_SELF_DESCRIPTION_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = OnceLock::new();
+
+fn avatar_self_description_generation_key(job: &AvatarReflectionJob) -> String {
+    format!(
+        "avatar-self-description:{}:level:{}",
+        job.actor_id,
+        job.context_spine.speaker.level.max(1)
+    )
+}
+
+pub(super) fn schedule_avatar_self_description(state: &AppState, job: AvatarReflectionJob) {
+    let key = avatar_self_description_generation_key(&job);
+    let jobs = AVATAR_SELF_DESCRIPTION_JOBS.get_or_init(|| StdMutex::new(BTreeSet::new()));
+    if !jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(key.clone())
+    {
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        if let Err(error) = complete_avatar_self_description(&state, &job).await {
+            warn!("asynchronous avatar self-description failed: {}", error);
+        }
+        if let Some(jobs) = AVATAR_SELF_DESCRIPTION_JOBS.get() {
+            jobs.lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .remove(&key);
+        }
+    });
+}
+
+pub(super) fn insert_avatar_self_description_job(
+    conn: &Connection,
+    job: &AvatarReflectionJob,
+) -> io::Result<bool> {
+    let payload = ActorJobPayload::AvatarSelfDescription(Box::new(job.clone()));
+    let generation_key = avatar_self_description_generation_key(job);
+    if insert_actor_job_payload(
+        conn,
+        ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+        job.actor_id,
+        job.caused_by_event_seq,
+        job.source_world_tick,
+        job.observed_through_seq,
+        Some(job.source_location_id),
+        &generation_key,
+        &payload,
+        0,
+    )? {
+        return Ok(true);
+    }
+    let context_json = serde_json::to_string(&payload)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let now = now_millis() as i64;
+    let revived = conn
+        .execute(
+            "UPDATE actor_jobs
+             SET actor_id = ?2, cause_event_seq = ?3, source_tick = ?4,
+                 observed_through_seq = ?5, location_id = ?6, status = 'pending',
+                 attempts = 0, lease_until_ms = NULL, available_at_ms = ?7,
+                 context_json = ?8, last_error = NULL, updated_at_ms = ?7
+             WHERE dedupe_key = ?1 AND kind = ?9 AND status = 'dead'
+               AND last_error IN (
+                   'ai_readiness_probing', 'ai_rate_limited',
+                   'ai_provider_unavailable', 'voice_latency_exhausted',
+                   'voice_provider_unavailable', 'voice_job_retry_exhausted'
+               )",
+            params![
+                generation_key,
+                job.actor_id as i64,
+                job.caused_by_event_seq.map(|seq| seq as i64),
+                job.source_world_tick as i64,
+                job.observed_through_seq as i64,
+                job.source_location_id as i64,
+                now,
+                context_json,
+                ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(revived > 0)
 }
 
 pub(super) fn insert_avatar_reflection_job(
@@ -1119,5 +1271,86 @@ mod tests {
         assert_eq!(committed.caused_by_event_seq, Some(77));
         assert_eq!(committed.roll.as_ref().map(|roll| roll.total), Some(18));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn self_description_has_its_own_durable_once_per_level_job() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-avatar-self-description-outbox-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize self-description outbox");
+        let runtime = RuntimeWorld::seeded();
+        let job = runtime
+            .avatar_reflection_job(1002, AvatarReflectionKind::Thought)
+            .expect("Gust can describe themself");
+        let conn = open_event_store(&path).expect("open self-description outbox");
+
+        assert!(insert_avatar_self_description_job(&conn, &job).expect("first level job is queued"));
+        assert!(!insert_avatar_self_description_job(&conn, &job)
+            .expect("duplicate level job is ignored"));
+        conn.execute(
+            "UPDATE actor_jobs SET status = 'dead', attempts = 3,
+                    lease_until_ms = NULL, last_error = 'voice_no_eligible_candidates'",
+            [],
+        )
+        .expect("dead-letter the first self-description attempt");
+        assert!(!insert_avatar_self_description_job(&conn, &job)
+            .expect("a permanently failed level job stays dead"));
+        conn.execute(
+            "UPDATE actor_jobs SET last_error = 'ai_readiness_probing'",
+            [],
+        )
+        .expect("mark the dead job as a transient startup failure");
+        assert!(
+            insert_avatar_self_description_job(&conn, &job).expect("a dead level job is revived")
+        );
+        let revived: (String, u32, Option<String>) = conn
+            .query_row(
+                "SELECT status, attempts, last_error FROM actor_jobs",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read revived self-description job");
+        assert_eq!(revived, ("pending".to_string(), 0, None));
+        assert!(!insert_avatar_self_description_job(&conn, &job)
+            .expect("the revived pending level job is still deduplicated"));
+        drop(conn);
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION)
+            .expect("claim self-description job")
+            .expect("self-description job remains durable");
+        let ActorJobPayload::AvatarSelfDescription(committed) = claimed.payload else {
+            panic!("self-description lane returned the wrong payload");
+        };
+        assert_eq!(committed.actor_id, 1002);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn self_description_route_errors_preserve_retryable_and_terminal_meaning() {
+        let probing = AiReadiness::probing_with_low_credit_threshold(5.0);
+        assert_eq!(
+            avatar_self_description_route_error(probing.gate("chat/completions", "provider/model")),
+            Some(AI_READINESS_PROBING)
+        );
+
+        let exact_route = AiReadiness::default();
+        exact_route.record_http_failure("chat/completions", "provider/model", 404, None);
+        assert_eq!(
+            avatar_self_description_route_error(
+                exact_route.gate("chat/completions", "provider/model")
+            ),
+            Some(AI_PROVIDER_UNAVAILABLE),
+            "a temporary incompatible route stays retryable without spending an attempt"
+        );
+
+        probing.record_probe_http_failure(401);
+        assert_eq!(
+            avatar_self_description_route_error(probing.gate("chat/completions", "provider/model")),
+            Some(AI_ACCOUNT_UNAUTHORIZED),
+            "a permanent account failure must not enter the endless retry lane"
+        );
     }
 }
