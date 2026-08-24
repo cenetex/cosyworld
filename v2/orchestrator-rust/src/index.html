@@ -6290,6 +6290,7 @@
       background-repeat: no-repeat;
       background-size: cover !important;
     }
+    .prompt .cmd .thumb.avatar { background-position: center top; }
     .prompt .cmd-copy {
       min-width: 0;
       align-content: center;
@@ -6356,7 +6357,7 @@
       border-bottom: 1px solid rgba(var(--cmd-accent-rgb), 0.46);
       background-position: center 42%;
     }
-    .prompt.hand-expanded .cmd .thumb.avatar { background-position: center 22%; }
+    .prompt.hand-expanded .cmd .thumb.avatar { background-position: center top; }
     .prompt.hand-expanded .cmd .thumb::before {
       content: "";
       position: absolute;
@@ -6785,7 +6786,7 @@
         border-bottom: 1px solid rgba(var(--cmd-accent-rgb), 0.46);
         background-position: center 42%;
       }
-      .prompt.hand-expanded .cmd.has-copy .thumb.avatar { background-position: center 22%; }
+      .prompt.hand-expanded .cmd.has-copy .thumb.avatar { background-position: center top; }
       .prompt.hand-expanded .story-card-actions button {
         min-height: 44px;
         font-size: 10px;
@@ -11120,11 +11121,11 @@
 
     function sharedRoomTranscriptEvents(events) {
       const currentLocationId = Number(state?.location?.id || 0);
-      const visible = (events || []).filter((event) => {
+      const visible = narratedTranscriptEvents((events || []).filter((event) => {
         const eventLocationId = Number(event?.location_id || 0);
         return eventIsChatTranscriptEvent(event)
           && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
-      });
+      }));
       return visible.slice(-40);
     }
 
@@ -15081,7 +15082,12 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream"].includes(event?.type);
+      const type = event?.type;
+      return chatEventTypes.has(type) || (
+        sceneCardEventTypes.has(type)
+        && !combatTranscriptEventTypes.has(type)
+        && !combatOnlyTranscriptEventTypes.has(type)
+      );
     }
 
     function transcriptEventHtml(event) {
