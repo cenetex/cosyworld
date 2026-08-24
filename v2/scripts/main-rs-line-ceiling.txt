@@ -438,4 +438,6 @@
 # 59974 -> 60043: the room rope adds seat-window scheduling to the commit
 # path, a durable room_rope worker, and its payload dispatch. The long-term
 # answer is still #325/#61 extraction, not a higher ceiling.
-60043
+# 60043 -> 59955: move community-art card decoration and subject-level lookup
+# into community_art.rs while adding per-level avatar appearance at that seam.
+59955

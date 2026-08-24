@@ -27,15 +27,17 @@ use crate::media_recipes::media_verdict::{
 };
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
-    canonical_community_media_asset_bytes, commit_journal_record, execute_prepared_replicate_art,
+    canonical_community_media_asset_bytes, card_for_actor, card_for_item, card_for_location,
+    commit_journal_record, community_art_eligible_card, execute_prepared_replicate_art,
     freeze_approved_community_media_reference, immutable_media_asset_bytes,
     is_safe_image_content_type, now_millis, prepare_replicate_art, prepare_replicate_evolution_art,
     reconcile_community_media_asset_status, record_ai_usage_for_provider,
     register_derived_community_media_asset, register_generated_media_asset,
-    request_image_policy_decision, resolve_generation_media_config, AiConfig, AppState, CwAction,
-    EventView, EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference,
-    GeneratedPolicyBinding, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
-    MediaAssetProvenance, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
+    request_image_policy_decision, resolve_generation_media_config, ActorMeta, AiConfig, AppState,
+    CardView, CommunityArtView, CwAction, EventView, EvolutionRolloutRoute,
+    FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference, GeneratedPolicyBinding,
+    ImagePolicyRequest, ItemMeta, JournalRecord, MediaAssetBackfill, MediaAssetProvenance,
+    PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
     ReplicateAvatarArtConfig, RuntimeWorld, WorldEntityRef, CW_ACTION_NONE, CW_OK,
     EVOLUTION_EXECUTION_MODEL_REVISION, EVOLUTION_EXECUTION_RECIPE,
 };
@@ -59,6 +61,7 @@ const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
 /// and this profile's code, so an identical retry reproduces the identical
 /// rejection: the job is terminal until a newer generation profile reopens it.
 pub(super) const COMMUNITY_ART_BRIEF_INVALID_CODE: &str = "community_art_brief_invalid";
+pub(super) const AVATAR_APPEARANCE_REQUIRED_CODE: &str = "avatar_appearance_required";
 pub(super) const COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE: &str =
     "community_art_candidate_quarantine_failed";
 pub(super) const POLICY_PREFLIGHT_IMAGE_URL: &str =
@@ -519,7 +522,245 @@ pub(super) fn build_community_art_prompt(
     crate::compact_whitespace(&prompt)
 }
 
+pub(super) fn self_authored_avatar_has_text_binding(
+    identity_mode: &str,
+    actor_id: u64,
+    bindings: &[crate::SeedActorModelBinding],
+) -> bool {
+    matches!(identity_mode, "self_authored" | "hybrid")
+        && bindings.iter().any(|binding| {
+            binding.actor_id == actor_id
+                && binding.input_modalities.iter().any(|mode| mode == "text")
+                && binding.output_modalities.iter().any(|mode| mode == "text")
+        })
+}
+
 impl RuntimeWorld {
+    pub(super) fn community_art_subject_level(
+        &self,
+        subject_kind: &str,
+        subject_id: u64,
+    ) -> Option<u8> {
+        match subject_kind {
+            "actor" => {
+                let actor = self.actor_by_id(subject_id)?;
+                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
+                    name: format!("Avatar {subject_id}"),
+                    speech_mode: "prose".to_string(),
+                    title: "World Traveler".to_string(),
+                    description: String::new(),
+                });
+                community_art_eligible_card(&card_for_actor(
+                    subject_id,
+                    &meta.name,
+                    &meta.title,
+                    &meta.description,
+                    actor.stats.level,
+                ))
+                .then_some(actor.stats.level.max(1))
+            }
+            "item" => {
+                let item = self.world.items[..self.world.item_count]
+                    .iter()
+                    .find(|item| item.id == subject_id)?;
+                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
+                    name: format!("Item {subject_id}"),
+                    description: "A found keepsake.".to_string(),
+                    skill_id: None,
+                    skill_bonus: 0,
+                    mechanics: None,
+                });
+                community_art_eligible_card(&card_for_item(item.id, &meta.name, &meta.description))
+                    .then(|| self.world_entity_level(WorldEntityRef::item(subject_id)))
+                    .flatten()
+            }
+            "location" => {
+                let name = self.location_name(subject_id)?;
+                let meta = self.location_meta_for(subject_id);
+                let card = card_for_location(subject_id, &name, Some(&meta));
+                if !community_art_eligible_card(&card) {
+                    return None;
+                }
+                if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
+                    return (pathway.art_eligible
+                        && self.generated_places.contains_key(&subject_id))
+                    .then(|| self.world_entity_level(WorldEntityRef::location(subject_id)))
+                    .flatten();
+                }
+                self.world_entity_level(WorldEntityRef::location(subject_id))
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn decorate_community_art_card(
+        &self,
+        mut card: CardView,
+        subject_kind: &str,
+        subject_id: u64,
+        viewer_actor_id: Option<u64>,
+    ) -> CardView {
+        if subject_kind == "location" {
+            card = self.decorate_generated_location_card(card, subject_id);
+        }
+        let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
+            return card;
+        };
+        let key = community_art_generation_key(subject_kind, subject_id, level);
+        let generation = self.community_art_generations.get(&key);
+        let published_generation = (1..=level).rev().find_map(|published_level| {
+            self.community_art_generations
+                .get(&community_art_generation_key(
+                    subject_kind,
+                    subject_id,
+                    published_level,
+                ))
+                .filter(|state| state.status == "ready")
+        });
+        let required_orbs = i32::from(level.max(1));
+        let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
+        let status =
+            generation.map_or_else(|| "available".to_string(), |state| state.status.clone());
+        let provider_attempts = generation
+            .map(|state| state.provider_attempts)
+            .unwrap_or_default();
+        let generation_profile_version = community_art_generation_profile_version(subject_kind);
+        let retryable_without_orbs = generation.is_some_and(|state| {
+            community_art_generation_retryable_for_profile(state, false, generation_profile_version)
+        });
+        let appearance = (subject_kind == "actor")
+            .then(|| self.avatar_portrait_appearance(subject_id, level))
+            .flatten();
+        let appearance_due =
+            subject_kind == "actor" && self.avatar_can_redescribe_appearance(subject_id, level);
+        let appearance_action = (subject_kind == "actor")
+            .then(|| self.avatar_appearance_action(subject_id, level, viewer_actor_id))
+            .flatten()
+            .map(ToString::to_string);
+        if let Some(published) = published_generation {
+            card.image_url = Some(community_art_image_url(
+                subject_kind,
+                subject_id,
+                published.level,
+                published.revision,
+            ));
+            card.asset_status = "community_art".to_string();
+        }
+        card.level = level;
+        card.evolved = level >= 2;
+        card.community_art = Some(CommunityArtView {
+            level,
+            required_orbs,
+            funded_orbs,
+            remaining_orbs: required_orbs.saturating_sub(funded_orbs),
+            viewer_contributed: viewer_actor_id.is_some_and(|actor_id| {
+                generation.is_some_and(|state| {
+                    state
+                        .contributions
+                        .get(&actor_id)
+                        .is_some_and(|amount| *amount > 0)
+                })
+            }),
+            status,
+            history_through_seq: generation
+                .map(|state| state.history_through_seq)
+                .unwrap_or_else(|| self.world.next_event_seq.saturating_sub(1)),
+            provider_attempts,
+            max_provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
+            retryable_without_orbs,
+            appearance_required: subject_kind == "actor" && appearance.is_none(),
+            appearance,
+            appearance_due,
+            appearance_action,
+        });
+        card
+    }
+
+    pub(super) fn avatar_portrait_appearance(&self, actor_id: u64, level: u8) -> Option<String> {
+        self.avatar_level_identity(actor_id, level)
+            .map(|identity| identity.appearance)
+            .filter(|appearance| !appearance.trim().is_empty())
+            .or_else(|| {
+                self.character_identities
+                    .get(&actor_id)
+                    .map(|identity| identity.physical_description.clone())
+                    .filter(|appearance| !appearance.trim().is_empty())
+            })
+            .or_else(|| {
+                self.avatar_identity_policy(actor_id).and_then(|identity| {
+                    (identity.mode == "authored" && !identity.appearance.trim().is_empty())
+                        .then_some(identity.appearance)
+                        .or_else(|| {
+                            (identity.mode == "authored"
+                                && !identity.canonical_description.trim().is_empty())
+                            .then_some(identity.canonical_description)
+                        })
+                })
+            })
+            .map(|appearance| crate::compact_whitespace(&appearance))
+    }
+
+    pub(super) fn avatar_has_exact_self_description_model(&self, actor_id: u64) -> bool {
+        self.avatar_identity_policy(actor_id)
+            .is_some_and(|identity| {
+                self_authored_avatar_has_text_binding(
+                    &identity.mode,
+                    actor_id,
+                    &active_content().actor_model_bindings,
+                )
+            })
+    }
+
+    pub(super) fn avatar_appearance_action(
+        &self,
+        actor_id: u64,
+        level: u8,
+        viewer_actor_id: Option<u64>,
+    ) -> Option<&'static str> {
+        if !self.avatar_can_redescribe_appearance(actor_id, level) {
+            return None;
+        }
+        if viewer_actor_id == Some(actor_id) && !self.actor_uses_inference(actor_id) {
+            return Some("write");
+        }
+        self.avatar_has_exact_self_description_model(actor_id)
+            .then_some("self_authored")
+    }
+
+    pub(super) fn avatar_community_art_generation_active(&self, actor_id: u64, level: u8) -> bool {
+        self.community_art_generations
+            .get(&community_art_generation_key("actor", actor_id, level))
+            .is_some_and(|generation| {
+                matches!(generation.status.as_str(), "generating" | "reviewing")
+            })
+    }
+
+    pub(super) fn reset_community_art_after_avatar_description(
+        &mut self,
+        actor_id: u64,
+        level: u8,
+    ) -> bool {
+        let Some(generation) = self
+            .community_art_generations
+            .get_mut(&community_art_generation_key("actor", actor_id, level))
+        else {
+            return false;
+        };
+        generation.status = if generation.funded_orbs >= generation.required_orbs {
+            "funded".to_string()
+        } else {
+            "funding".to_string()
+        };
+        generation.provider_attempts = 0;
+        generation.review_attempts = 0;
+        generation.last_prediction_id = None;
+        generation.last_error_code = None;
+        generation.status_event_seq = None;
+        generation.frozen_plan = None;
+        generation.revision = generation.revision.saturating_add(1);
+        true
+    }
+
     fn actor_community_art_details(&self, actor_id: u64, card: &crate::CardView) -> String {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return String::new();
@@ -552,12 +793,11 @@ impl RuntimeWorld {
                     facts.push("class: classless traveler".to_string());
                 }
             }
-            if !identity.physical_description.trim().is_empty() {
-                facts.push(format!(
-                    "stable physical description: {}",
-                    identity.physical_description
-                ));
-            }
+        }
+        if let Some(appearance) =
+            self.avatar_portrait_appearance(actor_id, actor.stats.level.max(1))
+        {
+            facts.push(format!("stable physical description: {appearance}"));
         } else {
             facts.push(format!(
                 "stable physical description: {}",
@@ -687,6 +927,9 @@ impl RuntimeWorld {
         let level = self
             .community_art_subject_level(subject_kind, subject_id)
             .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
+        if subject_kind == "actor" && self.avatar_portrait_appearance(subject_id, level).is_none() {
+            return Err(AVATAR_APPEARANCE_REQUIRED_CODE.to_string());
+        }
         let generation_profile_version = community_art_generation_profile_version(subject_kind);
         if let Some(frozen_plan) = self
             .community_art_generations
@@ -1059,6 +1302,29 @@ impl RuntimeWorld {
             None,
             Some(format!("{subject_kind}:{subject_id}:level:{level}")),
         ))
+    }
+}
+
+pub(super) async fn resume_avatar_art_after_self_description(state: &AppState, actor_id: u64) {
+    let plan = {
+        let runtime = state.inner.lock().await;
+        let Some(actor) = runtime.actor_by_id(actor_id) else {
+            return;
+        };
+        let level = actor.stats.level.max(1);
+        let Some(generation) = runtime
+            .community_art_generations
+            .get(&community_art_generation_key("actor", actor_id, level))
+        else {
+            return;
+        };
+        if generation.funded_orbs < generation.required_orbs || generation.status != "funded" {
+            return;
+        }
+        runtime.community_art_plan(actor_id, "actor", actor_id).ok()
+    };
+    if let Some(plan) = plan {
+        schedule_community_art_generation(state, actor_id, plan);
     }
 }
 
