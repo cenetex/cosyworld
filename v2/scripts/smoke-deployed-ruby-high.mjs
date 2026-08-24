@@ -39,7 +39,7 @@ async function inspectTarget(value) {
   assert(meta.features?.card_policy_mode === "shadow", `${baseUrl.origin} card policy is not in shadow mode`);
   assert(meta.features?.card_policy_top_k === 3, `${baseUrl.origin} card policy top-k is not 3`);
   assert(
-    meta.features?.card_policy_model_hash === "1e1002a4907456f2",
+    meta.features?.card_policy_model_hash === "829992bfa57d67fe",
     `${baseUrl.origin} has the wrong card-policy model`,
   );
   assert(meta.linked_avatar_adapter?.remote_configured === true, `${baseUrl.origin} has no remote linked-avatar feed`);

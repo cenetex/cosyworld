@@ -925,6 +925,9 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             let returned = event
                 .target_item_name
                 .as_deref()
+                // An empty returned-item name renders as "hands you  to make
+                // room"; treat it as absent so the clause is omitted instead.
+                .filter(|item| !item.is_empty())
                 .map(|item| format!(", who hands you {item} to make room"))
                 .unwrap_or_default();
             Some(format!(
@@ -1374,14 +1377,37 @@ impl RuntimeWorld {
         }
 
         match verb.as_str() {
-            "help" => Ok(ResolvedCommand {
-                command,
-                verb,
-                action: None,
-                dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, pack, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, need time, or report <actor>: <reason>.".to_string(),
-                },
-            }),
+            "help" => {
+                // Hand-honest help: only verbs whose exact card is currently
+                // dealt are presented as playable; everything else stays in
+                // the command reference without promising immediacy.
+                let (_, help_offers) = self.legal_action_candidates(Some(actor.id), access);
+                let mut playable_verbs = self
+                    .current_action_hand_offers(actor.id, &help_offers)
+                    .iter()
+                    .map(|offer| offer.verb.to_lowercase())
+                    .collect::<Vec<_>>();
+                playable_verbs.sort();
+                playable_verbs.dedup();
+                let mut output = String::new();
+                if playable_verbs.is_empty() {
+                    output.push_str(
+                        "Your Story Hand has no dealt card right now; Think replaces one dealt card.\n",
+                    );
+                } else {
+                    output.push_str(&format!(
+                        "Playable from your Story Hand now: {}. Think replaces one dealt card.\n",
+                        command_list_or_none(&playable_verbs)
+                    ));
+                }
+                output.push_str("Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, pack, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, need time, or report <actor>: <reason>.");
+                Ok(ResolvedCommand {
+                    command,
+                    verb,
+                    action: None,
+                    dispatch: CommandDispatch::Read { output },
+                })
+            }
             "look" => Ok(ResolvedCommand {
                 command: command.clone(),
                 verb,
@@ -3445,15 +3471,38 @@ impl RuntimeWorld {
             .filter(|item| item.location_id == location_id)
             .map(|item| self.item_view(item).name)
             .collect::<Vec<_>>();
+        // Hand-honest exits: an exit is only "travelable now" when its exact
+        // Travel offer is currently dealt; otherwise it awaits a draw.
+        let (_, look_action_offers) = self.legal_action_candidates(Some(actor.id), access);
+        let travelable_destinations = self
+            .current_action_hand_offers(actor.id, &look_action_offers)
+            .iter()
+            .filter(|offer| offer.kind == "move")
+            .filter_map(|offer| {
+                offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "location")
+                    .and_then(|target| target.id)
+            })
+            .collect::<BTreeSet<_>>();
+        let mut exits_needing_a_draw = 0usize;
         let exits = self
             .exit_views(Some(actor.id), location_id, access)
             .into_iter()
             .filter(|exit| exit.accessible && !exit.locked)
             .map(|exit| {
-                exit.direction
+                let base = exit
+                    .direction
                     .as_deref()
                     .map(|direction| format!("{direction}: {}", exit.destination_location_name))
-                    .unwrap_or(exit.destination_location_name)
+                    .unwrap_or(exit.destination_location_name);
+                if travelable_destinations.contains(&exit.destination_location_id) {
+                    format!("{base} (travelable now)")
+                } else {
+                    exits_needing_a_draw += 1;
+                    format!("{base} (needs a Travel draw)")
+                }
             })
             .collect::<Vec<_>>();
         let mut lines = vec![
@@ -3463,6 +3512,12 @@ impl RuntimeWorld {
             format!("You notice: {}.", command_list_or_none(&items)),
             format!("Ways onward: {}.", command_list_or_none(&exits)),
         ];
+        if !exits.is_empty() && exits_needing_a_draw > 0 {
+            lines.push(
+                "Travel needs its exact card in your Story Hand; Think replaces one dealt card."
+                    .to_string(),
+            );
+        }
 
         if let Some(sheet) = self.room_sheet_view(location_id) {
             let aspects = command_list_or_none(&sheet.aspects);
@@ -3515,10 +3570,19 @@ impl RuntimeWorld {
                     first_tale.consequence,
                     first_tale.instruction
                 ));
+                let destination_is_here = first_tale.destination_location_id == location_id;
+                let destination_travelable =
+                    travelable_destinations.contains(&first_tale.destination_location_id);
+                if !destination_is_here && !destination_travelable {
+                    lines.push(
+                        "The next step needs its Travel card in your Story Hand; Think replaces one dealt card."
+                            .to_string(),
+                    );
+                }
             }
         }
 
-        let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
+        let action_offers = look_action_offers;
         let action_hand = self.action_hand_for(Some(actor.id), &action_offers);
         let shared_questions = self.shared_question_views_with_actions(
             location_id,
@@ -4097,5 +4161,193 @@ mod tests {
             None
         );
         assert_eq!(canonical_command_verb("speak"), "speak");
+    }
+}
+
+#[cfg(test)]
+mod hand_honest_help_tests {
+    use super::*;
+    use crate::test_support::create_test_human;
+
+    fn help_output(runtime: &RuntimeWorld, actor_id: u64) -> String {
+        match runtime
+            .resolve_command_with_presence(
+                &CommandRequest {
+                    actor_id,
+                    actor_session: None,
+                    command: "help".to_string(),
+                    offer_id: None,
+                    wallet_session: None,
+                    envelope: None,
+                },
+                &AccessContext::default(),
+                None,
+            )
+            .expect("help resolves")
+            .dispatch
+        {
+            CommandDispatch::Read { output } => output,
+            other => panic!("help is read-only, got {other:?}"),
+        }
+    }
+
+    fn look_output(runtime: &RuntimeWorld, actor_id: u64) -> String {
+        let actor = runtime.actor_by_id(actor_id).expect("actor exists");
+        runtime
+            .look_command_output(actor, "", &AccessContext::default(), None)
+            .expect("look renders")
+    }
+
+    #[test]
+    fn help_names_only_the_currently_dealt_verbs_as_playable() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Opal");
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+        let mut dealt_verbs = runtime
+            .current_action_hand_offers(5000, &offers)
+            .iter()
+            .map(|offer| offer.verb.to_lowercase())
+            .collect::<Vec<_>>();
+        dealt_verbs.sort();
+        dealt_verbs.dedup();
+
+        let output = help_output(&runtime, 5000);
+        let playable_line = output.lines().next().expect("help has a hand summary");
+        assert_eq!(
+            playable_line,
+            format!(
+                "Playable from your Story Hand now: {}. Think replaces one dealt card.",
+                command_list_or_none(&dealt_verbs)
+            ),
+            "the playable summary must contain exactly the dealt verbs"
+        );
+
+        let dealt = dealt_verbs.iter().cloned().collect::<BTreeSet<_>>();
+        let undealt_verb = offers
+            .iter()
+            .map(|offer| offer.verb.to_lowercase())
+            .find(|verb| !dealt.contains(verb))
+            .expect("the legal offer pool is larger than the three-card hand");
+        assert!(
+            !playable_line
+                .split(':')
+                .nth(1)
+                .unwrap_or_default()
+                .contains(&undealt_verb),
+            "an undealt verb must not be claimed as playable: {playable_line}"
+        );
+    }
+
+    #[test]
+    fn look_marks_exits_travelable_now_or_awaiting_a_draw() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Opal");
+        let access = AccessContext::default();
+
+        // Reveal the cottage-to-garden route so look has an exit to mark.
+        assert!(runtime.mark_route_discovered_for_edge(
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            5000,
+            0,
+            "rope_test_discovery",
+        ));
+
+        // Deal a Travel card, then derive the complete set of destinations
+        // that the current hand really makes playable.
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                offer.kind == "move" && offer.target.as_ref().is_some_and(|t| t.kind == "location")
+            })
+            .expect("a Travel offer can be dealt");
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &access);
+        let travelable_destinations = runtime
+            .current_action_hand_offers(5000, &offers)
+            .iter()
+            .filter(|offer| offer.kind == "move")
+            .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+            .collect::<BTreeSet<_>>();
+        assert!(!travelable_destinations.is_empty());
+
+        let output = look_output(&runtime, 5000);
+        assert!(output.contains("Ways onward:"), "{output}");
+
+        let exits = runtime
+            .exit_views(Some(5000), COSY_COTTAGE_LOCATION_ID, &access)
+            .into_iter()
+            .filter(|exit| exit.accessible && !exit.locked)
+            .collect::<Vec<_>>();
+        assert!(!exits.is_empty(), "the revealed route is visible");
+        let mut needs_draw = false;
+        for exit in exits {
+            let base = exit
+                .direction
+                .as_deref()
+                .map(|direction| format!("{direction}: {}", exit.destination_location_name))
+                .unwrap_or(exit.destination_location_name);
+            let expected = if travelable_destinations.contains(&exit.destination_location_id) {
+                format!("{base} (travelable now)")
+            } else {
+                needs_draw = true;
+                format!("{base} (needs a Travel draw)")
+            };
+            assert!(
+                output.contains(&expected),
+                "missing `{expected}` in: {output}"
+            );
+        }
+        if needs_draw {
+            assert!(
+                output.contains("Travel needs its exact card"),
+                "an awaiting exit explains the hand gate: {output}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod give_receipt_tests {
+    use super::*;
+
+    fn given_event(target_item_name: Option<String>) -> EventView {
+        EventView {
+            type_name: "item.given".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Wick".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_id: None,
+            item_name: Some("Hearth Tonic".to_string()),
+            target_actor_id: Some(1002),
+            target_actor_name: Some("Gust".to_string()),
+            target_item_name,
+            ..EventView::default()
+        }
+    }
+
+    #[test]
+    fn an_empty_returned_item_name_omits_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some(String::new())))
+            .expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
+        assert!(!output.contains("  "), "no double spaces in the receipt");
+        assert!(!output.contains("hands you"));
+    }
+
+    #[test]
+    fn a_named_returned_item_keeps_the_make_room_clause() {
+        let output = command_event_output(&given_event(Some("Dandelion Tea".to_string())))
+            .expect("item.given always renders a receipt");
+        assert_eq!(
+            output,
+            "You give Hearth Tonic to Gust, who hands you Dandelion Tea to make room."
+        );
+    }
+
+    #[test]
+    fn an_absent_returned_item_name_omits_the_make_room_clause() {
+        let output =
+            command_event_output(&given_event(None)).expect("item.given always renders a receipt");
+        assert_eq!(output, "You give Hearth Tonic to Gust.");
     }
 }

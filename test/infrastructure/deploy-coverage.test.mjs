@@ -39,19 +39,22 @@ describe("deployment-only contracts run in pull-request CI", () => {
 });
 
 describe("exactly one actor owns the release lever", () => {
-  it("a queued run yields loudly when main has advanced past its SHA", () => {
-    expect(deployWorkflow).toContain("Own this SHA's deployment");
+  it("a queued run yields cleanly before its expensive gates when main has advanced", () => {
+    expect(deployWorkflow).toContain(
+      "Confirm committed release still owns production",
+    );
     expect(deployWorkflow).toContain("Superseded: main advanced to");
+    expect(deployWorkflow).toContain('echo "owns=false" >> "$GITHUB_OUTPUT"');
+    expect(deployWorkflow).toMatch(
+      /production-node-gate:[\s\S]*needs\.release-owner\.outputs\.owns == 'true'/,
+    );
   });
 
-  it("two runs for the same SHA refuse to race", () => {
-    expect(deployWorkflow).toContain(
-      "exactly one actor may drive production",
-    );
+  it("workflow concurrency serializes release actors without self-rejection", () => {
     expect(deployWorkflow).toMatch(
-      /runs\?status=\$\{status\}&head_sha=\$\{GITHUB_SHA\}/,
+      /concurrency:\s*\n\s*group: deploy-\$\{\{ github\.repository \}\}\s*\n\s*cancel-in-progress: false/,
     );
-    expect(deployWorkflow).toContain("for status in in_progress queued; do");
+    expect(deployWorkflow).not.toContain("actions/runs?status=");
   });
 
   it("a merge that produces no successful deploy opens a loud tracking issue", () => {

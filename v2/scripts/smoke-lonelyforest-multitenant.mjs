@@ -10,6 +10,7 @@ const baseUrl = new URL(
     ?? "http://127.0.0.1:3000",
 );
 const expectElysium = args.includes("--expect-elysium");
+const useSharedTransport = args.includes("--shared-transport");
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 const scriptPath = fileURLToPath(import.meta.url);
 
@@ -44,11 +45,14 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-export function requestTarget(base, host, { routerProbe = false } = {}) {
-  // Local router tests deliberately exercise nginx's Host dispatch through one
-  // loopback listener. A remote smoke must instead connect to the hostname it
-  // advertises, so DNS and TLS SNI agree with Host.
-  const connectToBase = loopbackHosts.has(base.hostname) || routerProbe;
+export function requestTarget(base, host, {
+  routerProbe = false,
+  sharedTransport = false,
+} = {}) {
+  // Local tests and the explicit deployment transport exercise nginx's Host
+  // dispatch through one listener. Other remote smokes still connect to each
+  // advertised hostname so DNS, TLS SNI, and Host agree.
+  const connectToBase = loopbackHosts.has(base.hostname) || routerProbe || sharedTransport;
   const hostname = connectToBase ? base.hostname : host;
   return {
     hostname,
@@ -65,10 +69,15 @@ export function requestContext({ method, host, path, target }) {
   return `${method} host=${host} path=${path} connect=${authority}`;
 }
 
-export function request(host, path, { method = "GET", body, routerProbe = false } = {}, base = baseUrl) {
+export function request(host, path, {
+  method = "GET",
+  body,
+  routerProbe = false,
+  sharedTransport = false,
+} = {}, base = baseUrl) {
   const payload = body === undefined ? null : JSON.stringify(body);
   const transport = base.protocol === "https:" ? https : http;
-  const target = requestTarget(base, host, { routerProbe });
+  const target = requestTarget(base, host, { routerProbe, sharedTransport });
   const context = requestContext({ method, host, path, target });
   return new Promise((resolveRequest, rejectRequest) => {
     const req = transport.request(
@@ -122,7 +131,7 @@ async function ready(host, expectedStatus = 200) {
   let last;
   while (Date.now() < deadline) {
     try {
-      last = await request(host, "/meta");
+      last = await request(host, "/meta", { sharedTransport: useSharedTransport });
       if (last.status === expectedStatus) return last;
     } catch (error) {
       last = { text: error.message };

@@ -133,7 +133,7 @@ describe('deploy workflow', () => {
     expect(cardPolicyModel.subarray(0, 8).toString('utf8')).toBe('CWRANK2\n');
     expect(cardPolicyModel).toHaveLength(516);
     expect(createHash('sha256').update(cardPolicyModel).digest('hex')).toBe(
-      'c670bf6efac8e95f9bed910955aded920d3570c8c483d0533ea980c9f53e2962'
+      '778558accea1d57cc7fbb1a169cbc2c29d37672971141e2800421c9131775cf4'
     );
     expect(dockerignore).toContain('!models/card-policy/**');
     expect(dockerfile).toContain(
@@ -179,15 +179,15 @@ describe('deploy workflow', () => {
     expect(rustGate).toContain('bash v2/scripts/check-main-size.sh');
     expect(rustGate).toContain('bash v2/scripts/check-rust-lint.sh');
     expect(gate).toContain(
-      'needs: [deployment-impact, production-node-gate, production-rust-gate]'
+      'needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]'
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(job('primary-fly', 'lonelyforest-fly')).toContain(
-      'needs: [deployment-impact, production-gate]'
+      'needs: [deployment-impact, release-owner, production-gate]'
     );
     expect(job('lonelyforest-fly', 'github-release')).toContain(
-      'needs: [deployment-impact, production-gate]'
+      'needs: [deployment-impact, release-owner, production-gate]'
     );
     expect(
       workflow.indexOf('Guard primary worldpack bundle compatibility')

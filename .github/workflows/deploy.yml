@@ -65,10 +65,40 @@ jobs:
             node scripts/check-deployment-impact.mjs "$BEFORE_SHA" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           fi
 
-  production-node-gate:
-    name: Production Node and content gate
+  release-owner:
+    name: Confirm committed release still owns production
     needs: deployment-impact
     if: needs.deployment-impact.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      owns: ${{ steps.ownership.outputs.owns }}
+    steps:
+      - name: Yield a superseded main deployment
+        id: ownership
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "owns=true" >> "$GITHUB_OUTPUT"
+            echo "Explicit deployment owns its committed target."
+            exit 0
+          fi
+          main_sha="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ "$main_sha" = "$GITHUB_SHA" ]; then
+            echo "owns=true" >> "$GITHUB_OUTPUT"
+            echo "This run owns main at ${GITHUB_SHA:0:7}."
+          else
+            echo "owns=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Superseded: main advanced to ${main_sha:0:7}; the newer commit will deploy."
+          fi
+
+  production-node-gate:
+    name: Production Node and content gate
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -104,8 +134,10 @@ jobs:
 
   production-rust-gate:
     name: Production Rust gate
-    needs: deployment-impact
-    if: needs.deployment-impact.outputs.deploy == 'true'
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -143,12 +175,14 @@ jobs:
   production-gate:
     name: V2 production deployment gate
     if: ${{ always() }}
-    needs: [deployment-impact, production-node-gate, production-rust-gate]
+    needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required production gates passed
         env:
           DEPLOY: ${{ needs.deployment-impact.outputs.deploy }}
+          OWNER_RESULT: ${{ needs.release-owner.result }}
+          OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
           NODE_RESULT: ${{ needs.production-node-gate.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
         run: |
@@ -156,14 +190,20 @@ jobs:
             echo "No production inputs changed; deployment is not needed."
             exit 0
           fi
+          test "$OWNER_RESULT" = success
+          if [ "$OWNS_RELEASE" != true ]; then
+            echo "This commit was superseded before its production gates; nothing will deploy."
+            exit 0
+          fi
           test "$NODE_RESULT" = success
           test "$RUST_RESULT" = success
 
   primary-fly:
     name: Deploy primary to Fly
-    needs: [deployment-impact, production-gate]
+    needs: [deployment-impact, release-owner, production-gate]
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
       (github.event_name == 'push' ||
        inputs.target == 'both' ||
        inputs.target == 'primary')
@@ -185,31 +225,6 @@ jobs:
         run: scripts/check-fly-volume-space.sh cosyworld /data 85
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      # Exactly one actor drives production. An older queued run yields loudly
-      # when main has advanced, and two runs for the same SHA refuse to race.
-      - name: Own this SHA's deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Explicit deployment owns its target directly."
-            exit 0
-          fi
-          main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [ -n "$main_sha" ] && [ "$main_sha" != "$GITHUB_SHA" ]; then
-            echo "::error::Superseded: main advanced to ${main_sha:0:7}; yielding deployment to the newer commit's run."
-            exit 1
-          fi
-          for status in in_progress queued; do
-            duplicates="$(gh api "repos/${GH_REPO}/actions/runs?status=${status}&head_sha=${GITHUB_SHA}" \
-              --jq "[.workflow_runs[] | select(.name == \"Deploy\" and .id != ${GITHUB_RUN_ID})] | length")"
-            if [ "${duplicates:-0}" -gt 0 ]; then
-              echo "::error::Another ${status} Deploy run already owns ${GITHUB_SHA:0:7}; exactly one actor may drive production."
-              exit 1
-            fi
-          done
 
       # An unreachable primary app fails this gate closed, which blocks the very
       # deploy that would fix it. Supply a reviewed committed capture of the
@@ -255,12 +270,13 @@ jobs:
 
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
-    needs: [deployment-impact, production-gate]
+    needs: [deployment-impact, release-owner, production-gate]
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
        (github.event_name == 'workflow_dispatch' &&
         (inputs.target == 'both' || inputs.target == 'lonelyforest')))
@@ -337,12 +353,12 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
-        run: npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com --expect-elysium --allow-remote-mutations
+        run: npm run v2:lonelyforest:smoke -- --base-url=https://cosyworld-lonelyforest.fly.dev --shared-transport --expect-elysium --allow-remote-mutations
 
   deploy-outcome:
     name: Report production deployment outcome
     runs-on: ubuntu-latest
-    needs: [deployment-impact, production-gate, primary-fly, lonelyforest-fly]
+    needs: [deployment-impact, release-owner, production-gate, primary-fly, lonelyforest-fly]
     if: always()
     permissions:
       issues: write
@@ -352,12 +368,14 @@ jobs:
       - name: Open a loud tracking issue when a required production deploy did not succeed
         if: >-
           needs.deployment-impact.outputs.deploy == 'true' &&
-          (needs.production-gate.result != 'success' ||
+          (needs.release-owner.result == 'failure' ||
+           needs.production-gate.result != 'success' ||
            needs.primary-fly.result == 'failure' ||
            needs.lonelyforest-fly.result == 'failure')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          OWNER_RESULT: ${{ needs.release-owner.result }}
           GATE_RESULT: ${{ needs.production-gate.result }}
           PRIMARY_RESULT: ${{ needs.primary-fly.result }}
           LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
@@ -366,6 +384,7 @@ jobs:
           body=$(cat <<BODY
           Merge of ${GITHUB_SHA} did not complete a production deployment.
 
+          - Release ownership check: ${OWNER_RESULT}
           - Deployment gate: ${GATE_RESULT}
           - Primary Fly deploy: ${PRIMARY_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
