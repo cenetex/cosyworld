@@ -294,7 +294,6 @@ fn app_router_with_dependencies(
             post(legacy_action_requires_certificate),
         )
         .route("/actions/fund-image", post(fund_community_image))
-        .route("/actions/describe-avatar", post(describe_avatar_appearance))
         .route("/media/room-scenes", post(create_room_scene))
         .route("/media/room-scenes/{job_id}", get(room_scene_status))
         .route(

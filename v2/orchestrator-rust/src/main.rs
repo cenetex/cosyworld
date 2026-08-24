@@ -19088,7 +19088,7 @@ async fn fund_community_image(
         if current_fingerprint != initial_generation_fingerprint && existing.is_some() {
             drop(runtime);
             if working && retry_generation {
-                schedule_community_art_generation(&state, payload.actor_id, plan);
+                continue_community_art_generation(&state, payload.actor_id, plan).await;
             }
             return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
         }
@@ -19101,7 +19101,7 @@ async fn fund_community_image(
         if working {
             drop(runtime);
             if retry_generation {
-                schedule_community_art_generation(&state, payload.actor_id, plan);
+                continue_community_art_generation(&state, payload.actor_id, plan).await;
             }
             return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
         }
@@ -19197,7 +19197,7 @@ async fn fund_community_image(
             .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
         drop(runtime);
         if retry_generation {
-            schedule_community_art_generation(&state, payload.actor_id, plan);
+            continue_community_art_generation(&state, payload.actor_id, plan).await;
         }
         return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
     }
@@ -19266,7 +19266,7 @@ async fn fund_community_image(
         broadcast_events(&state, &events);
     }
     if fully_funded {
-        schedule_community_art_generation(&state, payload.actor_id, plan);
+        continue_community_art_generation(&state, payload.actor_id, plan).await;
     }
     FundCommunityImageResponse::action(true, CW_OK, events)
 }
@@ -37555,8 +37555,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("resolve bond"));
         assert!(!INDEX_HTML.contains("return \"make bond\""));
         assert!(!INDEX_HTML.contains("prompt("));
-        assert!(!INDEX_HTML.contains("data-avatar-appearance-form"));
-        assert!(INDEX_HTML.contains("data-request-avatar-appearance"));
+        assert!(!INDEX_HTML.contains("data-request-avatar-appearance"));
+        assert!(!INDEX_HTML.contains("/actions/describe-avatar"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));
         assert!(INDEX_HTML.contains("class=\"chat-table-scroll\""));
