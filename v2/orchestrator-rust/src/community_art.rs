@@ -721,7 +721,7 @@ impl RuntimeWorld {
             return None;
         }
         if viewer_actor_id == Some(actor_id) && !self.actor_uses_inference(actor_id) {
-            return Some("write");
+            return Some("self_authored");
         }
         self.avatar_has_exact_self_description_model(actor_id)
             .then_some("self_authored")

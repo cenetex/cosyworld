@@ -3233,27 +3233,6 @@
     .card-art-workshop .account-button {
       width: 100%;
     }
-    .avatar-appearance-form {
-      display: grid;
-      gap: 6px;
-    }
-    .avatar-appearance-form label {
-      color: var(--dim);
-      font-size: 11px;
-      font-weight: 800;
-    }
-    .avatar-appearance-form textarea {
-      width: 100%;
-      min-height: 76px;
-      resize: vertical;
-      border: 1px solid rgba(239, 201, 107, 0.28);
-      border-radius: 4px;
-      background: rgba(0, 0, 0, 0.2);
-      color: var(--text);
-      padding: 8px;
-      font: inherit;
-      line-height: 1.35;
-    }
     .card-copy {
       min-width: 0;
     }
@@ -10777,9 +10756,6 @@
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
-      if (status === 400 && path === "/actions/describe-avatar") {
-        return "Use 16–360 characters and describe only visible, all-ages features.";
-      }
       if (status === 409 && path === "/actions/describe-avatar") {
         return "This level’s appearance is already set, or its portrait is being made right now.";
       }
@@ -16618,9 +16594,7 @@
         : "";
       let appearanceControl = "";
       if (clientState?.status === "describing") {
-        appearanceControl = `<div class="card-art-status"><span>level ${level} appearance</span><strong>${appearanceAction === "self_authored" ? "Listening for their description…" : "Saving your description…"}</strong></div>`;
-      } else if (appearanceDue && appearanceAction === "write") {
-        appearanceControl = `<form class="avatar-appearance-form" data-avatar-appearance-form="${subject.id}"><label for="avatar-appearance-${subject.id}">Describe visible features for this level</label><textarea id="avatar-appearance-${subject.id}" name="appearance" minlength="16" maxlength="360" required placeholder="Hair, face, build, colouring, distinctive features, and practical clothes.">${escapeHtml(appearance)}</textarea><button class="account-button" type="submit">use this appearance</button></form>`;
+        appearanceControl = `<div class="card-art-status"><span>level ${level} appearance</span><strong>Listening for their description…</strong></div>`;
       } else if (appearanceDue && appearanceAction === "self_authored") {
         appearanceControl = `<button class="account-button" type="button" data-request-avatar-appearance="${subject.id}">ask ${escapeHtml(card.display_name || "this avatar")} to describe themself</button>`;
       }
@@ -17180,7 +17154,7 @@
       syncOpenCardModal();
     }
 
-    async function describeAvatarAppearance(subjectId, appearance = null) {
+    async function describeAvatarAppearance(subjectId) {
       const subjectKey = communityArtSubjectKey({ kind: "actor", id: Number(subjectId) });
       const card = cardForActor(Number(subjectId));
       const art = card?.community_art;
@@ -17202,7 +17176,6 @@
         await action("/actions/describe-avatar", {
           actor_id: actorId,
           subject_actor_id: Number(subjectId),
-          appearance,
         });
       } finally {
         if (communityArtClientStates.get(subjectKey) === clientState) {
@@ -19822,16 +19795,6 @@
     });
 
     $("card-modal").addEventListener("submit", (event) => {
-      const appearanceForm = event.target.closest("[data-avatar-appearance-form]");
-      if (appearanceForm) {
-        event.preventDefault();
-        const subjectId = Number(appearanceForm.getAttribute("data-avatar-appearance-form") || 0);
-        const appearance = String(new FormData(appearanceForm).get("appearance") || "").trim();
-        if (!subjectId || appearance.length < 16) return;
-        appearanceForm.querySelector("button[type='submit']")?.setAttribute("disabled", "");
-        void describeAvatarAppearance(subjectId, appearance);
-        return;
-      }
       const form = event.target.closest("[data-avatar-report-form]");
       if (!form) return;
       event.preventDefault();

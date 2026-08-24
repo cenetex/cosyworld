@@ -37555,8 +37555,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("resolve bond"));
         assert!(!INDEX_HTML.contains("return \"make bond\""));
         assert!(!INDEX_HTML.contains("prompt("));
-        assert_eq!(INDEX_HTML.matches("<textarea").count(), 1);
-        assert!(INDEX_HTML.contains("data-avatar-appearance-form"));
+        assert!(!INDEX_HTML.contains("data-avatar-appearance-form"));
+        assert!(INDEX_HTML.contains("data-request-avatar-appearance"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));
         assert!(INDEX_HTML.contains("class=\"chat-table-scroll\""));
