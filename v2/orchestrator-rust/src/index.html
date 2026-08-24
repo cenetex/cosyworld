@@ -15085,6 +15085,7 @@
       const type = event?.type;
       return chatEventTypes.has(type) || (
         sceneCardEventTypes.has(type)
+        && type !== "actor.created"
         && !combatTranscriptEventTypes.has(type)
         && !combatOnlyTranscriptEventTypes.has(type)
       );
