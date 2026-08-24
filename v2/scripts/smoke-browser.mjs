@@ -802,6 +802,7 @@ async function main() {
     );
     await page.waitForFunction(() => (
       actionBusy === false
+        && handShuffleBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ));
@@ -10550,6 +10551,7 @@ async function main() {
       await focusThinkableCard(label, preferredSlot);
       await page.waitForFunction(() => (
         actionBusy === false
+          && handShuffleBusy === false
           && refreshInFlight === null
       ));
       const before = await page.evaluate(() => {
@@ -10576,7 +10578,7 @@ async function main() {
           && ["primary", "secondary", "tertiary"].includes(before.controlId)
           && before.visible
           && !before.disabled
-          && before.label.toLowerCase() === "discard",
+          && /^discard(?:\s*·\s*(?:free|turn))?$/i.test(before.label),
         `${label} replacement must start from the focused card's certified Discard control: ${JSON.stringify(before)}`,
       );
       let response;
@@ -10614,6 +10616,7 @@ async function main() {
         );
         await page.waitForFunction(() => (
           actionBusy === false
+            && handShuffleBusy === false
             && refreshInFlight === null
         ));
         await page.evaluate(() => refresh());
