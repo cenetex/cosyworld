@@ -3,13 +3,13 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v3";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v4";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
-// The prose publication gate also enforces a 360-character ceiling. Ninety
-// words invited valid prompt-following output that the gate could never
-// publish; 48 words leaves room for ordinary word lengths and punctuation.
-const SELF_DESCRIPTION_MAX_WORDS: usize = 48;
+// Three useful identity fields need more room than a spoken line. Structured
+// publication keeps a separate 1,200-character ceiling and validates the
+// exact three-line shape before the response can be cached as accepted.
+const SELF_DESCRIPTION_MAX_WORDS: usize = 72;
 const SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
 pub(super) const AVATAR_REFLECTION_DC: u16 = 18;
 
@@ -623,11 +623,7 @@ pub(super) async fn complete_avatar_self_description(
         (spine, model_binding)
     };
     let level = spine.speaker.level;
-    let speech_mode = if model_binding.is_some() {
-        SpeechMode::Raw
-    } else {
-        SpeechMode::Prose
-    };
+    let speech_mode = SpeechMode::Structured;
     let prompt = spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::SelfDescription,
         speech_mode,
@@ -944,9 +940,10 @@ static AVATAR_SELF_DESCRIPTION_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = Once
 
 fn avatar_self_description_generation_key(job: &AvatarReflectionJob) -> String {
     format!(
-        "avatar-self-description:{}:level:{}",
+        "avatar-self-description:{}:level:{}:{}",
         job.actor_id,
-        job.context_spine.speaker.level.max(1)
+        job.context_spine.speaker.level.max(1),
+        AVATAR_SELF_DESCRIPTION_PROMPT_VERSION,
     )
 }
 
@@ -1289,6 +1286,10 @@ mod tests {
         let conn = open_event_store(&path).expect("open self-description outbox");
 
         assert!(insert_avatar_self_description_job(&conn, &job).expect("first level job is queued"));
+        let durable_key: String = conn
+            .query_row("SELECT dedupe_key FROM actor_jobs", [], |row| row.get(0))
+            .expect("read the versioned self-description key");
+        assert!(durable_key.ends_with(AVATAR_SELF_DESCRIPTION_PROMPT_VERSION));
         assert!(!insert_avatar_self_description_job(&conn, &job)
             .expect("duplicate level job is ignored"));
         conn.execute(

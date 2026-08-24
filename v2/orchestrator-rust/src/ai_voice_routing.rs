@@ -630,7 +630,7 @@ fn request_with_retry_feedback(
 ) -> VoiceAttemptRequest {
     let mut request = request.clone();
     if let Some(instruction) = retry_instruction(rejections, gate, request.max_tokens) {
-        request.prompt = if gate.mode == SpeechMode::Raw {
+        request.prompt = if matches!(gate.mode, SpeechMode::Raw | SpeechMode::Structured) {
             request
                 .prompt
                 .user(instruction, PromptSegmentKind::Envelope, u8::MAX, true)
@@ -681,6 +681,10 @@ fn retry_instruction(
                 let conservative_words = gate.max_words.min((max_tokens as usize / 2).clamp(8, 64));
                 format!("one complete response · at most {conservative_words} words")
             }
+            SpeechMode::Structured => format!(
+                "exactly three non-empty lines beginning PERSONA:, APPEARANCE:, and CONTINUITY: · at most {} words",
+                gate.max_words
+            ),
         });
     }
     // Repetition is enforced only by the deterministic publication gate.
@@ -698,6 +702,7 @@ fn retry_instruction(
                 SpeechMode::EmojiOnly => "emoji only",
                 SpeechMode::EmoteOnly => "one emote only",
                 SpeechMode::Raw => "plain response only",
+                SpeechMode::Structured => "exactly PERSONA:, APPEARANCE:, and CONTINUITY: lines",
             }
             .to_string(),
         );

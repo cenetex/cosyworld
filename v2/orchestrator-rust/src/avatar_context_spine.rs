@@ -273,6 +273,10 @@ impl AvatarContextSpine {
                         "one native-voice response by {name}, at most {} words",
                         options.max_words
                     ),
+                    SpeechMode::Structured => format!(
+                        "one structured response by {name}, at most {} words",
+                        options.max_words
+                    ),
                     SpeechMode::Prose => format!(
                         "only {name}'s next spoken line, at most {} words",
                         options.max_words
@@ -283,7 +287,10 @@ impl AvatarContextSpine {
                 } else {
                     ""
                 };
-                let native_model = if options.speech_mode == SpeechMode::Raw {
+                let native_model = if matches!(
+                    options.speech_mode,
+                    SpeechMode::Raw | SpeechMode::Structured
+                ) {
                     " Keep the model avatar's native identity and voice; it need not pretend to be human. It is nevertheless an in-world participant, not a general assistant handling a private API request."
                 } else {
                     ""

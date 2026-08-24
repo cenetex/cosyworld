@@ -58,6 +58,7 @@ pub(crate) enum SpeechMode {
     EmojiOnly,
     EmoteOnly,
     Raw,
+    Structured,
 }
 
 impl SpeechMode {
@@ -76,6 +77,7 @@ impl SpeechMode {
             Self::EmojiOnly => "emoji_only",
             Self::EmoteOnly => "emote_only",
             Self::Raw => "raw",
+            Self::Structured => "structured",
         }
     }
 }
@@ -720,8 +722,9 @@ fn evaluate_checks(
 ) -> Vec<PublicationCheck> {
     let word_count = text.split_whitespace().count();
     let lowered = text.to_ascii_lowercase();
-    let raw = context.mode == SpeechMode::Raw;
-    let safe_tone = if raw {
+    let machine_readable = matches!(context.mode, SpeechMode::Raw | SpeechMode::Structured);
+    let structured = context.mode == SpeechMode::Structured;
+    let safe_tone = if machine_readable {
         human_message_is_public_safe(text)
     } else {
         human_message_is_cozy_safe(text)
@@ -735,12 +738,12 @@ fn evaluate_checks(
         (
             PublicationCheckCode::VoiceBudgetExceeded,
             word_count <= context.max_words
-                && text.chars().count() <= if raw { 1_200 } else { 360 },
+                && text.chars().count() <= if machine_readable { 1_200 } else { 360 },
         ),
         (
             PublicationCheckCode::VoiceFinishIncomplete,
             matches!(finish_reason, "stop" | "end_turn")
-                && (raw || has_clean_terminal_structure(text)),
+                && (machine_readable || has_clean_terminal_structure(text)),
         ),
         (
             PublicationCheckCode::VoiceRepeatedNgram,
@@ -748,15 +751,15 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceMultipleSpeakers,
-            !has_multiple_speakers(candidate_text, context),
+            structured || !has_multiple_speakers(candidate_text, context),
         ),
         (
             PublicationCheckCode::VoiceInstructionLeakage,
-            raw || !contains_instruction_leakage(&lowered),
+            context.mode == SpeechMode::Raw || !contains_instruction_leakage(&lowered),
         ),
         (
             PublicationCheckCode::VoiceModeMismatch,
-            mode_matches(text, context.mode),
+            mode_matches(text, context.mode, context.feature),
         ),
         (
             PublicationCheckCode::VoiceAnchorMissing,
@@ -781,7 +784,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceFallbackIdentity,
-            raw || !contains_numeric_traveler_identity(text),
+            machine_readable || !contains_numeric_traveler_identity(text),
         ),
         (
             PublicationCheckCode::VoiceSignpostOpening,
@@ -1125,7 +1128,7 @@ fn has_clean_terminal_structure(value: &str) -> bool {
 
 fn bounded_normalize(value: &str, context: &SpeechGateContext) -> String {
     let normalized = strip_outer_quote_pair(value.trim());
-    if context.mode == SpeechMode::Raw {
+    if matches!(context.mode, SpeechMode::Raw | SpeechMode::Structured) {
         return normalized;
     }
     normalized
@@ -1555,10 +1558,13 @@ fn contains_instruction_leakage(value: &str) -> bool {
     .any(|needle| value.contains(needle))
 }
 
-fn mode_matches(value: &str, mode: SpeechMode) -> bool {
+fn mode_matches(value: &str, mode: SpeechMode, feature: &str) -> bool {
     match mode {
         SpeechMode::Prose => value.chars().any(char::is_alphanumeric),
         SpeechMode::Raw => !value.trim().is_empty(),
+        SpeechMode::Structured => {
+            feature == "avatar_self_description" && avatar_self_description_shape_matches(value)
+        }
         SpeechMode::EmojiOnly => {
             let visible = value.chars().filter(|character| !character.is_whitespace());
             let count = visible
@@ -1579,6 +1585,25 @@ fn mode_matches(value: &str, mode: SpeechMode) -> bool {
                 && value.matches('*').count() == 2
         }
     }
+}
+
+fn avatar_self_description_shape_matches(value: &str) -> bool {
+    let lines = value
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if lines.len() != 3 {
+        return false;
+    }
+    ["PERSONA", "APPEARANCE", "CONTINUITY"]
+        .into_iter()
+        .zip(lines)
+        .all(|(expected, line)| {
+            line.split_once(':').is_some_and(|(label, content)| {
+                label.trim().eq_ignore_ascii_case(expected) && !content.trim().is_empty()
+            })
+        })
 }
 
 fn is_emoji(character: char) -> bool {
@@ -2957,6 +2982,59 @@ mod tests {
                 },
             ),
             PublicationCheckCode::VoiceAnchorMissing
+        );
+    }
+
+    #[test]
+    fn structured_avatar_self_description_keeps_labels_and_certifies() {
+        let text = "PERSONA: I am careful beside the cottage hearth.\nAPPEARANCE: I have warm brown skin, dark curls, green eyes, and a moss coat.\nCONTINUITY: The hearth keeps my patience rooted.";
+        let speech = certify_speech(
+            None,
+            completion(text),
+            text,
+            SpeechGateContext {
+                feature: "avatar_self_description",
+                mode: SpeechMode::Structured,
+                max_words: 72,
+                anchors: vec!["cottage hearth".to_string()],
+                ..context(&[], &[])
+            },
+        )
+        .expect("structured self-description certifies");
+
+        assert_eq!(speech.text(), text, "structured output keeps line labels");
+        for code in [
+            PublicationCheckCode::VoiceBudgetExceeded,
+            PublicationCheckCode::VoiceMultipleSpeakers,
+            PublicationCheckCode::VoiceModeMismatch,
+            PublicationCheckCode::VoiceAnchorMissing,
+        ] {
+            assert_eq!(
+                speech
+                    .receipt()
+                    .checks
+                    .iter()
+                    .find(|check| check.code == code)
+                    .map(|check| check.passed),
+                Some(true)
+            );
+        }
+    }
+
+    #[test]
+    fn structured_avatar_self_description_rejects_a_malformed_shape() {
+        let text = "PERSONA: I stay near the cottage hearth.\nAPPEARANCE: I wear a moss coat.";
+        assert_check_failed(
+            text,
+            completion(text),
+            SpeechGateContext {
+                feature: "avatar_self_description",
+                mode: SpeechMode::Structured,
+                max_words: 72,
+                anchors: vec!["cottage hearth".to_string()],
+                ..context(&[], &[])
+            },
+            PublicationCheckCode::VoiceModeMismatch,
         );
     }
 
