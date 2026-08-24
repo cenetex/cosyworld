@@ -2410,9 +2410,11 @@ pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> 
 /// file could only ever grow. Ordering the pragma ahead of WAL on the same
 /// connection that then creates the tables is what makes the header stick.
 ///
-/// An existing store cannot be converted here. That needs one full `VACUUM` in
-/// a maintenance window, and `/meta.persistence.event_store_auto_vacuum`
-/// reports which stores still need it.
+/// An existing store cannot be converted during ordinary initialization. That
+/// needs one full `VACUUM` in a maintenance window; run the opt-in conversion
+/// below with `COSYWORLD_ONE_TIME_AUTO_VACUUM=1`, and
+/// `/meta.persistence.event_store_auto_vacuum` reports which stores still
+/// need it.
 pub(super) fn open_canonical_store_for_initialization(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
@@ -2462,6 +2464,57 @@ fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     conn.pragma_update(None, "synchronous", "NORMAL")
         .map_err(sqlite_error)?;
     Ok(conn)
+}
+
+/// One-time maintenance conversion of an existing store to incremental
+/// `auto_vacuum`.
+///
+/// SQLite silently ignores an `auto_vacuum` change once a store is in WAL mode
+/// or holds tables, so every pre-#877 store runs with `auto_vacuum = none`:
+/// compaction frees pages onto the freelist and the file can only ever grow.
+/// Setting the pragma ahead of one full `VACUUM` rewrites the file with the
+/// header set (the confirmed ordering: `WAL -> CREATE TABLE -> auto_vacuum ->
+/// VACUUM => 2`). The rewrite holds the write lock for its duration, so the
+/// caller must invoke this at boot before serving traffic, behind the
+/// `COSYWORLD_ONE_TIME_AUTO_VACUUM` operator flag. Roughly 2x the store size
+/// must be free on the volume for the rewrite.
+///
+/// Returns whether a conversion ran. New stores already choose the mode ahead
+/// of WAL, and already-converted stores report `false` without touching the
+/// file.
+pub(super) fn convert_existing_store_to_incremental_auto_vacuum(path: &Path) -> io::Result<bool> {
+    let conn = Connection::open(path).map_err(sqlite_error)?;
+    conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
+        .map_err(sqlite_error)?;
+    let table_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    if table_count == 0 {
+        // A fresh store chooses its mode during schema initialization.
+        return Ok(false);
+    }
+    let current_mode = conn
+        .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
+        .map_err(sqlite_error)?;
+    if current_mode == 2 {
+        return Ok(false);
+    }
+    conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
+        .map_err(sqlite_error)?;
+    conn.execute("VACUUM", []).map_err(sqlite_error)?;
+    let converted_mode = conn
+        .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
+        .map_err(sqlite_error)?;
+    if converted_mode != 2 {
+        return Err(invalid_data(format!(
+            "auto_vacuum conversion did not stick; PRAGMA auto_vacuum reports {converted_mode}"
+        )));
+    }
+    Ok(true)
 }
 
 fn as_i64(value: u64) -> io::Result<i64> {
@@ -2966,5 +3019,81 @@ mod tests {
                 .is_none()
         );
         let _ = fs::remove_file(path);
+    }
+}
+
+#[cfg(test)]
+mod auto_vacuum_conversion_tests {
+    use super::*;
+    use std::fs;
+
+    fn conversion_temp_db(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "cosyworld-canonical-journal-{name}-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    fn legacy_wal_store(name: &str) -> std::path::PathBuf {
+        let path = conversion_temp_db(name);
+        let _ = fs::remove_file(&path);
+        // Simulate a pre-#877 store: WAL enabled first, tables created with
+        // the default `auto_vacuum = none`.
+        let conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        conn.execute_batch(
+            "CREATE TABLE world_events (
+                seq INTEGER PRIMARY KEY,
+                payload_json TEXT NOT NULL
+            );
+            INSERT INTO world_events (payload_json) VALUES ('{\"tick\": 1}');
+            INSERT INTO world_events (payload_json) VALUES ('{\"tick\": 2}');",
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn a_legacy_store_converts_and_keeps_its_rows() {
+        let path = legacy_wal_store("convert");
+        let before = Connection::open(&path)
+            .unwrap()
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))
+            .unwrap();
+        assert_eq!(before, 0, "the simulated legacy store starts unconverted");
+
+        assert!(convert_existing_store_to_incremental_auto_vacuum(&path).unwrap());
+
+        let conn = Connection::open(&path).unwrap();
+        let mode: i64 = conn
+            .query_row("PRAGMA auto_vacuum", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(mode, 2, "incremental auto_vacuum survives the rewrite");
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM world_events", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(rows, 2, "VACUUM preserves every journaled row");
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_converted_store_reports_no_further_work() {
+        let path = legacy_wal_store("idempotent");
+        assert!(convert_existing_store_to_incremental_auto_vacuum(&path).unwrap());
+        assert!(!convert_existing_store_to_incremental_auto_vacuum(&path).unwrap());
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn an_empty_store_is_left_for_schema_initialization() {
+        let path = conversion_temp_db("empty");
+        let _ = fs::remove_file(&path);
+        Connection::open(&path).unwrap();
+        assert!(!convert_existing_store_to_incremental_auto_vacuum(&path).unwrap());
+        let _ = fs::remove_file(&path);
     }
 }

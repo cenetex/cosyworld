@@ -433,4 +433,6 @@
 # 60015 -> 59942: move player-tick observation, resident initiative selection,
 # and room-heartbeat scheduling into actor_jobs.rs while adding durable room
 # initiative, reset generations, and atomic development reset deletion.
-59942
+# 59942 -> 59974: the opt-in one-time auto_vacuum conversion adds the boot
+# guard, its env flag, and failure handling to the startup path (#886).
+59974
