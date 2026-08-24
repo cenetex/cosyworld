@@ -5752,8 +5752,8 @@
         transition: none;
       }
     }
-    /* Play, turn-spending discard, and combat share one compact turn rope.
-       After a turn resolves, its latest beat stays available as a quiet log handle. */
+    /* Play, turn-spending discard, and combat share one compact live status.
+       Past mechanics belong outside the room transcript. */
     .turn-rope {
       --rope-rgb: 222, 194, 141;
       --rope-accent: var(--amber);
@@ -5775,7 +5775,7 @@
       position: relative;
       isolation: isolate;
       display: grid;
-      grid-template-columns: 24px minmax(0, 1fr) auto auto;
+      grid-template-columns: 24px minmax(0, 1fr);
       align-items: center;
       gap: 8px;
       overflow: hidden;
@@ -5784,7 +5784,7 @@
       color: var(--text);
       padding: 6px 10px;
       text-align: left;
-      cursor: pointer;
+      cursor: default;
     }
     .turn-rope-toggle::before {
       content: "";
@@ -5795,12 +5795,6 @@
       border-right: 1px solid rgba(var(--rope-rgb), 0.62);
       background: linear-gradient(90deg, rgba(var(--rope-rgb), 0.24), rgba(var(--rope-rgb), 0.08));
       transition: width 240ms ease;
-    }
-    .turn-rope-toggle:hover,
-    .turn-rope-toggle:focus-visible,
-    .turn-rope-toggle[aria-expanded="true"] {
-      background: rgba(var(--rope-rgb), 0.06);
-      outline: 0;
     }
     .turn-rope-icon {
       width: 24px;
@@ -5827,139 +5821,12 @@
     }
     .turn-rope-title { font-size: 11px; font-weight: 850; }
     .turn-rope-detail { color: var(--dim); font-size: 9px; }
-    .turn-rope-count {
-      min-width: 18px;
-      height: 18px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(var(--rope-rgb), 0.4);
-      border-radius: 999px;
-      color: var(--rope-accent);
-      font-size: 9px;
-      font-weight: 850;
-    }
-    .turn-rope-chevron {
-      color: var(--rope-accent);
-      font-size: 9px;
-      font-weight: 850;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .turn-log-row {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 24px minmax(0, 1fr) auto;
-      gap: 8px;
-      align-items: center;
-    }
-    .combat-beat-icon {
-      width: 24px;
-      height: 24px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(var(--rope-rgb), 0.42);
-      border-radius: 999px;
-      background: rgba(var(--rope-rgb), 0.1);
-      color: var(--rope-accent);
-      font-size: 11px;
-      font-weight: 900;
-    }
-    .combat-beat-copy {
-      min-width: 0;
-      display: grid;
-      gap: 1px;
-    }
-    .combat-beat-summary,
-    .combat-beat-detail {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .combat-beat-summary {
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 780;
-    }
-    .combat-beat-detail {
-      color: var(--dim);
-      font-size: 10px;
-    }
-    .combat-beat-result {
-      max-width: none;
-      overflow: hidden;
-      border: 1px solid rgba(var(--rope-rgb), 0.34);
-      border-radius: 999px;
-      background: rgba(var(--rope-rgb), 0.09);
-      color: var(--rope-accent);
-      padding: 3px 7px;
-      font-size: 9px;
-      font-weight: 900;
-      text-overflow: ellipsis;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .combat-beat-result.miss,
-    .combat-beat-result.wait {
-      border-color: var(--line-strong);
-      background: rgba(255, 255, 255, 0.025);
-      color: var(--dim);
-    }
-    .combat-beat-result.critical {
-      border-color: rgba(var(--rope-rgb), 0.7);
-      background: rgba(var(--rope-rgb), 0.2);
-      color: #fff;
-    }
-    .turn-log {
-      max-height: min(28vh, 230px);
-      overflow: auto;
-      overscroll-behavior: contain;
-      border-top: 1px solid rgba(var(--rope-rgb), 0.18);
-      background: rgba(6, 6, 5, 0.46);
-      scrollbar-width: thin;
-    }
-    .turn-log[hidden] { display: none; }
-    .turn-log-row {
-      min-height: 42px;
-      align-items: start;
-      padding: 6px 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-    }
-    .turn-log-row .combat-beat-icon,
-    .turn-log-row .combat-beat-result { margin-top: 1px; }
-    .turn-log-row .combat-beat-detail {
-      display: -webkit-box;
-      overflow: hidden;
-      line-height: 1.25;
-      white-space: normal;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-    }
-    .turn-log-row:last-child { border-bottom: 0; }
-    .turn-log-empty {
-      margin: 0;
-      padding: 12px;
-      color: var(--dim);
-      font-size: 11px;
-      text-align: center;
-    }
     @media (max-width: 900px) {
-      .turn-rope-toggle,
-      .turn-log-row { padding-inline: 8px; }
-      .turn-rope-detail,
-      .turn-rope-chevron { font-size: 10px; }
-      .turn-log { max-height: min(24dvh, 190px); }
+      .turn-rope-toggle { padding-inline: 8px; }
+      .turn-rope-detail { font-size: 10px; }
     }
-    body.large-text .turn-rope-title,
-    body.large-text .combat-beat-summary { font-size: 1rem; }
-    body.large-text .turn-rope-detail,
-    body.large-text .combat-beat-detail,
-    body.large-text .turn-rope-chevron { font-size: 0.82rem; }
-    @media (max-width: 360px) {
-      .turn-rope-toggle { grid-template-columns: 24px minmax(0, 1fr) auto; }
-      .turn-rope-count { display: none; }
-      .turn-log { max-height: min(22dvh, 160px); }
-    }
+    body.large-text .turn-rope-title { font-size: 1rem; }
+    body.large-text .turn-rope-detail { font-size: 0.82rem; }
 
     /* Chat is the game table. Supporting controls use square, illustrated
        card geometry and stay visually quiet beside the transcript. */
@@ -6850,14 +6717,11 @@
           </div>
         </article>
       </div>
-      <section class="turn-rope" id="turn-rope" aria-label="Turn status and log" hidden>
-        <button class="turn-rope-toggle" id="turn-rope-toggle" type="button" aria-expanded="false" aria-controls="turn-log">
+      <section class="turn-rope" id="turn-rope" aria-label="Live turn status" hidden>
+        <div class="turn-rope-toggle" id="turn-rope-toggle" role="status" aria-live="polite" aria-atomic="true">
           <span class="turn-rope-icon" id="turn-rope-icon" aria-hidden="true">▶</span>
           <span class="turn-rope-copy"><strong class="turn-rope-title" id="turn-rope-title"></strong><span class="turn-rope-detail" id="turn-rope-detail"></span></span>
-          <span class="turn-rope-count" id="turn-rope-count" aria-hidden="true">0</span>
-          <span class="turn-rope-chevron" id="turn-rope-chevron" aria-hidden="true">Log</span>
-        </button>
-        <div class="turn-log" id="turn-log" role="log" aria-label="Recent turns" hidden></div>
+        </div>
       </section>
       <section class="hand-inspector" id="hand-inspector" aria-label="Selected card details" hidden>
         <h2 class="action-title" id="hand-title"></h2>
@@ -7059,8 +6923,6 @@
     let openRouterConnection = loadOpenRouterConnection();
     let roomCopyExpanded = false;
     let journalOpen = false;
-    let turnLogOpen = false;
-    let turnLogEncounterId = 0;
     let journalPageIndex = -1;
     let roomLogTickerFrame = null;
     let journalRowOverflowFrame = null;
@@ -13275,88 +13137,27 @@
       };
     }
 
-    function turnBeatPresentation(event) {
-      const type = String(event?.type || "");
-      const actor = cleanStatusText(event?.actor_name || "Someone") || "Someone";
-      if (type === "story.card.played") {
-        const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
-        return {
-          icon: "▶",
-          summary: `${actor} played ${card}`,
-          detail: "The turn moved on",
-          result: "play",
-          resultKind: "wait",
-        };
-      }
-      if (type === "hand.thought") {
-        const free = /(?:^|:)free=true(?:$|:)/.test(String(event.content || ""));
-        return {
-          icon: "↻",
-          summary: `${actor} discarded a card`,
-          detail: "A new Story Hand card was drawn",
-          result: free ? "free" : "turn",
-          resultKind: free ? "wait" : "hit",
-        };
-      }
-      return combatBeatPresentation(event);
-    }
-
-    function turnEventsForPresentation(events, view = state) {
-      if (view?.combat) return combatEventsForPresentation(events);
-      const currentLocationId = Number(view?.location?.id || 0);
-      return (events || []).filter((event) => {
-        const eventLocationId = Number(event?.location_id || 0);
-        return ["story.card.played", "hand.thought"].includes(event?.type)
-          && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
-      }).slice(-24);
-    }
-
-    function turnBeatHtml(event, className = "turn-log-row") {
-      const beat = turnBeatPresentation(event);
-      const result = beat.result
-        ? '<span class="combat-beat-result ' + escapeAttr(beat.resultKind) + '">' + escapeHtml(beat.result) + "</span>"
-        : "";
-      const detail = beat.detail
-        ? '<span class="combat-beat-detail">' + escapeHtml(beat.detail) + "</span>"
-        : "";
-      const aria = [beat.summary, beat.detail, beat.result].filter(Boolean).join(". ");
-      return '<div class="' + escapeAttr(className) + '" data-turn-log-seq="' + Number(event?.transcript_tail_seq || event?.seq || 0) + '" aria-label="' + escapeAttr(aria) + '"><span class="combat-beat-icon" aria-hidden="true">' + escapeHtml(beat.icon) + '</span><span class="combat-beat-copy"><span class="combat-beat-summary">' + escapeHtml(beat.summary) + "</span>" + detail + "</span>" + result + "</div>";
-    }
-
     function renderTurnRope(view = state) {
       const rope = $("turn-rope");
-      const log = $("turn-log");
-      const toggle = $("turn-rope-toggle");
-      if (!rope || !log || !toggle) return;
+      const status = $("turn-rope-toggle");
+      if (!rope || !status) return;
       const combat = view?.combat || null;
       const progress = heldStoryHandProgress();
-      const beats = turnEventsForPresentation(logEvents, view);
-      const latest = beats.at(-1);
-      const latestBeat = latest ? turnBeatPresentation(latest) : null;
-      const canReviewLatestTurn = Boolean(actorId && view?.turn?.enabled && latestBeat);
-      if (!combat && !progress && !canReviewLatestTurn) {
+      if (!combat && !progress) {
         rope.hidden = true;
-        turnLogOpen = false;
-        turnLogEncounterId = 0;
-        log.hidden = true;
-        toggle.setAttribute("aria-expanded", "false");
         return;
       }
-      const encounterId = Number(combat?.encounter_id || 0);
-      if (encounterId && encounterId !== turnLogEncounterId) {
-        turnLogEncounterId = encounterId;
-        turnLogOpen = false;
-      }
-      let icon = progress?.kind === "discard" ? "↻" : (latestBeat?.icon || "▶");
+      let icon = progress?.kind === "discard" ? "↻" : "▶";
       let title = progress
         ? (progress.activity
           ? progress.label
           : `${progress.kind === "discard" ? "Discard" : "Play"} · ${progress.title}`)
-        : (latestBeat?.summary || "Recent turns");
+        : "Turn in progress";
       let detail = turnStatusCopy(view?.turn, combat)
-        || latestBeat?.detail
-        || "Review the latest turn";
+        || "Resolving this turn";
       if (combat) {
+        const latest = combatEventsForPresentation(logEvents).at(-1);
+        const latestBeat = latest ? combatBeatPresentation(latest) : null;
         const currentActor = combat.current_actor_name
           || actorForId(combat.current_actor_id)?.name
           || "The next combatant";
@@ -13372,19 +13173,11 @@
       $("turn-rope-icon").textContent = icon;
       $("turn-rope-title").textContent = title;
       $("turn-rope-detail").textContent = detail;
-      $("turn-rope-count").textContent = String(beats.length);
-      $("turn-rope-chevron").textContent = turnLogOpen ? "Close" : "Log";
-      toggle.style.setProperty("--turn-progress", `${progress?.percent || 0}%`);
-      toggle.setAttribute("aria-expanded", turnLogOpen ? "true" : "false");
-      toggle.setAttribute("aria-label", `${title}. ${detail}. ${turnLogOpen ? "Hide" : "Show"} turn log, ${beats.length} ${beats.length === 1 ? "event" : "events"}`);
-      log.innerHTML = beats.length
-        ? beats.map((event) => turnBeatHtml(event)).join("")
-        : '<p class="turn-log-empty">No earlier turns here yet.</p>';
-      log.hidden = !turnLogOpen;
+      status.style.setProperty("--turn-progress", `${progress?.percent || 0}%`);
+      status.setAttribute("aria-label", `${title}. ${detail}.`);
       rope.classList.toggle("combat", Boolean(combat));
       rope.classList.toggle("resolving", Boolean(progress));
       rope.hidden = false;
-      if (turnLogOpen) log.scrollTop = log.scrollHeight;
     }
 
     function journalSentence(value) {
@@ -15104,13 +14897,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      const type = event?.type;
-      return chatEventTypes.has(type) || (
-        sceneCardEventTypes.has(type)
-        && type !== "actor.created"
-        && !combatTranscriptEventTypes.has(type)
-        && !combatOnlyTranscriptEventTypes.has(type)
-      );
+      return chatEventTypes.has(event?.type);
     }
 
     function transcriptEventHtml(event) {
@@ -15118,26 +14905,7 @@
       if (event?.type === "image.created") return residentImageHtml(event);
       if (event?.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
-      if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
-      return sceneCardEventHtml(event);
-    }
-
-    function combatAttackTranscriptBeatHtml(event) {
-      const outcome = event.combat_outcome || null;
-      const knockout = event.combat_knockout || null;
-      const target = event.target_actor_name || outcome?.target_actor_name || "their opponent";
-      const pieces = [rollMeta(event).story];
-      if (outcome?.type === "combat.attack.hit") {
-        const damage = Math.max(0, Number(outcome.damage || 0));
-        if (damage > 0) pieces.push(`${target} takes ${damage} harm.`);
-        else pieces.push(`${target}'s guard gives way.`);
-        if (!knockout && outcome.current_hp !== undefined && outcome.current_hp !== null) {
-          pieces.push(`${target} has ${Math.max(0, Number(outcome.current_hp || 0))} HP remaining.`);
-        }
-      }
-      if (knockout) pieces.push(`${target} is knocked out.`);
-      const text = pieces.filter(Boolean).join(" ");
-      return `<div class="line event scene-card combat" data-event-row data-combat-beat aria-label="${escapeAttr(`Combat beat. ${text}`)}"><span class="event-label" aria-hidden="true">⚔</span><span class="text">${escapeHtml(text)}</span></div>`;
+      return "";
     }
 
     function minimalMenuOrbHtml() {
@@ -19553,11 +19321,6 @@
     $("room-log-latest").addEventListener("click", () => {
       setJournalOpen(!journalOpen);
     });
-    $("turn-rope-toggle").addEventListener("click", () => {
-      turnLogOpen = !turnLogOpen;
-      renderTurnRope();
-    });
-
     $("card-modal").addEventListener("click", (event) => {
       const care = event.target.closest("[data-avatar-care]");
       if (care) {

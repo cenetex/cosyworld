@@ -55,18 +55,22 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('No attack is made yet; ordinary advancement pauses while combat is active.');
   });
 
-  it("shows discard cost and shares one expandable turn log", () => {
+  it("shows discard cost and keeps turn feedback compact", () => {
     expect(browser).toContain('id="turn-rope-toggle"');
-    expect(browser).toContain('id="turn-log"');
+    expect(browser).not.toContain('id="turn-log"');
     expect(browser).not.toContain('id="combat-dock"');
     expect(browser).toContain('think?.available ? `Discard · ${discardCost}` : "Discard"');
     expect(browser).toContain('discardCertificate.free ? "discard · free" : "discard · turn"');
     expect(browser).toContain('const spendsTurn = think.consumes_turn === true || think.free === false;');
     expect(browser).toContain('if (spendsTurn) holdStoryHandForAction(focused, { kind: "discard" });');
-    expect(browser).toContain('function turnEventsForPresentation(events, view = state)');
-    expect(browser).toContain('if (view?.combat) return combatEventsForPresentation(events);');
-    expect(browser).toContain('const canReviewLatestTurn = Boolean(actorId && view?.turn?.enabled && latestBeat);');
-    expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
+    expect(browser).toContain('if (!combat && !progress)');
+    expect(browser).toContain('aria-label="Live turn status"');
+    expect(browser).not.toContain('Show turn log');
+  });
+
+  it("keeps mechanics and shared history out of chat", () => {
+    expect(browser).toMatch(/function eventIsChatTranscriptEvent\(event\) \{\s+return chatEventTypes\.has\(event\?\.type\);\s+\}/);
+    expect(browser).not.toContain('data-turn-log-seq');
   });
 
   it("keeps free campaign Class selection playable outside room initiative", () => {

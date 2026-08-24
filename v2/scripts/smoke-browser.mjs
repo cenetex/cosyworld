@@ -8299,7 +8299,7 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
-  async function assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot() {
+  async function assertHiddenWorldBeatsDoNotCountAsSeen() {
     const result = await page.evaluate(async () => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -8453,19 +8453,14 @@ async function main() {
         renderTimelines();
       }
     });
-    assert(result.callsWhileJournalClosed === 1, `a visible room world beat must count as seen once: ${JSON.stringify(result)}`);
-    assert(result.calls.length === 1, `opening the image-only Journal must not send another world-beat receipt: ${JSON.stringify(result)}`);
-    assert(result.callsAfterRepeatedRender === 1, `repeat image-only Journal renders must not duplicate a room receipt: ${JSON.stringify(result)}`);
-    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.callsWhileMenuHidden === 1, `a hidden room transcript must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileJournalClosed === 0, `a world beat hidden from chat must not count as seen: ${JSON.stringify(result)}`);
+    assert(result.calls.length === 0, `opening the image-only Journal must not invent a world-beat receipt: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 0, `repeat image-only Journal renders must not create a receipt: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 0, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 0, `a hidden room transcript must not send exposure receipts: ${JSON.stringify(result)}`);
     assert(
-      result.visibleRoomAuthoredText.includes("Rain thins into pearl-grey mist around the cottage windows."),
-      `the visible room story beat should keep its authored prose: ${JSON.stringify(result)}`,
-    );
-    assert(
-      result.calls[0]?.exposure_id === "world-beat:v1:990500001"
-        && result.calls[0]?.transport === "browser",
-      `the visible room story beat should send its stable browser exposure id: ${JSON.stringify(result)}`,
+      result.visibleRoomAuthoredText === "",
+      `world prose should not be inserted into chat: ${JSON.stringify(result)}`,
     );
     assert(
       !result.receiptable && !result.sourceSeqLeaked && result.visibleAuthoredText === "",
@@ -8516,7 +8511,7 @@ async function main() {
     );
   }
 
-  async function assertCombatUsesSharedTurnLogOutsideChat() {
+  async function assertCombatUsesLiveStatusOutsideChat() {
     const result = await page.evaluate(() => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -8528,8 +8523,6 @@ async function main() {
         pendingChats: pendingChats.slice(),
         renderedChatTailKey,
         defeatTransition,
-        turnLogOpen,
-        turnLogEncounterId,
       };
       const message = (seq, content) => ({
         seq,
@@ -8613,14 +8606,11 @@ async function main() {
         seenSeq.clear();
         for (const event of events) seenSeq.add(event.seq);
         renderedChatTailKey = "";
-        turnLogOpen = true;
-        turnLogEncounterId = 77;
         const beforeReconnect = signature(combatEventsForPresentation(logEvents));
         renderTurnRope();
         renderLog();
         const transcript = $("log");
         const rope = $("turn-rope");
-        const history = $("turn-log");
         const rendered = {
           label: transcript.getAttribute("aria-label") || "",
           chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
@@ -8629,9 +8619,6 @@ async function main() {
           ropeHidden: rope.hidden,
           ropeTitle: $("turn-rope-title").textContent.trim(),
           ropeDetail: $("turn-rope-detail").textContent.trim().replace(/\s+/g, " "),
-          historyHidden: history.hidden,
-          historyRows: history.querySelectorAll(".turn-log-row").length,
-          historyText: history.textContent.trim().replace(/\s+/g, " "),
         };
         rebuildLog(events);
         const afterReconnect = signature(combatEventsForPresentation(logEvents));
@@ -8666,8 +8653,6 @@ async function main() {
         pendingChats = previous.pendingChats;
         renderedChatTailKey = previous.renderedChatTailKey;
         defeatTransition = previous.defeatTransition;
-        turnLogOpen = previous.turnLogOpen;
-        turnLogEncounterId = previous.turnLogEncounterId;
         renderTimelines();
       }
     });
@@ -8675,17 +8660,8 @@ async function main() {
     assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), "speech from before and during combat should remain ordered and visible: " + JSON.stringify(result));
     assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", "combat system output must not be rendered as dialogue: " + JSON.stringify(result));
     assert(!result.rendered.ropeHidden
-      && result.rendered.ropeTitle === "Round 2 · Your turn"
-      && !result.rendered.historyHidden
-      && result.rendered.historyRows === 5, "active combat should use the shared rope with optional bounded turn history: " + JSON.stringify(result));
-    assert(
-      result.rendered.historyText.includes("Ashwood Practice Blade")
-        && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
-        && result.rendered.historyText.includes("4 harm"),
-      "the grouped turn-log beat should retain method, Attribute, arithmetic, harm, and outcome: " + JSON.stringify(result),
-    );
-    assert(/prepares to dodge/.test(result.rendered.historyText), "Dodge needs compact combat-history feedback: " + JSON.stringify(result));
-    assert(/clash is over/i.test(result.rendered.ropeDetail) && /Cosy Cottage/.test(result.rendered.historyText), "escape and resolution need immediate combat feedback: " + JSON.stringify(result));
+      && result.rendered.ropeTitle === "Round 2 · Your turn", "active combat should use one compact live status outside chat: " + JSON.stringify(result));
+    assert(/clash is over/i.test(result.rendered.ropeDetail), "combat resolution needs immediate live feedback: " + JSON.stringify(result));
     assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), "reconnect should reconstruct the same grouped combat-history ordering: " + JSON.stringify(result));
     assert(result.preservedReaderPosition, "new combat beats must not move a reader's chosen place in chat: " + JSON.stringify(result));
   }
@@ -8877,7 +8853,7 @@ async function main() {
     assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
   }
 
-  async function assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut() {
+  async function assertStoryHistoryAndBookkeepingStayOutOfChat() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
       const previousSeen = new Set(seenSeq);
@@ -9116,13 +9092,7 @@ async function main() {
     });
     assert(!result.updatesText.includes("Alpine Forest -> Summit Trail"), `mechanical events should not enter the first-thread strip: ${JSON.stringify(result)}`);
     assert(!result.updatesText.includes("Lorecraft skill step"), `skill events should not enter the first-thread strip: ${JSON.stringify(result)}`);
-    assert(result.eventCount === 3 && result.roomRows === 0, `shared story history should appear as three folded room-transcript beats: ${JSON.stringify(result)}`);
-    assert(
-      result.eventRows.some((row) => /steps into Summit Trail/i.test(row))
-        && result.eventRows.some((row) => /practices Intelligence/i.test(row))
-        && result.eventRows.some((row) => /path to Homeroom reveals itself/i.test(row)),
-      `shared movement, growth, and discovery should read as story in the room transcript: ${JSON.stringify(result)}`,
-    );
+    assert(result.eventCount === 0 && result.roomRows === 0, `mechanical and shared-history rows should stay out of chat: ${JSON.stringify(result)}`);
     assert(
       result.journalHidden
         && result.journalRows.length === 0
@@ -9135,17 +9105,12 @@ async function main() {
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
-    assert(result.log.includes("Summit Trail") && result.log.includes("Intelligence") && result.log.includes("Homeroom"), `the room transcript should retain readable shared history: ${JSON.stringify(result)}`);
-    assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `speech should remain distinct from shared story beats: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("Summit Trail") && !result.log.includes("Intelligence") && !result.log.includes("Homeroom"), `movement, rolls, and discovery history should not cover chat: ${JSON.stringify(result)}`);
+    assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `the room transcript should keep speech visible: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Your growth becomes"), `command status output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("You learn more about"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Search observes"), `Search bookkeeping should not echo into chat: ${JSON.stringify(result)}`);
-    assert(
-      result.eventMarks.length === 3
-        && result.eventMarks.every((mark) => mark === "✦")
-        && result.eventAriaLabels.every((label) => /^Story beat\./.test(label)),
-      `shared history should use compact, accessible story-beat chrome: ${JSON.stringify(result)}`,
-    );
+    assert(result.eventMarks.length === 0 && result.eventAriaLabels.length === 0, `chat should add no story-log chrome: ${JSON.stringify(result)}`);
     assert(result.searchTagEntry === null, `internal Search tags should stay out of room memory: ${JSON.stringify(result)}`);
     assert(result.featureSearchTagEntry === null, `internal feature-Search tags should not become broken room-log sentences: ${JSON.stringify(result)}`);
     assert(result.searchAtmosphere === "Thimble Guest looks closely around The Cosy Cottage.", `Search should name who searched and where: ${JSON.stringify(result)}`);
@@ -14058,10 +14023,10 @@ async function main() {
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
     assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
-    assert(room.unexpectedRows === 0 && room.roomRows === 0, `${label}: the transcript should contain only chat and readable story beats: ${JSON.stringify(room)}`);
+    assert(room.unexpectedRows === 0 && room.roomRows === 0 && room.sceneRows === 0, `${label}: the transcript should contain chat only: ${JSON.stringify(room)}`);
     assert(
-      room.chatRows + room.sceneRows > 0 || room.quietScene === 1,
-      `${label}: the room should show speech, shared history, or a single quiet invitation: ${JSON.stringify(room)}`,
+      room.chatRows > 0 || room.quietScene === 1,
+      `${label}: the room should show speech or a single quiet invitation: ${JSON.stringify(room)}`,
     );
 
     const emptyTicker = await page.evaluate(() => {
@@ -14387,8 +14352,9 @@ async function main() {
     assert(
       shell.roomLineCount === 0
         && shell.rollLineCount === 0
-        && shell.lineCount === shell.chatLineCount + shell.sceneLineCount,
-      `${label}: the room transcript should contain only speech and shared story beats: ${JSON.stringify(shell)}`,
+        && shell.sceneLineCount === 0
+        && shell.lineCount === shell.chatLineCount,
+      `${label}: the room transcript should contain chat only: ${JSON.stringify(shell)}`,
     );
     assert(shell.unexpectedLineCount === 0, `${label}: normal feed should not show bookkeeping rows: ${JSON.stringify(shell)}`);
     assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);
@@ -15192,11 +15158,11 @@ async function main() {
   await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
-  await assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot();
+  await assertHiddenWorldBeatsDoNotCountAsSeen();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
-  await assertCombatUsesSharedTurnLogOutsideChat();
-  await assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut();
+  await assertCombatUsesLiveStatusOutsideChat();
+  await assertStoryHistoryAndBookkeepingStayOutOfChat();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
   await assertHumanActionRequiresActorSession();
