@@ -774,16 +774,25 @@ async function main() {
         Number(document.querySelector(`#${candidate}`)?.dataset?.actionIndex) === focusedIndex
       )) || "";
       const discard = document.querySelector(`[data-hand-discard="${id}"]`);
-      return id && discard && !discard.disabled ? id : "";
+      const think = projectedHandEntryForAction(focused)?.think || null;
+      return id && discard && !discard.disabled
+        ? { id, text: discard.textContent.trim(), free: think?.free === true, consumesTurn: think?.consumes_turn === true }
+        : null;
     });
-    assert(discardControl, "opening scene should expose the focused card's inline Discard control");
+    assert(
+      discardControl?.id
+        && discardControl.text === "Discard · Free"
+        && discardControl.free
+        && !discardControl.consumesTurn,
+      `the first discard should be clearly free: ${JSON.stringify(discardControl)}`,
+    );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
         candidate.request().method() === "POST"
         && new URL(candidate.url()).pathname === "/commands"
         && String(candidate.request().postData() || "").includes("\"command\":\"think\"")
       )),
-      page.locator(`[data-hand-discard="${discardControl}"]`).click(),
+      page.locator(`[data-hand-discard="${discardControl.id}"]`).click(),
     ]);
     const receipt = await response.json();
     const drawEvent = (receipt.events || []).find((event) => event.type === "hand.thought");
@@ -796,6 +805,52 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ));
+    await focusThinkableCard("after the free discard");
+    const paidDiscard = await page.evaluate(() => {
+      const focused = originalStoryHandAction(visibleFocusedAction());
+      setStoryHandExpanded(true, focused);
+      renderCommands();
+      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const id = ["primary", "secondary", "tertiary"].find((candidate) => (
+        Number(document.querySelector(`#${candidate}`)?.dataset?.actionIndex) === focusedIndex
+      )) || "";
+      const discard = document.querySelector(`[data-hand-discard="${id}"]`);
+      const think = projectedHandEntryForAction(focused)?.think || null;
+      const previous = { heldStoryHand, handShuffleBusy, storyHandExpanded, storyHandActiveKey, storyHandTurnActivity };
+      holdStoryHandForAction(focused, { kind: "discard" });
+      handShuffleBusy = true;
+      renderCommands();
+      const resolving = {
+        ropeVisible: $("turn-rope")?.hidden === false,
+        ropeTitle: $("turn-rope-title")?.textContent.trim() || "",
+        ropeWidth: $("turn-rope-toggle")?.style.getPropertyValue("--turn-progress") || "",
+        turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+          .every((button) => button.getClientRects().length === 0),
+      };
+      heldStoryHand = previous.heldStoryHand;
+      handShuffleBusy = previous.handShuffleBusy;
+      storyHandExpanded = previous.storyHandExpanded;
+      storyHandActiveKey = previous.storyHandActiveKey;
+      clearStoryHandTurnActivity();
+      storyHandTurnActivity = previous.storyHandTurnActivity;
+      renderCommands();
+      return {
+        text: discard?.textContent.trim() || "",
+        free: think?.free === true,
+        consumesTurn: think?.consumes_turn === true,
+        resolving,
+      };
+    });
+    assert(
+      paidDiscard.text === "Discard · Turn"
+        && !paidDiscard.free
+        && paidDiscard.consumesTurn
+        && paidDiscard.resolving.ropeVisible
+        && paidDiscard.resolving.ropeTitle.startsWith("Discard ·")
+        && paidDiscard.resolving.ropeWidth === "8%"
+        && paidDiscard.resolving.turnLocksHidden,
+      `the second discard should show its turn cost and use the shared resolving rope: ${JSON.stringify(paidDiscard)}`,
+    );
     await page.evaluate(() => setStoryHandExpanded(false));
     const current = await handSnapshot();
     const layout = await page.evaluate(() => {
@@ -902,21 +957,15 @@ async function main() {
         actionBusy = true;
         pendingAction = played;
         renderCommands();
-        const playedKey = heldStoryHand?.playedKey || "";
-        const progressButton = [...document.querySelectorAll("[data-hand-play]")]
-          .find((button) => {
-            const id = button.getAttribute("data-hand-play");
-            return storyHandKey(originalStoryHandAction(actionForButton(id))) === playedKey;
-          }) || document.querySelector("[data-hand-play]");
+        const progressButton = $("turn-rope-toggle");
         const busy = {
           cards: document.querySelectorAll(".story-card-slot:not([hidden])").length,
           expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
-          progressText: progressButton?.textContent.trim() || "",
-          progressClass: progressButton?.classList.contains("turn-progress") === true,
+          progressText: $("turn-rope-title")?.textContent.trim() || "",
           progressVisible: Boolean(progressButton?.getClientRects().length),
-          progressValue: progressButton?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
+          progressWidth: progressButton?.style.getPropertyValue("--turn-progress") || "",
           compactHeight: document.querySelector("#hand-rail")?.getBoundingClientRect().height || 0,
-          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play]:not(.turn-progress), .story-card-slot:not([hidden]) [data-hand-discard]")]
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
@@ -938,7 +987,7 @@ async function main() {
         };
         actions = [];
         renderCommands();
-        const waitingProgress = document.querySelector(".story-card-play.turn-progress");
+        const waitingProgress = $("turn-rope-toggle");
         const inspectableCards = [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")];
         const selectedCard = inspectableCards.at(-1) || null;
         selectedCard?.click();
@@ -949,14 +998,11 @@ async function main() {
         const waiting = {
           cards: document.querySelectorAll(".story-card-slot:not([hidden])").length,
           expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
-          progressText: waitingProgress?.textContent.trim() || "",
-          progressValue: waitingProgress?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") || "",
+          progressText: $("turn-rope-title")?.textContent.trim() || "",
           progressWidth: waitingProgress?.style.getPropertyValue("--turn-progress") || "",
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
           allCardsInspectable: inspectableCards.every((button) => !button.disabled),
-          playAndDiscardDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
-            .every((button) => button.disabled),
-          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play]:not(.turn-progress), .story-card-slot:not([hidden]) [data-hand-discard]")]
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
           selectedCardCurrent: selectedCard?.getAttribute("aria-current") === "true",
           selectedCardActive: String(selectedCard?.dataset.handKey || "") === storyHandActiveKey,
@@ -978,20 +1024,17 @@ async function main() {
         const activityHtml = activityTranscript.map(transcriptEventHtml).join("");
         const activityPresented = presentStoryHandTurnActivity(activityEvents[1]);
         renderCommands();
-        const activityProgress = document.querySelector(".story-card-play.turn-progress");
         const activity = {
           order: activityTranscript.map((event) => event.type).join(","),
           presented: activityPresented,
-          onCardText: activityProgress?.textContent.trim() || "",
-          live: activityProgress?.querySelector(".turn-activity-live") !== null,
+          onRopeText: $("turn-rope-title")?.textContent.trim() || "",
           timerFree: !presentStoryHandTurnActivity.toString().includes("setTimeout"),
           notInChat: !activityHtml.includes("played scout"),
           notRoomMemory: roomMemoryEntryForEvent(activityEvents[1]) === null,
         };
         activity.unrelatedPresented = presentStoryHandTurnActivity(activityEvents[2]);
         renderCommands();
-        const persistentProgress = document.querySelector(".story-card-play.turn-progress");
-        activity.persistentText = persistentProgress?.textContent.trim() || "";
+        activity.persistentText = $("turn-rope-title")?.textContent.trim() || "";
         const replacementPresented = presentStoryHandTurnActivity({
           type: "story.card.played",
           seq: 104,
@@ -1001,9 +1044,8 @@ async function main() {
           content: "notice",
         });
         renderCommands();
-        const replacementProgress = document.querySelector(".story-card-play.turn-progress");
         activity.replacementPresented = replacementPresented;
-        activity.replacementText = replacementProgress?.textContent.trim() || "";
+        activity.replacementText = $("turn-rope-title")?.textContent.trim() || "";
         return { skipped: false, visibleCount: visible.length, busy, waiting, activity };
       } finally {
         state = previous.state;
@@ -1032,10 +1074,9 @@ async function main() {
       !result.skipped
         && result.busy.cards === result.visibleCount
         && !result.busy.expanded
-        && result.busy.progressText === ""
-        && result.busy.progressClass
+        && result.busy.progressText.startsWith("Play ·")
         && result.busy.progressVisible
-        && result.busy.progressValue === "0"
+        && result.busy.progressWidth === "8%"
         && result.busy.compactHeight <= 100
         && result.busy.turnLocksHidden
         && result.busy.handStatus === `${result.visibleCount} cards`
@@ -1044,12 +1085,10 @@ async function main() {
         && result.busy.statusPosition === "absolute"
         && result.waiting.cards === result.visibleCount
         && result.waiting.expanded
-        && result.waiting.progressText === ""
-        && result.waiting.progressValue === "1"
+        && result.waiting.progressText.startsWith("Play ·")
         && result.waiting.progressWidth === "33%"
         && result.waiting.handStatus === `${result.visibleCount} cards`
         && result.waiting.allCardsInspectable
-        && result.waiting.playAndDiscardDisabled
         && result.waiting.turnLocksHidden
         && result.waiting.selectedCardCurrent
         && result.waiting.selectedCardActive
@@ -1058,8 +1097,7 @@ async function main() {
         && result.waiting.bannerHidden
         && result.activity.order === "message.created,message.created"
         && result.activity.presented
-        && result.activity.onCardText === "Marnie played scout"
-        && result.activity.live
+        && result.activity.onRopeText === "Marnie played scout"
         && result.activity.timerFree
         && !result.activity.unrelatedPresented
         && result.activity.persistentText === "Marnie played scout"
@@ -1067,10 +1105,10 @@ async function main() {
         && result.activity.replacementText === "Ruby played notice"
         && result.activity.notInChat
         && result.activity.notRoomMemory,
-      `playing a card should collapse the hand, hide turn locks, keep inspection available, and keep card activity on its progress strip until the next play: ${JSON.stringify(result)}`,
+      `playing a card should collapse the hand, hide turn locks, keep inspection available, and keep card activity on the shared turn rope until the next play: ${JSON.stringify(result)}`,
     );
     steps.push({
-      label: "played hand collapses with subtle turn progress",
+      label: "played hand collapses with a shared turn rope",
       cards: result.visibleCount,
       progress: result.waiting.progressWidth,
     });
@@ -8477,7 +8515,7 @@ async function main() {
     );
   }
 
-  async function assertCombatUsesDedicatedDockOutsideChat() {
+  async function assertCombatUsesSharedTurnLogOutsideChat() {
     const result = await page.evaluate(() => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -8489,8 +8527,8 @@ async function main() {
         pendingChats: pendingChats.slice(),
         renderedChatTailKey,
         defeatTransition,
-        combatHistoryOpen,
-        combatHistoryEncounterId,
+        turnLogOpen,
+        turnLogEncounterId,
       };
       const message = (seq, content) => ({
         seq,
@@ -8574,25 +8612,24 @@ async function main() {
         seenSeq.clear();
         for (const event of events) seenSeq.add(event.seq);
         renderedChatTailKey = "";
-        combatHistoryOpen = true;
-        combatHistoryEncounterId = 77;
+        turnLogOpen = true;
+        turnLogEncounterId = 77;
         const beforeReconnect = signature(combatEventsForPresentation(logEvents));
-        renderCombatDock();
+        renderTurnRope();
         renderLog();
         const transcript = $("log");
-        const dock = $("combat-dock");
-        const history = $("combat-history");
+        const rope = $("turn-rope");
+        const history = $("turn-log");
         const rendered = {
           label: transcript.getAttribute("aria-label") || "",
           chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
           combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
           eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
-          dockHidden: dock.hidden,
-          dockRound: $("combat-dock-round").textContent.trim(),
-          dockTurn: $("combat-dock-turn").textContent.trim(),
-          dockLatest: $("combat-latest").textContent.trim().replace(/\s+/g, " "),
+          ropeHidden: rope.hidden,
+          ropeTitle: $("turn-rope-title").textContent.trim(),
+          ropeDetail: $("turn-rope-detail").textContent.trim().replace(/\s+/g, " "),
           historyHidden: history.hidden,
-          historyRows: history.querySelectorAll(".combat-history-row").length,
+          historyRows: history.querySelectorAll(".turn-log-row").length,
           historyText: history.textContent.trim().replace(/\s+/g, " "),
         };
         rebuildLog(events);
@@ -8607,7 +8644,7 @@ async function main() {
         const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
         transcript.scrollTop = 0;
         logEvents.push(combatEvent(990601100, "combat.dodge"));
-        renderCombatDock();
+        renderTurnRope();
         renderLog();
         const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
 
@@ -8628,27 +8665,26 @@ async function main() {
         pendingChats = previous.pendingChats;
         renderedChatTailKey = previous.renderedChatTailKey;
         defeatTransition = previous.defeatTransition;
-        combatHistoryOpen = previous.combatHistoryOpen;
-        combatHistoryEncounterId = previous.combatHistoryEncounterId;
+        turnLogOpen = previous.turnLogOpen;
+        turnLogEncounterId = previous.turnLogEncounterId;
         renderTimelines();
       }
     });
     assert(result.rendered.label === "Shared room transcript", "combat should keep the ordinary speech transcript mounted: " + JSON.stringify(result));
     assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), "speech from before and during combat should remain ordered and visible: " + JSON.stringify(result));
     assert(result.rendered.combatBeatCount === 0 && result.rendered.eventText === "", "combat system output must not be rendered as dialogue: " + JSON.stringify(result));
-    assert(!result.rendered.dockHidden
-      && result.rendered.dockRound === "Round 2"
-      && result.rendered.dockTurn === "Your turn"
+    assert(!result.rendered.ropeHidden
+      && result.rendered.ropeTitle === "Round 2 · Your turn"
       && !result.rendered.historyHidden
-      && result.rendered.historyRows === 4, "active combat should expose one compact latest result with optional bounded earlier history: " + JSON.stringify(result));
+      && result.rendered.historyRows === 5, "active combat should use the shared rope with optional bounded turn history: " + JSON.stringify(result));
     assert(
       result.rendered.historyText.includes("Ashwood Practice Blade")
         && result.rendered.historyText.includes("Strength attack · d20 14 +3 = 17 vs AC 13")
         && result.rendered.historyText.includes("4 harm"),
-      "the grouped dock beat should retain method, Attribute, arithmetic, harm, and outcome: " + JSON.stringify(result),
+      "the grouped turn-log beat should retain method, Attribute, arithmetic, harm, and outcome: " + JSON.stringify(result),
     );
     assert(/prepares to dodge/.test(result.rendered.historyText), "Dodge needs compact combat-history feedback: " + JSON.stringify(result));
-    assert(/clash is over/i.test(result.rendered.dockLatest) && /Cosy Cottage/.test(result.rendered.historyText), "escape and resolution need immediate combat feedback: " + JSON.stringify(result));
+    assert(/clash is over/i.test(result.rendered.ropeDetail) && /Cosy Cottage/.test(result.rendered.historyText), "escape and resolution need immediate combat feedback: " + JSON.stringify(result));
     assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), "reconnect should reconstruct the same grouped combat-history ordering: " + JSON.stringify(result));
     assert(result.preservedReaderPosition, "new combat beats must not move a reader's chosen place in chat: " + JSON.stringify(result));
   }
@@ -15156,7 +15192,7 @@ async function main() {
   await assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
-  await assertCombatUsesDedicatedDockOutsideChat();
+  await assertCombatUsesSharedTurnLogOutsideChat();
   await assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
