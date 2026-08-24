@@ -435,4 +435,7 @@
 # initiative, reset generations, and atomic development reset deletion.
 # 59942 -> 59974: the opt-in one-time auto_vacuum conversion adds the boot
 # guard, its env flag, and failure handling to the startup path (#886).
-59974
+# 59974 -> 60043: the room rope adds seat-window scheduling to the commit
+# path, a durable room_rope worker, and its payload dispatch. The long-term
+# answer is still #325/#61 extraction, not a higher ceiling.
+60043

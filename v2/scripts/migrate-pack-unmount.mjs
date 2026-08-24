@@ -1055,6 +1055,29 @@ function writeJsonAtomically(output, value) {
   }
 }
 
+export function retireRoomRopesForPackMigration(database, updatedAtMs = Date.now()) {
+  const blockingJobs = Number(database
+    .prepare(`
+      SELECT COUNT(*)
+      FROM actor_jobs
+      WHERE status = 'running'
+         OR (status = 'pending' AND kind != 'room_rope')
+    `)
+    .pluck()
+    .get());
+  if (blockingJobs !== 0) {
+    throw new Error(
+      `cannot migrate while ${blockingJobs} actor job(s) are pending or running`,
+    );
+  }
+  return database.prepare(`
+    UPDATE actor_jobs
+    SET status = 'completed', lease_until_ms = NULL,
+        last_error = 'retired_for_pack_migration', updated_at_ms = ?
+    WHERE status = 'pending' AND kind = 'room_rope'
+  `).run(updatedAtMs).changes;
+}
+
 function writeWithJournalCheckpoint(eventDbPath, snapshot, output, value) {
   const checkpoint = snapshot.action_journal_seq ?? 0;
   if (!eventDbPath) {
@@ -1087,15 +1110,7 @@ function writeWithJournalCheckpoint(eventDbPath, snapshot, output, value) {
           `snapshot action-journal checkpoint ${checkpoint} does not match journal head ${journalHead}`,
         );
       }
-      const activeJobs = Number(database
-        .prepare("SELECT COUNT(*) FROM actor_jobs WHERE status IN ('pending', 'running')")
-        .pluck()
-        .get());
-      if (activeJobs !== 0) {
-        throw new Error(
-          `cannot migrate while ${activeJobs} actor job(s) are pending or running`,
-        );
-      }
+      retireRoomRopesForPackMigration(database);
       writeJsonAtomically(output, value);
       return checkpoint;
     }).immediate();

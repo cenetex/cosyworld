@@ -129,7 +129,10 @@ legal Story Hand. Inspection and local settings remain available while another
 avatar acts. Actions against the same contested target are also serialized by
 the server, and stale attempts are rejected rather than silently recomposed.
 Authored reactions may answer a committed action, but they do not grant a
-second mechanical activation.
+second mechanical activation. A connected seated player who does not act
+within the seat window receives one certified Pass, journaled like any other.
+Unavailable avatars leave the active initiative order without the server
+playing a card for them.
 
 ::: {.rule}
 **CORE RULE - Controller parity.** Human-controlled and inference-controlled
