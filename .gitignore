@@ -6,6 +6,9 @@
 rati/keys/*
 *-wallet.json
 
+# Agent worktrees
+.worktrees/
+
 # Dependencies
 node_modules/
 bun.lock
