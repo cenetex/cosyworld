@@ -491,9 +491,18 @@ pub(super) fn room_memory_log_text_at_location(
         | "pathway.familiarized" => event.content.clone().unwrap_or_else(|| {
             format!("{actor_name} carries the path a little farther into the world")
         }),
-        "first_tale.public_trace" => format!(
-            "{actor_name} marked the first uncovered stone so the next visitor can trust the washed path"
-        ),
+        "first_tale.public_trace" => {
+            // The trace copy is authored per worldpack (project89 records a
+            // covenant, not a garden stone). Render the authored content so
+            // room memory never describes a tale the pack does not contain.
+            let trace = event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .unwrap_or("left an authored public trace");
+            format!("{actor_name} {trace}")
+        }
         "natural_feature.revealed" => {
             let feature = event
                 .content
@@ -1427,6 +1436,47 @@ impl crate::RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression guard for the wrong-world-state class found beside the Void
+    /// 004 pathway narration bug: the public-trace room-memory line hardcoded
+    /// the core pack's washed-garden copy, so a worldpack that authors its own
+    /// trace (project89 records a liberation covenant) would report a tale its
+    /// world does not contain. The rendered line must be the authored copy.
+    #[test]
+    fn first_tale_public_trace_renders_the_authored_pack_copy() {
+        let trace = |content: Option<&str>| EventView {
+            seq: 9,
+            type_name: "first_tale.public_trace".to_string(),
+            success: true,
+            actor_name: Some("Rati".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: content.map(str::to_string),
+            ..EventView::default()
+        };
+
+        // A pack-authored trace renders that pack's words, not the core
+        // pack's garden stone.
+        let covenant = room_memory_log_text(&trace(Some(
+            "recorded an attributed liberation covenant so the next independent actor can audit the changed convergence protocol",
+        )))
+        .expect("authored trace becomes room memory");
+        assert!(covenant.contains("recorded an attributed liberation covenant"));
+        assert!(!covenant.contains("washed path"));
+        assert!(covenant.contains("Rati recorded"));
+
+        // The core pack's own trace still reads as before.
+        let garden = room_memory_log_text(&trace(Some(
+            "marked the first uncovered stone so the next visitor can trust the washed path",
+        )))
+        .expect("core trace becomes room memory");
+        assert!(garden.contains("marked the first uncovered stone"));
+
+        // Missing authored copy falls back to a truthful generic line.
+        let fallback =
+            room_memory_log_text(&trace(None)).expect("empty trace still becomes room memory");
+        assert!(fallback.contains("left an authored public trace"));
+        assert!(!fallback.contains("washed path"));
+    }
 
     #[test]
     fn failures_back_off_and_expired_retries_reopen() {
