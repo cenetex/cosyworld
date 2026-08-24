@@ -54,7 +54,9 @@ pub(super) const ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION: &str = "avatar_self_des
 pub(super) const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
-pub(super) const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 3_000;
+// Resident reactions still get a brief human-feeling beat, but they should not
+// hold the Story Hand for several seconds when there is no dialogue provider.
+pub(super) const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 750;
 pub(super) const ROOM_INITIATIVE_CHAIN_LIMIT: usize = CW_MAX_ACTORS;
 /// How long a directly controlled avatar may hold a room-initiative seat
 /// without acting before the server commits a certified Pass on its behalf.

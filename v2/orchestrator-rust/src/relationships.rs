@@ -440,7 +440,15 @@ pub(super) async fn complete_player_tick_reply(
     }
     let Some(expectation) = relationship_reply else {
         if let Some(plan) = plan {
-            complete_avatar_reply(state, plan, None).await?;
+            // Ordinary resident narration is optional. The player's action is
+            // already committed, so an unavailable AI provider must not retry
+            // the whole background job or leave it in a durable dead state.
+            if let Err(error) = complete_avatar_reply(state, plan, None).await {
+                warn!(
+                    "optional resident narration unavailable after deterministic action: {}",
+                    error
+                );
+            }
         }
         return Ok(());
     };
@@ -689,6 +697,30 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn unavailable_optional_narration_finishes_without_a_retry_or_fake_line() {
+        let mut runtime = relationship_runtime();
+        let (_record, events) = commit_relationship(&mut runtime);
+        let observation = relationship_observation(&runtime, &events);
+        let state = test_app_state(runtime, None);
+        let (plan, _relationship_reply, _next_observation) =
+            complete_player_tick_observation(&state, observation.clone())
+                .await
+                .expect("heartbeat planning succeeds");
+
+        complete_player_tick_reply(&state, &observation, plan, None)
+            .await
+            .expect("optional narration failure is a completed background job");
+
+        let runtime = state.inner.lock().await;
+        assert!(!runtime.event_log.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "message.created" | "dialogue.unavailable"
+            ) && event.actor_id == Some(MARA_ACTOR_ID)
+        }));
     }
 
     #[tokio::test]

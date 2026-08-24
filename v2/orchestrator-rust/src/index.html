@@ -1281,14 +1281,15 @@
       border-radius: 999px;
       background: rgba(239, 201, 107, 0.46);
     }
-    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
+    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode):not(.outcome-mode) {
       display: none;
     }
     .log.account-mode,
     .log.library-mode,
     .log.chat-mode,
     .log.room-mode,
-    .log.arrival-mode {
+    .log.arrival-mode,
+    .log.outcome-mode {
       display: flex;
       max-height: none;
     }
@@ -1307,6 +1308,7 @@
       margin-bottom: auto;
     }
     .log.room-mode,
+    .log.outcome-mode,
     .log.arrival-mode {
       justify-content: center;
       align-items: center;
@@ -1380,6 +1382,27 @@
       color: var(--green);
       font-size: 11px;
       line-height: 1.35;
+    }
+    .action-outcome-scene {
+      min-height: 148px;
+      border-color: rgba(101, 230, 138, 0.3);
+      background:
+        linear-gradient(180deg, rgba(101, 230, 138, 0.07), rgba(239, 201, 107, 0.025)),
+        rgba(8, 14, 10, 0.52);
+    }
+    .action-outcome-scene::before {
+      content: "✓";
+      color: var(--green);
+    }
+    .log.chat-mode .action-outcome-scene {
+      width: min(720px, calc(100% - 12px));
+      min-height: 0;
+      margin: 10px auto 6px;
+      padding: 16px 20px;
+      gap: 7px;
+    }
+    .log.chat-mode .action-outcome-scene .room-scene-text {
+      font-size: clamp(15px, 1.7vw, 19px);
     }
     .line {
       display: grid;
@@ -4881,6 +4904,43 @@
       font: 500 14px/1.5 ui-serif, Georgia, Cambria, "Times New Roman", serif;
       text-align: center;
     }
+    .journal-before-first-page {
+      place-items: stretch;
+      place-content: center;
+      gap: 12px;
+      max-width: 760px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .journal-before-first-page > span {
+      color: #9b6d3f;
+      font: 800 10px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .journal-before-first-page > strong {
+      color: #302d25;
+      font: 650 clamp(20px, 3vw, 28px)/1.2 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+    }
+    .journal-before-first-page > p {
+      max-width: 62ch;
+      margin: 0;
+      color: #6f6757;
+    }
+    .journal-recent-moments {
+      display: grid;
+      gap: 8px;
+      margin: 5px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .journal-recent-moments li {
+      padding: 10px 12px;
+      border-left: 2px solid rgba(155, 109, 63, 0.38);
+      background: rgba(155, 109, 63, 0.055);
+      color: #4d493f;
+      font: 500 14px/1.45 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+    }
     @media (max-width: 560px) {
       .journal-stream { padding: 8px; }
       .journal-page { padding: 0; }
@@ -6753,6 +6813,44 @@
         font-size: 10px;
       }
     }
+    @media (max-width: 560px) {
+      .prompt:not(.hand-expanded) .hand-rail {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 8px 12px 10px;
+        scroll-padding-inline: 12px;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-inline: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .prompt:not(.hand-expanded) .hand-rail::-webkit-scrollbar { display: none; }
+      .prompt:not(.hand-expanded) .story-card-slot {
+        flex: 0 0 min(68vw, 260px);
+        width: min(68vw, 260px);
+        scroll-snap-align: start;
+      }
+      .prompt:not(.hand-expanded) .cmd {
+        min-height: 70px;
+        grid-template-columns: 66px minmax(0, 1fr);
+        grid-template-rows: 70px;
+      }
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.avatar,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.item,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.location,
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb.action-mini-card {
+        width: 66px;
+        height: 70px;
+      }
+      .prompt:not(.hand-expanded) .cmd-copy { padding: 7px 9px; }
+      .prompt:not(.hand-expanded) .cmd-kicker { font-size: 9px; }
+      .prompt:not(.hand-expanded) .cmd-label {
+        font-size: 14px;
+        line-height: 1.16;
+      }
+    }
   </style>
 </head>
 <body>
@@ -7031,6 +7129,7 @@
     let actionSlow = false;
     let actionSlowTimer = null;
     let pendingAction = null;
+    let actionOutcome = null;
     let pendingChats = [];
     let pendingReflection = null;
     let journalNotifications = [];
@@ -11180,6 +11279,7 @@
 
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
+      actionOutcome = null;
       pendingChats = [];
       pendingReflection = null;
       journalNotifications = [];
@@ -11998,6 +12098,7 @@
       "relationship.advanced",
       "ability_check.rolled",
       "study.resolved",
+      "notice.actor_observed",
       "feature.searched",
       "location.searched",
       "exit.discovered",
@@ -12021,6 +12122,8 @@
       "bond.created",
       "bond.revised",
       "bond.resolved",
+      "tag.applied",
+      "tag.cleared",
       "combat.attack.attempt",
       "combat.attack.hit",
       "combat.attack.miss",
@@ -14210,7 +14313,7 @@
       const pageCount = pages.length;
       const nav = $("journal-page-nav");
       if (!pageCount) {
-        panel.innerHTML = `<div class="journal-empty">No long-rest Journal page has been painted yet.</div>`;
+        panel.innerHTML = journalBeforeFirstPageHtml();
         nav.hidden = true;
         return;
       }
@@ -14229,6 +14332,28 @@
           stream.scrollTop = previousScrollTop;
         }
       }
+    }
+
+    function journalBeforeFirstPageHtml() {
+      const seen = new Set();
+      const recent = logEvents
+        .map((event) => ({
+          seq: Number(event?.seq || 0),
+          text: sceneCardEventTypes.has(String(event?.type || ""))
+            ? cleanStatusText(sceneCardEventText(event))
+            : "",
+        }))
+        .filter((entry) => {
+          const key = entry.text.toLowerCase();
+          if (!entry.text || /^(?:[a-z_]+\.)+[a-z_]+\.?$/i.test(entry.text) || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(-5);
+      const moments = recent.length
+        ? recent.map((entry) => `<li>${escapeHtml(finishSentence(cleanStatusText(entry.text)))}</li>`).join("")
+        : `<li>Your next Story Hand choice will leave a moment here.</li>`;
+      return `<section class="journal-empty journal-before-first-page"><span>before the first painted page</span><strong>No long-rest Journal page has been painted yet.</strong><p>Your first painted page arrives after a long rest. Until then, the Journal keeps a few recent moments close.</p><ol class="journal-recent-moments" aria-label="Recent moments">${moments}</ol></section>`;
     }
 
     function roomMemoryModel() {
@@ -14745,6 +14870,7 @@
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const observerScene = knockedOutObserverHtml();
+      const outcomeScene = actionOutcomeHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
@@ -14757,8 +14883,9 @@
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
       log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasTranscript);
-      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene);
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !outcomeScene && !pendingArrival && !defeatScene && !observerScene);
       log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene || observerScene));
+      log.classList.toggle("outcome-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene && Boolean(outcomeScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
       log.classList.toggle("journey-mode", !libraryPanel && !accountPanel && Boolean(state?.journey));
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
@@ -14790,6 +14917,12 @@
         log.scrollTop = 0;
         return;
       }
+      if (outcomeScene && !hasTranscript) {
+        renderedChatTailKey = "";
+        log.innerHTML = outcomeScene;
+        log.scrollTop = 0;
+        return;
+      }
       if (!hasTranscript) {
         renderedChatTailKey = "";
         log.innerHTML = quietRoomSceneHtml();
@@ -14806,7 +14939,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${outcomeScene}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -15102,6 +15235,15 @@
         : "Begin a tale, then discover the room through play.";
       const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
       return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
+    }
+
+    function actionOutcomeHtml() {
+      if (!actionOutcome) return "";
+      const kicker = actionOutcome.kicker || "action complete";
+      const text = actionOutcome.text || "Your choice has taken effect.";
+      const cue = actionOutcome.cue || "Your next Story Hand is ready below.";
+      const aria = `${kicker}. ${text} ${cue}`;
+      return `<section class="room-scene action-outcome-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></section>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -15497,6 +15639,9 @@
       }
       if (type === "feature.searched" || type === "location.searched") {
         return searchStoryBeat(event, event.narrative_outcome);
+      }
+      if (type === "notice.actor_observed") {
+        return `${actor} notices one clear, visible detail about ${event.target_actor_name || "someone nearby"}.`;
       }
       if (type === "exit.discovered") {
         return `A path to ${event.destination_location_name || "somewhere new"} reveals itself beneath ${possessive(actor)} careful look.`;
@@ -17378,6 +17523,9 @@
 
     function friendlyActionText(value) {
       return compactActionDetail(value)
+        .replace(/reveals one disclosure-safe observable fact about\s+([^;,.]+)/gi, "learn one clear thing about $1")
+        .replace(/reveals the next adjacent route segment without moving/gi, "shows the next stretch of the path without leaving")
+        .replace(/adds the item card to your Pack/gi, "puts it safely in your pack")
         .replace(/\bfirst help deepens Bond with\s+([^;,.]+)/gi, "first help brings you closer to $1")
         .replace(/\bdeepens Bond with\b/gi, "brings you closer to")
         .replace(/marks?\s+the\s+Visit Ledger/gi, "leaves you with a memory")
@@ -18264,6 +18412,15 @@
 
     function compactActionDetail(value) {
       return String(value || "")
+        .replace(/^Next Push advances ([1-9]\d*) segments?; Push now advances ([1-9]\d*)\.?/i, (_, prepared, direct) => (
+          `Preparing first would ${projectProgressDetail(prepared)}; acting now would ${projectProgressDetail(direct)}.`
+        ))
+        .replace(/^Advances ([1-9]\d*) segments? now(?: \([^)]*\))?\.?/i, (_, amount) => finishSentence(projectProgressResult(amount)))
+        .replace(/\bEvidence complete:\s*\d+\/\d+ locations?\s*\(\+\d+ prepared segments?\)\.?/gi, "Every clue is in place, so a prepared try goes further.")
+        .replace(/\bPartial evidence:\s*\d+\/\d+ locations?\s*\(\+\d+ prepared segment(?:s)? now\); complete evidence adds 2\.?/gi, "The clues you found make a prepared try go further; finding them all helps even more.")
+        .replace(/\bEvidence:\s*0\/1 location; finding it adds 1 prepared segment\.?/gi, "Find the clue here to make a prepared try go further.")
+        .replace(/\bEvidence:\s*0\/\d+ locations; any evidence adds 1 prepared segment, complete evidence adds 2\.?/gi, "Clues from these places can make a prepared try go further.")
+        .replace(/\s*Only \d+ remain, so \d+ of \d+ gross segments apply\.?/gi, " The work is nearly done, so no effort is wasted.")
         .replace(/^advances progress clock\s+.+?\s+by\s+([1-9]\d*)/i, (_, amount) => projectProgressResult(amount))
         .replace(/^finishes progress clock\s+.+?\s+by\s+([1-9]\d*)/i, "finishes the work")
         .replace(/^sets up \+([1-9]\d*) progress/i, "makes the next try count")
@@ -18999,6 +19156,62 @@
       return actions[actionIndex] || null;
     }
 
+    function actionOutcomeEventPriority(event) {
+      const type = String(event?.type || "");
+      if (type === "story.receipt") return 120;
+      if (["actor.moved", "journey.completed", "job.contribution.resolved"].includes(type)) return 115;
+      if (["exit.discovered", "avatar.discovered", "item.found", "item.picked_up", "item.used", "item.given", "item.traded"].includes(type)) return 110;
+      if (["tag.applied", "tag.cleared", "skill.stepped", "bond.created", "bond.revised", "bond.resolved"].includes(type)) return 105;
+      if (["ability_check.rolled", "feature.searched", "location.searched", "study.resolved"].includes(type)) return 100;
+      if (type.startsWith("combat.") || type === "magic.spell_cast") return 95;
+      if (["clock.updated", "clock.threshold", "job.updated", "ledger.banked", "calling.revised"].includes(type)) return 85;
+      return sceneCardEventTypes.has(type) ? 60 : 0;
+    }
+
+    function completedActionOutcome(action, result, seqFloor) {
+      if (result?.ok === false || ["orb-chat", "model-interaction"].includes(String(action?.kind || ""))) {
+        return null;
+      }
+      const combined = [
+        ...(Array.isArray(result?.events) ? result.events : []),
+        ...logEvents.filter((event) => Number(event?.seq || 0) > seqFloor),
+      ];
+      const unique = [];
+      const keys = new Set();
+      for (const event of combined) {
+        const key = Number(event?.seq || 0) > 0
+          ? `seq:${Number(event.seq)}`
+          : `${event?.type || "event"}:${event?.actor_id || ""}:${event?.content || ""}`;
+        if (keys.has(key)) continue;
+        keys.add(key);
+        unique.push(event);
+      }
+      const narrated = unique
+        .map((event) => ({
+          event,
+          priority: actionOutcomeEventPriority(event),
+          belongsToPlayer: Number(event?.actor_id || 0) === Number(actorId || 0),
+          text: cleanStatusText(sceneCardEventText(event)),
+        }))
+        .filter((entry) => entry.priority > 0 && entry.text)
+        .sort((left, right) => (
+          Number(right.belongsToPlayer) - Number(left.belongsToPlayer)
+          || right.priority - left.priority
+          || Number(right.event?.seq || 0) - Number(left.event?.seq || 0)
+        ));
+      const label = compactActionLabel(action) || "action";
+      const fallbackEffect = friendlyActionText(action?.effect || action?.detail || "");
+      const text = narrated[0]?.text
+        || (fallbackEffect
+          ? finishSentence(`${label} is complete: ${lowerInitial(fallbackEffect)}`)
+          : finishSentence(`${label} is complete`));
+      return {
+        kicker: `${label} complete`,
+        text,
+        cue: "This result is final. Your next Story Hand will appear as the room settles.",
+      };
+    }
+
     async function runAction(action) {
       if (actionBusy) return;
       if (action?.kind === "orb-chat" && pendingChats.length) {
@@ -19012,6 +19225,7 @@
         return;
       }
       holdStoryHandForAction(action);
+      actionOutcome = null;
       actionBusy = true;
       actionSlow = false;
       pendingAction = action;
@@ -19023,6 +19237,9 @@
       }, 3000);
       const pendingChat = beginPendingChat(action);
       const pendingInteraction = beginPendingModelInteraction(action);
+      const actionSeqFloor = logEvents.reduce((latest, event) => (
+        Math.max(latest, Number(event?.seq || 0))
+      ), 0);
       renderCommands();
       renderLog();
       try {
@@ -19030,6 +19247,8 @@
         if (result?.ok === false) {
           cancelPendingChat(pendingChat);
           cancelPendingModelInteraction(pendingInteraction);
+        } else {
+          actionOutcome = completedActionOutcome(action, result, actionSeqFloor);
         }
       } catch (error) {
         cancelPendingChat(pendingChat);
