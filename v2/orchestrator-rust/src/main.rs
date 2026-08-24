@@ -37256,7 +37256,7 @@ mod tests {
             "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
-            "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
+            "const visible = narratedTranscriptEvents((events || []).filter((event) => {"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));

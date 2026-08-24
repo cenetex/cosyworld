@@ -8260,7 +8260,7 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
-  async function assertHiddenWorldBeatsNeverCountAsVisibleExposure() {
+  async function assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot() {
     const result = await page.evaluate(async () => {
       const previous = {
         logEvents: logEvents.slice(),
@@ -8334,6 +8334,8 @@ async function main() {
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
         const callsWhileJournalClosed = calls.length;
+        const roomRow = document.querySelector("#log [data-world-beat-exposure][data-world-beat-seq]");
+        const visibleRoomAuthoredText = roomRow?.textContent?.trim().replace(/\s+/g, " ") || "";
 
         journalOpen = true;
         renderTimelines();
@@ -8391,6 +8393,7 @@ async function main() {
           callsAfterRepeatedRender,
           callsAfterSuppressedEvents,
           callsWhileMenuHidden,
+          visibleRoomAuthoredText,
           visibleAuthoredText,
           receiptable: row?.hasAttribute("data-world-beat-receipt") || false,
           sourceSeqLeaked: row?.outerHTML.includes(String(authored.seq)) || false,
@@ -8411,11 +8414,20 @@ async function main() {
         renderTimelines();
       }
     });
-    assert(result.callsWhileJournalClosed === 0, `a hidden world beat must not count as seen while Journal is closed: ${JSON.stringify(result)}`);
-    assert(result.calls.length === 0, `opening the image-only Journal must not expose or receipt hidden world beats: ${JSON.stringify(result)}`);
-    assert(result.callsAfterRepeatedRender === 0, `repeat image-only Journal renders must not expose hidden beats: ${JSON.stringify(result)}`);
-    assert(result.callsAfterSuppressedEvents === 0, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.callsWhileMenuHidden === 0, `a hidden Journal must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileJournalClosed === 1, `a visible room world beat must count as seen once: ${JSON.stringify(result)}`);
+    assert(result.calls.length === 1, `opening the image-only Journal must not send another world-beat receipt: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 1, `repeat image-only Journal renders must not duplicate a room receipt: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 1, `a hidden room transcript must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(
+      result.visibleRoomAuthoredText.includes("Rain thins into pearl-grey mist around the cottage windows."),
+      `the visible room story beat should keep its authored prose: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.calls[0]?.exposure_id === "world-beat:v1:990500001"
+        && result.calls[0]?.transport === "browser",
+      `the visible room story beat should send its stable browser exposure id: ${JSON.stringify(result)}`,
+    );
     assert(
       !result.receiptable && !result.sourceSeqLeaked && result.visibleAuthoredText === "",
       `hidden world-beat evidence must create no prose row or source-sequence surface: ${JSON.stringify(result)}`,
@@ -8828,7 +8840,7 @@ async function main() {
     assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
   }
 
-  async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
+  async function assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
       const previousSeen = new Set(seenSeq);
@@ -9067,7 +9079,13 @@ async function main() {
     });
     assert(!result.updatesText.includes("Alpine Forest -> Summit Trail"), `mechanical events should not enter the first-thread strip: ${JSON.stringify(result)}`);
     assert(!result.updatesText.includes("Lorecraft skill step"), `skill events should not enter the first-thread strip: ${JSON.stringify(result)}`);
-    assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
+    assert(result.eventCount === 3 && result.roomRows === 0, `shared story history should appear as three folded room-transcript beats: ${JSON.stringify(result)}`);
+    assert(
+      result.eventRows.some((row) => /steps into Summit Trail/i.test(row))
+        && result.eventRows.some((row) => /practices Intelligence/i.test(row))
+        && result.eventRows.some((row) => /path to Homeroom reveals itself/i.test(row)),
+      `shared movement, growth, and discovery should read as story in the room transcript: ${JSON.stringify(result)}`,
+    );
     assert(
       result.journalHidden
         && result.journalRows.length === 0
@@ -9080,12 +9098,17 @@ async function main() {
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
-    assert(!result.log.includes("Summit Trail") && !result.log.includes("Lorecraft"), `movement and growth events should stay in the room Log: ${JSON.stringify(result)}`);
-    assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `group chat should render only actual speech: ${JSON.stringify(result)}`);
+    assert(result.log.includes("Summit Trail") && result.log.includes("Intelligence") && result.log.includes("Homeroom"), `the room transcript should retain readable shared history: ${JSON.stringify(result)}`);
+    assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `speech should remain distinct from shared story beats: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Your growth becomes"), `command status output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("You learn more about"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Search observes"), `Search bookkeeping should not echo into chat: ${JSON.stringify(result)}`);
-    assert(result.eventMarks.length === 0 && result.eventAriaLabels.length === 0, `group chat should not retain hidden event chrome: ${JSON.stringify(result)}`);
+    assert(
+      result.eventMarks.length === 3
+        && result.eventMarks.every((mark) => mark === "✦")
+        && result.eventAriaLabels.every((label) => /^Story beat\./.test(label)),
+      `shared history should use compact, accessible story-beat chrome: ${JSON.stringify(result)}`,
+    );
     assert(result.searchTagEntry === null, `internal Search tags should stay out of room memory: ${JSON.stringify(result)}`);
     assert(result.featureSearchTagEntry === null, `internal feature-Search tags should not become broken room-log sentences: ${JSON.stringify(result)}`);
     assert(result.searchAtmosphere === "Thimble Guest looks closely around The Cosy Cottage.", `Search should name who searched and where: ${JSON.stringify(result)}`);
@@ -12177,6 +12200,11 @@ async function main() {
         previousEventSeq: logEvents.reduce((latest, event) => (
           Math.max(latest, Number(event.seq) || 0)
         ), 0),
+        previousEventRowCount: document.querySelectorAll("#log .line.event, #log .roll-line").length,
+        previousNonChatRowCount: [...document.querySelectorAll("#log > *")].filter((node) => (
+          node.classList.contains("line")
+            && !node.classList.contains("chat")
+        )).length,
         focused: focused && {
           label: compactActionLabel(focused),
           intention: focused.intention,
@@ -12211,6 +12239,9 @@ async function main() {
         touchedGrowth: newEvents.some((event) =>
           event.type === "ledger.marked" || event.type === "ledger.banked"),
         ledger: state?.ledger || {},
+        newEventTypes: newEvents.map((event) => event.type),
+        eventRowText: [...document.querySelectorAll("#log .line.event, #log .roll-line")]
+          .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
         nonChatRows: rows.filter((node) => (
           node.classList.contains("line")
@@ -12220,10 +12251,10 @@ async function main() {
       };
     }, noticeBefore);
     assert(
-      scene.eventRows === 0
-        && scene.nonChatRows === 0
+      scene.eventRows === noticeBefore.previousEventRowCount
+        && scene.nonChatRows === noticeBefore.previousNonChatRowCount
         && scene.cardPlayed,
-      `Notice outcomes and card-play receipts should stay out of group chat: ${JSON.stringify(scene)}`,
+      `Notice outcomes and card-play receipts should add no rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
     );
     assert(
       scene.observed === true
@@ -13988,10 +14019,10 @@ async function main() {
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
     assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
-    assert(room.unexpectedRows === 0 && room.roomRows === 0 && room.sceneRows === 0, `${label}: normal chat should keep system chrome out of the transcript: ${JSON.stringify(room)}`);
+    assert(room.unexpectedRows === 0 && room.roomRows === 0, `${label}: the transcript should contain only chat and readable story beats: ${JSON.stringify(room)}`);
     assert(
-      room.chatRows > 0 || room.quietScene === 1,
-      `${label}: the room should show speech or a single quiet chat invitation: ${JSON.stringify(room)}`,
+      room.chatRows + room.sceneRows > 0 || room.quietScene === 1,
+      `${label}: the room should show speech, shared history, or a single quiet invitation: ${JSON.stringify(room)}`,
     );
 
     const emptyTicker = await page.evaluate(() => {
@@ -14317,10 +14348,8 @@ async function main() {
     assert(
       shell.roomLineCount === 0
         && shell.rollLineCount === 0
-        && shell.sceneLineCount === 0
-        && shell.chatFailureSceneCount === 0
-        && shell.lineCount === shell.chatLineCount,
-      `${label}: group chat should contain speech with no system rows: ${JSON.stringify(shell)}`,
+        && shell.lineCount === shell.chatLineCount + shell.sceneLineCount,
+      `${label}: the room transcript should contain only speech and shared story beats: ${JSON.stringify(shell)}`,
     );
     assert(shell.unexpectedLineCount === 0, `${label}: normal feed should not show bookkeeping rows: ${JSON.stringify(shell)}`);
     assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);
@@ -15124,11 +15153,11 @@ async function main() {
   await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
-  await assertHiddenWorldBeatsNeverCountAsVisibleExposure();
+  await assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCombatUsesDedicatedDockOutsideChat();
-  await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
+  await assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
   await assertHumanActionRequiresActorSession();
