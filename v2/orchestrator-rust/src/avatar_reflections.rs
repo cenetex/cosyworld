@@ -25,16 +25,6 @@ pub(super) struct AvatarSelfDescriptionProjection {
     pub(super) identity: AvatarLevelIdentity,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DescribeAvatarAppearanceRequest {
-    pub(super) actor_id: u64,
-    pub(super) actor_session: Option<String>,
-    #[serde(rename = "wallet_session")]
-    pub(super) _wallet_session: Option<String>,
-    pub(super) subject_actor_id: u64,
-}
-
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum AvatarReflectionKind {
@@ -290,7 +280,6 @@ impl RuntimeWorld {
         let current_level = self.actor_by_id(actor_id)?.stats.level.max(1);
         if projection.level != current_level
             || !self.avatar_self_description_due(actor_id, projection.level)
-            || self.avatar_community_art_generation_active(actor_id, projection.level)
         {
             return None;
         }
@@ -326,105 +315,33 @@ pub(super) fn avatar_level_identity_content(identity: &AvatarLevelIdentity) -> S
     )
 }
 
-pub(super) async fn describe_avatar_appearance(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<DescribeAvatarAppearanceRequest>,
-) -> Json<ActionResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "avatar-appearance-actor",
-        CHAT_ACTION_LIMIT,
-    ) {
-        return action_rate_limited_response();
-    }
-
-    let self_description_job = {
+pub(super) async fn queue_avatar_self_description(
+    state: &AppState,
+    actor_id: u64,
+) -> Result<bool, String> {
+    let job = {
         let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return client_actor_rejected_response();
+        let actor = runtime
+            .actor_by_id(actor_id)
+            .ok_or_else(|| "the self-describing avatar no longer exists".to_string())?;
+        let level = actor.stats.level.max(1);
+        if !runtime.avatar_can_redescribe_appearance(actor_id, level) {
+            return Ok(false);
         }
-        let Some(requester) = runtime
-            .actor_by_id(payload.actor_id)
-            .filter(|actor| RuntimeWorld::actor_can_act(*actor))
-        else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        let Some(subject) = runtime.actor_by_id(payload.subject_actor_id) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if subject.location_id != requester.location_id
-            || !runtime.actor_visible_in_projection(subject, Some(payload.actor_id), None)
-        {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        }
-        let level = subject.stats.level.max(1);
-        if runtime.avatar_community_art_generation_active(payload.subject_actor_id, level) {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
-        let Some("self_authored") = runtime.avatar_appearance_action(
-            payload.subject_actor_id,
-            level,
-            Some(payload.actor_id),
-        ) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        };
-        runtime.avatar_reflection_job(payload.subject_actor_id, AvatarReflectionKind::Thought)
-    };
-
-    let Some(job) = self_description_job else {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
-        });
+        runtime
+            .avatar_reflection_job(actor_id, AvatarReflectionKind::Thought)
+            .ok_or_else(|| "self-description context could not be constructed".to_string())?
     };
     if let Some(path) = state.event_store_path.as_deref() {
-        let queued =
-            open_event_store(path).and_then(|conn| insert_avatar_self_description_job(&conn, &job));
-        if queued.is_err() {
-            return Json(ActionResponse {
-                ok: false,
-                status: 500,
-                events: Vec::new(),
-            });
-        }
+        let queued = open_event_store(path)
+            .and_then(|conn| insert_avatar_self_description_job(&conn, &job))
+            .map_err(|error| error.to_string())?;
         state.actor_job_notify.notify_waiters();
+        Ok(queued)
     } else {
-        schedule_avatar_self_description(&state, job);
+        schedule_avatar_self_description(state, job);
+        Ok(true)
     }
-    Json(ActionResponse {
-        ok: true,
-        status: CW_OK,
-        events: Vec::new(),
-    })
 }
 
 fn parse_avatar_level_identity(content: &str) -> Result<AvatarLevelIdentity, String> {
@@ -1131,21 +1048,6 @@ mod tests {
     #[test]
     fn avatar_identity_output_requires_persona_appearance_and_continuity() {
         assert!(parse_avatar_level_identity("PERSONA: I am still forming.").is_err());
-    }
-
-    #[test]
-    fn avatar_appearance_request_rejects_human_written_description_fields() {
-        let request = serde_json::json!({
-            "actor_id": 5000,
-            "actor_session": "test-session",
-            "wallet_session": "test-wallet-session",
-            "subject_actor_id": 5000
-        });
-        assert!(serde_json::from_value::<DescribeAvatarAppearanceRequest>(request.clone()).is_ok());
-        let mut human_written = request;
-        human_written["appearance"] =
-            serde_json::json!("Copper curls, grey eyes, and a moss-green wool coat.");
-        assert!(serde_json::from_value::<DescribeAvatarAppearanceRequest>(human_written).is_err());
     }
 
     #[test]

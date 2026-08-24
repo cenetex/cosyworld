@@ -20,15 +20,19 @@ fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64
         .actor_by_id(actor_id)
         .map(|actor| actor.stats.level.max(1))
         .unwrap_or(1);
-    runtime
+    let memory = runtime
         .entity_memories
         .entry(WorldEntityRef::avatar(actor_id).key())
-        .or_default()
+        .or_default();
+    memory
         .identity_by_level
         .entry(level)
         .or_default()
         .appearance =
         "A round-faced traveler with copper curls, brown eyes, and a moss-green coat.".to_string();
+    memory
+        .descriptions_by_level
+        .insert(level, "A complete test persona description.".to_string());
 }
 
 fn test_avatar_level_identity(appearance: &str) -> AvatarLevelIdentity {
@@ -40,7 +44,7 @@ fn test_avatar_level_identity(appearance: &str) -> AvatarLevelIdentity {
 }
 
 #[test]
-fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
+fn direct_avatar_portrait_can_be_funded_before_its_async_level_description() {
     let mut runtime = RuntimeWorld::seeded();
     crate::test_support::create_test_human(
         &mut runtime,
@@ -49,12 +53,12 @@ fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
         "Portrait Author",
     );
 
-    assert_eq!(
-        runtime
-            .community_art_plan(5000, "actor", 5000)
-            .expect_err("a generic fallback must not be funded"),
-        AVATAR_APPEARANCE_REQUIRED_CODE
-    );
+    let pending = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the Orb timeline can be funded before the persona responds");
+    assert!(runtime.avatar_requires_self_description(5000, 1));
+    assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
+    assert_eq!(pending.required_orbs, 1);
 
     let appearance =
         "A freckled traveler with short copper curls, grey eyes, and a moss-green wool coat.";
@@ -88,7 +92,7 @@ fn direct_avatar_portrait_waits_for_a_visible_level_appearance() {
 #[test]
 fn a_new_level_description_replaces_the_frozen_brief_and_reopens_funded_art() {
     let mut runtime = RuntimeWorld::seeded();
-    create_test_human(
+    crate::test_support::create_test_human(
         &mut runtime,
         5000,
         COSY_COTTAGE_LOCATION_ID,
@@ -176,7 +180,7 @@ fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
 }
 
 #[test]
-fn a_direct_avatar_asks_its_persona_for_the_current_level_appearance() {
+fn a_direct_avatar_can_be_queued_for_its_current_level_appearance() {
     let mut runtime = RuntimeWorld::seeded();
     crate::test_support::create_test_human(
         &mut runtime,
@@ -185,15 +189,12 @@ fn a_direct_avatar_asks_its_persona_for_the_current_level_appearance() {
         "Level Look",
     );
 
-    assert_eq!(
-        runtime.avatar_appearance_action(5000, 1, Some(5000)),
-        Some("self_authored")
-    );
-    assert_eq!(runtime.avatar_appearance_action(5000, 1, Some(1002)), None);
+    assert!(runtime.avatar_requires_self_description(5000, 1));
+    assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
 }
 
 #[tokio::test]
-async fn a_direct_avatar_queues_one_persona_description_without_free_text() {
+async fn a_fully_funded_portrait_queues_one_persona_description_before_generation() {
     let event_store_path = std::env::temp_dir().join(format!(
         "cosyworld-avatar-persona-description-{}-{}.sqlite",
         std::process::id(),
@@ -207,38 +208,19 @@ async fn a_direct_avatar_queues_one_persona_description_without_free_text() {
         COSY_COTTAGE_LOCATION_ID,
         "Level Look",
     );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the undescribed portrait can accept Orb funding");
+    fund_test_community_art(
+        &mut runtime,
+        5000,
+        &plan,
+        "fully-funded-persona-timeline",
+        91_012,
+    );
     let state = test_app_state(runtime, Some(event_store_path.clone()));
-    let (actor_session, _) = issue_actor_session(&state, 5000);
-
-    let first = describe_avatar_appearance(
-        ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
-        State(state.clone()),
-        Json(DescribeAvatarAppearanceRequest {
-            actor_id: 5000,
-            actor_session: Some(actor_session.clone()),
-            _wallet_session: None,
-            subject_actor_id: 5000,
-        }),
-    )
-    .await
-    .0;
-    assert!(first.ok);
-    assert_eq!(first.status, CW_OK);
-
-    let duplicate = describe_avatar_appearance(
-        ConnectInfo("127.0.0.1:45101".parse().expect("client address")),
-        State(state.clone()),
-        Json(DescribeAvatarAppearanceRequest {
-            actor_id: 5000,
-            actor_session: Some(actor_session),
-            _wallet_session: None,
-            subject_actor_id: 5000,
-        }),
-    )
-    .await
-    .0;
-    assert!(duplicate.ok);
-    assert_eq!(duplicate.status, CW_OK);
+    continue_community_art_generation(&state, 5000, plan.clone()).await;
+    continue_community_art_generation(&state, 5000, plan).await;
 
     let conn = open_event_store(&event_store_path).expect("open persona description store");
     let queued: i64 = conn
@@ -253,6 +235,12 @@ async fn a_direct_avatar_queues_one_persona_description_without_free_text() {
         panic!("appearance request queued the wrong job kind");
     };
     assert_eq!(job.actor_id, 5000);
+    let runtime = state.inner.lock().await;
+    let generation =
+        &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 1)];
+    assert_eq!(generation.status, "funded");
+    assert_eq!(generation.provider_attempts, 0);
+    drop(runtime);
     drop(conn);
     drop(state);
     let _ = fs::remove_file(event_store_path);
@@ -722,6 +710,41 @@ fn funded_avatar_generation_is_selected_for_boot_resumption() {
         1,
         "a legacy frozen-brief failure is repaired automatically on boot"
     );
+    let _ = std::fs::remove_dir_all(asset_root);
+}
+
+#[test]
+fn a_fully_funded_rejected_avatar_without_a_level_description_resumes_at_the_persona_stage() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Recovered Persona",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("the undescribed avatar can fill its Orb slot");
+    fund_test_community_art(&mut runtime, 5000, &plan, "rejected-persona-recovery", 9002);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&community_art_generation_key("actor", 5000, 1))
+        .expect("funded avatar generation");
+    generation.status = "policy_rejected".to_string();
+    generation.provider_attempts = MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
+    generation.last_error_code = Some("community_art_policy_rejected".to_string());
+
+    let asset_root = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-persona-resume-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    std::fs::create_dir_all(&asset_root).expect("create generated-asset root");
+    let resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);
+    assert_eq!(resumptions.len(), 1);
+    assert_eq!(resumptions[0].1.subject_kind, "actor");
+    assert_eq!(resumptions[0].1.subject_id, 5000);
+    assert!(runtime.avatar_requires_self_description(5000, 1));
     let _ = std::fs::remove_dir_all(asset_root);
 }
 

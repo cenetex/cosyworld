@@ -31,13 +31,13 @@ use crate::{
     commit_journal_record, community_art_eligible_card, execute_prepared_replicate_art,
     freeze_approved_community_media_reference, immutable_media_asset_bytes,
     is_safe_image_content_type, now_millis, prepare_replicate_art, prepare_replicate_evolution_art,
-    reconcile_community_media_asset_status, record_ai_usage_for_provider,
-    register_derived_community_media_asset, register_generated_media_asset,
-    request_image_policy_decision, resolve_generation_media_config, ActorMeta, AiConfig, AppState,
-    CardView, CommunityArtView, CwAction, EventView, EvolutionRolloutRoute,
-    FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference, GeneratedPolicyBinding,
-    ImagePolicyRequest, ItemMeta, JournalRecord, MediaAssetBackfill, MediaAssetProvenance,
-    PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
+    queue_avatar_self_description, reconcile_community_media_asset_status,
+    record_ai_usage_for_provider, register_derived_community_media_asset,
+    register_generated_media_asset, request_image_policy_decision, resolve_generation_media_config,
+    ActorMeta, AiConfig, AppState, CardView, CommunityArtView, CwAction, EventView,
+    EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference,
+    GeneratedPolicyBinding, ImagePolicyRequest, ItemMeta, JournalRecord, MediaAssetBackfill,
+    MediaAssetProvenance, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
     ReplicateAvatarArtConfig, RuntimeWorld, WorldEntityRef, CW_ACTION_NONE, CW_OK,
     EVOLUTION_EXECUTION_MODEL_REVISION, EVOLUTION_EXECUTION_RECIPE,
 };
@@ -628,15 +628,13 @@ impl RuntimeWorld {
         let retryable_without_orbs = generation.is_some_and(|state| {
             community_art_generation_retryable_for_profile(state, false, generation_profile_version)
         });
-        let appearance = (subject_kind == "actor")
-            .then(|| self.avatar_portrait_appearance(subject_id, level))
-            .flatten();
+        let self_description_required =
+            subject_kind == "actor" && self.avatar_requires_self_description(subject_id, level);
         let appearance_due =
             subject_kind == "actor" && self.avatar_can_redescribe_appearance(subject_id, level);
-        let appearance_action = (subject_kind == "actor")
-            .then(|| self.avatar_appearance_action(subject_id, level, viewer_actor_id))
-            .flatten()
-            .map(ToString::to_string);
+        let appearance = (subject_kind == "actor" && !self_description_required)
+            .then(|| self.avatar_portrait_appearance(subject_id, level))
+            .flatten();
         if let Some(published) = published_generation {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
@@ -668,10 +666,10 @@ impl RuntimeWorld {
             provider_attempts,
             max_provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
             retryable_without_orbs,
-            appearance_required: subject_kind == "actor" && appearance.is_none(),
+            appearance_required: subject_kind == "actor"
+                && (self_description_required || appearance.is_none()),
             appearance,
             appearance_due,
-            appearance_action,
         });
         card
     }
@@ -708,30 +706,6 @@ impl RuntimeWorld {
                     actor_id,
                     &active_content().actor_model_bindings,
                 )
-            })
-    }
-
-    pub(super) fn avatar_appearance_action(
-        &self,
-        actor_id: u64,
-        level: u8,
-        viewer_actor_id: Option<u64>,
-    ) -> Option<&'static str> {
-        if !self.avatar_can_redescribe_appearance(actor_id, level) {
-            return None;
-        }
-        if viewer_actor_id == Some(actor_id) && !self.actor_uses_inference(actor_id) {
-            return Some("self_authored");
-        }
-        self.avatar_has_exact_self_description_model(actor_id)
-            .then_some("self_authored")
-    }
-
-    pub(super) fn avatar_community_art_generation_active(&self, actor_id: u64, level: u8) -> bool {
-        self.community_art_generations
-            .get(&community_art_generation_key("actor", actor_id, level))
-            .is_some_and(|generation| {
-                matches!(generation.status.as_str(), "generating" | "reviewing")
             })
     }
 
@@ -927,8 +901,16 @@ impl RuntimeWorld {
         let level = self
             .community_art_subject_level(subject_kind, subject_id)
             .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
-        if subject_kind == "actor" && self.avatar_portrait_appearance(subject_id, level).is_none() {
-            return Err(AVATAR_APPEARANCE_REQUIRED_CODE.to_string());
+        if subject_kind == "actor" {
+            let self_description_required =
+                self.avatar_requires_self_description(subject_id, level);
+            if (self_description_required
+                && !self.avatar_can_redescribe_appearance(subject_id, level))
+                || (!self_description_required
+                    && self.avatar_portrait_appearance(subject_id, level).is_none())
+            {
+                return Err(AVATAR_APPEARANCE_REQUIRED_CODE.to_string());
+            }
         }
         let generation_profile_version = community_art_generation_profile_version(subject_kind);
         if let Some(frozen_plan) = self
@@ -1303,6 +1285,38 @@ impl RuntimeWorld {
             Some(format!("{subject_kind}:{subject_id}:level:{level}")),
         ))
     }
+}
+
+pub(super) async fn continue_community_art_generation(
+    state: &AppState,
+    actor_id: u64,
+    plan: CommunityArtPlan,
+) {
+    let queue_self_description = if plan.subject_kind == "actor" {
+        let runtime = state.inner.lock().await;
+        runtime
+            .community_art_generations
+            .get(&community_art_generation_key(
+                "actor",
+                plan.subject_id,
+                plan.level,
+            ))
+            .is_some_and(|generation| generation.funded_orbs >= generation.required_orbs)
+            && runtime.avatar_requires_self_description(plan.subject_id, plan.level)
+    } else {
+        false
+    };
+    if queue_self_description {
+        if let Err(error) = queue_avatar_self_description(state, plan.subject_id).await {
+            warn!(
+                actor_id = plan.subject_id,
+                level = plan.level,
+                "fully funded portrait could not queue its persona self-description: {error}"
+            );
+        }
+        return;
+    }
+    schedule_community_art_generation(state, actor_id, plan);
 }
 
 pub(super) async fn resume_avatar_art_after_self_description(state: &AppState, actor_id: u64) {
@@ -2384,13 +2398,17 @@ pub(super) fn pending_community_art_resumption_plans(
         .community_art_generations
         .values()
         .filter(|generation| {
+            let self_description_required = generation.subject_kind == "actor"
+                && runtime
+                    .avatar_requires_self_description(generation.subject_id, generation.level);
             let interrupted = matches!(
                 generation.status.as_str(),
                 "funded" | "generating" | "reviewing"
             );
             let stale_brief =
                 generation.last_error_code.as_deref() == Some("community_art_storage_failed");
-            generation.funded_orbs >= generation.required_orbs && (interrupted || stale_brief)
+            generation.funded_orbs >= generation.required_orbs
+                && (self_description_required || interrupted || stale_brief)
         })
         .filter_map(|generation| {
             generation
@@ -2408,8 +2426,14 @@ pub(super) fn pending_community_art_resumption_plans(
                     let candidate_exists =
                         community_art_candidate_availability(generated_asset_dir, &plan)
                             != CommunityArtCandidateAvailability::Absent;
-                    plan.generation_retryable(generation, candidate_exists)
-                        .then_some((actor_id, plan))
+                    let self_description_required = generation.subject_kind == "actor"
+                        && runtime.avatar_requires_self_description(
+                            generation.subject_id,
+                            generation.level,
+                        );
+                    (self_description_required
+                        || plan.generation_retryable(generation, candidate_exists))
+                    .then_some((actor_id, plan))
                 })
         })
         .collect()
@@ -2429,7 +2453,7 @@ pub(super) fn resume_pending_community_art_generations(state: &AppState) {
             pending_community_art_resumption_plans(&runtime, &state.generated_asset_dir)
         };
         for (actor_id, plan) in resumptions {
-            schedule_community_art_generation(&state, actor_id, plan);
+            continue_community_art_generation(&state, actor_id, plan).await;
         }
     });
 }

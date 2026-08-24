@@ -10756,9 +10756,6 @@
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
-      if (status === 409 && path === "/actions/describe-avatar") {
-        return "This level’s appearance is already set, or its portrait is being made right now.";
-      }
       if (status === 403) return avatarIsKnockedOut()
         ? "This avatar is knocked out and cannot act. Wait for a rescue, or abandon this avatar to begin again."
         : "Reconnect your account to restore this same avatar. The world will not replace it.";
@@ -16588,26 +16585,22 @@
       const appearance = String(art.appearance || "").trim();
       const appearanceDue = Boolean(art.appearance_due);
       const appearanceRequired = Boolean(art.appearance_required);
-      const appearanceAction = String(art.appearance_action || "");
       const appearanceStatus = appearance
         ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${escapeHtml(appearance)}</strong></div>`
         : "";
-      let appearanceControl = "";
-      if (clientState?.status === "describing") {
-        appearanceControl = `<div class="card-art-status"><span>level ${level} appearance</span><strong>Listening for their description…</strong></div>`;
-      } else if (appearanceDue && appearanceAction === "self_authored") {
-        appearanceControl = `<button class="account-button" type="button" data-request-avatar-appearance="${subject.id}">ask ${escapeHtml(card.display_name || "this avatar")} to describe themself</button>`;
-      }
-      const appearancePanel = `${appearanceStatus}${appearanceControl}`;
+      const appearanceTimeline = appearanceDue
+        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${remaining > 0
+          ? "Their persona will describe themself when this Orb slot fills."
+          : "Their persona is describing themself before portrait generation."
+        }</strong></div>`
+        : "";
+      const appearancePanel = `${appearanceStatus}${appearanceTimeline}`;
 
-      if (appearanceRequired) {
-        const waiting = appearanceAction
-          ? "A visible description is needed before this portrait can be funded."
-          : "This avatar cannot create a visible description with its current voice.";
-        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span><strong>${escapeHtml(waiting)}</strong></div>`;
+      if (appearanceRequired && !appearanceDue) {
+        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span><strong>This avatar cannot create a visible description with its current voice.</strong></div>`;
       }
 
-      if (status === "ready") {
+      if (status === "ready" && !appearanceDue) {
         return `${appearancePanel}<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
       }
       if (clientState?.status === "filling") {
@@ -17152,38 +17145,6 @@
       }
       await queueRefresh();
       syncOpenCardModal();
-    }
-
-    async function describeAvatarAppearance(subjectId) {
-      const subjectKey = communityArtSubjectKey({ kind: "actor", id: Number(subjectId) });
-      const card = cardForActor(Number(subjectId));
-      const art = card?.community_art;
-      if (!subjectKey || !art || communityArtClientStates.get(subjectKey)?.status) return;
-      const clientState = {
-        status: "describing",
-        authoritativeSignature: communityArtStateSignature(art),
-        timeout: null,
-      };
-      communityArtClientStates.set(subjectKey, clientState);
-      clientState.timeout = window.setTimeout(() => {
-        if (communityArtClientStates.get(subjectKey) !== clientState) return;
-        clearCommunityArtClientState(subjectKey);
-        syncOpenCardModal();
-        void queueRefresh();
-      }, 45_000);
-      syncOpenCardModal();
-      try {
-        await action("/actions/describe-avatar", {
-          actor_id: actorId,
-          subject_actor_id: Number(subjectId),
-        });
-      } finally {
-        if (communityArtClientStates.get(subjectKey) === clientState) {
-          clearCommunityArtClientState(subjectKey);
-        }
-        await queueRefresh();
-        syncOpenCardModal();
-      }
     }
 
     function shapeForCard(card, fallback = "item") {
@@ -19776,16 +19737,6 @@
         if (!subjectKind || !Number(subjectId)) return;
         fundImage.disabled = true;
         void fillCommunityArtOrbSlot(subjectKind, Number(subjectId));
-        return;
-      }
-      const requestAppearance = event.target.closest("[data-request-avatar-appearance]");
-      if (requestAppearance) {
-        event.preventDefault();
-        event.stopPropagation();
-        const subjectId = Number(requestAppearance.getAttribute("data-request-avatar-appearance") || 0);
-        if (!subjectId) return;
-        requestAppearance.disabled = true;
-        void describeAvatarAppearance(subjectId);
         return;
       }
       if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {
