@@ -838,7 +838,11 @@ describe("independently mountable CosyWorld Core", () => {
         );
         CREATE TABLE actor_jobs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          status TEXT NOT NULL
+          kind TEXT NOT NULL,
+          status TEXT NOT NULL,
+          lease_until_ms INTEGER,
+          last_error TEXT,
+          updated_at_ms INTEGER NOT NULL DEFAULT 0
         );
         INSERT INTO action_journal DEFAULT VALUES;
       `);
@@ -878,7 +882,10 @@ describe("independently mountable CosyWorld Core", () => {
       expect(fs.existsSync(staleOutputPath)).toBe(false);
 
       const busyDatabase = new Database(eventDbPath);
-      busyDatabase.prepare("INSERT INTO actor_jobs (status) VALUES ('pending')").run();
+      busyDatabase.prepare(`
+        INSERT INTO actor_jobs (kind, status)
+        VALUES ('player_tick_observation', 'pending')
+      `).run();
       busyDatabase.close();
       const busyOutputPath = path.join(tempRoot, "busy-output.json");
       const busy = spawnSync(process.execPath, [

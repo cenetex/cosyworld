@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import Database from "better-sqlite3";
 
 import {
   migratePackRemount,
   migratePackUnmount,
+  retireRoomRopesForPackMigration,
 } from "./migrate-pack-unmount.mjs";
 
 const sourceRegistry = JSON.parse(
@@ -28,6 +30,64 @@ function item(id, locationId) {
     container_item_id: 0,
   };
 }
+
+function actorJobDatabase() {
+  const database = new Database(":memory:");
+  database.exec(`
+    CREATE TABLE actor_jobs (
+      id INTEGER PRIMARY KEY,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL,
+      lease_until_ms INTEGER,
+      last_error TEXT,
+      updated_at_ms INTEGER NOT NULL
+    )
+  `);
+  return database;
+}
+
+test("pack migration retires pending room ropes", () => {
+  const database = actorJobDatabase();
+  database.prepare(`
+    INSERT INTO actor_jobs
+      (id, kind, status, lease_until_ms, last_error, updated_at_ms)
+    VALUES (1, 'room_rope', 'pending', NULL, NULL, 10)
+  `).run();
+
+  assert.equal(retireRoomRopesForPackMigration(database, 20), 1);
+  assert.deepEqual(
+    database.prepare(`
+      SELECT status, lease_until_ms, last_error, updated_at_ms
+      FROM actor_jobs WHERE id = 1
+    `).get(),
+    {
+      status: "completed",
+      lease_until_ms: null,
+      last_error: "retired_for_pack_migration",
+      updated_at_ms: 20,
+    },
+  );
+  database.close();
+});
+
+test("pack migration still rejects other active actor jobs", () => {
+  for (const [kind, status] of [
+    ["player_tick_observation", "pending"],
+    ["room_rope", "running"],
+  ]) {
+    const database = actorJobDatabase();
+    database.prepare(`
+      INSERT INTO actor_jobs
+        (id, kind, status, lease_until_ms, last_error, updated_at_ms)
+      VALUES (1, ?, ?, NULL, NULL, 10)
+    `).run(kind, status);
+    assert.throws(
+      () => retireRoomRopesForPackMigration(database, 20),
+      /cannot migrate while 1 actor job\(s\) are pending or running/,
+    );
+    database.close();
+  }
+});
 
 test("soft unmount evacuates retained-pack items before a restorative remount", () => {
   const snapshot = {
