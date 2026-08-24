@@ -179,15 +179,15 @@ describe('deploy workflow', () => {
     expect(rustGate).toContain('bash v2/scripts/check-main-size.sh');
     expect(rustGate).toContain('bash v2/scripts/check-rust-lint.sh');
     expect(gate).toContain(
-      'needs: [deployment-impact, production-node-gate, production-rust-gate]'
+      'needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]'
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(job('primary-fly', 'lonelyforest-fly')).toContain(
-      'needs: [deployment-impact, production-gate]'
+      'needs: [deployment-impact, release-owner, production-gate]'
     );
     expect(job('lonelyforest-fly', 'github-release')).toContain(
-      'needs: [deployment-impact, production-gate]'
+      'needs: [deployment-impact, release-owner, production-gate]'
     );
     expect(
       workflow.indexOf('Guard primary worldpack bundle compatibility')
