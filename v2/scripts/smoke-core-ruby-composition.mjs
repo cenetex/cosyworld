@@ -171,6 +171,9 @@ async function startServer(tempDir, registryPath, snapshotPath) {
 async function waitForActorJobs(eventDbPath) {
   // A player-tick retry can include the resident heartbeat delay plus the
   // worker's idle poll. Leave enough room for all durable retry attempts.
+  // Pending room-rope jobs are timers, not in-flight work. The pack migration
+  // retires them after shutdown so disconnected players are never auto-passed
+  // when the migrated server starts again.
   const deadline = Date.now() + 30_000;
   let activeJobs = [];
   while (Date.now() < deadline) {
@@ -178,7 +181,8 @@ async function waitForActorJobs(eventDbPath) {
     activeJobs = database.prepare(`
       SELECT id, kind, actor_id, status, attempts, available_at_ms, lease_until_ms, last_error
       FROM actor_jobs
-      WHERE status IN ('pending', 'running')
+      WHERE status = 'running'
+         OR (status = 'pending' AND kind != 'room_rope')
       ORDER BY id
     `).all();
     database.close();

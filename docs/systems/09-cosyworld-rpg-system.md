@@ -197,20 +197,27 @@ Bond directly; **Befriend** creates Bonds and joins the Cosy advancement
 domain. Advancement remains spendable on evolution, bond slots, Calling
 revision, and future growth choices.
 
-#### Seed relationships
+#### Planned backgrounds (not implemented)
 
-Cold start is a designed moment, not an accident. A player's first session
-must already contain someone who can speak to them:
+Background rolls are the proposed replacement for bespoke seed-relationship
+rules, but they are not current runtime behavior. The runtime does not yet
+roll starting items, relationships, or known locations from worldpack tables,
+and it does not yet journal a background receipt. Content and UI must not
+claim those facts until the runtime projects them.
 
-- **Rati is the canonical seeded chat partner** for new avatars in Core.
-- Worldpacks may author **seed relationships** — starting stages or active
-  Bonds between specific actors — applied deterministically at world creation
-  and recorded as journal events like every other meter fact.
-- Faction membership may later imply group-level seed stages; until a faction
-  contract exists, seeds are pairwise and authored.
+The intended contract covers all three collectible nouns:
 
-Seeds never bypass session ownership or moderation blocks; they only pre-fill
-the same meter every other interaction writes.
+- **Items** the avatar already carries or owns;
+- **Avatars** the avatar already knows, with a starting relationship stage;
+- **Locations** the avatar already knows, such as a home Anchor or Lead.
+
+Before this contract can become live, implementation must provide deterministic
+selection from an avatar creation seed, bounded worldpack tables and weights,
+journaled replay-safe receipts, and tests that prove every projected fact comes
+from the committed roll. Session ownership, access rules, and moderation blocks
+remain hard gates. Whether Core guarantees Rati, a home Anchor, or another
+cold-start pair is still a product decision; this document does not create that
+guarantee.
 
 #### Daily budget
 
