@@ -12098,7 +12098,6 @@
       "relationship.advanced",
       "ability_check.rolled",
       "study.resolved",
-      "notice.actor_observed",
       "feature.searched",
       "location.searched",
       "exit.discovered",
@@ -12122,8 +12121,6 @@
       "bond.created",
       "bond.revised",
       "bond.resolved",
-      "tag.applied",
-      "tag.cleared",
       "combat.attack.attempt",
       "combat.attack.hit",
       "combat.attack.miss",
@@ -19160,7 +19157,7 @@
       const type = String(event?.type || "");
       if (type === "story.receipt") return 120;
       if (["actor.moved", "journey.completed", "job.contribution.resolved"].includes(type)) return 115;
-      if (["exit.discovered", "avatar.discovered", "item.found", "item.picked_up", "item.used", "item.given", "item.traded"].includes(type)) return 110;
+      if (["notice.actor_observed", "exit.discovered", "avatar.discovered", "item.found", "item.picked_up", "item.used", "item.given", "item.traded"].includes(type)) return 110;
       if (["tag.applied", "tag.cleared", "skill.stepped", "bond.created", "bond.revised", "bond.resolved"].includes(type)) return 105;
       if (["ability_check.rolled", "feature.searched", "location.searched", "study.resolved"].includes(type)) return 100;
       if (type.startsWith("combat.") || type === "magic.spell_cast") return 95;

@@ -860,18 +860,40 @@ async function main() {
       const statusStyle = getComputedStyle(status);
       const labels = [...prompt.querySelectorAll(".cmd-label-text")];
       const handRail = document.querySelector("#hand-rail");
-      const cards = [...handRail.querySelectorAll(".cmd")]
-        .filter((button) => getComputedStyle(button).display !== "none")
-        .map((button) => button.getBoundingClientRect());
+      const railStyle = getComputedStyle(handRail);
+      const railRect = handRail.getBoundingClientRect();
+      const cardNodes = [...handRail.querySelectorAll(".cmd")]
+        .filter((button) => getComputedStyle(button).display !== "none");
+      const cards = cardNodes.map((button) => button.getBoundingClientRect());
+      const initialRailScroll = handRail.scrollLeft;
+      const maximumRailScroll = Math.max(0, handRail.scrollWidth - handRail.clientWidth);
+      handRail.scrollLeft = 0;
+      const firstAtStart = cardNodes[0]?.getBoundingClientRect();
+      const startReachable = !firstAtStart || (
+        firstAtStart.left >= railRect.left - 1
+          && firstAtStart.right <= railRect.right + 1
+      );
+      handRail.scrollLeft = handRail.scrollWidth;
+      const lastAtEnd = cardNodes.at(-1)?.getBoundingClientRect();
+      const endRailScroll = handRail.scrollLeft;
+      const endReachable = !lastAtEnd || (
+        lastAtEnd.left >= railRect.left - 1
+          && lastAtEnd.right <= railRect.right + 1
+      );
+      handRail.scrollLeft = initialRailScroll;
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
         compactHandHeight: handRail.getBoundingClientRect().height,
-        railDisplay: getComputedStyle(handRail).display,
-        railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
-        cardsFit: cards.length <= 3
-          && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
-        cardsCompact: cards.every((rect) => rect.height <= 60),
+        railDisplay: railStyle.display,
+        railScrollable: cards.length <= 1 || (
+          ["auto", "scroll"].includes(railStyle.overflowX)
+            && maximumRailScroll > 0
+            && endRailScroll >= maximumRailScroll - 1
+            && startReachable
+            && endReachable
+        ),
+        cardsReadable: cards.every((rect) => rect.width >= 220 && rect.height <= 72),
         detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
           .every((node) => getComputedStyle(node).display === "none"),
         collapsed: !prompt.classList.contains("hand-expanded"),
@@ -891,10 +913,9 @@ async function main() {
         && layout.promptFits
         && layout.promptDisplay === "block"
         && layout.compactHandHeight <= 100
-        && layout.railDisplay === "grid"
-        && layout.railColumns === 3
-        && layout.cardsFit
-        && layout.cardsCompact
+        && layout.railDisplay === "flex"
+        && layout.railScrollable
+        && layout.cardsReadable
         && layout.detailsHidden
         && layout.collapsed
         && layout.modalHidden
@@ -9648,7 +9669,10 @@ async function main() {
     await page.setViewportSize({ width: 390, height: 844 });
     evidence.mobile = await page.evaluate(() => {
       const viewport = { width: window.innerWidth, height: window.innerHeight };
-      const buttons = ["primary", "secondary"].map((id) => {
+      const handRail = document.querySelector("#hand-rail");
+      const railBox = handRail.getBoundingClientRect();
+      const railStyle = getComputedStyle(handRail);
+      const buttonDetails = (id) => {
         const button = document.getElementById(id);
         const box = button?.getBoundingClientRect();
         return {
@@ -9661,10 +9685,29 @@ async function main() {
           width: box?.width || 0,
           height: box?.height || 0,
         };
-      });
+      };
+      const initialRailScroll = handRail.scrollLeft;
+      const maximumRailScroll = Math.max(0, handRail.scrollWidth - handRail.clientWidth);
+      handRail.scrollLeft = 0;
+      const firstAtStart = buttonDetails("primary");
+      handRail.scrollLeft = handRail.scrollWidth;
+      const lastAtEnd = buttonDetails("secondary");
+      const endRailScroll = handRail.scrollLeft;
+      handRail.scrollLeft = initialRailScroll;
       return {
         viewport,
-        buttons,
+        buttons: [buttonDetails("primary"), buttonDetails("secondary")],
+        rail: {
+          left: railBox.left,
+          right: railBox.right,
+          top: railBox.top,
+          bottom: railBox.bottom,
+          overflowX: railStyle.overflowX,
+          maximumScroll: maximumRailScroll,
+          endScroll: endRailScroll,
+        },
+        firstAtStart,
+        lastAtEnd,
         documentWidth: document.documentElement.scrollWidth,
         promptVisible: Boolean(document.querySelector(".prompt")?.getClientRects().length),
       };
@@ -9675,12 +9718,16 @@ async function main() {
         && evidence.mobile.buttons.every((button) =>
           button.width >= 44
             && button.height >= 44
-            && button.left >= 0
-            && button.right <= evidence.mobile.viewport.width
+            && button.aria.includes("of 2"))
+        && [evidence.mobile.firstAtStart, evidence.mobile.lastAtEnd].every((button) =>
+          button.left >= evidence.mobile.rail.left - 1
+            && button.right <= evidence.mobile.rail.right + 1
             && button.top >= 0
-            && button.bottom <= evidence.mobile.viewport.height
-            && button.aria.includes("of 2")),
-      `Lantern's two truthful suggestions must remain visible touch targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
+            && button.bottom <= evidence.mobile.viewport.height)
+        && ["auto", "scroll"].includes(evidence.mobile.rail.overflowX)
+        && evidence.mobile.rail.maximumScroll > 0
+        && evidence.mobile.rail.endScroll >= evidence.mobile.rail.maximumScroll - 1,
+      `Lantern's two truthful suggestions must remain reachable swipe targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
     );
     await page.setViewportSize({ width: 1100, height: 900 });
     evidence.frontOutcomes = await page.evaluate(() => {
@@ -12286,14 +12333,17 @@ async function main() {
           node.classList.contains("line")
             && !node.classList.contains("chat")
         )).length,
+        outcomeText: document.querySelector(".action-outcome-scene")?.textContent
+          ?.trim().replace(/\s+/g, " ") || "",
         cardPlayed: newEvents.some((event) => event.type === "story.card.played"),
       };
     }, noticeBefore);
     assert(
       scene.eventRows === noticeBefore.previousEventRowCount
         && scene.nonChatRows === noticeBefore.previousNonChatRowCount
+        && /notices one clear, visible detail about Rati/i.test(scene.outcomeText)
         && scene.cardPlayed,
-      `Notice outcomes and card-play receipts should add no rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
+      `Notice should use the action outcome without adding rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
     );
     assert(
       scene.observed === true
