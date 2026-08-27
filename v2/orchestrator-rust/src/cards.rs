@@ -174,8 +174,15 @@ impl RuntimeWorld {
                 } else if item.location_id != 0 {
                     CW_CARD_ZONE_WORLD
                 } else {
-                    0
+                    CW_CARD_ZONE_HIDDEN
                 };
+            } else if item.zone == CW_CARD_ZONE_WORLD
+                && item.holder_actor_id == 0
+                && item.location_id == 0
+            {
+                // Version 15 and older used an impossible World placement as
+                // the hidden-item sentinel. Normalize it once on load.
+                item.zone = CW_CARD_ZONE_HIDDEN;
             }
             if item.zone != CW_CARD_ZONE_CONTAINED {
                 item.container_item_id = 0;
@@ -1342,6 +1349,7 @@ impl RuntimeWorld {
         items
     }
 
+    #[cfg(test)]
     pub(super) fn room_floor_empty(&self, location_id: u64) -> bool {
         self.loose_items_at_location(location_id).is_empty()
     }
@@ -1357,6 +1365,7 @@ pub(super) fn card_zone(zone: u8, holder_actor_id: u64, location_id: u64) -> &'s
         CW_CARD_ZONE_CONTAINED => "contained",
         CW_CARD_ZONE_ESCROW => "escrow",
         CW_CARD_ZONE_INSTALLED => "installed",
+        CW_CARD_ZONE_HIDDEN => "hidden",
         _ if holder_actor_id != 0 => "carried",
         _ if location_id != 0 => "world",
         _ => "collection",

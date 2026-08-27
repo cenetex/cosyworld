@@ -1,5 +1,52 @@
 use super::*;
 
+impl RuntimeWorld {
+    pub(super) fn item_policy_is_configured(item: CwItem) -> bool {
+        item.policy_flags & CW_ITEM_POLICY_CONFIGURED != 0
+    }
+
+    pub(super) fn item_is_transferable(item: CwItem) -> bool {
+        !Self::item_policy_is_configured(item)
+            || item.policy_flags & CW_ITEM_POLICY_TRANSFERABLE != 0
+    }
+
+    pub(super) fn item_is_theft_eligible(item: CwItem) -> bool {
+        Self::item_is_directly_held(item)
+            && matches!(
+                item.zone,
+                CW_CARD_ZONE_CARRIED
+                    | CW_CARD_ZONE_EQUIPPED
+                    | CW_CARD_ZONE_WORLD
+                    | CW_CARD_ZONE_HIDDEN
+            )
+            && (!Self::item_policy_is_configured(item)
+                || item.policy_flags & CW_ITEM_POLICY_THEFT_WHEN_CARRIED != 0)
+    }
+
+    pub(super) fn item_is_directly_held(item: CwItem) -> bool {
+        item.holder_actor_id != 0
+            && item.location_id == 0
+            && item.container_item_id == 0
+            && !matches!(
+                item.zone,
+                CW_CARD_ZONE_CONTAINED | CW_CARD_ZONE_ESCROW | CW_CARD_ZONE_INSTALLED
+            )
+    }
+
+    pub(super) fn item_has_contents(&self, item_id: u64) -> bool {
+        self.world.items[..self.world.item_count]
+            .iter()
+            .any(|item| item.container_item_id == item_id)
+    }
+
+    pub(super) fn item_can_leave_actor(&self, actor_id: u64, item: CwItem) -> bool {
+        item.holder_actor_id == actor_id
+            && Self::item_is_directly_held(item)
+            && Self::item_is_transferable(item)
+            && !self.item_has_contents(item.id)
+    }
+}
+
 pub(super) fn private_actor_event(
     type_name: &str,
     actor_id: u64,
@@ -214,7 +261,7 @@ impl RuntimeWorld {
                     && self.actor_control_mode(recipient.id).is_direct_input()
                     && self.actor_control_mode(holder.id).is_direct_input()
                     && recipient.location_id == holder.location_id
-                    && item.holder_actor_id == holder.id
+                    && self.item_can_leave_actor(holder.id, item)
                     && !self.actors_blocked(recipient.id, holder.id)
                     && self.economy_known_by(recipient.id, holder.id)
                     && self.actor_can_receive_item(recipient, item.id)

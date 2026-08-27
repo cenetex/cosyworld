@@ -92,6 +92,12 @@ function recipeOutputLocationId(recipe) {
     : null;
 }
 
+function recipeExactInputIds(recipe) {
+  return (recipe.inputs ?? [])
+    .map((input) => input.item_id)
+    .filter(Number.isInteger);
+}
+
 function active(row) {
   return row.status === undefined || row.status === "active";
 }
@@ -159,7 +165,7 @@ export function analyzeProofWorld(spec, content) {
   for (const recipe of content.recipes) {
     const involvedLocationIds = new Set(
       [
-        ...(recipe.input_item_ids ?? []).map(
+        ...recipeExactInputIds(recipe).map(
           (itemId) => itemById.get(itemId)?.location_id,
         ),
         recipeOutputLocationId(recipe),
@@ -283,14 +289,14 @@ export function analyzeProofWorld(spec, content) {
 
   const criticalInputIds = new Set();
   for (const recipe of content.recipes) {
-    const inputLocations = (recipe.input_item_ids ?? []).map(
+    const inputLocations = recipeExactInputIds(recipe).map(
       (itemId) => itemById.get(itemId)?.location_id,
     );
     if (
       sliceIds.has(recipeOutputLocationId(recipe)) ||
       inputLocations.some((locationId) => sliceIds.has(locationId))
     ) {
-      for (const itemId of recipe.input_item_ids ?? [])
+      for (const itemId of recipeExactInputIds(recipe))
         criticalInputIds.add(itemId);
     }
   }
@@ -325,7 +331,7 @@ export function analyzeProofWorld(spec, content) {
 
   const productionLoops = content.recipes
     .filter((recipe) => {
-      const inputIds = recipe.input_item_ids ?? [];
+      const inputIds = recipeExactInputIds(recipe);
       return (
         inputIds.length > 0 &&
         recipe.output == null &&
@@ -334,9 +340,9 @@ export function analyzeProofWorld(spec, content) {
             (input) => input.item_id === itemId && input.available,
           ),
         ) &&
-        recipe.balance?.target_kind === "location_floor" &&
-        sliceIds.has(recipe.balance.target_id) &&
-        reachable.has(recipe.balance.target_id)
+        recipe.outcome?.target_kind === "location_floor" &&
+        sliceIds.has(recipe.outcome.target_id) &&
+        reachable.has(recipe.outcome.target_id)
       );
     })
     .map((recipe) => recipe.id);

@@ -1341,9 +1341,7 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Discovery Tester",
         );
-        // The kernel allows one loose item per floor, and the seed cottage
-        // already has one. Clear it so the reveal is testing materialization
-        // rather than the capacity rule the effect seam already pins.
+        // Clear the seed floor so this test can name the exact revealed item.
         runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
         let hidden = runtime.world.items[..runtime.world.item_count]
             .iter_mut()
@@ -1351,7 +1349,7 @@ mod tests {
             .expect("seed item 2005");
         hidden.holder_actor_id = 0;
         hidden.location_id = 0;
-        hidden.zone = CW_CARD_ZONE_WORLD;
+        hidden.zone = CW_CARD_ZONE_HIDDEN;
         runtime.install_discovery_catalog_for_test(
             materializing_catalog(),
             "cosyworld.core",

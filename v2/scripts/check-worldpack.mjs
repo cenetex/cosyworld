@@ -1707,8 +1707,8 @@ for (const item of items) {
     || itemCapabilities.some((capability) => !allowedItemCapabilities.has(capability))) {
     fail(`item ${item.id} has invalid capabilities`);
   }
-  if (itemCapabilities.length && item.role !== "tool") {
-    fail(`item ${item.id} capabilities require the tool role`);
+  if (itemCapabilities.length && !["tool", "consumable"].includes(item.role)) {
+    fail(`item ${item.id} capabilities require the tool or consumable role`);
   }
   if (!allowedItemSizes.has(item.size)) {
     fail(`item ${item.id} has invalid size ${item.size}`);
@@ -1742,8 +1742,8 @@ for (const item of items) {
       || !Number.isInteger(mechanics.uses)
       || !isNonEmptyString(mechanics.exhaustion)
       || !isNonEmptyString(mechanics.recovery)
-      || mechanics.transfer_policy !== "transferable"
-      || !isNonEmptyString(mechanics.theft_policy)) {
+      || !["transferable", "bound"].includes(mechanics.transfer_policy)
+      || !["eligible_when_carried", "ineligible"].includes(mechanics.theft_policy)) {
       fail(`mechanical item ${item.id} lacks a validated playable-item descriptor`);
     }
     if (item.role === "spell" && !magicEffectIds.has(mechanics?.magic_effect)) {
@@ -2829,16 +2829,35 @@ for (const recipe of recipes) {
   }
   recipeIds.add(recipe.id);
   validateRequiredStrings("recipe", recipe, ["key", "name", "description"]);
-  if (recipe.schema_version === 2) {
+  if (recipe.schema_version !== 2) {
+    fail(`recipe ${recipe.id} schema_version must be 2`);
+    continue;
+  }
+  {
     for (const error of versionedRecipeValidationErrors(
       recipe,
       {
         templateIds: mountedLootTemplateIds,
         buildingArchetypes: mountedBuildingArchetypes,
+        itemIds,
+        actorIds,
+        locationIds,
       },
       `recipe ${recipe.id}`,
     )) {
       fail(error);
+    }
+    const exactRecipe = (recipe.inputs ?? []).some((input) => Number.isInteger(input?.item_id));
+    if (exactRecipe) {
+      if (isObject(recipe.output)) {
+        if (allItemIds.has(recipe.output.item_id)) {
+          fail(`recipe ${recipe.id} has duplicate fixed output item ${recipe.output.item_id}`);
+        } else {
+          allItemIds.add(recipe.output.item_id);
+          recipeOutputById.set(recipe.output.item_id, recipe.output);
+        }
+      }
+      continue;
     }
     const provisionedSupply = recipe.output?.effect === "provisioned_supply";
     if (!Array.isArray(recipe.inputs)
@@ -2874,7 +2893,7 @@ for (const recipe of recipes) {
           || input.zones.some((zone) => !["carried", "world"].includes(zone))) {
         fail(`recipe ${recipe.id} input ${input?.template_id} has ambiguous zones`);
       }
-      if (!["persistent", "consume", "exhaust", "transform"].includes(input?.disposition)) {
+      if (!["persistent", "exhaust", "transform"].includes(input?.disposition)) {
         fail(`recipe ${recipe.id} input ${input?.template_id} has undeclared consumption`);
       }
     }
@@ -2967,72 +2986,6 @@ for (const recipe of recipes) {
       fail(`recipe ${recipe.id} provisioned supply must be inputless and bound to one authored room feature`);
     }
     continue;
-  }
-  if (recipe.schema_version !== undefined && recipe.schema_version !== 1) {
-    fail(`recipe ${recipe.id} has unsupported schema_version ${recipe.schema_version}`);
-  }
-  if (!Array.isArray(recipe.input_item_ids) || recipe.input_item_ids.length !== 2 || recipe.input_item_ids[0] === recipe.input_item_ids[1]) {
-    fail(`recipe ${recipe.id} must declare exactly two distinct input_item_ids`);
-  }
-  for (const itemId of recipe.input_item_ids ?? []) {
-    if (!has(itemIds, itemId)) {
-      fail(`recipe ${recipe.id} references missing input item ${itemId}`);
-    }
-  }
-  if (!isObject(recipe.balance)) {
-    fail(`recipe ${recipe.id} is missing balance declaration`);
-  } else {
-    if (!["location", "avatar", "resident", "covenant", "evolution"].includes(recipe.balance.kind)) {
-      fail(`recipe ${recipe.id} has invalid balance kind ${recipe.balance.kind}`);
-    }
-    if (!isNonEmptyString(recipe.balance.reason)) {
-      fail(`recipe ${recipe.id} balance is missing reason`);
-    }
-    const targetKind = placementTargetKind(recipe.balance.target_kind);
-    if (!targetKind) {
-      fail(`recipe ${recipe.id} balance has invalid target kind ${recipe.balance.target_kind}`);
-    } else if (targetKind === "actor_hand" && !has(actorIds, recipe.balance.target_id)) {
-      fail(`recipe ${recipe.id} balance references missing actor ${recipe.balance.target_id}`);
-    } else if (targetKind === "location_floor" && !has(locationIds, recipe.balance.target_id)) {
-      fail(`recipe ${recipe.id} balance references missing location ${recipe.balance.target_id}`);
-    }
-  }
-  if (recipe.output !== undefined && recipe.output !== null) {
-    if (!isObject(recipe.output)) {
-      fail(`recipe ${recipe.id} output must be an object`);
-      continue;
-    }
-    validateRequiredStrings(`recipe ${recipe.id} output`, recipe.output, ["name", "description", "kind", "target_kind"]);
-    if (!Number.isInteger(recipe.output.item_id) || recipe.output.item_id <= 0 || has(itemIds, recipe.output.item_id) || allItemIds.has(recipe.output.item_id)) {
-      fail(`recipe ${recipe.id} has invalid or duplicate output item ${recipe.output.item_id}`);
-    } else {
-      allItemIds.add(recipe.output.item_id);
-      recipeOutputById.set(recipe.output.item_id, recipe.output);
-    }
-    if (!["potion", "evolution", "keepsake"].includes(recipe.output.kind)) {
-      fail(`recipe ${recipe.id} output has invalid item kind ${recipe.output.kind}`);
-    }
-    if (!Number.isInteger(recipe.output.charges) || recipe.output.charges <= 0) {
-      fail(`recipe ${recipe.id} output has invalid charges`);
-    }
-    const outputTargetKind = placementTargetKind(recipe.output.target_kind);
-    if (!outputTargetKind) {
-      fail(`recipe ${recipe.id} output has invalid target kind ${recipe.output.target_kind}`);
-    } else if (outputTargetKind === "actor_hand" && !has(actorIds, recipe.output.target_id)) {
-      fail(`recipe ${recipe.id} output references missing actor ${recipe.output.target_id}`);
-    } else if (outputTargetKind === "location_floor" && !has(locationIds, recipe.output.target_id)) {
-      fail(`recipe ${recipe.id} output references missing location ${recipe.output.target_id}`);
-    }
-    if (outputTargetKind === "location_floor" && has(locationIds, recipe.output.target_id)) {
-      validateProgressionLocationAccess(
-        `recipe ${recipe.id} output`,
-        recipe.output.target_id,
-        recipe.output.required_grant_id,
-      );
-    }
-    if (isObject(recipe.balance) && (recipe.output.target_kind !== recipe.balance.target_kind || recipe.output.target_id !== recipe.balance.target_id)) {
-      fail(`recipe ${recipe.id} output slot must match its balance declaration`);
-    }
   }
 }
 
@@ -3190,7 +3143,7 @@ function buildWorldpackReport() {
       .filter((track) => (track.requirements ?? []).some((requirement) => requirement.item_id === item.id))
       .map((track) => ({ actor_id: track.actor_id, actor_name: actors.find((actor) => actor.id === track.actor_id)?.name ?? null }));
     const recipeInputs = recipes
-      .filter((recipe) => (recipe.input_item_ids ?? []).includes(item.id))
+      .filter((recipe) => (recipe.inputs ?? []).some((input) => input.item_id === item.id))
       .map((recipe) => ({ recipe_id: recipe.id, recipe_name: recipe.name }));
     const demand = desires.length + attachments.length + evolutionRequirements.length + recipeInputs.length;
     return {
@@ -3353,11 +3306,20 @@ function buildWorldpackReport() {
       effects: effectSummaries(hook.effects),
     })),
     recipes: recipes.map((recipe) => ({
+      ...(() => {
+        const exactInputIds = (recipe.inputs ?? [])
+          .map((input) => input.item_id)
+          .filter(Number.isInteger);
+        return {
+          input_item_ids: exactInputIds,
+          input_item_names: exactInputIds.map(
+            (itemId) => itemById.get(itemId)?.name ?? null,
+          ),
+        };
+      })(),
       id: recipe.id,
       key: recipe.key,
-      schema_version: recipe.schema_version ?? 1,
-      input_item_ids: recipe.input_item_ids,
-      input_item_names: (recipe.input_item_ids ?? []).map((itemId) => itemById.get(itemId)?.name ?? null),
+      schema_version: recipe.schema_version,
       input_templates: (recipe.inputs ?? []).map((input) => ({
         template_id: input.template_id,
         zones: input.zones,
@@ -3368,7 +3330,7 @@ function buildWorldpackReport() {
       output_template_id: recipe.output?.template_id ?? null,
       output_destination: recipe.output?.destination ?? recipe.output?.target_kind ?? null,
       requirements: recipe.requires ?? null,
-      balance: recipe.balance ? `${recipe.balance.kind}:${recipe.balance.target_kind}:${recipe.balance.target_id}` : null,
+      outcome: recipe.outcome ? `${recipe.outcome.kind}:${recipe.outcome.target_kind}:${recipe.outcome.target_id}` : null,
     })),
     evolution_tracks: evolutionTracks.map((track) => ({
       actor_id: track.actor_id,
@@ -3450,7 +3412,7 @@ function printWorldpackReport(report) {
   if (report.recipes.length) {
     console.log("recipes:");
     for (const recipe of report.recipes) {
-      console.log(`- ${recipe.id} ${recipe.key}: ${recipe.input_item_names.join(" + ")} -> ${recipe.output_item_name ?? "event"} (${recipe.balance})`);
+      console.log(`- ${recipe.id} ${recipe.key}: ${recipe.input_item_names.join(" + ")} -> ${recipe.output_item_name ?? "event"} (${recipe.outcome})`);
     }
   }
 }

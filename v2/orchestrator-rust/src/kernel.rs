@@ -12,7 +12,7 @@ pub(crate) use rejections::*;
 // These mirror the compiled capacities in core-c/include/cosy_kernel.h. They
 // are part of the cw_world layout, so the two files must move together.
 pub const CW_MAX_ACTORS: usize = 2048;
-pub const CW_MAX_ITEMS: usize = 1024;
+pub const CW_MAX_ITEMS: usize = 2048;
 pub const CW_MAX_LOCATIONS: usize = 2048;
 pub const CW_MAX_EXITS: usize = 4096;
 pub const CW_MAX_EVENTS: usize = 256;
@@ -32,7 +32,8 @@ pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
 // Kernel version 9 is reserved by #411 for project-push ABI state.
 // Version 15 widens the actor array; sizeof(cw_world) changed.
-pub const CW_KERNEL_VERSION: u32 = 15;
+// Version 16 adds explicit hidden-item placement and item transfer policy.
+pub const CW_KERNEL_VERSION: u32 = 16;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_INVALID: u32 = 1;
@@ -129,6 +130,11 @@ pub const CW_CARD_ZONE_EXHAUSTED: u8 = 5;
 pub const CW_CARD_ZONE_CONTAINED: u8 = 6;
 pub const CW_CARD_ZONE_ESCROW: u8 = 7;
 pub const CW_CARD_ZONE_INSTALLED: u8 = 8;
+pub const CW_CARD_ZONE_HIDDEN: u8 = 9;
+
+pub const CW_ITEM_POLICY_TRANSFERABLE: u8 = 1 << 0;
+pub const CW_ITEM_POLICY_THEFT_WHEN_CARRIED: u8 = 1 << 1;
+pub const CW_ITEM_POLICY_CONFIGURED: u8 = 1 << 7;
 
 pub const CW_ITEM_RECOVERY_NONE: u8 = 0;
 pub const CW_ITEM_RECOVERY_REST: u8 = 1;
@@ -365,15 +371,14 @@ pub struct CwItem {
     pub recovery: u8,
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub recovery_zone: u8,
-    #[serde(default, skip_serializing_if = "is_zero_u8")]
-    pub reserved2: u8,
+    #[serde(default, alias = "reserved2", skip_serializing_if = "is_zero_u8")]
+    pub policy_flags: u8,
     pub location_id: u64,
     pub holder_actor_id: u64,
     #[serde(default)]
     pub container_item_id: u64,
     #[serde(default)]
     pub held_since_tick: u64,
-    pub recharge_at_tick: u64,
 }
 
 fn default_item_weight_tenths() -> u16 {
@@ -804,6 +809,7 @@ extern "C" {
         recovery: u8,
         ready_zone: u8,
     ) -> u32;
+    pub fn cw_world_set_item_policy(world: *mut CwWorld, item_id: u64, policy_flags: u8) -> u32;
     pub fn cw_world_set_item_zone(
         world: *mut CwWorld,
         item_id: u64,
@@ -920,7 +926,7 @@ mod tests {
 
     #[test]
     fn rest_adapter_never_accepts_client_entitlement_as_authority() {
-        assert_eq!(std::mem::size_of::<CwItem>(), 64);
+        assert_eq!(std::mem::size_of::<CwItem>(), 56);
         assert_eq!(std::mem::offset_of!(CwItem, max_charges), 18);
         assert_eq!(std::mem::offset_of!(CwItem, location_id), 24);
         let tampered = serde_json::json!({

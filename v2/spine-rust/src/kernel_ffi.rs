@@ -23,10 +23,10 @@ use serde::{Deserialize, Serialize};
 use crate::kernel::{KernelOutcome, KernelPort};
 use crate::types::{Action, ActionKind, KernelEvent, KernelStatus};
 
-pub const CW_KERNEL_VERSION: u32 = 15;
+pub const CW_KERNEL_VERSION: u32 = 16;
 
 pub const CW_MAX_ACTORS: usize = 2048;
-pub const CW_MAX_ITEMS: usize = 1024;
+pub const CW_MAX_ITEMS: usize = 2048;
 pub const CW_MAX_LOCATIONS: usize = 2048;
 pub const CW_MAX_EXITS: usize = 4096;
 pub const CW_MAX_EVENTS: usize = 256;
@@ -113,12 +113,12 @@ pub struct CwItem {
     pub max_charges: u8,
     pub recovery: u8,
     pub recovery_zone: u8,
-    pub reserved2: u8,
+    #[serde(default, alias = "reserved2")]
+    pub policy_flags: u8,
     pub location_id: u64,
     pub holder_actor_id: u64,
     pub container_item_id: u64,
     pub held_since_tick: u64,
-    pub recharge_at_tick: u64,
 }
 
 #[repr(C)]

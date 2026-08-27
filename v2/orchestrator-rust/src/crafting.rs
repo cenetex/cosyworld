@@ -5,6 +5,13 @@ pub(super) const HEARTH_TONIC_RECIPE_ID: u64 = 3105;
 const CRAFT_ITEM_ID_BASE: u64 = 11_000_000_000;
 const CRAFT_ITEM_ID_RANGE: u64 = 1_000_000_000;
 
+pub(super) fn recipe_uses_receipt(recipe: &SeedRecipeContent) -> bool {
+    recipe
+        .output
+        .as_ref()
+        .is_some_and(|output| !output.template_id.is_empty())
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct CraftInputState {
     pub(super) item_id: u64,
@@ -54,10 +61,9 @@ pub(super) struct VersionedCraftPlan {
     pub(super) receipt: CraftReceiptState,
 }
 
-fn craft_disposition(value: &str) -> Option<u8> {
+pub(super) fn craft_disposition(value: &str) -> Option<u8> {
     match value {
         "persistent" => Some(CW_CRAFT_INPUT_PERSISTS),
-        "consume" => Some(CW_CRAFT_INPUT_CONSUMED),
         "exhaust" => Some(CW_CRAFT_INPUT_EXHAUSTED),
         "transform" => Some(CW_CRAFT_INPUT_TRANSFORMED),
         _ => None,
@@ -109,6 +115,91 @@ fn natural_resource_id(kind: NaturalResourceKind) -> &'static str {
 }
 
 impl RuntimeWorld {
+    pub(super) fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
+        active_content()
+            .recipes
+            .iter()
+            .find(|recipe| recipe.id == recipe_id)
+    }
+
+    pub(super) fn craft_action_for_recipe(
+        &self,
+        actor_id: u64,
+        recipe_id: u64,
+    ) -> Option<CwAction> {
+        if recipe_uses_receipt(self.recipe_by_id(recipe_id)?) {
+            return self
+                .versioned_craft_plan(actor_id, recipe_id, None)
+                .map(|plan| plan.action);
+        }
+        let actor = self.actor_by_id(actor_id)?;
+        if actor.status != CW_ACTOR_ACTIVE {
+            return None;
+        }
+        let recipe = self.recipe_by_id(recipe_id)?;
+        let held_items = self.actor_held_items(actor_id);
+        let floor_items = self.loose_items_at_location(actor.location_id);
+        if !recipe.requires.location_ids.contains(&actor.location_id) {
+            return None;
+        }
+        let exact_inputs = recipe
+            .inputs
+            .iter()
+            .filter(|input| input.item_id != 0)
+            .collect::<Vec<_>>();
+        if exact_inputs.len() != 2 {
+            return None;
+        }
+        let held = held_items
+            .iter()
+            .copied()
+            .find(|item| exact_inputs.iter().any(|input| input.item_id == item.id))?;
+        let floor = floor_items.iter().copied().find(|item| {
+            item.id != held.id && exact_inputs.iter().any(|input| input.item_id == item.id)
+        })?;
+        if exact_inputs
+            .iter()
+            .any(|input| input.item_id != held.id && input.item_id != floor.id)
+        {
+            return None;
+        }
+        let held_input = exact_inputs.iter().find(|input| input.item_id == held.id)?;
+        let floor_input = exact_inputs
+            .iter()
+            .find(|input| input.item_id == floor.id)?;
+        let mut action = CwAction {
+            kind: CW_ACTION_CRAFT,
+            actor_id,
+            content_id: recipe.id,
+            item_id: held.id,
+            target_item_id: floor.id,
+            item_disposition: craft_disposition(&held_input.disposition)?,
+            target_item_disposition: craft_disposition(&floor_input.disposition)?,
+            ..CwAction::default()
+        };
+        if let Some(output) = recipe.output.as_ref() {
+            if self.item_by_id(output.item_id).is_some() {
+                return None;
+            }
+            action.output_item_id = output.item_id;
+            action.output_target_id = output.target_id;
+            action.output_target_kind = placement_target_kind_from_str(&output.target_kind)?;
+            action.output_item_kind = seed_item_kind_from_str(&output.kind)?;
+            action.output_item_charges = output.charges;
+            match action.output_target_kind {
+                CW_PLACEMENT_ACTOR_HAND => {
+                    let target = self.actor_by_id(output.target_id)?;
+                    if target.status != CW_ACTOR_ACTIVE {
+                        return None;
+                    }
+                }
+                CW_PLACEMENT_LOCATION_FLOOR => {}
+                _ => return None,
+            }
+        }
+        Some(action)
+    }
+
     pub(super) fn physical_item_template_id(&self, item_id: u64) -> Option<String> {
         self.physical_item_delivery_facts(item_id).template_id
     }
@@ -210,6 +301,11 @@ impl RuntimeWorld {
         }) {
             return None;
         }
+        if !recipe.requires.location_ids.is_empty()
+            && !recipe.requires.location_ids.contains(&location_id)
+        {
+            return None;
+        }
         if let Some(feature) = recipe.requires.natural_features.first() {
             return Some(format!("natural_feature:{feature}"));
         }
@@ -237,8 +333,12 @@ impl RuntimeWorld {
             for _ in 0..input.quantity {
                 let item = candidates.iter().copied().find(|item| {
                     if used.contains(&item.id)
-                        || self.physical_item_template_id(item.id).as_deref()
-                            != Some(input.template_id.as_str())
+                        || if input.item_id != 0 {
+                            item.id != input.item_id
+                        } else {
+                            self.physical_item_template_id(item.id).as_deref()
+                                != Some(input.template_id.as_str())
+                        }
                         || item.charges < input.min_charges
                     {
                         return false;
@@ -304,7 +404,7 @@ impl RuntimeWorld {
             return None;
         }
         let recipe = self.recipe_by_id(recipe_id)?;
-        if recipe.schema_version != 2 {
+        if !recipe_uses_receipt(recipe) {
             return None;
         }
         let capability_source =
@@ -352,6 +452,7 @@ impl RuntimeWorld {
             container_capacity_tenths: template.container_capacity_tenths,
             size_class: item_size_from_str(&template.size)?,
             role: output_role,
+            policy_flags: declared_item_policy_flags(template.mechanics.as_ref()),
             zone: CW_CARD_ZONE_CARRIED,
             holder_actor_id: actor_id,
             ..CwItem::default()
@@ -501,12 +602,14 @@ impl RuntimeWorld {
         let Some(size_class) = item_size_from_str(&template.size) else {
             return;
         };
+        let policy_flags = declared_item_policy_flags(template.mechanics.as_ref());
         item.kind = kind;
         item.charges = template.charges;
         item.weight_tenths = template.weight_tenths;
         item.container_capacity_tenths = template.container_capacity_tenths;
         item.size_class = size_class;
         item.role = role;
+        item.policy_flags = policy_flags;
         self.items.insert(
             receipt.output_item_id,
             ItemMeta {
@@ -855,12 +958,12 @@ mod tests {
         assert_ne!(first_tonic_id, second_tonic_id);
         assert!(runtime.item_by_id(first_tonic_id).is_some_and(|item| {
             item.holder_actor_id == FIRST_PLAYER_ID
-                && item.kind == CW_ITEM_POTION
+                && item.role == CW_ITEM_ROLE_CONSUMABLE
                 && item.charges == 1
         }));
         assert!(runtime.item_by_id(second_tonic_id).is_some_and(|item| {
             item.holder_actor_id == SECOND_PLAYER_ID
-                && item.kind == CW_ITEM_POTION
+                && item.role == CW_ITEM_ROLE_CONSUMABLE
                 && item.charges == 1
         }));
         assert!(runtime
@@ -900,7 +1003,7 @@ mod tests {
             .damage = 6;
         for item in runtime.world.items[..runtime.world.item_count]
             .iter_mut()
-            .filter(|item| item.kind == CW_ITEM_POTION)
+            .filter(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
         {
             item.charges = 0;
         }

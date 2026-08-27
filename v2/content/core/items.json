@@ -6,7 +6,7 @@
     "kind": "potion",
     "charges": 1,
     "location_id": 1,
-    "role": "tool",
+    "role": "consumable",
     "capabilities": ["camp_shelter"],
     "weight_tenths": 5,
     "size": "small",

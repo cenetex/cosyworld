@@ -1225,7 +1225,7 @@ impl RuntimeWorld {
             "use_item" => self
                 .actor_held_items(actor_id)
                 .into_iter()
-                .filter(|item| item.kind == CW_ITEM_POTION && item.charges > 0)
+                .filter(|item| item.role == CW_ITEM_ROLE_CONSUMABLE && item.charges > 0)
                 .min_by_key(|item| item.id)
                 .map(|item| {
                     let name = self
@@ -1661,17 +1661,23 @@ impl RuntimeWorld {
         let held_items = self.actor_held_items(actor_id);
         self.loose_items_at_location(actor.location_id)
             .into_iter()
+            .filter(|incoming| Self::item_is_transferable(*incoming))
             .filter(|incoming| {
                 self.actor_can_receive_item(actor, incoming.id)
                     || held_items.iter().any(|outgoing| {
-                        self.actor_can_exchange_items(actor_id, Some(*outgoing), *incoming)
+                        self.item_can_leave_actor(actor_id, *outgoing)
+                            && self.actor_can_exchange_items(actor_id, Some(*outgoing), *incoming)
                     })
             })
             .collect()
     }
 
     pub(super) fn drop_offer_items(&self, actor_id: u64) -> Vec<CwItem> {
-        let mut items = self.actor_held_items(actor_id);
+        let mut items = self
+            .actor_held_items(actor_id)
+            .into_iter()
+            .filter(|item| self.item_can_leave_actor(actor_id, *item))
+            .collect::<Vec<_>>();
         items.sort_by_key(|item| item.id);
         items
     }
@@ -2213,7 +2219,7 @@ impl RuntimeWorld {
                 }
             }),
             "craft" => self.default_craft_recipe(actor_id).map(|recipe| {
-                if recipe.schema_version == 2 {
+                if recipe_uses_receipt(recipe) {
                     recipe.description.clone()
                 } else {
                     let output = recipe

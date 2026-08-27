@@ -8,12 +8,31 @@ import {
 
 const context = {
   templateIds: new Set(["iron_nodule", "iron_bloom", "hearth_tonic"]),
+  itemIds: new Set([2001, 2002]),
+  actorIds: new Set([5000]),
+  locationIds: new Set([1]),
   buildingArchetypes: [
     {
       capabilities: ["transformation_recipes", "metalworking"],
       recipe_tags: ["smithy", "refinement"],
     },
   ],
+};
+
+const exact = {
+  schema_version: 2,
+  id: 3001,
+  inputs: [
+    {item_id: 2001, quantity: 1, zones: ["carried"], disposition: "persistent"},
+    {item_id: 2002, quantity: 1, zones: ["world"], disposition: "persistent"},
+  ],
+  requires: {location_ids: [1]},
+  outcome: {
+    kind: "location",
+    target_kind: "location_floor",
+    target_id: 1,
+    reason: "A fixed story outcome.",
+  },
 };
 
 const valid = {
@@ -46,6 +65,20 @@ test("accepts physical capability-bound transformations", () => {
   const pair = structuredClone(valid);
   pair.inputs[0].quantity = 2;
   assert.equal(assertVersionedRecipe(pair, context), pair);
+});
+
+test("accepts exact item recipes only in the unified schema", () => {
+  assert.equal(assertVersionedRecipe(exact, context), exact);
+  const legacy = {
+    ...exact,
+    schema_version: 1,
+    input_item_ids: [2001, 2002],
+    balance: exact.outcome,
+  };
+  assert.match(
+    versionedRecipeValidationErrors(legacy, context).join("\n"),
+    /schema_version must be 2/,
+  );
 });
 
 test("rejects orphan outputs, ambiguous zones, and undeclared consumption", () => {

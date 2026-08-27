@@ -805,6 +805,7 @@ impl RuntimeWorld {
             container_capacity_tenths: template.container_capacity_tenths,
             size_class: item_size_from_str(&template.size)?,
             role: loot_item_role(&template.role)?,
+            policy_flags: declared_item_policy_flags(template.mechanics.as_ref()),
             zone: if holder_actor_id == 0 {
                 CW_CARD_ZONE_WORLD
             } else {
