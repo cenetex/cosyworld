@@ -2402,19 +2402,50 @@ pub(super) fn pending_community_art_resumption_plans(
         .collect()
 }
 
+pub(super) fn pending_avatar_self_description_actor_ids(runtime: &RuntimeWorld) -> Vec<u64> {
+    runtime
+        .community_art_generations
+        .values()
+        .filter(|generation| {
+            generation.subject_kind == "actor"
+                && generation.funded_orbs >= generation.required_orbs
+                && runtime
+                    .actor_by_id(generation.subject_id)
+                    .is_some_and(|actor| actor.stats.level.max(1) == generation.level)
+                && runtime.avatar_requires_self_description(generation.subject_id, generation.level)
+        })
+        .map(|generation| generation.subject_id)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 /// Replaces the in-memory worker that disappears when a deployment interrupts
-/// a funded generation. The durable generation record remains authoritative;
-/// only eligible work with a still-visible contributor is resumed.
+/// a funded generation. Persona recovery belongs to the subject avatar and is
+/// independent of whether the original contributor remains active or nearby.
+/// Image generation still resumes only when an eligible contributor can see
+/// the subject.
 pub(super) fn resume_pending_community_art_generations(state: &AppState) {
     if state.avatar_art_config.as_ref().is_none() {
         return;
     }
     let state = state.clone();
     tokio::spawn(async move {
-        let resumptions = {
+        let (self_descriptions, resumptions) = {
             let runtime = state.inner.lock().await;
-            pending_community_art_resumption_plans(&runtime, &state.generated_asset_dir)
+            (
+                pending_avatar_self_description_actor_ids(&runtime),
+                pending_community_art_resumption_plans(&runtime, &state.generated_asset_dir),
+            )
         };
+        for actor_id in self_descriptions {
+            if let Err(error) = queue_avatar_self_description(&state, actor_id).await {
+                warn!(
+                    actor_id,
+                    "funded portrait could not recover its persona self-description: {error}"
+                );
+            }
+        }
         for (actor_id, plan) in resumptions {
             continue_community_art_generation(&state, actor_id, plan).await;
         }

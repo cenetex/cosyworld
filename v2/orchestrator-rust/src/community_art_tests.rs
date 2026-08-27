@@ -770,6 +770,50 @@ fn a_fully_funded_rejected_avatar_without_a_level_description_resumes_at_the_per
     let _ = std::fs::remove_dir_all(asset_root);
 }
 
+#[test]
+fn a_funded_avatar_recovers_its_description_without_the_old_contributor_nearby() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Portrait Subject",
+    );
+    create_test_human(
+        &mut runtime,
+        5001,
+        COSY_COTTAGE_LOCATION_ID,
+        "Departed Patron",
+    );
+    let plan = runtime
+        .community_art_plan(5001, "actor", 5000)
+        .expect("a nearby patron can fund the undescribed avatar");
+    fund_test_community_art(&mut runtime, 5001, &plan, "detached-persona-recovery", 9003);
+    let patron_index = runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .position(|actor| actor.id == 5001)
+        .expect("patron exists");
+    runtime.world.actors[patron_index].location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+    runtime.world.actors[patron_index].status = CW_ACTOR_KNOCKED_OUT;
+
+    assert_eq!(
+        pending_avatar_self_description_actor_ids(&runtime),
+        vec![5000],
+        "the subject owns persona recovery even after the patron leaves"
+    );
+    let asset_root = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-detached-persona-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    std::fs::create_dir_all(&asset_root).expect("create generated-asset root");
+    assert!(
+        pending_community_art_resumption_plans(&runtime, &asset_root).is_empty(),
+        "image-plan recovery still requires a visible contributor"
+    );
+    let _ = std::fs::remove_dir_all(asset_root);
+}
+
 #[tokio::test]
 async fn location_art_funding_fails_before_debit_without_policy_review() {
     let mut runtime = RuntimeWorld::seeded();
