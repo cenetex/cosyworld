@@ -18,6 +18,8 @@
  * is evaluated against the candidate registry exactly like a live identity.
  */
 import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -114,6 +116,37 @@ function registryForTenant(tenant, root) {
   }
 }
 
+export function fetchThroughSharedTransport(url, { signal, headers = {} } = {}) {
+  const target = new URL(url);
+  const transport = target.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const request = transport.request({
+      protocol: target.protocol,
+      hostname: target.hostname,
+      port: target.port || undefined,
+      ...(target.protocol === "https:" ? { servername: target.hostname } : {}),
+      method: "GET",
+      path: `${target.pathname}${target.search}`,
+      headers,
+      signal,
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        const status = response.statusCode ?? 0;
+        resolve({
+          ok: status >= 200 && status < 300,
+          status,
+          json: async () => JSON.parse(body),
+        });
+      });
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 async function fetchLiveWorldpackHashWithRetries({
   baseUrl,
   timeoutMs,
@@ -122,11 +155,17 @@ async function fetchLiveWorldpackHashWithRetries({
   retryDelayMs,
   tenant,
   log,
+  requestHost,
 }) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await fetchLiveWorldpackHash({ baseUrl, timeoutMs, fetchImpl });
+      return await fetchLiveWorldpackHash({
+        baseUrl,
+        timeoutMs,
+        fetchImpl,
+        requestHost,
+      });
     } catch (error) {
       lastError = error;
       if (attempt === attempts) break;
@@ -149,6 +188,8 @@ export async function verifyLonelyForestTenants({
   log = console.log,
   liveFetchAttempts = DEFAULT_LIVE_FETCH_ATTEMPTS,
   liveFetchRetryDelayMs = DEFAULT_LIVE_FETCH_RETRY_DELAY_MS,
+  transportBaseUrl,
+  transportFetchImpl = fetchThroughSharedTransport,
 }) {
   const results = [];
   const usedRecoveryCaptures = new Set();
@@ -164,18 +205,20 @@ export async function verifyLonelyForestTenants({
       fail(`tenant=${tenant.slug} required candidate registry is missing: ${registryPath}`);
     }
     const candidate = registryForTenant(tenant, root);
-    const baseUrl = `https://${tenant.hosts[0]}`;
+    const baseUrl = transportBaseUrl ?? `https://${tenant.hosts[0]}`;
+    const requestHost = transportBaseUrl ? tenant.hosts[0] : undefined;
     let liveHash;
     let identitySource = "live /meta";
     try {
       liveHash = await fetchLiveWorldpackHashWithRetries({
         baseUrl,
         timeoutMs,
-        fetchImpl,
+        fetchImpl: transportBaseUrl ? transportFetchImpl : fetchImpl,
         attempts: liveFetchAttempts,
         retryDelayMs: liveFetchRetryDelayMs,
         tenant,
         log,
+        requestHost,
       });
     } catch (error) {
       if (freshEmptyTenants.has(tenant.slug)) {
@@ -240,6 +283,21 @@ async function main(args) {
     fail("--timeout-ms must be an integer from 1000 through 120000");
   }
   const captures = recoveryCapturesFromArgs(args);
+  const transportBaseUrlOption = option(args, "--transport-base-url");
+  let transportBaseUrl;
+  if (transportBaseUrlOption !== undefined) {
+    let parsed;
+    try {
+      parsed = new URL(transportBaseUrlOption);
+    } catch {
+      fail("--transport-base-url must be a valid HTTPS URL");
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password
+      || parsed.search || parsed.hash || !["", "/"].includes(parsed.pathname)) {
+      fail("--transport-base-url must be an HTTPS origin without credentials, path, query, or fragment");
+    }
+    transportBaseUrl = parsed.origin;
+  }
   const freshEmptyTenants = new Set();
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] !== "--fresh-empty-tenant") continue;
@@ -251,7 +309,12 @@ async function main(args) {
     freshEmptyTenants.add(slug);
   }
   requireTrackedRecoveryCaptures(captures);
-  return verifyLonelyForestTenants({ timeoutMs, recoveryCaptures: captures, freshEmptyTenants });
+  return verifyLonelyForestTenants({
+    timeoutMs,
+    recoveryCaptures: captures,
+    freshEmptyTenants,
+    transportBaseUrl,
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath)) {
@@ -262,7 +325,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath
         ? "Lonely Forest worldpack deploy gate failed"
         : "Lonely Forest worldpack deploy gate crashed";
       console.error(`::error::${prefix}: ${error.message}`);
-      console.error("usage: check-lonelyforest-worldpacks.mjs [--timeout-ms N] [--recovery-capture tenant=path/to/captured-meta.json] [--fresh-empty-tenant slug]");
+      console.error("usage: check-lonelyforest-worldpacks.mjs [--timeout-ms N] [--transport-base-url https://app.fly.dev] [--recovery-capture tenant=path/to/captured-meta.json] [--fresh-empty-tenant slug]");
       process.exit(1);
     });
 }

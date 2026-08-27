@@ -2262,6 +2262,7 @@ fn failed_evolution_retries_charge_no_extra_orbs_and_keep_prior_art_public() {
         &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
     assert_eq!(generation.evolution_job.as_ref(), Some(&frozen));
     assert_eq!(generation.funded_orbs, 2);
+    assert_eq!(generation.status, "failed");
     let card = &runtime
         .state_response(Some(5000), &AccessContext::default())
         .cards
@@ -2270,10 +2271,27 @@ fn failed_evolution_retries_charge_no_extra_orbs_and_keep_prior_art_public() {
         card.image_url.as_deref(),
         Some("/assets/generated/community/actor/5000.image?level=1&revision=1")
     );
-    assert_eq!(
-        card.community_art.as_ref().map(|art| art.status.as_str()),
-        Some("failed")
-    );
+    let public_art = serde_json::to_value(
+        card.community_art
+            .as_ref()
+            .expect("the public card keeps its Orb contract"),
+    )
+    .expect("serialize public Orb contract");
+    for internal in [
+        "status",
+        "history_through_seq",
+        "provider_attempts",
+        "max_provider_attempts",
+        "retryable_without_orbs",
+        "appearance",
+        "appearance_due",
+        "appearance_required",
+    ] {
+        assert!(
+            public_art.get(internal).is_none(),
+            "public cards must not expose internal portrait field {internal}"
+        );
+    }
 }
 
 #[test]

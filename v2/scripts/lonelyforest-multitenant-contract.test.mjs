@@ -116,6 +116,10 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.equal((fly.match(/\[\[http_service\.checks\]\]/g) ?? []).length, 1);
   assert.match(fly, /path = "\/health"/);
   assert.match(workflow, /node v2\/scripts\/check-lonelyforest-worldpacks\.mjs/);
+  assert.match(
+    workflow,
+    /check-lonelyforest-worldpacks\.mjs --transport-base-url https:\/\/cosyworld-lonelyforest\.fly\.dev/,
+  );
   assert.match(workflow, /check-lonelyforest-worldpacks\.mjs[\s\S]*?npm run v2:lonelyforest:contract[\s\S]*?flyctl deploy/);
   assert.match(supervisor, /health_url="http:\/\/127\.0\.0\.1:\$port\/health"/);
   assert.match(
@@ -307,6 +311,31 @@ test("Lonely Forest deploy gate proves every configured tenant before image repl
   });
   assert.deepEqual(requests, tenants.map((tenant) => `https://${tenant.hosts[0]}/meta`));
   assert.deepEqual(results.map((result) => result.tenant.slug), tenants.map((tenant) => tenant.slug));
+  assert.ok(results.every((result) => result.ok));
+});
+
+test("Lonely Forest deploy gate can keep tenant routing on one stable Fly transport", async () => {
+  const hashes = await candidateHashes();
+  const requests = [];
+  const transportBaseUrl = "https://cosyworld-lonelyforest.fly.dev";
+  const results = await verifyLonelyForestTenants({
+    transportBaseUrl,
+    transportFetchImpl: async (url, options) => {
+      requests.push({ url, host: options.headers.host });
+      return new Response(JSON.stringify({
+        worldpack: { bundle_hash: hashes.get(options.headers.host) },
+      }), { status: 200 });
+    },
+    fetchImpl: async () => {
+      throw new Error("public tenant DNS must not be used");
+    },
+    log: () => {},
+  });
+
+  assert.deepEqual(requests, tenants.map((tenant) => ({
+    url: `${transportBaseUrl}/meta`,
+    host: tenant.hosts[0],
+  })));
   assert.ok(results.every((result) => result.ok));
 });
 

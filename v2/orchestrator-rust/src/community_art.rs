@@ -619,22 +619,6 @@ impl RuntimeWorld {
         });
         let required_orbs = i32::from(level.max(1));
         let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
-        let status =
-            generation.map_or_else(|| "available".to_string(), |state| state.status.clone());
-        let provider_attempts = generation
-            .map(|state| state.provider_attempts)
-            .unwrap_or_default();
-        let generation_profile_version = community_art_generation_profile_version(subject_kind);
-        let retryable_without_orbs = generation.is_some_and(|state| {
-            community_art_generation_retryable_for_profile(state, false, generation_profile_version)
-        });
-        let self_description_required =
-            subject_kind == "actor" && self.avatar_requires_self_description(subject_id, level);
-        let appearance_due =
-            subject_kind == "actor" && self.avatar_can_redescribe_appearance(subject_id, level);
-        let appearance = (subject_kind == "actor" && !self_description_required)
-            .then(|| self.avatar_portrait_appearance(subject_id, level))
-            .flatten();
         if let Some(published) = published_generation {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
@@ -659,17 +643,6 @@ impl RuntimeWorld {
                         .is_some_and(|amount| *amount > 0)
                 })
             }),
-            status,
-            history_through_seq: generation
-                .map(|state| state.history_through_seq)
-                .unwrap_or_else(|| self.world.next_event_seq.saturating_sub(1)),
-            provider_attempts,
-            max_provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
-            retryable_without_orbs,
-            appearance_required: subject_kind == "actor"
-                && (self_description_required || appearance.is_none()),
-            appearance,
-            appearance_due,
         });
         card
     }

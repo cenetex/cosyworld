@@ -860,18 +860,40 @@ async function main() {
       const statusStyle = getComputedStyle(status);
       const labels = [...prompt.querySelectorAll(".cmd-label-text")];
       const handRail = document.querySelector("#hand-rail");
-      const cards = [...handRail.querySelectorAll(".cmd")]
-        .filter((button) => getComputedStyle(button).display !== "none")
-        .map((button) => button.getBoundingClientRect());
+      const railStyle = getComputedStyle(handRail);
+      const railRect = handRail.getBoundingClientRect();
+      const cardNodes = [...handRail.querySelectorAll(".cmd")]
+        .filter((button) => getComputedStyle(button).display !== "none");
+      const cards = cardNodes.map((button) => button.getBoundingClientRect());
+      const initialRailScroll = handRail.scrollLeft;
+      const maximumRailScroll = Math.max(0, handRail.scrollWidth - handRail.clientWidth);
+      handRail.scrollLeft = 0;
+      const firstAtStart = cardNodes[0]?.getBoundingClientRect();
+      const startReachable = !firstAtStart || (
+        firstAtStart.left >= railRect.left - 1
+          && firstAtStart.right <= railRect.right + 1
+      );
+      handRail.scrollLeft = handRail.scrollWidth;
+      const lastAtEnd = cardNodes.at(-1)?.getBoundingClientRect();
+      const endRailScroll = handRail.scrollLeft;
+      const endReachable = !lastAtEnd || (
+        lastAtEnd.left >= railRect.left - 1
+          && lastAtEnd.right <= railRect.right + 1
+      );
+      handRail.scrollLeft = initialRailScroll;
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
         compactHandHeight: handRail.getBoundingClientRect().height,
-        railDisplay: getComputedStyle(handRail).display,
-        railColumns: getComputedStyle(handRail).gridTemplateColumns.split(" ").filter(Boolean).length,
-        cardsFit: cards.length <= 3
-          && cards.every((rect) => rect.left >= 0 && rect.right <= window.innerWidth),
-        cardsCompact: cards.every((rect) => rect.height <= 60),
+        railDisplay: railStyle.display,
+        railScrollable: cards.length <= 1 || (
+          ["auto", "scroll"].includes(railStyle.overflowX)
+            && maximumRailScroll > 0
+            && endRailScroll >= maximumRailScroll - 1
+            && startReachable
+            && endReachable
+        ),
+        cardsReadable: cards.every((rect) => rect.width >= 220 && rect.height <= 72),
         detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
           .every((node) => getComputedStyle(node).display === "none"),
         collapsed: !prompt.classList.contains("hand-expanded"),
@@ -891,10 +913,9 @@ async function main() {
         && layout.promptFits
         && layout.promptDisplay === "block"
         && layout.compactHandHeight <= 100
-        && layout.railDisplay === "grid"
-        && layout.railColumns === 3
-        && layout.cardsFit
-        && layout.cardsCompact
+        && layout.railDisplay === "flex"
+        && layout.railScrollable
+        && layout.cardsReadable
         && layout.detailsHidden
         && layout.collapsed
         && layout.modalHidden
@@ -7398,7 +7419,6 @@ async function main() {
           required_orbs: 1,
           funded_orbs: 0,
           remaining_orbs: 1,
-          status: "available",
         },
       };
       try {
@@ -7432,8 +7452,8 @@ async function main() {
         && pathwayContract.label === "add one Orb"
         && pathwayContract.disabled === false
         && pathwayContract.live === "polite"
-        && pathwayContract.copy.includes("Orb slot 0/1")
-        && pathwayContract.copy.includes("1 Orb fills this slot"),
+        && pathwayContract.copy.includes("0/1 Orbs")
+        && pathwayContract.copy.includes("1 Orb to unlock"),
       `a revealed generated pathway item should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
 
@@ -7490,7 +7510,6 @@ async function main() {
             funded_orbs: 0,
             remaining_orbs: 2,
             viewer_contributed: false,
-            status: "available",
           }, 0),
           contributedPending: renderPanel({
             level: 2,
@@ -7498,7 +7517,6 @@ async function main() {
             funded_orbs: 1,
             remaining_orbs: 1,
             viewer_contributed: true,
-            status: "funding",
           }, 4),
           generating: renderPanel({
             level: 2,
@@ -7506,7 +7524,6 @@ async function main() {
             funded_orbs: 2,
             remaining_orbs: 0,
             viewer_contributed: true,
-            status: "generating",
           }, 4),
           ready: renderPanel({
             level: 2,
@@ -7514,7 +7531,6 @@ async function main() {
             funded_orbs: 2,
             remaining_orbs: 0,
             viewer_contributed: true,
-            status: "ready",
           }, 4),
           failed: renderPanel({
             level: 2,
@@ -7522,10 +7538,6 @@ async function main() {
             funded_orbs: 2,
             remaining_orbs: 0,
             viewer_contributed: true,
-            status: "failed",
-            provider_attempts: 3,
-            max_provider_attempts: 3,
-            retryable_without_orbs: false,
           }, 4),
         };
       } finally {
@@ -7534,34 +7546,36 @@ async function main() {
     });
     assert(
       communityArtStates.noEarnedOrbs.button === ""
-        && communityArtStates.noEarnedOrbs.copy.includes("Orb slot 0/2")
-        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs fill this slot"),
+        && communityArtStates.noEarnedOrbs.copy.includes("0/2 Orbs")
+        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs to unlock"),
       `players without an earned Orb should see the slot without a contribution CTA: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
       communityArtStates.contributedPending.button === "add one Orb"
-        && communityArtStates.contributedPending.copy.includes("Orb slot 1/2")
-        && communityArtStates.contributedPending.copy.includes("1 more Orb fills this slot"),
+        && communityArtStates.contributedPending.copy.includes("1/2 Orbs")
+        && communityArtStates.contributedPending.copy.includes("1 more Orb to unlock"),
       `a player who already contributed should be able to finish filling the slot: ${JSON.stringify(communityArtStates)}`,
     );
-    // The player fills a slot; generation, review, retries and their failures
-    // are the server's problem. A funded slot reads the same whether the job
-    // is mid-flight or has failed behind the scenes, and offers no button,
-    // because there is nothing for the player to do either way.
+    // Once funded, the panel disappears. The user cannot act on any later
+    // portrait step, so none of those steps should be visible.
     assert(
       communityArtStates.generating.button === ""
-        && communityArtStates.generating.copy.includes("Orb slot 2/2 · filled"),
-      `a funded slot should read as filled while the server works: ${JSON.stringify(communityArtStates)}`,
+        && communityArtStates.generating.copy === "",
+      `a funded portrait should expose no server work: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
       communityArtStates.failed.button === ""
-        && communityArtStates.failed.copy.includes("Orb slot 2/2 · filled")
+        && communityArtStates.failed.copy === ""
         && !/provider|credit|workshop|review|attempt|retry|error|unavailable|withheld/i
           .test(JSON.stringify(communityArtStates)),
       `a failure behind a filled slot must not surface job machinery to the player: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
-      Object.values(communityArtStates).every((entry) => entry.formatted),
+      communityArtStates.noEarnedOrbs.formatted
+        && communityArtStates.contributedPending.formatted
+        && !communityArtStates.generating.formatted
+        && !communityArtStates.ready.formatted
+        && !communityArtStates.failed.formatted,
       `community portrait labels and values should remain separated in text alternatives: ${JSON.stringify(communityArtStates)}`,
     );
 
@@ -7587,7 +7601,6 @@ async function main() {
         funded_orbs: 0,
         remaining_orbs: 1,
         viewer_contributed: false,
-        status: "available",
       };
       const mount = (communityArt = emptySlot) => {
         const card = { ...baseCard, community_art: { ...communityArt } };
@@ -7651,7 +7664,6 @@ async function main() {
               funded_orbs: 1,
               remaining_orbs: 0,
               viewer_contributed: true,
-              status: "generating",
             },
           };
           state = {
@@ -7729,14 +7741,14 @@ async function main() {
         && communityArtRetryLifecycle.starting.hidden === false
         && communityArtRetryLifecycle.starting.buttons === 0
         && communityArtRetryLifecycle.starting.formatted
-        && communityArtRetryLifecycle.starting.copy.toLowerCase().includes("filling"),
+        && communityArtRetryLifecycle.starting.copy.includes("0/1 Orbs"),
       `a rapid repeated click should coalesce into one fill: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
     assert(
       communityArtRetryLifecycle.generating.hidden === false
         && communityArtRetryLifecycle.generating.buttons === 0
         && communityArtRetryLifecycle.generating.formatted
-        && communityArtRetryLifecycle.generating.copy.includes("filled"),
+        && communityArtRetryLifecycle.generating.copy === "",
       `authoritative state should replace the filling latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
     // A dropped request leaves the Orb unspent, so the only truthful report is
@@ -7749,7 +7761,7 @@ async function main() {
       assert(
         failure.hidden === false
           && failure.buttons === 1
-          && failure.copy.includes("Orb slot 0/1")
+          && failure.copy.includes("0/1 Orbs")
           && !/could not be reached|error|unavailable|try again/i.test(failure.copy),
         `${failureKind} should leave a quiet fillable slot: ${JSON.stringify(communityArtRetryLifecycle)}`,
       );
@@ -7777,7 +7789,6 @@ async function main() {
           funded_orbs: 1,
           remaining_orbs: 1,
           viewer_contributed: true,
-          status: "funding",
         },
       };
       window.__cosySmokeStateBeforeBrokenArt = state;
@@ -7809,10 +7820,10 @@ async function main() {
     assert(
       brokenArtFallback.src.startsWith("data:image/svg+xml")
         && brokenArtFallback.missing === "true"
-        && brokenArtFallback.placeholder === "community image pending"
-        && brokenArtFallback.overlay.includes("community image pending")
-        && brokenArtFallback.panel.includes("Orb slot 1/2")
-        && brokenArtFallback.panel.includes("1 more Orb fills this slot"),
+        && brokenArtFallback.placeholder === "portrait not unlocked"
+        && brokenArtFallback.overlay.includes("portrait not unlocked")
+        && brokenArtFallback.panel.includes("1/2 Orbs")
+        && brokenArtFallback.panel.includes("1 more Orb to unlock"),
       `an unresolvable generated-art URL should render the authored, state-aware placeholder: ${JSON.stringify(brokenArtFallback)}`,
     );
     await page.evaluate(() => {
@@ -9648,7 +9659,10 @@ async function main() {
     await page.setViewportSize({ width: 390, height: 844 });
     evidence.mobile = await page.evaluate(() => {
       const viewport = { width: window.innerWidth, height: window.innerHeight };
-      const buttons = ["primary", "secondary"].map((id) => {
+      const handRail = document.querySelector("#hand-rail");
+      const railBox = handRail.getBoundingClientRect();
+      const railStyle = getComputedStyle(handRail);
+      const buttonDetails = (id) => {
         const button = document.getElementById(id);
         const box = button?.getBoundingClientRect();
         return {
@@ -9661,10 +9675,29 @@ async function main() {
           width: box?.width || 0,
           height: box?.height || 0,
         };
-      });
+      };
+      const initialRailScroll = handRail.scrollLeft;
+      const maximumRailScroll = Math.max(0, handRail.scrollWidth - handRail.clientWidth);
+      handRail.scrollLeft = 0;
+      const firstAtStart = buttonDetails("primary");
+      handRail.scrollLeft = handRail.scrollWidth;
+      const lastAtEnd = buttonDetails("secondary");
+      const endRailScroll = handRail.scrollLeft;
+      handRail.scrollLeft = initialRailScroll;
       return {
         viewport,
-        buttons,
+        buttons: [buttonDetails("primary"), buttonDetails("secondary")],
+        rail: {
+          left: railBox.left,
+          right: railBox.right,
+          top: railBox.top,
+          bottom: railBox.bottom,
+          overflowX: railStyle.overflowX,
+          maximumScroll: maximumRailScroll,
+          endScroll: endRailScroll,
+        },
+        firstAtStart,
+        lastAtEnd,
         documentWidth: document.documentElement.scrollWidth,
         promptVisible: Boolean(document.querySelector(".prompt")?.getClientRects().length),
       };
@@ -9675,12 +9708,16 @@ async function main() {
         && evidence.mobile.buttons.every((button) =>
           button.width >= 44
             && button.height >= 44
-            && button.left >= 0
-            && button.right <= evidence.mobile.viewport.width
+            && button.aria.includes("of 2"))
+        && [evidence.mobile.firstAtStart, evidence.mobile.lastAtEnd].every((button) =>
+          button.left >= evidence.mobile.rail.left - 1
+            && button.right <= evidence.mobile.rail.right + 1
             && button.top >= 0
-            && button.bottom <= evidence.mobile.viewport.height
-            && button.aria.includes("of 2")),
-      `Lantern's two truthful suggestions must remain visible touch targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
+            && button.bottom <= evidence.mobile.viewport.height)
+        && ["auto", "scroll"].includes(evidence.mobile.rail.overflowX)
+        && evidence.mobile.rail.maximumScroll > 0
+        && evidence.mobile.rail.endScroll >= evidence.mobile.rail.maximumScroll - 1,
+      `Lantern's two truthful suggestions must remain reachable swipe targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
     );
     await page.setViewportSize({ width: 1100, height: 900 });
     evidence.frontOutcomes = await page.evaluate(() => {
@@ -12286,14 +12323,17 @@ async function main() {
           node.classList.contains("line")
             && !node.classList.contains("chat")
         )).length,
+        outcomeText: document.querySelector(".action-outcome-scene")?.textContent
+          ?.trim().replace(/\s+/g, " ") || "",
         cardPlayed: newEvents.some((event) => event.type === "story.card.played"),
       };
     }, noticeBefore);
     assert(
       scene.eventRows === noticeBefore.previousEventRowCount
         && scene.nonChatRows === noticeBefore.previousNonChatRowCount
+        && /notices one clear, visible detail about Rati/i.test(scene.outcomeText)
         && scene.cardPlayed,
-      `Notice outcomes and card-play receipts should add no rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
+      `Notice should use the action outcome without adding rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
     );
     assert(
       scene.observed === true

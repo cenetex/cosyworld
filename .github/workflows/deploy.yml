@@ -318,11 +318,11 @@ jobs:
                 exit 1
               fi
             fi
-            node v2/scripts/check-lonelyforest-worldpacks.mjs --fresh-empty-tenant hoppycat
+            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev --fresh-empty-tenant hoppycat
           elif [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
-            node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
+            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
           else
-            node v2/scripts/check-lonelyforest-worldpacks.mjs
+            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev
           fi
         env:
           COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE: ${{ inputs.lonelyforest_recovery_capture }}
