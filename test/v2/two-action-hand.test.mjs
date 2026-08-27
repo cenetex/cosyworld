@@ -69,6 +69,12 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
   });
 
+  it("shows each action result once without a second narration panel", () => {
+    expect(browser).not.toContain("actionOutcome");
+    expect(browser).not.toContain("action-outcome-scene");
+    expect(browser).not.toContain("This result is final");
+  });
+
   it("keeps free campaign Class selection playable outside room initiative", () => {
     expect(browser).toContain('kind: "choose-class",\n            concurrencyPolicy: "concurrent",');
     expect(browser).toContain("function storyHandActionWaitsForTurn(action)");

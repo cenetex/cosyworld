@@ -1281,15 +1281,14 @@
       border-radius: 999px;
       background: rgba(239, 201, 107, 0.46);
     }
-    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode):not(.outcome-mode) {
+    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
       display: none;
     }
     .log.account-mode,
     .log.library-mode,
     .log.chat-mode,
     .log.room-mode,
-    .log.arrival-mode,
-    .log.outcome-mode {
+    .log.arrival-mode {
       display: flex;
       max-height: none;
     }
@@ -1308,7 +1307,6 @@
       margin-bottom: auto;
     }
     .log.room-mode,
-    .log.outcome-mode,
     .log.arrival-mode {
       justify-content: center;
       align-items: center;
@@ -1382,27 +1380,6 @@
       color: var(--green);
       font-size: 11px;
       line-height: 1.35;
-    }
-    .action-outcome-scene {
-      min-height: 148px;
-      border-color: rgba(101, 230, 138, 0.3);
-      background:
-        linear-gradient(180deg, rgba(101, 230, 138, 0.07), rgba(239, 201, 107, 0.025)),
-        rgba(8, 14, 10, 0.52);
-    }
-    .action-outcome-scene::before {
-      content: "✓";
-      color: var(--green);
-    }
-    .log.chat-mode .action-outcome-scene {
-      width: min(720px, calc(100% - 12px));
-      min-height: 0;
-      margin: 10px auto 6px;
-      padding: 16px 20px;
-      gap: 7px;
-    }
-    .log.chat-mode .action-outcome-scene .room-scene-text {
-      font-size: clamp(15px, 1.7vw, 19px);
     }
     .line {
       display: grid;
@@ -7129,7 +7106,6 @@
     let actionSlow = false;
     let actionSlowTimer = null;
     let pendingAction = null;
-    let actionOutcome = null;
     let pendingChats = [];
     let pendingReflection = null;
     let journalNotifications = [];
@@ -11279,7 +11255,6 @@
 
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
-      actionOutcome = null;
       pendingChats = [];
       pendingReflection = null;
       journalNotifications = [];
@@ -14870,7 +14845,6 @@
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const observerScene = knockedOutObserverHtml();
-      const outcomeScene = actionOutcomeHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
@@ -14883,9 +14857,8 @@
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
       log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasTranscript);
-      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !outcomeScene && !pendingArrival && !defeatScene && !observerScene);
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene);
       log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene || observerScene));
-      log.classList.toggle("outcome-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene && Boolean(outcomeScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
       log.classList.toggle("journey-mode", !libraryPanel && !accountPanel && Boolean(state?.journey));
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
@@ -14917,12 +14890,6 @@
         log.scrollTop = 0;
         return;
       }
-      if (outcomeScene && !hasTranscript) {
-        renderedChatTailKey = "";
-        log.innerHTML = outcomeScene;
-        log.scrollTop = 0;
-        return;
-      }
       if (!hasTranscript) {
         renderedChatTailKey = "";
         log.innerHTML = quietRoomSceneHtml();
@@ -14939,7 +14906,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${outcomeScene}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -15235,15 +15202,6 @@
         : "Begin a tale, then discover the room through play.";
       const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
       return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
-    }
-
-    function actionOutcomeHtml() {
-      if (!actionOutcome) return "";
-      const kicker = actionOutcome.kicker || "action complete";
-      const text = actionOutcome.text || "Your choice has taken effect.";
-      const cue = actionOutcome.cue || "Your next Story Hand is ready below.";
-      const aria = `${kicker}. ${text} ${cue}`;
-      return `<section class="room-scene action-outcome-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></section>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -19156,62 +19114,6 @@
       return actions[actionIndex] || null;
     }
 
-    function actionOutcomeEventPriority(event) {
-      const type = String(event?.type || "");
-      if (type === "story.receipt") return 120;
-      if (["actor.moved", "journey.completed", "job.contribution.resolved"].includes(type)) return 115;
-      if (["exit.discovered", "avatar.discovered", "item.found", "item.picked_up", "item.used", "item.given", "item.traded"].includes(type)) return 110;
-      if (["tag.applied", "tag.cleared", "skill.stepped", "bond.created", "bond.revised", "bond.resolved"].includes(type)) return 105;
-      if (["ability_check.rolled", "feature.searched", "location.searched", "study.resolved"].includes(type)) return 100;
-      if (type.startsWith("combat.") || type === "magic.spell_cast") return 95;
-      if (["clock.updated", "clock.threshold", "job.updated", "ledger.banked", "calling.revised"].includes(type)) return 85;
-      return sceneCardEventTypes.has(type) ? 60 : 0;
-    }
-
-    function completedActionOutcome(action, result, seqFloor) {
-      if (result?.ok === false || ["orb-chat", "model-interaction"].includes(String(action?.kind || ""))) {
-        return null;
-      }
-      const combined = [
-        ...(Array.isArray(result?.events) ? result.events : []),
-        ...logEvents.filter((event) => Number(event?.seq || 0) > seqFloor),
-      ];
-      const unique = [];
-      const keys = new Set();
-      for (const event of combined) {
-        const key = Number(event?.seq || 0) > 0
-          ? `seq:${Number(event.seq)}`
-          : `${event?.type || "event"}:${event?.actor_id || ""}:${event?.content || ""}`;
-        if (keys.has(key)) continue;
-        keys.add(key);
-        unique.push(event);
-      }
-      const narrated = unique
-        .map((event) => ({
-          event,
-          priority: actionOutcomeEventPriority(event),
-          belongsToPlayer: Number(event?.actor_id || 0) === Number(actorId || 0),
-          text: cleanStatusText(sceneCardEventText(event)),
-        }))
-        .filter((entry) => entry.priority > 0 && entry.text)
-        .sort((left, right) => (
-          Number(right.belongsToPlayer) - Number(left.belongsToPlayer)
-          || right.priority - left.priority
-          || Number(right.event?.seq || 0) - Number(left.event?.seq || 0)
-        ));
-      const label = compactActionLabel(action) || "action";
-      const fallbackEffect = friendlyActionText(action?.effect || action?.detail || "");
-      const text = narrated[0]?.text
-        || (fallbackEffect
-          ? finishSentence(`${label} is complete: ${lowerInitial(fallbackEffect)}`)
-          : finishSentence(`${label} is complete`));
-      return {
-        kicker: `${label} complete`,
-        text,
-        cue: "This result is final. Your next Story Hand will appear as the room settles.",
-      };
-    }
-
     async function runAction(action) {
       if (actionBusy) return;
       if (action?.kind === "orb-chat" && pendingChats.length) {
@@ -19225,7 +19127,6 @@
         return;
       }
       holdStoryHandForAction(action);
-      actionOutcome = null;
       actionBusy = true;
       actionSlow = false;
       pendingAction = action;
@@ -19237,9 +19138,6 @@
       }, 3000);
       const pendingChat = beginPendingChat(action);
       const pendingInteraction = beginPendingModelInteraction(action);
-      const actionSeqFloor = logEvents.reduce((latest, event) => (
-        Math.max(latest, Number(event?.seq || 0))
-      ), 0);
       renderCommands();
       renderLog();
       try {
@@ -19247,8 +19145,6 @@
         if (result?.ok === false) {
           cancelPendingChat(pendingChat);
           cancelPendingModelInteraction(pendingInteraction);
-        } else {
-          actionOutcome = completedActionOutcome(action, result, actionSeqFloor);
         }
       } catch (error) {
         cancelPendingChat(pendingChat);
