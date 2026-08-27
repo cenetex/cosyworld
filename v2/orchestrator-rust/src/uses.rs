@@ -274,7 +274,7 @@ impl RuntimeWorld {
         let mut items = self
             .actor_held_items(actor_id)
             .into_iter()
-            .filter(|item| item.kind == CW_ITEM_POTION && item.charges > 0)
+            .filter(|item| item.role == CW_ITEM_ROLE_CONSUMABLE && item.charges > 0)
             .collect::<Vec<_>>();
         items.sort_by_key(|item| (item.held_since_tick, item.id));
         let mut targets = self.world.actors[..self.world.actor_count]

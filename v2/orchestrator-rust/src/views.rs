@@ -2118,6 +2118,12 @@ pub(super) struct ItemView {
     pub(super) weight_tenths: u16,
     pub(super) size: String,
     pub(super) container_capacity_tenths: u16,
+    pub(super) container_contents_weight_tenths: u32,
+    pub(super) container_remaining_capacity_tenths: u32,
+    pub(super) transferable: bool,
+    pub(super) theft_eligible: bool,
+    pub(super) available_actions: Vec<&'static str>,
+    pub(super) blocked_reason: Option<&'static str>,
     pub(super) skill_id: Option<String>,
     pub(super) skill_bonus: i8,
     pub(super) mechanics: Option<SeedPlayableItemMechanics>,
@@ -2134,7 +2140,7 @@ impl Serialize for ItemView {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ItemView", 15)?;
+        let mut out = serializer.serialize_struct("ItemView", 21)?;
         out.serialize_field("id", &self.id)?;
         out.serialize_field("name", &self.name)?;
         out.serialize_field("description", &self.description)?;
@@ -2143,6 +2149,18 @@ impl Serialize for ItemView {
         out.serialize_field("weight_tenths", &self.weight_tenths)?;
         out.serialize_field("size", &self.size)?;
         out.serialize_field("container_capacity_tenths", &self.container_capacity_tenths)?;
+        out.serialize_field(
+            "container_contents_weight_tenths",
+            &self.container_contents_weight_tenths,
+        )?;
+        out.serialize_field(
+            "container_remaining_capacity_tenths",
+            &self.container_remaining_capacity_tenths,
+        )?;
+        out.serialize_field("transferable", &self.transferable)?;
+        out.serialize_field("theft_eligible", &self.theft_eligible)?;
+        out.serialize_field("available_actions", &self.available_actions)?;
+        out.serialize_field("blocked_reason", &self.blocked_reason)?;
         out.serialize_field("skill_id", &self.skill_id)?;
         out.serialize_field("skill_bonus", &self.skill_bonus)?;
         out.serialize_field("zone", &self.zone)?;
@@ -3347,6 +3365,56 @@ impl RuntimeWorld {
 
     pub(super) fn item_view(&self, item: CwItem) -> ItemView {
         let meta = self.items.get(&item.id);
+        let contents_weight = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|candidate| candidate.container_item_id == item.id)
+            .map(effective_item_weight_tenths)
+            .map(u32::from)
+            .sum::<u32>();
+        let container_capacity = if item.role == CW_ITEM_ROLE_CONTAINER {
+            item.container_capacity_tenths
+        } else {
+            0
+        };
+        let transferable = Self::item_is_transferable(item);
+        let has_contents = contents_weight > 0;
+        let mut available_actions = Vec::new();
+        match item.zone {
+            CW_CARD_ZONE_WORLD if transferable => available_actions.push("pick_up"),
+            CW_CARD_ZONE_CONTAINED => available_actions.push("take_out"),
+            CW_CARD_ZONE_CARRIED | CW_CARD_ZONE_EQUIPPED if transferable && !has_contents => {
+                available_actions.extend(["drop", "give", "trade"]);
+            }
+            CW_CARD_ZONE_SPELL_DECK => available_actions.push("unprepare"),
+            _ => {}
+        }
+        if item.zone == CW_CARD_ZONE_EQUIPPED {
+            available_actions.push("unequip");
+        }
+        if item.holder_actor_id != 0
+            && matches!(item.zone, CW_CARD_ZONE_CARRIED | CW_CARD_ZONE_EQUIPPED)
+            && item.charges > 0
+            && meta.and_then(|meta| meta.mechanics.as_ref()).is_some()
+        {
+            available_actions.push("use");
+        }
+        if item.role == CW_ITEM_ROLE_CONTAINER
+            && matches!(item.zone, CW_CARD_ZONE_CARRIED | CW_CARD_ZONE_EQUIPPED)
+        {
+            available_actions.push("stow");
+        }
+        let blocked_reason = if !transferable {
+            Some("This item cannot be transferred.")
+        } else if has_contents {
+            Some("Empty this container before transferring it.")
+        } else {
+            match item.zone {
+                CW_CARD_ZONE_CONTAINED => Some("Take it out before using or transferring it."),
+                CW_CARD_ZONE_EXHAUSTED => Some("It must recover before use."),
+                _ => None,
+            }
+        };
         ItemView {
             id: item.id,
             canonical_ref: self
@@ -3366,11 +3434,14 @@ impl RuntimeWorld {
             role: item_role(item.role).to_string(),
             weight_tenths: effective_item_weight_tenths(item),
             size: item_size(item.size_class).to_string(),
-            container_capacity_tenths: if item.role == CW_ITEM_ROLE_CONTAINER {
-                item.container_capacity_tenths
-            } else {
-                0
-            },
+            container_capacity_tenths: container_capacity,
+            container_contents_weight_tenths: contents_weight,
+            container_remaining_capacity_tenths: u32::from(container_capacity)
+                .saturating_sub(contents_weight),
+            transferable,
+            theft_eligible: Self::item_is_theft_eligible(item),
+            available_actions,
+            blocked_reason,
             skill_id: meta.and_then(|meta| meta.skill_id.clone()),
             skill_bonus: meta.map(|meta| meta.skill_bonus).unwrap_or_default(),
             mechanics: meta.and_then(|meta| meta.mechanics.clone()),
@@ -3425,7 +3496,9 @@ impl RuntimeWorld {
                 "attached",
                 format!("{resident_name} has carried {item_name} long enough to become attached."),
             )
-        } else if item.kind == CW_ITEM_POTION && self.resident_healing_target(resident).is_some() {
+        } else if item.role == CW_ITEM_ROLE_CONSUMABLE
+            && self.resident_healing_target(resident).is_some()
+        {
             (
                 "medicine",
                 format!("{resident_name} keeps {item_name} as medicine for someone nearby."),

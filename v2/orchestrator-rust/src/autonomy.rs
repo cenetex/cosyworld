@@ -1356,7 +1356,7 @@ impl RuntimeWorld {
                 {
                     return None;
                 }
-                let (action, mutation) = if recipe.schema_version == 2 {
+                let (action, mutation) = if recipe_uses_receipt(recipe) {
                     let plan = self.versioned_craft_plan(actor.id, recipe_id, None)?;
                     (
                         plan.action,

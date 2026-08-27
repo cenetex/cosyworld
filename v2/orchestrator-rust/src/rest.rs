@@ -51,7 +51,7 @@ impl RuntimeWorld {
 
     fn actor_has_equipped_item_capability(&self, actor_id: u64, capability: &str) -> bool {
         self.actor_held_items(actor_id).into_iter().any(|item| {
-            item.role == CW_ITEM_ROLE_TOOL
+            matches!(item.role, CW_ITEM_ROLE_TOOL | CW_ITEM_ROLE_CONSUMABLE)
                 && item.zone == CW_CARD_ZONE_EQUIPPED
                 && item.container_item_id == 0
                 && self
@@ -532,7 +532,7 @@ mod tests {
         let contract = runtime
             .seed_item_contract_for_instance(HEARTH_TONIC_ITEM_ID)
             .expect("Hearth Tonic has an authored item contract");
-        assert_eq!(contract.role, "tool");
+        assert_eq!(contract.role, "consumable");
         assert_eq!(
             contract.capabilities,
             vec![CAMP_SHELTER_ITEM_CAPABILITY.to_string()]
@@ -1136,7 +1136,7 @@ mod tests {
         let legacy_item = legacy_json["projection_mutations"][0]["item"]
             .as_object_mut()
             .expect("materialized legacy item");
-        for field in ["max_charges", "recovery", "recovery_zone", "reserved2"] {
+        for field in ["max_charges", "recovery", "recovery_zone", "policy_flags"] {
             legacy_item.remove(field);
             assert!(!legacy_item.contains_key(field));
         }

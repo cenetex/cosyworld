@@ -3912,6 +3912,17 @@ fn seed_item_recovery_profile(item: &SeedItemContent) -> (u8, u8, u8) {
     declared_item_recovery_profile(item.charges, item.mechanics.as_ref())
 }
 
+fn declared_item_policy_flags(mechanics: Option<&SeedPlayableItemMechanics>) -> u8 {
+    let mut flags = CW_ITEM_POLICY_CONFIGURED;
+    if mechanics.is_none_or(|mechanics| mechanics.transfer_policy == "transferable") {
+        flags |= CW_ITEM_POLICY_TRANSFERABLE;
+    }
+    if mechanics.is_some_and(|mechanics| mechanics.theft_policy == "eligible_when_carried") {
+        flags |= CW_ITEM_POLICY_THEFT_WHEN_CARRIED;
+    }
+    flags
+}
+
 fn placement_target_kind_from_str(kind: &str) -> Option<u8> {
     match kind {
         "actor_hand" => Some(CW_PLACEMENT_ACTOR_HAND),
@@ -7081,6 +7092,15 @@ impl RuntimeWorld {
                 )
             };
             debug_assert_eq!(recovery_status, CW_OK);
+            let policy_status = unsafe {
+                cw_world_set_item_policy(
+                    &mut *self.world,
+                    item.id,
+                    declared_item_policy_flags(item.mechanics.as_ref())
+                        & !CW_ITEM_POLICY_CONFIGURED,
+                )
+            };
+            debug_assert_eq!(policy_status, CW_OK);
             if role == CW_ITEM_ROLE_WEAPON {
                 if let Some(world_item) = self.world.items[..self.world.item_count]
                     .iter_mut()
@@ -7187,7 +7207,12 @@ impl RuntimeWorld {
             charges,
             weight_tenths: CW_ITEM_DEFAULT_WEIGHT_TENTHS,
             size_class: CW_ITEM_SIZE_SMALL,
-            zone: CW_CARD_ZONE_WORLD,
+            zone: if location_id == 0 {
+                CW_CARD_ZONE_HIDDEN
+            } else {
+                CW_CARD_ZONE_WORLD
+            },
+            policy_flags: CW_ITEM_POLICY_CONFIGURED | CW_ITEM_POLICY_TRANSFERABLE,
             location_id,
             holder_actor_id: 0,
             ..CwItem::default()
@@ -9425,7 +9450,8 @@ impl RuntimeWorld {
                 .resident_feature_use_match_for_item(resident, item_id)
                 .is_some()
             || self.item_by_id(item_id).is_some_and(|item| {
-                item.kind == CW_ITEM_POTION && self.resident_healing_target(resident).is_some()
+                item.role == CW_ITEM_ROLE_CONSUMABLE
+                    && self.resident_healing_target(resident).is_some()
             })
     }
 
@@ -10493,6 +10519,16 @@ impl RuntimeWorld {
         } else if item.zone != CW_CARD_ZONE_EQUIPPED {
             return Vec::new();
         }
+        if !equipped
+            && item.role == CW_ITEM_ROLE_CONTAINER
+            && self.actor_carried_weight_tenths(actor_id)
+                > self
+                    .actor_carrying_capacity_tenths(actor_id)
+                    .unwrap_or_default()
+                    .saturating_sub(u32::from(item.container_capacity_tenths))
+        {
+            return Vec::new();
+        }
         let zone = if equipped {
             CW_CARD_ZONE_EQUIPPED
         } else {
@@ -10534,12 +10570,18 @@ impl RuntimeWorld {
             let Some(contract) = self.seed_item_contract_for_instance(container_id) else {
                 return Vec::new();
             };
+            if contract.access_cost.as_deref() == Some("free_out_of_combat")
+                && self.active_combat_encounter_for_actor(actor_id).is_some()
+            {
+                return Vec::new();
+            }
             let opening = contract
                 .container_opening_size
                 .as_deref()
                 .and_then(item_size_from_str)
                 .unwrap_or(0);
             let stores_empty_container = item.role == CW_ITEM_ROLE_CONTAINER
+                && contract.nested_containers.as_deref() == Some("empty_storage_only")
                 && contract
                     .allowed_contents
                     .iter()
@@ -10572,6 +10614,16 @@ impl RuntimeWorld {
             (CW_CARD_ZONE_CONTAINED, container_id, "item.contained")
         } else {
             if item.zone != CW_CARD_ZONE_CONTAINED {
+                return Vec::new();
+            }
+            let Some(container_contract) =
+                self.seed_item_contract_for_instance(item.container_item_id)
+            else {
+                return Vec::new();
+            };
+            if container_contract.access_cost.as_deref() == Some("free_out_of_combat")
+                && self.active_combat_encounter_for_actor(actor_id).is_some()
+            {
                 return Vec::new();
             }
             (
@@ -11057,11 +11109,13 @@ impl RuntimeWorld {
             .any(|desired_item_id| desired_item_id == item_id)
         {
             format!("{resident_name} wanted {item_name}")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION)
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
             && healing_target.is_some_and(|target| target.id == resident.id)
         {
             format!("{resident_name} needed {item_name}")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) && healing_target.is_some() {
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
+            && healing_target.is_some()
+        {
             let target = healing_target.expect("healing target checked");
             let target_name = self
                 .actor_name(target.id)
@@ -11075,7 +11129,7 @@ impl RuntimeWorld {
                 "{resident_name} could use {item_name} with {}",
                 candidate.feature_name
             )
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) {
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE) {
             format!("{resident_name} could use {item_name}")
         } else {
             format!("{resident_name} valued {item_name}")
@@ -12068,7 +12122,7 @@ impl RuntimeWorld {
             .filter(|item| {
                 item.holder_actor_id == 0
                     && item.charges > 0
-                    && (item.location_id == 0
+                    && ((item.location_id == 0 && item.zone == CW_CARD_ZONE_HIDDEN)
                         || self.forgotten_search_item_at_location(*item, location_id))
                     && !self.search_item_remembered(item.id)
             })
@@ -12491,72 +12545,6 @@ impl RuntimeWorld {
         record
     }
 
-    fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
-        active_content()
-            .recipes
-            .iter()
-            .find(|recipe| recipe.id == recipe_id)
-    }
-
-    fn craft_action_for_recipe(&self, actor_id: u64, recipe_id: u64) -> Option<CwAction> {
-        if self.recipe_by_id(recipe_id)?.schema_version == 2 {
-            return self
-                .versioned_craft_plan(actor_id, recipe_id, None)
-                .map(|plan| plan.action);
-        }
-        let actor = self.actor_by_id(actor_id)?;
-        if actor.status != CW_ACTOR_ACTIVE {
-            return None;
-        }
-        let recipe = self.recipe_by_id(recipe_id)?;
-        let held_items = self.actor_held_items(actor_id);
-        let floor_items = self.loose_items_at_location(actor.location_id);
-        let held = held_items
-            .iter()
-            .copied()
-            .find(|item| recipe.input_item_ids.contains(&item.id))?;
-        let floor = floor_items
-            .iter()
-            .copied()
-            .find(|item| item.id != held.id && recipe.input_item_ids.contains(&item.id))?;
-        if recipe
-            .input_item_ids
-            .iter()
-            .any(|item_id| *item_id != held.id && *item_id != floor.id)
-        {
-            return None;
-        }
-        let mut action = CwAction {
-            kind: CW_ACTION_CRAFT,
-            actor_id,
-            content_id: recipe.id,
-            item_id: held.id,
-            target_item_id: floor.id,
-            ..CwAction::default()
-        };
-        if let Some(output) = recipe.output.as_ref() {
-            if self.item_by_id(output.item_id).is_some() {
-                return None;
-            }
-            action.output_item_id = output.item_id;
-            action.output_target_id = output.target_id;
-            action.output_target_kind = placement_target_kind_from_str(&output.target_kind)?;
-            action.output_item_kind = seed_item_kind_from_str(&output.kind)?;
-            action.output_item_charges = output.charges;
-            match action.output_target_kind {
-                CW_PLACEMENT_ACTOR_HAND => {
-                    let target = self.actor_by_id(output.target_id)?;
-                    if target.status != CW_ACTOR_ACTIVE {
-                        return None;
-                    }
-                }
-                CW_PLACEMENT_LOCATION_FLOOR => {}
-                _ => return None,
-            }
-        }
-        Some(action)
-    }
-
     fn default_craft_recipe(&self, actor_id: u64) -> Option<&'static SeedRecipeContent> {
         active_content()
             .recipes
@@ -12573,6 +12561,9 @@ impl RuntimeWorld {
         for item in &mut self.world.items[..self.world.item_count] {
             if hidden_item_ids.contains(&item.id) {
                 item.location_id = 0;
+                item.holder_actor_id = 0;
+                item.container_item_id = 0;
+                item.zone = CW_CARD_ZONE_HIDDEN;
                 item.held_since_tick = 0;
             }
         }
@@ -12991,7 +12982,7 @@ The relationship statement they are preserving is: {statement}"
         if action.kind == CW_ACTION_CRAFT
             && self
                 .recipe_by_id(action.content_id)
-                .is_some_and(|recipe| recipe.schema_version == 2)
+                .is_some_and(recipe_uses_receipt)
         {
             return self
                 .versioned_craft_plan(action.actor_id, action.content_id, None)
@@ -13436,10 +13427,11 @@ The relationship statement they are preserving is: {statement}"
         if directly_desired && !resident_already_holds_item {
             return RESIDENT_DESIRED_ITEM_SCORE;
         }
-        if item.kind == CW_ITEM_POTION && self.resident_healing_target(resident).is_some() {
+        if item.role == CW_ITEM_ROLE_CONSUMABLE && self.resident_healing_target(resident).is_some()
+        {
             return RESIDENT_DESIRED_ITEM_SCORE - 10;
         }
-        if item.kind == CW_ITEM_POTION {
+        if item.role == CW_ITEM_ROLE_CONSUMABLE {
             return RESIDENT_USEFUL_ITEM_SCORE;
         }
         if self
@@ -13455,10 +13447,11 @@ The relationship statement they are preserving is: {statement}"
         if self.resident_item_is_attached(resident.id, item) {
             return RESIDENT_ATTACHED_ITEM_SCORE;
         }
-        if item.kind == CW_ITEM_POTION && self.resident_healing_target(resident).is_some() {
+        if item.role == CW_ITEM_ROLE_CONSUMABLE && self.resident_healing_target(resident).is_some()
+        {
             return RESIDENT_DESIRED_ITEM_SCORE - 5;
         }
-        if item.kind == CW_ITEM_POTION {
+        if item.role == CW_ITEM_ROLE_CONSUMABLE {
             return RESIDENT_USEFUL_ITEM_SCORE;
         }
         if self
@@ -13489,6 +13482,7 @@ The relationship statement they are preserving is: {statement}"
         let mut candidates: Vec<_> = self
             .actor_held_items(resident.id)
             .into_iter()
+            .filter(|item| self.item_can_leave_actor(resident.id, *item))
             .filter(|item| !self.resident_item_is_attached(resident.id, *item))
             .filter(|item| {
                 incoming_item.is_none_or(|incoming| {
@@ -13656,6 +13650,9 @@ The relationship statement they are preserving is: {statement}"
         let incoming = self
             .item_by_id(incoming_item_id)
             .ok_or_else(|| "That item is no longer available for Pick Up.".to_string())?;
+        if !Self::item_is_transferable(incoming) {
+            return Err("That item cannot be picked up or transferred.".to_string());
+        }
         if self.actor_can_receive_item(actor, incoming_item_id) {
             return Ok(None);
         }
@@ -13675,6 +13672,7 @@ The relationship statement they are preserving is: {statement}"
         });
         outgoing
             .into_iter()
+            .filter(|item| self.item_can_leave_actor(actor_id, *item))
             .find(|item| self.actor_can_exchange_items(actor_id, Some(*item), incoming))
             .map(|item| Some(item.id))
             .ok_or_else(|| "That pickup cannot make room in the pack.".to_string())
@@ -15532,13 +15530,8 @@ The relationship statement they are preserving is: {statement}"
                 self.actor_held_items(target.id)
                     .into_iter()
                     .find_map(|item| {
-                        let eligible = self
-                            .items
-                            .get(&item.id)
-                            .and_then(|meta| meta.mechanics.as_ref())
-                            .is_some_and(|mechanics| {
-                                mechanics.theft_policy == "eligible_when_carried"
-                            });
+                        let eligible =
+                            Self::item_is_theft_eligible(item) && !self.item_has_contents(item.id);
                         (eligible && self.actor_can_exchange_items(actor.id, None, item))
                             .then_some((target, item))
                     })
@@ -15551,7 +15544,11 @@ The relationship statement they are preserving is: {statement}"
             return None;
         }
 
-        let held_items = self.actor_held_items(actor_id);
+        let held_items = self
+            .actor_held_items(actor_id)
+            .into_iter()
+            .filter(|item| self.item_can_leave_actor(actor_id, *item))
+            .collect::<Vec<_>>();
         if held_items.is_empty() {
             return None;
         }
@@ -15620,8 +15617,11 @@ The relationship statement they are preserving is: {statement}"
             .copied()
             .find(|item| item.id == item_id)
             .ok_or_else(|| "That item is not here.".to_string())?;
-        if offered_item.holder_actor_id != actor_id {
-            return Err("You are not holding that item.".to_string());
+        if !self.item_can_leave_actor(actor_id, offered_item) {
+            return Err(
+                "That item must be carried, transferable, and empty before it can be given."
+                    .to_string(),
+            );
         }
         let requested = self
             .resident_request_for_holder(target, actor_id)
@@ -15669,8 +15669,10 @@ The relationship statement they are preserving is: {statement}"
         let requested_item = self
             .item_by_id(target_item_id)
             .ok_or_else(|| "That trade item is not here.".to_string())?;
-        if offered_item.holder_actor_id != actor.id || requested_item.holder_actor_id != target.id {
-            return Err("Those items are not held by the trading partners.".to_string());
+        if !self.item_can_leave_actor(actor.id, offered_item)
+            || !self.item_can_leave_actor(target.id, requested_item)
+        {
+            return Err("Both trade items must be carried, transferable, and empty.".to_string());
         }
         if !self.actor_can_exchange_items(actor.id, Some(offered_item), requested_item)
             || !self.actor_can_exchange_items(target.id, Some(requested_item), offered_item)
@@ -15714,7 +15716,11 @@ The relationship statement they are preserving is: {statement}"
         if !Self::actor_can_act(actor) {
             return Vec::new();
         }
-        let offered_items = self.actor_held_items(actor_id);
+        let offered_items = self
+            .actor_held_items(actor_id)
+            .into_iter()
+            .filter(|item| self.item_can_leave_actor(actor_id, *item))
+            .collect::<Vec<_>>();
         if offered_items.is_empty() {
             return Vec::new();
         }
@@ -15727,7 +15733,11 @@ The relationship statement they are preserving is: {statement}"
         targets.sort_by_key(|target| target.id);
         let mut candidates = Vec::new();
         for target in targets {
-            for target_item in self.actor_held_items(target.id) {
+            for target_item in self
+                .actor_held_items(target.id)
+                .into_iter()
+                .filter(|item| self.item_can_leave_actor(target.id, *item))
+            {
                 if !self.economy_known_by(actor_id, target.id)
                     && !self.resident_remembers_actor_holding_item_at(
                         actor_id,
@@ -24390,7 +24400,7 @@ async fn craft(
         let Some(recipe) = runtime.recipe_by_id(payload.recipe_id) else {
             return action_offer_rejected("recipe is not available");
         };
-        if recipe.schema_version == 2 {
+        if recipe_uses_receipt(recipe) {
             if let Some(receipt_id) = payload.receipt_id.as_deref() {
                 if let Some(existing) = runtime.craft_receipts.get(receipt_id) {
                     return Json(ActionResponse {
@@ -34991,7 +35001,7 @@ mod tests {
     #[test]
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
         assert_eq!(CW_MAX_ACTORS, 2048);
-        assert_eq!(CW_MAX_ITEMS, 1024);
+        assert_eq!(CW_MAX_ITEMS, 2048);
         assert_eq!(CW_MAX_LOCATIONS, 2048);
         assert_eq!(CW_MAX_EXITS, 4096);
         assert_eq!(CW_MAX_EVENTS, 256);
@@ -49469,7 +49479,7 @@ mod tests {
     }
 
     #[test]
-    fn reveal_item_effect_respects_the_single_floor_slot() {
+    fn reveal_item_effect_adds_to_an_occupied_room() {
         let mut runtime = RuntimeWorld::seeded();
         let hidden_item = runtime.world.items[..runtime.world.item_count]
             .iter_mut()
@@ -49477,7 +49487,7 @@ mod tests {
             .expect("seed reveal item");
         hidden_item.holder_actor_id = 0;
         hidden_item.location_id = 0;
-        hidden_item.zone = CW_CARD_ZONE_WORLD;
+        hidden_item.zone = CW_CARD_ZONE_HIDDEN;
         assert!(!runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
         assert_eq!(
             runtime.world.items[..runtime.world.item_count]
@@ -49488,49 +49498,29 @@ mod tests {
         );
         insert_effect_test_clock(
             &mut runtime,
-            "test:blocked-reveal",
+            "test:occupied-room-reveal",
             vec![EffectDescriptor::RevealItem {
                 item_id: 2005,
                 location_id: COSY_COTTAGE_LOCATION_ID,
-                reason: Some("blocked_reveal_test".to_string()),
+                reason: Some("occupied_room_reveal_test".to_string()),
             }],
         );
-        let blocked = runtime.advance_clock("test:blocked-reveal", 1, 1001, "blocked_reveal_test");
-        assert!(blocked
-            .iter()
-            .any(|event| event.type_name == "clock.fill_effect_rejected"));
-        assert_eq!(
-            runtime.world.items[..runtime.world.item_count]
-                .iter()
-                .find(|item| item.id == 2005)
-                .map(|item| item.location_id),
-            Some(0)
+        let revealed = runtime.advance_clock(
+            "test:occupied-room-reveal",
+            1,
+            1001,
+            "occupied_room_reveal_test",
         );
-
-        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
-        assert!(runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
-        insert_effect_test_clock(
-            &mut runtime,
-            "test:successful-reveal",
-            vec![EffectDescriptor::RevealItem {
-                item_id: 2005,
-                location_id: COSY_COTTAGE_LOCATION_ID,
-                reason: Some("successful_reveal_test".to_string()),
-            }],
-        );
-        let revealed =
-            runtime.advance_clock("test:successful-reveal", 1, 1001, "successful_reveal_test");
         assert!(revealed
             .iter()
             .any(|event| event.type_name == "item.revealed"));
-        assert_eq!(
-            runtime
-                .loose_items_at_location(COSY_COTTAGE_LOCATION_ID)
-                .iter()
-                .map(|item| item.id)
-                .collect::<Vec<_>>(),
-            vec![2005]
-        );
+        let floor_items = runtime
+            .loose_items_at_location(COSY_COTTAGE_LOCATION_ID)
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        assert!(floor_items.contains(&HEARTH_TONIC_ITEM_ID));
+        assert!(floor_items.contains(&STORY_BUTTON_ITEM_ID));
     }
 
     #[test]
@@ -51198,6 +51188,8 @@ mod tests {
             } else if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
                 item.holder_actor_id = 0;
+                item.container_item_id = 0;
+                item.zone = CW_CARD_ZONE_HIDDEN;
             }
         }
         runtime.beliefs.clear();

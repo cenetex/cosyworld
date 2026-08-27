@@ -810,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    fn latecomer_generic_listen_check_advances_after_search_is_spent() {
+    fn latecomer_search_continues_after_seed_exits_are_discovered() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -830,8 +830,7 @@ mod tests {
             clock.filled = clock.segments;
         }
 
-        // Spend the single-shot Search reveal by discovering every seed exit,
-        // mirroring a latecomer who already searched Rain-Soft Garden.
+        // Discover every seed exit. Hidden items still keep Search useful.
         for exit in active_content()
             .exits
             .iter()
@@ -857,26 +856,23 @@ mod tests {
                 },
             );
         }
-        assert!(
-            runtime.default_search_target(actor_id).is_none(),
-            "discovering every seed exit must consume the room Search so only the Listen Check remains"
-        );
-        assert!(runtime.first_tale_latecomer_needs_listen_fallback(actor_id));
+        assert!(runtime.default_search_target(actor_id).is_some());
+        assert!(!runtime.first_tale_latecomer_needs_listen_fallback(actor_id));
 
         let (_, offers) =
             runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
-        let check_offer = offers
+        let search_offer = offers
             .iter()
-            .find(|offer| offer.kind == "check" && offer.project.is_none())
-            .expect("the generic Listen Check is retained once Search is spent");
+            .find(|offer| offer.kind == "search")
+            .expect("hidden items keep Search available after exits are known");
         assert!(
-            runtime.first_tale_offer_advances(actor_id, FirstTaleStage::Contribute, check_offer),
-            "a still-available Listen Check must advance a latecomer whose shared question is complete"
+            runtime.first_tale_offer_advances(actor_id, FirstTaleStage::Contribute, search_offer),
+            "a useful Search must advance a latecomer whose shared question is complete"
         );
         let advancing_ids = runtime
-            .first_tale_advancing_offer_selection(actor_id, std::slice::from_ref(check_offer))
+            .first_tale_advancing_offer_selection(actor_id, std::slice::from_ref(search_offer))
             .0
-            .expect("the Listen Check is selectable as the advancing card");
-        assert_eq!(advancing_ids, check_offer.offer_id);
+            .expect("Search is selectable as the advancing card");
+        assert_eq!(advancing_ids, search_offer.offer_id);
     }
 }

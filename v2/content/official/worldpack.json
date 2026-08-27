@@ -816,7 +816,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:d2f4d610d4c55b5a0565631940db57f94d97685640ae4b74632a529022530b61",
+  "bundle_hash": "sha256:559ee546f9fc49840dc8cc11ef0d4091914364496c6d88f4ab3070cdf7f86828",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2091,7 +2091,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
+      "integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

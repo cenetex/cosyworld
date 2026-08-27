@@ -1,5 +1,5 @@
 const inputZones = new Set(["carried", "world"]);
-const inputDispositions = new Set(["persistent", "consume", "exhaust", "transform"]);
+const inputDispositions = new Set(["persistent", "exhaust", "transform"]);
 const naturalFeatures = new Set([
   "fish_rich_water",
   "ore_seam",
@@ -47,12 +47,72 @@ export function versionedRecipeValidationErrors(
   {
     templateIds = new Set(),
     buildingArchetypes = [],
+    itemIds = new Set(),
+    actorIds = new Set(),
+    locationIds = new Set(),
   } = {},
   label = `recipe ${String(recipe?.id ?? "unknown")}`,
 ) {
   const errors = [];
   if (!object(recipe) || recipe.schema_version !== 2) {
     return [`${label} schema_version must be 2`];
+  }
+  const exactInputs = Array.isArray(recipe.inputs)
+    && recipe.inputs.some((input) => Number.isInteger(input?.item_id));
+  if (exactInputs) {
+    if (recipe.inputs.length !== 2) {
+      errors.push(`${label} exact recipe must declare two physical inputs`);
+    }
+    const seenItems = new Set();
+    for (const input of recipe.inputs ?? []) {
+      const inputLabel = `${label} input ${String(input?.item_id ?? "unknown")}`;
+      if (!object(input)
+          || !Number.isInteger(input.item_id)
+          || !itemIds.has(input.item_id)
+          || seenItems.has(input.item_id)
+          || input.template_id !== undefined) {
+        errors.push(`${inputLabel} has an orphan, duplicate, or mixed item binding`);
+      }
+      seenItems.add(input?.item_id);
+      if (input?.quantity !== 1
+          || !uniqueStrings(input?.zones, inputZones)
+          || !inputDispositions.has(input?.disposition)) {
+        errors.push(`${inputLabel} has invalid physical input rules`);
+      }
+    }
+    const exactLocations = recipe.requires?.location_ids;
+    if (!object(recipe.requires)
+        || !Array.isArray(exactLocations)
+        || exactLocations.length !== 1
+        || !locationIds.has(exactLocations[0])) {
+      errors.push(`${label} must name one valid crafting location`);
+    }
+    const outcome = recipe.outcome;
+    if (!object(outcome)
+        || !["location", "avatar", "resident", "covenant", "evolution"].includes(outcome?.kind)
+        || !nonEmpty(outcome?.reason)
+        || !["actor_hand", "location_floor"].includes(outcome?.target_kind)
+        || (outcome?.target_kind === "actor_hand" && !actorIds.has(outcome?.target_id))
+        || (outcome?.target_kind === "location_floor" && !locationIds.has(outcome?.target_id))) {
+      errors.push(`${label} has an invalid exact outcome`);
+    }
+    if (recipe.output != null) {
+      const output = recipe.output;
+      if (!object(output)
+          || !Number.isInteger(output.item_id)
+          || output.item_id <= 0
+          || itemIds.has(output.item_id)
+          || !nonEmpty(output.name)
+          || !nonEmpty(output.description)
+          || !["potion", "evolution", "keepsake"].includes(output.kind)
+          || !Number.isInteger(output.charges)
+          || output.charges <= 0
+          || output.target_kind !== outcome?.target_kind
+          || output.target_id !== outcome?.target_id) {
+        errors.push(`${label} has an invalid fixed output`);
+      }
+    }
+    return errors;
   }
   const provisionedSupply = recipe.output?.effect === "provisioned_supply";
   if (!Array.isArray(recipe.inputs)

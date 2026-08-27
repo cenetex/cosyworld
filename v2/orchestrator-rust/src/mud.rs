@@ -1292,7 +1292,7 @@ fn tag_belongs_in_room_description(tag: &TagView) -> bool {
 impl RuntimeWorld {
     pub(crate) fn item_can_be_equipped(&self, item: &CwItem) -> bool {
         matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
-            || (item.role == CW_ITEM_ROLE_TOOL
+            || (matches!(item.role, CW_ITEM_ROLE_TOOL | CW_ITEM_ROLE_CONSUMABLE)
                 && self
                     .seed_item_contract_for_instance(item.id)
                     .is_some_and(|contract| {

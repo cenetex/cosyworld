@@ -133,7 +133,7 @@ impl RuntimeWorld {
         let item = self
             .actor_held_items(resident.id)
             .into_iter()
-            .filter(|item| item.kind == CW_ITEM_POTION && item.charges > 0)
+            .filter(|item| item.role == CW_ITEM_ROLE_CONSUMABLE && item.charges > 0)
             .min_by_key(|item| (item.held_since_tick, item.id))?;
         Some((item, target))
     }
@@ -200,7 +200,7 @@ impl RuntimeWorld {
         if self.resident_needs_medicine(resident) {
             return self
                 .item_by_id(item_id)
-                .is_some_and(|item| item.kind == CW_ITEM_POTION && item.charges > 0);
+                .is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE && item.charges > 0);
         }
         if !self
             .actor_held_items(resident.id)
@@ -235,7 +235,7 @@ impl RuntimeWorld {
                 })
                 .filter_map(|memory| {
                     self.item_by_id(memory.subject_id)
-                        .filter(|item| item.kind == CW_ITEM_POTION)
+                        .filter(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
                         .map(|item| {
                             (
                                 item.id,
@@ -390,7 +390,7 @@ impl RuntimeWorld {
         if self.resident_needs_medicine(resident)
             && self
                 .item_by_id(item_id)
-                .is_some_and(|item| item.kind == CW_ITEM_POTION)
+                .is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
         {
             return "medicine";
         }
@@ -442,11 +442,13 @@ impl RuntimeWorld {
             .any(|desired_item_id| desired_item_id == item_id)
         {
             format!("{resident_name} wants {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION)
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
             && healing_target.is_some_and(|target| target.id == resident.id)
         {
             format!("{resident_name} needs {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) && healing_target.is_some() {
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE)
+            && healing_target.is_some()
+        {
             let target = healing_target.expect("healing target checked");
             let target_name = self
                 .actor_name(target.id)
@@ -460,7 +462,7 @@ impl RuntimeWorld {
                 "{resident_name} could use {item_name} with {}.",
                 candidate.feature_name
             )
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) {
+        } else if item.is_some_and(|item| item.role == CW_ITEM_ROLE_CONSUMABLE) {
             format!("{resident_name} could use {item_name}.")
         } else {
             format!("{resident_name} values {item_name}.")
@@ -944,7 +946,8 @@ mod tests {
                 item.location_id = 0;
                 item.holder_actor_id = 5000;
                 item.charges = 1;
-            } else if item.holder_actor_id == RATI_ACTOR_ID && item.kind == CW_ITEM_POTION {
+            } else if item.holder_actor_id == RATI_ACTOR_ID && item.role == CW_ITEM_ROLE_CONSUMABLE
+            {
                 item.holder_actor_id = 0;
                 item.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
             }

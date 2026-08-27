@@ -431,6 +431,50 @@ static cw_status add_actor(cw_world *world, cw_id actor_id, uint8_t kind, cw_id 
   return CW_OK;
 }
 
+static int valid_item_placement(
+    uint8_t zone,
+    cw_id holder_actor_id,
+    cw_id location_id,
+    cw_id container_item_id) {
+  switch (zone) {
+    case CW_CARD_ZONE_HIDDEN:
+      return !holder_actor_id && !location_id && !container_item_id;
+    case CW_CARD_ZONE_WORLD:
+    case CW_CARD_ZONE_INSTALLED:
+      return !holder_actor_id && location_id && !container_item_id;
+    case CW_CARD_ZONE_CARRIED:
+    case CW_CARD_ZONE_EQUIPPED:
+    case CW_CARD_ZONE_SPELL_DECK:
+    case CW_CARD_ZONE_ESCROW:
+      return holder_actor_id && !location_id && !container_item_id;
+    case CW_CARD_ZONE_CONTAINED:
+      return holder_actor_id && !location_id && container_item_id;
+    case CW_CARD_ZONE_EXHAUSTED:
+      return (!!holder_actor_id != !!location_id) && !container_item_id;
+    default:
+      return 0;
+  }
+}
+
+/* Placement is one transition so callers cannot leave holder, room, zone, and
+ * container references out of sync between assignments. */
+static cw_status place_item(
+    cw_item *item,
+    uint8_t zone,
+    cw_id holder_actor_id,
+    cw_id location_id,
+    cw_id container_item_id,
+    uint64_t held_since_tick) {
+  if (!item || !valid_item_placement(
+      zone, holder_actor_id, location_id, container_item_id)) return CW_ERR_RULE;
+  item->zone = zone;
+  item->holder_actor_id = holder_actor_id;
+  item->location_id = location_id;
+  item->container_item_id = container_item_id;
+  item->held_since_tick = held_since_tick;
+  return CW_OK;
+}
+
 static cw_status add_item(cw_world *world, cw_id item_id, uint8_t kind, cw_id location_id, uint8_t charges) {
   if (find_item(world, item_id)) return CW_OK;
   if (world->item_count >= CW_MAX_ITEMS) return CW_ERR_FULL;
@@ -443,14 +487,18 @@ static cw_status add_item(cw_world *world, cw_id item_id, uint8_t kind, cw_id lo
   item->weight_tenths = CW_ITEM_DEFAULT_WEIGHT_TENTHS;
   item->size_class = CW_ITEM_SIZE_SMALL;
   item->role = kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC;
-  item->zone = CW_CARD_ZONE_WORLD;
-  item->location_id = location_id;
-  item->holder_actor_id = 0;
-  return CW_OK;
+  item->policy_flags = CW_ITEM_POLICY_CONFIGURED | CW_ITEM_POLICY_TRANSFERABLE;
+  return place_item(
+      item,
+      location_id ? CW_CARD_ZONE_WORLD : CW_CARD_ZONE_HIDDEN,
+      0,
+      location_id,
+      0,
+      0);
 }
 
 static cw_status create_item(cw_world *world, cw_id item_id, uint8_t kind, uint8_t charges, uint8_t target_kind, cw_id target_id) {
-  if (!item_id || !kind || !charges || find_item(world, item_id)) return CW_ERR_INVALID;
+  if (!item_id || !kind || !charges || !target_id || find_item(world, item_id)) return CW_ERR_INVALID;
   if (world->item_count >= CW_MAX_ITEMS) return CW_ERR_FULL;
   cw_item *item = &world->items[world->item_count++];
   memset(item, 0, sizeof(*item));
@@ -461,24 +509,16 @@ static cw_status create_item(cw_world *world, cw_id item_id, uint8_t kind, uint8
   item->weight_tenths = CW_ITEM_DEFAULT_WEIGHT_TENTHS;
   item->size_class = CW_ITEM_SIZE_SMALL;
   item->role = kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC;
+  item->policy_flags = CW_ITEM_POLICY_CONFIGURED | CW_ITEM_POLICY_TRANSFERABLE;
   switch (target_kind) {
     case CW_PLACEMENT_ACTOR_HAND:
-      item->holder_actor_id = target_id;
-      item->location_id = 0;
-      item->held_since_tick = world->tick;
-      item->zone = CW_CARD_ZONE_CARRIED;
+      (void)place_item(item, CW_CARD_ZONE_CARRIED, target_id, 0, 0, world->tick);
       break;
     case CW_PLACEMENT_LOCATION_FLOOR:
-      item->holder_actor_id = 0;
-      item->location_id = target_id;
-      item->held_since_tick = 0;
-      item->zone = CW_CARD_ZONE_WORLD;
+      (void)place_item(item, CW_CARD_ZONE_WORLD, 0, target_id, 0, 0);
       break;
     case CW_PLACEMENT_LOCATION_FIXTURE:
-      item->holder_actor_id = 0;
-      item->location_id = target_id;
-      item->held_since_tick = 0;
-      item->zone = CW_CARD_ZONE_INSTALLED;
+      (void)place_item(item, CW_CARD_ZONE_INSTALLED, 0, target_id, 0, 0);
       break;
     default:
       world->item_count--;
@@ -491,8 +531,57 @@ static int actor_is_active(const cw_actor *actor) {
   return actor && actor->status == CW_ACTOR_ACTIVE;
 }
 
+static int item_policy_is_configured(const cw_item *item) {
+  return item && (item->policy_flags & CW_ITEM_POLICY_CONFIGURED);
+}
+
+static int item_is_transferable(const cw_item *item) {
+  return item && (!item_policy_is_configured(item)
+      || (item->policy_flags & CW_ITEM_POLICY_TRANSFERABLE));
+}
+
+static int item_is_directly_held(const cw_item *item) {
+  return item && item->holder_actor_id && !item->location_id
+      && !item->container_item_id && item->zone != CW_CARD_ZONE_CONTAINED
+      && item->zone != CW_CARD_ZONE_ESCROW && item->zone != CW_CARD_ZONE_INSTALLED;
+}
+
+static int item_is_theft_eligible(const cw_item *item) {
+  if (!item || !item_is_directly_held(item)
+      || (item->zone != CW_CARD_ZONE_CARRIED
+          && item->zone != CW_CARD_ZONE_EQUIPPED
+          && item->zone != CW_CARD_ZONE_WORLD
+          && item->zone != CW_CARD_ZONE_HIDDEN)) return 0;
+  return !item_policy_is_configured(item)
+      || (item->policy_flags & CW_ITEM_POLICY_THEFT_WHEN_CARRIED);
+}
+
 static uint32_t item_weight_tenths(const cw_item *item) {
   return item && item->weight_tenths ? item->weight_tenths : CW_ITEM_DEFAULT_WEIGHT_TENTHS;
+}
+
+static int item_has_contents(const cw_world *world, cw_id item_id) {
+  if (!world || !item_id) return 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    if (world->items[i].container_item_id == item_id) return 1;
+  }
+  return 0;
+}
+
+static uint32_t container_contents_weight_tenths(
+    const cw_world *world,
+    cw_id container_item_id,
+    cw_id excluded_item_id) {
+  uint32_t weight = 0;
+  if (!world || !container_item_id) return 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    const cw_item *item = &world->items[i];
+    if (item->id != excluded_item_id
+        && item->container_item_id == container_item_id) {
+      weight += item_weight_tenths(item);
+    }
+  }
+  return weight;
 }
 
 static uint32_t item_container_capacity_tenths(const cw_item *item) {
@@ -804,21 +893,31 @@ cw_status cw_world_set_item_recovery_profile(
   return CW_OK;
 }
 
+cw_status cw_world_set_item_policy(
+    cw_world *world,
+    cw_id item_id,
+    uint8_t policy_flags) {
+  const uint8_t allowed = CW_ITEM_POLICY_TRANSFERABLE
+      | CW_ITEM_POLICY_THEFT_WHEN_CARRIED;
+  if (!world || !item_id || (policy_flags & ~allowed)) return CW_ERR_INVALID;
+  cw_item *item = find_item(world, item_id);
+  if (!item) return CW_ERR_NOT_FOUND;
+  item->policy_flags = CW_ITEM_POLICY_CONFIGURED | policy_flags;
+  return CW_OK;
+}
+
 cw_status cw_world_set_item_zone(
     cw_world *world,
     cw_id item_id,
     uint8_t zone,
     cw_id container_item_id) {
-  if (!world || !item_id || zone < CW_CARD_ZONE_WORLD || zone > CW_CARD_ZONE_INSTALLED) {
+  if (!world || !item_id || zone < CW_CARD_ZONE_WORLD || zone > CW_CARD_ZONE_HIDDEN) {
     return CW_ERR_INVALID;
   }
   cw_item *item = find_item(world, item_id);
   if (!item) return CW_ERR_NOT_FOUND;
-  if (zone == CW_CARD_ZONE_WORLD || zone == CW_CARD_ZONE_INSTALLED) {
-    if (item->holder_actor_id || !item->location_id || container_item_id) return CW_ERR_RULE;
-  } else {
-    if (!item->holder_actor_id || item->location_id) return CW_ERR_RULE;
-  }
+  if (!valid_item_placement(
+      zone, item->holder_actor_id, item->location_id, container_item_id)) return CW_ERR_RULE;
   if (zone == CW_CARD_ZONE_CONTAINED) {
     cw_item *container = find_item(world, container_item_id);
     int item_contains_cards = 0;
@@ -834,7 +933,9 @@ cw_status cw_world_set_item_zone(
         || container->role != CW_ITEM_ROLE_CONTAINER
         || container->holder_actor_id != item->holder_actor_id
         || container->zone == CW_CARD_ZONE_CONTAINED
-        || item->size_class > container->size_class) {
+        || item->size_class > container->size_class
+        || container_contents_weight_tenths(world, container->id, item->id)
+            + item_weight_tenths(item) > container->container_capacity_tenths) {
       return CW_ERR_RULE;
     }
   } else if (container_item_id) {
@@ -844,20 +945,27 @@ cw_status cw_world_set_item_zone(
       && item->role != CW_ITEM_ROLE_WEAPON
       && item->role != CW_ITEM_ROLE_SKILL_CHARM
       && item->role != CW_ITEM_ROLE_CONTAINER
-      && item->role != CW_ITEM_ROLE_TOOL) {
+      && item->role != CW_ITEM_ROLE_TOOL
+      && item->role != CW_ITEM_ROLE_CONSUMABLE) {
     return CW_ERR_RULE;
   }
   if (zone == CW_CARD_ZONE_SPELL_DECK && item->role != CW_ITEM_ROLE_SPELL) {
     return CW_ERR_RULE;
   }
-  item->zone = zone;
-  item->container_item_id = container_item_id;
-  return CW_OK;
+  return place_item(
+      item,
+      zone,
+      item->holder_actor_id,
+      item->location_id,
+      container_item_id,
+      item->held_since_tick);
 }
 
 static void exhaust_item(cw_item *item) {
   if (!item) return;
-  if (item->zone != CW_CARD_ZONE_NONE && item->zone != CW_CARD_ZONE_EXHAUSTED) {
+  if (item->zone != CW_CARD_ZONE_NONE
+      && item->zone != CW_CARD_ZONE_EXHAUSTED
+      && item->zone != CW_CARD_ZONE_HIDDEN) {
     item->recovery_zone = item->zone;
   }
   item->zone = CW_CARD_ZONE_EXHAUSTED;
@@ -1032,7 +1140,7 @@ static cw_status apply_complete_avatar_rescue(
     return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
   }
   if (!draught) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (draught->kind != CW_ITEM_POTION
+  if (draught->role != CW_ITEM_ROLE_CONSUMABLE
       || draught->holder_actor_id != rescuer->id
       || draught->charges == 0) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
@@ -1104,7 +1212,7 @@ static cw_status apply_replace_avatar_rescuer(
   if (!retired_draught) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
   }
-  if (retired_draught->kind != CW_ITEM_POTION) {
+  if (retired_draught->role != CW_ITEM_ROLE_CONSUMABLE) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
   if (oldest->status != CW_ACTOR_KNOCKED_OUT
@@ -1424,7 +1532,8 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
   if (item->holder_actor_id
       || item->location_id != actor->location_id
-      || item->zone != CW_CARD_ZONE_WORLD) {
+      || item->zone != CW_CARD_ZONE_WORLD
+      || !item_is_transferable(item)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
@@ -1434,17 +1543,16 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
       exchanged = find_item(world, action->target_item_id);
     }
     if (!exchanged || exchanged->holder_actor_id != actor->id
+        || !item_is_directly_held(exchanged)
+        || !item_is_transferable(exchanged)
+        || item_has_contents(world, exchanged->id)
         || !actor_can_exchange(world, actor, exchanged, item)) {
       return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
     }
   }
 
   if (exchanged) {
-    exchanged->holder_actor_id = 0;
-    exchanged->location_id = actor->location_id;
-    exchanged->held_since_tick = 0;
-    exchanged->zone = CW_CARD_ZONE_WORLD;
-    exchanged->container_item_id = 0;
+    (void)place_item(exchanged, CW_CARD_ZONE_WORLD, 0, actor->location_id, 0, 0);
     append_event(world, out_events, CW_EVENT_ITEM_DROPPED);
     if (out_events && out_events->count > 0) {
       cw_event *event = &out_events->events[out_events->count - 1];
@@ -1455,11 +1563,7 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
     }
   }
 
-  item->holder_actor_id = actor->id;
-  item->location_id = 0;
-  item->held_since_tick = world->tick;
-  item->zone = CW_CARD_ZONE_CARRIED;
-  item->container_item_id = 0;
+  (void)place_item(item, CW_CARD_ZONE_CARRIED, actor->id, 0, 0, world->tick);
 
   append_event(world, out_events, CW_EVENT_ITEM_PICKED_UP);
   if (out_events && out_events->count > 0) {
@@ -1480,17 +1584,16 @@ static cw_status apply_drop_item(cw_world *world, const cw_action *action, cw_ev
 
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != actor->id) {
+  if (item->holder_actor_id != actor->id
+      || !item_is_directly_held(item)
+      || !item_is_transferable(item)
+      || item_has_contents(world, item->id)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
   if (!actor_can_exchange(world, actor, item, 0)) {
     return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
   }
-  item->holder_actor_id = 0;
-  item->location_id = actor->location_id;
-  item->held_since_tick = 0;
-  item->zone = CW_CARD_ZONE_WORLD;
-  item->container_item_id = 0;
+  (void)place_item(item, CW_CARD_ZONE_WORLD, 0, actor->location_id, 0, 0);
 
   append_event(world, out_events, CW_EVENT_ITEM_DROPPED);
   if (out_events && out_events->count > 0) {
@@ -1511,7 +1614,10 @@ static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_eve
 
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != actor->id || item->charges == 0) {
+  if (item->holder_actor_id != actor->id
+      || !item_is_directly_held(item)
+      || item->zone == CW_CARD_ZONE_EXHAUSTED
+      || item->charges == 0) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
@@ -1520,7 +1626,7 @@ static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_eve
   if (target->location_id != actor->location_id) return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
 
   int16_t healed = 0;
-  if (item->kind == CW_ITEM_POTION) {
+  if (item->role == CW_ITEM_ROLE_CONSUMABLE) {
     if (target->status == CW_ACTOR_ACTIVE && target->damage <= 0) {
       return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
     }
@@ -1716,7 +1822,9 @@ static cw_status apply_theft(cw_world *world, const cw_action *action, uint64_t 
     return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
   }
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != target->id || item->zone == CW_CARD_ZONE_ESCROW) {
+  if (item->holder_actor_id != target->id
+      || !item_is_theft_eligible(item)
+      || item_has_contents(world, item->id)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
   if (!actor_can_exchange(world, actor, 0, item)) {
@@ -1741,11 +1849,7 @@ static cw_status apply_theft(cw_world *world, const cw_action *action, uint64_t 
     event->dc = dc;
   }
   if (!succeeded) return CW_OK;
-  item->holder_actor_id = actor->id;
-  item->location_id = 0;
-  item->zone = CW_CARD_ZONE_CARRIED;
-  item->container_item_id = 0;
-  item->held_since_tick = world->tick;
+  (void)place_item(item, CW_CARD_ZONE_CARRIED, actor->id, 0, 0, world->tick);
   append_event(world, out_events, CW_EVENT_ITEM_STOLEN);
   if (out_events && out_events->count > 0) {
     cw_event *event = &out_events->events[out_events->count - 1];
@@ -1814,12 +1918,20 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
 
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != actor->id) return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  if (item->holder_actor_id != actor->id
+      || !item_is_directly_held(item)
+      || !item_is_transferable(item)
+      || item_has_contents(world, item->id)) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
 
   cw_item *returned_item = 0;
   if (action->target_item_id) {
     returned_item = find_item(world, action->target_item_id);
-    if (!returned_item || returned_item->holder_actor_id != target->id) {
+    if (!returned_item || returned_item->holder_actor_id != target->id
+        || !item_is_directly_held(returned_item)
+        || !item_is_transferable(returned_item)
+        || item_has_contents(world, returned_item->id)) {
       return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
     }
   }
@@ -1828,17 +1940,10 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
     return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
   }
 
-  item->holder_actor_id = target->id;
-  item->location_id = 0;
-  item->held_since_tick = world->tick;
-  item->zone = CW_CARD_ZONE_CARRIED;
-  item->container_item_id = 0;
+  (void)place_item(item, CW_CARD_ZONE_CARRIED, target->id, 0, 0, world->tick);
   if (returned_item) {
-    returned_item->holder_actor_id = actor->id;
-    returned_item->location_id = 0;
-    returned_item->held_since_tick = world->tick;
-    returned_item->zone = CW_CARD_ZONE_CARRIED;
-    returned_item->container_item_id = 0;
+    (void)place_item(
+        returned_item, CW_CARD_ZONE_CARRIED, actor->id, 0, 0, world->tick);
   }
 
   append_event(world, out_events, CW_EVENT_ITEM_GIVEN);
@@ -1873,7 +1978,14 @@ static cw_status apply_trade_item(cw_world *world, const cw_action *action, cw_e
   cw_item *offered = find_item(world, action->item_id);
   cw_item *requested = find_item(world, action->target_item_id);
   if (!offered || !requested) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (offered->holder_actor_id != actor->id || requested->holder_actor_id != target->id) {
+  if (offered->holder_actor_id != actor->id
+      || requested->holder_actor_id != target->id
+      || !item_is_directly_held(offered)
+      || !item_is_directly_held(requested)
+      || !item_is_transferable(offered)
+      || !item_is_transferable(requested)
+      || item_has_contents(world, offered->id)
+      || item_has_contents(world, requested->id)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
   if (!actor_can_exchange(world, actor, offered, requested)
@@ -1881,16 +1993,8 @@ static cw_status apply_trade_item(cw_world *world, const cw_action *action, cw_e
     return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
   }
 
-  offered->holder_actor_id = target->id;
-  offered->location_id = 0;
-  offered->held_since_tick = world->tick;
-  offered->zone = CW_CARD_ZONE_CARRIED;
-  offered->container_item_id = 0;
-  requested->holder_actor_id = actor->id;
-  requested->location_id = 0;
-  requested->held_since_tick = world->tick;
-  requested->zone = CW_CARD_ZONE_CARRIED;
-  requested->container_item_id = 0;
+  (void)place_item(offered, CW_CARD_ZONE_CARRIED, target->id, 0, 0, world->tick);
+  (void)place_item(requested, CW_CARD_ZONE_CARRIED, actor->id, 0, 0, world->tick);
 
   append_event(world, out_events, CW_EVENT_ITEM_TRADED);
   if (out_events && out_events->count > 0) {
@@ -1917,15 +2021,14 @@ static cw_status apply_search(cw_world *world, const cw_action *action, cw_event
   if (!find_location(world, location_id)) return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != 0 || item->location_id != 0 || item->charges == 0) {
+  if (item->holder_actor_id != 0
+      || item->location_id != 0
+      || item->zone != CW_CARD_ZONE_HIDDEN
+      || item->charges == 0) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
-  item->holder_actor_id = 0;
-  item->location_id = location_id;
-  item->held_since_tick = 0;
-  item->zone = CW_CARD_ZONE_WORLD;
-  item->container_item_id = 0;
+  (void)place_item(item, CW_CARD_ZONE_WORLD, 0, location_id, 0, 0);
 
   append_event(world, out_events, CW_EVENT_ITEM_FOUND);
   if (out_events && out_events->count > 0) {
@@ -2188,19 +2291,11 @@ static cw_status apply_gate_transition(
   uint8_t item_event_type = CW_EVENT_NONE;
   switch (input->transition) {
     case CW_GATE_TRANSITION_INSTALL:
-      item->holder_actor_id = 0;
-      item->location_id = actor->location_id;
-      item->held_since_tick = 0;
-      item->zone = CW_CARD_ZONE_INSTALLED;
-      item->container_item_id = 0;
+      (void)place_item(item, CW_CARD_ZONE_INSTALLED, 0, actor->location_id, 0, 0);
       item_event_type = CW_EVENT_ITEM_INSTALLED;
       break;
     case CW_GATE_TRANSITION_REMOVE:
-      item->holder_actor_id = actor->id;
-      item->location_id = 0;
-      item->held_since_tick = world->tick;
-      item->zone = CW_CARD_ZONE_CARRIED;
-      item->container_item_id = 0;
+      (void)place_item(item, CW_CARD_ZONE_CARRIED, actor->id, 0, 0, world->tick);
       item_event_type = CW_EVENT_ITEM_REMOVED;
       break;
     case CW_GATE_TRANSITION_EXHAUST:
@@ -2250,13 +2345,13 @@ static cw_status apply_reveal_item(cw_world *world, const cw_action *action, cw_
   }
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id != 0 || item->location_id != 0 || item->charges == 0) {
+  if (item->holder_actor_id != 0
+      || item->location_id != 0
+      || item->zone != CW_CARD_ZONE_HIDDEN
+      || item->charges == 0) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
-  item->location_id = action->location_id;
-  item->held_since_tick = 0;
-  item->zone = CW_CARD_ZONE_WORLD;
-  item->container_item_id = 0;
+  (void)place_item(item, CW_CARD_ZONE_WORLD, 0, action->location_id, 0, 0);
   append_event(world, out_events, CW_EVENT_ITEM_REVEALED);
   if (out_events && out_events->count > 0) {
     cw_event *event = &out_events->events[out_events->count - 1];
@@ -2364,13 +2459,19 @@ static cw_status validate_output_slot(cw_world *world, const cw_action *action, 
 }
 
 static int valid_craft_input_disposition(uint8_t disposition) {
-  return disposition <= CW_CRAFT_INPUT_TRANSFORMED;
+  return disposition == CW_CRAFT_INPUT_PERSISTS
+      || disposition == CW_CRAFT_INPUT_EXHAUSTED
+      || disposition == CW_CRAFT_INPUT_TRANSFORMED;
 }
 
 static int craft_input_is_local(const cw_item *item, const cw_actor *actor) {
   return item && actor
-      && ((item->holder_actor_id == actor->id && item->location_id == 0)
-          || (item->holder_actor_id == 0 && item->location_id == actor->location_id));
+      && ((item->holder_actor_id == actor->id
+              && item->location_id == 0
+              && item->zone == CW_CARD_ZONE_CARRIED)
+          || (item->holder_actor_id == 0
+              && item->location_id == actor->location_id
+              && item->zone == CW_CARD_ZONE_WORLD));
 }
 
 static void append_craft_input_transition(
@@ -3531,8 +3632,8 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
     }
   }
 
-  int actor_has_held_item = 0;
-  int room_actor_has_held_item = 0;
+  int actor_has_transferable_item = 0;
+  int room_actor_has_transferable_item = 0;
   int room_has_active_actor = 0;
   int room_has_loose_item = 0;
   int hidden_search_item_available = 0;
@@ -3547,43 +3648,56 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
     const cw_item *item = &world->items[i];
     if (!item->holder_actor_id
         && item->location_id == actor->location_id
-        && item->zone == CW_CARD_ZONE_WORLD) {
+        && item->zone == CW_CARD_ZONE_WORLD
+        && item_is_transferable(item)) {
       room_has_loose_item = 1;
       if (actor_can_pick_up(world, actor, item)) {
         out_offers->option_flags |= CW_OFFER_PICK_UP;
       }
     }
-    if (!item->holder_actor_id && item->location_id == 0 && item->charges > 0) {
+    if (!item->holder_actor_id
+        && item->location_id == 0
+        && item->zone == CW_CARD_ZONE_HIDDEN
+        && item->charges > 0) {
       hidden_search_item_available = 1;
     }
     if (item->holder_actor_id == actor->id
-        && (item->kind == CW_ITEM_POTION || item->role == CW_ITEM_ROLE_SPELL)
+        && item_is_directly_held(item)
+        && item->zone != CW_CARD_ZONE_EXHAUSTED
+        && (item->role == CW_ITEM_ROLE_CONSUMABLE || item->role == CW_ITEM_ROLE_SPELL)
         && item->charges > 0) {
       out_offers->option_flags |= CW_OFFER_USE_ITEM;
     }
-    if (item->holder_actor_id == actor->id) {
-      actor_has_held_item = 1;
+    if (item->holder_actor_id == actor->id
+        && item_is_directly_held(item)
+        && item_is_transferable(item)
+        && !item_has_contents(world, item->id)) {
+      actor_has_transferable_item = 1;
     }
     if (item->holder_actor_id && item->holder_actor_id != actor->id) {
       const cw_actor *holder = find_actor_const(world, item->holder_actor_id);
-      if (holder && actor_is_active(holder) && holder->location_id == actor->location_id) {
-        room_actor_has_held_item = 1;
+      if (holder && actor_is_active(holder)
+          && holder->location_id == actor->location_id
+          && item_is_directly_held(item)
+          && item_is_transferable(item)
+          && !item_has_contents(world, item->id)) {
+        room_actor_has_transferable_item = 1;
       }
     }
   }
-  if (actor_has_held_item && room_has_active_actor) {
+  if (actor_has_transferable_item && room_has_active_actor) {
     out_offers->option_flags |= CW_OFFER_GIVE_ITEM;
   }
-  if (actor_has_held_item) {
+  if (actor_has_transferable_item) {
     out_offers->option_flags |= CW_OFFER_DROP_ITEM;
   }
   if (hidden_search_item_available) {
     out_offers->option_flags |= CW_OFFER_SEARCH;
   }
-  if (actor_has_held_item && room_has_loose_item) {
+  if (actor_has_transferable_item && room_has_loose_item) {
     out_offers->option_flags |= CW_OFFER_CRAFT;
   }
-  if (actor_has_held_item && room_actor_has_held_item) {
+  if (actor_has_transferable_item && room_actor_has_transferable_item) {
     out_offers->option_flags |= CW_OFFER_TRADE_ITEM;
   }
 

@@ -531,7 +531,7 @@ async function main() {
   );
   assert(resources.locations.length <= 2048, "Elysium exceeds the location capacity");
   assert(resources.exits.length <= EXIT_CAPACITY, "Elysium exceeds the exit capacity");
-  assert(resources.items.length <= 1024, "Elysium exceeds the item capacity");
+  assert(resources.items.length <= 2048, "Elysium exceeds the item capacity");
   assert(
     new Set(resources.actors.map((actor) => actor.location_id)).size === bindings.length,
     "Elysium avatars do not have unique void locations",

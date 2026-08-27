@@ -382,6 +382,8 @@ impl RuntimeWorld {
             if forgotten_item_ids.contains(&item.id) {
                 item.location_id = 0;
                 item.holder_actor_id = 0;
+                item.container_item_id = 0;
+                item.zone = CW_CARD_ZONE_HIDDEN;
                 item.held_since_tick = 0;
             }
         }

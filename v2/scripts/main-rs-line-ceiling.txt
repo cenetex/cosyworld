@@ -440,4 +440,4 @@
 # answer is still #325/#61 extraction, not a higher ceiling.
 # 60043 -> 59955: move community-art card decoration and subject-level lookup
 # into community_art.rs while adding per-level avatar appearance at that seam.
-59955
+59928

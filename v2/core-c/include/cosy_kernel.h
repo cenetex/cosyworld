@@ -10,7 +10,10 @@ extern "C" {
 
 /* Version 9 is reserved by #411 for project-push ABI state. */
 /* Version 15 widens the actor array; sizeof(cw_world) changed. */
-#define CW_KERNEL_VERSION 15u
+/* Version 16 expands the item array, gives undiscovered items an explicit
+ * Hidden zone, makes transfer policy authoritative, and removes the unused
+ * recharge timestamp from cw_item. */
+#define CW_KERNEL_VERSION 16u
 
 /* Capacities are compiled into cw_world as fixed arrays, so raising one is an
  * ABI change that must be mirrored in the Rust bindings. Actors, locations,
@@ -18,7 +21,7 @@ extern "C" {
  * once: the current union is 589 actors, 580 locations, and 1269 exits, and
  * generated residents and pathway descendants grow them at runtime. */
 #define CW_MAX_ACTORS 2048u
-#define CW_MAX_ITEMS 1024u
+#define CW_MAX_ITEMS 2048u
 #define CW_MAX_LOCATIONS 2048u
 #define CW_MAX_EXITS 4096u
 #define CW_MAX_EVOLUTION_TRACKS 128u
@@ -143,7 +146,8 @@ typedef enum {
   CW_CARD_ZONE_EXHAUSTED = 5,
   CW_CARD_ZONE_CONTAINED = 6,
   CW_CARD_ZONE_ESCROW = 7,
-  CW_CARD_ZONE_INSTALLED = 8
+  CW_CARD_ZONE_INSTALLED = 8,
+  CW_CARD_ZONE_HIDDEN = 9
 } cw_card_zone;
 
 typedef enum {
@@ -155,6 +159,13 @@ typedef enum {
   CW_ITEM_FLAG_NONE = 0,
   CW_ITEM_FLAG_INERT = 1u << 0
 } cw_item_flags;
+
+typedef enum {
+  CW_ITEM_POLICY_NONE = 0,
+  CW_ITEM_POLICY_TRANSFERABLE = 1u << 0,
+  CW_ITEM_POLICY_THEFT_WHEN_CARRIED = 1u << 1,
+  CW_ITEM_POLICY_CONFIGURED = 1u << 7
+} cw_item_policy_flags;
 
 typedef enum {
   CW_GATE_TARGET_NONE = 0,
@@ -416,6 +427,8 @@ typedef struct {
 
 typedef struct {
   cw_id id;
+  /* Legacy content family retained for journal and ABI compatibility. New
+   * mechanics must dispatch on role and the authored item profile. */
   uint8_t kind;
   uint8_t status;
   uint16_t reserved;
@@ -449,20 +462,19 @@ typedef struct {
   uint8_t max_charges;
   uint8_t recovery;
   uint8_t recovery_zone;
-  uint8_t reserved2;
+  uint8_t policy_flags;
   cw_id location_id;
   cw_id holder_actor_id;
   cw_id container_item_id;
   uint64_t held_since_tick;
-  uint64_t recharge_at_tick;
 } cw_item;
 
 #ifdef __cplusplus
-static_assert(sizeof(cw_item) == 64, "cw_item ABI size must remain stable");
+static_assert(sizeof(cw_item) == 56, "cw_item ABI size must remain stable");
 static_assert(offsetof(cw_item, max_charges) == 18, "cw_item recovery ABI offset drifted");
 static_assert(offsetof(cw_item, location_id) == 24, "cw_item id ABI offset drifted");
 #else
-_Static_assert(sizeof(cw_item) == 64, "cw_item ABI size must remain stable");
+_Static_assert(sizeof(cw_item) == 56, "cw_item ABI size must remain stable");
 _Static_assert(offsetof(cw_item, max_charges) == 18, "cw_item recovery ABI offset drifted");
 _Static_assert(offsetof(cw_item, location_id) == 24, "cw_item id ABI offset drifted");
 #endif
@@ -705,6 +717,7 @@ void cw_world_init(cw_world *world);
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events);
 cw_status cw_world_set_item_profile(cw_world *world, cw_id item_id, uint16_t weight_tenths, uint8_t size_class, uint8_t role, uint16_t container_capacity_tenths);
 cw_status cw_world_set_item_recovery_profile(cw_world *world, cw_id item_id, uint8_t max_charges, uint8_t recovery, uint8_t ready_zone);
+cw_status cw_world_set_item_policy(cw_world *world, cw_id item_id, uint8_t policy_flags);
 cw_status cw_world_set_item_zone(cw_world *world, cw_id item_id, uint8_t zone, cw_id container_item_id);
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count);
 cw_status cw_world_set_gate(cw_world *world, const cw_gate *gate, const cw_gate_method_definition *methods, size_t method_count);

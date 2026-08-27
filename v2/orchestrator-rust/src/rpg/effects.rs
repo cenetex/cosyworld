@@ -402,7 +402,11 @@ impl RuntimeWorld {
                     if self.location_name(*location_id).is_none() {
                         return Err(format!("missing room {location_id}"));
                     }
-                    if item.holder_actor_id != 0 || item.location_id != 0 || item.charges == 0 {
+                    if item.holder_actor_id != 0
+                        || item.location_id != 0
+                        || item.zone != CW_CARD_ZONE_HIDDEN
+                        || item.charges == 0
+                    {
                         return Err(format!("item {item_id} is not hidden"));
                     }
                 }

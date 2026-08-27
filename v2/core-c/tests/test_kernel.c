@@ -41,7 +41,7 @@ static void test_kernel_capacities_are_runtime_sized(void) {
    * 1269 exits. Keep at least another seed's worth of room for generated
    * residents and pathway descendants while the world is live. */
   assert(CW_MAX_ACTORS >= 1178u);
-  assert(CW_MAX_ITEMS >= 1024u);
+  assert(CW_MAX_ITEMS >= 2048u);
   assert(CW_MAX_LOCATIONS >= 1160u);
   assert(CW_MAX_EXITS >= 2538u);
   assert(CW_MAX_EXITS >= CW_MAX_LOCATIONS);
@@ -51,7 +51,7 @@ static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_GATE_CLAIMS >= 128u);
   /* The world is one flat struct handed across the ABI. Keep it small enough
    * to stay comfortable on a 2 MB worker stack even when built unoptimized. */
-  assert(sizeof(cw_world) <= 340000u);
+  assert(sizeof(cw_world) <= 410000u);
 }
 
 static void test_seed_and_chat(void) {
@@ -120,6 +120,7 @@ static void test_linked_avatar_rescue_and_double_knockout_cascade(void) {
   memset(draught, 0, sizeof(*draught));
   draught->id = 9001;
   draught->kind = CW_ITEM_POTION;
+  draught->role = CW_ITEM_ROLE_CONSUMABLE;
   draught->charges = 1;
   draught->max_charges = 1;
   draught->zone = CW_CARD_ZONE_CARRIED;
@@ -151,6 +152,7 @@ static void test_linked_avatar_rescue_and_double_knockout_cascade(void) {
   memset(next_draught, 0, sizeof(*next_draught));
   next_draught->id = 9002;
   next_draught->kind = CW_ITEM_POTION;
+  next_draught->role = CW_ITEM_ROLE_CONSUMABLE;
   next_draught->charges = 1;
   next_draught->max_charges = 1;
   next_draught->zone = CW_CARD_ZONE_CARRIED;
@@ -329,6 +331,7 @@ static void test_d20_roll_modes_bloodied_and_nonlethal_knockout(void) {
 
   world.items[0].holder_actor_id = attacker->id;
   world.items[0].location_id = 0;
+  world.items[0].zone = CW_CARD_ZONE_CARRIED;
   world.items[0].charges = 1;
   cw_action use = {0};
   use.kind = CW_ACTION_USE_ITEM;
@@ -883,8 +886,19 @@ static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
   content->location_id = 0;
   content->zone = CW_CARD_ZONE_CARRIED;
   assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
+  container->container_capacity_tenths = 4;
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CONTAINED, 2005) == CW_ERR_RULE);
+  container->container_capacity_tenths = 100;
   assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CONTAINED, 2005) == CW_OK);
   assert(content->container_item_id == 2005);
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CARRIED, 0) == CW_OK);
+  cw_action nonempty_drop = {0};
+  nonempty_drop.kind = CW_ACTION_DROP_ITEM;
+  nonempty_drop.actor_id = 5001;
+  nonempty_drop.item_id = 2005;
+  assert(cw_world_apply(&world, &nonempty_drop, 420, &events) == CW_ERR_RULE);
+  assert(container->holder_actor_id == 5001 && content->container_item_id == 2005);
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
   assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CONTAINED, 2006) == CW_ERR_RULE);
   assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
   assert(content->zone == CW_CARD_ZONE_EQUIPPED);
@@ -947,6 +961,11 @@ static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
   theft.target_actor_id = 1001;
   theft.item_id = 2004;
   theft.dc = 100;
+  assert(cw_world_apply(&world, &theft, 422, &events) == CW_ERR_RULE);
+  assert(cw_world_set_item_policy(
+      &world,
+      2004,
+      CW_ITEM_POLICY_TRANSFERABLE | CW_ITEM_POLICY_THEFT_WHEN_CARRIED) == CW_OK);
   assert(cw_world_apply(&world, &theft, 422, &events) == CW_OK);
   assert(events.count == 1 && events.events[0].type == CW_EVENT_ITEM_THEFT_ATTEMPT);
   assert(events.events[0].success == 0);
@@ -1174,8 +1193,10 @@ static void test_maximum_evolution_burst_fits_event_buffer(void) {
   assert(gift);
   shared_requirement->holder_actor_id = 0;
   shared_requirement->location_id = 1;
+  shared_requirement->zone = CW_CARD_ZONE_WORLD;
   gift->holder_actor_id = 5001;
   gift->location_id = 0;
+  gift->zone = CW_CARD_ZONE_CARRIED;
 
   const cw_evolution_requirement requirement = {
     2005, CW_PLACEMENT_LOCATION_FLOOR, {0}, 1
@@ -1227,15 +1248,19 @@ static void test_npc_trade_items(void) {
   assert(story);
   dewbright->holder_actor_id = 1001;
   dewbright->location_id = 0;
+  dewbright->zone = CW_CARD_ZONE_CARRIED;
   dewbright->held_since_tick = 10;
   moonlit->holder_actor_id = 1002;
   moonlit->location_id = 0;
+  moonlit->zone = CW_CARD_ZONE_CARRIED;
   moonlit->held_since_tick = 9;
   story->holder_actor_id = 1002;
   story->location_id = 0;
+  story->zone = CW_CARD_ZONE_CARRIED;
   story->held_since_tick = 11;
   moonlit->holder_actor_id = 0;
   moonlit->location_id = 3;
+  moonlit->zone = CW_CARD_ZONE_WORLD;
   moonlit->held_since_tick = 0;
 
   cw_action_offers offers = {0};
@@ -1279,9 +1304,11 @@ static void test_npc_give_items(void) {
   assert(moonlit);
   dewbright->holder_actor_id = 1001;
   dewbright->location_id = 0;
+  dewbright->zone = CW_CARD_ZONE_CARRIED;
   dewbright->held_since_tick = 10;
   moonlit->holder_actor_id = 0;
   moonlit->location_id = 3;
+  moonlit->zone = CW_CARD_ZONE_WORLD;
   moonlit->held_since_tick = 0;
 
   cw_action give = {0};
@@ -1324,8 +1351,14 @@ static void test_actor_affordances_do_not_depend_on_controller_provenance(void) 
   assert(button);
   tonic->holder_actor_id = 5001;
   tonic->location_id = 0;
+  tonic->zone = CW_CARD_ZONE_CARRIED;
   button->holder_actor_id = 5002;
   button->location_id = 0;
+  button->zone = CW_CARD_ZONE_CARRIED;
+  assert(cw_world_set_item_policy(
+      &world,
+      button->id,
+      CW_ITEM_POLICY_TRANSFERABLE | CW_ITEM_POLICY_THEFT_WHEN_CARRIED) == CW_OK);
 
   cw_action_offers offers = {0};
   assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
@@ -1411,8 +1444,10 @@ static void test_give_can_exchange_an_item_to_make_weight_capacity(void) {
   assert(returned);
   offered->holder_actor_id = 5001;
   offered->location_id = 0;
+  offered->zone = CW_CARD_ZONE_CARRIED;
   returned->holder_actor_id = 1001;
   returned->location_id = 0;
+  returned->zone = CW_CARD_ZONE_CARRIED;
   world.actors[0].stats.strength = 1;
   assert(cw_world_set_item_profile(&world, 2002, 100, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
   assert(cw_world_set_item_profile(&world, 2005, 100, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
@@ -1447,9 +1482,11 @@ static void test_npc_pickup_can_evolve_self(void) {
   world.actors[1].location_id = 2;
   dewbright->holder_actor_id = 0;
   dewbright->location_id = 2;
+  dewbright->zone = CW_CARD_ZONE_WORLD;
   dewbright->held_since_tick = 0;
   moonlit->holder_actor_id = 0;
   moonlit->location_id = 3;
+  moonlit->zone = CW_CARD_ZONE_WORLD;
   moonlit->held_since_tick = 0;
 
   cw_action pickup = {0};
@@ -1497,12 +1534,15 @@ static void test_inventory_uses_weight_and_container_capacity(void) {
 
   held_a->holder_actor_id = 5001;
   held_a->location_id = 0;
+  held_a->zone = CW_CARD_ZONE_CARRIED;
   held_a->held_since_tick = 10;
   new_item->holder_actor_id = 0;
   new_item->location_id = 1;
+  new_item->zone = CW_CARD_ZONE_WORLD;
   new_item->held_since_tick = 0;
   bag->holder_actor_id = 0;
   bag->location_id = 1;
+  bag->zone = CW_CARD_ZONE_WORLD;
   bag->held_since_tick = 0;
 
   world.tick = 100;
@@ -1530,6 +1570,7 @@ static void test_inventory_uses_weight_and_container_capacity(void) {
   cw_item *too_heavy = test_find_item(&world, 2002);
   too_heavy->holder_actor_id = 0;
   too_heavy->location_id = 1;
+  too_heavy->zone = CW_CARD_ZONE_WORLD;
   cw_action_offers offers = {0};
   assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
   assert((offers.option_flags & CW_OFFER_PICK_UP) == 0);
@@ -1555,6 +1596,10 @@ static void test_inventory_uses_weight_and_container_capacity(void) {
   drop.kind = CW_ACTION_DROP_ITEM;
   drop.actor_id = 5001;
   drop.item_id = 2005;
+  assert(cw_world_set_item_policy(&world, 2005, CW_ITEM_POLICY_NONE) == CW_OK);
+  assert(cw_world_apply(&world, &drop, 65, &events) == CW_ERR_RULE);
+  assert(new_item->holder_actor_id == 5001);
+  assert(cw_world_set_item_policy(&world, 2005, CW_ITEM_POLICY_TRANSFERABLE) == CW_OK);
   assert(cw_world_apply(&world, &drop, 65, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_DROPPED);
@@ -1580,6 +1625,7 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   search.location_id = 1;
   search.content_id = 9001;
   search.item_id = 2005;
+  assert(test_find_item(&world, 2005)->zone == CW_CARD_ZONE_HIDDEN);
   assert(cw_world_apply(&world, &search, 71, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_FOUND);
@@ -2271,7 +2317,7 @@ static void test_discovery_procedures_reveal_regardless_of_pressure_check(void) 
  */
 _Static_assert(sizeof(cw_event) == 144, "cw_event changed; update assert_event_equal");
 _Static_assert(sizeof(cw_actor) == 40, "cw_actor changed; update assert_actor_equal");
-_Static_assert(sizeof(cw_item) == 64, "cw_item changed; update assert_item_equal");
+_Static_assert(sizeof(cw_item) == 56, "cw_item changed; update assert_item_equal");
 _Static_assert(sizeof(cw_location) == 16, "cw_location changed; update assert_location_equal");
 
 /* Fill the stack with a known pattern so two replays cannot accidentally
@@ -2345,12 +2391,11 @@ static void assert_item_equal(const cw_item *left, const cw_item *right) {
   assert(left->max_charges == right->max_charges);
   assert(left->recovery == right->recovery);
   assert(left->recovery_zone == right->recovery_zone);
-  assert(left->reserved2 == right->reserved2);
+  assert(left->policy_flags == right->policy_flags);
   assert(left->location_id == right->location_id);
   assert(left->holder_actor_id == right->holder_actor_id);
   assert(left->container_item_id == right->container_item_id);
   assert(left->held_since_tick == right->held_since_tick);
-  assert(left->recharge_at_tick == right->recharge_at_tick);
 }
 
 static void assert_location_equal(const cw_location *left, const cw_location *right) {

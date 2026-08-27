@@ -617,7 +617,7 @@
         "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
       }
     },
-    "bundle_hash": "sha256:c25a8ef4b6aab4cea9e6d70e3153c1d0785348facdbaa97976b0bbf3f6e9978e",
+    "bundle_hash": "sha256:79f0df04f8d3a7538797da9cb26ce8c1c96ef8bec1c05f916832c8325842a3bb",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1889,7 +1889,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
+        "integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f"
       }
     ],
     "files": {
@@ -3256,7 +3256,7 @@
         "kind": "potion",
         "charges": 1,
         "location_id": 1,
-        "role": "tool",
+        "role": "consumable",
         "capabilities": [
           "camp_shelter"
         ],
@@ -8190,14 +8190,38 @@
     ],
     "recipes": [
       {
+        "schema_version": 2,
         "id": 3001,
         "key": "hearth-story-lantern",
         "name": "Hearth Story Lantern",
         "description": "Bind a warm tonic and a tale-button into a lantern that opens a farther cottage doorway.",
-        "input_item_ids": [
-          2001,
-          2005
+        "inputs": [
+          {
+            "item_id": 2001,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          },
+          {
+            "item_id": 2005,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          }
         ],
+        "requires": {
+          "location_ids": [
+            1
+          ]
+        },
         "output": {
           "item_id": 2011,
           "name": "Hearth Story Lantern",
@@ -8207,7 +8231,7 @@
           "target_kind": "location_floor",
           "target_id": 2
         },
-        "balance": {
+        "outcome": {
           "kind": "location",
           "target_kind": "location_floor",
           "target_id": 2,
@@ -8216,15 +8240,39 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "schema_version": 2,
         "id": 3002,
         "key": "bank-the-cottage-hearth",
         "name": "Bank the Cottage Hearth",
         "description": "Set the hearth tonic beside the story button and bank the cottage fire for whoever arrives next.",
-        "input_item_ids": [
-          2001,
-          2005
+        "inputs": [
+          {
+            "item_id": 2001,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          },
+          {
+            "item_id": 2005,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          }
         ],
-        "balance": {
+        "requires": {
+          "location_ids": [
+            1
+          ]
+        },
+        "outcome": {
           "kind": "covenant",
           "target_kind": "location_floor",
           "target_id": 1,
@@ -8233,15 +8281,39 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "schema_version": 2,
         "id": 3003,
         "key": "tend-the-rain-soft-garden",
         "name": "Tend the Rain-Soft Garden",
         "description": "Set the dewbright button beside the watch bell and clear the puddle path for the next visitor.",
-        "input_item_ids": [
-          2002,
-          2007
+        "inputs": [
+          {
+            "item_id": 2002,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          },
+          {
+            "item_id": 2007,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          }
         ],
-        "balance": {
+        "requires": {
+          "location_ids": [
+            2
+          ]
+        },
+        "outcome": {
           "kind": "covenant",
           "target_kind": "location_floor",
           "target_id": 2,
@@ -8250,15 +8322,39 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "schema_version": 2,
         "id": 3004,
         "key": "reset-the-practice-circle",
         "name": "Reset the Practice Circle",
         "description": "Set the wolfprint charm beside the hearthstone tag and smooth the practice circle after a hard crossing.",
-        "input_item_ids": [
-          2003,
-          2006
+        "inputs": [
+          {
+            "item_id": 2003,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          },
+          {
+            "item_id": 2006,
+            "quantity": 1,
+            "zones": [
+              "carried",
+              "world"
+            ],
+            "min_charges": 1,
+            "disposition": "persistent"
+          }
         ],
-        "balance": {
+        "requires": {
+          "location_ids": [
+            3
+          ]
+        },
+        "outcome": {
           "kind": "covenant",
           "target_kind": "location_floor",
           "target_id": 3,
@@ -8662,7 +8758,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.13",
-      "pack_integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d",
+      "pack_integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -8675,7 +8771,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.13",
-      "pack_integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d",
+      "pack_integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",

@@ -725,7 +725,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:070906fd0fd90124fe93641d11c2c6285cf0c78b2e9126d805206a0d9136eb7f",
+  "bundle_hash": "sha256:d6bb85c9b172307abb4c06faabb6d270e583b539947abb90d2e683832dff806d",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1997,7 +1997,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:8e41acb7fe7c06de909c3b49bc736202ea7a1cbcc51ee688549d11789b333e6d"
+      "integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f"
     },
     {
       "id": "cosyworld.the-holy-land",
