@@ -1238,7 +1238,10 @@ fn voice_terminal_code_is_retryable(code: Option<&str>) -> bool {
     matches!(
         code,
         Some(
-            "voice_latency_exhausted" | "voice_provider_unavailable" | "voice_job_retry_exhausted"
+            "voice_latency_exhausted"
+                | "voice_provider_unavailable"
+                | "voice_job_retry_exhausted"
+                | "voice_no_eligible_candidates"
         )
     )
 }
@@ -1954,51 +1957,53 @@ mod tests {
     }
 
     #[test]
-    fn transiently_unavailable_voice_job_can_be_claimed_again() {
+    fn transiently_unavailable_voice_jobs_can_be_claimed_again() {
         let path = test_path("transient-retry");
         let _ = fs::remove_file(&path);
         let policy = VoiceRoutingConfig::default();
-        assert!(matches!(
-            claim_voice_job(
-                &path,
-                "retry-generation",
-                "retry-key",
-                "avatar_self_description",
-                "prose",
-                "first-owner",
-                &policy,
-            )
-            .expect("claim first voice attempt"),
-            JobClaim::Acquired
-        ));
-        finish_voice_job_unavailable(
-            Some(&path),
-            "retry-generation",
-            "first-owner",
-            "voice_latency_exhausted",
-        );
-        assert!(matches!(
-            claim_voice_job(
-                &path,
-                "retry-generation",
-                "retry-key",
-                "avatar_self_description",
-                "prose",
-                "second-owner",
-                &policy,
-            )
-            .expect("reclaim transiently unavailable voice attempt"),
-            JobClaim::Acquired
-        ));
-        let state: (String, Option<String>, u32) = crate::open_event_store(&path)
-            .expect("open retried voice store")
-            .query_row(
-                "SELECT status, terminal_code, lease_retries FROM ai_voice_jobs",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .expect("read retried voice state");
-        assert_eq!(state, ("pending".to_string(), None, 0));
+        for (index, code) in ["voice_latency_exhausted", "voice_no_eligible_candidates"]
+            .into_iter()
+            .enumerate()
+        {
+            let generation = format!("retry-generation-{index}");
+            assert!(matches!(
+                claim_voice_job(
+                    &path,
+                    &generation,
+                    "retry-key",
+                    "avatar_self_description",
+                    "prose",
+                    "first-owner",
+                    &policy,
+                )
+                .expect("claim first voice attempt"),
+                JobClaim::Acquired
+            ));
+            finish_voice_job_unavailable(Some(&path), &generation, "first-owner", code);
+            assert!(matches!(
+                claim_voice_job(
+                    &path,
+                    &generation,
+                    "retry-key",
+                    "avatar_self_description",
+                    "prose",
+                    "second-owner",
+                    &policy,
+                )
+                .expect("reclaim transiently unavailable voice attempt"),
+                JobClaim::Acquired
+            ));
+            let state: (String, Option<String>, u32) = crate::open_event_store(&path)
+                .expect("open retried voice store")
+                .query_row(
+                    "SELECT status, terminal_code, lease_retries FROM ai_voice_jobs
+                     WHERE generation_id = ?1",
+                    params![generation],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .expect("read retried voice state");
+            assert_eq!(state, ("pending".to_string(), None, 0));
+        }
         let _ = fs::remove_file(path);
     }
 

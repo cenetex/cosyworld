@@ -54,6 +54,7 @@ pub(super) const ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION: &str = "avatar_self_des
 pub(super) const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
+const AVATAR_SELF_DESCRIPTION_RETRY_FLOOR_MS: u64 = 60_000;
 // Resident reactions still get a brief human-feeling beat, but they should not
 // hold the Story Hand for several seconds when there is no dialogue provider.
 pub(super) const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 750;
@@ -739,6 +740,27 @@ pub(super) fn fail_actor_job_for_runtime_state(
             retry_floor_ms.max(readiness_delay_ms),
         );
     }
+    if matches!(&job.payload, ActorJobPayload::AvatarSelfDescription(_))
+        && matches!(
+            error,
+            "voice_latency_exhausted"
+                | "voice_provider_unavailable"
+                | "voice_job_retry_exhausted"
+                | "voice_no_eligible_candidates"
+                | "voice_generation_in_flight"
+        )
+    {
+        // A funded portrait must not become permanently stranded because all
+        // server voice routes were briefly cooling down. Keep its private
+        // prerequisite durable, but wait beyond the provider cooldown before
+        // trying again so a recovery wave cannot create a request storm.
+        return defer_actor_job_without_attempt(
+            path,
+            job,
+            error,
+            retry_floor_ms.max(AVATAR_SELF_DESCRIPTION_RETRY_FLOOR_MS),
+        );
+    }
     if matches!(&job.payload, ActorJobPayload::OrbChat(_))
         && pending_chat_context_rejection(error).is_some()
     {
@@ -937,6 +959,59 @@ mod readiness_retry_tests {
             )
             .expect("read deferred readiness job");
         assert_eq!(deferred, ("pending".to_string(), 0, None));
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn transient_self_description_route_failure_stays_pending_after_attempt_budget() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-self-description-route-deferral-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize self-description deferral store");
+        let runtime = RuntimeWorld::seeded();
+        let reflection = runtime
+            .avatar_reflection_job(1002, AvatarReflectionKind::Thought)
+            .expect("Gust can describe themself");
+        let state = test_app_state(runtime, Some(path.clone()));
+        let conn = open_event_store(&path).expect("open self-description deferral store");
+        assert!(insert_avatar_self_description_job(&conn, &reflection)
+            .expect("queue self-description job"));
+        conn.execute(
+            "UPDATE actor_jobs SET attempts = ?1, available_at_ms = 0",
+            params![ACTOR_JOB_MAX_ATTEMPTS - 1],
+        )
+        .expect("place the job on its final generic attempt");
+        drop(conn);
+
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION)
+            .expect("claim self-description job")
+            .expect("self-description job exists");
+        assert_eq!(claimed.attempts, ACTOR_JOB_MAX_ATTEMPTS);
+        fail_actor_job_for_runtime_state(
+            &path,
+            &state,
+            &claimed,
+            "voice_no_eligible_candidates",
+            0,
+        )
+        .expect("defer transient self-description failure");
+
+        let conn = open_event_store(&path).expect("inspect deferred self-description job");
+        let deferred: (String, u32, Option<i64>, i64) = conn
+            .query_row(
+                "SELECT status, attempts, lease_until_ms, available_at_ms
+                 FROM actor_jobs WHERE id = ?1",
+                params![claimed.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("read deferred self-description job");
+        assert_eq!(deferred.0, "pending");
+        assert_eq!(deferred.1, ACTOR_JOB_MAX_ATTEMPTS - 1);
+        assert_eq!(deferred.2, None);
+        assert!(deferred.3 >= now_millis() as i64 + 59_000);
         let _ = fs::remove_file(path);
     }
 }
