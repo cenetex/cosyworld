@@ -747,6 +747,7 @@ pub(super) fn fail_actor_job_for_runtime_state(
                 | "voice_provider_unavailable"
                 | "voice_job_retry_exhausted"
                 | "voice_no_eligible_candidates"
+                | "voice_candidates_exhausted"
                 | "voice_generation_in_flight"
         )
     {
@@ -990,14 +991,8 @@ mod readiness_retry_tests {
             .expect("claim self-description job")
             .expect("self-description job exists");
         assert_eq!(claimed.attempts, ACTOR_JOB_MAX_ATTEMPTS);
-        fail_actor_job_for_runtime_state(
-            &path,
-            &state,
-            &claimed,
-            "voice_no_eligible_candidates",
-            0,
-        )
-        .expect("defer transient self-description failure");
+        fail_actor_job_for_runtime_state(&path, &state, &claimed, "voice_candidates_exhausted", 0)
+            .expect("defer transient self-description failure");
 
         let conn = open_event_store(&path).expect("inspect deferred self-description job");
         let deferred: (String, u32, Option<i64>, i64) = conn

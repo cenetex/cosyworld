@@ -1242,6 +1242,7 @@ fn voice_terminal_code_is_retryable(code: Option<&str>) -> bool {
                 | "voice_provider_unavailable"
                 | "voice_job_retry_exhausted"
                 | "voice_no_eligible_candidates"
+                | "voice_candidates_exhausted"
         )
     )
 }
@@ -1961,9 +1962,13 @@ mod tests {
         let path = test_path("transient-retry");
         let _ = fs::remove_file(&path);
         let policy = VoiceRoutingConfig::default();
-        for (index, code) in ["voice_latency_exhausted", "voice_no_eligible_candidates"]
-            .into_iter()
-            .enumerate()
+        for (index, code) in [
+            "voice_latency_exhausted",
+            "voice_no_eligible_candidates",
+            "voice_candidates_exhausted",
+        ]
+        .into_iter()
+        .enumerate()
         {
             let generation = format!("retry-generation-{index}");
             assert!(matches!(
