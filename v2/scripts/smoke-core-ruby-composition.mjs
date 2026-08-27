@@ -523,9 +523,26 @@ async function discoverExit(baseUrl, actorId, actorSession, destinationLocationI
       && exit.locked === false)) {
       return state;
     }
-    await commandExactOffer(baseUrl, actorId, actorSession, "search");
+    const scout = await drawExactOffer(
+      baseUrl,
+      actorId,
+      actorSession,
+      (offer) => offer.kind === "explore_path"
+        && Number(offer.target?.id) === Number(destinationLocationId),
+      `Scout route to ${destinationLocationId}`,
+    );
+    const result = await postJson(`${baseUrl}/commands`, {
+      actor_id: actorId,
+      actor_session: actorSession,
+      command: scout.command,
+      offer_id: scout.offer_id,
+    });
+    assert(
+      result.ok === true,
+      `Scout route to ${destinationLocationId} failed: ${JSON.stringify(result)}`,
+    );
   }
-  throw new Error(`exit ${destinationLocationId} was not discovered after 32 searches`);
+  throw new Error(`exit ${destinationLocationId} was not discovered after 32 Scout actions`);
 }
 
 async function assertContext(baseUrl, actorId, actorSession, state, {

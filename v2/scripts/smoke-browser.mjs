@@ -12381,7 +12381,7 @@ async function main() {
     await assertActionBarCapped("combat attack action bar");
   }
 
-  async function focusGiftForResident(name, stopWhen = null) {
+  async function focusGiftForResident(name, stopWhen = null, expectedItemName = "") {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -12390,13 +12390,22 @@ async function main() {
     const deckSize = await fetchInspectableDeckSize();
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
-      result = await page.evaluate((residentName) => {
+      result = await page.evaluate(({ residentName, itemName }) => {
         const needle = residentName.toLowerCase();
+        const itemNeedle = itemName.toLowerCase();
         const action = actionBarActions().find((candidate) => (
           ["give", "swap", "trade"].includes(candidate.label)
           && (
             String(candidate.detail || "").toLowerCase().includes(needle)
             || (candidate.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(needle))
+          )
+          && (
+            !itemNeedle
+            || [
+              candidate.detail,
+              candidate.command,
+              ...(candidate.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+            ].filter(Boolean).join(" ").toLowerCase().includes(itemNeedle)
           )
         ));
         if (!action) {
@@ -12422,7 +12431,7 @@ async function main() {
             action.command,
           ].filter(Boolean).join(" "),
         };
-      }, name);
+      }, { residentName: name, itemName: expectedItemName });
       if (result.ok) break;
       if (stopWhen && await stopWhen()) return null;
       if (draw + 1 < deckSize) {
@@ -12467,6 +12476,10 @@ async function main() {
     assert(
       transferReceipt,
       `${name} transfer should return an exact authoritative ${expectedReceiptType} receipt: ${JSON.stringify(result.body?.events || [])}`,
+    );
+    assert(
+      !expectedItemName || transferReceipt.item_name === expectedItemName,
+      `${name} transfer should settle ${expectedItemName}, not ${transferReceipt.item_name || "an unnamed item"}`,
     );
     recordLivingItemEvidence({
       type: expectedReceiptType,
@@ -12598,7 +12611,7 @@ async function main() {
             ))
         ),
         { residentName: name, heldItemName: itemName },
-      ));
+      ), itemName);
       if (!lastPrimary) continue;
       steps.push({ label: `focus ${name} gift`, attempt, primary: lastPrimary });
       if (!/^(give|swap|trade)\b/i.test(lastPrimary)) continue;
@@ -16643,7 +16656,7 @@ async function main() {
       )) || finalState.residentItemState.some((moment) => (
         moment.item === "Watch Bell" && moment.resident === "Skull"
       )),
-      `the Watch Bell should reach Skull, perform its authored use, or complete an evolution: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, residentItemState: finalState.residentItemState })}`,
+      `the Watch Bell should reach Skull, perform its authored use, or complete an evolution: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, residentItemState: finalState.residentItemState, livingItemEvidence: finalState.livingItemEvidence })}`,
     );
     assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
   }
