@@ -405,9 +405,6 @@ impl RuntimeWorld {
                     if item.holder_actor_id != 0 || item.location_id != 0 || item.charges == 0 {
                         return Err(format!("item {item_id} is not hidden"));
                     }
-                    if !self.room_floor_empty(*location_id) {
-                        return Err(format!("room {location_id} floor is full"));
-                    }
                 }
                 EffectDescriptor::Unknown => {
                     return Err("unknown effect op".to_string());

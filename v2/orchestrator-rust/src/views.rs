@@ -4273,10 +4273,8 @@ impl RuntimeWorld {
                     || actor_id
                         .map(|id| self.feature_search_claimed(id, location_id, &feature.key))
                         .unwrap_or(false);
-                let searched = explicitly_searched
-                    || (!hidden_exit_pending
-                        && !search_reveal_pending
-                        && !self.room_floor_empty(location_id));
+                let searched =
+                    explicitly_searched || (!hidden_exit_pending && !search_reveal_pending);
                 let uses = feature
                     .uses
                     .iter()

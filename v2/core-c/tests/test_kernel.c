@@ -1758,17 +1758,26 @@ static void test_authoritative_world_effect_actions(void) {
   reveal.actor_id = 1001;
   reveal.location_id = 1;
   reveal.item_id = 2005;
-  assert(cw_world_apply(&world, &reveal, 82, &events) == CW_ERR_RULE);
-  assert(events.count == 1);
-  assert(events.events[0].reason == 21);
-  assert(test_find_item(&world, 2005)->location_id == 0);
-
-  test_find_item(&world, 2001)->location_id = 0;
-  assert(cw_world_apply(&world, &reveal, 83, &events) == CW_OK);
+  assert(cw_world_apply(&world, &reveal, 82, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_REVEALED);
   assert(events.events[0].item_id == 2005);
+  assert(test_find_item(&world, 2001)->location_id == 1);
   assert(test_find_item(&world, 2005)->location_id == 1);
+
+  cw_action pickup = {0};
+  pickup.kind = CW_ACTION_PICK_UP_ITEM;
+  pickup.actor_id = 1001;
+  pickup.item_id = 2005;
+  assert(cw_world_apply(&world, &pickup, 83, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
+
+  cw_action_offers offers = {0};
+  assert(cw_get_action_offers(&world, 1001, &offers) == CW_OK);
+  assert((offers.option_flags & CW_OFFER_DROP_ITEM) != 0);
+  assert((offers.option_flags & CW_OFFER_SEARCH) != 0);
+
   assert(cw_world_apply(&world, &reveal, 84, &events) == CW_ERR_RULE);
 }
 

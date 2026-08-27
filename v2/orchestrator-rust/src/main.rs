@@ -12242,22 +12242,20 @@ impl RuntimeWorld {
                 hidden_exit_id: hidden_exit.id.clone(),
             });
         }
-        if self.room_floor_empty(location_id) {
-            let hidden_item_id = self.hidden_search_item_for_location(location_id);
-            let feature_uses_hidden_item = self
-                .room_features(location_id)
-                .into_iter()
-                .find(|feature| feature.key == feature_key)
-                .is_some_and(|feature| {
-                    feature
-                        .uses
-                        .iter()
-                        .any(|use_case| Some(use_case.item_id) == hidden_item_id)
-                });
-            if feature_uses_hidden_item {
-                if let Some(item_id) = hidden_item_id {
-                    candidates.push(SearchRevealCandidate::Item { item_id });
-                }
+        let hidden_item_id = self.hidden_search_item_for_location(location_id);
+        let feature_uses_hidden_item = self
+            .room_features(location_id)
+            .into_iter()
+            .find(|feature| feature.key == feature_key)
+            .is_some_and(|feature| {
+                feature
+                    .uses
+                    .iter()
+                    .any(|use_case| Some(use_case.item_id) == hidden_item_id)
+            });
+        if feature_uses_hidden_item {
+            if let Some(item_id) = hidden_item_id {
+                candidates.push(SearchRevealCandidate::Item { item_id });
             }
         }
         candidates.sort_by_key(|candidate| self.search_candidate_sort_key(candidate));
@@ -12286,10 +12284,8 @@ impl RuntimeWorld {
                 location_id,
             });
         }
-        if self.room_floor_empty(location_id) {
-            if let Some(item_id) = self.hidden_search_item_for_location(location_id) {
-                candidates.push(SearchRevealCandidate::Item { item_id });
-            }
+        if let Some(item_id) = self.hidden_search_item_for_location(location_id) {
+            candidates.push(SearchRevealCandidate::Item { item_id });
         }
         candidates.sort_by_key(|candidate| self.search_candidate_sort_key(candidate));
         candidates
@@ -12553,15 +12549,8 @@ impl RuntimeWorld {
                     if target.status != CW_ACTOR_ACTIVE {
                         return None;
                     }
-                    if self.actor_inventory_count(output.target_id) != 0 {
-                        return None;
-                    }
                 }
-                CW_PLACEMENT_LOCATION_FLOOR => {
-                    if !self.room_floor_empty(output.target_id) {
-                        return None;
-                    }
-                }
+                CW_PLACEMENT_LOCATION_FLOOR => {}
                 _ => return None,
             }
         }
@@ -21752,22 +21741,14 @@ async fn command_inner(
             let candidates =
                 runtime.search_reveal_candidates_for_feature(location_id, &feature_key);
             if candidates.is_empty() && feature_key == "room" {
-                let status = if runtime.room_floor_empty(location_id) {
-                    404
-                } else {
-                    409
-                };
-                let output = if status == 409 {
-                    "Something is already waiting here. Pick it up, use it, or pass it on before looking for another keepsake."
-                } else {
-                    "This room has shared everything it is ready to share."
-                };
                 return Json(CommandResponse {
                     ok: false,
-                    status,
+                    status: 404,
                     command: resolved.command,
                     verb: resolved.verb,
-                    output: Some(output.to_string()),
+                    output: Some(
+                        "This room has shared everything it is ready to share.".to_string(),
+                    ),
                     error_kind: None,
                     action: resolved.action,
                     receipt: None,

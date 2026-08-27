@@ -2253,15 +2253,6 @@ static cw_status apply_reveal_item(cw_world *world, const cw_action *action, cw_
   if (item->holder_actor_id != 0 || item->location_id != 0 || item->charges == 0) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
-  for (size_t i = 0; i < world->item_count; ++i) {
-    const cw_item *floor_item = &world->items[i];
-    if (floor_item->holder_actor_id == 0
-        && floor_item->location_id == action->location_id
-        && floor_item->zone == CW_CARD_ZONE_WORLD) {
-      return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
-    }
-  }
-
   item->location_id = action->location_id;
   item->held_since_tick = 0;
   item->zone = CW_CARD_ZONE_WORLD;
@@ -3583,10 +3574,10 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
   if (actor_has_held_item && room_has_active_actor) {
     out_offers->option_flags |= CW_OFFER_GIVE_ITEM;
   }
-  if (actor_has_held_item && !room_has_loose_item) {
+  if (actor_has_held_item) {
     out_offers->option_flags |= CW_OFFER_DROP_ITEM;
   }
-  if (!room_has_loose_item && hidden_search_item_available) {
+  if (hidden_search_item_available) {
     out_offers->option_flags |= CW_OFFER_SEARCH;
   }
   if (actor_has_held_item && room_has_loose_item) {

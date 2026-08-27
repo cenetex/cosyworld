@@ -1434,22 +1434,14 @@ impl RuntimeWorld {
                 let candidates =
                     self.search_reveal_candidates_for_feature(actor.location_id, &target.key);
                 if candidates.is_empty() && target.key == "room" {
-                    let output = if self.room_floor_empty(actor.location_id) {
-                        "This room has shared everything it is ready to share."
-                    } else {
-                        "Something is already waiting here. Pick it up, use it, or pass it on before looking for another keepsake."
-                    };
                     return Ok(ResolvedCommand {
                         command: command.clone(),
                         verb,
                         action: Some(command_action("search", "Search", &command)),
                         dispatch: CommandDispatch::Disabled {
-                            status: if self.room_floor_empty(actor.location_id) {
-                                404
-                            } else {
-                                409
-                            },
-                            output: output.to_string(),
+                            status: 404,
+                            output: "This room has shared everything it is ready to share."
+                                .to_string(),
                         },
                     });
                 }
