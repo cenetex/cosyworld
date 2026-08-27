@@ -3,14 +3,17 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v4";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v5";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
-// The prose publication gate also enforces a 360-character ceiling. Ninety
-// words invited valid prompt-following output that the gate could never
-// publish; 48 words leaves room for ordinary word lengths and punctuation.
-const SELF_DESCRIPTION_MAX_WORDS: usize = 48;
-const SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
+// Avatar identity is an internal three-field record, not public dialogue. It
+// needs enough room to describe a body, face, colouring, clothing, persona,
+// and continuity without being rejected by the shorter public-prose budget.
+const AVATAR_SELF_DESCRIPTION_MAX_WORDS: usize = 80;
+const AVATAR_SELF_DESCRIPTION_MAX_TOKENS: u32 = 160;
+// Item and location descriptions still use the compact public-prose shape.
+const WORLD_ENTITY_SELF_DESCRIPTION_MAX_WORDS: usize = 48;
+const WORLD_ENTITY_SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
 pub(super) const AVATAR_REFLECTION_DC: u16 = 18;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -631,18 +634,16 @@ pub(super) async fn complete_avatar_self_description(
         (spine, model_binding)
     };
     let level = spine.speaker.level;
-    let speech_mode = if model_binding.is_some() {
-        SpeechMode::Raw
-    } else {
-        SpeechMode::Prose
-    };
+    // The typed identity stays private and is parsed below. Raw mode preserves
+    // its three required lines and gives it the internal 1,200-character
+    // ceiling while retaining grounding and safety checks.
+    let speech_mode = SpeechMode::Raw;
     let prompt = spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::SelfDescription,
         speech_mode,
-        max_words: SELF_DESCRIPTION_MAX_WORDS,
+        max_words: AVATAR_SELF_DESCRIPTION_MAX_WORDS,
         response_job: "Describe the current self from lived evidence. Preserve continuity; make any change an interpretation, not a newly invented deed or fact.".to_string(),
     });
-    let generation_key = avatar_self_description_generation_key(source_job);
     let config = state
         .ai_config
         .as_ref()
@@ -686,32 +687,12 @@ pub(super) async fn complete_avatar_self_description(
         prompt_version: AVATAR_SELF_DESCRIPTION_PROMPT_VERSION,
         prompt,
         temperature: 0.86,
-        max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
+        max_tokens: AVATAR_SELF_DESCRIPTION_MAX_TOKENS,
         referer: "http://127.0.0.1:3102",
         model_binding: model_binding.clone(),
         room_id: Some(source_job.source_location_id),
     };
-    let gate = SpeechGateContext {
-        feature: "avatar_self_description",
-        generation_key,
-        speaker_actor_id: source_job.actor_id,
-        speaker_name: source_job.actor_name.clone(),
-        other_speaker_names: source_job.other_speaker_names.clone(),
-        mode: speech_mode,
-        max_words: SELF_DESCRIPTION_MAX_WORDS,
-        anchors: spine.anchors(AvatarContextMode::SelfDescription),
-        signpost_openers: Vec::new(),
-        recent_lines: spine
-            .recent_dialogue
-            .iter()
-            .map(|turn| turn.content.clone())
-            .collect(),
-        recent_speaker_shingle_hashes: Vec::new(),
-        has_proposed_action: false,
-        requirements: VoiceBeatRequirements::default(),
-        envelope_valid: true,
-        candidate_round: 1,
-    };
+    let gate = avatar_self_description_gate(source_job, &spine);
     let exact_result = route_certified_voice(
         config,
         state
@@ -851,7 +832,7 @@ async fn complete_world_entity_self_description(
         ),
         WorldEntityKind::Avatar => return Ok(()),
     };
-    let max_words = SELF_DESCRIPTION_MAX_WORDS;
+    let max_words = WORLD_ENTITY_SELF_DESCRIPTION_MAX_WORDS;
     let generation_key = format!(
         "{}-self-description:{}:level:{}",
         subject.kind.as_str(),
@@ -874,7 +855,7 @@ async fn complete_world_entity_self_description(
             prompt_version,
             prompt: spine.self_description_prompt(max_words),
             temperature: 0.88,
-            max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
+            max_tokens: WORLD_ENTITY_SELF_DESCRIPTION_MAX_TOKENS,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(source_job.source_location_id),
@@ -1020,6 +1001,33 @@ fn avatar_self_description_generation_key(job: &AvatarReflectionJob) -> String {
         job.context_spine.speaker.level.max(1),
         AVATAR_SELF_DESCRIPTION_PROMPT_VERSION
     )
+}
+
+fn avatar_self_description_gate(
+    job: &AvatarReflectionJob,
+    spine: &AvatarContextSpine,
+) -> SpeechGateContext {
+    SpeechGateContext {
+        feature: "avatar_self_description",
+        generation_key: avatar_self_description_generation_key(job),
+        speaker_actor_id: job.actor_id,
+        speaker_name: job.actor_name.clone(),
+        other_speaker_names: job.other_speaker_names.clone(),
+        mode: SpeechMode::Raw,
+        max_words: AVATAR_SELF_DESCRIPTION_MAX_WORDS,
+        anchors: spine.anchors(AvatarContextMode::SelfDescription),
+        signpost_openers: Vec::new(),
+        recent_lines: spine
+            .recent_dialogue
+            .iter()
+            .map(|turn| turn.content.clone())
+            .collect(),
+        recent_speaker_shingle_hashes: Vec::new(),
+        has_proposed_action: false,
+        requirements: VoiceBeatRequirements::default(),
+        envelope_valid: true,
+        candidate_round: 1,
+    }
 }
 
 pub(super) fn schedule_avatar_self_description(state: &AppState, job: AvatarReflectionJob) {
@@ -1187,6 +1195,37 @@ mod tests {
             "A round blue form with bright eyes and a wool coat."
         );
         assert_eq!(identity.continuity, "Keeps the same blue colouring.");
+    }
+
+    #[test]
+    fn avatar_identity_has_room_for_a_private_three_part_portrait() {
+        let runtime = RuntimeWorld::seeded();
+        let job = runtime
+            .avatar_reflection_job(1002, AvatarReflectionKind::Thought)
+            .expect("Gust can describe themself");
+        let mut gate = avatar_self_description_gate(&job, &job.context_spine);
+        gate.anchors = vec!["cottage".to_string()];
+        gate.recent_lines.clear();
+        let content = "PERSONA: I am a patient cottage keeper who studies small problems, welcomes careful company, and prefers useful plans to hurried guesses.\nAPPEARANCE: I have a broad blue woollen body, a round face, bright amber eyes, sturdy hands, short dark boots, a weathered green coat, and a practical satchel resting across my shoulder.\nCONTINUITY: I keep the same calm manner, familiar colouring, working clothes, and steady wish to leave each shared place kinder than I found it.";
+        assert!(content.split_whitespace().count() > 48);
+        assert!(content.chars().count() > 360);
+        assert_eq!(gate.mode, SpeechMode::Raw);
+        assert_eq!(gate.max_words, AVATAR_SELF_DESCRIPTION_MAX_WORDS);
+        let completion = AiCompletion {
+            text: content.to_string(),
+            reasoning_trace: None,
+            attempts: 1,
+            latency: std::time::Duration::ZERO,
+            model_attribution: None,
+            resolved_model_id: "test/model".to_string(),
+            finish_reason: "stop".to_string(),
+            usage: AiTokenUsage::default(),
+            context_hash: "test-context".to_string(),
+            prompt_version: AVATAR_SELF_DESCRIPTION_PROMPT_VERSION.to_string(),
+        };
+        let speech = certify_speech(None, completion, content, gate)
+            .expect("a private structured portrait is not held to the public prose budget");
+        parse_avatar_level_identity(speech.text()).expect("the certified identity remains typed");
     }
 
     #[test]

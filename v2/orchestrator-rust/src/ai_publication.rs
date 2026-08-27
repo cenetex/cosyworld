@@ -1437,6 +1437,17 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
         .lines()
         .map(str::trim)
         .map(|line| strip_own_speaker_label(line, &context.speaker_name))
+        .map(|line| {
+            if context.feature == "avatar_self_description" {
+                ["PERSONA:", "APPEARANCE:", "CONTINUITY:"]
+                    .iter()
+                    .find_map(|label| line.strip_prefix(label))
+                    .map(|value| value.trim_start().to_string())
+                    .unwrap_or(line)
+            } else {
+                line
+            }
+        })
         .collect::<Vec<_>>()
         .join("\n");
     let mut own_label_lines = BTreeSet::new();
