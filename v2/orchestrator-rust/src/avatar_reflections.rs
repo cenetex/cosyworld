@@ -3,7 +3,7 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v5";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v6";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
 // Avatar identity is an internal three-field record, not public dialogue. It
@@ -1206,7 +1206,7 @@ mod tests {
         let mut gate = avatar_self_description_gate(&job, &job.context_spine);
         gate.anchors = vec!["cottage".to_string()];
         gate.recent_lines.clear();
-        let content = "PERSONA: I am a patient cottage keeper who studies small problems, welcomes careful company, and prefers useful plans to hurried guesses.\nAPPEARANCE: I have a broad blue woollen body, a round face, bright amber eyes, sturdy hands, short dark boots, a weathered green coat, and a practical satchel resting across my shoulder.\nCONTINUITY: I keep the same calm manner, familiar colouring, working clothes, and steady wish to leave each shared place kinder than I found it.";
+        let content = "- **PERSONA:** I am a patient cottage keeper who studies small problems, welcomes careful company, and prefers useful plans to hurried guesses.\n- **APPEARANCE:** I have a broad blue woollen body, a round face, bright amber eyes, sturdy hands, short dark boots, a weathered green coat, and a practical satchel resting across my shoulder.\n- **CONTINUITY:** I keep the same calm manner, familiar colouring, working clothes, and steady wish to leave each shared place kinder than I found it.";
         assert!(content.split_whitespace().count() > 48);
         assert!(content.chars().count() > 360);
         assert_eq!(gate.mode, SpeechMode::Raw);

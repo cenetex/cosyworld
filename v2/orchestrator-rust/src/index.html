@@ -2275,6 +2275,10 @@
     .action-art:has(img[data-art-missing="true"][data-art-placeholder="community image unavailable"])::after {
       content: "community image unavailable";
     }
+    .card-art:has(img[data-art-missing="true"][data-art-placeholder="portrait not unlocked"])::after,
+    .action-art:has(img[data-art-missing="true"][data-art-placeholder="portrait not unlocked"])::after {
+      content: "portrait not unlocked";
+    }
     .card-art,
     .action-art {
       position: relative;

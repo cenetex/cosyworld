@@ -1406,6 +1406,13 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
+        .map(|line| {
+            if context.feature == "avatar_self_description" {
+                avatar_identity_field_value(line).unwrap_or(line)
+            } else {
+                line
+            }
+        })
         .collect::<Vec<_>>();
     let marked_turns = nonempty_lines
         .iter()
@@ -1436,18 +1443,15 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
     let label_scan = value
         .lines()
         .map(str::trim)
-        .map(|line| strip_own_speaker_label(line, &context.speaker_name))
+        .filter(|line| !line.is_empty())
         .map(|line| {
             if context.feature == "avatar_self_description" {
-                ["PERSONA:", "APPEARANCE:", "CONTINUITY:"]
-                    .iter()
-                    .find_map(|label| line.strip_prefix(label))
-                    .map(|value| value.trim_start().to_string())
-                    .unwrap_or(line)
+                avatar_identity_field_value(line).unwrap_or(line)
             } else {
                 line
             }
         })
+        .map(|line| strip_own_speaker_label(line, &context.speaker_name))
         .collect::<Vec<_>>()
         .join("\n");
     let mut own_label_lines = BTreeSet::new();
@@ -1469,6 +1473,25 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
         }
     }
     false
+}
+
+fn avatar_identity_field_value(line: &str) -> Option<&str> {
+    let (label, value) = line.split_once(':')?;
+    let label = label
+        .trim()
+        .trim_start_matches(['-', '*'])
+        .trim()
+        .trim_matches(|character| matches!(character, '*' | '_' | '`'));
+    matches!(
+        label.to_ascii_uppercase().as_str(),
+        "PERSONA" | "APPEARANCE" | "CONTINUITY"
+    )
+    .then(|| {
+        value
+            .trim()
+            .trim_matches(|character| matches!(character, '*' | '_' | '`'))
+            .trim()
+    })
 }
 
 #[derive(Debug)]
