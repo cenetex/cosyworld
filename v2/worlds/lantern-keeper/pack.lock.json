@@ -159,12 +159,12 @@
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "source": {
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f",
+      "integrity": "sha256:ebb4d77689582a4e7222575be7a22c340c245ee5a6e5254b91c45bccb83b0a85",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -394,7 +394,7 @@
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "license_identifier": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "provenance": {

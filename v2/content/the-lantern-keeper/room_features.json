@@ -21,6 +21,14 @@
     }
   },
   {
+    "location_id": 800,
+    "key": "guest_book",
+    "name": "Guest Book",
+    "aliases": ["book", "ledger", "guestbook", "signatures"],
+    "look": "A fat ledger lies open by the stairs, one keeper's name to a line.",
+    "search": "Forty years of keeper signatures run down the page in order. The last line stops halfway through Rowan's name."
+  },
+  {
     "location_id": 801,
     "key": "cold_lamp_post",
     "name": "Cold Lamp Post",
@@ -54,6 +62,14 @@
         "winning_side": 1
       }
     }]
+  },
+  {
+    "location_id": 804,
+    "key": "watch_log",
+    "name": "Keeper's Watch Log",
+    "aliases": ["log", "journal", "watch", "watchbook", "pages"],
+    "look": "A leather log hangs beside the great lens, one page to a night.",
+    "search": "Every entry is dated, signed, and uneventful. The final page is dated tomorrow, in Rowan's hand."
   },
   {
     "location_id": 804,

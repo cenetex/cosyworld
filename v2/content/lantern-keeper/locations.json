@@ -422,7 +422,8 @@
     ],
     "memory": [
       "Rowan Vale left before dawn with the tower key.",
-      "Every road lamp north of the inn went dark in order."
+      "Every road lamp north of the inn went dark in order.",
+      "The kettle stays warm overnight with no fire beneath it."
     ],
     "allow_combat": false,
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -441,7 +442,8 @@
     ],
     "memory": [
       "The first lamp failed without broken glass.",
-      "Tiny bare footprints circle one post and then vanish."
+      "Tiny bare footprints circle one post and then vanish.",
+      "The moths settle on cold lamp glass in rows, all facing the road north."
     ],
     "allow_combat": false,
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -459,7 +461,8 @@
       "open nave"
     ],
     "memory": [
-      "Keepers once swore to light the road, not rule it."
+      "Keepers once swore to light the road, not rule it.",
+      "Each carved keeper vow is a little shorter than the one before it."
     ],
     "knowledge": [
       {
@@ -489,7 +492,8 @@
     ],
     "memory": [
       "Rowan spilled dawn oil here while running uphill.",
-      "Something armored learned to walk without breathing."
+      "Something armored learned to walk without breathing.",
+      "The water holds a reflection of the moon on nights with no moon."
     ],
     "allow_combat": true,
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -508,7 +512,9 @@
     ],
     "memory": [
       "The beacon was built to guide travelers and expose things wearing stolen shapes.",
-      "Rowan locked the flame away from the inside."
+      "Rowan locked the flame away from the inside.",
+      "The stair turns counterclockwise going up and clockwise coming down.",
+      "The keeper's watch log beside the lens ends on a page dated tomorrow."
     ],
     "allow_combat": true,
     "pack_id": "cosyworld.campaign.the-lantern-keeper"

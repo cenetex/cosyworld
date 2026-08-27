@@ -7,7 +7,7 @@
     "zone": "sanctuary",
     "aspects": ["last warm window", "half-lit road lantern"],
     "boons": ["campaign characters begin here", "Mara explains the darkened road"],
-    "hooks": ["Rowan's chair remains set for supper"],
+    "hooks": ["Rowan's chair remains set for supper", "the guest book's last line stops halfway through Rowan's name"],
     "resources": { "warmth": 3, "rumors": 2 },
     "projects": []
   },
@@ -55,7 +55,7 @@
     "zone": "frontier",
     "aspects": ["hollow beacon", "keeper inside borrowed shadow"],
     "boons": ["the recovered tools can separate Rowan from the dark"],
-    "hooks": ["relighting the lens may save Rowan or expose what followed home"],
+    "hooks": ["relighting the lens may save Rowan or expose what followed home", "the watch log's final page is dated tomorrow"],
     "resources": { "keeper_ember": 1, "high_ground": 2 },
     "projects": ["lantern-keeper:rekindle-the-beacon"]
   }

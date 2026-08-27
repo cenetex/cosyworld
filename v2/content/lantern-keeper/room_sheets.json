@@ -559,7 +559,8 @@
       "Mara explains the darkened road"
     ],
     "hooks": [
-      "Rowan's chair remains set for supper"
+      "Rowan's chair remains set for supper",
+      "the guest book's last line stops halfway through Rowan's name"
     ],
     "resources": {
       "warmth": 3,
@@ -657,7 +658,8 @@
       "the recovered tools can separate Rowan from the dark"
     ],
     "hooks": [
-      "relighting the lens may save Rowan or expose what followed home"
+      "relighting the lens may save Rowan or expose what followed home",
+      "the watch log's final page is dated tomorrow"
     ],
     "resources": {
       "keeper_ember": 1,

@@ -63,7 +63,8 @@
         "sha256:955e562292235ee87d68fbc16457f89fad70102c9bb71556e26814e8f461f8bc",
         "sha256:884d0123b8ada90815ec388e705d36040f887fe4b4c2487d70aa6d8c97136986",
         "sha256:617a4af665a2bb0f8cd8765da696438304f088f8bcc095f38841c03820d60a60",
-        "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f"
+        "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f",
+        "sha256:0118f492a0d2253e68023f8471ce54269649959d8b985961a3d990f78fb6b447"
       ]
     },
     "pack_lifecycle": {
@@ -817,7 +818,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:0118f492a0d2253e68023f8471ce54269649959d8b985961a3d990f78fb6b447",
+    "bundle_hash": "sha256:d2f4d610d4c55b5a0565631940db57f94d97685640ae4b74632a529022530b61",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2174,7 +2175,7 @@
         "id": "cosyworld.campaign.the-lantern-keeper",
         "name": "The Lantern Keeper",
         "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-        "version": "0.1.11",
+        "version": "0.1.12",
         "kind": "campaign",
         "license": "CC-BY-4.0",
         "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2246,7 +2247,7 @@
           "locations": 5,
           "exits": 8,
           "hidden_exits": 0,
-          "room_features": 6,
+          "room_features": 8,
           "room_sheets": 5,
           "clocks": 2,
           "jobs": 1,
@@ -2406,7 +2407,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f"
+        "integrity": "sha256:ebb4d77689582a4e7222575be7a22c340c245ee5a6e5254b91c45bccb83b0a85"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -6681,7 +6682,8 @@
         ],
         "memory": [
           "Rowan Vale left before dawn with the tower key.",
-          "Every road lamp north of the inn went dark in order."
+          "Every road lamp north of the inn went dark in order.",
+          "The kettle stays warm overnight with no fire beneath it."
         ],
         "allow_combat": false,
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -6700,7 +6702,8 @@
         ],
         "memory": [
           "The first lamp failed without broken glass.",
-          "Tiny bare footprints circle one post and then vanish."
+          "Tiny bare footprints circle one post and then vanish.",
+          "The moths settle on cold lamp glass in rows, all facing the road north."
         ],
         "allow_combat": false,
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -6718,7 +6721,8 @@
           "open nave"
         ],
         "memory": [
-          "Keepers once swore to light the road, not rule it."
+          "Keepers once swore to light the road, not rule it.",
+          "Each carved keeper vow is a little shorter than the one before it."
         ],
         "knowledge": [
           {
@@ -6748,7 +6752,8 @@
         ],
         "memory": [
           "Rowan spilled dawn oil here while running uphill.",
-          "Something armored learned to walk without breathing."
+          "Something armored learned to walk without breathing.",
+          "The water holds a reflection of the moon on nights with no moon."
         ],
         "allow_combat": true,
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -6767,7 +6772,9 @@
         ],
         "memory": [
           "The beacon was built to guide travelers and expose things wearing stolen shapes.",
-          "Rowan locked the flame away from the inside."
+          "Rowan locked the flame away from the inside.",
+          "The stair turns counterclockwise going up and clockwise coming down.",
+          "The keeper's watch log beside the lens ends on a page dated tomorrow."
         ],
         "allow_combat": true,
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -8309,6 +8316,20 @@
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
       },
       {
+        "location_id": 800,
+        "key": "guest_book",
+        "name": "Guest Book",
+        "aliases": [
+          "book",
+          "ledger",
+          "guestbook",
+          "signatures"
+        ],
+        "look": "A fat ledger lies open by the stairs, one keeper's name to a line.",
+        "search": "Forty years of keeper signatures run down the page in order. The last line stops halfway through Rowan's name.",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper"
+      },
+      {
         "location_id": 801,
         "key": "cold_lamp_post",
         "name": "Cold Lamp Post",
@@ -8368,6 +8389,21 @@
             }
           }
         ],
+        "pack_id": "cosyworld.campaign.the-lantern-keeper"
+      },
+      {
+        "location_id": 804,
+        "key": "watch_log",
+        "name": "Keeper's Watch Log",
+        "aliases": [
+          "log",
+          "journal",
+          "watch",
+          "watchbook",
+          "pages"
+        ],
+        "look": "A leather log hangs beside the great lens, one page to a night.",
+        "search": "Every entry is dated, signed, and uneventful. The final page is dated tomorrow, in Rowan's hand.",
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
       },
       {
@@ -9224,7 +9260,8 @@
           "Mara explains the darkened road"
         ],
         "hooks": [
-          "Rowan's chair remains set for supper"
+          "Rowan's chair remains set for supper",
+          "the guest book's last line stops halfway through Rowan's name"
         ],
         "resources": {
           "warmth": 3,
@@ -9322,7 +9359,8 @@
           "the recovered tools can separate Rowan from the dark"
         ],
         "hooks": [
-          "relighting the lens may save Rowan or expose what followed home"
+          "relighting the lens may save Rowan or expose what followed home",
+          "the watch log's final page is dated tomorrow"
         ],
         "resources": {
           "keeper_ember": 1,
@@ -11148,7 +11186,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.11"
+            "pack_version": "0.1.12"
           },
           {
             "version": 1,
@@ -11230,7 +11268,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.11"
+            "pack_version": "0.1.12"
           }
         ],
         "narrated_thresholds": [
@@ -17566,7 +17604,7 @@
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "license_identifier": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "provenance": {
@@ -18303,7 +18341,7 @@
   "character_creation": [
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
-      "pack_version": "0.1.11",
+      "pack_version": "0.1.12",
       "profiles": [
         {
           "schema_version": 2,
@@ -18434,7 +18472,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8301",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "actor",
         "local_id": "8301",
         "legacy_runtime_id": 8301,
@@ -18443,7 +18481,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8302",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "actor",
         "local_id": "8302",
         "legacy_runtime_id": 8302,
@@ -18452,7 +18490,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8303",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "actor",
         "local_id": "8303",
         "legacy_runtime_id": 8303,
@@ -18461,7 +18499,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8304",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "actor",
         "local_id": "8304",
         "legacy_runtime_id": 8304,
@@ -18470,7 +18508,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-barrow",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-barrow",
         "runtime_handle": 2693745143565876
@@ -18478,7 +18516,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-camp-kit",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-camp-kit",
         "runtime_handle": 8549698265771571
@@ -18486,7 +18524,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-chapel",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-chapel",
         "runtime_handle": 485182594396993
@@ -18494,7 +18532,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-dawn-oil",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-dawn-oil",
         "runtime_handle": 2918403238373891
@@ -18502,7 +18540,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-ember",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-ember",
         "runtime_handle": 6023960511621204
@@ -18510,7 +18548,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-inn",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-inn",
         "runtime_handle": 2167662595818650
@@ -18518,7 +18556,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-key",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-key",
         "runtime_handle": 8905115040499656
@@ -18526,7 +18564,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-knight",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-knight",
         "runtime_handle": 7581163987072796
@@ -18534,7 +18572,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mara",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-mara",
         "runtime_handle": 2237714680835428
@@ -18542,7 +18580,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mothglass",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-mothglass",
         "runtime_handle": 5170986584558554
@@ -18550,7 +18588,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mothwood",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-mothwood",
         "runtime_handle": 1673786737892201
@@ -18558,7 +18596,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-pip",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-pip",
         "runtime_handle": 6288898560895936
@@ -18566,7 +18604,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-rowan",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-rowan",
         "runtime_handle": 1658308598845697
@@ -18574,7 +18612,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-tower",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "card",
         "local_id": "lantern-keeper-tower",
         "runtime_handle": 5850818207762215
@@ -18582,7 +18620,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/character-profile/the-lantern-keeper",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "character-profile",
         "local_id": "the-lantern-keeper",
         "runtime_handle": 6074007409727657
@@ -18590,7 +18628,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/clock/lantern-keeper.darkness",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "clock",
         "local_id": "lantern-keeper.darkness",
         "runtime_handle": 3497107257475399
@@ -18598,7 +18636,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/clock/lantern-keeper.light",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "clock",
         "local_id": "lantern-keeper.light",
         "runtime_handle": 1743073783466389
@@ -18606,7 +18644,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/front/lantern-keeper%3Ahollow-light",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "front",
         "local_id": "lantern-keeper:hollow-light",
         "runtime_handle": 8897349519357189
@@ -18614,7 +18652,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8401",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "item",
         "local_id": "8401",
         "legacy_runtime_id": 8401,
@@ -18623,7 +18661,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8402",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "item",
         "local_id": "8402",
         "legacy_runtime_id": 8402,
@@ -18632,7 +18670,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8403",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "item",
         "local_id": "8403",
         "legacy_runtime_id": 8403,
@@ -18641,7 +18679,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8404",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "item",
         "local_id": "8404",
         "legacy_runtime_id": 8404,
@@ -18650,7 +18688,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8405",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "item",
         "local_id": "8405",
         "legacy_runtime_id": 8405,
@@ -18659,7 +18697,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/job/lantern-keeper%3Arekindle-the-beacon",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "job",
         "local_id": "lantern-keeper:rekindle-the-beacon",
         "runtime_handle": 3517284423041433
@@ -18667,7 +18705,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/800",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "location",
         "local_id": "800",
         "legacy_runtime_id": 800,
@@ -18676,7 +18714,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/801",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "location",
         "local_id": "801",
         "legacy_runtime_id": 801,
@@ -18685,7 +18723,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/802",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "location",
         "local_id": "802",
         "legacy_runtime_id": 802,
@@ -18694,7 +18732,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/803",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "location",
         "local_id": "803",
         "legacy_runtime_id": 803,
@@ -18703,7 +18741,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/804",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "location",
         "local_id": "804",
         "legacy_runtime_id": 804,
@@ -18712,7 +18750,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A800",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "room-sheet",
         "local_id": "room:800",
         "runtime_handle": 485005815750293
@@ -18720,7 +18758,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A801",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "room-sheet",
         "local_id": "room:801",
         "runtime_handle": 5114262777545579
@@ -18728,7 +18766,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A802",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "room-sheet",
         "local_id": "room:802",
         "runtime_handle": 3932833224947827
@@ -18736,7 +18774,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A803",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "room-sheet",
         "local_id": "room:803",
         "runtime_handle": 7094111250995550
@@ -18744,7 +18782,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A804",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.11",
+        "pack_version": "0.1.12",
         "kind": "room-sheet",
         "local_id": "room:804",
         "runtime_handle": 112964325215682

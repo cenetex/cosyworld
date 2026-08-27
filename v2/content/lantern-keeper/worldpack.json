@@ -21,7 +21,8 @@
       "sha256:7d3b33f743bd50699fe013321e23cfe6b11476b4f457e41ee8525a10e7d72d72",
       "sha256:ff28d95b0c55d4add61634860c53892a87130b1829bb619c744cc8f4e6114a1a",
       "sha256:75a8ad1bb47c1bb3a94803bb2077a2f1928250cf6e1851ca18e8aca508dc9ba8",
-      "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183"
+      "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183",
+      "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88"
     ]
   },
   "pack_lifecycle": {
@@ -757,7 +758,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88",
+  "bundle_hash": "sha256:028b50e201cba948d386d0433e51c595e43280b253fb82aafd03bfad10abbe30",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2114,7 +2115,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2186,7 +2187,7 @@
         "locations": 5,
         "exits": 8,
         "hidden_exits": 0,
-        "room_features": 6,
+        "room_features": 8,
         "room_sheets": 5,
         "clocks": 2,
         "jobs": 1,
@@ -2346,7 +2347,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:9a2f030e66e660a047a126a4f2cb7ac4973135a26b743bcc8bfe220d2c94019f"
+      "integrity": "sha256:ebb4d77689582a4e7222575be7a22c340c245ee5a6e5254b91c45bccb83b0a85"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",

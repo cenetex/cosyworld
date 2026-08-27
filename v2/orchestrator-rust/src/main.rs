@@ -50389,7 +50389,7 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 40);
+        assert_eq!(content.room_features.len(), 42);
         assert_eq!(content.room_sheets.len(), 49);
         for location_id in [4, 800] {
             let lodging = content
