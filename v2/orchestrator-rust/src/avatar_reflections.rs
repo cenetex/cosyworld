@@ -3,7 +3,7 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v3";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v4";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
 // The prose publication gate also enforces a 360-character ceiling. Ninety
@@ -354,8 +354,16 @@ fn parse_avatar_level_identity(content: &str) -> Result<AvatarLevelIdentity, Str
         let Some((label, value)) = line.split_once(':') else {
             continue;
         };
-        let value = value.trim();
-        match label.trim().to_ascii_uppercase().as_str() {
+        let value = value
+            .trim()
+            .trim_matches(|character| matches!(character, '*' | '_' | '`'))
+            .trim();
+        let label = label
+            .trim()
+            .trim_start_matches(['-', '*'])
+            .trim()
+            .trim_matches(|character| matches!(character, '*' | '_' | '`'));
+        match label.to_ascii_uppercase().as_str() {
             "PERSONA" => identity.persona = value.to_string(),
             "APPEARANCE" => identity.appearance = value.to_string(),
             "CONTINUITY" => identity.continuity = value.to_string(),
@@ -582,7 +590,7 @@ pub(super) async fn complete_avatar_self_description(
     state: &AppState,
     source_job: &AvatarReflectionJob,
 ) -> Result<(), String> {
-    let (spine, model_binding) = {
+    let (spine, mut model_binding) = {
         let runtime = state.inner.lock().await;
         let actor = runtime
             .actor_by_id(source_job.actor_id)
@@ -634,67 +642,130 @@ pub(super) async fn complete_avatar_self_description(
         max_words: SELF_DESCRIPTION_MAX_WORDS,
         response_job: "Describe the current self from lived evidence. Preserve continuity; make any change an interpretation, not a newly invented deed or fact.".to_string(),
     });
-    let generation_key = format!(
-        "avatar-self-description:{}:level:{}",
-        source_job.actor_id, level
-    );
+    let generation_key = avatar_self_description_generation_key(source_job);
     let config = state
         .ai_config
         .as_ref()
         .as_ref()
         .ok_or_else(|| "avatar self-description inference is not configured".to_string())?;
-    let route_gate = config
-        .voice_route_gate(model_binding.as_ref())
-        .map_err(|error| format!("avatar self-description model is unavailable: {error}"))?;
-    if let Some(error) = avatar_self_description_route_error(route_gate) {
-        return Err(error.to_string());
+    match config.voice_route_gate(model_binding.as_ref()) {
+        Ok(route_gate) => {
+            if let Some(error) = avatar_self_description_route_error(route_gate) {
+                if model_binding.is_some() {
+                    warn!(
+                        event = "avatar_self_description_server_fallback",
+                        actor_id = source_job.actor_id,
+                        level,
+                        exact_error = error,
+                        "avatar's exact model is unavailable for the internal portrait description; using the server voice model"
+                    );
+                    model_binding = None;
+                } else {
+                    return Err(error.to_string());
+                }
+            }
+        }
+        Err(error) if model_binding.is_some() => {
+            warn!(
+                event = "avatar_self_description_server_fallback",
+                actor_id = source_job.actor_id,
+                level,
+                exact_error = %error,
+                "avatar's exact model route could not be prepared for the internal portrait description; using the server voice model"
+            );
+            model_binding = None;
+        }
+        Err(error) => {
+            return Err(format!(
+                "avatar self-description model is unavailable: {error}"
+            ));
+        }
     }
-    let speech = route_certified_voice(
+    let request = VoiceAttemptRequest {
+        feature: "avatar_self_description",
+        prompt_version: AVATAR_SELF_DESCRIPTION_PROMPT_VERSION,
+        prompt,
+        temperature: 0.86,
+        max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
+        referer: "http://127.0.0.1:3102",
+        model_binding: model_binding.clone(),
+        room_id: Some(source_job.source_location_id),
+    };
+    let gate = SpeechGateContext {
+        feature: "avatar_self_description",
+        generation_key,
+        speaker_actor_id: source_job.actor_id,
+        speaker_name: source_job.actor_name.clone(),
+        other_speaker_names: source_job.other_speaker_names.clone(),
+        mode: speech_mode,
+        max_words: SELF_DESCRIPTION_MAX_WORDS,
+        anchors: spine.anchors(AvatarContextMode::SelfDescription),
+        signpost_openers: Vec::new(),
+        recent_lines: spine
+            .recent_dialogue
+            .iter()
+            .map(|turn| turn.content.clone())
+            .collect(),
+        recent_speaker_shingle_hashes: Vec::new(),
+        has_proposed_action: false,
+        requirements: VoiceBeatRequirements::default(),
+        envelope_valid: true,
+        candidate_round: 1,
+    };
+    let exact_result = route_certified_voice(
         config,
         state
             .event_store_path
             .as_deref()
             .map(std::path::PathBuf::as_path),
-        VoiceAttemptRequest {
-            feature: "avatar_self_description",
-            prompt_version: AVATAR_SELF_DESCRIPTION_PROMPT_VERSION,
-            prompt,
-            temperature: 0.86,
-            max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
-            referer: "http://127.0.0.1:3102",
-            model_binding,
-            room_id: Some(source_job.source_location_id),
-        },
-        SpeechGateContext {
-            feature: "avatar_self_description",
-            generation_key,
-            speaker_actor_id: source_job.actor_id,
-            speaker_name: source_job.actor_name.clone(),
-            other_speaker_names: source_job.other_speaker_names.clone(),
-            mode: speech_mode,
-            max_words: SELF_DESCRIPTION_MAX_WORDS,
-            anchors: spine.anchors(AvatarContextMode::SelfDescription),
-            signpost_openers: Vec::new(),
-            recent_lines: spine
-                .recent_dialogue
-                .iter()
-                .map(|turn| turn.content.clone())
-                .collect(),
-            recent_speaker_shingle_hashes: Vec::new(),
-            has_proposed_action: false,
-            requirements: VoiceBeatRequirements::default(),
-            envelope_valid: true,
-            candidate_round: 1,
-        },
+        request.clone(),
+        gate.clone(),
     )
-    .await
-    .map_err(|error| {
-        crate::ai_publication::record_ai_publication_rejections_with_logs(
-            state,
-            error.rejections(),
-        );
-        error.to_string()
-    })?;
+    .await;
+    let speech = match exact_result {
+        Ok(speech) => speech,
+        Err(error) if model_binding.is_some() => {
+            crate::ai_publication::record_ai_publication_rejections_with_logs(
+                state,
+                error.rejections(),
+            );
+            warn!(
+                event = "avatar_self_description_server_fallback",
+                actor_id = source_job.actor_id,
+                level,
+                exact_error = error.code(),
+                "avatar's exact model could not complete the internal portrait description; using the server voice model"
+            );
+            let mut fallback_request = request;
+            fallback_request.model_binding = None;
+            let mut fallback_gate = gate;
+            fallback_gate.generation_key.push_str(":server-fallback");
+            route_certified_voice(
+                config,
+                state
+                    .event_store_path
+                    .as_deref()
+                    .map(std::path::PathBuf::as_path),
+                fallback_request,
+                fallback_gate,
+            )
+            .await
+            .map_err(|fallback_error| {
+                crate::ai_publication::record_ai_publication_rejections_with_logs(
+                    state,
+                    fallback_error.rejections(),
+                );
+                fallback_error.to_string()
+            })?
+        }
+        Err(error) => {
+            crate::ai_publication::record_ai_publication_rejections_with_logs(
+                state,
+                error.rejections(),
+            );
+            return Err(error.to_string());
+        }
+    };
     let (content, receipt) = into_recorded_speech_parts(state, speech);
     let identity = parse_avatar_level_identity(&content)?;
     let events = {
@@ -944,9 +1015,10 @@ static AVATAR_SELF_DESCRIPTION_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = Once
 
 fn avatar_self_description_generation_key(job: &AvatarReflectionJob) -> String {
     format!(
-        "avatar-self-description:{}:level:{}",
+        "avatar-self-description:{}:level:{}:prompt:{}",
         job.actor_id,
-        job.context_spine.speaker.level.max(1)
+        job.context_spine.speaker.level.max(1),
+        AVATAR_SELF_DESCRIPTION_PROMPT_VERSION
     )
 }
 
@@ -1007,7 +1079,10 @@ pub(super) fn insert_avatar_self_description_job(
                AND last_error IN (
                    'ai_readiness_probing', 'ai_rate_limited',
                    'ai_provider_unavailable', 'voice_latency_exhausted',
-                   'voice_provider_unavailable', 'voice_job_retry_exhausted'
+                   'voice_provider_unavailable', 'voice_job_retry_exhausted',
+                   'voice_no_eligible_candidates', 'voice_candidates_exhausted',
+                   'voice_generation_in_flight', 'voice_spend_exhausted',
+                   'avatar self-description must contain PERSONA, APPEARANCE, and CONTINUITY lines'
                )",
             params![
                 generation_key,
@@ -1098,6 +1173,20 @@ mod tests {
             identity.continuity,
             "I remember the first threshold I crossed."
         );
+    }
+
+    #[test]
+    fn avatar_identity_output_accepts_harmless_markdown_labels() {
+        let identity = parse_avatar_level_identity(
+            "- **PERSONA:** Curious and deliberate.\n- **APPEARANCE:** A round blue form with bright eyes and a wool coat.\n- **CONTINUITY:** Keeps the same blue colouring.",
+        )
+        .expect("markdown-decorated typed identity");
+        assert_eq!(identity.persona, "Curious and deliberate.");
+        assert_eq!(
+            identity.appearance,
+            "A round blue form with bright eyes and a wool coat."
+        );
+        assert_eq!(identity.continuity, "Keeps the same blue colouring.");
     }
 
     #[test]
@@ -1289,6 +1378,17 @@ mod tests {
         let conn = open_event_store(&path).expect("open self-description outbox");
 
         assert!(insert_avatar_self_description_job(&conn, &job).expect("first level job is queued"));
+        let dedupe_key: String = conn
+            .query_row("SELECT dedupe_key FROM actor_jobs", [], |row| row.get(0))
+            .expect("read versioned self-description key");
+        assert_eq!(
+            dedupe_key,
+            format!(
+                "avatar-self-description:1002:level:{}:prompt:{}",
+                job.context_spine.speaker.level.max(1),
+                AVATAR_SELF_DESCRIPTION_PROMPT_VERSION
+            )
+        );
         assert!(!insert_avatar_self_description_job(&conn, &job)
             .expect("duplicate level job is ignored"));
         conn.execute(
@@ -1296,17 +1396,9 @@ mod tests {
                     lease_until_ms = NULL, last_error = 'voice_no_eligible_candidates'",
             [],
         )
-        .expect("dead-letter the first self-description attempt");
-        assert!(!insert_avatar_self_description_job(&conn, &job)
-            .expect("a permanently failed level job stays dead"));
-        conn.execute(
-            "UPDATE actor_jobs SET last_error = 'ai_readiness_probing'",
-            [],
-        )
-        .expect("mark the dead job as a transient startup failure");
-        assert!(
-            insert_avatar_self_description_job(&conn, &job).expect("a dead level job is revived")
-        );
+        .expect("dead-letter the old self-description attempt");
+        assert!(insert_avatar_self_description_job(&conn, &job)
+            .expect("an old exact-model failure is revived for server fallback"));
         let revived: (String, u32, Option<String>) = conn
             .query_row(
                 "SELECT status, attempts, last_error FROM actor_jobs",

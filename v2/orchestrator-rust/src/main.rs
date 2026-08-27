@@ -37406,14 +37406,14 @@ mod tests {
         assert!(INDEX_HTML.contains("error.payload = payload && typeof payload === \"object\""));
         assert!(INDEX_HTML.contains("return error.payload"));
         assert!(!INDEX_HTML.contains("!viewerContributed && balance >= 1"));
-        // The community-art panel is an Orb slot, not a job console. Generation,
-        // review, retries and their failures are handled server side and must
-        // never reach the player, who cannot act on any of them.
+        // Players only see the Orb cost they can act on. Every internal
+        // portrait step and failure stays on the server.
         assert!(INDEX_HTML.contains("function fillCommunityArtOrbSlot"));
-        assert!(INDEX_HTML.contains("Orb slot ${funded}/${required}"));
-        assert!(INDEX_HTML.contains("The portrait appears here when it is ready."));
+        assert!(INDEX_HTML.contains("${funded}/${required} Orbs"));
+        assert!(INDEX_HTML.contains("Orbs\"} to unlock."));
         assert!(INDEX_HTML.contains("if (path !== \"/actions/fund-image\") setError("));
         for retired in [
+            "art.status",
             "The saved image job needs repair before it can start.",
             "retry the saved image review",
             "no new image will be bought while review is unavailable",

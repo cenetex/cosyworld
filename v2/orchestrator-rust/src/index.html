@@ -16686,12 +16686,8 @@
     function communityArtStateSignature(art) {
       if (!art) return "";
       return JSON.stringify([
-        String(art.status || "available"),
         Math.max(0, Number(art.funded_orbs || 0)),
         Math.max(0, Number(art.remaining_orbs || 0)),
-        Math.max(0, Number(art.provider_attempts || 0)),
-        Boolean(art.retryable_without_orbs),
-        String(art.image_url || ""),
       ]);
     }
 
@@ -16701,11 +16697,8 @@
       communityArtClientStates.delete(key);
     }
 
-    // An Orb slot, not a job console. The player fills a slot; generation,
-    // review, retries and their failures are the server's problem and never
-    // reach this panel. Exposing that machinery meant a failed provider call
-    // showed the player an error they could do nothing about, and swapped the
-    // slot for a retry button.
+    // Players only see the Orb cost they can act on. Appearance writing,
+    // generation, review, retries, and failures stay on the server.
     function communityArtPanelHtml(card) {
       const art = card?.community_art;
       const subject = communityArtSubject(card);
@@ -16721,57 +16714,29 @@
       const required = Math.max(1, Number(art.required_orbs || level));
       const funded = Math.max(0, Number(art.funded_orbs || 0));
       const remaining = Math.max(0, Number(art.remaining_orbs ?? (required - funded)));
-      const status = String(art.status || "available");
       const viewerContributed = Boolean(art.viewer_contributed);
-      const slot = `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Orb slot ${funded}/${required}`;
-      const appearance = String(art.appearance || "").trim();
-      const appearanceDue = Boolean(art.appearance_due);
-      const appearanceRequired = Boolean(art.appearance_required);
-      const appearanceStatus = appearance
-        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${escapeHtml(appearance)}</strong></div>`
-        : "";
-      const appearanceTimeline = appearanceDue
-        ? `<div class="card-art-status"><span>level ${level} appearance</span><strong>${remaining > 0
-          ? "Their persona will describe themself when this Orb slot fills."
-          : "Their persona is describing themself before portrait generation."
-        }</strong></div>`
-        : "";
-      const appearancePanel = `${appearanceStatus}${appearanceTimeline}`;
-
-      if (appearanceRequired && !appearanceDue) {
-        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span><strong>This avatar cannot create a visible description with its current voice.</strong></div>`;
-      }
-
-      if (status === "ready" && !appearanceDue) {
-        return `${appearancePanel}<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
-      }
+      const slot = `<div class="card-art-status"><span>community portrait</span> <strong>${funded}/${required} Orbs`;
       if (clientState?.status === "filling") {
-        return `${appearancePanel}${slot} · filling.</strong></div>`;
+        return `${slot}</strong></div>`;
       }
       if (remaining <= 0) {
-        return `${appearancePanel}${slot} · filled. The portrait appears here when it is ready.</strong></div>`;
+        return "";
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const detail = viewerContributed
-        ? `${remaining} more ${remaining === 1 ? "Orb fills" : "Orbs fill"} this slot.`
-        : `${remaining} ${remaining === 1 ? "Orb fills" : "Orbs fill"} this slot.`;
+        ? `${remaining} more ${remaining === 1 ? "Orb" : "Orbs"} to unlock.`
+        : `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} to unlock.`;
       const action = balance >= 1
         ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">add one Orb</button>`
         : "";
-      return `${appearancePanel}${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
+      return `${slot} · ${escapeHtml(detail)}</strong></div>${action}`;
     }
 
     function communityArtPlaceholderLabel(card) {
       const art = card?.community_art;
       if (!art) return "no art generated yet";
-      const status = String(art.status || "available");
       const remaining = Math.max(0, Number(art.remaining_orbs || 0));
-      if (remaining > 0 && art.viewer_contributed) return "community image pending";
-      if (["failed", "rejected", "policy_rejected", "review_failed", "review_unavailable"].includes(status)) {
-        return "community image unavailable";
-      }
-      if (["funded", "generating", "reviewing"].includes(status)) return "community image pending";
-      return "no art generated yet";
+      return remaining > 0 ? "portrait not unlocked" : "portrait";
     }
 
     function actorEconomyTitle(actor) {
