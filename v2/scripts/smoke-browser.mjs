@@ -12323,17 +12323,16 @@ async function main() {
           node.classList.contains("line")
             && !node.classList.contains("chat")
         )).length,
-        outcomeText: document.querySelector(".action-outcome-scene")?.textContent
-          ?.trim().replace(/\s+/g, " ") || "",
+        duplicateOutcomeVisible: Boolean(document.querySelector(".action-outcome-scene")),
         cardPlayed: newEvents.some((event) => event.type === "story.card.played"),
       };
     }, noticeBefore);
     assert(
       scene.eventRows === noticeBefore.previousEventRowCount
         && scene.nonChatRows === noticeBefore.previousNonChatRowCount
-        && /notices one clear, visible detail about Rati/i.test(scene.outcomeText)
+        && scene.duplicateOutcomeVisible === false
         && scene.cardPlayed,
-      `Notice should use the action outcome without adding rows to group chat: ${JSON.stringify({ noticeBefore, scene })}`,
+      `Notice should avoid duplicate result narration and rows in group chat: ${JSON.stringify({ noticeBefore, scene })}`,
     );
     assert(
       scene.observed === true

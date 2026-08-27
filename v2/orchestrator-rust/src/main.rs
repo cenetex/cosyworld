@@ -37164,7 +37164,7 @@ mod tests {
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${outcomeScene}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
             "const visible = narratedTranscriptEvents((events || []).filter((event) => {"
