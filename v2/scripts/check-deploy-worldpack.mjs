@@ -144,7 +144,12 @@ export function evaluateWorldpackGate({ candidateHash, candidateReplayCompatible
   };
 }
 
-export async function fetchLiveWorldpackHash({ baseUrl, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch }) {
+export async function fetchLiveWorldpackHash({
+  baseUrl,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  fetchImpl = fetch,
+  requestHost,
+}) {
   const url = `${baseUrl}/meta`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -152,7 +157,10 @@ export async function fetchLiveWorldpackHash({ baseUrl, timeoutMs = DEFAULT_TIME
   try {
     response = await fetchImpl(url, {
       signal: controller.signal,
-      headers: { accept: "application/json" },
+      headers: {
+        accept: "application/json",
+        ...(requestHost ? { host: requestHost } : {}),
+      },
     });
   } catch (error) {
     throw new Error(

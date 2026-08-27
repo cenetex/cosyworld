@@ -9,7 +9,6 @@
 //   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
 //   npm run version:bump -- 1.1.0   # explicit version
 
-import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

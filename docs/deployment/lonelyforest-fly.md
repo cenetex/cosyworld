@@ -89,8 +89,10 @@ still blocks the deploy.
 
 Before Fly replaces the image, the Lonely Forest job runs
 `v2/scripts/check-lonelyforest-worldpacks.mjs`. It reads every
-required tenant's live `https://<host>/meta` identity and compares it with the
-candidate registry using the same exact-match or explicitly declared
+required tenant's live `/meta` identity through the stable
+`cosyworld-lonelyforest.fly.dev` transport while preserving that tenant's
+public `Host` header. It compares each result with the candidate registry using
+the same exact-match or explicitly declared
 replay-compatible migration rule as the primary deploy guard. Missing,
 malformed, unreachable, or undeclared identities stop the release; the output
 names the tenant, live hash, candidate hash, and remediation. This proves both
