@@ -985,8 +985,6 @@ impl RuntimeWorld {
 
     pub(crate) fn avatar_can_redescribe_appearance(&self, actor_id: u64, level: u8) -> bool {
         self.avatar_requires_self_description(actor_id, level)
-            && (!self.actor_uses_inference(actor_id)
-                || self.avatar_has_exact_self_description_model(actor_id))
     }
 
     fn avatar_observation_anomalies(&self, actor_id: u64) -> Vec<String> {

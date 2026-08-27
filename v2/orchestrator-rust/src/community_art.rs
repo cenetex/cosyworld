@@ -522,6 +522,7 @@ pub(super) fn build_community_art_prompt(
     crate::compact_whitespace(&prompt)
 }
 
+#[cfg(test)]
 pub(super) fn self_authored_avatar_has_text_binding(
     identity_mode: &str,
     actor_id: u64,
@@ -669,17 +670,6 @@ impl RuntimeWorld {
                 })
             })
             .map(|appearance| crate::compact_whitespace(&appearance))
-    }
-
-    pub(super) fn avatar_has_exact_self_description_model(&self, actor_id: u64) -> bool {
-        self.avatar_identity_policy(actor_id)
-            .is_some_and(|identity| {
-                self_authored_avatar_has_text_binding(
-                    &identity.mode,
-                    actor_id,
-                    &active_content().actor_model_bindings,
-                )
-            })
     }
 
     pub(super) fn reset_community_art_after_avatar_description(

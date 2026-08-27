@@ -12445,7 +12445,7 @@ async function main() {
     return result.text;
   }
 
-  async function giveFocusedCardTo(name, label) {
+  async function giveFocusedCardTo(name, label, expectedItemName = "") {
     const result = await commitFocusedCertifiedAction(label, {
       choiceText: name,
       transferTarget: name,
@@ -12471,7 +12471,7 @@ async function main() {
     recordLivingItemEvidence({
       type: expectedReceiptType,
       resident: name,
-      item: transferReceipt.item_name || `item:${submission.itemId}`,
+      item: transferReceipt.item_name || expectedItemName || `item:${submission.itemId}`,
     });
     const transferVerified = await page.evaluate(async ({ itemId, targetActorId }) => {
       const currentActorId = localStorage.getItem("cosyworld.actorId") || "";
@@ -12602,7 +12602,9 @@ async function main() {
       if (!lastPrimary) continue;
       steps.push({ label: `focus ${name} gift`, attempt, primary: lastPrimary });
       if (!/^(give|swap|trade)\b/i.test(lastPrimary)) continue;
-      if (await giveFocusedCardTo(name, label)) return { journey: lastJourney, settled: true };
+      if (await giveFocusedCardTo(name, label, itemName)) {
+        return { journey: lastJourney, settled: true };
+      }
     }
     throw new Error(`${name} did not expose a gift, discovery, or authored use: ${JSON.stringify({ lastJourney, lastAvailability, lastPrimary })}`);
   }
@@ -16153,7 +16155,7 @@ async function main() {
           }
         }
       }
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
         await page.waitForFunction(() => (
           actionBusy === false
             && refreshInFlight === null
@@ -16202,7 +16204,14 @@ async function main() {
           needles: ["steady the trail"],
           stopWhen: async () => (await moonlitProjectStatus()).completed,
         });
-        if (!completionAction) break;
+        if (!completionAction) {
+          // A resident can finish the shared project while this hand is being
+          // drawn. Confirm that completion is still authoritative before
+          // leaving the recovery loop; otherwise refresh and keep helping.
+          if ((await moonlitProjectStatus()).completed) break;
+          await reconcileActionHand();
+          continue;
+        }
         const completionResult = await commitMoonlitProjectWithRetry(`complete project ${attempt}`, {
           strategyId: "steady-trail",
           needles: ["steady the trail"],

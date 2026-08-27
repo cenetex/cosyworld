@@ -193,6 +193,28 @@ fn a_direct_avatar_can_be_queued_for_its_current_level_appearance() {
     assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
 }
 
+#[test]
+fn an_inference_avatar_without_an_exact_binding_can_use_the_server_description_route() {
+    let mut runtime = RuntimeWorld::seeded();
+    crate::test_support::create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Unbound Portrait Author",
+    );
+    runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::ReactiveAi;
+
+    assert!(!active_content()
+        .actor_model_bindings
+        .iter()
+        .any(|binding| binding.actor_id == 5000));
+    assert!(runtime.avatar_requires_self_description(5000, 1));
+    assert!(runtime.avatar_can_redescribe_appearance(5000, 1));
+    runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("an unbound inference avatar can queue a private server description");
+}
+
 #[tokio::test]
 async fn a_fully_funded_portrait_queues_one_persona_description_before_generation() {
     let event_store_path = std::env::temp_dir().join(format!(

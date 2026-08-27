@@ -3,7 +3,7 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v6";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v7";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
 // Avatar identity is an internal three-field record, not public dialogue. It
@@ -622,15 +622,6 @@ pub(super) async fn complete_avatar_self_description(
                     && binding.output_modalities.iter().any(|mode| mode == "text")
             })
             .cloned();
-        if runtime
-            .avatar_identity_policy(actor.id)
-            .is_some_and(|identity| identity.mode != "authored")
-            && model_binding.is_none()
-        {
-            return Err(
-                "self-authored identity requires the avatar's exact text model".to_string(),
-            );
-        }
         (spine, model_binding)
     };
     let level = spine.speaker.level;
