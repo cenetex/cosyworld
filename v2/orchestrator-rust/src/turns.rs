@@ -626,7 +626,10 @@ fn ordinary_room_turn_view(
         is_current_actor,
         can_pass: is_current_actor,
         can_need_time: false,
-        grace_period_ms: 0,
+        // The room rope releases an idle directly controlled seat after the
+        // same grace used by focused scenes. Project that bound so clients can
+        // explain why a waiting hand is locked and when it recovers.
+        grace_period_ms: ORDERED_SCENE_BASE_GRACE_MS,
         need_time_extension_ms: 0,
         handoff_key: Some(format!(
             "room:{room_id}:round:{}:activation:{}:actor:{current_actor_id}",
@@ -2852,6 +2855,7 @@ mod tests {
         assert_eq!(player.current_actor_id, Some(5000));
         assert!(player.is_current_actor);
         assert!(!fable.is_current_actor);
+        assert_eq!(player.grace_period_ms, ORDERED_SCENE_BASE_GRACE_MS);
         assert_eq!(player.handoff_key, fable.handoff_key);
     }
 

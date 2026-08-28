@@ -2347,6 +2347,13 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .turn-ping-pill .turn-ping-recovery {
+      min-width: 0;
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: right;
+    }
     .turn-ping-pill .turn-ping-time {
       flex: 0 0 auto;
       min-width: 44px;
@@ -6096,8 +6103,10 @@
       justify-content: flex-end;
       margin: 6px 8px 0;
     }
-    /* Turn status remains available to assistive technology, but initiative
-       should not become a fourth card above the Story Hand. */
+    /* The acting player's turn status remains available to assistive
+       technology without becoming another card. A waiting player needs the
+       reason for the locked hand in sight, so that state becomes one compact
+       full-width notice. */
     .turn-status {
       position: absolute !important;
       width: 1px !important;
@@ -6105,6 +6114,23 @@
       overflow: hidden !important;
       clip-path: inset(50%) !important;
       white-space: nowrap !important;
+    }
+    .turn-status.waiting {
+      grid-column: 1 / -1;
+      position: relative !important;
+      width: auto !important;
+      height: auto !important;
+      margin: 7px 10px 0;
+      overflow: visible !important;
+      clip-path: none !important;
+      white-space: normal !important;
+      flex-wrap: wrap;
+    }
+    .turn-status.waiting .turn-ping-copy {
+      flex: 1 1 auto;
+    }
+    .turn-status.waiting .turn-ping-recovery {
+      flex: 1 1 240px;
     }
     .hand-header {
       width: 100%;
@@ -10265,7 +10291,12 @@
       const mark = turn.is_current_actor
         ? `<span class="turn-ping-mark" aria-hidden="true">&#9654;</span>`
         : "";
-      return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
+      const recovery = !turn.is_current_actor && turn.scene_kind === "room"
+        ? `<span class="turn-ping-recovery">${escapeHtml(grace > 0
+          ? `Your cards unlock when they finish, or automatically within ${grace} seconds.`
+          : "Your cards unlock automatically when the room turn returns to you.")}</span>`
+        : "";
+      return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${recovery ? ` ${recovery}` : ""}${grace > 0 && !recovery ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
 
     function turnBannerControlSpecs(turn = state?.turn) {
@@ -10311,6 +10342,7 @@
       const banner = $("turn-banner");
       const controlCount = renderTurnBannerControls();
       if (banner) banner.hidden = controlCount === 0;
+      pill.classList.toggle("waiting", Boolean(state?.turn?.enabled && !state.turn.is_current_actor));
       pill.classList.toggle("urgent", Boolean(state?.turn?.enabled && state?.turn?.is_current_actor));
       const handoffKey = html ? String(state?.turn?.handoff_key || "") : "";
       if (!html) {
