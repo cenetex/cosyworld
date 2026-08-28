@@ -1268,6 +1268,50 @@ mod rope_tests {
     }
 
     #[tokio::test]
+    async fn an_already_active_presence_ping_schedules_the_resumed_room_rope() {
+        let (state, path) = rope_test_state("active-resume-bootstrap").await;
+        {
+            let mut runtime = state.inner.lock().await;
+            assert!(!runtime
+                .room_initiatives
+                .contains_key(&RAIN_SOFT_GARDEN_LOCATION_ID));
+            runtime.append_actor_presence_event(5001, true);
+        }
+        let (actor_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &actor_session),
+            Some(false),
+            "the first heartbeat activates the resumed session"
+        );
+
+        let ping = ping_presence(
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5001,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(ping.ok);
+        assert!(
+            ping.events.is_empty(),
+            "an already-active heartbeat must not emit another presence edge"
+        );
+
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("release the active-session resume rope");
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("active-session resume rope claim reads the store")
+            .expect("an already-active resumed session still schedules the opening rope");
+        let ActorJobPayload::RoomRope(rope) = job.payload else {
+            panic!("active-session resume jobs carry the room rope payload");
+        };
+        assert_eq!(rope.actor_id, 5000);
+        assert_eq!(rope.activation, 1);
+    }
+
+    #[tokio::test]
     async fn a_rope_for_a_moved_seat_completes_without_effect() {
         let (state, _path) = rope_test_state("stale").await;
         {
