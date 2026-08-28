@@ -437,6 +437,8 @@ pub(super) struct RoomTurnView {
     pub grace_period_ms: u64,
     pub need_time_extension_ms: u64,
     pub handoff_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seat_expires_at_ms: Option<u64>,
     // Legacy fields remain in the wire shape for old clients. Ordinary rooms no
     // longer create a ping or a reflex countdown.
     pub can_request_timeout: bool,
@@ -467,6 +469,7 @@ impl RoomTurnView {
             grace_period_ms: 0,
             need_time_extension_ms: 0,
             handoff_key: None,
+            seat_expires_at_ms: None,
             can_request_timeout: false,
             timeout_requests: Vec::new(),
             waiting_actor_ids: Vec::new(),
@@ -635,6 +638,7 @@ fn ordinary_room_turn_view(
             "room:{room_id}:round:{}:activation:{}:actor:{current_actor_id}",
             initiative.round, initiative.activation
         )),
+        seat_expires_at_ms: None,
         can_request_timeout: false,
         timeout_requests: Vec::new(),
         waiting_actor_ids: initiative
@@ -1527,6 +1531,7 @@ fn focused_turn_view(
         }),
         need_time_extension_ms: ORDERED_SCENE_NEED_TIME_MS,
         handoff_key: Some(focused.handoff_key()),
+        seat_expires_at_ms: None,
         can_request_timeout: timeout_eligibility.is_some_and(|eligibility| eligibility.is_ok()),
         timeout_requests: Vec::new(),
         waiting_actor_ids,
@@ -1540,19 +1545,44 @@ fn focused_turn_view(
 }
 
 pub(super) fn room_turn_view_for_runtime(
-    _state: &AppState,
+    state: &AppState,
     runtime: &RuntimeWorld,
     location_id: u64,
     viewer_actor_id: Option<u64>,
     active_actor_ids: &BTreeSet<u64>,
 ) -> RoomTurnView {
-    viewer_actor_id
+    let mut view = viewer_actor_id
         .and_then(|actor_id| {
             focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids)).or_else(
                 || ordinary_room_turn_view(runtime, actor_id, location_id, active_actor_ids),
             )
         })
-        .unwrap_or_else(|| RoomTurnView::idle(location_id))
+        .unwrap_or_else(|| RoomTurnView::idle(location_id));
+    if view.scene_kind != Some("room") {
+        return view;
+    }
+
+    // State loading is the browser's first reliable resume edge. Arm the
+    // certified seat before projecting its deadline so a refresh cannot race
+    // ahead of the presence heartbeat and leave the page with a static grace.
+    if state.event_store_path.is_some() {
+        if let Some(viewer_actor_id) = viewer_actor_id {
+            let _ = schedule_resumed_room_rope(state, runtime, viewer_actor_id);
+        }
+    }
+    let Some(initiative) = reconciled_room_initiative(runtime, location_id, active_actor_ids)
+    else {
+        return view;
+    };
+    let Some(current_actor_id) = initiative.current_actor_id() else {
+        return view;
+    };
+    view.seat_expires_at_ms = state.event_store_path.as_deref().and_then(|path| {
+        room_rope_deadline_ms(path, location_id, current_actor_id, initiative.activation)
+            .ok()
+            .flatten()
+    });
+    view
 }
 
 #[cfg(test)]
