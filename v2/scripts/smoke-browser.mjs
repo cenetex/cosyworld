@@ -9145,6 +9145,20 @@ async function main() {
             label: "Rati",
             text: "Mind your boots",
           }),
+          unrelatedTravelEntersTranscript: eventIsChatTranscriptEvent({
+            type: "journey.progressed",
+            actor_id: 1002,
+            actor_name: "Gust",
+            location_id: Number(state?.location?.id || 1),
+            content: "Gust leaves the room behind.",
+          }),
+          directedFailureEntersTranscript: eventIsChatTranscriptEvent({
+            type: "chat.failed",
+            actor_id: 1002,
+            target_actor_id: actorId,
+            location_id: Number(state?.location?.id || 1),
+            content: "The conversation ended early.",
+          }),
         };
       } finally {
         state = previousState;
@@ -9177,6 +9191,8 @@ async function main() {
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
     assert(result.log.includes("Summit Trail") && result.log.includes("Intelligence") && result.log.includes("Homeroom"), `the room transcript should retain readable shared history: ${JSON.stringify(result)}`);
     assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `speech should remain distinct from shared story beats: ${JSON.stringify(result)}`);
+    assert(!result.unrelatedTravelEntersTranscript, `another actor's travel should stay in world history instead of polluting personal chat: ${JSON.stringify(result)}`);
+    assert(result.directedFailureEntersTranscript, `a chat failure directed at the player should remain visible in personal chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Your growth becomes"), `command status output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("You learn more about"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Search observes"), `Search bookkeeping should not echo into chat: ${JSON.stringify(result)}`);

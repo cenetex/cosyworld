@@ -5,6 +5,16 @@ pub(super) const DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT: &str =
     "This avatar is directly controlled and is reacting to the action its controller just chose. Write speech only; do not invent private controller intent or another physical action.";
 pub(super) const DIRECTLY_CONTROLLED_REACTION_CONTEXT: &str =
     "This is a co-present directly controlled avatar's immediate in-character reaction. Write speech only; do not invent private controller intent, an economy motive, or a physical action.";
+const EXACT_RESIDENT_VOICE_MAX_TOKENS: u32 = 160;
+const FABLE_RESIDENT_VOICE_MAX_TOKENS: u32 = 224;
+
+fn exact_resident_voice_max_tokens(requested_model_id: &str) -> u32 {
+    if requested_model_id == "~anthropic/claude-fable-latest" {
+        FABLE_RESIDENT_VOICE_MAX_TOKENS
+    } else {
+        EXACT_RESIDENT_VOICE_MAX_TOKENS
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(super) enum GeneratedSpeechError {
@@ -594,6 +604,7 @@ pub(super) async fn request_ai_avatar_intent(
         .find(|binding| binding.actor_id == plan.speaker_actor_id)
         .cloned();
     if let Some(binding) = model_binding {
+        let max_tokens = exact_resident_voice_max_tokens(&binding.requested_model_id);
         let planning = if plan.planner_requested && !plan.planner_candidates.is_empty() {
             config
                 .card_policy
@@ -613,7 +624,11 @@ pub(super) async fn request_ai_avatar_intent(
                 prompt_version: "dialogue-resident-raw-context-spine-v3",
                 prompt: resident_voice_prompt(plan, &planning_brief, &gate.requirements),
                 temperature: 0.0,
-                max_tokens: 160,
+                // Fable consumed the old 160-token allowance before reaching
+                // a clean stop. A provider "length" finish stays fail-closed,
+                // so give this exact binding room for one complete reply
+                // without raising the spend limit for every resident model.
+                max_tokens,
                 referer: "http://127.0.0.1:3102",
                 model_binding: Some(binding),
                 room_id: Some(plan.location_id),
@@ -1279,6 +1294,18 @@ pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
 #[cfg(test)]
 mod publication_tests {
     use super::*;
+
+    #[test]
+    fn fable_gets_room_to_finish_without_raising_other_resident_limits() {
+        assert_eq!(
+            exact_resident_voice_max_tokens("~anthropic/claude-fable-latest"),
+            FABLE_RESIDENT_VOICE_MAX_TOKENS
+        );
+        assert_eq!(
+            exact_resident_voice_max_tokens("~anthropic/claude-opus-latest"),
+            EXACT_RESIDENT_VOICE_MAX_TOKENS
+        );
+    }
 
     fn seeded_plans() -> (AvatarChatPlan, AvatarReplyPlan) {
         let runtime = RuntimeWorld::seeded();
