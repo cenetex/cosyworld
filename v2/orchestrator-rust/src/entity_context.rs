@@ -462,9 +462,7 @@ impl RuntimeWorld {
                         .map(|identity| identity.persona)
                         .filter(|persona| !persona.trim().is_empty())
                         .or_else(|| (!policy.persona.trim().is_empty()).then_some(policy.persona))
-                        .unwrap_or_else(|| {
-                            grounded_avatar_persona_for_prompt(subject.id, &meta.description)
-                        }),
+                        .unwrap_or_else(|| self.avatar_description_for_prompt(subject.id, meta)),
                     appearance,
                     vec![
                         format!(

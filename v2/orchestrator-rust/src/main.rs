@@ -16149,7 +16149,7 @@ The relationship statement they are preserving is: {statement}"
                 .filter(|title| !title.trim().is_empty())
                 .unwrap_or_else(|| "traveler".to_string()),
             actor_description: actor_meta
-                .map(|meta| grounded_avatar_persona_for_prompt(actor_id, &meta.description))
+                .map(|meta| self.avatar_description_for_prompt(actor_id, meta))
                 .filter(|description| !description.trim().is_empty())
                 .unwrap_or_else(|| fallback_avatar_identity(actor_id).description),
             actor_voice: self.authored_actor_voice(actor_id),

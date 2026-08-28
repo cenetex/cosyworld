@@ -188,7 +188,7 @@ impl RuntimeWorld {
             source_location_id: actor.location_id,
             actor_name,
             actor_title: meta.title.clone(),
-            persona: grounded_avatar_persona_for_prompt(actor_id, &meta.description),
+            persona: self.avatar_description_for_prompt(actor_id, meta),
             calling,
             location_name: self
                 .location_name(actor.location_id)
