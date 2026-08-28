@@ -160,6 +160,7 @@ struct BackgroundServices {
     _projection_refresh: tokio::task::JoinHandle<()>,
     _canonical_capacity: Option<tokio::task::JoinHandle<()>>,
     _ai_readiness: Option<tokio::task::JoinHandle<()>>,
+    _media_jobs: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl BackgroundServices {
@@ -169,6 +170,7 @@ impl BackgroundServices {
         start_focused_encounter_scheduler(state.clone());
         start_actor_job_worker(state.clone());
         resume_pending_community_art_generations(state);
+        let media_jobs = start_media_job_worker(state.clone());
         start_event_store_retry_scheduler(state.clone());
         start_ownership_refresh_scheduler(state.clone());
         start_moderation_retention_scheduler(state.clone());
@@ -180,6 +182,7 @@ impl BackgroundServices {
             _projection_refresh: projection_refresh,
             _canonical_capacity: canonical_capacity,
             _ai_readiness: ai_readiness,
+            _media_jobs: media_jobs,
         }
     }
 }

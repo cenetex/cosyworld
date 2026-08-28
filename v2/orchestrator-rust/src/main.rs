@@ -68,6 +68,7 @@ mod materialization_retirement;
 mod autonomy;
 #[allow(dead_code)]
 mod media_evolution;
+mod media_jobs;
 mod media_recipes;
 mod model_audio;
 mod model_interaction;
@@ -188,6 +189,7 @@ use kernel::*;
 use legacy_import::*;
 use local_leads::*;
 use media_evolution::*;
+use media_jobs::*;
 use media_recipes::*;
 use model_audio::*;
 use model_interaction::*;
@@ -1957,6 +1959,8 @@ struct JournalRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     queued_actor_job: Option<ActorJobPayload>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    queued_media_job: Option<MediaJobPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     hosted_access_grant: Option<HostedAccessJournalGrant>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_calling: Option<String>,
@@ -2033,6 +2037,7 @@ impl JournalRecord {
             seed,
             ripple_source: None,
             queued_actor_job: None,
+            queued_media_job: None,
             hosted_access_grant: None,
             initial_calling: None,
             initial_skill: None,
@@ -19124,7 +19129,7 @@ async fn fund_community_image(
     };
 
     let started_at = Instant::now();
-    if let Err(error) = preflight_community_art_funding(
+    if let Err(error) = preflight_community_art_enqueue(
         state
             .avatar_art_config
             .as_ref()
@@ -19133,9 +19138,7 @@ async fn fund_community_image(
         state.ai_config.as_ref().as_ref(),
         &state.generated_asset_dir,
         &preflight_plan,
-    )
-    .await
-    {
+    ) {
         warn!(
             failure_stage = error.stage(),
             failure_code = error.code(),
@@ -19239,6 +19242,13 @@ async fn fund_community_image(
                 history_through_seq: plan.history_through_seq,
                 evolution_job: plan.evolution_job.clone(),
             });
+        record.queued_media_job = community_art_media_job_after_funding(
+            &runtime,
+            payload.actor_id,
+            &plan,
+            funded_orbs.saturating_add(contribution),
+            candidate_availability,
+        );
         record.orb_deltas.push(OrbDelta {
             actor_id: payload.actor_id,
             delta: -contribution,
@@ -28378,38 +28388,8 @@ fn commit_journal_record_blocking(
             } else {
                 false
             };
-            let queued_job_inserted = if status == CW_OK {
-                match record.queued_actor_job.as_ref() {
-                    Some(ActorJobPayload::OrbChat(job)) => {
-                        let queue_event_id = events
-                            .iter()
-                            .find(|event| event.type_name == "chat.queued" && event.success)
-                            .map(|event| event.seq);
-                        insert_orb_chat_job(&tx, job, runtime.world.tick, queue_event_id)?
-                    }
-                    Some(ActorJobPayload::ModelInteraction(job)) => {
-                        let queue_event_id = events
-                            .iter()
-                            .find(|event| {
-                                event.type_name == "model_interaction.queued" && event.success
-                            })
-                            .map(|event| event.seq);
-                        insert_model_interaction_job(&tx, job, runtime.world.tick, queue_event_id)?
-                    }
-                    Some(ActorJobPayload::AvatarReflection(job)) => {
-                        insert_avatar_reflection_job(&tx, job, &events)?
-                    }
-                    Some(_) => {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            "journal queued an unsupported actor job payload",
-                        ));
-                    }
-                    None => false,
-                }
-            } else {
-                false
-            };
+            let queued_job_inserted = status == CW_OK
+                && insert_journal_background_jobs(&tx, &record, runtime.world.tick, &events)?;
             if status == CW_OK {
                 if let Some((rope_location_id, rope_actor_id, rope_activation)) =
                     room_rope_target_from_events(runtime, &events)
@@ -28827,7 +28807,7 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
 
 /// Schema version stamped after DDL runs. Bump it when a table is added so
 /// existing stores self-heal once on their next initialization.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 5;
+const EVENT_STORE_SCHEMA_VERSION: i64 = 6;
 
 /// Ensures the schema exists without taking its write lock on steady-state
 /// commits. Missing, replaced, and older stores rerun the idempotent DDL.
@@ -29050,6 +29030,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
     init_ai_publication_store(&conn)?;
     ai_voice_routing::init_ai_voice_routing_store(&conn)?;
     model_interaction::init_model_interaction_batch_store(&conn)?;
+    init_media_job_store(&conn)?;
     ensure_sqlite_column(
         &conn,
         "persistence_compaction",
@@ -30069,6 +30050,8 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM persistence_compaction;
          DELETE FROM canonical_command_receipts;
          DELETE FROM actor_jobs;
+         DELETE FROM media_jobs;
+         DELETE FROM media_budget_days;
          DELETE FROM model_interaction_batches;
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;

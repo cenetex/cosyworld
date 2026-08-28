@@ -715,9 +715,10 @@ fn funded_avatar_generation_is_selected_for_boot_resumption() {
         .expect("stale-brief generation");
     generation.status = "policy_rejected".to_string();
     generation.last_error_code = Some("community_art_policy_rejected".to_string());
-    assert!(
-        pending_community_art_resumption_plans(&runtime, &asset_root).is_empty(),
-        "policy rejection waits for an explicit no-Orb retry instead of spending on boot"
+    assert_eq!(
+        pending_community_art_resumption_plans(&runtime, &asset_root).len(),
+        1,
+        "the durable budget worker resumes a retryable policy rejection on boot"
     );
 
     let generation = runtime
@@ -955,6 +956,88 @@ async fn actor_and_item_funding_fail_before_debit_without_publication_reviewer()
 }
 
 #[tokio::test]
+async fn full_funding_atomically_enqueues_one_durable_media_job() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-art-media-job-{nonce}.sqlite"));
+    let generated_dir =
+        std::env::temp_dir().join(format!("cosyworld-art-media-job-assets-{nonce}"));
+    let _ = fs::remove_file(&event_store_path);
+    let _ = fs::remove_dir_all(&generated_dir);
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Queued Art Patron",
+    );
+    let item = runtime.world.items[..runtime.world.item_count]
+        .iter_mut()
+        .find(|item| item.id == 8403)
+        .expect("pending-art item is mounted");
+    item.holder_actor_id = 5000;
+    item.location_id = 0;
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "unused-by-local-enqueue".to_string(),
+        base_url: "http://127.0.0.1:1".to_string(),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:44990".parse().expect("client address")),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            subject_kind: "item".to_string(),
+            subject_id: 8403,
+            intent_id: "test-atomic-media-job".to_string(),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(response.ok, "full funding should be accepted: {response:?}");
+    let funded_event = response
+        .events
+        .iter()
+        .find(|event| event.type_name == "community_art.funded")
+        .expect("funding event is committed");
+    let conn = open_event_store(&event_store_path).expect("open durable media queue");
+    let (jobs, source_event_seq, status): (i64, Option<i64>, String) = conn
+        .query_row(
+            "SELECT COUNT(*), MAX(source_event_seq), MIN(status) FROM media_jobs",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("read enqueued media job");
+    assert_eq!(jobs, 1);
+    assert_eq!(source_event_seq, Some(funded_event.seq as i64));
+    assert_eq!(status, "pending");
+    let debits: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM orb_ledger
+             WHERE reason = 'community_image_generation' AND delta = -1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("read matching Orb debit");
+    assert_eq!(debits, 1);
+
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
 async fn candidate_storage_preflight_fails_before_orb_debit() {
     let nonce = format!("{}-{}", std::process::id(), now_seed());
     let generated_root =
@@ -1121,7 +1204,7 @@ async fn incomplete_candidate_quarantine_fails_before_orb_debit() {
 }
 
 #[tokio::test]
-async fn concurrent_location_funding_coalesces_policy_preflight_and_orb_debit() {
+async fn concurrent_location_funding_coalesces_without_paid_policy_preflight() {
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut runtime,
@@ -1219,7 +1302,11 @@ async fn concurrent_location_funding_coalesces_policy_preflight_and_orb_debit() 
             .count(),
         1
     );
-    assert_eq!(policy_requests.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        policy_requests.load(Ordering::SeqCst),
+        0,
+        "funding only performs local validation; paid review belongs to the worker"
+    );
 
     let runtime = state.inner.lock().await;
     assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
@@ -1351,7 +1438,7 @@ async fn item_funding_reaches_reviewed_publication_without_a_second_orb_debit() 
         generation.last_prediction_id.as_deref(),
         Some(prediction_id)
     );
-    assert_eq!(review_requests.load(Ordering::SeqCst), 2);
+    assert_eq!(review_requests.load(Ordering::SeqCst), 1);
     let runtime = state.inner.lock().await;
     assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
     drop(runtime);
@@ -1722,7 +1809,7 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
 }
 
 #[tokio::test]
-async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
+async fn location_funding_does_not_call_the_paid_policy_reviewer_inline() {
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut runtime,
@@ -1820,14 +1907,21 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
     .await
     .0;
 
-    assert!(!response.ok);
-    assert_eq!(response.status, 503);
-    assert!(response.events.is_empty());
-    assert_eq!(policy_requests.load(Ordering::SeqCst), 1);
-    assert!(preflight_shape_seen.load(Ordering::SeqCst));
+    assert!(response.ok);
+    assert_eq!(response.status, CW_OK);
+    assert_eq!(
+        response
+            .events
+            .iter()
+            .filter(|event| event.type_name == "community_art.funded")
+            .count(),
+        1
+    );
+    assert_eq!(policy_requests.load(Ordering::SeqCst), 0);
+    assert!(!preflight_shape_seen.load(Ordering::SeqCst));
     let runtime = state.inner.lock().await;
-    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
-    assert!(!runtime
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+    assert!(runtime
         .community_art_generations
         .contains_key(&community_art_generation_key("location", waypoint_id, 1)));
     drop(runtime);
@@ -3048,6 +3142,61 @@ async fn scheduler_candidate_review_retry_records_no_provider_attempt_or_usage()
 
     let _ = fs::remove_dir_all(generated_dir);
     let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
+async fn durable_worker_deferral_keeps_the_saved_candidate_and_review_attempt() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-durable-review-deferral-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let actor_id = 5000;
+    let plan = location_art_plan(181_733, "16:9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Deferred Review Patron",
+    );
+    fund_test_community_art(
+        &mut runtime,
+        actor_id,
+        &plan,
+        "test-durable-review-deferral",
+        7085,
+    );
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/deferred-candidate.png".to_string(),
+            prediction_id: Some("deferred-candidate".to_string()),
+        },
+    )
+    .expect("store candidate before reviewer deferral");
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    assert!(state.ai_config.as_ref().is_none());
+
+    let execution = execute_community_art_media_job(&state, actor_id, plan.clone()).await;
+    assert!(matches!(execution, MediaJobExecution::Deferred { .. }));
+    let generation = {
+        let runtime = state.inner.lock().await;
+        runtime.community_art_generations[&key].clone()
+    };
+    assert_eq!(generation.status, "reviewing");
+    assert_eq!(generation.review_attempts, 0);
+    assert_eq!(generation.provider_attempts, 0);
+    assert!(community_art_candidate_exists(&generated_dir, &plan));
+
+    let _ = fs::remove_dir_all(generated_dir);
 }
 
 #[tokio::test]

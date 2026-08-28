@@ -28,16 +28,18 @@ use crate::media_recipes::media_verdict::{
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
     canonical_community_media_asset_bytes, card_for_actor, card_for_item, card_for_location,
-    commit_journal_record, community_art_eligible_card, execute_prepared_replicate_art,
-    freeze_approved_community_media_reference, immutable_media_asset_bytes,
-    is_safe_image_content_type, now_millis, prepare_replicate_art, prepare_replicate_evolution_art,
-    queue_avatar_self_description, reconcile_community_media_asset_status,
-    record_ai_usage_for_provider, register_derived_community_media_asset,
-    register_generated_media_asset, request_image_policy_decision, resolve_generation_media_config,
-    ActorMeta, AiConfig, AppState, CardView, CommunityArtView, CwAction, EventView,
-    EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference,
-    GeneratedPolicyBinding, ImagePolicyRequest, ItemMeta, JournalRecord, MediaAssetBackfill,
-    MediaAssetProvenance, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
+    commit_journal_record, community_art_eligible_card, enqueue_media_job,
+    execute_prepared_replicate_art, freeze_approved_community_media_reference,
+    immutable_media_asset_bytes, is_safe_image_content_type, now_millis, prepare_replicate_art,
+    prepare_replicate_evolution_art, queue_avatar_self_description,
+    reconcile_community_media_asset_status, record_ai_usage_for_provider,
+    register_derived_community_media_asset, register_generated_media_asset,
+    request_image_policy_decision, resolve_generation_media_config,
+    set_pending_media_job_estimated_cost, ActorMeta, AiConfig, AppState, CardView,
+    CommunityArtView, CwAction, EventView, EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob,
+    FrozenMediaAssetReference, GeneratedPolicyBinding, ImagePolicyRequest, ItemMeta, JournalRecord,
+    MediaAssetBackfill, MediaAssetProvenance, MediaBudgetConfig, MediaJobExecution,
+    MediaJobPayload, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
     ReplicateAvatarArtConfig, RuntimeWorld, WorldEntityRef, CW_ACTION_NONE, CW_OK,
     EVOLUTION_EXECUTION_MODEL_REVISION, EVOLUTION_EXECUTION_RECIPE,
 };
@@ -64,6 +66,7 @@ pub(super) const COMMUNITY_ART_BRIEF_INVALID_CODE: &str = "community_art_brief_i
 pub(super) const AVATAR_APPEARANCE_REQUIRED_CODE: &str = "avatar_appearance_required";
 pub(super) const COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE: &str =
     "community_art_candidate_quarantine_failed";
+#[cfg(test)]
 pub(super) const POLICY_PREFLIGHT_IMAGE_URL: &str =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAAA1BMVEUA/wA0XsCoAAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC";
 
@@ -309,6 +312,11 @@ pub(super) enum CommunityArtGenerationError {
     BriefInvalid(String),
     CandidateQuarantine(String),
     PolicyUnavailable,
+    PolicyDeferred {
+        reason_code: String,
+        message: String,
+        retry_at_unix: u64,
+    },
     PolicyReview(String),
     PolicyRejected(Vec<String>),
     Storage(String),
@@ -317,7 +325,7 @@ pub(super) enum CommunityArtGenerationError {
 impl CommunityArtGenerationError {
     pub(super) fn status(&self) -> &'static str {
         match self {
-            Self::PolicyUnavailable => "review_unavailable",
+            Self::PolicyUnavailable | Self::PolicyDeferred { .. } => "review_unavailable",
             Self::PolicyReview(_) => "review_failed",
             Self::PolicyRejected(_) => "policy_rejected",
             Self::Provider(_)
@@ -337,6 +345,7 @@ impl CommunityArtGenerationError {
             Self::BriefInvalid(_) => COMMUNITY_ART_BRIEF_INVALID_CODE,
             Self::CandidateQuarantine(_) => COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE,
             Self::PolicyUnavailable => "community_art_reviewer_unavailable",
+            Self::PolicyDeferred { .. } => "community_art_policy_review_deferred",
             Self::PolicyReview(_) => "community_art_policy_review_failed",
             Self::PolicyRejected(_) => "community_art_policy_rejected",
             Self::Storage(_) => "community_art_storage_failed",
@@ -350,6 +359,7 @@ impl CommunityArtGenerationError {
             Self::BriefInvalid(_) => "brief",
             Self::CandidateQuarantine(_) => "quarantine",
             Self::PolicyUnavailable => "reviewer",
+            Self::PolicyDeferred { .. } => "review",
             Self::PolicyReview(_) => "review",
             Self::PolicyRejected(_) => "policy",
             Self::Storage(_) => "storage",
@@ -374,6 +384,13 @@ impl CommunityArtGenerationError {
             Self::PolicyUnavailable => {
                 "community-art publication reviewer is not configured; output withheld".to_string()
             }
+            Self::PolicyDeferred {
+                reason_code,
+                message,
+                retry_at_unix,
+            } => format!(
+                "image policy review deferred until {retry_at_unix} ({reason_code}): {message}"
+            ),
             Self::PolicyReview(error) => format!("image policy review failed: {error}"),
             Self::PolicyRejected(violations) => format!(
                 "image policy rejected all candidates: {}",
@@ -384,6 +401,13 @@ impl CommunityArtGenerationError {
                 }
             ),
             Self::Storage(error) => format!("validated image storage failed: {error}"),
+        }
+    }
+
+    fn retry_at_unix(&self) -> Option<u64> {
+        match self {
+            Self::PolicyDeferred { retry_at_unix, .. } => Some(*retry_at_unix),
+            _ => None,
         }
     }
 }
@@ -1279,7 +1303,31 @@ pub(super) async fn continue_community_art_generation(
         }
         return;
     }
-    schedule_community_art_generation(state, actor_id, plan);
+    if let Some(path) = state.event_store_path.as_deref() {
+        let estimated_cost_microusd =
+            if community_art_candidate_availability(&state.generated_asset_dir, &plan)
+                == CommunityArtCandidateAvailability::Valid
+            {
+                0
+            } else {
+                MediaBudgetConfig::from_env().community_image_estimated_cost_microusd
+            };
+        let payload = MediaJobPayload::CommunityArt {
+            actor_id,
+            plan: Box::new(plan),
+            estimated_cost_microusd,
+        };
+        if let Err(error) = enqueue_media_job(path, &payload, None).and_then(|_| {
+            set_pending_media_job_estimated_cost(path, &payload, estimated_cost_microusd)
+        }) {
+            warn!(
+                actor_id,
+                "could not enqueue durable community art job: {error}"
+            );
+        }
+    } else {
+        schedule_community_art_generation(state, actor_id, plan);
+    }
 }
 
 pub(super) async fn resume_avatar_art_after_self_description(state: &AppState, actor_id: u64) {
@@ -1301,10 +1349,29 @@ pub(super) async fn resume_avatar_art_after_self_description(state: &AppState, a
         runtime.community_art_plan(actor_id, "actor", actor_id).ok()
     };
     if let Some(plan) = plan {
-        schedule_community_art_generation(state, actor_id, plan);
+        continue_community_art_generation(state, actor_id, plan).await;
     }
 }
 
+pub(super) fn preflight_community_art_enqueue(
+    generation_config: &ReplicateAvatarArtConfig,
+    policy_config: Option<&AiConfig>,
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+) -> Result<(), CommunityArtGenerationError> {
+    policy_config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
+    let media_brief = community_art_media_brief(plan);
+    media_brief
+        .validate()
+        .map_err(CommunityArtGenerationError::BriefInvalid)?;
+    preflight_community_art_storage(generated_asset_dir, plan)?;
+    prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
+    preflight_media_verdict_storage(generated_asset_dir, &media_brief)
+        .map_err(CommunityArtGenerationError::Storage)?;
+    Ok(())
+}
+
+#[cfg(test)]
 pub(super) async fn preflight_community_art_funding(
     generation_config: &ReplicateAvatarArtConfig,
     policy_config: Option<&AiConfig>,
@@ -1362,6 +1429,7 @@ fn community_art_review_policy(media_brief: &FrozenMediaBrief, plan: &CommunityA
     review_policy
 }
 
+#[cfg(test)]
 fn community_art_reviewer_capability_policy(review_policy: &str) -> String {
     format!(
         "This is a publication-reviewer capability check, not a candidate verdict. Allow the known-safe fixture only if it is a uniform solid-green square with no visible person, character, creature, text, logo, watermark, or UI chrome. Confirm that you can receive and evaluate the production policy below, but do not apply its subject-identity or environment requirements to this synthetic fixture. Production policy: {review_policy}"
@@ -1794,7 +1862,14 @@ async fn generate_and_store_prepared_community_art(
                         &candidate_digest,
                         &error.to_string(),
                     );
-                    CommunityArtGenerationError::PolicyReview(error.to_string())
+                    match error.retry_at_unix() {
+                        Some(retry_at_unix) => CommunityArtGenerationError::PolicyDeferred {
+                            reason_code: error.code().to_string(),
+                            message: error.to_string(),
+                            retry_at_unix,
+                        },
+                        None => CommunityArtGenerationError::PolicyReview(error.to_string()),
+                    }
                 })?;
                 let violations = decision
                     .violations
@@ -2193,9 +2268,6 @@ pub(super) fn schedule_community_art_generation(
     actor_id: u64,
     plan: CommunityArtPlan,
 ) {
-    let Some(config) = state.avatar_art_config.as_ref().clone() else {
-        return;
-    };
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     if let Ok(mut jobs) = community_art_jobs().lock() {
         if !jobs.insert(key.clone()) {
@@ -2204,153 +2276,256 @@ pub(super) fn schedule_community_art_generation(
     }
     let state = state.clone();
     tokio::spawn(async move {
-        let started_at = Instant::now();
-        let candidate_exists_before_preflight =
-            community_art_candidate_availability(&state.generated_asset_dir, &plan)
-                != CommunityArtCandidateAvailability::Absent;
-        let retryable = {
-            let runtime = state.inner.lock().await;
-            runtime
-                .community_art_generations
-                .get(&key)
-                .is_some_and(|generation| {
-                    plan.generation_retryable(generation, candidate_exists_before_preflight)
-                })
-        };
-        if !retryable {
-            if let Ok(mut jobs) = community_art_jobs().lock() {
-                jobs.remove(&key);
-            }
-            return;
-        }
-        let prepared = prepare_community_art_generation(&config, &state.generated_asset_dir, &plan);
-        let provider_attempt = prepared
-            .as_ref()
-            .map(PreparedCommunityArtGeneration::provider_attempt)
-            .unwrap_or(false);
-        let preflight_candidate_exists = prepared
-            .is_err()
-            .then_some(candidate_exists_before_preflight);
-        if prepared.is_ok()
-            && begin_community_art_generation(&state, actor_id, &plan, provider_attempt)
-                .await
-                .is_none()
+        let fallback_plan = plan.clone();
+        if let MediaJobExecution::Deferred { error, .. } =
+            execute_community_art_media_job(&state, actor_id, plan).await
         {
-            if let Ok(mut jobs) = community_art_jobs().lock() {
-                jobs.remove(&key);
-            }
-            return;
-        }
-        let outcome = match prepared {
-            Ok(prepared) => {
-                generate_and_store_prepared_community_art(
-                    state.ai_config.as_ref().as_ref(),
-                    &state.generated_asset_dir,
-                    &plan,
-                    prepared,
-                )
-                .await
-            }
-            Err(error) => community_art_outcome_without_provider(error),
-        };
-        let (status, error_code) = match &outcome.result {
-            Ok(()) => ("ready", None),
-            Err(error) => {
-                warn!(
-                    provider_attempt,
-                    reused_candidate = outcome.reused_candidate,
-                    prediction_id = outcome.prediction_id.as_deref().unwrap_or("unknown"),
-                    failure_stage = error.stage(),
-                    failure_code = error.code(),
-                    "community art generation failed for {}: {}",
-                    key,
-                    error.message()
-                );
-                (error.status(), Some(error.code()))
-            }
-        };
-        let events = complete_community_art_generation(
-            &state,
-            actor_id,
-            &plan,
-            status,
-            outcome.prediction_id.as_deref(),
-            error_code,
-            preflight_candidate_exists,
-        )
-        .await;
-        if let Some(events) = events.as_ref() {
-            if let Err(error) = reconcile_community_media_asset_status(
-                &state.generated_asset_dir,
-                &plan.subject_kind,
-                plan.subject_id,
-                plan.level,
-                status,
-                outcome.prediction_id.as_deref(),
-                events.first().map(|event| event.seq),
-            ) {
-                warn!(
-                    "failed to reconcile immutable community art lifecycle for {}: {}",
-                    key, error
-                );
-            }
-        }
-        if status == "ready" && events.is_some() {
-            if outcome.asset_id.is_none() {
-                warn!(
-                    "ready community art {} has no staged immutable asset; route backfill will reconcile it",
-                    key
-                );
-            }
-            let published = if plan.evolution_job.is_some() {
-                publish_community_art_candidate(&state.generated_asset_dir, &plan)
-            } else {
-                Ok(())
-            };
-            if let Err(error) = published {
-                warn!(
-                    "failed to publish approved evolution candidate for {}: {}",
-                    key, error
-                );
-            } else if let Err(error) =
-                remove_community_art_candidate(&state.generated_asset_dir, &plan)
-            {
-                warn!(
-                    "failed to remove published community art candidate for {}: {}",
-                    key, error
-                );
-            }
-        }
-        if status == "policy_rejected" && events.is_some() {
-            if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan) {
-                warn!(
-                    "failed to remove rejected community art candidate for {}: {}",
-                    key, error
-                );
-            }
-        }
-        for execution in &outcome.provider_executions {
-            record_ai_usage_for_provider(
+            let _ = complete_community_art_generation(
                 &state,
-                Some(actor_id),
-                execution.feature,
-                "community_orbs",
-                &execution.provider,
-                &execution.model,
-                if execution.succeeded { "ok" } else { "failed" },
-                events
-                    .as_ref()
-                    .and_then(|events| events.first())
-                    .map(|event| event.seq),
-                0,
-                (!execution.succeeded).then_some("community_art_generation_failed"),
-                started_at.elapsed(),
-            );
+                actor_id,
+                &fallback_plan,
+                "review_unavailable",
+                None,
+                Some("community_art_reviewer_unavailable"),
+                None,
+            )
+            .await;
+            warn!("non-durable community art review deferred: {error}");
         }
         if let Ok(mut jobs) = community_art_jobs().lock() {
             jobs.remove(&key);
         }
     });
+}
+
+pub(super) async fn execute_community_art_media_job(
+    state: &AppState,
+    actor_id: u64,
+    plan: CommunityArtPlan,
+) -> MediaJobExecution {
+    let Some(config) = state.avatar_art_config.as_ref().clone() else {
+        return MediaJobExecution::Retry {
+            error: "community art provider is not configured".to_string(),
+            charge_reserved: false,
+            estimated_cost_microusd: MediaBudgetConfig::from_env()
+                .community_image_estimated_cost_microusd,
+        };
+    };
+    let started_at = Instant::now();
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let candidate_exists_before_preflight =
+        community_art_candidate_availability(&state.generated_asset_dir, &plan)
+            != CommunityArtCandidateAvailability::Absent;
+    let retryable = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .community_art_generations
+            .get(&key)
+            .is_some_and(|generation| {
+                plan.generation_retryable(generation, candidate_exists_before_preflight)
+            })
+    };
+    if !retryable {
+        return MediaJobExecution::Completed {
+            charge_reserved: false,
+        };
+    }
+    let prepared = prepare_community_art_generation(&config, &state.generated_asset_dir, &plan);
+    let provider_attempt = prepared
+        .as_ref()
+        .map(PreparedCommunityArtGeneration::provider_attempt)
+        .unwrap_or(false);
+    let preflight_candidate_exists = prepared
+        .is_err()
+        .then_some(candidate_exists_before_preflight);
+    if prepared.is_ok()
+        && begin_community_art_generation(state, actor_id, &plan, provider_attempt)
+            .await
+            .is_none()
+    {
+        return MediaJobExecution::Completed {
+            charge_reserved: false,
+        };
+    }
+    let outcome = match prepared {
+        Ok(prepared) => {
+            generate_and_store_prepared_community_art(
+                state.ai_config.as_ref().as_ref(),
+                &state.generated_asset_dir,
+                &plan,
+                prepared,
+            )
+            .await
+        }
+        Err(error) => community_art_outcome_without_provider(error),
+    };
+    let charge_reserved = !outcome.provider_executions.is_empty();
+    if let Err(error) = &outcome.result {
+        if let Some(retry_at_unix) = error.retry_at_unix() {
+            return MediaJobExecution::Deferred {
+                error: error.message(),
+                available_at_ms: retry_at_unix.saturating_mul(1_000),
+                charge_reserved,
+                estimated_cost_microusd: 0,
+            };
+        }
+        if matches!(error, CommunityArtGenerationError::PolicyUnavailable) {
+            return MediaJobExecution::Deferred {
+                error: error.message(),
+                available_at_ms: now_millis().saturating_add(60_000),
+                charge_reserved,
+                estimated_cost_microusd: if community_art_candidate_availability(
+                    &state.generated_asset_dir,
+                    &plan,
+                ) == CommunityArtCandidateAvailability::Valid
+                {
+                    0
+                } else {
+                    MediaBudgetConfig::from_env().community_image_estimated_cost_microusd
+                },
+            };
+        }
+    }
+    let (status, error_code) = match &outcome.result {
+        Ok(()) => ("ready", None),
+        Err(error) => {
+            warn!(
+                provider_attempt,
+                reused_candidate = outcome.reused_candidate,
+                prediction_id = outcome.prediction_id.as_deref().unwrap_or("unknown"),
+                failure_stage = error.stage(),
+                failure_code = error.code(),
+                "community art generation failed for {}: {}",
+                key,
+                error.message()
+            );
+            (error.status(), Some(error.code()))
+        }
+    };
+    let events = complete_community_art_generation(
+        state,
+        actor_id,
+        &plan,
+        status,
+        outcome.prediction_id.as_deref(),
+        error_code,
+        preflight_candidate_exists,
+    )
+    .await;
+    if let Some(events) = events.as_ref() {
+        if let Err(error) = reconcile_community_media_asset_status(
+            &state.generated_asset_dir,
+            &plan.subject_kind,
+            plan.subject_id,
+            plan.level,
+            status,
+            outcome.prediction_id.as_deref(),
+            events.first().map(|event| event.seq),
+        ) {
+            warn!(
+                "failed to reconcile immutable community art lifecycle for {}: {}",
+                key, error
+            );
+        }
+    }
+    if status == "ready" && events.is_some() {
+        if outcome.asset_id.is_none() {
+            warn!(
+                "ready community art {} has no staged immutable asset; route backfill will reconcile it",
+                key
+            );
+        }
+        let published = if plan.evolution_job.is_some() {
+            publish_community_art_candidate(&state.generated_asset_dir, &plan)
+        } else {
+            Ok(())
+        };
+        if let Err(error) = published {
+            warn!(
+                "failed to publish approved evolution candidate for {}: {}",
+                key, error
+            );
+        } else if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan)
+        {
+            warn!(
+                "failed to remove published community art candidate for {}: {}",
+                key, error
+            );
+        }
+    }
+    if status == "policy_rejected" && events.is_some() {
+        if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan) {
+            warn!(
+                "failed to remove rejected community art candidate for {}: {}",
+                key, error
+            );
+        }
+    }
+    for execution in &outcome.provider_executions {
+        record_ai_usage_for_provider(
+            state,
+            Some(actor_id),
+            execution.feature,
+            "community_orbs",
+            &execution.provider,
+            &execution.model,
+            if execution.succeeded { "ok" } else { "failed" },
+            events
+                .as_ref()
+                .and_then(|events| events.first())
+                .map(|event| event.seq),
+            0,
+            (!execution.succeeded).then_some("community_art_generation_failed"),
+            started_at.elapsed(),
+        );
+    }
+    let candidate_exists = community_art_candidate_availability(&state.generated_asset_dir, &plan)
+        == CommunityArtCandidateAvailability::Valid;
+    if events.is_none() {
+        return MediaJobExecution::Retry {
+            error: "community art completion could not be committed".to_string(),
+            charge_reserved,
+            estimated_cost_microusd: if candidate_exists {
+                0
+            } else {
+                MediaBudgetConfig::from_env().community_image_estimated_cost_microusd
+            },
+        };
+    }
+    if outcome.result.is_ok() {
+        return MediaJobExecution::Completed { charge_reserved };
+    }
+    let retryable = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .community_art_generations
+            .get(&key)
+            .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists))
+    };
+    if retryable {
+        MediaJobExecution::Retry {
+            error: outcome
+                .result
+                .as_ref()
+                .expect_err("failed outcome has an error")
+                .message(),
+            charge_reserved,
+            estimated_cost_microusd: if candidate_exists {
+                0
+            } else {
+                MediaBudgetConfig::from_env().community_image_estimated_cost_microusd
+            },
+        }
+    } else {
+        MediaJobExecution::Dead {
+            error: outcome
+                .result
+                .as_ref()
+                .expect_err("failed outcome has an error")
+                .message(),
+            charge_reserved,
+        }
+    }
 }
 
 pub(super) fn pending_community_art_resumption_plans(
@@ -2364,14 +2539,8 @@ pub(super) fn pending_community_art_resumption_plans(
             let self_description_required = generation.subject_kind == "actor"
                 && runtime
                     .avatar_requires_self_description(generation.subject_id, generation.level);
-            let interrupted = matches!(
-                generation.status.as_str(),
-                "funded" | "generating" | "reviewing"
-            );
-            let stale_brief =
-                generation.last_error_code.as_deref() == Some("community_art_storage_failed");
             generation.funded_orbs >= generation.required_orbs
-                && (self_description_required || interrupted || stale_brief)
+                && (self_description_required || generation.status != "ready")
         })
         .filter_map(|generation| {
             generation
@@ -2420,11 +2589,11 @@ pub(super) fn pending_avatar_self_description_actor_ids(runtime: &RuntimeWorld) 
         .collect()
 }
 
-/// Replaces the in-memory worker that disappears when a deployment interrupts
-/// a funded generation. Persona recovery belongs to the subject avatar and is
-/// independent of whether the original contributor remains active or nearby.
-/// Image generation still resumes only when an eligible contributor can see
-/// the subject.
+/// Backfills durable jobs for funded generations created before the media
+/// queue existed or interrupted before they reached it. Persona recovery
+/// belongs to the subject avatar and is independent of whether the original
+/// contributor remains active or nearby. A usable frozen plan still requires
+/// an eligible contributor who can see the subject.
 pub(super) fn resume_pending_community_art_generations(state: &AppState) {
     if state.avatar_art_config.as_ref().is_none() {
         return;

@@ -174,7 +174,21 @@ when usage cannot be verified. Once the reported value reaches $20, inference
 pauses until the next UTC day. Because OpenRouter reports cost after a request,
 the last admitted request can take the final total slightly over $20.
 
-Community image generation is different: the server validates a level-scoped shared funding pool before starting Replicate. One card gets one generation at each level, the pooled Orb price equals that level, and retries after full funding are free.
+Community image generation is different: the server validates a level-scoped
+shared funding pool, then atomically adds fully funded work to a durable media
+queue. A background worker resumes queued work after deploys and processes it
+within a separate UTC daily Replicate budget. The budget reserves an estimated
+cost before each provider attempt, defers over-budget work until the next UTC
+day without spending a retry, and records the reservation as spent once a
+provider request was made. Saved candidates use a zero-cost queue entry, so
+publication review can continue even when the image-generation budget is full.
+
+`COSYWORLD_MEDIA_DAILY_LIMIT_MICROUSD` sets the daily limit (default
+`1000000`, or $1), and
+`COSYWORLD_COMMUNITY_IMAGE_ESTIMATED_COST_MICROUSD` sets the conservative cost
+reserved for each Replicate attempt (default `50000`, or $0.05). One card gets
+one generation at each level, the pooled Orb price equals that level, and
+retries after full funding are free to players.
 
 ### Payer Matrix
 
