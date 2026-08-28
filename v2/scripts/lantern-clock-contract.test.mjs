@@ -16,6 +16,9 @@ const clocks = JSON.parse(fs.readFileSync(path.join(packRoot, "clocks.json"), "u
 const lifecycleHooks = JSON.parse(
   fs.readFileSync(path.join(packRoot, "lifecycle_hooks.json"), "utf8"),
 );
+const lanternWorld = JSON.parse(
+  fs.readFileSync(path.resolve(scriptDir, "../worlds/lantern-keeper/world.json"), "utf8"),
+);
 const packs = [{ id: LANTERN_KEEPER_PACK_ID }];
 
 function validate(overrides = {}) {
@@ -119,6 +122,16 @@ test("a filled clock may open exactly one road it earned, and nothing else", () 
   assert.match(
     validate({ clocks: unlockOnly }).join("\n"),
     /exactly one authoritative set_job_status/,
+  );
+});
+
+test("Lantern Keeper accepts the deployed pre-item-policy journal", () => {
+  const compatible = lanternWorld.persistence_compatibility
+    .replay_compatible_bundle_hashes;
+  assert.ok(
+    compatible.includes(
+      "sha256:028b50e201cba948d386d0433e51c595e43280b253fb82aafd03bfad10abbe30",
+    ),
   );
 });
 

@@ -162,6 +162,19 @@ test("the official world accepts the live pre-Ruby High population epoch", () =>
   );
 });
 
+test("the official world accepts the deployed pre-item-policy journal", () => {
+  // v1.0.139 is the exact bundle still recorded by the production journal.
+  // The later item-policy release preserves existing canonical IDs and replays
+  // legacy item state before applying the richer placement and transfer rules.
+  const compatible =
+    officialWorld.persistence_compatibility.replay_compatible_bundle_hashes;
+  assert.ok(
+    compatible.includes(
+      "sha256:d2f4d610d4c55b5a0565631940db57f94d97685640ae4b74632a529022530b61",
+    ),
+  );
+});
+
 test("Bethlehem accepts every declared production replay epoch", () => {
   // #669 changed only authored voice text and prompt presentation: the world,
   // resource identities, rules profile, pack versions, and persisted-state
@@ -171,8 +184,9 @@ test("Bethlehem accepts every declared production replay epoch", () => {
   // Lonely Forest art mount. The fifth predates the Emmaus presentation update;
   // the sixth is the Emmaus bundle replaced by Rati's authored portrait. The
   // seventh is the bundle replaced by the Mossbell discovery slot, which adds
-  // one unplaced core item and no new state interpretation. All use the same
-  // canonical IDs and state meaning.
+  // one unplaced core item and no new state interpretation. The eighth is the
+  // exact v1.0.139 tenant journal before the richer item policies. All use the
+  // same canonical IDs and state meaning.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [
@@ -183,6 +197,7 @@ test("Bethlehem accepts every declared production replay epoch", () => {
     "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
     "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74",
     "sha256:0781f23550c8be3e16ad2fb92b9c1bf067f164c351d9d95df47a2969116f7480",
+    "sha256:070906fd0fd90124fe93641d11c2c6285cf0c78b2e9126d805206a0d9136eb7f",
   ]);
 });
 
