@@ -971,6 +971,7 @@ async function main() {
             is_current_actor: true,
             can_need_time: false,
             waiting_actor_ids: [9001, 9002],
+            grace_period_ms: 45_000,
             handoff_key: "room:1:round:2:activation:10:actor:5000",
           },
         };
@@ -993,6 +994,7 @@ async function main() {
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
           statusOutsideBanner: !document.querySelector("#turn-ping-pill")?.closest("#turn-banner"),
           statusPosition: getComputedStyle(document.querySelector("#turn-ping-pill")).position,
+          waitingNoticeVisible: document.querySelector("#turn-ping-pill")?.classList.contains("waiting") === true,
         };
 
         actionBusy = false;
@@ -1036,6 +1038,8 @@ async function main() {
           railScrollLeft: document.querySelector("#hand-rail")?.scrollLeft || 0,
           selectedSlot: selectedSlot?.dataset.storyCardSlot || "",
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
+          waitingNoticeVisible: document.querySelector("#turn-ping-pill")?.classList.contains("waiting") === true,
+          waitingNotice: document.querySelector("#turn-ping-pill")?.textContent.replace(/\s+/g, " ").trim() || "",
         };
         const activityEvents = [
           { type: "message.created", seq: 101, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "Let me check the path." },
@@ -1105,6 +1109,7 @@ async function main() {
         && result.busy.bannerHidden
         && result.busy.statusOutsideBanner
         && result.busy.statusPosition === "absolute"
+        && !result.busy.waitingNoticeVisible
         && result.waiting.cards === result.visibleCount
         && result.waiting.expanded
         && result.waiting.progressText.startsWith("Play ·")
@@ -1117,6 +1122,8 @@ async function main() {
         && result.waiting.selectedCardInView
         && result.waiting.selectedSlot === "tertiary"
         && result.waiting.bannerHidden
+        && result.waiting.waitingNoticeVisible
+        && result.waiting.waitingNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically within 45 seconds."
         && result.activity.order === "message.created,message.created"
         && result.activity.presented
         && result.activity.onRopeText === "Marnie played scout"
