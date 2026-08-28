@@ -18534,16 +18534,13 @@ async fn ping_presence(
     if !can_submit {
         return client_actor_rejected_response();
     }
-    let Some(was_active) =
-        ping_actor_session_for_actor(&state.actor_sessions, payload.actor_id, token)
-    else {
+    if ping_actor_session_for_actor(&state.actor_sessions, payload.actor_id, token).is_none() {
         return client_actor_rejected_response();
-    };
-    let events = if was_active {
-        Vec::new()
-    } else {
-        commit_presence_event(&state, payload.actor_id, true).await
-    };
+    }
+    // A page resume normally reuses a session whose presence window is still
+    // active. Refresh the durable room rope on every valid heartbeat; the
+    // presence projection below still emits an event only on a real edge.
+    let events = commit_presence_event(&state, payload.actor_id, true).await;
     Json(ActionResponse {
         ok: true,
         status: CW_OK,
