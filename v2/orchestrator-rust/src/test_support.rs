@@ -18,6 +18,8 @@ pub(super) fn initialize_test_event_store(path: &Path) {
         "world_events",
         "action_journal",
         "actor_jobs",
+        "media_jobs",
+        "media_budget_days",
         "model_interaction_batches",
         "canonical_store_identity",
         "canonical_commits",
