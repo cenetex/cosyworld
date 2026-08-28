@@ -10268,6 +10268,10 @@
 
     function turnStatusCopy(turn = state?.turn, combat = state?.combat) {
       if (!turn?.enabled) return "";
+      // Ordinary-room initiative is only a server-side resident reaction
+      // order. It is already represented by the shared room log and must not
+      // appear as a second player-facing lock or status banner.
+      if (turn.scene_kind === "room") return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
       const sceneKind = String(turn.scene_kind || "");
       // scene-turn is the ordered-combat protocol identity even when the
@@ -10278,28 +10282,12 @@
         || (!sceneKind && turn.policy === "scene-turn");
       const copy = combatCopy
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
-        : sceneKind === "room"
-          ? (turn.is_current_actor ? "room initiative — your turn" : `room initiative — ${currentName} acts now`)
-          : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
+        : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
       return copy;
     }
 
-    function roomSeatRemainingSeconds(turn = state?.turn) {
-      const deadline = Number(turn?.seat_expires_at_ms || 0);
-      if (!Number.isFinite(deadline) || deadline <= 0) return null;
-      return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-    }
-
-    function roomSeatRecoveryCopy(turn = state?.turn) {
-      const remaining = roomSeatRemainingSeconds(turn);
-      if (remaining === 0) return "Unlocking your cards now…";
-      if (remaining !== null) {
-        return `Your cards unlock when they finish, or automatically in ${remaining} seconds.`;
-      }
-      const grace = Math.round(Number(turn?.grace_period_ms || 0) / 1000);
-      return grace > 0
-        ? `Your cards unlock when they finish, or automatically within ${grace} seconds.`
-        : "Your cards unlock automatically when the room turn returns to you.";
+    function turnBlocksStoryHand(turn = state?.turn) {
+      return Boolean(turn?.enabled && turn.scene_kind !== "room" && !turn.is_current_actor);
     }
 
     function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
@@ -10310,10 +10298,7 @@
       const mark = turn.is_current_actor
         ? `<span class="turn-ping-mark" aria-hidden="true">&#9654;</span>`
         : "";
-      const recovery = !turn.is_current_actor && turn.scene_kind === "room"
-        ? `<span class="turn-ping-recovery">${escapeHtml(roomSeatRecoveryCopy(turn))}</span>`
-        : "";
-      return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${recovery ? ` ${recovery}` : ""}${grace > 0 && !recovery ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
+      return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
 
     function turnBannerControlSpecs(turn = state?.turn) {
@@ -10359,7 +10344,7 @@
       const banner = $("turn-banner");
       const controlCount = renderTurnBannerControls();
       if (banner) banner.hidden = controlCount === 0;
-      pill.classList.toggle("waiting", Boolean(state?.turn?.enabled && !state.turn.is_current_actor));
+      pill.classList.toggle("waiting", turnBlocksStoryHand());
       pill.classList.toggle("urgent", Boolean(state?.turn?.enabled && state?.turn?.is_current_actor));
       const handoffKey = html ? String(state?.turn?.handoff_key || "") : "";
       if (!html) {
@@ -10370,11 +10355,6 @@
         pill.setAttribute("aria-live", "polite");
         pill.innerHTML = html;
       } else {
-        const recovery = pill.querySelector(".turn-ping-recovery");
-        if (recovery) {
-          pill.setAttribute("aria-live", "off");
-          recovery.textContent = roomSeatRecoveryCopy(state?.turn);
-        }
         const visualGrace = pill.querySelector(".turn-ping-time");
         const grace = Math.round(Number(state?.turn?.grace_period_ms || 0) / 1000);
         if (visualGrace && grace > 0) visualGrace.textContent = `${grace}s grace`;
@@ -17820,8 +17800,7 @@
 
     function storyHandActionWaitsForTurn(action) {
       return Boolean(
-        state?.turn?.enabled
-        && !state.turn.is_current_actor
+        turnBlocksStoryHand()
         && String(action?.concurrencyPolicy || "") !== "concurrent"
       );
     }
@@ -17832,7 +17811,7 @@
         && actorId
         && actorSession
         && state?.primary_action?.kind !== "create_avatar"
-        && (!state?.turn?.enabled || state?.turn?.is_current_actor)
+        && !turnBlocksStoryHand()
         && handCardThink(action)?.available
         && handCardThink(action)?.offer_id
       );
@@ -17863,7 +17842,7 @@
     }
 
     function holdStoryHandForAction(action, { kind = "play" } = {}) {
-      if (!usesInlineStoryHand() || (state?.turn?.enabled && !state.turn.is_current_actor)) return;
+      if (!usesInlineStoryHand() || turnBlocksStoryHand()) return;
       const actionIndex = actions.indexOf(action) >= 0
         ? actions.indexOf(action)
         : Number(action?.actionIndex);
@@ -17908,7 +17887,7 @@
 
     function activeHeldStoryHandActions() {
       if (!heldStoryHand) return null;
-      if (actionBusy || handShuffleBusy || (state?.turn?.enabled && !state.turn.is_current_actor)) {
+      if (actionBusy || handShuffleBusy || turnBlocksStoryHand()) {
         return heldStoryHand.actions;
       }
       heldStoryHand = null;
@@ -18205,7 +18184,7 @@
         && actorSession
         && discardCertificate?.available
         && discardCertificate?.offer_id
-        && (!state?.turn?.enabled || state?.turn?.is_current_actor);
+        && !turnBlocksStoryHand();
       discardButton.hidden = handCard ? false : !canDiscard;
       discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
       discardButton.textContent = discardCertificate?.available

@@ -12182,17 +12182,6 @@ impl RuntimeWorld {
         })
     }
 
-    fn location_discovered_by_search(&self, location_id: u64) -> bool {
-        active_content().exits.iter().any(|exit| {
-            (exit.from_location_id == location_id || exit.to_location_id == location_id)
-                && self.seed_exit_discovered(exit.from_location_id, exit.to_location_id)
-        }) || active_content().hidden_exits.iter().any(|hidden_exit| {
-            (hidden_exit.from_location_id == location_id
-                || hidden_exit.to_location_id == location_id)
-                && self.hidden_exit_discovered(hidden_exit)
-        })
-    }
-
     fn exit_discovered_for_projection(&self, from_location_id: u64, to_location_id: u64) -> bool {
         if self
             .seed_exit_by_locations(from_location_id, to_location_id)
@@ -15115,13 +15104,16 @@ The relationship statement they are preserving is: {statement}"
 
     fn visible_event_locations(
         &self,
-        client_actor_id: Option<u64>,
+        _client_actor_id: Option<u64>,
         _access: &AccessContext,
     ) -> BTreeSet<u64> {
-        client_actor_id
-            .and_then(|id| self.actor_by_id(id))
-            .map(|actor| BTreeSet::from([actor.location_id]))
-            .unwrap_or_else(|| BTreeSet::from([1]))
+        // World events are a shared canonical history. Authentication chooses
+        // which avatar a client may control; it must not create a private copy
+        // of the world's room log.
+        self.world.locations[..self.world.location_count]
+            .iter()
+            .map(|location| location.id)
+            .collect()
     }
 
     fn branch_is_active(&self, branch: &DialogueBranch) -> bool {
@@ -32082,19 +32074,19 @@ mod tests {
                 .await
                 .0;
         assert!(!raw.ok && raw.status == 422);
-        let inaccessible = acknowledge_world_beat_exposure(
+        let shared = acknowledge_world_beat_exposure(
             State(state.clone()),
             Json(receipt_for(inaccessible_event.seq)),
         )
         .await
         .0;
-        assert!(!inaccessible.ok && inaccessible.status == 403);
+        assert!(shared.ok && shared.status == 200 && shared.recorded);
         let unknown =
             acknowledge_world_beat_exposure(State(state.clone()), Json(receipt_for(gap_seq)))
                 .await
                 .0;
         assert!(!unknown.ok && unknown.status == 404);
-        assert_eq!(seen_count(), 1);
+        assert_eq!(seen_count(), 2);
 
         fs::remove_file(path).unwrap();
     }
@@ -38750,7 +38742,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn co_present_growth_spends_the_current_room_activation() {
+    async fn co_present_growth_does_not_create_a_room_lock() {
         let mut runtime = RuntimeWorld::seeded();
         for (actor_id, name, dexterity, seed) in [
             (5000, "Room Keeper", 30, 17601),
@@ -38828,10 +38820,7 @@ mod tests {
                 Some(5001),
                 &active,
             );
-            assert!(before.enabled);
-            assert_eq!(before.policy, "scene-turn");
-            assert_eq!(before.current_actor_id, Some(5001));
-            assert!(before.is_current_actor);
+            assert!(!before.enabled);
         }
 
         let grown = bank_ledger(
@@ -38862,8 +38851,8 @@ mod tests {
         )
         .await
         .0;
-        assert!(!trained.ok);
-        assert_ne!(trained.status, CW_OK);
+        assert!(trained.ok);
+        assert_eq!(trained.status, CW_OK);
 
         let active = active_actor_ids_for_state(&state);
         let runtime = state.inner.lock().await;
@@ -38874,22 +38863,19 @@ mod tests {
             Some(5001),
             &active,
         );
-        assert!(after.enabled);
-        assert_eq!(after.policy, "scene-turn");
-        assert_eq!(after.current_actor_id, Some(5000));
-        assert!(!after.is_current_actor);
+        assert!(!after.enabled);
         assert_eq!(runtime.visit_ledger_view(5001).unbanked_count, 0);
         assert_eq!(
             runtime
                 .skills
                 .get(&skill_state_id(5001, "listening"))
                 .map(|skill| skill.rank),
-            None
+            Some(1)
         );
     }
 
     #[tokio::test]
-    async fn co_present_avatars_move_in_room_initiative_order() {
+    async fn co_present_avatars_move_without_a_room_lock() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "First Walker");
         create_test_human(
@@ -38967,8 +38953,8 @@ mod tests {
             Some(5000),
             &active_actor_ids_for_state(&state),
         );
-        assert!(turn.enabled);
-        assert_eq!(turn.policy, "scene-turn");
+        assert!(!turn.enabled);
+        assert_eq!(turn.scene_kind, None);
     }
 
     #[tokio::test]
@@ -50786,7 +50772,7 @@ mod tests {
         discover_all_seed_exits_for_test(&mut runtime);
         let access = AccessContext::default();
         let world = runtime.world_response(None, &access);
-        assert!(!world
+        assert!(world
             .locations
             .iter()
             .any(|location| location.id == DARK_ABYSS_LOCATION_ID));
@@ -58159,7 +58145,10 @@ mod tests {
         assert!(cottage.public);
         assert!(cottage.accessible);
         assert!(cottage.actors.iter().any(|actor| actor.name == "Rati"));
-        assert!(public.locations.iter().all(|location| location.id != 12));
+        assert!(public
+            .locations
+            .iter()
+            .any(|location| location.id == 12 && location.public && location.accessible));
 
         discover_seed_exit_pair_for_test(&mut runtime, 12, 11);
         let with_library = runtime.world_response(Some(5000), &AccessContext::default());
@@ -58178,27 +58167,35 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 11));
+        let location_ids = |world: &WorldResponse| {
+            world
+                .locations
+                .iter()
+                .map(|location| location.id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(location_ids(&public), location_ids(&with_library));
     }
 
     #[test]
-    fn event_visibility_is_limited_to_the_viewers_current_room() {
+    fn event_visibility_is_shared_across_the_whole_world() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, 12, "Library Reader");
         let public = AccessContext::default();
         let public_locations = runtime.visible_event_locations(None, &public);
 
         assert!(public_locations.contains(&1));
-        assert!(!public_locations.contains(&10));
-        assert!(!public_locations.contains(&12));
-        assert!(!public_locations.contains(&63));
+        assert!(public_locations.contains(&10));
+        assert!(public_locations.contains(&12));
+        assert!(public_locations.contains(&63));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let library_access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
         let entitled_without_actor = runtime.visible_event_locations(None, &library_access);
-        assert_eq!(entitled_without_actor, BTreeSet::from([1]));
+        assert_eq!(entitled_without_actor, public_locations);
         let library_locations = runtime.visible_event_locations(Some(5000), &library_access);
 
-        assert_eq!(library_locations, BTreeSet::from([12]));
+        assert_eq!(library_locations, public_locations);
 
         let library_event = EventView {
             seq: 1,
@@ -58225,7 +58222,7 @@ mod tests {
             current_hp: None,
             ..EventView::default()
         };
-        assert!(!event_visible_to_locations(
+        assert!(event_visible_to_locations(
             &library_event,
             &public_locations
         ));

@@ -2298,7 +2298,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn co_present_chat_spends_only_the_current_room_activation() {
+    async fn co_present_chat_never_waits_for_internal_room_initiative() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-concurrent-chat-{}-{}.sqlite",
             std::process::id(),
@@ -2346,11 +2346,15 @@ mod tests {
                 Some(5000),
                 &active_direct_actors,
             );
-            assert!(turn.enabled);
-            assert_eq!(turn.policy, "scene-turn");
+            assert!(!turn.enabled);
             (
                 runtime.world.tick,
-                turn.current_actor_id.expect("current room actor"),
+                current_room_initiative_actor(
+                    &runtime,
+                    COSY_COTTAGE_LOCATION_ID,
+                    &active_direct_actors,
+                )
+                .expect("internal current room actor"),
             )
         };
         let session_for = |actor_id| {
@@ -2372,7 +2376,8 @@ mod tests {
         )
         .await
         .0;
-        assert_eq!(waiting.status, 423);
+        assert!(waiting.ok, "either co-present player can queue Chat");
+        assert_ne!(waiting.status, 423);
 
         let response = chat(
             ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
@@ -2400,18 +2405,13 @@ mod tests {
             Some(5000),
             &active_direct_actors,
         );
-        assert_eq!(
-            runtime.world.tick,
-            before_tick + 1,
-            "Chat is a turn-consuming Story Hand action"
-        );
+        assert_eq!(runtime.world.tick, before_tick + 2);
         for actor_id in [5000, 5001] {
             assert_eq!(runtime.advancement_points_available(actor_id), 0);
             assert!(runtime.active_bond(actor_id, RATI_ACTOR_ID).is_none());
         }
-        assert!(turn.enabled);
-        assert_eq!(turn.policy, "scene-turn");
-        assert_ne!(turn.current_actor_id, Some(current_actor_id));
+        assert!(!turn.enabled);
+        assert_eq!(turn.scene_kind, None);
         drop(runtime);
         let _ = fs::remove_file(path);
     }
