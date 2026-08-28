@@ -18393,7 +18393,16 @@ async fn choose_avatar_class(
 
 async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) -> Vec<EventView> {
     let mut runtime = state.inner.lock().await;
-    if runtime.latest_actor_presence_state(actor_id) == Some(active) {
+    let presence_unchanged = runtime.latest_actor_presence_state(actor_id) == Some(active);
+    if active && (!presence_unchanged || state.event_store_path.is_some()) {
+        if let Err(error) = schedule_resumed_room_rope(state, &runtime, actor_id) {
+            warn!(
+                "failed to schedule resumed room initiative for actor {}: {}",
+                actor_id, error
+            );
+        }
+    }
+    if presence_unchanged {
         return Vec::new();
     }
     let event = runtime.append_actor_presence_event(actor_id, active);
@@ -29324,54 +29333,6 @@ fn insert_orb_chat_job(
         &payload,
         0,
     )
-}
-
-fn insert_room_rope_job(
-    conn: &Connection,
-    source_tick: u64,
-    location_id: u64,
-    actor_id: u64,
-    activation: u64,
-) -> io::Result<bool> {
-    insert_actor_job_payload(
-        conn,
-        ACTOR_JOB_KIND_ROOM_ROPE,
-        actor_id,
-        None,
-        source_tick,
-        0,
-        Some(location_id),
-        &format!("room-rope:{location_id}:{actor_id}:{activation}"),
-        &ActorJobPayload::RoomRope(RoomRopeJob {
-            location_id,
-            actor_id,
-            activation,
-        }),
-        ROOM_SEAT_GRACE_MS,
-    )
-}
-
-/// The seat a fresh `room.turn.advanced` event just handed to a directly
-/// controlled avatar, if that avatar can still act in the room.
-fn room_rope_target_from_events(
-    runtime: &RuntimeWorld,
-    events: &[EventView],
-) -> Option<(u64, u64, u64)> {
-    let event = events
-        .iter()
-        .rev()
-        .find(|event| event.success && event.type_name == "room.turn.advanced")?;
-    let location_id = event.location_id?;
-    let actor_id = event.actor_id?;
-    let activation = event.content_id?;
-    let actor = runtime.actor_by_id(actor_id)?;
-    if !RuntimeWorld::actor_can_act(actor)
-        || actor.location_id != location_id
-        || runtime.actor_uses_inference(actor.id)
-    {
-        return None;
-    }
-    Some((location_id, actor_id, activation))
 }
 
 #[allow(clippy::too_many_arguments)]

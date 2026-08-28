@@ -113,6 +113,139 @@ pub(super) fn room_initiative_needs_actor_job(
             .is_some_and(|actor| runtime.actor_uses_inference(actor.id))
 }
 
+pub(super) fn insert_room_rope_job(
+    conn: &Connection,
+    source_tick: u64,
+    location_id: u64,
+    actor_id: u64,
+    activation: u64,
+) -> io::Result<bool> {
+    let dedupe_key = format!("room-rope:{location_id}:{actor_id}:{activation}");
+    let inserted = insert_actor_job_payload(
+        conn,
+        ACTOR_JOB_KIND_ROOM_ROPE,
+        actor_id,
+        None,
+        source_tick,
+        0,
+        Some(location_id),
+        &dedupe_key,
+        &ActorJobPayload::RoomRope(RoomRopeJob {
+            location_id,
+            actor_id,
+            activation,
+        }),
+        ROOM_SEAT_GRACE_MS,
+    )?;
+    if inserted {
+        return Ok(true);
+    }
+
+    // A rope that completed without effect because its holder disconnected
+    // must be usable again when that same certified seat resumes later.
+    let now = now_millis() as i64;
+    let rearmed = conn
+        .execute(
+            "UPDATE actor_jobs
+             SET status = 'pending', attempts = 0, lease_until_ms = NULL,
+                 available_at_ms = ?2, last_error = NULL, updated_at_ms = ?3
+             WHERE dedupe_key = ?1 AND kind = ?4 AND status = 'completed'",
+            params![
+                dedupe_key,
+                now.saturating_add(ROOM_SEAT_GRACE_MS as i64),
+                now,
+                ACTOR_JOB_KIND_ROOM_ROPE,
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(rearmed > 0)
+}
+
+/// Presence can reconstruct the first room seat without emitting a handoff.
+/// Arm that synthesized seat so reconnecting to an existing room cannot leave
+/// every waiting Story Hand locked forever.
+pub(super) fn schedule_resumed_room_rope(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    resumed_actor_id: u64,
+) -> io::Result<bool> {
+    let Some(location_id) = runtime
+        .actor_by_id(resumed_actor_id)
+        .map(|actor| actor.location_id)
+    else {
+        return Ok(false);
+    };
+    let active_direct_actor_ids = active_actor_ids_for_state(state);
+    let Some(initiative) =
+        reconciled_room_initiative(runtime, location_id, &active_direct_actor_ids)
+    else {
+        return Ok(false);
+    };
+    let Some(actor_id) = initiative.current_actor_id() else {
+        return Ok(false);
+    };
+    let actor_is_ropeable = runtime.actor_by_id(actor_id).is_some_and(|actor| {
+        RuntimeWorld::actor_can_act(actor)
+            && actor.location_id == location_id
+            && !runtime.actor_uses_inference(actor.id)
+    }) && active_direct_actor_ids.contains(&actor_id);
+    if !actor_is_ropeable {
+        return Ok(false);
+    }
+
+    if let Some(path) = state.event_store_path.as_deref() {
+        let conn = open_event_store(path)?;
+        let scheduled = insert_room_rope_job(
+            &conn,
+            runtime.world.tick,
+            location_id,
+            actor_id,
+            initiative.activation,
+        )?;
+        if scheduled {
+            state.actor_job_notify.notify_waiters();
+        }
+        return Ok(scheduled);
+    }
+
+    let rope_state = state.clone();
+    let job = RoomRopeJob {
+        location_id,
+        actor_id,
+        activation: initiative.activation,
+    };
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(ROOM_SEAT_GRACE_MS)).await;
+        if let Err(error) = complete_room_rope_job(&rope_state, &job).await {
+            warn!("resumed room initiative rope failed: {}", error);
+        }
+    });
+    Ok(true)
+}
+
+/// The seat a fresh `room.turn.advanced` event just handed to a directly
+/// controlled avatar, if that avatar can still act in the room.
+pub(super) fn room_rope_target_from_events(
+    runtime: &RuntimeWorld,
+    events: &[EventView],
+) -> Option<(u64, u64, u64)> {
+    let event = events
+        .iter()
+        .rev()
+        .find(|event| event.success && event.type_name == "room.turn.advanced")?;
+    let location_id = event.location_id?;
+    let actor_id = event.actor_id?;
+    let activation = event.content_id?;
+    let actor = runtime.actor_by_id(actor_id)?;
+    if !RuntimeWorld::actor_can_act(actor)
+        || actor.location_id != location_id
+        || runtime.actor_uses_inference(actor.id)
+    {
+        return None;
+    }
+    Some((location_id, actor_id, activation))
+}
+
 /// The room-initiative rope: when a directly controlled avatar's seat window
 /// elapses without a committed action, the server commits one certified Pass
 /// on that avatar's behalf and hands initiative onward. The seat certificate
@@ -123,10 +256,9 @@ pub(super) async fn complete_room_rope_job(
     job: &RoomRopeJob,
 ) -> Result<(), String> {
     let mut runtime = state.inner.lock().await;
+    let active_direct_actor_ids = active_actor_ids_for_state(state);
     let seat_still_held =
-        runtime
-            .room_initiatives
-            .get(&job.location_id)
+        reconciled_room_initiative(&runtime, job.location_id, &active_direct_actor_ids)
             .is_some_and(|initiative| {
                 initiative.activation == job.activation
                     && initiative.current_actor_id() == Some(job.actor_id)
@@ -134,7 +266,6 @@ pub(super) async fn complete_room_rope_job(
     if !seat_still_held {
         return Ok(());
     }
-    let active_direct_actor_ids = active_actor_ids_for_state(state);
     let actor_is_ropeable = runtime.actor_by_id(job.actor_id).is_some_and(|actor| {
         RuntimeWorld::actor_can_act(actor)
             && actor.location_id == job.location_id
@@ -1095,6 +1226,45 @@ mod rope_tests {
             .room_initiatives
             .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
             .is_some_and(|initiative| initiative.current_actor_id() == Some(5000)));
+    }
+
+    #[tokio::test]
+    async fn a_resumed_room_schedules_and_fires_its_synthesized_first_rope() {
+        let (state, path) = rope_test_state("resume-bootstrap").await;
+        {
+            let mut runtime = state.inner.lock().await;
+            assert!(!runtime
+                .room_initiatives
+                .contains_key(&RAIN_SOFT_GARDEN_LOCATION_ID));
+            runtime.append_actor_presence_event(5001, true);
+        }
+
+        let events = commit_presence_event(&state, 5001, true).await;
+        assert!(
+            events.is_empty(),
+            "resume may repeat an active presence edge"
+        );
+
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("release the resumed room rope");
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("resumed room rope claim reads the store")
+            .expect("resume schedules the synthesized opening seat");
+        let ActorJobPayload::RoomRope(rope) = job.payload else {
+            panic!("resumed room rope jobs carry the room rope payload");
+        };
+        assert_eq!(rope.actor_id, 5000);
+        assert_eq!(rope.activation, 1);
+
+        complete_room_rope_job(&state, &rope)
+            .await
+            .expect("the resumed room rope commits");
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime
+            .room_initiatives
+            .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
+            .is_some_and(|initiative| initiative.current_actor_id() == Some(5001)));
     }
 
     #[tokio::test]

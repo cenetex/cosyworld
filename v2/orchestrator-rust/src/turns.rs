@@ -534,7 +534,7 @@ fn rolled_room_initiative_order(
     order
 }
 
-fn reconciled_room_initiative(
+pub(super) fn reconciled_room_initiative(
     runtime: &RuntimeWorld,
     location_id: u64,
     active_direct_actor_ids: &BTreeSet<u64>,
