@@ -442,4 +442,6 @@
 # into community_art.rs while adding per-level avatar appearance at that seam.
 # 59928 -> 59911: durable media-budget and journal-queue integration stays in
 # media_jobs.rs and also extracts the existing queued background-job insert.
-59911
+# 59911 -> 59872: move room-rope queueing and target selection into
+# actor_jobs.rs while presence only wires resumed rooms into that owned seam.
+59872
