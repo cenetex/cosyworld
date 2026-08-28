@@ -1006,6 +1006,7 @@ async function main() {
             current_actor_id: 9001,
             current_actor_name: "Other Player",
             is_current_actor: false,
+            seat_expires_at_ms: Date.now() + 32_000,
             handoff_key: "room:1:round:2:activation:11:actor:9001",
           },
         };
@@ -1041,6 +1042,9 @@ async function main() {
           waitingNoticeVisible: document.querySelector("#turn-ping-pill")?.classList.contains("waiting") === true,
           waitingNotice: document.querySelector("#turn-ping-pill")?.textContent.replace(/\s+/g, " ").trim() || "",
         };
+        state.turn.seat_expires_at_ms = Date.now() + 17_000;
+        renderTurnPingPill();
+        waiting.updatedNotice = document.querySelector("#turn-ping-pill")?.textContent.replace(/\s+/g, " ").trim() || "";
         const activityEvents = [
           { type: "message.created", seq: 101, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "Let me check the path." },
           { type: "story.card.played", seq: 102, actor_id: 9001, actor_name: "Marnie", location_id: state.location?.id, content: "scout" },
@@ -1123,7 +1127,8 @@ async function main() {
         && result.waiting.selectedSlot === "tertiary"
         && result.waiting.bannerHidden
         && result.waiting.waitingNoticeVisible
-        && result.waiting.waitingNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically within 45 seconds."
+        && result.waiting.waitingNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically in 32 seconds."
+        && result.waiting.updatedNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically in 17 seconds."
         && result.activity.order === "message.created,message.created"
         && result.activity.presented
         && result.activity.onRopeText === "Marnie played scout"

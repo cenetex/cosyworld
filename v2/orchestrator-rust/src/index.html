@@ -7174,6 +7174,7 @@
     let economyFlash = null;
     let economyFlashTimer = null;
     let presenceHeartbeatTimer = null;
+    let turnCountdownTimer = null;
     let announcedTurnHandoffKey = "";
     let turnBannerControlRuns = new Map();
     let walletQrPollTimer = null;
@@ -10283,6 +10284,24 @@
       return copy;
     }
 
+    function roomSeatRemainingSeconds(turn = state?.turn) {
+      const deadline = Number(turn?.seat_expires_at_ms || 0);
+      if (!Number.isFinite(deadline) || deadline <= 0) return null;
+      return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    }
+
+    function roomSeatRecoveryCopy(turn = state?.turn) {
+      const remaining = roomSeatRemainingSeconds(turn);
+      if (remaining === 0) return "Unlocking your cards now…";
+      if (remaining !== null) {
+        return `Your cards unlock when they finish, or automatically in ${remaining} seconds.`;
+      }
+      const grace = Math.round(Number(turn?.grace_period_ms || 0) / 1000);
+      return grace > 0
+        ? `Your cards unlock when they finish, or automatically within ${grace} seconds.`
+        : "Your cards unlock automatically when the room turn returns to you.";
+    }
+
     function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
       const copy = turnStatusCopy(turn, combat);
       if (!copy) return "";
@@ -10292,9 +10311,7 @@
         ? `<span class="turn-ping-mark" aria-hidden="true">&#9654;</span>`
         : "";
       const recovery = !turn.is_current_actor && turn.scene_kind === "room"
-        ? `<span class="turn-ping-recovery">${escapeHtml(grace > 0
-          ? `Your cards unlock when they finish, or automatically within ${grace} seconds.`
-          : "Your cards unlock automatically when the room turn returns to you.")}</span>`
+        ? `<span class="turn-ping-recovery">${escapeHtml(roomSeatRecoveryCopy(turn))}</span>`
         : "";
       return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${recovery ? ` ${recovery}` : ""}${grace > 0 && !recovery ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
@@ -10350,8 +10367,14 @@
         pill.innerHTML = "";
       } else if (handoffKey !== announcedTurnHandoffKey) {
         announcedTurnHandoffKey = handoffKey;
+        pill.setAttribute("aria-live", "polite");
         pill.innerHTML = html;
       } else {
+        const recovery = pill.querySelector(".turn-ping-recovery");
+        if (recovery) {
+          pill.setAttribute("aria-live", "off");
+          recovery.textContent = roomSeatRecoveryCopy(state?.turn);
+        }
         const visualGrace = pill.querySelector(".turn-ping-time");
         const grace = Math.round(Number(state?.turn?.grace_period_ms || 0) / 1000);
         if (visualGrace && grace > 0) visualGrace.textContent = `${grace}s grace`;
@@ -20228,6 +20251,10 @@
     document.fonts?.addEventListener?.("loadingdone", scheduleJournalRowOverflowSync);
 
     applyUiPreferences();
+
+    turnCountdownTimer = window.setInterval(() => {
+      if (state?.turn?.seat_expires_at_ms) renderTurnPingPill();
+    }, 1000);
 
     (async function boot() {
       try {

@@ -142,14 +142,18 @@ pub(super) fn insert_room_rope_job(
     }
 
     // A rope that completed without effect because its holder disconnected
-    // must be usable again when that same certified seat resumes later.
+    // must be usable again when that same certified seat resumes later. Older
+    // releases could also exhaust the retry budget before the room-pass path
+    // was healthy. That terminal row owns the same dedupe key, so revive it as
+    // well or the seat can never receive another timer.
     let now = now_millis() as i64;
     let rearmed = conn
         .execute(
             "UPDATE actor_jobs
              SET status = 'pending', attempts = 0, lease_until_ms = NULL,
                  available_at_ms = ?2, last_error = NULL, updated_at_ms = ?3
-             WHERE dedupe_key = ?1 AND kind = ?4 AND status = 'completed'",
+             WHERE dedupe_key = ?1 AND kind = ?4
+               AND status IN ('completed', 'dead')",
             params![
                 dedupe_key,
                 now.saturating_add(ROOM_SEAT_GRACE_MS as i64),
@@ -159,6 +163,27 @@ pub(super) fn insert_room_rope_job(
         )
         .map_err(sqlite_error)?;
     Ok(rearmed > 0)
+}
+
+pub(super) fn room_rope_deadline_ms(
+    path: &Path,
+    location_id: u64,
+    actor_id: u64,
+    activation: u64,
+) -> io::Result<Option<u64>> {
+    let conn = open_event_store(path)?;
+    let dedupe_key = format!("room-rope:{location_id}:{actor_id}:{activation}");
+    conn.query_row(
+        "SELECT available_at_ms
+         FROM actor_jobs
+         WHERE dedupe_key = ?1 AND kind = ?2
+           AND status IN ('pending', 'running')",
+        params![dedupe_key, ACTOR_JOB_KIND_ROOM_ROPE],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .map(|deadline| deadline.map(|value| value.max(0) as u64))
+    .map_err(sqlite_error)
 }
 
 /// Presence can reconstruct the first room seat without emitting a handoff.
@@ -1309,6 +1334,64 @@ mod rope_tests {
         };
         assert_eq!(rope.actor_id, 5000);
         assert_eq!(rope.activation, 1);
+    }
+
+    #[tokio::test]
+    async fn a_state_resume_revives_a_dead_rope_and_projects_its_deadline() {
+        let (state, path) = rope_test_state("dead-resume-bootstrap").await;
+        {
+            let runtime = state.inner.lock().await;
+            assert!(schedule_resumed_room_rope(&state, &runtime, 5001)
+                .expect("the opening rope is scheduled"));
+        }
+        let conn = open_event_store(&path).expect("open the rope store");
+        conn.execute(
+            "UPDATE actor_jobs
+             SET status = 'dead', attempts = ?1, last_error = 'old_release_failure'
+             WHERE kind = ?2",
+            params![ACTOR_JOB_MAX_ATTEMPTS, ACTOR_JOB_KIND_ROOM_ROPE],
+        )
+        .expect("poison the old rope row");
+        drop(conn);
+
+        let projected_deadline = {
+            let runtime = state.inner.lock().await;
+            let active = active_actor_ids_for_state(&state);
+            actor_room_turn_view(&state, &runtime, 5001, &active)
+                .expect("the waiting actor sees room initiative")
+                .seat_expires_at_ms
+        };
+        assert!(projected_deadline.is_some_and(|deadline| deadline > now_millis()));
+
+        let conn = open_event_store(&path).expect("inspect the revived rope");
+        let revived: (String, u32, Option<String>) = conn
+            .query_row(
+                "SELECT status, attempts, last_error
+                 FROM actor_jobs WHERE kind = ?1",
+                params![ACTOR_JOB_KIND_ROOM_ROPE],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read the revived rope");
+        assert_eq!(revived, ("pending".to_string(), 0, None));
+        drop(conn);
+
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("release the revived rope");
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
+            .expect("claim the revived rope")
+            .expect("the revived rope is runnable");
+        let ActorJobPayload::RoomRope(rope) = job.payload else {
+            panic!("the revived job carries its room rope payload");
+        };
+        complete_room_rope_job(&state, &rope)
+            .await
+            .expect("the revived rope advances the room");
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime
+            .room_initiatives
+            .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
+            .is_some_and(|initiative| initiative.current_actor_id() == Some(5001)));
     }
 
     #[tokio::test]
