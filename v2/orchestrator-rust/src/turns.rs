@@ -602,6 +602,7 @@ pub(super) fn current_room_initiative_actor(
         .and_then(|initiative| initiative.current_actor_id())
 }
 
+#[cfg(test)]
 fn ordinary_room_turn_view(
     runtime: &RuntimeWorld,
     actor_id: u64,
@@ -690,6 +691,14 @@ pub(super) fn bind_room_activation_context(
     else {
         return;
     };
+    // Ordinary-room initiative coordinates resident reactions in the
+    // background. A directly controlled player never waits for that queue:
+    // if a resident currently owns the internal seat, leave the player's
+    // record concurrent and let its observation wake the resident worker.
+    if record.origin == JournalOrigin::PlayerCard && initiative.current_actor_id() != Some(actor.id)
+    {
+        return;
+    }
     record.room_activation = Some(RoomActivationJournalContext {
         schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
         location_id: actor.location_id,
@@ -1545,44 +1554,17 @@ fn focused_turn_view(
 }
 
 pub(super) fn room_turn_view_for_runtime(
-    state: &AppState,
+    _state: &AppState,
     runtime: &RuntimeWorld,
     location_id: u64,
     viewer_actor_id: Option<u64>,
     active_actor_ids: &BTreeSet<u64>,
 ) -> RoomTurnView {
-    let mut view = viewer_actor_id
+    viewer_actor_id
         .and_then(|actor_id| {
-            focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids)).or_else(
-                || ordinary_room_turn_view(runtime, actor_id, location_id, active_actor_ids),
-            )
+            focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids))
         })
-        .unwrap_or_else(|| RoomTurnView::idle(location_id));
-    if view.scene_kind != Some("room") {
-        return view;
-    }
-
-    // State loading is the browser's first reliable resume edge. Arm the
-    // certified seat before projecting its deadline so a refresh cannot race
-    // ahead of the presence heartbeat and leave the page with a static grace.
-    if state.event_store_path.is_some() {
-        if let Some(viewer_actor_id) = viewer_actor_id {
-            let _ = schedule_resumed_room_rope(state, runtime, viewer_actor_id);
-        }
-    }
-    let Some(initiative) = reconciled_room_initiative(runtime, location_id, active_actor_ids)
-    else {
-        return view;
-    };
-    let Some(current_actor_id) = initiative.current_actor_id() else {
-        return view;
-    };
-    view.seat_expires_at_ms = state.event_store_path.as_deref().and_then(|path| {
-        room_rope_deadline_ms(path, location_id, current_actor_id, initiative.activation)
-            .ok()
-            .flatten()
-    });
-    view
+        .unwrap_or_else(|| RoomTurnView::idle(location_id))
 }
 
 #[cfg(test)]
@@ -1645,34 +1627,11 @@ fn actor_ordered_scene_rejection(
 }
 
 pub(super) fn actor_turn_rejection(
-    state: &AppState,
+    _state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
 ) -> Option<Json<ActionResponse>> {
-    actor_ordered_scene_rejection(runtime, actor_id).or_else(|| {
-        let actor = runtime.actor_by_id(actor_id)?;
-        let active_direct_actor_ids = active_actor_ids_for_state(state);
-        let view = ordinary_room_turn_view(
-            runtime,
-            actor_id,
-            actor.location_id,
-            &active_direct_actor_ids,
-        )
-        .filter(|view| !view.is_current_actor)?;
-        Some(Json(ActionResponse {
-            ok: false,
-            status: 423,
-            events: vec![EventView {
-                type_name: "room.turn.waiting".to_string(),
-                success: false,
-                actor_id: view.current_actor_id,
-                actor_name: view.current_actor_name,
-                location_id: Some(view.room_id),
-                content: view.explanation,
-                ..EventView::default()
-            }],
-        }))
-    })
+    actor_ordered_scene_rejection(runtime, actor_id)
 }
 
 pub(super) fn actor_action_turn_rejection(
@@ -1803,13 +1762,7 @@ pub(super) fn command_actor_turn_rejection(
     ) {
         return Some(focused);
     }
-    ordinary_room_turn_view(
-        runtime,
-        actor_id,
-        actor.location_id,
-        &active_direct_actor_ids,
-    )
-    .filter(|view| !view.is_current_actor)
+    None
 }
 
 pub(super) fn direct_command_turn_rejection(
@@ -2866,7 +2819,7 @@ mod tests {
     }
 
     #[test]
-    fn ordinary_rooms_expose_one_shared_initiative_turn() {
+    fn ordinary_room_initiative_stays_internal_to_resident_reactions() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Player");
         create_test_human(&mut runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, "Fable");
@@ -2875,18 +2828,23 @@ mod tests {
         runtime.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::ReactiveAi;
         let active = BTreeSet::from([5000]);
 
-        let player = ordinary_room_turn_view(&runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
-            .expect("a multi-avatar room has initiative");
-        let fable = ordinary_room_turn_view(&runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
-            .expect("every participant sees the same initiative");
-        assert!(player.enabled);
-        assert_eq!(player.policy, "scene-turn");
-        assert_eq!(player.scene_kind, Some("room"));
-        assert_eq!(player.current_actor_id, Some(5000));
-        assert!(player.is_current_actor);
-        assert!(!fable.is_current_actor);
-        assert_eq!(player.grace_period_ms, ORDERED_SCENE_BASE_GRACE_MS);
-        assert_eq!(player.handoff_key, fable.handoff_key);
+        let internal =
+            ordinary_room_turn_view(&runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
+                .expect("a multi-avatar room keeps an internal reaction order");
+        assert_eq!(internal.current_actor_id, Some(5000));
+
+        let state = test_app_state(runtime, None);
+        let runtime = state.inner.blocking_lock();
+        let projected = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            Some(5000),
+            &active,
+        );
+        assert!(!projected.enabled);
+        assert_eq!(projected.scene_kind, None);
+        assert!(actor_turn_rejection(&state, &runtime, 5001).is_none());
     }
 
     #[test]
@@ -2928,6 +2886,32 @@ mod tests {
             Some(5001)
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_ERR_RULE);
+
+        let mut concurrent_player_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                ..CwAction::default()
+            },
+            83_051,
+        )
+        .into_player_card();
+        concurrent_player_record.bind_offer_kind("pass");
+        concurrent_player_record
+            .projection_mutations
+            .push(ProjectionMutation::ShuffleHand {
+                reason: "concurrent_player_test".to_string(),
+            });
+        bind_room_activation_context(&runtime, &mut concurrent_player_record, &active);
+        assert!(
+            concurrent_player_record.room_activation.is_none(),
+            "a resident-held internal seat must not bind or reject a player card"
+        );
+        assert_eq!(
+            runtime.apply_journal_record(&concurrent_player_record).0,
+            CW_OK
+        );
 
         let mut replay = before;
         assert_eq!(replay.apply_journal_record(&record).0, CW_OK);

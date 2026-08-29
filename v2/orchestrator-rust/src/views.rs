@@ -5522,16 +5522,12 @@ impl RuntimeWorld {
         let current_location_id = client_actor_id
             .and_then(|id| self.actor_by_id(id))
             .map(|actor| actor.location_id);
+        // The world map is one shared canonical projection. The actor id adds
+        // the viewer's current-location marker and control context, but never
+        // hides world locations from another viewer.
         let visible_location_ids: BTreeSet<u64> = self.world.locations[..self.world.location_count]
             .iter()
-            .filter_map(|location| {
-                let is_current = current_location_id == Some(location.id);
-                let default_start = current_location_id.is_none()
-                    && content_registry().entry_location_id() == Some(location.id);
-                let discovered = self.location_discovered_by_search(location.id);
-                let generated = self.generated_location_is_revealed(location.id);
-                (is_current || default_start || discovered || generated).then_some(location.id)
-            })
+            .map(|location| location.id)
             .collect();
 
         let mut location_cards = BTreeMap::new();

@@ -682,19 +682,26 @@ async function ensureScoutedRoute(
   destinationId,
   destinationName,
 ) {
-  const state = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const alreadyDiscovered = state.__inspection?.actions?.some(
+  const routeIsAvailable = (state) => state.__inspection?.actions?.some(
     (offer) =>
       offer.kind === "move" &&
       Number(offer.target?.id) === Number(destinationId),
   );
-  if (alreadyDiscovered) return;
-  const scouted = await command(
-    baseUrl,
-    actorId,
-    actorSession,
-    `scout ${destinationName}`,
-  );
+  let state = await fetchInspectableState(baseUrl, actorId, actorSession);
+  if (routeIsAvailable(state)) return;
+  let scouted;
+  try {
+    scouted = await command(
+      baseUrl,
+      actorId,
+      actorSession,
+      `scout ${destinationName}`,
+    );
+  } catch (error) {
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    if (routeIsAvailable(state)) return;
+    throw error;
+  }
   assert(
     scouted.events?.filter(routeDiscoveryEvent).length === 1,
     `The room did not reveal the route to ${destinationName} exactly once: ${JSON.stringify(scouted)}`,
@@ -1935,9 +1942,17 @@ async function runWorldLoop(spec) {
     const durableEvents = readDurableWorldEvents(eventDbPath);
     if (spec.scoutDestination) {
       const durableRouteDiscoveries = durableEvents.filter(routeDiscoveryEvent);
+      const preservedRouteDiscoveries = routeDiscoveriesBeforeRestart.every((expected) => (
+        durableRouteDiscoveries.filter((actual) => (
+          actual.seq === expected.seq
+            && actual.location_id === expected.location_id
+            && actual.destination_location_id === expected.destination_location_id
+        )).length === 1
+      ));
       assert(
-        durableRouteDiscoveries.length === routeDiscoveriesBeforeRestart.length,
-        `${spec.label} replay lost or duplicated a durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
+        durableRouteDiscoveries.length >= routeDiscoveriesBeforeRestart.length
+          && preservedRouteDiscoveries,
+        `${spec.label} replay lost or duplicated a prior durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
       );
     }
     if (goldenJourney) {

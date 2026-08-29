@@ -165,27 +165,6 @@ pub(super) fn insert_room_rope_job(
     Ok(rearmed > 0)
 }
 
-pub(super) fn room_rope_deadline_ms(
-    path: &Path,
-    location_id: u64,
-    actor_id: u64,
-    activation: u64,
-) -> io::Result<Option<u64>> {
-    let conn = open_event_store(path)?;
-    let dedupe_key = format!("room-rope:{location_id}:{actor_id}:{activation}");
-    conn.query_row(
-        "SELECT available_at_ms
-         FROM actor_jobs
-         WHERE dedupe_key = ?1 AND kind = ?2
-           AND status IN ('pending', 'running')",
-        params![dedupe_key, ACTOR_JOB_KIND_ROOM_ROPE],
-        |row| row.get::<_, i64>(0),
-    )
-    .optional()
-    .map(|deadline| deadline.map(|value| value.max(0) as u64))
-    .map_err(sqlite_error)
-}
-
 /// Presence can reconstruct the first room seat without emitting a handoff.
 /// Arm that synthesized seat so reconnecting to an existing room cannot leave
 /// every waiting Story Hand locked forever.
@@ -1337,7 +1316,7 @@ mod rope_tests {
     }
 
     #[tokio::test]
-    async fn a_state_resume_revives_a_dead_rope_and_projects_its_deadline() {
+    async fn a_state_resume_does_not_project_or_revive_an_internal_room_rope() {
         let (state, path) = rope_test_state("dead-resume-bootstrap").await;
         {
             let runtime = state.inner.lock().await;
@@ -1354,44 +1333,33 @@ mod rope_tests {
         .expect("poison the old rope row");
         drop(conn);
 
-        let projected_deadline = {
+        let projected = {
             let runtime = state.inner.lock().await;
             let active = active_actor_ids_for_state(&state);
             actor_room_turn_view(&state, &runtime, 5001, &active)
-                .expect("the waiting actor sees room initiative")
-                .seat_expires_at_ms
+                .expect("the player still receives a turn projection")
         };
-        assert!(projected_deadline.is_some_and(|deadline| deadline > now_millis()));
+        assert!(!projected.enabled);
+        assert_eq!(projected.scene_kind, None);
+        assert_eq!(projected.seat_expires_at_ms, None);
 
-        let conn = open_event_store(&path).expect("inspect the revived rope");
-        let revived: (String, u32, Option<String>) = conn
+        let conn = open_event_store(&path).expect("inspect the hidden rope");
+        let stored: (String, u32, Option<String>) = conn
             .query_row(
                 "SELECT status, attempts, last_error
                  FROM actor_jobs WHERE kind = ?1",
                 params![ACTOR_JOB_KIND_ROOM_ROPE],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
-            .expect("read the revived rope");
-        assert_eq!(revived, ("pending".to_string(), 0, None));
-        drop(conn);
-
-        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_ROOM_ROPE)
-            .expect("release the revived rope");
-        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ROOM_ROPE)
-            .expect("claim the revived rope")
-            .expect("the revived rope is runnable");
-        let ActorJobPayload::RoomRope(rope) = job.payload else {
-            panic!("the revived job carries its room rope payload");
-        };
-        complete_room_rope_job(&state, &rope)
-            .await
-            .expect("the revived rope advances the room");
-
-        let runtime = state.inner.lock().await;
-        assert!(runtime
-            .room_initiatives
-            .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
-            .is_some_and(|initiative| initiative.current_actor_id() == Some(5001)));
+            .expect("read the hidden rope");
+        assert_eq!(
+            stored,
+            (
+                "dead".to_string(),
+                ACTOR_JOB_MAX_ATTEMPTS,
+                Some("old_release_failure".to_string())
+            )
+        );
     }
 
     #[tokio::test]

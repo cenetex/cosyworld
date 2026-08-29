@@ -63,6 +63,16 @@ async function postJson(url, body) {
   });
 }
 
+async function postJsonWithStatus(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5_000),
+  });
+  return { status: response.status, body: JSON.parse(await response.text()) };
+}
+
 async function postJsonExpectingStatus(url, body, expectedStatus) {
   const response = await fetch(url, {
     method: "POST",
@@ -523,22 +533,36 @@ async function discoverExit(baseUrl, actorId, actorSession, destinationLocationI
       && exit.locked === false)) {
       return state;
     }
-    const scout = await drawExactOffer(
-      baseUrl,
-      actorId,
-      actorSession,
-      (offer) => offer.kind === "explore_path"
-        && Number(offer.target?.id) === Number(destinationLocationId),
-      `Scout route to ${destinationLocationId}`,
-    );
-    const result = await postJson(`${baseUrl}/commands`, {
+    let scout;
+    try {
+      scout = await drawExactOffer(
+        baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.kind === "explore_path"
+          && Number(offer.target?.id) === Number(destinationLocationId),
+        `Scout route to ${destinationLocationId}`,
+      );
+    } catch (error) {
+      const refreshed = await fetchInspectableState(baseUrl, actorId, actorSession);
+      if (refreshed.exits?.some((exit) =>
+        exit.destination_location_id === destinationLocationId
+        && exit.accessible === true
+        && exit.locked === false)) {
+        return refreshed;
+      }
+      throw error;
+    }
+    const submitted = await postJsonWithStatus(`${baseUrl}/commands`, {
       actor_id: actorId,
       actor_session: actorSession,
       command: scout.command,
       offer_id: scout.offer_id,
     });
+    if ([409, 423].includes(submitted.status)) continue;
+    const result = submitted.body;
     assert(
-      result.ok === true,
+      submitted.status >= 200 && submitted.status < 300 && result.ok === true,
       `Scout route to ${destinationLocationId} failed: ${JSON.stringify(result)}`,
     );
   }

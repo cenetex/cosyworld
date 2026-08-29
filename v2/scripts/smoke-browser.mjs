@@ -1010,7 +1010,9 @@ async function main() {
             handoff_key: "room:1:round:2:activation:11:actor:9001",
           },
         };
-        actions = [];
+        // Ordinary-room initiative is internal. Model the refreshed server
+        // hand directly instead of hiding it behind another resident's seat.
+        actions = visible;
         renderCommands();
         const waitingProgress = $("turn-rope-toggle");
         const inspectableCards = [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")];
@@ -1116,35 +1118,30 @@ async function main() {
         && !result.busy.waitingNoticeVisible
         && result.waiting.cards === result.visibleCount
         && result.waiting.expanded
-        && result.waiting.progressText.startsWith("Play ·")
-        && result.waiting.progressWidth === "33%"
         && result.waiting.handStatus === `${result.visibleCount} cards`
         && result.waiting.allCardsInspectable
-        && result.waiting.turnLocksHidden
+        && !result.waiting.turnLocksHidden
         && result.waiting.selectedCardCurrent
         && result.waiting.selectedCardActive
         && result.waiting.selectedCardInView
         && result.waiting.selectedSlot === "tertiary"
         && result.waiting.bannerHidden
-        && result.waiting.waitingNoticeVisible
-        && result.waiting.waitingNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically in 32 seconds."
-        && result.waiting.updatedNotice === "room initiative — Other Player acts now Your cards unlock when they finish, or automatically in 17 seconds."
+        && !result.waiting.waitingNoticeVisible
+        && result.waiting.waitingNotice === ""
+        && result.waiting.updatedNotice === ""
         && result.activity.order === "message.created,message.created"
-        && result.activity.presented
-        && result.activity.onRopeText === "Marnie played scout"
+        && !result.activity.presented
         && result.activity.timerFree
         && !result.activity.unrelatedPresented
-        && result.activity.persistentText === "Marnie played scout"
-        && result.activity.replacementPresented
-        && result.activity.replacementText === "Ruby played notice"
+        && !result.activity.replacementPresented
         && result.activity.notInChat
         && result.activity.notRoomMemory,
-      `playing a card should collapse the hand, hide turn locks, keep inspection available, and keep card activity on the shared turn rope until the next play: ${JSON.stringify(result)}`,
+      `ordinary-room play should release a refreshed Story Hand without a duplicate initiative banner or action rope: ${JSON.stringify(result)}`,
     );
     steps.push({
-      label: "played hand collapses with a shared turn rope",
+      label: "ordinary-room play immediately releases the refreshed hand",
       cards: result.visibleCount,
-      progress: result.waiting.progressWidth,
+      progress: "unlocked",
     });
   }
 
@@ -1680,8 +1677,8 @@ async function main() {
       `the acting combat participant should reach the certified Think control from the action bar and need time from the banner: ${JSON.stringify(guide.currentTurnBanner)}`,
     );
     assert(
-      guide.roomTurnBanner === "room initiative — Skull acts now",
-      `an explicit room turn should not fall back to ordered-combat copy: ${JSON.stringify(guide.roomTurnBanner)}`,
+      guide.roomTurnBanner === "",
+      `internal room initiative should not duplicate the shared room log: ${JSON.stringify(guide.roomTurnBanner)}`,
     );
   }
 
@@ -13075,7 +13072,7 @@ async function main() {
     });
     assert(world.shared_world === true, "world projection should identify the shared world");
     assert(world.current_actor_id, "world projection should preserve the current actor");
-    assert((world.locations || []).length >= 3, `world projection should include rooms found through Search: ${JSON.stringify(world)}`);
+    assert((world.locations || []).length >= 3, `world projection should include the shared world: ${JSON.stringify(world)}`);
     const cottage = world.locations.find((location) => location.name === "The Cosy Cottage");
     const science = world.locations.find((location) => location.name === "Science Class");
     const library = world.locations.find((location) => location.name === "Library");
@@ -13091,9 +13088,9 @@ async function main() {
       requiredCottageExits.every((destination) => cottageExits.includes(destination)),
       `Cottage should preserve every curated map entry point alongside living-world discoveries: ${JSON.stringify(cottageExits)}`,
     );
-    assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
-    assert(!library, "Library should stay hidden until its path is found");
-    assert(!trail || Array.isArray(trail.actors), "Moonlit Trail projection should expose actor data when visible");
+    assert(science?.public && science.accessible, "Science Class should be visible in the shared world");
+    assert(library?.public && library.accessible, "Library should be visible in the shared world");
+    assert(Array.isArray(trail?.actors), "Moonlit Trail projection should expose shared actor data");
   }
 
   async function assertMudCommandApiAvailable() {
@@ -13309,57 +13306,17 @@ async function main() {
         otherIdentity.actorId,
         { timeout: 35_000 },
       );
-      const firstActorId = await page.evaluate(() => Number(actorId || 0));
-      const handOffRoomTurn = async (attempt) => {
-        await page.evaluate(() => queueRefresh());
-        await waitForPlayerRoomTurn();
-        const handoffCard = await page.evaluate(() => {
-          const action = actionBarActions().find((candidate) => ![
-            "move",
-            "travel",
-            "flee",
-          ].includes(String(candidate?.intention || "").toLowerCase()));
-          if (!action) return null;
-          focusIndex = action.actionIndex;
-          focusedKey = actionHandKey(action);
-          return {
-            handKey: actionHandKey(action),
-            offerIds: (action.offerIds || []).map(String),
-            generation: Number(state?.action_hand?.generation || 0),
-          };
-        });
-        assert(handoffCard?.offerIds?.length === 1, `the first player needs a safe dealt card to hand off room round ${attempt}: ${JSON.stringify(handoffCard)}`);
-        focusedSelectionIdentity = handoffCard;
-        useFocusedActionOnNextClick = true;
-        const handedOff = await clickPrimary(`hand off multiplayer room round ${attempt}`, { waitForRoomTurn: false });
-        assert(handedOff?.ok === true, `the first player should hand off room round ${attempt}: ${JSON.stringify(handedOff)}`);
-      };
-      let newcomerTurn = null;
-      let newcomerReceivedTurn = false;
-      for (let roomRound = 1; roomRound <= 3 && !newcomerReceivedTurn; roomRound += 1) {
-        await handOffRoomTurn(roomRound);
-        let initiativeLeftFirstActor = false;
-        for (let attempt = 0; attempt < 45; attempt += 1) {
-          newcomerTurn = await other.evaluate(async () => {
-            await queueRefresh();
-            while (refreshInFlight) await refreshInFlight;
-            return {
-              turn: state?.turn || null,
-              primaryDisabled: document.querySelector("#primary")?.disabled === true,
-            };
-          });
-          const currentActorId = Number(newcomerTurn.turn?.current_actor_id || 0);
-          newcomerReceivedTurn = newcomerTurn.turn?.is_current_actor === true
-            && !newcomerTurn.primaryDisabled;
-          if (newcomerReceivedTurn) break;
-          if (currentActorId > 0 && currentActorId !== firstActorId) initiativeLeftFirstActor = true;
-          if (initiativeLeftFirstActor && currentActorId === firstActorId) break;
-          await other.waitForTimeout(1_000);
-        }
-      }
+      const newcomerTurn = await other.evaluate(async () => {
+        await queueRefresh();
+        while (refreshInFlight) await refreshInFlight;
+        return {
+          turn: state?.turn || null,
+          primaryDisabled: document.querySelector("#primary")?.disabled === true,
+        };
+      });
       assert(
-        newcomerReceivedTurn,
-        `the newcomer should receive the handed-off room turn: ${JSON.stringify(newcomerTurn)}`,
+        newcomerTurn.turn?.enabled === false && !newcomerTurn.primaryDisabled,
+        `the newcomer should be able to act without waiting for a private room turn: ${JSON.stringify(newcomerTurn)}`,
       );
 
       const playOtherPrimary = async (label, settled) => {
@@ -13422,6 +13379,7 @@ async function main() {
 
       const firstTaleStart = await other.evaluate(() => ({
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
+        turnEnabled: state?.turn?.enabled === true,
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
       assert(firstTaleStart.primary.toLowerCase().startsWith("head suit, notice"), `second player should enter through a welcoming Head · Notice card: ${JSON.stringify(firstTaleStart)}`);
@@ -13434,6 +13392,7 @@ async function main() {
       const afterFirstListen = await other.evaluate(() => {
         setStoryHandExpanded(true, visibleFocusedAction());
         return {
+          turnEnabled: state?.turn?.enabled === true,
           currentActorId: Number(state?.turn?.current_actor_id || 0),
           isCurrentActor: state?.turn?.is_current_actor === true,
           visibleLabels: actionBarActions().map((action) => action.label),
@@ -13454,8 +13413,8 @@ async function main() {
         afterFirstListen.visibleLabels.length > 0
           && afterFirstListen.handExpanded
           && afterFirstListen.cardsInspectable
-          && afterFirstListen.turnActionsDisabled,
-        `the newcomer should be able to inspect their hand without bypassing another participant's turn: ${JSON.stringify(afterFirstListen)}`,
+          && !afterFirstListen.turnActionsDisabled,
+        `the newcomer should be able to inspect and play their hand without a private room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(
         !/earned one|\+1/i.test(afterFirstListen.economy)
@@ -13464,18 +13423,18 @@ async function main() {
           )),
         `actor Notice should advance the lead without its receipt mutating growth: ${JSON.stringify({ afterFirstListen, events: firstNotice.events })}`,
       );
-      const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
-        afterFirstListen.currentActorId !== sharedTurnOwner
+        !firstTaleStart.turnEnabled
+          && !afterFirstListen.turnEnabled
           && afterFirstListen.firstTale?.phase === "follow_lead"
           && /Rain-Soft Garden/i.test(afterFirstListen.guide)
           && !/your first tale is yours/i.test(afterFirstListen.guide),
-        `truthful observation should reveal the shared-world lead and advance the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+        `truthful observation should reveal the shared-world lead without creating a private room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
-        label: "waiting player shared-world lead",
+        label: "concurrent player shared-world lead",
         actor: otherIdentity.actorName,
-        sharedTurnOwner,
+        sharedTurnOwner: "none",
       });
 
       await other.waitForFunction(() => refreshInFlight === null && refreshQueued === false);

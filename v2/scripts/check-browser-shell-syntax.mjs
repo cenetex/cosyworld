@@ -12,3 +12,8 @@ const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
 
 assert.equal(scripts.length, 1, `expected one inline browser script in ${shellPath}`);
 new Script(scripts[0][1], { filename: shellPath });
+assert.doesNotMatch(
+  html,
+  /room initiative —|Your cards unlock when they finish|automatically within 45 seconds/,
+  "ordinary resident initiative must not render a duplicate player lock",
+);
