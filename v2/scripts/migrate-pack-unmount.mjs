@@ -664,6 +664,13 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     "orb_balances",
     "prepared_spells",
   ]) maps[field] = takeMapKeys(migrated[field], actorIds);
+  // Deeds and their actor index are one projection. Leaving deed records
+  // active lets a pack-less restart rebuild the frozen actor's index, which
+  // then collides when the pack is remounted.
+  maps.deeds = takeMapValues(
+    migrated.deeds,
+    (deed) => hasId(actorIds, deed.actor_id),
+  );
   for (const field of ["item_meta", "item_provenance"]) {
     maps[field] = takeMapKeys(migrated[field], itemIds);
   }

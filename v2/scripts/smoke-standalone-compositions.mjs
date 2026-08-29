@@ -492,21 +492,34 @@ function offerEnvelope(state, actorId, offerId) {
 }
 
 function storyHandSlotForOffer(offer = {}) {
-  const presentation = offer.presentation || {};
-  const suit = String(presentation.suit || "");
-  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
-  const intention = String(offer.intention || "");
-  const effect = String(offer.effect || "").toLowerCase();
-  const hustleIsMovement = suit === "hustle" && (
-    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
-    || offer.kind === "move"
-    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
-  );
-  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
-      || suit === "honor" || hustleIsMovement) return "story";
-  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
-      || suit === "heart") return "self";
-  return "anchor";
+  if (offer.project) return "story";
+  if ([
+    "pick_up",
+    "drop_item",
+    "use_item",
+    "use_feature",
+    "give_item",
+    "accept_transfer_offer",
+    "trade_item",
+    "theft",
+    "craft",
+    "cast_spell",
+  ].includes(offer.kind)) return "self";
+  if ([
+    "chat",
+    "notice_actor",
+    "model_interaction",
+    "influence",
+    "attack",
+    "defend",
+    "rest",
+    "create_bond",
+    "resolve_bond",
+  ].includes(offer.kind)) return "anchor";
+  if (["item", "recipe"].includes(offer.target?.kind)) return "self";
+  if (offer.target?.kind === "actor") return "anchor";
+  if (offer.source_collectible?.kind === "item") return "self";
+  return "story";
 }
 
 function thinkForSlot(state, slot = "") {
@@ -547,12 +560,13 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
       );
     }
     if (passAttempts >= maxPassAttempts) break;
-    const thinkEntries = (state.action_hand?.entries || [])
-      .filter((entry) => entry.think?.available && entry.think.offer_id)
-      .sort((left, right) =>
-        Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
-          || left.slot.localeCompare(right.slot));
-    const passOffer = thinkEntries[0]?.think ?? state.action_hand?.pass;
+    const desiredOffer = state.__inspection?.actions?.find(
+      (candidate) => !candidate.disabled && predicate(candidate),
+    );
+    const passOffer = thinkForSlot(
+      state,
+      desiredOffer ? storyHandSlotForOffer(desiredOffer) : "",
+    ) ?? state.action_hand?.pass;
     assert(
       passOffer?.offer_id,
       `No dealt card matches ${description} and Think is unavailable: ${JSON.stringify(state.action_hand)}`,

@@ -137,3 +137,47 @@ test("soft unmount evacuates retained-pack items before a restorative remount", 
     "remount must not collide with a newly materialized retained-pack identity",
   );
 });
+
+test("soft unmount freezes deed records with their removed-pack actor index", () => {
+  const deed = {
+    id: "ruby-deed",
+    claim_key: "ruby-deed:1110",
+    actor_id: 1110,
+  };
+  const snapshot = {
+    worldpack_bundle_hash: sourceRegistry.manifest.bundle_hash,
+    rules_profile: sourceRegistry.manifest.rules_profile,
+    active_rules_variants: sourceRegistry.manifest.active_rules_variants,
+    active_rules_extensions: sourceRegistry.manifest.active_rules_extensions,
+    world_actors: [{ id: 1110, location_id: 11 }],
+    world_items: [],
+    world_locations: [{ id: 1 }, { id: 11 }],
+    world_exits: [],
+    world_evolution_tracks: [],
+    world_combat_encounters: [],
+    deeds: { [deed.claim_key]: deed },
+    deed_ids_by_actor: { 1110: [deed.claim_key] },
+  };
+
+  const unmounted = migratePackUnmount(
+    snapshot,
+    sourceRegistry,
+    "ruby-high.first-bell",
+    targetRegistry,
+  );
+  assert.deepEqual(unmounted.snapshot.deeds, {});
+  assert.deepEqual(unmounted.snapshot.deed_ids_by_actor, {});
+
+  const frozen = unmounted.snapshot.pack_mount_state.frozen["ruby-high.first-bell"];
+  assert.deepEqual(frozen.maps.deeds, { [deed.claim_key]: deed });
+  assert.deepEqual(frozen.maps.deed_ids_by_actor, { 1110: [deed.claim_key] });
+
+  const remounted = migratePackRemount(
+    unmounted.snapshot,
+    targetRegistry,
+    "ruby-high.first-bell",
+    sourceRegistry,
+  );
+  assert.deepEqual(remounted.snapshot.deeds, { [deed.claim_key]: deed });
+  assert.deepEqual(remounted.snapshot.deed_ids_by_actor, { 1110: [deed.claim_key] });
+});
