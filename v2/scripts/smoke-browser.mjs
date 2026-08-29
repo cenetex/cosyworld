@@ -11334,7 +11334,10 @@ async function main() {
           (body?.events || []).some((event) => (
             ["action.offer_rejected", "action.conflict"].includes(String(event?.type || ""))
           ))
-            || (responsePath === "/commands" && body?.error_kind === "stale_offer")
+            || (
+              responsePath === "/commands"
+                && ["stale_offer", "stale_location_version"].includes(body?.error_kind)
+            )
         );
       assert(
         retryableConflict,
@@ -11713,7 +11716,7 @@ async function main() {
       }
       const journeyDeckSize = await fetchInspectableDeckSize();
       for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
-        await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
+        await passCertifiedHandForDraw(`continue journey toward ${nextName}`, "story");
         focusedJourneyStep = await focusJourneyStep();
       }
       if (focusedJourneyStep?.replan) {
