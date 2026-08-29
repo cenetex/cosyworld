@@ -23,6 +23,11 @@ mod avatar_reflections;
 mod avatar_rescue;
 #[cfg(test)]
 mod beliefs_tests;
+// The closed-vocabulary Calling Forge and event-derived Bond scripting.
+// Its candidate/proposal entry points power the client surface in a follow-up;
+// `is_calling_forge_statement` is wired into the authoritative calling path.
+#[allow(dead_code)]
+mod calling_forge;
 #[cfg(test)]
 mod canonical_identity_tests;
 mod canonical_journal;
@@ -3557,6 +3562,9 @@ struct ReviseBondRequest {
     actor_id: u64,
     actor_session: Option<String>,
     target_actor_id: u64,
+    // Kept for wire compatibility only: the server now derives the
+    // authoritative bond statement and ignores the client value.
+    #[allow(dead_code)]
     statement: String,
 }
 
@@ -25599,14 +25607,6 @@ async fn create_bond(
     ) {
         return action_rate_limited_response();
     }
-    let Some(statement) = normalize_bond_statement(&payload.statement) else {
-        return Json(ActionResponse {
-            ok: false,
-            status: 400,
-            events: Vec::new(),
-        });
-    };
-
     let active_direct_actors = active_actor_ids_for_state(&state);
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
@@ -25637,6 +25637,8 @@ async fn create_bond(
             events: Vec::new(),
         });
     };
+    let statement =
+        runtime.server_authored_bond_statement(payload.actor_id, payload.target_actor_id);
     if target.id == actor.id
         || !runtime.actor_offer_target_visible(actor, target, &active_direct_actors)
         || runtime.actors_blocked(actor.id, target.id)
@@ -25712,14 +25714,6 @@ async fn revise_bond(
     ) {
         return action_rate_limited_response();
     }
-    let Some(statement) = normalize_bond_statement(&payload.statement) else {
-        return Json(ActionResponse {
-            ok: false,
-            status: 400,
-            events: Vec::new(),
-        });
-    };
-
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
         &runtime,
@@ -25749,6 +25743,8 @@ async fn revise_bond(
             events: Vec::new(),
         });
     };
+    let statement =
+        runtime.server_authored_bond_statement(payload.actor_id, payload.target_actor_id);
     if target.id == actor.id
         || !RuntimeWorld::actor_can_act(target)
         || target.location_id != actor.location_id
