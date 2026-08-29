@@ -1942,9 +1942,17 @@ async function runWorldLoop(spec) {
     const durableEvents = readDurableWorldEvents(eventDbPath);
     if (spec.scoutDestination) {
       const durableRouteDiscoveries = durableEvents.filter(routeDiscoveryEvent);
+      const preservedRouteDiscoveries = routeDiscoveriesBeforeRestart.every((expected) => (
+        durableRouteDiscoveries.filter((actual) => (
+          actual.seq === expected.seq
+            && actual.location_id === expected.location_id
+            && actual.destination_location_id === expected.destination_location_id
+        )).length === 1
+      ));
       assert(
-        durableRouteDiscoveries.length === routeDiscoveriesBeforeRestart.length,
-        `${spec.label} replay lost or duplicated a durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
+        durableRouteDiscoveries.length >= routeDiscoveriesBeforeRestart.length
+          && preservedRouteDiscoveries,
+        `${spec.label} replay lost or duplicated a prior durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
       );
     }
     if (goldenJourney) {
