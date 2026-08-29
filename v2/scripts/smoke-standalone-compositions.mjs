@@ -682,19 +682,26 @@ async function ensureScoutedRoute(
   destinationId,
   destinationName,
 ) {
-  const state = await fetchInspectableState(baseUrl, actorId, actorSession);
-  const alreadyDiscovered = state.__inspection?.actions?.some(
+  const routeIsAvailable = (state) => state.__inspection?.actions?.some(
     (offer) =>
       offer.kind === "move" &&
       Number(offer.target?.id) === Number(destinationId),
   );
-  if (alreadyDiscovered) return;
-  const scouted = await command(
-    baseUrl,
-    actorId,
-    actorSession,
-    `scout ${destinationName}`,
-  );
+  let state = await fetchInspectableState(baseUrl, actorId, actorSession);
+  if (routeIsAvailable(state)) return;
+  let scouted;
+  try {
+    scouted = await command(
+      baseUrl,
+      actorId,
+      actorSession,
+      `scout ${destinationName}`,
+    );
+  } catch (error) {
+    state = await fetchInspectableState(baseUrl, actorId, actorSession);
+    if (routeIsAvailable(state)) return;
+    throw error;
+  }
   assert(
     scouted.events?.filter(routeDiscoveryEvent).length === 1,
     `The room did not reveal the route to ${destinationName} exactly once: ${JSON.stringify(scouted)}`,
