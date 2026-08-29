@@ -302,7 +302,7 @@ describe("independently mountable CosyWorld Core", () => {
       status: "committed",
       operation: "cold_mount",
       pack_id: "ruby-high.first-bell",
-      pack_version: "1.4.0",
+      pack_version: "1.4.1",
       source_bundle_hash: coreOnly.manifest.bundle_hash,
       target_bundle_hash: coreRuby.manifest.bundle_hash,
       mounted_pack_ids: [
