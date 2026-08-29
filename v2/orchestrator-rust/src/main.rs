@@ -43642,7 +43642,7 @@ mod tests {
     }
 
     #[test]
-    fn authoritative_story_hand_is_three_deterministic_legal_slots() {
+    fn authoritative_story_hand_is_three_deterministic_legal_entity_slots() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Hand Tester");
         let access = AccessContext::default();
@@ -43677,8 +43677,8 @@ mod tests {
                 .entries
                 .iter()
                 .map(|entry| entry.slot.as_str())
-                .collect::<Vec<_>>(),
-            ["story", "self", "anchor"]
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from(["story", "self", "anchor"])
         );
     }
 
@@ -51376,18 +51376,17 @@ mod tests {
         assert!(calling_runtime
             .bank_visit_ledger(5000, "action_hand_fixture")
             .is_some());
-        let growth_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
-        let growth_kinds = growth_state
-            .action_hand
-            .entries
-            .iter()
-            .map(|entry| entry.kind.as_str())
-            .collect::<BTreeSet<_>>();
-        assert!(growth_state
+        assert!(calling_runtime
+            .state_response(Some(5000), &AccessContext::default())
             .action_offers
             .iter()
             .all(|offer| offer.kind != "unlock_charm_slot"));
-        assert!(growth_kinds.contains("create_bond"));
+        assert!(
+            action_hand_tests::hand_reaches(&mut calling_runtime, 5000, |entry| {
+                entry.kind == "create_bond"
+            }),
+            "Befriend must appear within one full avatar-slot rotation"
+        );
 
         let mut friendship_runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -51418,12 +51417,13 @@ mod tests {
                 dialogue_event_seq: None,
             },
         );
-        let friendship_state =
-            friendship_runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(friendship_state.action_hand.entries.iter().any(|entry| {
-            entry.provider.kind == "friendship"
-                && entry.provider.reason == format!("Because {friend_name} trusts you")
-        }));
+        assert!(
+            action_hand_tests::hand_reaches(&mut friendship_runtime, 5000, |entry| {
+                entry.provider.kind == "friendship"
+                    && entry.provider.reason == format!("Because {friend_name} trusts you")
+            }),
+            "the friendship card must appear within one full avatar-slot rotation"
+        );
 
         let mut held_item_runtime = RuntimeWorld::seeded();
         create_test_human(

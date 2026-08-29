@@ -366,13 +366,15 @@ impl RuntimeWorld {
             // every field still matches, while current clients submit the
             // opaque offer/composition certificates and action payload alone.
             Err("offer identity, rules binding, target, cost, or availability was changed")
-        } else if offer.target.as_ref().is_some_and(|target| {
-            target.id.is_some_and(|expected| {
-                submitted_payload_target_key(&submission.path, target).is_some()
-                    && submitted_payload_target(&submission.path, target, &submission.payload)
-                        != Some(expected)
+        } else if !(offer.kind == "chat" && self.actor_control_mode(actor_id).is_direct_input())
+            && offer.target.as_ref().is_some_and(|target| {
+                target.id.is_some_and(|expected| {
+                    submitted_payload_target_key(&submission.path, target).is_some()
+                        && submitted_payload_target(&submission.path, target, &submission.payload)
+                            != Some(expected)
+                })
             })
-        }) {
+        {
             Err("submitted payload target does not match the authoritative offer")
         } else if submission.path == "/actions/pick-up"
             && !self.submitted_pickup_exchange_matches(actor_id, offer, &submission.payload)
@@ -2484,36 +2486,52 @@ pub(super) fn compose_action_hand_at(
 pub(super) const STORY_HAND_SLOTS: [&str; 3] = ["story", "self", "anchor"];
 
 pub(super) fn story_hand_natural_slot(offer: &RankedActionOffer) -> usize {
-    let suit = action_card_suit(offer).unwrap_or_else(|error| panic!("{error}"));
-    let hustle_is_movement = matches!(
-        offer.intention.as_str(),
-        "travel" | "go" | "cross" | "return" | "route" | "routes"
-    ) || offer.kind == "move"
-        || (offer.kind == "cast_spell"
-            && offer.effect.as_deref().is_some_and(|effect| {
-                let effect = effect.to_ascii_lowercase();
-                ["travel", "move", "return", "cross", "path"]
-                    .iter()
-                    .any(|term| effect.contains(term))
-            }));
-    if offer.project.is_some()
-        || offer.risk.is_some()
-        || matches!(
-            offer.provider.kind.as_str(),
-            "job" | "location" | "campaign"
-        )
-        || suit == "honor"
-        || (suit == "hustle" && hustle_is_movement)
-    {
-        0
-    } else if matches!(
-        offer.provider.kind.as_str(),
-        "journal" | "friendship" | "held_item" | "calling"
-    ) || suit == "heart"
-    {
-        1
-    } else {
-        2
+    // The three visible cards are an entity hand, not three abstract action
+    // suits: one place, one item, and one avatar. Exact offers still rotate
+    // inside their own entity slot through Think.
+    if offer.project.is_some() {
+        return 0;
+    }
+    if matches!(
+        offer.kind.as_str(),
+        "pick_up"
+            | "drop_item"
+            | "use_item"
+            | "use_feature"
+            | "give_item"
+            | ACCEPT_TRANSFER_OFFER_KIND
+            | "trade_item"
+            | "theft"
+            | "craft"
+            | "cast_spell"
+    ) {
+        return 1;
+    }
+    if matches!(
+        offer.kind.as_str(),
+        "chat"
+            | NOTICE_ACTOR_OFFER_KIND
+            | "model_interaction"
+            | "influence"
+            | "attack"
+            | "defend"
+            | "rest"
+            | "create_bond"
+            | "resolve_bond"
+    ) {
+        return 2;
+    }
+    match offer.target.as_ref().map(|target| target.kind.as_str()) {
+        Some("item" | "recipe") => 1,
+        Some("actor") => 2,
+        _ if offer
+            .source_collectible
+            .as_ref()
+            .is_some_and(|source| source.kind == "item") =>
+        {
+            1
+        }
+        _ => 0,
     }
 }
 
@@ -2600,64 +2618,36 @@ fn compose_story_hand_with_pin(
     for offer in grouped {
         slot_pools[story_hand_natural_slot(offer)].push(offer);
     }
+    let pinned_slot = progression_pin.map(|(offer, _)| story_hand_natural_slot(offer));
     if let Some((pinned_offer, _)) = progression_pin {
         for pool in &mut slot_pools {
             pool.retain(|offer| offer.offer_id != pinned_offer.offer_id);
         }
-        slot_pools[0].insert(0, pinned_offer);
-        // The pinned progression card must remain visible, but it must not
-        // strand every other Story-shaped action behind an unavailable Think.
-        // In a sparse scene, lend that overflow to Self and Anchor's queues so
-        // those exact cards can still rotate while Story stays guaranteed.
-        let overflow = slot_pools[0].split_off(1);
-        for offer in overflow {
-            let destination = if slot_pools[1].len() <= slot_pools[2].len() {
-                1
-            } else {
-                2
-            };
-            slot_pools[destination].push(offer);
-        }
+        slot_pools[pinned_slot.expect("a pinned offer has an entity slot")].insert(0, pinned_offer);
     }
-    // Keep the three pools disjoint so advancing one slot can never move a
-    // different slot. Sparse scenes borrow a stable fallback from a pool that
-    // has more than one card.
-    for empty_index in 0..slot_pools.len() {
-        if !slot_pools[empty_index].is_empty() {
-            continue;
-        }
-        let donor = (0..slot_pools.len())
-            .filter(|index| *index != empty_index && slot_pools[*index].len() > 1)
-            .max_by_key(|index| slot_pools[*index].len());
-        if let Some(donor) = donor {
-            let fallback = slot_pools[donor]
-                .pop()
-                .expect("a Story Hand donor has more than one card");
-            slot_pools[empty_index].push(fallback);
-        }
-    }
-    let entries = slot_pools
+    // Empty entity slots stay empty. Borrowing from another pool is what let
+    // three locations (or three items) occupy the three-card hand.
+    let mut entries = slot_pools
         .iter()
         .enumerate()
         .filter(|(_, pool)| !pool.is_empty())
         .map(|(slot_index, pool)| {
             let generation = slot_generations[slot_index];
-            let progression_locked = slot_index == 0 && progression_pin.is_some();
             story_hand_entry(
-                pool[if progression_locked {
-                    0
-                } else {
-                    generation % pool.len()
-                }],
+                pool[generation % pool.len()],
                 slot_index,
-                if progression_locked {
-                    0
-                } else {
-                    pool.len().saturating_sub(1)
-                },
+                pool.len().saturating_sub(1),
             )
         })
         .collect::<Vec<_>>();
+    if let Some(pinned_slot) = pinned_slot {
+        if let Some(position) = entries
+            .iter()
+            .position(|entry| entry.slot == STORY_HAND_SLOTS[pinned_slot])
+        {
+            entries.rotate_left(position);
+        }
+    }
     let generation = slot_generations
         .into_iter()
         .fold(0usize, usize::saturating_add);

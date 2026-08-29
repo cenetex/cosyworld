@@ -701,7 +701,7 @@ mod tests {
     }
 
     #[test]
-    fn guided_hand_keeps_the_advancing_story_card_pinned_across_generations() {
+    fn guided_hand_starts_with_the_advancing_card_then_rotates_its_entity_slot() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -715,12 +715,19 @@ mod tests {
         let (advancing_offer_id, advancing_offer_ids) =
             runtime.first_tale_advancing_offer_selection(actor_id, &offers);
         let advancing_offer_id = advancing_offer_id.expect("notice is the pinned first-tale card");
+        let advancing_offer = offers
+            .iter()
+            .find(|offer| offer.offer_id == advancing_offer_id)
+            .expect("the advancing offer remains in the legal offer set");
+        let advancing_slot = story_hand_natural_slot(advancing_offer);
         let expected = offers
             .iter()
             .filter(|offer| {
                 offer.ranked_hand_eligible
                     && action_offer_is_reachable(offer)
-                    && !advancing_offer_ids.contains(&offer.offer_id)
+                    && story_hand_natural_slot(offer) == advancing_slot
+                    && (offer.offer_id == advancing_offer_id
+                        || !advancing_offer_ids.contains(&offer.offer_id))
             })
             .map(|offer| offer.offer_id.clone())
             .collect::<BTreeSet<_>>();
@@ -730,20 +737,18 @@ mod tests {
                 .hand_generations
                 .insert(actor_id, u64::try_from(generation).unwrap());
             let hand = runtime.action_hand_for(Some(actor_id), &offers);
-            assert_eq!(
-                hand.entries.first().map(|entry| entry.offer_id.as_str()),
-                Some(advancing_offer_id.as_str())
-            );
-            assert!(!hand.entries[0].think.available);
-            let companions = hand
+            let advancing_slot_entry = hand
                 .entries
                 .iter()
-                .skip(1)
-                .map(|entry| entry.offer_id.clone())
-                .collect::<Vec<_>>();
-            seen.extend(companions.iter().cloned());
+                .find(|entry| entry.slot == STORY_HAND_SLOTS[advancing_slot])
+                .expect("the advancing entity slot stays visible");
+            if generation == 0 {
+                assert_eq!(advancing_slot_entry.offer_id, advancing_offer_id);
+            }
+            assert_eq!(advancing_slot_entry.think.available, expected.len() > 1);
+            seen.insert(advancing_slot_entry.offer_id.clone());
         }
-        assert!(seen.is_subset(&expected));
+        assert_eq!(seen, expected);
     }
 
     #[test]
