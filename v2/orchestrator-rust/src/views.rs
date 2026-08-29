@@ -1757,6 +1757,7 @@ pub(super) struct ActorView {
     pub(super) kind: String,
     pub(super) status: String,
     pub(super) speech_mode: String,
+    pub(super) speech_available: bool,
     pub(super) muted_by_you: bool,
     pub(super) blocked_by_you: bool,
     pub(super) location_id: u64,
@@ -1774,7 +1775,7 @@ impl Serialize for ActorView {
     where
         S: serde::Serializer,
     {
-        let mut out = serializer.serialize_struct("ActorView", 16)?;
+        let mut out = serializer.serialize_struct("ActorView", 17)?;
         out.serialize_field("id", &self.id)?;
         out.serialize_field("name", &self.name)?;
         out.serialize_field("title", &self.title)?;
@@ -1783,6 +1784,7 @@ impl Serialize for ActorView {
         out.serialize_field("control_mode", &self.control_mode)?;
         out.serialize_field("kind", &self.kind)?;
         out.serialize_field("status", &self.status)?;
+        out.serialize_field("speech_available", &self.speech_available)?;
         out.serialize_field("muted_by_you", &self.muted_by_you)?;
         out.serialize_field("blocked_by_you", &self.blocked_by_you)?;
         out.serialize_field("location_id", &self.location_id)?;
@@ -3252,6 +3254,8 @@ impl RuntimeWorld {
             speech_mode: meta
                 .map(|m| m.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
+            speech_available: !self.actor_uses_inference(actor.id)
+                || self.autonomy_allows_action(actor.id, CW_ACTION_SAY),
             muted_by_you: client_actor_id
                 .is_some_and(|client_id| self.actor_muted(client_id, actor.id)),
             blocked_by_you: client_actor_id.is_some_and(|client_id| {
@@ -5682,6 +5686,31 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inference_actor_speech_availability_tracks_the_attention_budget() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actor_id = RATI_ACTOR_ID;
+
+        {
+            let view = runtime.actor_view(runtime.actor_by_id(actor_id).expect("Rati exists"));
+            assert!(
+                view.speech_available,
+                "seeded resident with attention budget should be speech-available"
+            );
+        }
+
+        runtime
+            .actor_autonomy
+            .entry(actor_id)
+            .or_default()
+            .attention_credits = 0;
+        let busy = runtime.actor_view(runtime.actor_by_id(actor_id).expect("Rati exists"));
+        assert!(
+            !busy.speech_available,
+            "resident with a spent attention budget must project as busy, not silently deaf"
+        );
+    }
 
     #[test]
     fn journal_admission_uses_unique_explicit_projection_policies() {
