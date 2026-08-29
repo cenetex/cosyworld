@@ -813,7 +813,20 @@ impl RuntimeWorld {
 
     fn context_spine_actor(&self, actor: CwActor) -> Option<AvatarContextActor> {
         let meta = self.actors.get(&actor.id)?;
-        let identity_policy = self.avatar_identity_policy(actor.id).unwrap_or_default();
+        let authored_identity = self.avatar_identity_policy(actor.id);
+        let identity_policy = authored_identity.clone().unwrap_or_default();
+        // Authored actors keep their authored third-person text (identity.persona
+        // first, then the authored description) as stable traits. Only player
+        // avatars and AI self-descriptions run through the first-person
+        // grounding filter below; authored pack content was validated at load.
+        let authored_stable_traits = authored_identity.as_ref().and_then(|policy| {
+            if !policy.persona.trim().is_empty() {
+                Some(policy.persona.trim().to_string())
+            } else {
+                let description = meta.description.trim();
+                (!description.is_empty()).then(|| description.to_string())
+            }
+        });
         let level_identity = self.latest_avatar_level_identity(actor.id);
         let control_mode = self
             .actor_autonomy
@@ -853,7 +866,11 @@ impl RuntimeWorld {
                     .and_then(|event| event.content.clone())
             })
             .filter(|description| !description.trim().is_empty())
-            .unwrap_or_else(|| grounded_avatar_persona_for_prompt(actor.id, &meta.description));
+            .unwrap_or_else(|| {
+                authored_stable_traits.clone().unwrap_or_else(|| {
+                    grounded_avatar_persona_for_prompt(actor.id, &meta.description)
+                })
+            });
         let appearance = level_identity
             .as_ref()
             .map(|identity| identity.appearance.clone())
@@ -874,7 +891,8 @@ impl RuntimeWorld {
             name: grounded_avatar_name_for_prompt(actor.id, &meta.name),
             title: meta.title.clone(),
             description,
-            stable_traits: grounded_avatar_persona_for_prompt(actor.id, &meta.description),
+            stable_traits: authored_stable_traits
+                .unwrap_or_else(|| grounded_avatar_persona_for_prompt(actor.id, &meta.description)),
             appearance,
             identity_mode: identity_policy.mode,
             canonical_description: if identity_policy.canonical_description.trim().is_empty() {
@@ -1347,5 +1365,28 @@ mod tests {
             .expect("Gust index");
         runtime.world.actors[actor_index].stats.level = level.saturating_add(1);
         assert!(runtime.avatar_self_description_due(actor.id, level.saturating_add(1)));
+    }
+
+    #[test]
+    fn authored_npc_description_reaches_stable_traits_not_the_generic_fallback() {
+        let runtime = RuntimeWorld::seeded();
+        let actor = runtime.actor_by_id(1002).expect("Gust exists");
+        let spine = runtime
+            .avatar_context_spine(actor.id, None, None, "Gust considers the rain.".to_string())
+            .expect("context spine");
+
+        // The authored third-person description is distinctive; the six
+        // generic fallback personas are first-person wellness sentences.
+        assert!(
+            !spine.speaker.stable_traits.starts_with("I "),
+            "authored NPC stable traits must stay third-person, not collapse to a generic persona: {}",
+            spine.speaker.stable_traits
+        );
+        assert!(
+            spine.speaker.stable_traits.contains("gremlin"),
+            "the authored Gust description must reach STABLE TRAITS: {}",
+            spine.speaker.stable_traits
+        );
+        assert_eq!(spine.speaker.description, spine.speaker.stable_traits);
     }
 }
