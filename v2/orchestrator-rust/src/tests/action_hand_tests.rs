@@ -1,5 +1,28 @@
 use super::*;
 
+pub(super) fn hand_reaches(
+    runtime: &mut RuntimeWorld,
+    actor_id: u64,
+    predicate: impl Fn(&ActionHandEntryView) -> bool,
+) -> bool {
+    let rotations = runtime
+        .state_response(Some(actor_id), &AccessContext::default())
+        .action_offers
+        .len()
+        .max(1);
+    (0..rotations).any(|generation| {
+        runtime
+            .hand_generations
+            .insert(actor_id, u64::try_from(generation).unwrap());
+        runtime
+            .state_response(Some(actor_id), &AccessContext::default())
+            .action_hand
+            .entries
+            .iter()
+            .any(&predicate)
+    })
+}
+
 fn isolate_story_hand_actor(runtime: &mut RuntimeWorld, actor_id: u64) {
     let location_id = runtime
         .actor_by_id(actor_id)
@@ -1063,6 +1086,7 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
         RAIN_SOFT_GARDEN_LOCATION_ID,
         "Contribution Certificate Witness",
     );
+    complete_guided_story_for_test(&mut contribution_runtime, actor_id);
     let contribution_offer = contribution_runtime
         .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
             offer.project.is_some()
@@ -2473,7 +2497,7 @@ fn full_carried_deck_still_projects_an_exact_pickup_exchange_offer() {
 }
 
 #[test]
-fn same_kind_exact_offers_cover_a_bounded_rotation_in_wrap_order() {
+fn same_kind_exact_item_offers_share_one_bounded_rotation() {
     let actor_id = 5_000;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
@@ -2507,50 +2531,183 @@ fn same_kind_exact_offers_cover_a_bounded_rotation_in_wrap_order() {
         .collect::<BTreeSet<_>>();
     assert!(pickup_offer_ids.len() >= expected_item_ids.len());
 
+    let item_slot = story_hand_natural_slot(&pickup_offers[0]);
     let initial = compose_story_hand_at(&pickup_offers, [0; 3]);
-    assert_eq!(initial.entries.len(), 3);
+    assert_eq!(initial.entries.len(), 1);
+    assert_eq!(initial.entries[0].slot, STORY_HAND_SLOTS[item_slot]);
     assert_eq!(
-        initial
-            .entries
-            .iter()
-            .map(|entry| entry.slot.as_str())
-            .collect::<Vec<_>>(),
-        ["story", "self", "anchor"]
+        usize::from(initial.entries[0].replacement_count) + 1,
+        pickup_offer_ids.len()
     );
     let mut seen = BTreeSet::new();
-    for slot_index in 0..3 {
-        let entry = &initial.entries[slot_index];
-        let pool_size = usize::from(entry.replacement_count) + 1;
-        let initial_ids = initial
-            .entries
-            .iter()
-            .map(|entry| entry.offer_id.clone())
-            .collect::<Vec<_>>();
-        for generation in 0..pool_size {
-            let mut generations = [0; 3];
-            generations[slot_index] = generation;
-            let hand = compose_story_hand_at(&pickup_offers, generations);
-            seen.insert(hand.entries[slot_index].offer_id.clone());
-            for (other_slot, initial_id) in initial_ids.iter().enumerate() {
-                if other_slot != slot_index {
-                    assert_eq!(
-                        &hand.entries[other_slot].offer_id, initial_id,
-                        "rotating one slot preserves both other exact cards"
-                    );
-                }
-            }
-        }
-        let mut wrapped_generations = [0; 3];
-        wrapped_generations[slot_index] = pool_size;
-        let wrapped = compose_story_hand_at(&pickup_offers, wrapped_generations);
-        assert_eq!(
-            wrapped.entries[slot_index].offer_id, initial_ids[slot_index],
-            "each exact slot wraps independently"
-        );
+    for generation in 0..pickup_offer_ids.len() {
+        let mut generations = [0; 3];
+        generations[item_slot] = generation;
+        let hand = compose_story_hand_at(&pickup_offers, generations);
+        assert_eq!(hand.entries.len(), 1);
+        seen.insert(hand.entries[0].offer_id.clone());
     }
+    let mut wrapped_generations = [0; 3];
+    wrapped_generations[item_slot] = pickup_offer_ids.len();
+    let wrapped = compose_story_hand_at(&pickup_offers, wrapped_generations);
+    assert_eq!(
+        wrapped.entries[0].offer_id, initial.entries[0].offer_id,
+        "the item slot wraps after every exact item certificate"
+    );
     assert_eq!(
         seen, pickup_offer_ids,
         "every exact pickup certificate is dealt"
+    );
+}
+
+#[test]
+fn story_hand_deals_at_most_one_item_location_and_avatar() {
+    let actor_id = 5_000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Entity Hand Witness",
+    );
+    let (_, offers) = runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    let candidates = offers
+        .iter()
+        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
+        .cloned()
+        .collect::<Vec<_>>();
+    let available_slots = candidates
+        .iter()
+        .map(story_hand_natural_slot)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        available_slots,
+        BTreeSet::from([0, 1, 2]),
+        "the cottage fixture has a location, item, and avatar card"
+    );
+
+    let hand = compose_story_hand_at(&candidates, [0; 3]);
+    let dealt_slots = hand
+        .entries
+        .iter()
+        .map(|entry| {
+            let offer = candidates
+                .iter()
+                .find(|offer| offer.offer_id == entry.offer_id)
+                .expect("dealt hand entry references its exact offer");
+            story_hand_natural_slot(offer)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(hand.entries.len(), 3);
+    assert_eq!(
+        dealt_slots.iter().copied().collect::<BTreeSet<_>>().len(),
+        dealt_slots.len(),
+        "no entity shape may occupy more than one Story Hand card"
+    );
+}
+
+#[test]
+fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
+    let actor_id = 5_000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Avatar Chooser Witness",
+    );
+    complete_guided_story_for_test(&mut runtime, actor_id);
+    let inference_actor_ids = runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .filter(|actor| {
+            runtime.actor_uses_inference(actor.id) && resident_supports_text_reply(actor.id)
+        })
+        .map(|actor| actor.id)
+        .take(3)
+        .collect::<Vec<_>>();
+    assert!(inference_actor_ids.len() >= 2);
+    for target_id in &inference_actor_ids {
+        let target = runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == *target_id)
+            .expect("seeded inference avatar exists");
+        target.location_id = COSY_COTTAGE_LOCATION_ID;
+    }
+
+    let ai_config = AiConfig {
+        api_key: "test".to_string(),
+        base_url: "http://127.0.0.1:9".to_string(),
+        model: "test-chat-model".to_string(),
+        ..AiConfig::default()
+    };
+    let (mut primary_action, mut offers) =
+        runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    retain_configured_model_interaction_offers(&mut primary_action, &mut offers, Some(&ai_config));
+    let chat_offer = offers
+        .iter()
+        .find(|offer| offer.kind == "chat")
+        .cloned()
+        .expect("Chat is an eligible avatar offer");
+    let avatar_slot = story_hand_natural_slot(&chat_offer);
+    let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
+    let chat_was_dealt = (0..offers.len()).any(|generation| {
+        let mut slot_generations = [0; 3];
+        slot_generations[avatar_slot] = generation as u64;
+        runtime.story_hand_states.insert(
+            actor_id,
+            StoryHandActorState {
+                scene_key: scene_key.clone(),
+                slot_generations,
+                free_think_used: false,
+            },
+        );
+        runtime
+            .action_hand_for(Some(actor_id), &offers)
+            .entries
+            .iter()
+            .any(|entry| entry.offer_id == chat_offer.offer_id)
+    });
+    assert!(chat_was_dealt, "the avatar slot rotates to Chat");
+    let selected_target_id = inference_actor_ids[1];
+    assert_ne!(
+        chat_offer.target.as_ref().and_then(|target| target.id),
+        Some(selected_target_id),
+        "the test chooses someone other than the offer's preferred first resident"
+    );
+    assert!(runtime
+        .avatar_chat_plan_for(actor_id, selected_target_id)
+        .is_some());
+    let submission = compact_submission_for_offer(
+        &chat_offer,
+        "/actions/chat",
+        serde_json::json!({
+            "actor_id": actor_id,
+            "target_actor_id": selected_target_id,
+        }),
+    );
+    let (mut validation_primary_action, mut validation_offers) =
+        runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    retain_configured_model_interaction_offers(
+        &mut validation_primary_action,
+        &mut validation_offers,
+        Some(&ai_config),
+    );
+    assert!(
+        validation_offers
+            .iter()
+            .any(|offer| offer.offer_id == chat_offer.offer_id),
+        "the selected Chat certificate remains in the current offer set"
+    );
+    assert_eq!(
+        runtime.validate_action_offer_submission_with_presence(
+            actor_id,
+            &AccessContext::default(),
+            &submission,
+            None,
+            Some(&ai_config),
+        ),
+        Ok(()),
+        "the one dealt avatar card certifies any currently eligible selected resident"
     );
 }
 

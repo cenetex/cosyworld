@@ -3054,6 +3054,7 @@ async function main() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
+      const previousPendingAction = pendingAction;
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
@@ -3062,6 +3063,7 @@ async function main() {
         },
         action_offers: [
           {
+            offer_id: "chat-skull",
             kind: "chat",
             command: "chat Skull",
             target: { kind: "actor", id: 1003, label: "Skull" },
@@ -3074,6 +3076,7 @@ async function main() {
             effect: "a friendship with Skull begins",
           },
         ],
+        action_hand: { entries: [{ offer_id: "chat-skull", kind: "chat" }] },
         economy: { orbs: 0, chat_cost_orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
         ledger: { advancement_points: 1 },
         bonds: [],
@@ -3132,6 +3135,21 @@ async function main() {
                 return targetId;
               })()
               : 0,
+            alternateCertificateOfferId: entry.choices?.[1]
+              ? (() => {
+                const selected = entry.selectedChoice;
+                const previousPending = pendingAction;
+                entry.selectedChoice = entry.choices[1].value;
+                pendingAction = entry;
+                const offerId = currentOfferForSubmission(
+                  "/actions/chat",
+                  withAccess(entry.selectedPayload?.() || {}),
+                )?.offer_id || "";
+                pendingAction = previousPending;
+                entry.selectedChoice = selected;
+                return offerId;
+              })()
+              : "",
           }));
       };
       const chatActionFor = (patch, command) => {
@@ -3278,6 +3296,7 @@ async function main() {
       } finally {
         state = previousState;
         actorId = previousActorId;
+        pendingAction = previousPendingAction;
       }
     });
     assert(result.serverPaid?.detail === "with Skull · a short exchange", `Chat should show the resident and bounded exchange: ${JSON.stringify(result)}`);
@@ -3286,11 +3305,12 @@ async function main() {
     assert(result.freshOrder?.some((action) => action.label === "chat"), `eligible Chat should stay available beside travel: ${JSON.stringify(result)}`);
     assert(result.claimedOrder?.some((action) => action.label === "chat"), `an existing friendship should not remove Chat: ${JSON.stringify(result)}`);
     assert(result.multiResident?.length === 1, `one dealt Chat offer should render one card: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.detail === "with Rati · a short exchange", `a dealt Chat card must name its exact resident: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.title === "chat with Rati", `the exact Chat card should open a targeted confirmation: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Your avatar and Rati open the conversation, then nearby avatars choose chat or pass.", `the exact Chat card should explain its bounded conversation: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.choices?.length === 0 && result.multiResident[0]?.alternateTargetId === 0, `a Chat card must not expose undealt residents as failing choices: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001", `the dealt Chat card must bind only Rati's offer identity: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.detail === "choose someone nearby", `the one avatar card should open a resident chooser: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.title === "choose someone to chat with", `the avatar card should name its chooser clearly: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Choose someone nearby for a short back-and-forth conversation.", `the avatar chooser should explain its bounded conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.choices?.length === 2 && result.multiResident[0]?.alternateTargetId === 1003, `the one avatar card must include every eligible resident: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.alternateCertificateOfferId === "chat-skull", `the dealt avatar card must certify the chosen eligible resident: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001,actor:1003", `the one avatar card must focus every eligible resident: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.summary === "Your avatar and Skull open the conversation, then nearby avatars choose chat or pass.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
@@ -10833,6 +10853,19 @@ async function main() {
           journey: state?.journey || null,
           combat: state?.combat || null,
           tags: (state?.tags || []).map((tag) => tag.label || tag.id),
+          hand: (state?.action_hand?.entries || []).map((entry) => ({
+            kind: entry.kind,
+            slot: entry.slot,
+            replacements: entry.replacement_count,
+            think: entry.think?.available === true,
+          })),
+          routeOffers: (state?.action_offers || [])
+            .filter((offer) => ["move", "flee", "explore_path"].includes(String(offer?.kind || "")))
+            .map((offer) => ({
+              kind: offer.kind,
+              target: offer.target?.label || offer.target?.id || "",
+              inHand: (state?.action_hand?.entries || []).some((entry) => entry.offer_id === offer.offer_id),
+            })),
           allActions: visible.map((action) => ({
             label: action?.label || "",
             intention: action?.intention || "",
@@ -10869,12 +10902,19 @@ async function main() {
       };
     }, needle);
     let last = null;
+    const observedRoutes = [];
     const initialRotationSlots = await storyHandRotationSlots();
+    const initialLocationRotations = initialRotationSlots.filter((slot) => slot === "story");
     const maxRouteDraws = runLivingWorldStress
       ? Math.min(36, Math.max(18, initialRotationSlots.length + 12))
-      : initialRotationSlots.length;
+      : Math.max(6, initialLocationRotations.length * 3);
     for (let attempt = 0; attempt <= maxRouteDraws; attempt += 1) {
       const result = await focus();
+      observedRoutes.push({
+        attempt,
+        generation: result?.generation ?? null,
+        routes: result?.routes || [result?.text || ""],
+      });
       const primary = String(result?.text || "");
       const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
         || primary.toLowerCase().includes("travel")
@@ -10899,10 +10939,10 @@ async function main() {
       last = { result, primary };
       if (attempt < maxRouteDraws) {
         const liveRotationSlots = await storyHandRotationSlots();
-        if (!liveRotationSlots.length) break;
+        if (!liveRotationSlots.includes("story")) break;
         await passCertifiedHandForDraw(
           `route ${text} draw ${attempt + 1}`,
-          runLivingWorldStress ? "" : initialRotationSlots[attempt],
+          "story",
         );
       }
     }
@@ -10912,7 +10952,7 @@ async function main() {
     ) {
       throw new Error(`RETRYABLE_FRONTIER_DEFEAT: the avatar's tale ended while routing toward ${text}`);
     }
-    throw new Error(`route ${text} did not remain focused: ${JSON.stringify(last)}`);
+    throw new Error(`route ${text} did not remain focused: ${JSON.stringify({ ...last, observedRoutes })}`);
   }
 
   async function confirmRouteTo(name, label, focusBeforeConfirm = () => focusRoute(name)) {
@@ -11294,7 +11334,10 @@ async function main() {
           (body?.events || []).some((event) => (
             ["action.offer_rejected", "action.conflict"].includes(String(event?.type || ""))
           ))
-            || (responsePath === "/commands" && body?.error_kind === "stale_offer")
+            || (
+              responsePath === "/commands"
+                && ["stale_offer", "stale_location_version"].includes(body?.error_kind)
+            )
         );
       assert(
         retryableConflict,
@@ -11570,7 +11613,11 @@ async function main() {
       exit.destination_location_name === name
     ));
     const journeyTargetsDestination = current.journey?.destination_name === name;
-    if (!destinationIsDirect && !journeyTargetsDestination) {
+    const liveHandTargetsDestination = (current.action_offers || []).some((offer) => (
+      ["move", "flee", "explore_path"].includes(String(offer?.kind || ""))
+        && String(offer?.target?.label || "") === name
+    ));
+    if (!destinationIsDirect && !journeyTargetsDestination && !liveHandTargetsDestination) {
       // A completed long-route journey leaves its generated waypoints in the
       // world. Later trips must follow those adjacent exits instead of looking
       // for a card that still names the authored endpoint.
@@ -11669,7 +11716,7 @@ async function main() {
       }
       const journeyDeckSize = await fetchInspectableDeckSize();
       for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
-        await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
+        await passCertifiedHandForDraw(`continue journey toward ${nextName}`, "story");
         focusedJourneyStep = await focusJourneyStep();
       }
       if (focusedJourneyStep?.replan) {
@@ -11806,6 +11853,7 @@ async function main() {
             }
             const location = locationsById.get(tail);
             for (const exit of location?.exits || []) {
+              if (exit.accessible !== true || exit.locked === true) continue;
               const nextId = Number(exit.destination_location_id || 0);
               if (!nextId || visited.has(nextId) || !locationsById.has(nextId)) continue;
               visited.add(nextId);
@@ -13077,12 +13125,16 @@ async function main() {
     const science = world.locations.find((location) => location.name === "Science Class");
     const library = world.locations.find((location) => location.name === "Library");
     const trail = world.locations.find((location) => location.name === "Moonlit Trail");
+    const currentLocation = world.locations.find((location) => (
+      Number(location.id) === Number(world.current_location_id)
+    ));
     const cottageExits = (cottage?.exits || []).map((exit) => exit.destination_location_name).sort();
     const requiredCottageExits = ["Homeroom", "Mossbell Inn", "Rain-Soft Garden"];
     assert(cottage?.public && cottage.accessible, "Cottage should be public in world projection");
     assert(
-      cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
-      "Cottage projection should include the current avatar when accessible",
+      currentLocation?.accessible
+        && currentLocation.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
+      "the accessible current-location projection should include the current avatar",
     );
     assert(
       requiredCottageExits.every((destination) => cottageExits.includes(destination)),
@@ -15274,7 +15326,7 @@ async function main() {
           ? !action.providerCopy && !action.aria.includes(action.reason)
           : action.providerCopy.includes(action.reason) && action.aria.includes(action.reason))
     ))
-      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item)/i.test(projectedRoomHand.thread)
+      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item|something in .* is still waiting to be found)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
     `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
   );
@@ -15438,7 +15490,18 @@ async function main() {
       };
     });
     if (route.arrived) break;
-    assert(route.ok, `the Lantern continuation lost its exact route card: ${JSON.stringify(route)}`);
+    if (!route.ok) {
+      const nextLanternStop = route.location === "The Cosy Cottage"
+        ? "Mossbell Inn"
+        : "Wayside Lantern Inn";
+      const rotated = await focusRoute(nextLanternStop);
+      assert(rotated, `the Lantern continuation route was not reachable through its one location slot: ${JSON.stringify(route)}`);
+      lanternRoute.push(route.location);
+      const committed = await clickPrimary(`follow rotated Lantern continuation step ${step + 1}`);
+      assert(committed?.ok, `the rotated Lantern continuation route did not commit: ${JSON.stringify(committed)}`);
+      await page.evaluate(() => refresh());
+      continue;
+    }
     lanternRoute.push(route.location);
     focusedSelectionIdentity = {
       handKey: route.handKey,

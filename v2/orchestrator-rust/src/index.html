@@ -8633,7 +8633,6 @@
             actor.control_mode !== "direct_input"
             && !actor.blocked_by_you
             && !actor.muted_by_you
-            && (!offeredTargetId || Number(actor.id) === offeredTargetId)
           ))
           .sort((left, right) => (
             Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
@@ -10742,7 +10741,8 @@
           || Number(offer?.threshold_method?.method_id || 0)
             === Number(payload.threshold_method_id || 0);
         const submittedTarget = offerPayloadTarget(path, offer, payload);
-        const targetMatches = !submittedTarget
+        const targetMatches = path === "/actions/chat"
+          || !submittedTarget
           || !offer?.target?.id
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"

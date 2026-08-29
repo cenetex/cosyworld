@@ -922,37 +922,42 @@ mod tests {
         let journey_offer = runtime
             .journey_advancing_offer(actor_id, &offers)
             .expect("the active journey has one exact advancing offer");
-        let expected_companions = offers
+        let journey_slot = story_hand_natural_slot(journey_offer);
+        let expected_slot_offers = offers
             .iter()
             .filter(|offer| {
                 offer.ranked_hand_eligible
                     && action_offer_is_reachable(offer)
-                    && offer.offer_id != journey_offer.offer_id
+                    && story_hand_natural_slot(offer) == journey_slot
             })
             .map(|offer| offer.offer_id.clone())
             .collect::<BTreeSet<_>>();
-        let mut seen_companions = BTreeSet::new();
-        for generation in 0..expected_companions.len().max(1) {
+        let expected_deck_size = offers
+            .iter()
+            .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
+            .count();
+        let mut seen_slot_offers = BTreeSet::new();
+        for generation in 0..expected_slot_offers.len().max(1) {
             runtime
                 .hand_generations
                 .insert(actor_id, u64::try_from(generation).unwrap());
             let hand = runtime.action_hand_for(Some(actor_id), &offers);
-            assert_eq!(
-                hand.entries.first().map(|entry| entry.offer_id.as_str()),
-                Some(journey_offer.offer_id.as_str()),
-                "the exact next Travel card stays pinned"
-            );
-            assert!(!hand.entries[0].think.available);
-            assert_eq!(usize::from(hand.deck_size), expected_companions.len() + 1);
-            let companions = hand
+            let journey_slot_entry = hand
                 .entries
                 .iter()
-                .skip(1)
-                .map(|entry| entry.offer_id.clone())
-                .collect::<Vec<_>>();
-            seen_companions.extend(companions.iter().cloned());
+                .find(|entry| entry.slot == STORY_HAND_SLOTS[journey_slot])
+                .expect("the journey's location slot stays visible");
+            if generation == 0 {
+                assert_eq!(journey_slot_entry.offer_id, journey_offer.offer_id);
+            }
+            assert_eq!(
+                journey_slot_entry.think.available,
+                expected_slot_offers.len() > 1
+            );
+            assert_eq!(usize::from(hand.deck_size), expected_deck_size);
+            seen_slot_offers.insert(journey_slot_entry.offer_id.clone());
         }
-        assert!(seen_companions.is_subset(&expected_companions));
+        assert_eq!(seen_slot_offers, expected_slot_offers);
         let MovementPlan::Journey { mutation, .. } = runtime
             .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
             .expect("the next revealed segment remains a legal Travel choice")

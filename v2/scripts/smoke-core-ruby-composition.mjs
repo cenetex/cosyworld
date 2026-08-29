@@ -337,21 +337,34 @@ function offerEnvelope(state, actorId, offerId) {
 }
 
 function storyHandSlotForOffer(offer = {}) {
-  const presentation = offer.presentation || {};
-  const suit = String(presentation.suit || "");
-  const sourceKind = String(presentation.source?.kind || offer.provider?.kind || "");
-  const intention = String(offer.intention || "");
-  const effect = String(offer.effect || "").toLowerCase();
-  const hustleIsMovement = suit === "hustle" && (
-    ["travel", "go", "cross", "return", "route", "routes"].includes(intention)
-    || offer.kind === "move"
-    || (offer.kind === "cast_spell" && /travel|move|return|cross|path/.test(effect))
-  );
-  if (offer.project || offer.risk || ["job", "location", "campaign"].includes(sourceKind)
-      || suit === "honor" || hustleIsMovement) return "story";
-  if (["journal", "friendship", "held_item", "calling"].includes(sourceKind)
-      || suit === "heart") return "self";
-  return "anchor";
+  if (offer.project) return "story";
+  if ([
+    "pick_up",
+    "drop_item",
+    "use_item",
+    "use_feature",
+    "give_item",
+    "accept_transfer_offer",
+    "trade_item",
+    "theft",
+    "craft",
+    "cast_spell",
+  ].includes(offer.kind)) return "self";
+  if ([
+    "chat",
+    "notice_actor",
+    "model_interaction",
+    "influence",
+    "attack",
+    "defend",
+    "rest",
+    "create_bond",
+    "resolve_bond",
+  ].includes(offer.kind)) return "anchor";
+  if (["item", "recipe"].includes(offer.target?.kind)) return "self";
+  if (offer.target?.kind === "actor") return "anchor";
+  if (offer.source_collectible?.kind === "item") return "self";
+  return "story";
 }
 
 async function passCurrentHand(baseUrl, actorId, actorSession, initialState, desiredSlot = "") {
@@ -368,7 +381,9 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState, des
       .sort((left, right) =>
         Number(left.think.generation ?? 0) - Number(right.think.generation ?? 0)
           || left.slot.localeCompare(right.slot));
-    const pass = thinkEntries[0]?.think ?? state.action_hand?.pass;
+    const pass = thinkEntries.find((entry) => entry.slot === desiredSlot)?.think
+      ?? thinkEntries[0]?.think
+      ?? state.action_hand?.pass;
     assert(pass?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
     const response = await fetch(`${baseUrl}/commands`, {
       method: "POST",
@@ -405,13 +420,15 @@ async function drawExactOffer(
     1,
     (Number(state.action_hand?.deck_size) || 1) * Number(state.action_hand?.capacity ?? 1),
   );
+  const desiredOffer = state.__inspection?.actions?.find(predicate);
+  const desiredSlot = desiredOffer ? storyHandSlotForOffer(desiredOffer) : "";
   for (let attempt = 0; attempt <= boundedThinks; attempt += 1) {
     const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
     if (attempt === boundedThinks) break;
-    await passCurrentHand(baseUrl, actorId, actorSession, state);
+    await passCurrentHand(baseUrl, actorId, actorSession, state, desiredSlot);
     state = await waitForActorTurn(baseUrl, actorId, actorSession, label);
   }
   throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);
