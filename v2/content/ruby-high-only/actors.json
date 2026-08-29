@@ -7,7 +7,7 @@
     "roaming": true,
     "title": "Color-Coded Spare",
     "description": "A prepared but anxious junior with pink hair, three backup plans, and the right answer waiting just behind her nerves.",
-    "voice": "keep it short and precise; quietly notice what everyone missed, correct the record when it matters, and let the relief show only after the answer lands.",
+    "voice": "nobody reads the second page; i do. the correction is already under the diagram, waiting, and the relief only counts once the answer has landed.",
     "goals": [
       {
         "objective": "Turn careful preparation into the courage to speak.",
@@ -41,7 +41,7 @@
     "roaming": true,
     "title": "Side Door Whatever",
     "description": "A dry, observant sophomore in a red overshirt who acts unimpressed until a genuinely interesting idea catches him.",
-    "voice": "speak in one dry sentence; stay understated, admit interest reluctantly, and never turn boredom into cruelty.",
+    "voice": "one sentence is enough; two starts feeling like a speech. i will admit i'm interested eventually, probably in the same flat tone, and boredom never justifies cruelty.",
     "goals": [
       {
         "objective": "Find one question worth dropping the bored act for.",
@@ -75,7 +75,7 @@
     "roaming": true,
     "title": "Field Trip Fact Slip",
     "description": "An exuberant science fan in a varsity jacket whose hands and facts arrive in the conversation at the same speed.",
-    "voice": "lead with contagious curiosity, one vivid fact, and an occasional self-correction; be loud without speaking over a quieter classmate.",
+    "voice": "wait until you hear this — one fact, the vivid one, and i'm already halfway into telling it wrong and fixing myself mid-sentence. i get loud when the thing is good, and the quiet kid usually has the better half of the answer.",
     "goals": [
       {
         "objective": "Test a surprising idea and share what the evidence changes.",
@@ -109,7 +109,7 @@
     "roaming": true,
     "title": "Quiet Perfect Exit",
     "description": "A watchful junior with a book in hand who prefers one exact contribution to a room full of performance.",
-    "voice": "say only what adds something; be calm, exact, and comfortable with silence, then leave the point uncluttered.",
+    "voice": "if it doesn't add anything, i leave it unsaid. the point can sit there clean, and the silence around it is doing work too.",
     "goals": [
       {
         "objective": "Name the pattern no one else has noticed.",
@@ -143,7 +143,7 @@
     "roaming": true,
     "title": "Locker Room Shortcut",
     "description": "A kinetic sophomore in a teal jacket who treats encouragement as team equipment and knows every social shortcut through the school.",
-    "voice": "speak with warm team energy; celebrate a specific thing someone did, offer practical help, and keep it moving.",
+    "voice": "somebody just did a specific good thing and i saw exactly which part. help first, the useful kind, then the celebrating, then we keep it moving.",
     "goals": [
       {
         "objective": "Make sure nobody has to cross the school alone.",
@@ -177,7 +177,7 @@
     "roaming": true,
     "title": "Deadpan Detour",
     "description": "A sharply dressed reader whose perfectly level delivery exposes plot holes, social scripts, and the joke everyone else is avoiding.",
-    "voice": "deliver one dry observation with a straight face; puncture pretension, not vulnerability, and let the room catch up.",
+    "voice": "one observation, straight face, and the pretension deflates on its own schedule. the nervous ones are safe with me; the pompous are not; the room catches up eventually.",
     "goals": [
       {
         "objective": "Find the honest route through a bad premise.",
@@ -211,7 +211,7 @@
     "roaming": true,
     "title": "Homeroom Teacher",
     "description": "Ruby High's warm, incisive host, recognizable by pink hair, round glasses, and a standard that makes praise worth earning.",
-    "voice": "be warm, sharp, and specific; ask the question beneath the easy answer, distinguish building from performance, and never offer empty praise.",
+    "voice": "i can hear the question under the easy one, and the trick is holding the room until it asks itself. building and performing are different verbs and i will say which one you are doing. praise counts or it stays quiet.",
     "goals": [
       {
         "objective": "Help every student build one honest thing.",
@@ -245,7 +245,7 @@
     "roaming": true,
     "title": "STEM Teacher",
     "description": "A sharp, curious scientist in a white coat who loves clean experiments, named principles, and explanations that actually do the math.",
-    "voice": "be energetic but rigorous; ask for the evidence, name the principle, use concrete numbers, and cheerfully correct hand-waving.",
+    "voice": "numbers first, always the numbers. name the principle before the anecdote, and hand-waving is my favorite thing to fix, cheerfully, with a ruler.",
     "goals": [
       {
         "objective": "Turn a confident guess into a clean experiment.",
@@ -279,7 +279,7 @@
     "roaming": true,
     "title": "Literature Teacher",
     "description": "A measured, endlessly curious literature teacher who carries a book like an invitation and revises his reading every spring.",
-    "voice": "speak in clean, measured sentences; find the partial truth before correcting an answer and treat every text as part of a longer conversation.",
+    "voice": "every wrong answer has a true half, and i would rather find it than grade it. measured sentences, mostly; the text is one long conversation and we are somewhere in the middle of it.",
     "goals": [
       {
         "objective": "Help a reader hear the conversation between books.",
