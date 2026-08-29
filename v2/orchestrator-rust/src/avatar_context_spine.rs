@@ -811,6 +811,26 @@ impl RuntimeWorld {
         Some(spine)
     }
 
+    /// Authored worldpack descriptions of inference-controlled actors are trusted
+    /// canon: they already passed the worldpack publication register checks and
+    /// reach speech prompts verbatim. Directly controlled player avatars keep
+    /// the first-person grounding contract, because their descriptions may be
+    /// player-authored or generated persona text: a failed grounding check
+    /// falls back to a deterministic identity instead of leaking ungrounded
+    /// persona claims into a prompt.
+    pub(crate) fn avatar_description_for_prompt(&self, actor_id: u64, meta: &ActorMeta) -> String {
+        let control_mode = self
+            .actor_autonomy
+            .get(&actor_id)
+            .map(|autonomy| autonomy.control_mode)
+            .unwrap_or_else(|| seed_actor_default_control_mode(actor_id));
+        if control_mode == ActorControlMode::DirectInput {
+            grounded_avatar_persona_for_prompt(actor_id, &meta.description)
+        } else {
+            compact_whitespace(&meta.description)
+        }
+    }
+
     fn context_spine_actor(&self, actor: CwActor) -> Option<AvatarContextActor> {
         let meta = self.actors.get(&actor.id)?;
         let identity_policy = self.avatar_identity_policy(actor.id).unwrap_or_default();
@@ -853,7 +873,7 @@ impl RuntimeWorld {
                     .and_then(|event| event.content.clone())
             })
             .filter(|description| !description.trim().is_empty())
-            .unwrap_or_else(|| grounded_avatar_persona_for_prompt(actor.id, &meta.description));
+            .unwrap_or_else(|| self.avatar_description_for_prompt(actor.id, meta));
         let appearance = level_identity
             .as_ref()
             .map(|identity| identity.appearance.clone())
@@ -874,7 +894,7 @@ impl RuntimeWorld {
             name: grounded_avatar_name_for_prompt(actor.id, &meta.name),
             title: meta.title.clone(),
             description,
-            stable_traits: grounded_avatar_persona_for_prompt(actor.id, &meta.description),
+            stable_traits: self.avatar_description_for_prompt(actor.id, meta),
             appearance,
             identity_mode: identity_policy.mode,
             canonical_description: if identity_policy.canonical_description.trim().is_empty() {
@@ -1165,6 +1185,41 @@ pub(crate) fn semantic_top_recollections(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn authored_npc_description_replaces_the_generic_persona_fallback() {
+        // Issue #932: authored third-person NPC descriptions failed the
+        // first-person grounding check and every inference-controlled actor
+        // without a journaled self-description spoke from one of six generic
+        // fallback personas. Authored worldpack canon must reach the prompt.
+        let runtime = RuntimeWorld::seeded();
+        let simon = active_content()
+            .actors
+            .iter()
+            .find(|actor| actor.name == "Simon Peter")
+            .expect("Simon Peter is seeded in the official bundle");
+        let spine = runtime
+            .avatar_context_spine(
+                simon.id,
+                None,
+                None,
+                "A traveler arrives at the lakeside.".to_string(),
+            )
+            .expect("context spine");
+        assert!(
+            spine
+                .speaker
+                .stable_traits
+                .contains("impetuous Galilean fisherman"),
+            "authored description must reach the spine verbatim, got: {}",
+            spine.speaker.stable_traits
+        );
+        assert!(!spine.speaker.stable_traits.contains("patient company"));
+        assert!(spine
+            .speaker
+            .description
+            .contains("impetuous Galilean fisherman"));
+    }
 
     #[test]
     fn observation_surfaces_a_raw_journey_position_disagreement() {
