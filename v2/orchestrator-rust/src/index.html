@@ -6308,14 +6308,6 @@
       color: var(--dim);
       font: 650 11px/1.35 ui-sans-serif, system-ui, sans-serif;
     }
-    .scene-meld-approaches {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 5px;
-      grid-column: 1 / -1;
-    }
-    .scene-meld-approach,
-    .scene-meld-verb,
     .scene-meld-play {
       border: 1px solid rgba(244, 239, 227, 0.16);
       background: rgba(244, 239, 227, 0.035);
@@ -6324,29 +6316,6 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: pointer;
-    }
-    .scene-meld-approach { min-height: 38px; padding: 6px; }
-    .scene-meld-approach[aria-pressed="true"] {
-      border-color: rgba(var(--approach-rgb), 0.72);
-      background: rgba(var(--approach-rgb), 0.14);
-      color: var(--text);
-    }
-    .scene-meld-approach:disabled { opacity: 0.34; cursor: default; }
-    .scene-meld-approach[data-meld-approach="head"] { --approach-rgb: var(--suit-head-rgb); }
-    .scene-meld-approach[data-meld-approach="heart"] { --approach-rgb: var(--suit-heart-rgb); }
-    .scene-meld-approach[data-meld-approach="hustle"] { --approach-rgb: var(--suit-hustle-rgb); }
-    .scene-meld-approach[data-meld-approach="honor"] { --approach-rgb: var(--suit-honor-rgb); }
-    .scene-meld-verbs {
-      min-width: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-    .scene-meld-verb { min-height: 34px; padding: 7px 10px; text-align: left; }
-    .scene-meld-verb[aria-pressed="true"] {
-      border-color: rgba(222, 194, 141, 0.66);
-      background: rgba(222, 194, 141, 0.12);
-      color: var(--text);
     }
     .scene-meld-play {
       min-width: 126px;
@@ -6753,7 +6722,6 @@
       .prompt.hand-expanded .detail { font-size: 11px; -webkit-line-clamp: 3; }
       .story-card-actions button { min-height: 46px; font-size: 10px; }
       .scene-meld { grid-template-columns: minmax(0, 1fr); }
-      .scene-meld-approaches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .scene-meld-play { width: 100%; }
       .account-panel.minimal-menu { border-right: 0; border-left: 0; }
       .minimal-menu-player,
@@ -6952,13 +6920,6 @@
         gap: 6px 8px;
         padding: 8px 10px 10px;
       }
-      .scene-meld-approaches {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-      .scene-meld-approach {
-        min-height: 34px;
-        font-size: 9px;
-      }
       .scene-meld-play {
         width: auto;
         min-width: 112px;
@@ -7066,13 +7027,6 @@
           <strong class="scene-meld-title">Build a play</strong>
           <span class="scene-meld-status" id="scene-meld-status" role="status" aria-live="polite"></span>
         </div>
-        <div class="scene-meld-approaches" id="scene-meld-approaches" role="group" aria-label="Choose an approach">
-          <button class="scene-meld-approach" type="button" data-meld-approach="head" aria-pressed="false">🧠 Learn</button>
-          <button class="scene-meld-approach" type="button" data-meld-approach="heart" aria-pressed="false">❤️ Relate</button>
-          <button class="scene-meld-approach" type="button" data-meld-approach="hustle" aria-pressed="false">🛠️ Act</button>
-          <button class="scene-meld-approach" type="button" data-meld-approach="honor" aria-pressed="false">🛡️ Risk</button>
-        </div>
-        <div class="scene-meld-verbs" id="scene-meld-verbs" role="group" aria-label="Certified verbs"></div>
         <button class="scene-meld-play" id="scene-meld-play" type="button" disabled>Play meld</button>
       </section>
       <section class="turn-rope" id="turn-rope" aria-label="Turn status and log" hidden>
@@ -7202,12 +7156,6 @@
       honor: "🛡️",
       hustle: "🛠️",
     };
-    const sceneMeldApproachLabels = {
-      head: "Learn",
-      heart: "Relate",
-      hustle: "Act",
-      honor: "Risk",
-    };
     const actionCardSuitClasses = actionCardSuits.map((suit) => `suit-${suit}`);
     const actionCardAccentClasses = [...actionCardSuitClasses, "card-control"];
     const bootParams = new URLSearchParams(window.location.search);
@@ -7223,8 +7171,6 @@
     let focusedKey = "";
     let handKeys = [];
     let sceneMeldKeys = [];
-    let sceneMeldApproach = "";
-    let sceneMeldVerbKey = "";
     let discardedHandKeys = [];
     let handCompositionSignature = "";
     let handDealNonce = 1;
@@ -7937,8 +7883,6 @@
       handKeys = [];
       discardedHandKeys = [];
       sceneMeldKeys = [];
-      sceneMeldApproach = "";
-      sceneMeldVerbKey = "";
       handCompositionSignature = "";
       focusIndex = 0;
       focusedKey = "";
@@ -8002,8 +7946,6 @@
         handKeys = [];
         discardedHandKeys = [];
         sceneMeldKeys = [];
-        sceneMeldApproach = "";
-        sceneMeldVerbKey = "";
         handCompositionSignature = nextHandCompositionSignature;
         handDealNonce += 1;
         playerPromotedHandKey = "";
@@ -8014,8 +7956,6 @@
         handKeys = [];
         discardedHandKeys = [];
         sceneMeldKeys = [];
-        sceneMeldApproach = "";
-        sceneMeldVerbKey = "";
         focusIndex = 0;
         focusedKey = "";
         playerPromotedHandKey = "";
@@ -8675,15 +8615,21 @@
       const turn = view.turn || {};
       const options = new Set([
         ...(view.primary_action?.options || []).map((option) => option.kind),
-        ...(view.action_hand?.entries || []).map((entry) => entry.kind),
+        ...(view.action_offers || []).map((offer) => offer.kind),
       ]);
       const economy = view.economy || {};
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
-      const handOfferIdsForKind = (kind) => new Set((view.action_hand?.entries || [])
-        .filter((entry) => String(entry?.kind || "") === String(kind || ""))
-        .map((entry) => String(entry?.offer_id || ""))
-        .filter(Boolean));
+      const handOfferIdsForKind = (kind) => {
+        const matchingOfferIds = new Set((view.action_offers || [])
+          .filter((offer) => String(offer?.kind || "") === String(kind || ""))
+          .map((offer) => String(offer?.offer_id || ""))
+          .filter(Boolean));
+        return new Set((view.action_hand?.entries || [])
+          .flatMap((entry) => entry?.offer_ids || [])
+          .map((offerId) => String(offerId || ""))
+          .filter((offerId) => matchingOfferIds.has(offerId)));
+      };
       const offersForCurrentHand = (kind) => {
         const exactOfferIds = handOfferIdsForKind(kind);
         const offers = (view.action_offers || []).filter((offer) => (
@@ -8703,7 +8649,8 @@
         const offers = candidateOffers.flat().filter(Boolean);
         const offerKinds = [...new Set(offers.map((offer) => String(offer.kind || "")).filter(Boolean))];
         const projectedOfferIds = new Set((view.action_hand?.entries || [])
-          .map((entry) => String(entry.offer_id || ""))
+          .flatMap((entry) => entry?.offer_ids || [])
+          .map((offerId) => String(offerId || ""))
           .filter(Boolean));
         const selected = offers.find((offer) => projectedOfferIds.has(String(offer.offer_id || "")))
           || offers.slice().sort((left, right) => (
@@ -8729,8 +8676,8 @@
           .filter(Boolean))];
         const providerProjection = offerHand(kinds.map(offerFor));
         action.offerKinds = [...new Set(kinds)];
-        // A certified card represents one exact offer.  Only compatibility
-        // cards without an authored offer may infer a same-kind fallback.
+        // Exact actions remain certificates behind noun cards. They are not
+        // themselves rendered as cards.
         action.offerIds = exactOfferIds.length
           ? exactOfferIds
           : ((view.action_hand?.entries || []).length ? [] : providerProjection.offerIds);
@@ -8746,7 +8693,7 @@
         )) || null;
         if (exactOffer?.presentation) action.presentation = exactOffer.presentation;
         const handEntry = (view.action_hand?.entries || []).find((entry) => (
-          action.offerIds.includes(String(entry?.offer_id || ""))
+          (entry?.offer_ids || []).some((offerId) => action.offerIds.includes(String(offerId || "")))
         )) || null;
         action.storyHandSlot = handEntry?.slot || "";
         action.sceneCardType = handEntry?.card_type || "";
@@ -8774,61 +8721,38 @@
       const buildChatAction = (chatOffer = offerFor("chat")) => {
         if (!options.has("chat")) return null;
         const offeredTargetId = Number(chatOffer?.target?.id || 0);
-        const chatCandidates = actorTargets
-          .filter((actor) => (
-            actor.control_mode !== "direct_input"
-            && !actor.blocked_by_you
-            && !actor.muted_by_you
-          ))
-          .sort((left, right) => (
-            Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
-            || actorLabel(left).localeCompare(actorLabel(right))
-          ));
-        if (!chatCandidates.length) return null;
-        const firstChat = chatCandidates[0];
-        const oneChat = chatCandidates.length === 1;
+        const firstChat = actorTargets.find((actor) => (
+          Number(actor.id) === offeredTargetId
+          && actor.control_mode !== "direct_input"
+          && !actor.blocked_by_you
+          && !actor.muted_by_you
+        ));
+        if (!firstChat) return null;
         const firstTargetName = firstChat.name || actorLabel(firstChat);
         const chatAction = {
           ...semanticAction(chatOffer, "chat"),
           kind: "orb-chat",
           label: "chat",
-          detail: oneChat ? `with ${actorLabel(firstChat)} · a short exchange` : "choose someone nearby",
-          command: oneChat ? (chatOffer?.command || `chat ${firstTargetName}`) : "chat",
-          focusKey: oneChat
-            ? `talk:${firstChat.id}`
-            : `talk:${chatCandidates.map((actor) => actor.id).join("|")}`,
-          focusKeys: chatCandidates.map((actor) => `actor:${actor.id}`),
+          detail: `with ${actorLabel(firstChat)} · a short exchange`,
+          command: chatOffer?.command || `chat ${firstTargetName}`,
+          focusKey: `talk:${firstChat.id}`,
+          focusKeys: [`actor:${firstChat.id}`],
           card: cardForActor(firstChat.id),
           shape: "avatar",
           priority: Number(chatOffer?.rank || 70),
-          targetName: oneChat ? firstTargetName : "",
+          targetName: firstTargetName,
           targetActorId: firstChat.id,
-          modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
-          modalSummary: oneChat
-            ? `Your avatar and ${firstTargetName} open the conversation, then nearby avatars choose chat or pass.`
-            : "Choose someone nearby for a short back-and-forth conversation.",
-          effect: oneChat
-            ? `a short conversation with ${firstTargetName} unfolds`
-            : "a short conversation unfolds",
+          modalTitle: `chat with ${firstTargetName}`,
+          modalSummary: `Your avatar and ${firstTargetName} open the conversation, then nearby avatars choose chat or pass.`,
+          effect: `a short conversation with ${firstTargetName} unfolds`,
           busyLabel: "chatting",
           busyDetail: "finding the thread…",
-          ...(oneChat ? {} : {
-            choices: chatCandidates.map((actor) => ({
-              label: actorLabel(actor),
-              detail: actor.title || "share a short exchange",
-              value: String(actor.id),
-              card: cardForActor(actor.id),
-            })),
-            selectedChoice: String(firstChat.id),
-          }),
         };
-        chatAction.selectedTarget = () => chatCandidates.find((actor) => (
-          String(actor.id) === String(chatAction.selectedChoice || firstChat.id)
-        )) || firstChat;
-        chatAction.pendingTargetActorId = () => Number(chatAction.selectedTarget().id);
+        chatAction.selectedTarget = () => firstChat;
+        chatAction.pendingTargetActorId = () => Number(firstChat.id);
         chatAction.selectedPayload = () => ({
           actor_id: actorId,
-          target_actor_id: Number(chatAction.selectedTarget().id),
+          target_actor_id: Number(firstChat.id),
         });
         chatAction.run = () => action("/actions/chat", chatAction.selectedPayload());
         return chatAction;
@@ -9066,10 +8990,7 @@
         };
       }).filter((candidate) => !candidate.nextStretchRevealed);
       if (scoutCandidates.length) {
-        const projectedScoutOfferIds = new Set((view.action_hand?.entries || [])
-          .filter((entry) => String(entry?.kind || "") === "explore_path")
-          .map((entry) => String(entry?.offer_id || ""))
-          .filter(Boolean));
+        const projectedScoutOfferIds = handOfferIdsForKind("explore_path");
         const scoutGroups = projectedScoutOfferIds.size > 1
           ? scoutCandidates.map((candidate) => [candidate])
           : [scoutCandidates];
@@ -9352,10 +9273,7 @@
       }
       if (view.search_available === true || options.has("search")) {
         const locationName = view.location?.name || "this room";
-        const projectedSearchOfferIds = new Set((view.action_hand?.entries || [])
-          .filter((entry) => entry.kind === "search")
-          .map((entry) => String(entry.offer_id || ""))
-          .filter(Boolean));
+        const projectedSearchOfferIds = handOfferIdsForKind("search");
         const searchOffers = (view.action_offers || []).filter((offer) => (
           offer.kind === "search"
             && (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))
@@ -9442,10 +9360,7 @@
         if (bondAction) built.push(bondAction);
       }
       if (options.has("pick_up")) {
-        const projectedPickupOfferIds = new Set((view.action_hand?.entries || [])
-          .filter((entry) => entry.kind === "pick_up")
-          .map((entry) => String(entry.offer_id || ""))
-          .filter(Boolean));
+        const projectedPickupOfferIds = handOfferIdsForKind("pick_up");
         const pickupOffers = (view.action_offers || []).filter((offer) => (
           offer.kind === "pick_up"
             && offer?.target?.kind === "item"
@@ -9536,10 +9451,7 @@
         }
       }
       if (options.has("drop_item")) {
-        const projectedDropOfferIds = new Set((view.action_hand?.entries || [])
-          .filter((entry) => entry.kind === "drop_item")
-          .map((entry) => String(entry.offer_id || ""))
-          .filter(Boolean));
+        const projectedDropOfferIds = handOfferIdsForKind("drop_item");
         const dropOffers = (state?.action_offers || []).filter((offer) => (
           offer.kind === "drop_item"
             && offer?.target?.kind === "item"
@@ -9682,10 +9594,10 @@
           run: () => runCommandText(offer.command, offer),
         });
       }
-      const projectedRouteOfferIds = new Set((view.action_hand?.entries || [])
-        .filter((entry) => ["move", "flee"].includes(String(entry.kind || "")))
-        .map((entry) => String(entry.offer_id || ""))
-        .filter(Boolean));
+      const projectedRouteOfferIds = new Set([
+        ...handOfferIdsForKind("move"),
+        ...handOfferIdsForKind("flee"),
+      ]);
       const routeOffers = (view.action_offers || []).filter((offer) => (
         ["move", "flee"].includes(String(offer.kind || ""))
           && offer?.target?.kind === "location"
@@ -10868,7 +10780,7 @@
         .map((offerId) => String(offerId || ""))
         .filter(Boolean));
       const handOfferIds = new Set((state?.action_hand?.entries || [])
-        .map((entry) => String(entry?.offer_id || ""))
+        .flatMap((entry) => (entry?.offer_ids || []).map((offerId) => String(offerId || "")))
         .filter(Boolean));
       const certificateRequired = handOfferIds.size > 0;
       if (certificateRequired && cardOfferIds.size !== 1) return null;
@@ -10887,8 +10799,7 @@
           || Number(offer?.threshold_method?.method_id || 0)
             === Number(payload.threshold_method_id || 0);
         const submittedTarget = offerPayloadTarget(path, offer, payload);
-        const targetMatches = path === "/actions/chat"
-          || !submittedTarget
+        const targetMatches = !submittedTarget
           || !offer?.target?.id
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"
@@ -10952,6 +10863,7 @@
               offer_id: offer.offer_id,
               composition_id: offer.composition_id,
               kind: offer.kind,
+              selected_card_ids: (pendingAction?.selectedCardIds || []).map(String),
               payload: currentPayload,
             })
           : postResult(path, currentPayload);
@@ -11119,7 +11031,8 @@
     function equivalentCommandOffer(previousOffer) {
       const fingerprint = commandOfferRetryFingerprint(previousOffer);
       const handOfferIds = new Set((state?.action_hand?.entries || [])
-        .map((entry) => String(entry?.offer_id || ""))
+        .flatMap((entry) => entry?.offer_ids || [])
+        .map((offerId) => String(offerId || ""))
         .filter(Boolean));
       const matches = (state?.action_offers || []).filter((offer) => (
         handOfferIds.has(String(offer?.offer_id || ""))
@@ -12884,7 +12797,8 @@
       const tileHalfWidth = compact ? 30 : 52;
       const tileHalfHeight = compact ? 14 : 20;
       const handOfferIds = (state?.action_hand?.entries || [])
-        .map((entry) => String(entry?.offer_id || ""));
+        .flatMap((entry) => entry?.offer_ids || [])
+        .map((offerId) => String(offerId || ""));
       const sites = new Map(scene.sites.map((site) => [String(site.id), site]));
       const centerForSite = (siteId) => {
         const tiles = sites.get(String(siteId))?.tiles || [[0, 0, 0]];
@@ -17996,114 +17910,129 @@
       return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
     }
 
-    function sceneMeldOffer(action) {
-      const original = originalStoryHandAction(action);
-      if (original?.sceneOffer) return original.sceneOffer;
-      const offerIds = Array.isArray(original?.offerIds) ? original.offerIds : [];
-      return (state?.action_offers || []).find((offer) => (
-        offerIds.includes(String(offer?.offer_id || ""))
+    function sceneMeldEntityKey(action) {
+      return String(action?.nounEntry?.card_id || storyHandKey(action));
+    }
+
+    function sceneMeldResolutionRank(kind) {
+      const ranks = {
+        accept_transfer: 0,
+        trade_item: 9,
+        give_item: 10,
+        attack: 20,
+        defend: 21,
+        use_item: 30,
+        use_feature: 30,
+        cast_spell: 30,
+        pick_up: 40,
+        drop_item: 41,
+        chat: 50,
+        model_interaction: 51,
+        notice_actor: 60,
+        focused_notice: 60,
+        open: 118,
+        rest: 125,
+        craft: 131,
+        prepare: 132,
+        work: 148,
+        help: 149,
+        flee: 150,
+        search_discovery: 153,
+        study_discovery: 154,
+        explore_path: 155,
+        scout_discovery: 155,
+        search: 158,
+        check: 160,
+        study: 161,
+        create_bond: 177,
+        resolve_bond: 179,
+        move: 180,
+      };
+      return Number(ranks[String(kind || "")] ?? 600);
+    }
+
+    function exactActionForOffer(offer) {
+      const offerId = String(offer?.offer_id || "");
+      return actions.find((action) => (
+        Array.isArray(action?.offerIds) && action.offerIds.includes(offerId)
       )) || null;
     }
 
-    function sceneMeldEntityKey(action) {
-      const type = sceneMeldCardType(action);
-      const offer = sceneMeldOffer(action);
-      const target = offer?.target || action?.target || null;
-      const source = offer?.source_collectible || null;
-      if (type === "location") {
-        return `location:${Number(state?.location?.id || 0)}`;
-      }
-      if (type === "item") {
-        if (String(source?.kind || "") === "item" && source?.instance_id !== undefined) {
-          return `item:${String(source.instance_id)}`;
-        }
-        if (String(target?.kind || "") === "item" && target?.id !== undefined) {
-          return `item:${String(target.id)}`;
-        }
-      }
-      if (type === "avatar") {
-        if (String(target?.kind || "") === "actor" && target?.id !== undefined) {
-          return `avatar:${String(target.id)}`;
-        }
-        if (["rest", "defend"].includes(String(offer?.kind || action?.kind || ""))) {
-          return `avatar:${Number(actorId || 0)}`;
-        }
-      }
-      return `${type}-card:${storyHandKey(action)}`;
-    }
-
-    function sceneMeldActionBindingKeys(action) {
-      const offer = sceneMeldOffer(action);
-      const target = offer?.target || action?.target || null;
-      const source = offer?.source_collectible || null;
-      const bindings = new Set([
-        `location:${Number(state?.location?.id || 0)}`,
-        sceneMeldEntityKey(action),
-      ]);
-      if (String(source?.kind || "") === "item" && source?.instance_id !== undefined) {
-        bindings.add(`item:${String(source.instance_id)}`);
-      }
-      if (target?.id !== undefined) {
-        if (String(target.kind || "") === "item") bindings.add(`item:${String(target.id)}`);
-        if (String(target.kind || "") === "actor") bindings.add(`avatar:${String(target.id)}`);
-        if (String(target.kind || "") === "location") bindings.add(`location:${String(target.id)}`);
-      }
-      const cardType = sceneMeldCardType(action);
-      if (Array.isArray(action?.choices) && ["avatar", "location"].includes(cardType)) {
-        const prefix = cardType === "avatar" ? "avatar" : "location";
-        for (const choice of action.choices) {
-          if (String(choice?.value || "").match(/^\d+$/)) {
-            bindings.add(`${prefix}:${String(choice.value)}`);
-          }
-        }
-      }
-      return bindings;
-    }
-
-    function sceneMeldVerb(action) {
-      return String(action?.presentation?.verb || action?.label || "Act").trim();
-    }
-
-    function sceneMeldVerbLabel(action) {
-      const verb = sceneMeldVerb(action);
-      const offer = sceneMeldOffer(action);
-      const subject = String(
-        offer?.target?.label
-          || action?.target?.label
-          || action?.destinationOnlyCardLabel
-          || action?.card?.display_name
-          || action?.detail
-          || ""
-      ).trim();
-      return subject && !verb.toLowerCase().includes(subject.toLowerCase())
-        ? `${verb} · ${subject}`
-        : verb;
+    function sceneMeldVerb(action, offer = null) {
+      return String(offer?.label || action?.accessibleLabel || action?.modalTitle || action?.label || "Act").trim();
     }
 
     function sceneMeldResolution(visibleActions = actionBarActions()) {
       const byKey = new Map(visibleActions.map((action) => [storyHandKey(action), action]));
       const selected = sceneMeldKeys.map((key) => byKey.get(key)).filter(Boolean);
-      const requiredBindings = new Set(selected.map(sceneMeldEntityKey));
-      const legalActions = selected.filter((action) => {
-        const bindings = sceneMeldActionBindingKeys(action);
-        return [...requiredBindings].every((binding) => bindings.has(binding));
+      const selectedIds = new Set(selected.map(sceneMeldEntityKey));
+      const handEntries = state?.action_hand?.entries || [];
+      const currentLocationId = Number(state?.location?.id || 0);
+      const requireEntity = (used, kind, id) => {
+        const entry = handEntries.find((candidate) => (
+          String(candidate?.entity_kind || "") === String(kind)
+            && Number(candidate?.entity_id || 0) === Number(id || 0)
+        ));
+        if (!entry || !selectedIds.has(String(entry.card_id || ""))) return false;
+        used.add(String(entry.card_id || ""));
+        return true;
+      };
+      const candidates = (state?.action_offers || []).filter((offer) => {
+        const offerId = String(offer?.offer_id || "");
+        const owner = handEntries.find((entry) => (
+          selectedIds.has(String(entry?.card_id || ""))
+            && (entry?.offer_ids || []).map(String).includes(offerId)
+        ));
+        if (!owner) return false;
+        const used = new Set([String(owner.card_id || "")]);
+        const source = offer?.source_collectible || null;
+        if (String(source?.kind || "") === "item"
+            && !requireEntity(used, "item", source.instance_id)) return false;
+        const target = offer?.target || null;
+        if (target?.id !== undefined && target?.id !== null) {
+          const targetId = Number(target.id || 0);
+          if (String(target.kind || "") === "actor" && targetId !== Number(actorId || 0)
+              && !requireEntity(used, "actor", targetId)) return false;
+          const targetCardExists = handEntries.some((entry) => (
+            String(entry?.entity_kind || "") === String(target.kind || "")
+              && Number(entry?.entity_id || 0) === targetId
+          ));
+          if (targetCardExists && ["item", "recipe"].includes(String(target.kind || ""))
+              && !requireEntity(used, String(target.kind), targetId)) return false;
+        }
+        if (String(offer?.kind || "") === "trade_item") {
+          const targetActorId = Number(String(offer?.id || "").split(":")[2] || 0);
+          if (!targetActorId || !requireEntity(used, "actor", targetActorId)) return false;
+        }
+        return selected.every((card) => {
+          const entry = card.nounEntry || {};
+          const cardId = String(entry.card_id || "");
+          return used.has(cardId)
+            || (String(entry.entity_kind || "") === "location"
+              && Number(entry.entity_id || 0) === currentLocationId);
+        });
       });
-      const availableApproaches = new Set(legalActions.map(actionCardSuit).filter(Boolean));
-      const chosenApproach = availableApproaches.has(sceneMeldApproach) ? sceneMeldApproach : "";
-      const effectiveApproach = chosenApproach
-        || (availableApproaches.size === 1 ? [...availableApproaches][0] : "");
-      const candidates = effectiveApproach
-        ? legalActions.filter((action) => actionCardSuit(action) === effectiveApproach)
-        : [];
-      const chosenVerb = candidates.find((action) => storyHandKey(action) === sceneMeldVerbKey)
-        || (candidates.length === 1 ? candidates[0] : null);
+      const pinnedOfferId = selected.length === 1
+        ? String(
+          state?.first_tale?.advancing_offer_id
+          || state?.first_tale?.continuation?.advancing_offer_id
+          || "",
+        )
+        : "";
+      candidates.sort((left, right) => (
+        Number(String(right?.offer_id || "") === pinnedOfferId)
+          - Number(String(left?.offer_id || "") === pinnedOfferId)
+          || sceneMeldResolutionRank(left?.kind) - sceneMeldResolutionRank(right?.kind)
+          || Number(left?.provider?.priority ?? 255) - Number(right?.provider?.priority ?? 255)
+          || Number(left?.rank ?? 500) - Number(right?.rank ?? 500)
+          || String(left?.id || "").localeCompare(String(right?.id || ""))
+      ));
+      const chosenOffer = candidates[0] || null;
+      const chosenVerb = exactActionForOffer(chosenOffer);
       return {
         selected,
-        legalActions,
-        availableApproaches,
-        effectiveApproach,
-        inferredApproach: Boolean(effectiveApproach && !chosenApproach),
         candidates,
+        chosenOffer,
         chosenVerb,
       };
     }
@@ -18116,15 +18045,6 @@
       const seedKey = storyHandKey(seedAction);
       if (!sceneMeldKeys.length && seedKey && validKeys.has(seedKey)) sceneMeldKeys = [seedKey];
       if (!sceneMeldKeys.length && visibleActions[0]) sceneMeldKeys = [storyHandKey(visibleActions[0])];
-      const resolution = sceneMeldResolution(visibleActions);
-      if (sceneMeldApproach && !resolution.availableApproaches.has(sceneMeldApproach)) {
-        sceneMeldApproach = "";
-      }
-      if (sceneMeldVerbKey && !resolution.candidates.some((action) => (
-        storyHandKey(action) === sceneMeldVerbKey
-      ))) {
-        sceneMeldVerbKey = "";
-      }
     }
 
     function toggleSceneMeldCard(action) {
@@ -18136,7 +18056,6 @@
       } else if (sceneMeldKeys.length < 3) {
         sceneMeldKeys = [...sceneMeldKeys, key];
       }
-      sceneMeldVerbKey = "";
       renderCommands();
     }
 
@@ -18146,42 +18065,21 @@
       if (host.hidden) return;
       reconcileSceneMeld(visibleActions);
       const resolution = sceneMeldResolution(visibleActions);
-      const nounLabels = resolution.selected.map(sceneMeldCardTypeLabel);
+      const nounLabels = resolution.selected.map((action) => String(action?.nounEntry?.label || sceneMeldCardTypeLabel(action)));
       const nounText = nounLabels.join(" + ");
       let status = "Choose one to three noun cards.";
-      if (resolution.selected.length && !resolution.legalActions.length) {
-        status = `No exact verb joins ${nounText}. Remove a card or Think for another card.`;
-      } else if (resolution.selected.length && !resolution.effectiveApproach) {
-        status = `${nounText} supports more than one approach. Choose how you act.`;
-      } else if (resolution.candidates.length > 1 && !resolution.chosenVerb) {
-        status = `${nounText} allows ${resolution.candidates.length} exact verbs. Choose one.`;
+      if (resolution.selected.length && (!resolution.chosenOffer || !resolution.chosenVerb)) {
+        status = `${nounText} does not make a play yet. Remove a card or Think for another card.`;
       } else if (resolution.chosenVerb) {
-        const inference = resolution.inferredApproach ? " inferred" : "";
-        status = `${sceneMeldVerb(resolution.chosenVerb)} is certified for ${nounText}; ${sceneMeldApproachLabels[resolution.effectiveApproach]}${inference}.`;
+        status = `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`;
       }
       $("scene-meld-status").textContent = status;
-      for (const button of $("scene-meld-approaches").querySelectorAll("[data-meld-approach]")) {
-        const approach = String(button.dataset.meldApproach || "");
-        const available = resolution.availableApproaches.has(approach);
-        button.disabled = !available || actionBusy;
-        button.setAttribute("aria-pressed", resolution.effectiveApproach === approach ? "true" : "false");
-        button.title = available
-          ? `${sceneMeldApproachLabels[approach]} is certified by this selection`
-          : `${sceneMeldApproachLabels[approach]} has no exact verb for this selection`;
-      }
-      const verbs = $("scene-meld-verbs");
-      verbs.hidden = resolution.candidates.length < 2;
-      verbs.innerHTML = resolution.candidates.length < 2 ? "" : resolution.candidates.map((action) => {
-        const key = storyHandKey(action);
-        const active = resolution.chosenVerb && storyHandKey(resolution.chosenVerb) === key;
-        return `<button class="scene-meld-verb" type="button" data-meld-verb="${escapeAttr(key)}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(sceneMeldVerbLabel(action))}</button>`;
-      }).join("");
       const play = $("scene-meld-play");
       play.disabled = !resolution.chosenVerb
         || actionBusy
         || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb));
       play.textContent = resolution.chosenVerb
-        ? `Play ${sceneMeldVerb(resolution.chosenVerb)}`
+        ? `Play ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
         : "Play meld";
     }
 
@@ -18189,14 +18087,7 @@
       const resolution = sceneMeldResolution(actionBarActions());
       const action = originalStoryHandAction(resolution.chosenVerb);
       if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;
-      sceneMeldVerbKey = storyHandKey(resolution.chosenVerb);
-      if (Array.isArray(action.choices) && action.choices.length > 1) {
-        openActionModal(action);
-        return;
-      }
-      if (Array.isArray(action.choices) && action.choices.length === 1 && !action.selectedChoice) {
-        action.selectedChoice = action.choices[0].value;
-      }
+      action.selectedCardIds = resolution.selected.map(sceneMeldEntityKey);
       void runAction(action);
     }
 
@@ -18211,7 +18102,11 @@
         ? actions.indexOf(action)
         : Number(action?.actionIndex);
       const visibleActions = actionBarActions().slice(0, handCapacity());
-      const played = visibleActions.find((candidate) => candidate.actionIndex === actionIndex);
+      const requestedKey = storyHandKey(action);
+      const selectedCardIds = new Set((action?.selectedCardIds || []).map(String));
+      const played = visibleActions.find((candidate) => selectedCardIds.has(storyHandKey(candidate)))
+        || visibleActions.find((candidate) => storyHandKey(candidate) === requestedKey)
+        || visibleActions.find((candidate) => candidate.actionIndex === actionIndex);
       if (!played) return;
       const participants = new Set([
         Number(actorId || 0),
@@ -18418,12 +18313,13 @@
         const visibleActions = activeHeldStoryHandActions() || actionBarActions();
         const actionIndex = actions.indexOf(action);
         const selected = visibleActions.find((candidate) => candidate.actionIndex === actionIndex)
+          || visibleActions.find((candidate) => storyHandKey(candidate) === storyHandKey(action))
           || visibleActions.find((candidate) => storyHandKey(candidate) === storyHandActiveKey)
           || visibleActions[0]
           || null;
         if (selected) {
           storyHandActiveKey = storyHandKey(selected);
-          focusIndex = selected.actionIndex;
+          if (Number.isInteger(selected.actionIndex)) focusIndex = selected.actionIndex;
           focusedKey = originalStoryHandAction(selected)?.focusKey || "";
           actionConfirmAction = originalStoryHandAction(selected);
           reconcileSceneMeld(visibleActions, selected);
@@ -18453,8 +18349,6 @@
       focusedKey = action.focusKey || actionHandKey(action) || "";
       storyHandActiveKey = storyHandKey(action);
       sceneMeldKeys = [storyHandKey(action)];
-      sceneMeldApproach = "";
-      sceneMeldVerbKey = "";
       setStoryHandExpanded(true, action);
     }
 
@@ -18476,7 +18370,7 @@
     function selectStoryHandCardFromScroll() {
       if (!usesInlineStoryHand() || !storyHandExpanded) return;
       const rail = $("hand-rail");
-      const cards = [...rail.querySelectorAll(".cmd[data-action-index]")]
+      const cards = [...rail.querySelectorAll(".cmd[data-hand-key]")]
         .filter((button) => getComputedStyle(button).display !== "none");
       if (!cards.length) return;
       const railCenter = rail.scrollLeft + rail.clientWidth / 2;
@@ -18497,7 +18391,7 @@
       const key = String(card.dataset.handKey || "");
       if (!action || !key || key === storyHandActiveKey) return;
       storyHandActiveKey = key;
-      focusIndex = Number(card.dataset.actionIndex);
+      if (card.dataset.actionIndex !== undefined) focusIndex = Number(card.dataset.actionIndex);
       focusedKey = action.focusKey || "";
       actionConfirmAction = action;
       for (const button of cards) {
@@ -18901,14 +18795,12 @@
     function authoritativeHandSignature(view = state) {
       return JSON.stringify({
         entries: (view?.action_hand?.entries || []).map((entry) => [
-          String(entry?.offer_id || ""),
-          String(entry?.kind || ""),
-          String(entry?.intention || ""),
-          String(entry?.provider?.kind || ""),
-          String(entry?.provider?.id || ""),
+          String(entry?.card_id || ""),
           String(entry?.slot || ""),
           String(entry?.card_type || ""),
-          String(entry?.suit || ""),
+          String(entry?.entity_kind || ""),
+          String(entry?.entity_id || ""),
+          ...(entry?.offer_ids || []).map((offerId) => String(offerId || "")),
           String(entry?.think?.offer_id || ""),
         ]),
         think: [
@@ -18919,11 +18811,15 @@
     }
 
     function actionMatchesProjectedHandEntry(action, entry) {
+      if (String(action?.nounEntry?.card_id || action?.handKey || "") === String(entry?.card_id || "")) {
+        return true;
+      }
       const offerIds = Array.isArray(action?.offerIds) ? action.offerIds : [];
-      return offerIds.includes(String(entry?.offer_id || ""));
+      return (entry?.offer_ids || []).some((offerId) => offerIds.includes(String(offerId || "")));
     }
 
     function projectedHandEntryForAction(action) {
+      if (action?.nounEntry) return action.nounEntry;
       return (state?.action_hand?.entries || []).find((entry) => (
         actionMatchesProjectedHandEntry(action, entry)
       )) || null;
@@ -19012,6 +18908,18 @@
         playerPromotedHandKey = "";
         return;
       }
+      const nounEntries = state?.action_hand?.entries || [];
+      if (nounEntries.some((entry) => entry?.card_id)) {
+        const nextIdentity = JSON.stringify(nounEntries.map((entry) => String(entry.card_id || "")));
+        if (nextIdentity !== authoritativeHandIdentity) {
+          sceneMeldKeys = [];
+          playerPromotedHandKey = "";
+        }
+        authoritativeHandIdentity = nextIdentity;
+        handKeys = nounEntries.map((entry) => String(entry.card_id || "")).filter(Boolean);
+        discardedHandKeys = [];
+        return;
+      }
       const nextAuthoritativeIdentity = JSON.stringify(
         orderedActionIndexesForHand().map((index) => actionHandKey(actions[index])),
       );
@@ -19022,8 +18930,6 @@
         handKeys = [];
         discardedHandKeys = [];
         sceneMeldKeys = [];
-        sceneMeldApproach = "";
-        sceneMeldVerbKey = "";
         playerPromotedHandKey = "";
       } else {
         pruneDiscardedHandKeys(validKeys);
@@ -19152,6 +19058,30 @@
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
         button.innerHTML = `<span class="thumb placeholder" aria-hidden="true"></span>`;
+        return;
+      }
+      if (action.nounCard) {
+        const sceneCardType = sceneMeldCardType(action);
+        const sceneCardLabel = sceneMeldCardTypeLabel(action);
+        const handKey = storyHandKey(action);
+        const label = String(action?.nounEntry?.label || action?.label || sceneCardLabel).trim();
+        button.disabled = Boolean(action.heldStoryHandAction) && !action.inspectableStoryHandAction;
+        button.removeAttribute("aria-busy");
+        button.removeAttribute("data-command");
+        button.removeAttribute("data-action-index");
+        button.removeAttribute("data-card-suit");
+        button.removeAttribute("data-card-rarity");
+        button.removeAttribute("data-story-guide");
+        button.classList.remove(...actionCardAccentClasses);
+        button.classList.remove("story-guided", "pathway-direction");
+        button.classList.add("card-control", "has-copy");
+        button.dataset.cardType = sceneCardType;
+        button.dataset.sceneCardType = sceneCardType;
+        button.dataset.handKey = handKey;
+        button.title = `${sceneCardLabel}: ${label}`;
+        button.setAttribute("aria-label", `${sceneCardLabel} card, ${label}`);
+        const thumb = thumbnailHtml(action, false, "action-mini-card");
+        button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(sceneCardLabel)}</span><span class="cmd-label"><span class="cmd-label-text">${escapeHtml(label)}</span></span></span>`;
         return;
       }
       if (action.kind === "model-interaction" && pendingModelInteractions.length) {
@@ -19312,30 +19242,43 @@
       if (state?.branch) {
         return actions.slice(0, 2).map((action, actionIndex) => ({ ...action, actionIndex }));
       }
-      if (!actions.length) return [];
-      reconcileHand();
-      const storyGuide = dealtStoryGuide();
-      const storyActionKeys = new Set(
-        storyGuide?.kind === "first-tale" ? storyGuide.actionKeys || [] : [],
-      );
-      const entries = [];
-      for (const key of handKeys) {
-        const index = actionIndexForHandKey(key);
-        if (index < 0) continue;
-        entries.push({
-          ...actions[index],
-          actionIndex: index,
-          handKey: key,
-          storyGuide: storyActionKeys.has(actionHandKey(actions[index])),
-          storyGuideLabel: storyActionKeys.has(actionHandKey(actions[index]))
-            ? storyGuide?.label || "next tale beat"
-            : "",
-        });
+      const nounEntries = state?.action_hand?.entries || [];
+      if (!nounEntries.some((entry) => entry?.card_id)) {
+        return actions.slice(0, handCapacity()).map((action, actionIndex) => ({
+          ...action,
+          actionIndex,
+          handKey: actionHandKey(action),
+        }));
       }
+      const entries = nounEntries.map((entry, nounIndex) => {
+        const entityKind = String(entry?.entity_kind || "");
+        const entityId = Number(entry?.entity_id || (entityKind === "actor" ? actorId : 0));
+        const sceneCardType = String(entry?.card_type || "location");
+        const card = entityKind === "actor"
+          ? cardForActor(entityId)
+          : (entityKind === "item" || entityKind === "recipe")
+            ? cardForItem(entityId)
+            : cardForLocation(entityId);
+        return {
+          nounCard: true,
+          nounEntry: entry,
+          nounIndex,
+          kind: "noun-card",
+          label: String(entry?.label || sceneMeldCardTypeLabel({ sceneCardType })),
+          detail: "",
+          command: "",
+          focusKey: String(entry?.card_id || ""),
+          handKey: String(entry?.card_id || ""),
+          offerIds: (entry?.offer_ids || []).map((offerId) => String(offerId || "")).filter(Boolean),
+          sceneCardType,
+          shape: sceneCardType,
+          card,
+          storyHandThink: entry?.think || null,
+        };
+      });
       const nounOrder = { location: 0, avatar: 1, item: 2 };
       return entries.sort((left, right) => (
-        Number(right.storyGuide === true) - Number(left.storyGuide === true)
-          || Number(nounOrder[sceneMeldCardType(left)] ?? 99)
+        Number(nounOrder[sceneMeldCardType(left)] ?? 99)
           - Number(nounOrder[sceneMeldCardType(right)] ?? 99)
       ));
     }
@@ -19501,6 +19444,8 @@
       const handKey = String(button?.dataset?.handKey || "");
       const held = heldStoryHand?.actions?.find((action) => storyHandKey(action) === handKey);
       if (held) return held;
+      const noun = actionBarActions().find((action) => storyHandKey(action) === handKey);
+      if (noun) return noun;
       const actionIndex = Number(button?.dataset?.actionIndex);
       if (!Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex >= actions.length) {
         return null;
@@ -20392,22 +20337,6 @@
         event.stopPropagation();
         void discardStoryHandCard(discard.getAttribute("data-hand-discard") || "");
       }
-    });
-
-    $("scene-meld-approaches").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-meld-approach]");
-      if (!button || button.disabled) return;
-      const approach = String(button.dataset.meldApproach || "");
-      sceneMeldApproach = sceneMeldApproach === approach ? "" : approach;
-      sceneMeldVerbKey = "";
-      renderCommands();
-    });
-
-    $("scene-meld-verbs").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-meld-verb]");
-      if (!button) return;
-      sceneMeldVerbKey = String(button.dataset.meldVerb || "");
-      renderCommands();
     });
 
     $("scene-meld-play").addEventListener("click", (event) => {

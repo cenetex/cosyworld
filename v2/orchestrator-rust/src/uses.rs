@@ -871,6 +871,7 @@ mod tests {
             route: offer.route.clone(),
             target: offer.target.clone(),
             cost: offer.cost.clone(),
+            selected_card_ids: Vec::new(),
             payload: serde_json::json!({
                 "actor_id": 5000,
                 "actor_session": actor_session,
@@ -935,6 +936,7 @@ mod tests {
                 route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": 5000,
                     "actor_session": actor_session,

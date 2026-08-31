@@ -293,6 +293,138 @@ impl RuntimeWorld {
         }
     }
 
+    pub(super) fn resolved_story_hand_offer<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+        selected_card_ids: &[String],
+    ) -> Option<&'a RankedActionOffer> {
+        if selected_card_ids.is_empty() || selected_card_ids.len() > STORY_HAND_SLOTS.len() {
+            return None;
+        }
+        let selected = selected_card_ids.iter().collect::<BTreeSet<_>>();
+        if selected.len() != selected_card_ids.len() {
+            return None;
+        }
+        let hand = self.action_hand_for(Some(actor_id), offers);
+        if selected
+            .iter()
+            .any(|card_id| !hand.entries.iter().any(|entry| &entry.card_id == *card_id))
+        {
+            return None;
+        }
+        let current_location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+        let pinned_offer_id = if selected.len() == 1 {
+            offers
+                .iter()
+                .filter(|offer| offer.kind == ACCEPT_TRANSFER_OFFER_KIND)
+                .min_by(|left, right| left.id.cmp(&right.id))
+                .map(|offer| offer.offer_id.clone())
+                .or_else(|| {
+                    self.journey_advancing_offer(actor_id, offers)
+                        .map(|offer| offer.offer_id.clone())
+                })
+                .or_else(|| {
+                    self.first_tale_advancing_offer_selection(actor_id, offers)
+                        .0
+                })
+        } else {
+            None
+        };
+
+        offers
+            .iter()
+            .filter(|offer| {
+                let Some(owner) = hand.entries.iter().find(|entry| {
+                    selected.contains(&entry.card_id)
+                        && entry
+                            .offer_ids
+                            .iter()
+                            .any(|offer_id| offer_id == &offer.offer_id)
+                }) else {
+                    return false;
+                };
+                let mut used = BTreeSet::from([owner.card_id.as_str()]);
+                let mut require_entity = |kind: &str, id: u64| {
+                    let Some(entry) = hand
+                        .entries
+                        .iter()
+                        .find(|entry| entry.entity_kind == kind && entry.entity_id == id)
+                    else {
+                        return false;
+                    };
+                    if !selected.contains(&entry.card_id) {
+                        return false;
+                    }
+                    used.insert(entry.card_id.as_str());
+                    true
+                };
+
+                if let Some(source) = offer
+                    .source_collectible
+                    .as_ref()
+                    .filter(|source| source.kind == "item")
+                {
+                    if !require_entity("item", source.instance_id) {
+                        return false;
+                    }
+                }
+                if let Some(target) = &offer.target {
+                    if let Some(target_id) = target.id {
+                        let required = match target.kind.as_str() {
+                            "actor" if target_id != actor_id => require_entity("actor", target_id),
+                            "item" | "recipe"
+                                if hand.entries.iter().any(|entry| {
+                                    entry.entity_kind == target.kind && entry.entity_id == target_id
+                                }) =>
+                            {
+                                require_entity(&target.kind, target_id)
+                            }
+                            _ => true,
+                        };
+                        if !required {
+                            return false;
+                        }
+                    }
+                }
+                if offer.kind == "trade_item" {
+                    let Some(target_actor_id) = offer
+                        .id
+                        .split(':')
+                        .nth(2)
+                        .and_then(|value| value.parse::<u64>().ok())
+                    else {
+                        return false;
+                    };
+                    if !require_entity("actor", target_actor_id) {
+                        return false;
+                    }
+                }
+
+                selected.iter().all(|card_id| {
+                    let entry = hand
+                        .entries
+                        .iter()
+                        .find(|entry| &entry.card_id == *card_id)
+                        .expect("selected cards came from the current hand");
+                    used.contains(entry.card_id.as_str())
+                        || (entry.entity_kind == "location"
+                            && current_location_id == Some(entry.entity_id))
+                })
+            })
+            .min_by(|left, right| {
+                (pinned_offer_id.as_deref() == Some(right.offer_id.as_str()))
+                    .cmp(&(pinned_offer_id.as_deref() == Some(left.offer_id.as_str())))
+                    .then_with(|| {
+                        story_hand_resolution_rank(&left.kind)
+                            .cmp(&story_hand_resolution_rank(&right.kind))
+                    })
+                    .then_with(|| left.provider.priority.cmp(&right.provider.priority))
+                    .then_with(|| left.rank.cmp(&right.rank))
+                    .then_with(|| left.id.cmp(&right.id))
+            })
+    }
+
     #[cfg(test)]
     pub(super) fn validate_action_offer_submission(
         &self,
@@ -331,13 +463,20 @@ impl RuntimeWorld {
         let Some(offer) = stable_offer else {
             return Err("that offer expired; refresh the scene and submit a current offer_id");
         };
-        let hand = self.action_hand_for(Some(actor_id), &offers);
-        if !hand
-            .entries
-            .iter()
-            .any(|entry| entry.offer_id == offer.offer_id)
+        if submission.selected_card_ids.is_empty() {
+            let hand = self.action_hand_for(Some(actor_id), &offers);
+            if !hand
+                .entries
+                .iter()
+                .any(|entry| entry.offer_ids.contains(&offer.offer_id))
+            {
+                return Err("that offer is not in the current Story Hand");
+            }
+        } else if self
+            .resolved_story_hand_offer(actor_id, &offers, &submission.selected_card_ids)
+            .is_none_or(|resolved| resolved.offer_id != offer.offer_id)
         {
-            return Err("that offer is not in the current Story Hand");
+            return Err("those noun cards do not resolve to that action");
         }
         let revision_rebound = exact_offer.is_none()
             && offer_composition_matches_at_submitted_revision(offer, submission);
@@ -366,15 +505,13 @@ impl RuntimeWorld {
             // every field still matches, while current clients submit the
             // opaque offer/composition certificates and action payload alone.
             Err("offer identity, rules binding, target, cost, or availability was changed")
-        } else if !(offer.kind == "chat" && self.actor_control_mode(actor_id).is_direct_input())
-            && offer.target.as_ref().is_some_and(|target| {
-                target.id.is_some_and(|expected| {
-                    submitted_payload_target_key(&submission.path, target).is_some()
-                        && submitted_payload_target(&submission.path, target, &submission.payload)
-                            != Some(expected)
-                })
+        } else if offer.target.as_ref().is_some_and(|target| {
+            target.id.is_some_and(|expected| {
+                submitted_payload_target_key(&submission.path, target).is_some()
+                    && submitted_payload_target(&submission.path, target, &submission.payload)
+                        != Some(expected)
             })
-        {
+        }) {
             Err("submitted payload target does not match the authoritative offer")
         } else if submission.path == "/actions/pick-up"
             && !self.submitted_pickup_exchange_matches(actor_id, offer, &submission.payload)
@@ -1491,6 +1628,9 @@ impl RuntimeWorld {
         project: Option<&ActionProjectView>,
     ) -> String {
         let target_label = target.and_then(|value| value.label.as_deref());
+        if kind == "chat" {
+            return action_target_phrase(verb, "with", target_label);
+        }
         match action_offer_intention(kind) {
             "notice" => verb.to_string(),
             "inspect" => action_target_phrase(verb, "", target_label),
@@ -2446,10 +2586,137 @@ pub(super) fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
 }
 
 pub(super) fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
-    // A finite hand rotates exact certified offers. Collapsing by display
-    // kind made otherwise legal targets permanently unreachable once the
-    // full-action chooser was removed.
-    offer.offer_id.clone()
+    story_hand_noun_binding(offer).card_id
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StoryHandNounBinding {
+    card_id: String,
+    entity_kind: String,
+    entity_id: u64,
+    label: String,
+}
+
+fn noun_kind_label(kind: &str) -> &str {
+    match kind {
+        "actor" => "Avatar",
+        "item" => "Item",
+        "location" => "Location",
+        "recipe" => "Recipe",
+        _ => "Card",
+    }
+}
+
+fn provider_entity_id(offer: &RankedActionOffer, kind: &str) -> Option<u64> {
+    (offer.provider.kind == kind)
+        .then(|| offer.provider.id.rsplit(':').next()?.parse::<u64>().ok())
+        .flatten()
+}
+
+fn target_noun_binding(offer: &RankedActionOffer, kind: &str) -> Option<StoryHandNounBinding> {
+    let target = offer.target.as_ref().filter(|target| target.kind == kind)?;
+    let id = target.id?;
+    Some(StoryHandNounBinding {
+        card_id: format!("{kind}:{id}"),
+        entity_kind: kind.to_string(),
+        entity_id: id,
+        label: target
+            .label
+            .clone()
+            .unwrap_or_else(|| format!("{} {id}", noun_kind_label(kind))),
+    })
+}
+
+fn source_noun_binding(offer: &RankedActionOffer, kind: &str) -> Option<StoryHandNounBinding> {
+    let source = offer
+        .source_collectible
+        .as_ref()
+        .filter(|source| source.kind == kind)?;
+    let id = source.instance_id;
+    let label = if offer.provider.kind == kind
+        && provider_entity_id(offer, kind) == Some(id)
+        && !offer.provider.label.trim().is_empty()
+    {
+        offer.provider.label.clone()
+    } else if offer
+        .target
+        .as_ref()
+        .is_some_and(|target| target.kind == kind && target.id == Some(id))
+    {
+        offer
+            .target
+            .as_ref()
+            .and_then(|target| target.label.clone())
+            .unwrap_or_else(|| format!("{} {id}", noun_kind_label(kind)))
+    } else {
+        format!("{} {id}", noun_kind_label(kind))
+    };
+    Some(StoryHandNounBinding {
+        card_id: format!("{kind}:{id}"),
+        entity_kind: kind.to_string(),
+        entity_id: id,
+        label,
+    })
+}
+
+fn story_hand_noun_binding(offer: &RankedActionOffer) -> StoryHandNounBinding {
+    match STORY_HAND_CARD_TYPES[story_hand_natural_slot(offer)] {
+        "location" => {
+            // A travel card is the destination. Other place-shaped actions
+            // belong to the current scene that made them possible.
+            if matches!(
+                offer.kind.as_str(),
+                "move" | "flee" | "explore_path" | "open"
+            ) {
+                if let Some(binding) = target_noun_binding(offer, "location") {
+                    return binding;
+                }
+            }
+            source_noun_binding(offer, "location")
+                .or_else(|| target_noun_binding(offer, "location"))
+                .unwrap_or_else(|| StoryHandNounBinding {
+                    card_id: "location:scene".to_string(),
+                    entity_kind: "location".to_string(),
+                    entity_id: 0,
+                    label: "Here".to_string(),
+                })
+        }
+        "item" => source_noun_binding(offer, "item")
+            .or_else(|| target_noun_binding(offer, "item"))
+            .or_else(|| target_noun_binding(offer, "recipe"))
+            .or_else(|| {
+                let id = provider_entity_id(offer, "item")?;
+                Some(StoryHandNounBinding {
+                    card_id: format!("item:{id}"),
+                    entity_kind: "item".to_string(),
+                    entity_id: id,
+                    label: offer.provider.label.clone(),
+                })
+            })
+            .unwrap_or_else(|| StoryHandNounBinding {
+                card_id: format!("item:{}", offer.offer_id),
+                entity_kind: "item".to_string(),
+                entity_id: 0,
+                label: "Something".to_string(),
+            }),
+        "avatar" => target_noun_binding(offer, "actor")
+            .or_else(|| {
+                let id = provider_entity_id(offer, "actor")?;
+                Some(StoryHandNounBinding {
+                    card_id: format!("actor:{id}"),
+                    entity_kind: "actor".to_string(),
+                    entity_id: id,
+                    label: offer.provider.label.clone(),
+                })
+            })
+            .unwrap_or_else(|| StoryHandNounBinding {
+                card_id: "actor:self".to_string(),
+                entity_kind: "actor".to_string(),
+                entity_id: 0,
+                label: "You".to_string(),
+            }),
+        _ => unreachable!("Story Hand only has noun card slots"),
+    }
 }
 
 #[cfg(test)]
@@ -2551,12 +2818,59 @@ pub(super) fn empty_think_view() -> ActionHandPassView {
     }
 }
 
+struct StoryHandNounGroup<'a> {
+    binding: StoryHandNounBinding,
+    offers: Vec<&'a RankedActionOffer>,
+}
+
+fn story_hand_noun_bindings(offer: &RankedActionOffer) -> Vec<(usize, StoryHandNounBinding)> {
+    let primary = story_hand_noun_binding(offer);
+    let mut bindings = vec![(story_hand_natural_slot(offer), primary.clone())];
+    if let Some(actor) = target_noun_binding(offer, "actor") {
+        if actor.card_id != primary.card_id {
+            bindings.push((2, actor));
+        }
+    }
+    if offer.kind == "trade_item" {
+        if let Some(actor_id) = offer
+            .id
+            .split(':')
+            .nth(2)
+            .and_then(|value| value.parse::<u64>().ok())
+        {
+            let actor = StoryHandNounBinding {
+                card_id: format!("actor:{actor_id}"),
+                entity_kind: "actor".to_string(),
+                entity_id: actor_id,
+                label: format!("Avatar {actor_id}"),
+            };
+            if actor.card_id != primary.card_id {
+                bindings.push((2, actor));
+            }
+        }
+    }
+    bindings
+}
+
 fn story_hand_entry(
-    offer: &RankedActionOffer,
+    group: &StoryHandNounGroup<'_>,
     slot_index: usize,
     replacement_count: usize,
 ) -> ActionHandEntryView {
+    let offer = group
+        .offers
+        .first()
+        .expect("a noun card has at least one legal action");
     ActionHandEntryView {
+        card_id: group.binding.card_id.clone(),
+        entity_kind: group.binding.entity_kind.clone(),
+        entity_id: group.binding.entity_id,
+        label: group.binding.label.clone(),
+        offer_ids: group
+            .offers
+            .iter()
+            .map(|offer| offer.offer_id.clone())
+            .collect(),
         offer_id: offer.offer_id.clone(),
         kind: offer.kind.clone(),
         intention: offer.intention.clone(),
@@ -2607,25 +2921,44 @@ fn compose_story_hand_with_pin(
             .then_with(|| left.id.cmp(&right.id))
     });
 
-    let mut grouped = Vec::new();
-    let mut seen_groups = BTreeSet::new();
+    let mut slot_pools: [Vec<StoryHandNounGroup<'_>>; 3] = std::array::from_fn(|_| Vec::new());
     for offer in candidates {
-        if seen_groups.insert(action_offer_hand_group(offer)) {
-            grouped.push(offer);
+        for (slot_index, binding) in story_hand_noun_bindings(offer) {
+            if let Some(group) = slot_pools[slot_index]
+                .iter_mut()
+                .find(|group| group.binding.card_id == binding.card_id)
+            {
+                group.offers.push(offer);
+            } else {
+                slot_pools[slot_index].push(StoryHandNounGroup {
+                    binding,
+                    offers: vec![offer],
+                });
+            }
         }
     }
 
-    let deck_size = grouped.len();
-    let mut slot_pools: [Vec<&RankedActionOffer>; 3] = std::array::from_fn(|_| Vec::new());
-    for offer in grouped {
-        slot_pools[story_hand_natural_slot(offer)].push(offer);
-    }
+    let deck_size = slot_pools.iter().map(Vec::len).sum::<usize>();
     let pinned_slot = progression_pin.map(|(offer, _)| story_hand_natural_slot(offer));
     if let Some((pinned_offer, _)) = progression_pin {
-        for pool in &mut slot_pools {
-            pool.retain(|offer| offer.offer_id != pinned_offer.offer_id);
+        let pinned_slot = pinned_slot.expect("a pinned offer has an entity slot");
+        if let Some(position) = slot_pools[pinned_slot].iter().position(|group| {
+            group
+                .offers
+                .iter()
+                .any(|offer| offer.offer_id == pinned_offer.offer_id)
+        }) {
+            if let Some(offer_position) = slot_pools[pinned_slot][position]
+                .offers
+                .iter()
+                .position(|offer| offer.offer_id == pinned_offer.offer_id)
+            {
+                slot_pools[pinned_slot][position]
+                    .offers
+                    .rotate_left(offer_position);
+            }
+            slot_pools[pinned_slot].rotate_left(position);
         }
-        slot_pools[pinned_slot.expect("a pinned offer has an entity slot")].insert(0, pinned_offer);
     }
     // Empty entity slots stay empty. Borrowing from another pool is what let
     // three locations (or three items) occupy the three-card hand.
@@ -2636,7 +2969,7 @@ fn compose_story_hand_with_pin(
         .map(|(slot_index, pool)| {
             let generation = slot_generations[slot_index];
             story_hand_entry(
-                pool[generation % pool.len()],
+                &pool[generation % pool.len()],
                 slot_index,
                 pool.len().saturating_sub(1),
             )
@@ -2655,7 +2988,7 @@ fn compose_story_hand_with_pin(
         .fold(0usize, usize::saturating_add);
 
     ActionHandView {
-        schema_version: 3,
+        schema_version: 4,
         capacity: CAPACITY as u8,
         deck_size: u16::try_from(deck_size).unwrap_or(u16::MAX),
         draw_available: slot_pools.iter().any(|pool| pool.len() > 1),
@@ -2672,9 +3005,14 @@ impl RuntimeWorld {
         offers: &'a [RankedActionOffer],
     ) -> Vec<&'a RankedActionOffer> {
         let hand = self.action_hand_for(Some(actor_id), offers);
-        hand.entries
+        let current_offer_ids = hand
+            .entries
             .iter()
-            .filter_map(|entry| offers.iter().find(|offer| offer.offer_id == entry.offer_id))
+            .flat_map(|entry| entry.offer_ids.iter())
+            .collect::<BTreeSet<_>>();
+        offers
+            .iter()
+            .filter(|offer| current_offer_ids.contains(&offer.offer_id))
             .collect()
     }
 
@@ -2685,6 +3023,9 @@ impl RuntimeWorld {
         planner_backed: bool,
     ) -> Vec<&'a RankedActionOffer> {
         if planner_backed {
+            // Residents reason over the exact legal actions carried by their
+            // noun cards. Only direct player input uses noun-meld resolution;
+            // keeping this internal set complete does not expose card options.
             self.current_action_hand_offers(actor_id, offers)
                 .into_iter()
                 .filter(|offer| action_offer_is_reachable(offer))
@@ -2785,6 +3126,23 @@ impl RuntimeWorld {
             slot_generations,
             progression_offer.map(|offer| (offer, &progression_offer_ids)),
         );
+        for entry in &mut hand.entries {
+            entry.label = match entry.entity_kind.as_str() {
+                "actor" if entry.entity_id == 0 => self
+                    .actor_name(actor_id_value)
+                    .unwrap_or_else(|| "You".to_string()),
+                "actor" => self
+                    .actor_name(entry.entity_id)
+                    .unwrap_or_else(|| entry.label.clone()),
+                "item" => self
+                    .item_name(entry.entity_id)
+                    .unwrap_or_else(|| entry.label.clone()),
+                "location" => self
+                    .location_name(entry.entity_id)
+                    .unwrap_or_else(|| entry.label.clone()),
+                _ => entry.label.clone(),
+            };
+        }
         let state_revision = self.current_state_revision();
         let free = safe_scene && !story_state.free_think_used;
         for entry in &mut hand.entries {
@@ -2803,7 +3161,7 @@ impl RuntimeWorld {
                         entry.slot,
                         generation,
                         scene_key,
-                        stable_hash_hex(&["story-hand-think", &entry.offer_id]),
+                        stable_hash_hex(&["story-hand-think", &entry.card_id]),
                     )
                 } else {
                     String::new()
@@ -2813,7 +3171,7 @@ impl RuntimeWorld {
                 generation,
                 scene_key: scene_key.to_string(),
                 slot: entry.slot.clone(),
-                replaces_offer_id: entry.offer_id.clone(),
+                replaces_offer_id: entry.card_id.clone(),
                 free,
                 consumes_turn: !free,
                 available,
@@ -2862,13 +3220,11 @@ impl RuntimeWorld {
                 .filter(|offer| predicate(offer))
                 .map(|offer| offer.offer_id.clone())
                 .collect::<BTreeSet<_>>();
-            if let Some(offer) = offers.iter().find(|offer| {
-                matching_offer_ids.contains(&offer.offer_id)
-                    && hand
-                        .entries
-                        .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
-            }) {
+            if let Some(offer) = self
+                .planner_action_offers(actor_id, &offers, true)
+                .into_iter()
+                .find(|offer| matching_offer_ids.contains(&offer.offer_id))
+            {
                 return Some(offer.clone());
             }
             let replaceable_slots = hand
@@ -2877,25 +3233,49 @@ impl RuntimeWorld {
                 .filter(|entry| entry.think.available)
                 .filter_map(|entry| STORY_HAND_SLOTS.iter().position(|slot| *slot == entry.slot))
                 .collect::<Vec<_>>();
-            let target_slot = replaceable_slots
+            let Some(target_slot) = replaceable_slots
                 .iter()
                 .copied()
                 .find(|slot| {
-                    self.action_hand_after_think_for(actor_id, &offers, *slot)
-                        .entries
+                    let desired_card_ids = offers
                         .iter()
-                        .any(|entry| matching_offer_ids.contains(&entry.offer_id))
+                        .filter(|offer| matching_offer_ids.contains(&offer.offer_id))
+                        .flat_map(story_hand_noun_bindings)
+                        .filter(|(binding_slot, _)| binding_slot == slot)
+                        .map(|(_, binding)| binding.card_id)
+                        .collect::<BTreeSet<_>>();
+                    !desired_card_ids.is_empty()
+                        && hand.entries.iter().all(|entry| {
+                            entry.slot != STORY_HAND_SLOTS[*slot]
+                                || !desired_card_ids.contains(&entry.card_id)
+                        })
+                })
+                .or_else(|| {
+                    replaceable_slots.iter().copied().find(|slot| {
+                        self.action_hand_after_think_for(actor_id, &offers, *slot)
+                            .entries
+                            .iter()
+                            .any(|entry| {
+                                entry
+                                    .offer_ids
+                                    .iter()
+                                    .any(|offer_id| matching_offer_ids.contains(offer_id))
+                            })
+                    })
                 })
                 .or_else(|| {
                     (!replaceable_slots.is_empty())
                         .then(|| replaceable_slots[attempt % replaceable_slots.len()])
-                })?;
+                })
+            else {
+                break;
+            };
             let (scene_key, _) = self.story_hand_scene_for_actor(actor_id);
             let replaces_offer_id = hand
                 .entries
                 .iter()
                 .find(|entry| entry.slot == STORY_HAND_SLOTS[target_slot])
-                .map(|entry| entry.offer_id.as_str())
+                .map(|entry| entry.card_id.as_str())
                 .unwrap_or_default()
                 .to_string();
             self.append_story_hand_thought_event(
@@ -2909,7 +3289,39 @@ impl RuntimeWorld {
                 ),
             );
         }
-        None
+        // Thinking changes the state revision encoded into every certificate.
+        // Refresh the fallback from the final hand instead of returning a
+        // certificate cloned before the last rotation.
+        let (mut primary_action, mut offers) =
+            self.legal_action_candidates_with_presence(Some(actor_id), access, None);
+        if direct_input {
+            retain_configured_model_interaction_offers(&mut primary_action, &mut offers, None);
+        }
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        offers.into_iter().find(|offer| {
+            predicate(offer)
+                && hand
+                    .entries
+                    .iter()
+                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
+        })
+    }
+}
+
+fn story_hand_resolution_rank(kind: &str) -> u16 {
+    match kind {
+        ACCEPT_TRANSFER_OFFER_KIND => 0,
+        "trade_item" => 9,
+        "give_item" => 10,
+        "attack" => 20,
+        "defend" => 21,
+        "use_item" | "use_feature" | "cast_spell" => 30,
+        "pick_up" => 40,
+        "drop_item" => 41,
+        "chat" => 50,
+        "model_interaction" => 51,
+        NOTICE_ACTOR_OFFER_KIND | FOCUSED_NOTICE_OFFER_KIND => 60,
+        _ => action_offer_rank(kind).saturating_add(100),
     }
 }
 

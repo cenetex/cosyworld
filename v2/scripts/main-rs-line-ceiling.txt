@@ -446,4 +446,6 @@
 # actor_jobs.rs while presence only wires resumed rooms into that owned seam.
 # 59872 -> 59869: refresh room-rope scheduling from every valid presence
 # heartbeat while preserving edge-only presence projection.
-59866
+# 59866 -> 59838: move Story Hand view types into cards.rs while rebuilding
+# the hand around Location, Avatar, and Item nouns.
+59838

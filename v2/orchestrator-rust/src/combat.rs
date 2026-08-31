@@ -663,7 +663,7 @@ impl RuntimeWorld {
             .filter(|offer| {
                 hand.entries
                     .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id)
+                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
             })
             .collect::<Vec<_>>();
         let hp_base = i32::from(actor.stats.hp_base.max(1));
