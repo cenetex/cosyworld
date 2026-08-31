@@ -289,6 +289,18 @@ impl PromptEnvelope {
         self
     }
 
+    /// Adds actor-specific system context without counting that context as
+    /// shared policy in prompt-budget telemetry.
+    pub(crate) fn system_context(mut self, text: impl Into<String>) -> Self {
+        self.system.push(PromptSegment {
+            text: text.into(),
+            kind: PromptSegmentKind::UniqueEvidence,
+            priority: u8::MAX,
+            pinned: true,
+        });
+        self
+    }
+
     pub(crate) fn user(
         mut self,
         text: impl Into<String>,
@@ -455,13 +467,7 @@ impl crate::RuntimeWorld {
         if !authored.is_empty() {
             return authored;
         }
-        const FALLBACK_IDIOLECTS: &[&str] = &[
-            "Short sentences. Concrete nouns. No similes. Notice objects before moods. Never finish with a maxim.",
-            "Mostly medium sentences. Notice people and gestures first. Use metaphor rarely. Leave disagreement plain.",
-            "Brief, practical clauses. Notice sound before sight. Ask direct questions only when an answer matters.",
-            "One precise detail before any feeling. Prefer verbs to adjectives. Never make an object think or choose.",
-        ];
-        FALLBACK_IDIOLECTS[actor_id as usize % FALLBACK_IDIOLECTS.len()].to_string()
+        fallback_actor_voice(actor_id)
     }
 
     pub(crate) fn recent_public_room_evidence(
@@ -534,6 +540,16 @@ impl crate::RuntimeWorld {
             .filter(|evidence| evidence.authorized_for(&audience, EvidenceModality::Media))
             .collect()
     }
+}
+
+pub(crate) fn fallback_actor_voice(actor_id: u64) -> String {
+    const FALLBACK_IDIOLECTS: &[&str] = &[
+        "my thoughts come in short steps. solid things catch my eye before moods do, and i trust a plain ending more than a maxim.",
+        "people arrive as gestures before explanations. i take a little time with a sentence, use metaphor sparingly, and leave disagreement plain.",
+        "sound reaches me first. my thoughts stay brief and practical, and a question matters only when its answer will change something.",
+        "one exact detail steadies me before any feeling does. verbs carry more weight than adjectives; objects remain objects in my eyes.",
+    ];
+    FALLBACK_IDIOLECTS[actor_id as usize % FALLBACK_IDIOLECTS.len()].to_string()
 }
 
 pub(crate) fn public_room_memory_for_state(

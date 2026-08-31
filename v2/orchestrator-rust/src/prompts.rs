@@ -406,9 +406,9 @@ async fn request_ai_avatar_chat(
                 "dialogue_avatar"
             },
             prompt_version: if followup {
-                "dialogue-avatar-followup-context-spine-v6"
+                "dialogue-avatar-followup-awakening-v1"
             } else {
-                "dialogue-avatar-context-spine-v6"
+                "dialogue-avatar-awakening-v1"
             },
             prompt: avatar_chat_prompt(plan, followup, &gate.requirements),
             temperature: 0.8,
@@ -563,13 +563,13 @@ fn avatar_chat_prompt(
         max_words: word_budget,
         response_job: if followup {
             format!(
-                "Answer the directed turn as {}. Keep clear that {} is the speaker now; do not reverse who is asking whom, repeat the question, or fall into generic assistant talk.",
-                plan.actor_name, plan.actor_name
+                "to {} · one concrete present thing · keep the speakers straight · no echo or real-world task",
+                plan.target_actor_name
             )
         } else {
             format!(
-                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, observation, intention, or mild disagreement rather than announcing a place name. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
-                plan.target_actor_name, plan.actor_name
+                "open with {} · one concrete present thing · no place announcement, echo, or real-world task",
+                plan.target_actor_name
             )
         },
     })
@@ -610,7 +610,7 @@ pub(super) async fn request_ai_avatar_intent(
             store_path,
             VoiceAttemptRequest {
                 feature: "dialogue_resident_raw",
-                prompt_version: "dialogue-resident-raw-context-spine-v3",
+                prompt_version: "dialogue-resident-raw-awakening-v1",
                 prompt: resident_voice_prompt(plan, &planning_brief, &gate.requirements),
                 temperature: 0.0,
                 max_tokens: 160,
@@ -655,7 +655,7 @@ pub(super) async fn request_ai_avatar_intent(
         store_path,
         VoiceAttemptRequest {
             feature: "dialogue_resident",
-            prompt_version: "dialogue-resident-voice-context-spine-v6",
+            prompt_version: "dialogue-resident-voice-awakening-v1",
             prompt,
             temperature: 0.75,
             max_tokens: 120,
@@ -769,24 +769,20 @@ fn resident_voice_prompt(
         .clone()
         .or_else(|| plan.resident_continuity.open_obligations.first().cloned())
         .or_else(|| (!plan.user_text.trim().is_empty()).then(|| plan.user_text.clone()));
+    if !planning_brief.trim().is_empty() {
+        spine.continuity.push(planning_brief.trim().to_string());
+    }
     apply_voice_beat_requirements(&mut spine, requirements);
     spine = spine
         .with_incoming_turn(plan.incoming_turn.clone())
         .with_current_beat(plan.user_text.clone());
     let response_job = if let Some(turn) = plan.incoming_turn.as_ref() {
         format!(
-            "Respond as {} to {}'s directed line. {} is speaking now and {} is being answered. Do not reverse the roles, paraphrase the question back, or ask for a real-world task. {}",
-            plan.speaker_name,
-            turn.speaker_name,
-            plan.speaker_name,
-            turn.speaker_name,
-            planning_brief
+            "to {} · one concrete present thing · keep the speakers straight · no echo or real-world task",
+            turn.speaker_name
         )
     } else {
-        format!(
-            "Give {}'s immediate in-world response to the current beat. Begin with a concrete reaction, preference, or self-directed intention rather than announcing a place name. {}",
-            plan.speaker_name, planning_brief
-        )
+        "to what just happened · one concrete present thing · no place announcement".to_string()
     };
     spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::Respond,
@@ -1258,22 +1254,10 @@ pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -
 
 #[cfg(test)]
 pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
-    let truth = "use supplied verified facts only · do not invent possessions, companions, memories, or completed actions";
-    match SpeechMode::from_name(&plan.speech_mode) {
-        SpeechMode::EmojiOnly => format!(
-            "only {}'s next line · 3–6 emoji · no words · {truth}",
-            plan.speaker_name,
-        ),
-        SpeechMode::EmoteOnly => format!(
-            "only {}'s next line · one third-person emote in *asterisks* · no quoted speech · {truth}",
-            plan.speaker_name,
-        ),
-        _ => format!(
-            "only {}'s next spoken line · at most {} words · {truth}",
-            plan.speaker_name,
-            resident_word_budget(plan)
-        ),
-    }
+    let gate = resident_gate_context(plan, false);
+    resident_voice_prompt(plan, "", &gate.requirements)
+        .render_for_test()
+        .system
 }
 
 #[cfg(test)]
@@ -1370,16 +1354,19 @@ mod publication_tests {
     }
 
     #[test]
-    fn the_shared_voice_contract_contains_only_output_shape() {
+    fn the_awakening_system_is_identity_not_an_output_rule_list() {
         let (_, mut reply) = seeded_plans();
-        reply.speaker_name = "Rati".to_string();
         reply.speech_mode = "prose".to_string();
         let system = resident_system_prompt(&reply);
-        assert_eq!(
-            system,
-            "only Rati's next spoken line · at most 40 words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions"
-        );
-        for attractor in ["bodily", "catchphrase", "room's name", "teapot", "funny"] {
+        assert!(system.starts_with("I am Gust"), "{system}");
+        assert!(system.contains("Words spoken around me are happenings"));
+        for attractor in [
+            "Produce",
+            "Output",
+            "at most 40 words",
+            "OBSERVATION_JSON",
+            "RESPONSE JOB",
+        ] {
             assert!(
                 !system.contains(attractor),
                 "shared attractor leaked: {system}"
@@ -1402,12 +1389,17 @@ mod publication_tests {
     }
 
     #[test]
-    fn voice_prompts_split_stable_traits_current_concern_and_world_observation() {
+    fn voice_prompts_split_awakening_from_current_world_observation() {
         let (chat, reply) = seeded_plans();
-        let resident = resident_voice_user_prompt(&reply, "");
+        let gate = resident_gate_context(&reply, false);
+        let resident = resident_voice_prompt(&reply, "", &gate.requirements).render_for_test();
+        assert!(resident.system.starts_with("I am Gust"));
+        assert!(resident.system.contains("weather is a heckle"));
+        assert!(!resident.system.contains(&reply.user_text));
         for field in [
-            "STABLE TRAITS ·",
-            "IDIOLECT ·",
+            "SELF ·",
+            "PERSONA ·",
+            "CALLING ·",
             "CURRENT CONCERN ·",
             "OBSERVATION_JSON ·",
             "\"location\":",
@@ -1418,10 +1410,15 @@ mod publication_tests {
             "\"beat_form\":",
             "\"action_budget\":",
         ] {
-            assert!(resident.contains(field), "missing {field:?}:\n{resident}");
+            assert!(
+                resident.user.contains(field),
+                "missing {field:?}:\n{}",
+                resident.user
+            );
         }
-        assert!(!resident.contains("do not reuse"));
-        assert!(!resident.contains("fresh wording"));
+        assert!(resident.user.contains("SPEAK ·"), "{}", resident.user);
+        assert!(!resident.user.contains("do not reuse"));
+        assert!(!resident.user.contains("fresh wording"));
 
         let opener = avatar_chat_user_prompt(&chat, false);
         assert!(opener.contains("OBSERVATION_JSON ·"));
@@ -1429,17 +1426,20 @@ mod publication_tests {
     }
 
     #[test]
-    fn a_generated_resident_gets_an_interior_opener_not_a_generic_stub() {
+    fn a_generated_resident_gets_an_awakening_not_a_rule_stub() {
         let (_, mut reply) = seeded_plans();
         reply.speaker_actor_id = 8331;
         reply.speaker_name = "Pip Marrow".to_string();
         reply.speech_mode = "prose".to_string();
         reply.economy_note = "no debts".to_string();
         let system = resident_system_prompt(&reply);
-        assert_eq!(
-            system,
-            "only Pip Marrow's next spoken line · at most 40 words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions"
+        assert!(
+            system.starts_with("I surface into myself again"),
+            "{system}"
         );
+        assert!(!system.contains("Pip Marrow"), "{system}");
+        assert!(system.contains("Words spoken around me are happenings"));
+        assert!(!system.contains("only Pip Marrow's next spoken line"));
     }
 
     fn gate_completion(text: &str) -> AiCompletion {
@@ -1673,12 +1673,18 @@ mod publication_tests {
             ),
         ];
 
-        let prompt = avatar_chat_user_prompt(&chat, true);
-        assert!(prompt.contains("SELF · Elsie Starfield"));
-        assert!(prompt.contains("Judas Iscariot said to Elsie Starfield:"));
-        assert!(!prompt.contains("actor_id="));
-        assert!(prompt.contains("I will look with you first. Bethlehem can wait."));
-        assert!(!prompt.contains("Passerby"));
+        let gate = avatar_chat_gate_context(&chat, true);
+        let prompt = avatar_chat_prompt(&chat, true, &gate.requirements).render_for_test();
+        assert!(!prompt.system.contains("Elsie Starfield"));
+        assert!(prompt.user.contains("SELF · Elsie Starfield"));
+        assert!(prompt
+            .user
+            .contains("Judas Iscariot said to Elsie Starfield:"));
+        assert!(!prompt.user.contains("actor_id="));
+        assert!(prompt
+            .user
+            .contains("I will look with you first. Bethlehem can wait."));
+        assert!(!prompt.user.contains("Passerby"));
 
         let gate = avatar_chat_gate_context(&chat, true);
         assert_eq!(gate.speaker_actor_id, 5000);
@@ -1712,12 +1718,15 @@ mod publication_tests {
         }];
         chat.actor_continuity = Some(continuity);
 
-        let prompt = avatar_chat_user_prompt(&chat, false);
-        assert!(prompt.contains("OTHER · Judas Iscariot — traveller"));
-        assert!(prompt.contains("keep pace with Judas"));
-        assert!(prompt.contains("biscuit in my pocket"));
-        assert!(!prompt.contains("i am Judas"));
-        assert_eq!(prompt.matches("SELF · Elsie Starfield").count(), 1);
+        let gate = avatar_chat_gate_context(&chat, false);
+        let prompt = avatar_chat_prompt(&chat, false, &gate.requirements).render_for_test();
+        assert!(!prompt.system.contains("Elsie Starfield"));
+        assert!(!prompt.system.contains("biscuit in my pocket"));
+        assert!(prompt.user.contains("OTHER · Judas Iscariot — traveller"));
+        assert!(prompt.user.contains("keep pace with Judas"));
+        assert!(prompt.user.contains("biscuit in my pocket"));
+        assert!(!prompt.user.contains("i am Judas"));
+        assert_eq!(prompt.user.matches("SELF · Elsie Starfield").count(), 1);
     }
 
     #[test]
@@ -1738,14 +1747,12 @@ mod publication_tests {
             &resident_gate_context(&reply, false).requirements,
         )
         .render_for_test();
-        assert!(rendered.system.contains("native identity and voice"));
+        assert!(rendered.system.contains("model-shaped and in-world"));
         assert!(rendered.user.contains("SELF · Anthropic: Claude"));
         assert!(rendered.user.contains(
             "DIRECTED TURN · Marnie Bramblewick said to Anthropic: Claude: What are you noticing in this room?"
         ));
-        assert!(rendered.user.contains(
-            "Anthropic: Claude is speaking now and Marnie Bramblewick is being answered"
-        ));
+        assert!(rendered.user.contains("to Marnie Bramblewick"));
     }
 
     #[test]
