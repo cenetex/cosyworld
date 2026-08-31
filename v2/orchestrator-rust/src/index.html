@@ -8010,13 +8010,6 @@
         handCompositionSignature = nextHandCompositionSignature;
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
-      if (historyWasNeeded || locationChanged || timelineRewound
-          || pendingModelInteractionRehydrationRequired) {
-        const replay = recentEventsRequest
-          ? await recentEventsRequest
-          : await fetchRecentEvents();
-        rebuildLogFromAuthoritativeEvents(replay?.events || []);
-      }
       if (locationChanged) {
         handKeys = [];
         discardedHandKeys = [];
@@ -8026,7 +8019,6 @@
         focusIndex = 0;
         focusedKey = "";
         playerPromotedHandKey = "";
-        connectStream();
       }
       const isTired = actorIsTired(state);
       if (!isTired) recoveryPromptPending = false;
@@ -8042,6 +8034,20 @@
       restoreFocusedAction();
       render();
       syncOpenCardModal();
+      if (historyWasNeeded || locationChanged || timelineRewound
+          || pendingModelInteractionRehydrationRequired) {
+        try {
+          const replay = recentEventsRequest
+            ? await recentEventsRequest
+            : await fetchRecentEvents();
+          rebuildLogFromAuthoritativeEvents(replay?.events || []);
+          renderTimelines();
+          clearTransientStatus("history");
+        } catch {
+          setTransientStatus("history", "The room is ready. Its journal is still catching up.");
+        }
+      }
+      if (locationChanged) connectStream();
       if (recoveryRefreshAttemptId && attemptId >= recoveryRefreshAttemptId) {
         recoveryRefreshAttemptId = 0;
         clearTransientStatus("refresh");

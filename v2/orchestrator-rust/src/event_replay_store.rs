@@ -1,5 +1,7 @@
 use super::*;
 
+const EVENT_REPLAY_LOCATION_CHUNK_SIZE: usize = 400;
+
 pub(super) fn insert_world_events(conn: &Connection, events: &[EventView]) -> io::Result<()> {
     let mut stmt = conn
         .prepare(
@@ -93,29 +95,42 @@ pub(super) fn read_event_store_tail_for_locations(
     }
     init_event_store(path)?;
     let conn = open_event_store(path)?;
-    let mut stmt = conn
-        .prepare(
+    let mut events = BTreeMap::new();
+    let visible_locations = visible_locations.iter().copied().collect::<Vec<_>>();
+    for location_chunk in visible_locations.chunks(EVENT_REPLAY_LOCATION_CHUNK_SIZE) {
+        let location_parameters = (0..location_chunk.len())
+            .map(|index| format!("?{}", index + 4))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let limit_parameter = location_chunk.len() + 4;
+        let query = format!(
             "SELECT payload_json FROM world_events
              WHERE world_id = ?1 AND world_epoch = ?2
-               AND (location_id = ?3 OR destination_location_id = ?3)
-               AND seq <= ?4
+               AND seq <= ?3
+               AND (
+                 location_id IN ({location_parameters})
+                 OR destination_location_id IN ({location_parameters})
+               )
              ORDER BY seq DESC
-             LIMIT ?5",
-        )
-        .map_err(sqlite_error)?;
-    let mut events = BTreeMap::new();
-    for location_id in visible_locations {
+             LIMIT ?{limit_parameter}"
+        );
+        let mut parameters = Vec::with_capacity(location_chunk.len() + 4);
+        parameters.push(rusqlite::types::Value::Text(OFFICIAL_WORLD_ID.to_string()));
+        parameters.push(rusqlite::types::Value::Integer(OFFICIAL_WORLD_EPOCH as i64));
+        parameters.push(rusqlite::types::Value::Integer(through_seq as i64));
+        parameters.extend(
+            location_chunk
+                .iter()
+                .map(|location_id| rusqlite::types::Value::Integer(*location_id as i64)),
+        );
+        parameters.push(rusqlite::types::Value::Integer(
+            limit.min(MAX_EVENT_REPLAY_LIMIT) as i64,
+        ));
+        let mut stmt = conn.prepare(&query).map_err(sqlite_error)?;
         let rows = stmt
-            .query_map(
-                params![
-                    OFFICIAL_WORLD_ID,
-                    OFFICIAL_WORLD_EPOCH as i64,
-                    *location_id as i64,
-                    through_seq as i64,
-                    limit.min(MAX_EVENT_REPLAY_LIMIT) as i64
-                ],
-                |row| row.get::<_, String>(0),
-            )
+            .query_map(rusqlite::params_from_iter(parameters.iter()), |row| {
+                row.get::<_, String>(0)
+            })
             .map_err(sqlite_error)?;
         for row in rows {
             let payload = row.map_err(sqlite_error)?;
@@ -231,6 +246,58 @@ mod tests {
         assert_eq!(replay.len(), 1);
         assert_eq!(replay[0].content.as_deref(), Some("remember me"));
         assert_eq!(stored_through_seq, 42);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn large_visible_location_sets_return_one_global_tail_across_query_chunks() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-room-replay-many-locations-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let visible_locations = (1..=605).collect::<BTreeSet<_>>();
+        let mut events = (1..=25_000)
+            .map(|seq| EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                location_id: Some(((seq - 1) % 605) + 1),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .collect::<Vec<_>>();
+        events.push(EventView {
+            seq: 25_001,
+            type_name: "actor.moved".to_string(),
+            success: true,
+            location_id: Some(1),
+            destination_location_id: Some(605),
+            content: Some("crosses the query chunk boundary".to_string()),
+            ..EventView::default()
+        });
+        append_event_store(&path, &events).expect("persist events across many rooms");
+
+        let started = std::time::Instant::now();
+        let (replay, stored_through_seq) =
+            read_event_store_tail_for_locations(&path, &visible_locations, 25_001, 80)
+                .expect("read one bounded global tail");
+        let elapsed = started.elapsed();
+
+        assert_eq!(replay.len(), 80);
+        assert_eq!(replay.first().map(|event| event.seq), Some(24_922));
+        assert_eq!(replay.last().map(|event| event.seq), Some(25_001));
+        assert_eq!(
+            replay.iter().filter(|event| event.seq == 25_001).count(),
+            1,
+            "an event visible through both location columns remains unique"
+        );
+        assert_eq!(stored_through_seq, 25_001);
+        assert!(
+            elapsed < std::time::Duration::from_secs(2),
+            "a 605-location replay tail took {elapsed:?}"
+        );
         let _ = fs::remove_file(path);
     }
 }
