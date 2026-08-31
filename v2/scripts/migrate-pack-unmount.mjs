@@ -671,7 +671,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     migrated.deeds,
     (deed) => hasId(actorIds, deed.actor_id),
   );
-  for (const field of ["item_meta", "item_provenance"]) {
+  for (const field of ["item_meta", "item_provenance", "item_identity_reveals"]) {
     maps[field] = takeMapKeys(migrated[field], itemIds);
   }
   for (const field of [

@@ -8,7 +8,7 @@ const LOOT_ITEM_ID_BASE: u64 = 9_000_000_000;
 const LOOT_ITEM_ID_RANGE: u64 = 1_000_000_000;
 const MAX_LOOT_ITEMS_PER_COMPLETION: usize = 4;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct LootItemTemplateDefinition {
     pub(super) id: String,
     pub(super) name: String,
@@ -107,6 +107,18 @@ struct MountedLootTable {
     replay_version: String,
     table: LootTableDefinition,
     templates: BTreeMap<String, LootItemTemplateDefinition>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct LootIdentitySelection {
+    pub(super) table_id: String,
+    pub(super) table_version: u8,
+    pub(super) replay_version: String,
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) roll_seed: u64,
+    pub(super) roll_input: String,
+    pub(super) template: LootItemTemplateDefinition,
 }
 
 #[derive(Clone, Debug)]
@@ -260,6 +272,7 @@ fn loot_natural_resource(value: &str) -> Option<NaturalResourceKind> {
 
 pub(super) fn validate_seed_loot_tables(content: &SeedContent) -> Result<(), String> {
     let mut table_ids = BTreeSet::new();
+    let mut table_quantities = BTreeMap::new();
     for pack in &content.manifest.packs {
         let Some(catalog) = parse_loot_catalog(pack)? else {
             continue;
@@ -326,6 +339,7 @@ pub(super) fn validate_seed_loot_tables(content: &SeedContent) -> Result<(), Str
                     pack.id, table.id
                 ));
             }
+            table_quantities.insert(table.id.clone(), (table.quantity.min, table.quantity.max));
             let mut entry_templates = BTreeSet::new();
             for entry in &table.entries {
                 if entry.weight == 0
@@ -366,6 +380,24 @@ pub(super) fn validate_seed_loot_tables(content: &SeedContent) -> Result<(), Str
                     ));
                 }
             }
+        }
+    }
+
+    for item in &content.items {
+        let Some(table_id) = item.identity_table_id.as_deref() else {
+            continue;
+        };
+        if table_quantities.get(table_id) != Some(&(1, 1)) {
+            return Err(format!(
+                "item {} references missing or non-single-item identity loot table {table_id}",
+                item.id
+            ));
+        }
+        if item.mechanics.is_some() || !item.capabilities.is_empty() {
+            return Err(format!(
+                "unresolved identity item {} cannot declare mechanics or capabilities",
+                item.id
+            ));
         }
     }
 
@@ -423,6 +455,34 @@ fn mounted_loot_table(table_id: &str) -> Option<MountedLootTable> {
         }
     }
     None
+}
+
+pub(super) fn resolve_loot_identity(table_id: &str, item_id: u64) -> Option<LootIdentitySelection> {
+    let mounted = mounted_loot_table(table_id)?;
+    if mounted.table.quantity.min != 1 || mounted.table.quantity.max != 1 {
+        return None;
+    }
+    let roll_input = format!(
+        "item:{item_id}|table:{}@{}",
+        mounted.table.id, mounted.table.version
+    );
+    let roll_seed = stable_hash_u64(&[
+        "item-identity",
+        mounted.replay_version.as_str(),
+        roll_input.as_str(),
+    ]);
+    let entry = weighted_loot_entry(&mounted.table, roll_seed, 0)?;
+    let template = mounted.templates.get(&entry.template_id)?.clone();
+    Some(LootIdentitySelection {
+        table_id: mounted.table.id,
+        table_version: mounted.table.version,
+        replay_version: mounted.replay_version,
+        pack_id: mounted.pack_id,
+        pack_version: mounted.pack_version,
+        roll_seed,
+        roll_input,
+        template,
+    })
 }
 
 pub(super) fn mounted_loot_item_template(template_id: &str) -> Option<MountedLootItemTemplate> {

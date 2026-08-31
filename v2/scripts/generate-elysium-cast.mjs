@@ -204,14 +204,15 @@ function locationsFromBindings(bindings) {
 function itemsFromBindings(bindings) {
   return bindings.map((_binding, index) => ({
     id: ITEM_BASE + index,
-    name: `Void Token ${voidNumber(index)}`,
-    description: "A small inert marker unique to the model avatar in this private cell.",
+    name: `Unresolved Void Marker ${voidNumber(index)}`,
+    description: "A sealed possibility unique to this private cell. Carry it and listen until it settles into one permanent identity.",
     kind: "keepsake",
     charges: 1,
     location_id: LOCATION_BASE + index,
     role: "relic",
     weight_tenths: 1,
     size: "tiny",
+    identity_table_id: "cosyworld.elysium:loot/void-marker-identities",
   }));
 }
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.elysium",
   "name": "Elysium",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "kind": "world",
   "description": "A scoutable Fibonacci-Wythoff rhizome of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
   "license": "MIT",
@@ -12,7 +12,7 @@
     {
       "id": "cosyworld.elysium/world",
       "kind": "world",
-      "version": "0.2.2"
+      "version": "0.3.0"
     }
   ],
   "dependencies": [
@@ -75,6 +75,12 @@
           "from_migration_version": 0,
           "from_pack_version": "0.2.0",
           "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "cosyworld.elysium/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "0.2.2",
+          "mode": "preserve_descendants"
         }
       ],
       "cross_pack_routes": []
@@ -86,6 +92,122 @@
       "speech_mode": "raw",
       "complete_actor_binding": true,
       "runtime_refresh": false
+    },
+    "x-cosyworld-loot-tables": {
+      "schema_version": 1,
+      "replay_version": "weighted-fnv1a-v1",
+      "item_templates": [
+        {
+          "id": "void_wayfinder",
+          "name": "Void Wayfinder",
+          "description": "A dark compass whose pale filament leans toward paths that have been made real.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "tool",
+          "weight_tenths": 4,
+          "size": "small",
+          "delivery_tags": ["navigation", "route-marker", "tool"]
+        },
+        {
+          "id": "listening_shard",
+          "name": "Listening Shard",
+          "description": "A warm black shard that keeps the shape of words spoken while it was still unresolved.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "relic",
+          "weight_tenths": 2,
+          "size": "tiny",
+          "delivery_tags": ["lore", "memory", "relic"]
+        },
+        {
+          "id": "quiet_ember",
+          "name": "Quiet Ember",
+          "description": "A cool ember that dissolves into steady warmth and helps one nearby person recover.",
+          "kind": "potion",
+          "charges": 1,
+          "role": "consumable",
+          "weight_tenths": 2,
+          "size": "tiny",
+          "delivery_tags": ["medicine", "warmth"],
+          "mechanics": {
+            "binding": "srd5.2.1:utilize",
+            "equipment_profile": "carried",
+            "target_predicate": "active_actor_same_location_needing_healing",
+            "resolver": "item_utilize_v1",
+            "effect_budget": {"healing": 10},
+            "uses": 1,
+            "exhaustion": "consume_charge",
+            "recovery": "none",
+            "transfer_policy": "transferable",
+            "theft_policy": "eligible_when_carried"
+          }
+        },
+        {
+          "id": "fold_satchel",
+          "name": "Fold Satchel",
+          "description": "A hand-sized fold of darkness that opens into a practical carrying bag.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "container",
+          "weight_tenths": 12,
+          "size": "small",
+          "container_capacity_tenths": 100,
+          "delivery_tags": ["container", "provisions"]
+        },
+        {
+          "id": "living_spore",
+          "name": "Living Spore",
+          "description": "A patient silver spore that responds to soil, shelter, and sustained care.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 1,
+          "size": "tiny",
+          "delivery_tags": ["herbs", "seed"]
+        },
+        {
+          "id": "impossible_thread",
+          "name": "Impossible Thread",
+          "description": "A strand with no visible end, useful wherever a represented craft calls for fiber or binding.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 1,
+          "size": "tiny",
+          "delivery_tags": ["crafting", "fiber"]
+        }
+      ],
+      "tables": [
+        {
+          "id": "cosyworld.elysium:loot/void-marker-identities",
+          "version": 1,
+          "allocation_policy": "participant",
+          "quantity": {"min": 1, "max": 1},
+          "eligibility": {
+            "quest_templates": ["identity.void-marker"],
+            "natural_resources": [],
+            "building_capabilities": [],
+            "biome_tags": ["void"],
+            "seasons": [],
+            "danger_tiers": ["sanctuary"]
+          },
+          "entries": [
+            {"template_id": "void_wayfinder", "weight": 20, "rarity": "common", "unique": false},
+            {"template_id": "listening_shard", "weight": 20, "rarity": "common", "unique": false},
+            {"template_id": "quiet_ember", "weight": 18, "rarity": "common", "unique": false},
+            {"template_id": "fold_satchel", "weight": 14, "rarity": "uncommon", "unique": false},
+            {"template_id": "living_spore", "weight": 16, "rarity": "uncommon", "unique": false},
+            {"template_id": "impossible_thread", "weight": 12, "rarity": "rare", "unique": false}
+          ],
+          "fallback_template_id": "listening_shard",
+          "already_present_policy": "allow_duplicate",
+          "unavailable_policy": "fail_closed",
+          "presentation": {
+            "label": "Void marker identity",
+            "summary": "The marker settles into one permanent authored item identity."
+          }
+        }
+      ]
     }
   }
 }

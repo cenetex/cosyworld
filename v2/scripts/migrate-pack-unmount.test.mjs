@@ -90,6 +90,11 @@ test("pack migration still rejects other active actor jobs", () => {
 });
 
 test("soft unmount evacuates retained-pack items before a restorative remount", () => {
+  const frozenIdentity = {
+    item_id: 2110,
+    table_id: "ruby-high.first-bell:loot/test-identities",
+    template: { id: "test_identity" },
+  };
   const snapshot = {
     worldpack_bundle_hash: sourceRegistry.manifest.bundle_hash,
     rules_profile: sourceRegistry.manifest.rules_profile,
@@ -101,6 +106,7 @@ test("soft unmount evacuates retained-pack items before a restorative remount", 
     world_exits: [],
     world_evolution_tracks: [],
     world_combat_encounters: [],
+    item_identity_reveals: { 2110: frozenIdentity },
   };
 
   const unmounted = migratePackUnmount(
@@ -120,6 +126,12 @@ test("soft unmount evacuates retained-pack items before a restorative remount", 
     ].arrays.world_items.map((entry) => entry.value),
     [item(2110, 11)],
   );
+  assert.deepEqual(unmounted.snapshot.item_identity_reveals, {});
+  assert.deepEqual(
+    unmounted.snapshot.pack_mount_state.frozen["ruby-high.first-bell"].maps
+      .item_identity_reveals,
+    { 2110: frozenIdentity },
+  );
 
   const remounted = migratePackRemount(
     unmounted.snapshot,
@@ -136,6 +148,9 @@ test("soft unmount evacuates retained-pack items before a restorative remount", 
     remounted.snapshot.world_items.length,
     "remount must not collide with a newly materialized retained-pack identity",
   );
+  assert.deepEqual(remounted.snapshot.item_identity_reveals, {
+    2110: frozenIdentity,
+  });
 });
 
 test("soft unmount freezes deed records with their removed-pack actor index", () => {
