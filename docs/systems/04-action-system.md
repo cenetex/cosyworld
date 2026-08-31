@@ -331,7 +331,7 @@ These inputs produce two different outputs:
 | Output | Contract |
 | --- | --- |
 | Legal action set | Every currently legal rules action and operation. This is an internal authoritative superset, not a public traversal surface. |
-| Action hand | Exactly the current playable subset, with at most two entries. Absence from the hand means the action cannot be submitted until a later certified Think/Pass. |
+| Action hand | The current playable subset, with at most three entries: one Location, one Item, and one Avatar. The player may select one to three of them, but a play still resolves to one exact certified offer. Absence from the hand means the action cannot be submitted until a later certified Think. |
 
 Composition never moves a card between ownership zones. Entering a room can
 make an equipped charm relevant, make a carried key usable, expose a resident

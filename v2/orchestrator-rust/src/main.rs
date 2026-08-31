@@ -3049,6 +3049,7 @@ struct ActionHandEntryView {
     intention: String,
     provider: ActionProviderView,
     slot: String,
+    card_type: String,
     suit: String,
     verb: String,
     think: ActionHandPassView,
@@ -37241,8 +37242,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
         assert!(INDEX_HTML.contains("const pathwaySide = action.pathwayDirection?.side"));
-        assert!(INDEX_HTML
-            .contains("thumbnailHtml(action, false, \"action-mini-card\", pathwayBadgeHtml)"));
+        assert!(INDEX_HTML.contains("thumbnailHtml(displayAction"));
         assert!(INDEX_HTML.contains("pathway-side-badge"));
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
         assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-kicker\">"));
@@ -51308,7 +51308,7 @@ mod tests {
         let calling_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
         let repeated_calling_state =
             calling_runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(calling_state.action_hand.schema_version, 2);
+        assert_eq!(calling_state.action_hand.schema_version, 3);
         assert_eq!(calling_state.action_hand.capacity, 3);
         assert!(!calling_state.action_hand.entries.is_empty());
         assert!(calling_state.action_hand.entries.len() <= 3);

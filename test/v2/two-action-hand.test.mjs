@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("three-slot Story Hand", () => {
-  it("keeps Story, Self, and Anchor visible with inline Play and Discard", () => {
+  it("keeps Location, Item, and Avatar cards selectable with per-card Think", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -22,11 +22,12 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('id="tertiary"');
     expect(browser).not.toContain('id="shuffle"');
     expect(browser).not.toContain('data-player-concept="think"');
-    expect(browser).toContain('data-hand-play="primary"');
+    expect(browser).toContain('data-meld-select="primary"');
     expect(browser).toContain('data-hand-discard="primary"');
-    expect(browser).toContain('data-hand-play="secondary"');
+    expect(browser).toContain('data-meld-select="secondary"');
     expect(browser).toContain('data-hand-discard="tertiary"');
-    expect(browser).toContain("function playStoryHandCard(id)");
+    expect(browser).toContain("function selectStoryHandCardForMeld(id)");
+    expect(browser).toContain("function playSceneMeld()");
     expect(browser).toContain("async function discardStoryHandCard(id)");
     expect(browser).toContain('prompt.classList.toggle("hand-expanded", expanded);');
     expect(browser).not.toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
@@ -45,7 +46,7 @@ describe("three-slot Story Hand", () => {
     expect(browser).not.toContain("advanceHandPage");
     expect(browser).not.toContain("drawNextHandCard");
     expect(browser).toContain('event.type === "hand.thought"');
-    expect(browser).toContain('Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card');
+    expect(browser).toContain('Think past this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return state\?\.branch \? 2 : Number\(state\?\.action_hand\?\.capacity \|\| 3\);\s+\}/);
   });
 
@@ -55,18 +56,37 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('No attack is made yet; ordinary advancement pauses while combat is active.');
   });
 
-  it("shows discard cost and shares one expandable turn log", () => {
+  it("shows Think cost and shares one expandable turn log", () => {
     expect(browser).toContain('id="turn-rope-toggle"');
     expect(browser).toContain('id="turn-log"');
     expect(browser).not.toContain('id="combat-dock"');
-    expect(browser).toContain('think?.available ? `Discard · ${discardCost}` : "Discard"');
-    expect(browser).toContain('discardCertificate.free ? "discard · free" : "discard · turn"');
+    expect(browser).toContain('think?.available ? `Think · ${discardCost}` : "Think"');
+    expect(browser).toContain('discardCertificate.free ? "think · free" : "think · turn"');
     expect(browser).toContain('const spendsTurn = think.consumes_turn === true || think.free === false;');
     expect(browser).toContain('if (spendsTurn) holdStoryHandForAction(focused, { kind: "discard" });');
     expect(browser).toContain('function turnEventsForPresentation(events, view = state)');
     expect(browser).toContain('if (view?.combat) return combatEventsForPresentation(events);');
     expect(browser).toContain('const canReviewLatestTurn = Boolean(actorId && view?.turn?.enabled && latestBeat);');
     expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
+  });
+
+  it("builds a one-to-three-card meld and only resolves exact certified verbs", () => {
+    expect(browser).toContain('id="scene-meld"');
+    expect(browser).toContain('data-meld-approach="head"');
+    expect(browser).toContain('data-meld-approach="heart"');
+    expect(browser).toContain('data-meld-approach="hustle"');
+    expect(browser).toContain('data-meld-approach="honor"');
+    expect(browser).toContain("function sceneMeldOffer(action)");
+    expect(browser).toContain("function sceneMeldActionBindingKeys(action)");
+    expect(browser).toContain("const requiredBindings = new Set(selected.map(sceneMeldEntityKey));");
+    expect(browser).toContain("return [...requiredBindings].every((binding) => bindings.has(binding));");
+    expect(browser).toContain("availableApproaches.size === 1");
+    expect(browser).toContain("candidates.length === 1 ? candidates[0] : null");
+    expect(browser).toContain("sceneMeldKeys = [...sceneMeldKeys, key];");
+    expect(browser).toContain("sceneMeldKeys = sceneMeldKeys.filter");
+    expect(browser).toContain("const nounOrder = { location: 0, avatar: 1, item: 2 };");
+    expect(browser).toContain("const action = originalStoryHandAction(resolution.chosenVerb);");
+    expect(browser).toContain("void runAction(action);");
   });
 
   it("shows each action result once without a second narration panel", () => {
@@ -151,8 +171,9 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('honor: "🛡️"');
     expect(browser).toContain('hustle: "🛠️"');
     expect(cardRenderBlock).toContain("const suitEmoji = actionCardSuitEmoji(suit);");
-    expect(cardRenderBlock).toContain('suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb');
-    expect(cardRenderBlock).not.toContain('suit ? `${suit} · ${exactVerb}` : exactVerb');
+    expect(cardRenderBlock).toContain('suitEmoji ? `${suitEmoji} ${exactVerb}` : exactVerb');
+    expect(cardRenderBlock).not.toContain('suit ? `${suit} ${exactVerb}` : exactVerb');
+    expect(cardRenderBlock).toContain("const sceneCardLabel = sceneMeldCardTypeLabel(action);");
     expect(cardRenderBlock).toContain('suit ? `${suit} suit` : "control"');
   });
 
