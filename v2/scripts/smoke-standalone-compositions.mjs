@@ -734,9 +734,9 @@ async function commitReplayMarker(baseUrl, actorId, actorSession) {
   ) {
     return passCurrentHand(baseUrl, actorId, actorSession);
   }
-  const dealtIds = new Set((state.action_hand?.entries || []).flatMap((entry) => (
-    entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
-  )));
+  const dealtIds = new Set(
+    (state.action_hand?.entries || []).flatMap((entry) => entry.offer_ids || []),
+  );
   const offer = (state.action_offers || []).find((candidate) => (
     !candidate.disabled && dealtIds.has(candidate.offer_id)
   ));
@@ -786,26 +786,28 @@ function assertLanternSuggestions(state, label) {
     candidate.id === "lantern-keeper:rekindle-the-beacon");
   assert(question, `${label} lost the Lantern Keeper shared question`);
   if (question.presentation_state !== "active") return;
-  const handEntries = state.action_hand?.entries || [];
-  const dealtOfferIds = new Set(handEntries.flatMap((entry) => entry.offer_ids || []));
-  const suggestions = (state.action_offers || []).filter((suggestion) => (
-    dealtOfferIds.has(suggestion.offer_id)
-  ));
+  const suggestions = state.action_offers || [];
+  const nounCards = state.action_hand?.entries || [];
+  const dealtOfferIds = new Set(
+    nounCards.flatMap((entry) => entry.offer_ids || []),
+  );
   assert(
-    Number(state.action_hand?.capacity) === 3
-      && handEntries.length === 3
-      && handEntries.every((entry) => entry.card_id && entry.label && entry.offer_ids?.length)
-      && suggestions.length >= 3
+    nounCards.length === 3
+      && nounCards.every((entry) =>
+        ["location", "avatar", "item"].includes(entry.card_type)
+          && (entry.offer_ids || []).length > 0)
+      && suggestions.length >= nounCards.length
       && suggestions.every((suggestion) =>
         suggestion.offer_id
+          && dealtOfferIds.has(suggestion.offer_id)
           && suggestion.accessible_label
           && (suggestion.target?.label || suggestion.project?.label || state.location?.name)
           && suggestion.provider?.id
           && suggestion.effect)
       && Number.isFinite(Number(question.filled))
       && Number.isFinite(Number(question.danger_filled)),
-    `${label} did not expose three noun cards with accessible truthful actions: ${JSON.stringify({
-      hand: state.action_hand,
+    `${label} did not expose three noun cards with accessible truthful resolutions: ${JSON.stringify({
+      nounCards,
       suggestions,
       question,
     })}`,
@@ -815,9 +817,8 @@ function assertLanternSuggestions(state, label) {
 function firstTaleAdvancingOffer(state, label) {
   const offerId = state.first_tale?.advancing_offer_id
     ?? state.first_tale?.continuation?.advancing_offer_id;
-  const handMatches = state.action_hand?.entries?.filter((entry) => (
-    entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
-  ).includes(offerId)) ?? [];
+  const handMatches = state.action_hand?.entries?.filter((entry) =>
+    (entry.offer_ids || []).includes(offerId)) ?? [];
   const offer = state.action_offers?.find((candidate) => candidate.offer_id === offerId);
   assert(
     typeof offerId === "string" && offerId && handMatches.length === 1 && offer,

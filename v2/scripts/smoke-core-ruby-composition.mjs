@@ -423,9 +423,9 @@ async function drawExactOffer(
   const desiredOffer = state.__inspection?.actions?.find(predicate);
   const desiredSlot = desiredOffer ? storyHandSlotForOffer(desiredOffer) : "";
   for (let attempt = 0; attempt <= boundedThinks; attempt += 1) {
-    const dealtIds = new Set((state.action_hand?.entries || []).flatMap((entry) => (
-      entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
-    )));
+    const dealtIds = new Set(
+      (state.action_hand?.entries || []).flatMap((entry) => entry.offer_ids || []),
+    );
     const offer = (state.action_offers || []).find((candidate) =>
       dealtIds.has(candidate.offer_id) && predicate(candidate));
     if (offer) return offer;
@@ -465,9 +465,8 @@ async function completeFirstTale(baseUrl, actorId, actorSession) {
   let state = await waitForActorTurn(baseUrl, actorId, actorSession, "first tale");
   for (let step = 0; step < 16 && state.first_tale?.phase !== "complete"; step += 1) {
     const offerId = state.first_tale?.advancing_offer_id;
-    const handMatches = (state.action_hand?.entries || []).filter((entry) => (
-      entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
-    ).includes(offerId));
+    const handMatches = (state.action_hand?.entries || []).filter((entry) =>
+      (entry.offer_ids || []).includes(offerId));
     const offer = (state.action_offers || []).find((candidate) =>
       candidate.offer_id === offerId);
     assert(
