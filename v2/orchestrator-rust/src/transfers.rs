@@ -975,20 +975,25 @@ mod tests {
         }));
         let action_hand = compose_action_hand(&direct_offers);
         assert!(
-            action_hand.entries.iter().all(|entry| direct_offers
+            action_hand
+                .entries
                 .iter()
-                .any(|offer| offer.offer_id == entry.offer_id)),
-            "every dealt transfer card must retain its exact offer binding"
+                .all(|entry| entry.offer_ids.iter().all(|offer_id| {
+                    direct_offers
+                        .iter()
+                        .any(|offer| offer.offer_id == *offer_id)
+                })),
+            "every transfer noun must retain all of its exact offer bindings"
         );
         assert_eq!(
             action_hand
                 .entries
                 .iter()
-                .map(|entry| &entry.offer_id)
+                .map(|entry| &entry.card_id)
                 .collect::<BTreeSet<_>>()
                 .len(),
             action_hand.entries.len(),
-            "the Story Hand cannot collapse or duplicate exact transfer offers"
+            "the Story Hand cannot duplicate noun cards"
         );
 
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;

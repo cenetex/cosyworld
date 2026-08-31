@@ -897,7 +897,7 @@ impl RuntimeWorld {
                     && hand
                         .entries
                         .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
+                        .any(|entry| entry.offer_ids.contains(&offer.offer_id))
             })?
             .clone();
         let frozen = plan
@@ -2441,7 +2441,16 @@ mod tests {
             ))
             .collect::<Vec<_>>();
         assert_eq!(runtime.resident_planner_candidates(RATI_ACTOR_ID), expected);
-        assert!(expected.len() <= hand.entries.len() + 1);
+        assert!(
+            expected.len()
+                <= hand
+                    .entries
+                    .iter()
+                    .flat_map(|entry| entry.offer_ids.iter())
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    + 1
+        );
         assert!(expected.iter().any(|candidate| {
             candidate.kind == "pass"
                 && candidate.candidate_id == hand.pass.offer_id

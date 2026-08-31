@@ -1,6 +1,55 @@
 use super::*;
 use serde::ser::SerializeStruct;
 
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub(super) struct ActionHandView {
+    pub(super) schema_version: u8,
+    pub(super) capacity: u8,
+    pub(super) deck_size: u16,
+    pub(super) draw_available: bool,
+    pub(super) generation: u64,
+    pub(super) pass: ActionHandPassView,
+    pub(super) entries: Vec<ActionHandEntryView>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub(super) struct ActionHandPassView {
+    pub(super) offer_id: String,
+    pub(super) label: String,
+    pub(super) state_revision: u64,
+    pub(super) generation: u64,
+    pub(super) scene_key: String,
+    pub(super) slot: String,
+    pub(super) replaces_offer_id: String,
+    pub(super) free: bool,
+    pub(super) consumes_turn: bool,
+    pub(super) available: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub(super) struct ActionHandEntryView {
+    pub(super) card_id: String,
+    pub(super) entity_kind: String,
+    pub(super) entity_id: u64,
+    pub(super) label: String,
+    pub(super) offer_ids: Vec<String>,
+    // The first exact action remains an internal representative for resident
+    // planning and older command paths. It is not the noun card's identity.
+    pub(super) offer_id: String,
+    pub(super) kind: String,
+    pub(super) intention: String,
+    pub(super) provider: ActionProviderView,
+    pub(super) slot: String,
+    pub(super) card_type: String,
+    pub(super) suit: String,
+    pub(super) verb: String,
+    pub(super) think: ActionHandPassView,
+    pub(super) replacement_count: u16,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct AccountView {
     pub(super) linked_wallet_address: Option<String>,

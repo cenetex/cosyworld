@@ -3,11 +3,11 @@ use super::*;
 pub(super) fn hand_reaches(
     runtime: &mut RuntimeWorld,
     actor_id: u64,
-    predicate: impl Fn(&ActionHandEntryView) -> bool,
+    predicate: impl Fn(&RankedActionOffer) -> bool,
 ) -> bool {
     let rotations = runtime
-        .state_response(Some(actor_id), &AccessContext::default())
-        .action_offers
+        .legal_action_candidates(Some(actor_id), &AccessContext::default())
+        .1
         .len()
         .max(1);
     (0..rotations).any(|generation| {
@@ -16,8 +16,7 @@ pub(super) fn hand_reaches(
             .insert(actor_id, u64::try_from(generation).unwrap());
         runtime
             .state_response(Some(actor_id), &AccessContext::default())
-            .action_hand
-            .entries
+            .action_offers
             .iter()
             .any(&predicate)
     })
@@ -72,6 +71,7 @@ fn submission_for_offer(
         route: offer.route.clone(),
         target: offer.target.clone(),
         cost: offer.cost.clone(),
+        selected_card_ids: Vec::new(),
         payload,
     }
 }
@@ -93,6 +93,7 @@ fn compact_submission_for_offer(
         route: None,
         target: None,
         cost: None,
+        selected_card_ids: Vec::new(),
         payload,
     }
 }
@@ -665,6 +666,7 @@ async fn assert_submit_rejection_preserves_runtime(
     case: &str,
     must_be_dealt: bool,
 ) {
+    let mut selected_card_ids = Vec::new();
     if must_be_dealt {
         let actor_id = payload
             .get("actor_id")
@@ -696,9 +698,31 @@ async fn assert_submit_rejection_preserves_runtime(
         assert!(
             hand.entries
                 .iter()
-                .any(|entry| entry.offer_id == offer.offer_id),
-            "{case}: certificate is not in the current hand"
+                .any(|entry| entry.offer_ids.contains(&offer.offer_id)),
+            "{case}: certificate {} ({}) is not in the current hand: {:?}",
+            offer.offer_id,
+            offer.kind,
+            hand.entries
+                .iter()
+                .map(|entry| (&entry.card_id, &entry.offer_ids))
+                .collect::<Vec<_>>()
         );
+        for mask in 1usize..(1usize << hand.entries.len()) {
+            let selected = hand
+                .entries
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| mask & (1usize << index) != 0)
+                .map(|(_, entry)| entry.card_id.clone())
+                .collect::<Vec<_>>();
+            if runtime
+                .resolved_story_hand_offer(actor_id, &offers, &selected)
+                .is_some_and(|resolved| resolved.offer_id == offer.offer_id)
+            {
+                selected_card_ids = selected;
+                break;
+            }
+        }
     }
     let (before_snapshot, before_events) = {
         let runtime = state.inner.lock().await;
@@ -709,10 +733,12 @@ async fn assert_submit_rejection_preserves_runtime(
                 .expect("serialize event log before rejected offer submit"),
         )
     };
+    let mut submission = submission_for_offer(offer, path, payload);
+    submission.selected_card_ids = selected_card_ids;
     let response = submit_action_offer(
         ConnectInfo("127.0.0.1:44271".parse().expect("client address")),
         State(state.clone()),
-        Json(submission_for_offer(offer, path, payload)),
+        Json(submission),
     )
     .await
     .0;
@@ -873,6 +899,11 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
         }
     }
     let mut item_use_runtime = use_runtime.clone();
+    item_use_runtime.world.actors[..item_use_runtime.world.actor_count]
+        .iter_mut()
+        .find(|actor| actor.id == actor_id)
+        .expect("test actor exists")
+        .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
     let item_use_offer = item_use_runtime
         .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
             offer.kind == "use_item"
@@ -1015,6 +1046,13 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
         .or_default()
         .control_mode = ActorControlMode::DirectInput;
     let mut gift_runtime = transfer_runtime.clone();
+    for item in &mut gift_runtime.world.items[..gift_runtime.world.item_count] {
+        if item.id == WATCH_BELL_ITEM_ID {
+            item.holder_actor_id = 0;
+            item.location_id = 0;
+            item.zone = CW_CARD_ZONE_HIDDEN;
+        }
+    }
     let gift_offer = gift_runtime
         .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
             offer.kind == "give_item"
@@ -1092,7 +1130,7 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
             offer.project.is_some()
                 && matches!(
                     offer.kind.as_str(),
-                    "check" | "study" | "work" | "help" | "use_item"
+                    "prepare" | "check" | "study" | "work" | "help" | "use_item"
                 )
         })
         .expect("a project contribution card is dealt");
@@ -1101,6 +1139,7 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
         .as_ref()
         .expect("contribution offer has an exact project binding");
     let contribution_path = match contribution_offer.kind.as_str() {
+        "prepare" => "/actions/prepare",
         "work" => "/actions/work",
         "help" => "/actions/help",
         "study" => "/actions/study",
@@ -1109,17 +1148,28 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     };
     let contribution_state = test_app_state(contribution_runtime, None);
     let (contribution_session, _) = issue_actor_session(&contribution_state, actor_id);
+    let mut contribution_payload = serde_json::json!({
+        "actor_id": actor_id,
+        "actor_session": contribution_session,
+        "job_id": project.id,
+    });
+    let mut contribution_fields = vec!["job_id"];
+    if let Some(strategy_id) = &project.strategy_id {
+        contribution_payload
+            .as_object_mut()
+            .expect("contribution payload is an object")
+            .insert(
+                "strategy_id".to_string(),
+                serde_json::Value::String(strategy_id.clone()),
+            );
+        contribution_fields.push("strategy_id");
+    }
     assert_missing_and_wrong_fields_reject_without_mutation(
         &contribution_state,
         &contribution_offer,
         contribution_path,
-        &serde_json::json!({
-            "actor_id": actor_id,
-            "actor_session": contribution_session,
-            "job_id": project.id,
-            "strategy_id": project.strategy_id.clone().expect("project strategy id"),
-        }),
-        &["job_id", "strategy_id"],
+        &contribution_payload,
+        &contribution_fields,
         "project contribution",
     )
     .await;
@@ -1265,20 +1315,25 @@ fn pickup_and_drop_offers_bind_exact_items_for_every_controller() {
         serde_json::to_value(&drop_offers).expect("direct drop offers serialize"),
         "controller mode cannot change drop enumeration or targets"
     );
+    runtime.world.actors[..runtime.world.actor_count]
+        .iter_mut()
+        .find(|actor| actor.id == 5000)
+        .expect("test actor exists")
+        .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
 
     let drop_offer = runtime
         .draw_until_test_offer(5000, &AccessContext::default(), |candidate| {
             candidate.kind == "drop_item"
                 && candidate.target.as_ref().and_then(|target| target.id)
-                    == Some(STORY_BUTTON_ITEM_ID)
+                    == Some(HEARTH_TONIC_ITEM_ID)
         })
-        .expect("the Story Button drop card is dealt before LocalAI validates it");
+        .expect("the Hearth Tonic noun resolves to Drop before LocalAI validates it");
     let drop_action = runtime
         .plan_item_offer_action(5000, &drop_offer, 0)
         .expect("the exact drop offer plans");
     let exact_proposal = AvatarProposedAction {
         kind: "drop".to_string(),
-        item_id: Some(STORY_BUTTON_ITEM_ID),
+        item_id: Some(HEARTH_TONIC_ITEM_ID),
         ..AvatarProposedAction::default()
     };
     assert!(runtime.resident_proposed_action_matches_legal_offer(
@@ -1287,7 +1342,7 @@ fn pickup_and_drop_offers_bind_exact_items_for_every_controller() {
         &drop_action
     ));
     let forged_proposal = AvatarProposedAction {
-        item_id: Some(2001),
+        item_id: Some(STORY_BUTTON_ITEM_ID),
         ..exact_proposal.clone()
     };
     assert!(!runtime.resident_proposed_action_matches_legal_offer(
@@ -2231,12 +2286,28 @@ fn public_state_keeps_the_action_hand_bounded() {
         state.get("recent_events").is_none(),
         "bounded event history belongs to /events, not the current-state payload"
     );
-    assert!(state["action_offers"]
-        .as_array()
-        .is_some_and(|offers| offers.len() <= 3));
     assert!(state["action_hand"]["entries"]
         .as_array()
         .is_some_and(|entries| entries.len() <= 3));
+    let visible_offer_ids = state["action_offers"]
+        .as_array()
+        .expect("visible exact resolutions")
+        .iter()
+        .filter_map(|offer| offer["offer_id"].as_str())
+        .collect::<BTreeSet<_>>();
+    let noun_offer_ids = state["action_hand"]["entries"]
+        .as_array()
+        .expect("noun cards")
+        .iter()
+        .flat_map(|entry| {
+            entry["offer_ids"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(serde_json::Value::as_str)
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(visible_offer_ids, noun_offer_ids);
     assert_eq!(state["journal"]["protocol"], "cosyworld.daily-journal.v1");
     assert!(state["journal"]["pages"]
         .as_array()
@@ -2587,7 +2658,7 @@ fn story_hand_deals_at_most_one_item_location_and_avatar() {
     );
 
     let hand = compose_story_hand_at(&candidates, [0; 3]);
-    assert_eq!(hand.schema_version, 3);
+    assert_eq!(hand.schema_version, 4);
     assert_eq!(
         hand.entries
             .iter()
@@ -2616,7 +2687,7 @@ fn story_hand_deals_at_most_one_item_location_and_avatar() {
 }
 
 #[test]
-fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
+fn direct_chat_card_binds_one_exact_avatar_without_a_chooser() {
     let actor_id = 5_000;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
@@ -2657,6 +2728,16 @@ fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
         .find(|offer| offer.kind == "chat")
         .cloned()
         .expect("Chat is an eligible avatar offer");
+    let offered_target_name = chat_offer
+        .target
+        .as_ref()
+        .and_then(|target| target.label.as_deref())
+        .expect("Chat has one exact avatar label");
+    assert_eq!(
+        chat_offer.accessible_label,
+        format!("Chat with {offered_target_name}"),
+        "Chat is authored as one exact sentence, never a generic action"
+    );
     let avatar_slot = story_hand_natural_slot(&chat_offer);
     let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
     let chat_was_dealt = (0..offers.len()).any(|generation| {
@@ -2674,7 +2755,7 @@ fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
             .action_hand_for(Some(actor_id), &offers)
             .entries
             .iter()
-            .any(|entry| entry.offer_id == chat_offer.offer_id)
+            .any(|entry| entry.offer_ids.contains(&chat_offer.offer_id))
     });
     assert!(chat_was_dealt, "the avatar slot rotates to Chat");
     let selected_target_id = inference_actor_ids[1];
@@ -2686,7 +2767,18 @@ fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
     assert!(runtime
         .avatar_chat_plan_for(actor_id, selected_target_id)
         .is_some());
-    let submission = compact_submission_for_offer(
+    let chat_card = runtime
+        .action_hand_for(Some(actor_id), &offers)
+        .entries
+        .into_iter()
+        .find(|entry| entry.offer_ids.contains(&chat_offer.offer_id))
+        .expect("the dealt avatar noun owns the exact Chat offer");
+    assert_eq!(chat_card.entity_kind, "actor");
+    assert_eq!(
+        Some(chat_card.entity_id),
+        chat_offer.target.as_ref().and_then(|target| target.id)
+    );
+    let mut wrong_target_submission = compact_submission_for_offer(
         &chat_offer,
         "/actions/chat",
         serde_json::json!({
@@ -2694,6 +2786,7 @@ fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
             "target_actor_id": selected_target_id,
         }),
     );
+    wrong_target_submission.selected_card_ids = vec![chat_card.card_id.clone()];
     let (mut validation_primary_action, mut validation_offers) =
         runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
     retain_configured_model_interaction_offers(
@@ -2707,17 +2800,119 @@ fn direct_chat_card_certifies_the_eligible_avatar_chooser() {
             .any(|offer| offer.offer_id == chat_offer.offer_id),
         "the selected Chat certificate remains in the current offer set"
     );
+    assert!(
+        runtime
+            .validate_action_offer_submission_with_presence(
+                actor_id,
+                &AccessContext::default(),
+                &wrong_target_submission,
+                None,
+                Some(&ai_config),
+            )
+            .is_err(),
+        "an exact avatar noun never widens into a generic nearby-avatar chooser"
+    );
+    let offered_target_id = chat_offer
+        .target
+        .as_ref()
+        .and_then(|target| target.id)
+        .expect("Chat has one exact avatar target");
+    let mut exact_submission = compact_submission_for_offer(
+        &chat_offer,
+        "/actions/chat",
+        serde_json::json!({
+            "actor_id": actor_id,
+            "target_actor_id": offered_target_id,
+        }),
+    );
+    exact_submission.selected_card_ids = vec![chat_card.card_id];
     assert_eq!(
         runtime.validate_action_offer_submission_with_presence(
             actor_id,
             &AccessContext::default(),
-            &submission,
+            &exact_submission,
             None,
             Some(&ai_config),
         ),
-        Ok(()),
-        "the one dealt avatar card certifies any currently eligible selected resident"
+        Ok(())
     );
+}
+
+#[test]
+fn item_and_avatar_nouns_resolve_to_one_exact_give_action() {
+    let actor_id = 5_000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Noun Meld Witness",
+    );
+    complete_guided_story_for_test(&mut runtime, actor_id);
+    for item in &mut runtime.world.items[..runtime.world.item_count] {
+        if item.id == HEARTH_TONIC_ITEM_ID {
+            item.location_id = 0;
+            item.holder_actor_id = actor_id;
+            item.zone = CW_CARD_ZONE_CARRIED;
+            item.container_item_id = 0;
+        }
+    }
+    let (_, offers) = runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    let give_offer = offers
+        .iter()
+        .find(|offer| {
+            offer.kind == "give_item"
+                && offer
+                    .source_collectible
+                    .as_ref()
+                    .is_some_and(|source| source.instance_id == HEARTH_TONIC_ITEM_ID)
+        })
+        .cloned()
+        .expect("the carried item has a legal exact Give action");
+    let target_actor_id = give_offer
+        .target
+        .as_ref()
+        .and_then(|target| target.id)
+        .expect("Give binds one avatar");
+    let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
+    let mut selected_cards = None;
+    'draws: for item_generation in 0..offers.len() {
+        for avatar_generation in 0..offers.len() {
+            runtime.story_hand_states.insert(
+                actor_id,
+                StoryHandActorState {
+                    scene_key: scene_key.clone(),
+                    slot_generations: [0, item_generation as u64, avatar_generation as u64],
+                    free_think_used: false,
+                },
+            );
+            let hand = runtime.action_hand_for(Some(actor_id), &offers);
+            let item_card = hand.entries.iter().find(|entry| {
+                entry.entity_kind == "item" && entry.entity_id == HEARTH_TONIC_ITEM_ID
+            });
+            let avatar_card = hand
+                .entries
+                .iter()
+                .find(|entry| entry.entity_kind == "actor" && entry.entity_id == target_actor_id);
+            if let (Some(item_card), Some(avatar_card)) = (item_card, avatar_card) {
+                selected_cards = Some((item_card.card_id.clone(), avatar_card.card_id.clone()));
+                break 'draws;
+            }
+        }
+    }
+    let (item_card_id, avatar_card_id) =
+        selected_cards.expect("Think can deal the item and its target avatar together");
+    assert_ne!(
+        runtime
+            .resolved_story_hand_offer(actor_id, &offers, std::slice::from_ref(&item_card_id))
+            .map(|offer| offer.kind.as_str()),
+        Some("give_item"),
+        "an item alone cannot silently choose another avatar"
+    );
+    let resolved = runtime
+        .resolved_story_hand_offer(actor_id, &offers, &[item_card_id, avatar_card_id])
+        .expect("the two nouns make one legal play");
+    assert_eq!(resolved.offer_id, give_offer.offer_id);
 }
 
 #[test]
@@ -2890,7 +3085,7 @@ fn resident_inference_rejects_legal_off_hand_actions_and_traces_only_its_hand() 
                 && !hand
                     .entries
                     .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id)
+                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
         })
         .expect("one of the four legal pickup offers must be outside the Story Hand");
     let item_id = off_hand
@@ -2928,7 +3123,7 @@ fn resident_inference_rejects_legal_off_hand_actions_and_traces_only_its_hand() 
         record: JournalRecord::new(action, 93_002),
     });
     let expected_offer_ids = runtime
-        .current_action_hand_offers(actor_id, &offers)
+        .planner_action_offers(actor_id, &offers, true)
         .into_iter()
         .map(|offer| offer.offer_id.as_str())
         .collect::<Vec<_>>();

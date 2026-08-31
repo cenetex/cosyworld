@@ -245,7 +245,7 @@ impl Serialize for ActionHandView {
         let mut out = serializer.serialize_struct("ActionHandView", 7)?;
         out.serialize_field("schema_version", &self.schema_version)?;
         out.serialize_field("capacity", &self.capacity)?;
-        out.serialize_field("offer_queue_size", &self.deck_size)?;
+        out.serialize_field("noun_queue_size", &self.deck_size)?;
         out.serialize_field("think_available", &self.draw_available)?;
         out.serialize_field("generation", &self.generation)?;
         out.serialize_field("pass", &self.pass)?;
@@ -279,29 +279,16 @@ impl Serialize for ActionHandEntryView {
     where
         S: serde::Serializer,
     {
-        #[derive(Serialize)]
-        struct ProviderIdentity<'a> {
-            kind: &'a str,
-            id: &'a str,
-        }
-
-        let mut out = serializer.serialize_struct("ActionHandEntryView", 10)?;
-        out.serialize_field("offer_id", &self.offer_id)?;
-        out.serialize_field("kind", &self.kind)?;
-        out.serialize_field("intention", &self.intention)?;
+        let mut out = serializer.serialize_struct("ActionHandEntryView", 9)?;
+        out.serialize_field("card_id", &self.card_id)?;
         out.serialize_field("slot", &self.slot)?;
         out.serialize_field("card_type", &self.card_type)?;
-        out.serialize_field("suit", &self.suit)?;
-        out.serialize_field("verb", &self.verb)?;
+        out.serialize_field("entity_kind", &self.entity_kind)?;
+        out.serialize_field("entity_id", &self.entity_id)?;
+        out.serialize_field("label", &self.label)?;
+        out.serialize_field("offer_ids", &self.offer_ids)?;
         out.serialize_field("think", &self.think)?;
         out.serialize_field("replacement_count", &self.replacement_count)?;
-        out.serialize_field(
-            "provider",
-            &ProviderIdentity {
-                kind: self.provider.kind.as_str(),
-                id: self.provider.id.as_str(),
-            },
-        )?;
         out.end()
     }
 }
@@ -2706,7 +2693,7 @@ pub(super) fn assert_complete_offer_inspector(state: &StateResponse) {
         .action_hand
         .entries
         .iter()
-        .map(|entry| entry.offer_id.as_str())
+        .flat_map(|entry| entry.offer_ids.iter().map(String::as_str))
         .collect::<BTreeSet<_>>();
     for (offer, action) in state.action_offers.iter().zip(&state.inspector.actions) {
         assert_eq!(action.offer_id, offer.offer_id);
@@ -2857,7 +2844,9 @@ impl RuntimeWorld {
             .0
             .filter(|offer_id| {
                 action_hand.is_some_and(|hand| {
-                    hand.entries.iter().any(|entry| entry.offer_id == *offer_id)
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_ids.contains(offer_id))
                 })
             });
         let required_location_id = match stage {
@@ -4026,15 +4015,15 @@ impl RuntimeWorld {
             );
         }
         let action_hand = self.action_hand_for(client_actor_id, &action_offers);
-        let visible_action_offers = action_hand
+        let hand_offer_ids = action_hand
             .entries
             .iter()
-            .filter_map(|entry| {
-                action_offers
-                    .iter()
-                    .find(|offer| offer.offer_id == entry.offer_id)
-                    .cloned()
-            })
+            .flat_map(|entry| entry.offer_ids.iter())
+            .collect::<BTreeSet<_>>();
+        let visible_action_offers = action_offers
+            .iter()
+            .filter(|offer| hand_offer_ids.contains(&offer.offer_id))
+            .cloned()
             .collect::<Vec<_>>();
         let mut visible_primary_action = primary_action.clone();
         let hand_kinds = visible_action_offers
@@ -5146,7 +5135,7 @@ impl RuntimeWorld {
         let hand_offer_ids = action_hand
             .entries
             .iter()
-            .map(|entry| entry.offer_id.clone())
+            .flat_map(|entry| entry.offer_ids.iter().cloned())
             .collect::<BTreeSet<_>>();
         let offer_decisions = action_offers
             .iter()
