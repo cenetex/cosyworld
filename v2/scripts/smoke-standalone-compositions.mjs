@@ -734,7 +734,9 @@ async function commitReplayMarker(baseUrl, actorId, actorSession) {
   ) {
     return passCurrentHand(baseUrl, actorId, actorSession);
   }
-  const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
+  const dealtIds = new Set(
+    (state.action_hand?.entries || []).flatMap((entry) => entry.offer_ids || []),
+  );
   const offer = (state.action_offers || []).find((candidate) => (
     !candidate.disabled && dealtIds.has(candidate.offer_id)
   ));
@@ -785,17 +787,27 @@ function assertLanternSuggestions(state, label) {
   assert(question, `${label} lost the Lantern Keeper shared question`);
   if (question.presentation_state !== "active") return;
   const suggestions = state.action_offers || [];
+  const nounCards = state.action_hand?.entries || [];
+  const dealtOfferIds = new Set(
+    nounCards.flatMap((entry) => entry.offer_ids || []),
+  );
   assert(
-    suggestions.length === 3
+    nounCards.length === 3
+      && nounCards.every((entry) =>
+        ["location", "avatar", "item"].includes(entry.card_type)
+          && (entry.offer_ids || []).length > 0)
+      && suggestions.length >= nounCards.length
       && suggestions.every((suggestion) =>
         suggestion.offer_id
+          && dealtOfferIds.has(suggestion.offer_id)
           && suggestion.accessible_label
           && (suggestion.target?.label || suggestion.project?.label || state.location?.name)
           && suggestion.provider?.id
           && suggestion.effect)
       && Number.isFinite(Number(question.filled))
       && Number.isFinite(Number(question.danger_filled)),
-    `${label} did not expose exactly three accessible truthful suggestions: ${JSON.stringify({
+    `${label} did not expose three noun cards with accessible truthful resolutions: ${JSON.stringify({
+      nounCards,
       suggestions,
       question,
     })}`,
@@ -806,7 +818,7 @@ function firstTaleAdvancingOffer(state, label) {
   const offerId = state.first_tale?.advancing_offer_id
     ?? state.first_tale?.continuation?.advancing_offer_id;
   const handMatches = state.action_hand?.entries?.filter((entry) =>
-    entry.offer_id === offerId) ?? [];
+    (entry.offer_ids || []).includes(offerId)) ?? [];
   const offer = state.action_offers?.find((candidate) => candidate.offer_id === offerId);
   assert(
     typeof offerId === "string" && offerId && handMatches.length === 1 && offer,
