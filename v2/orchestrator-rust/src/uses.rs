@@ -10,6 +10,7 @@ pub(super) struct FeatureUseCandidate {
     pub(super) item_name: String,
     pub(super) content: String,
     pub(super) effect: String,
+    pub(super) reveals_item_identity: bool,
     pub(super) encounter_resolution: Option<SeedFeatureEncounterResolutionContent>,
 }
 
@@ -84,15 +85,16 @@ pub(super) async fn execute_feature_use_action(
     )
     .into_player_card();
     record.bind_offer_kind("use_feature");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UseFeature {
-            item_id: candidate.item_id,
-            location_id: candidate.location_id,
-            feature_key: candidate.feature_key.clone(),
-            content: candidate.content.clone(),
-            reason: "use_feature".to_string(),
-        });
+    let mutations = match runtime.feature_use_projection_mutations(&candidate, "use_feature") {
+        Ok(mutations) => mutations,
+        Err(reason) => {
+            return FeatureUseActionOutcome {
+                response: action_offer_rejected(reason.clone()).0,
+                output: Some(reason),
+            };
+        }
+    };
+    record.projection_mutations.extend(mutations);
     if let Some(resolution) = candidate.encounter_resolution {
         record
             .projection_mutations
@@ -192,9 +194,33 @@ impl RuntimeWorld {
                     item_name,
                     content: use_case.text.clone(),
                     effect,
+                    reveals_item_identity: false,
                     encounter_resolution: use_case.encounter_resolution.clone(),
                 });
             }
+        }
+        for item in self.actor_held_items(actor_id).into_iter().filter(|item| {
+            matches!(item.zone, CW_CARD_ZONE_CARRIED | CW_CARD_ZONE_EQUIPPED)
+                && self.unresolved_item_identity_table(item.id).is_some()
+        }) {
+            let item_name = self
+                .item_name(item.id)
+                .unwrap_or_else(|| format!("Item {}", item.id));
+            candidates.push(FeatureUseCandidate {
+                actor_id,
+                location_id: actor.location_id,
+                feature_key: "item_identity".to_string(),
+                feature_name: "sealed identity".to_string(),
+                item_id: item.id,
+                item_name: item_name.clone(),
+                content: format!(
+                    "You listen to {item_name} until it settles into one permanent identity."
+                ),
+                effect: "Reveals one item from its sealed loot table. This cannot be rerolled."
+                    .to_string(),
+                reveals_item_identity: true,
+                encounter_resolution: None,
+            });
         }
         candidates.sort_by(|left, right| {
             left.feature_name
@@ -208,6 +234,30 @@ impl RuntimeWorld {
 
     fn feature_use_candidates(&self, actor_id: u64) -> Vec<FeatureUseCandidate> {
         self.feature_use_matches(actor_id, true)
+    }
+
+    pub(super) fn feature_use_projection_mutations(
+        &self,
+        candidate: &FeatureUseCandidate,
+        reason: &str,
+    ) -> Result<Vec<ProjectionMutation>, String> {
+        let mut mutations = vec![ProjectionMutation::UseFeature {
+            item_id: candidate.item_id,
+            location_id: candidate.location_id,
+            feature_key: candidate.feature_key.clone(),
+            content: candidate.content.clone(),
+            reason: reason.to_string(),
+        }];
+        if candidate.reveals_item_identity {
+            mutations.push(ProjectionMutation::RevealItemIdentity {
+                reveal: self.prepare_item_identity_reveal(
+                    candidate.actor_id,
+                    candidate.item_id,
+                    candidate.location_id,
+                )?,
+            });
+        }
+        Ok(mutations)
     }
 
     pub(super) fn resident_feature_use_match_for_item(

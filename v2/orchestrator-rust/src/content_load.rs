@@ -933,6 +933,8 @@ pub(super) struct SeedItemContent {
     #[serde(default)]
     pub(super) mechanics: Option<SeedPlayableItemMechanics>,
     #[serde(default)]
+    pub(super) identity_table_id: Option<String>,
+    #[serde(default)]
     pub(super) container_opening_size: Option<String>,
     #[serde(default)]
     pub(super) allowed_contents: Vec<String>,
@@ -942,7 +944,7 @@ pub(super) struct SeedItemContent {
     pub(super) nested_containers: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct SeedPlayableItemMechanics {
     pub(super) binding: String,
     pub(super) equipment_profile: String,

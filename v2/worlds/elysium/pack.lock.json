@@ -78,12 +78,12 @@
     },
     {
       "id": "cosyworld.elysium",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "source": {
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:65306806229dd97d8ed88f35dde61353dcd842829be24b96563bdb0f2b2c94c1",
+      "integrity": "sha256:ec7665788b63db28a074a3de7457ff9101b384d52e2da3aff633bda385e405b8",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -101,7 +101,7 @@
         {
           "id": "cosyworld.elysium/world",
           "kind": "world",
-          "version": "0.2.2"
+          "version": "0.3.0"
         }
       ],
       "license": "MIT",
@@ -164,7 +164,7 @@
     {
       "pack_id": "cosyworld.elysium",
       "name": "Elysium",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit/",
       "provenance": {

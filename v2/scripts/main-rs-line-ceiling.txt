@@ -448,4 +448,8 @@
 # heartbeat while preserving edge-only presence projection.
 # 59866 -> 59838: move Story Hand view types into cards.rs while rebuilding
 # the hand around Location, Avatar, and Item nouns.
-59838
+# 59885 -> 59830: move seed-item restoration into projection_items.rs while
+# adding permanent loot-table identity reveals at the item projection seam.
+# 59830 + the independent Story Hand extraction -> 59802 after merging both
+# reductions; no behavior was dropped while resolving the ledger conflict.
+59802

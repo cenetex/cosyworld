@@ -1092,15 +1092,10 @@ impl RuntimeWorld {
             seed,
         )
         .into_actor_consequence(self.world.tick, None);
-        record
-            .projection_mutations
-            .push(ProjectionMutation::UseFeature {
-                item_id: candidate.item_id,
-                location_id: candidate.location_id,
-                feature_key: candidate.feature_key,
-                content: candidate.content,
-                reason: "resident_feature_use".to_string(),
-            });
+        record.projection_mutations.extend(
+            self.feature_use_projection_mutations(&candidate, "resident_feature_use")
+                .ok()?,
+        );
         self.append_resident_autonomy_intent_projection(actor, &mut record);
         Some(record)
     }

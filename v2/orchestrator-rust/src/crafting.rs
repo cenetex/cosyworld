@@ -206,21 +206,30 @@ impl RuntimeWorld {
 
     pub(super) fn physical_item_delivery_facts(&self, item_id: u64) -> DeliveryItemFacts {
         let provenance = self
-            .loot_allocations
-            .values()
-            .find_map(|allocation| {
-                allocation
-                    .item_ids
-                    .iter()
-                    .position(|candidate| *candidate == item_id)
-                    .and_then(|index| allocation.selected_template_ids.get(index))
-                    .map(|template_id| {
-                        (
-                            template_id.clone(),
-                            allocation.pack_id.clone(),
-                            allocation.pack_version.clone(),
-                        )
-                    })
+            .item_identity_reveals
+            .get(&item_id)
+            .map(|reveal| {
+                (
+                    reveal.template.id.clone(),
+                    reveal.pack_id.clone(),
+                    reveal.pack_version.clone(),
+                )
+            })
+            .or_else(|| {
+                self.loot_allocations.values().find_map(|allocation| {
+                    allocation
+                        .item_ids
+                        .iter()
+                        .position(|candidate| *candidate == item_id)
+                        .and_then(|index| allocation.selected_template_ids.get(index))
+                        .map(|template_id| {
+                            (
+                                template_id.clone(),
+                                allocation.pack_id.clone(),
+                                allocation.pack_version.clone(),
+                            )
+                        })
+                })
             })
             .or_else(|| {
                 self.craft_receipts
