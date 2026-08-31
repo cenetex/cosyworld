@@ -59208,8 +59208,8 @@ mod tests {
     }
 
     #[test]
-    fn default_models_split_cheap_voice_from_metacognition() {
-        assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "mistralai/mistral-nemo");
+    fn default_models_split_fast_voice_from_metacognition() {
+        assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "openai/gpt-5.4-nano");
         assert_eq!(DEFAULT_OPENROUTER_METACOGNITIVE_MODEL, "openai/gpt-5.6-sol");
     }
 

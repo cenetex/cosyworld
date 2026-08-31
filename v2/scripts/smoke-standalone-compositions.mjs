@@ -1362,6 +1362,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   return {
     state: completed,
     expected: {
+      actorId,
       orbs: completed.economy?.orbs,
       progress: 6,
       danger: dangerBeforeFinale,
@@ -1404,7 +1405,9 @@ function assertLanternGoldenReplay(state, events, expected) {
     event.type === "job.contribution.resolved"
       && event.content?.includes("rain-soft-garden:trustworthy-path"));
   const firstTaleTrace = events.filter((event) =>
-    event.type === "first_tale.public_trace");
+    event.type === "first_tale.public_trace"
+      && event.actor_id === expected.actorId
+      && event.source_world_tick == null);
 
   assert(
     state.character_identity?.class_id === "lantern-warden"
@@ -1461,7 +1464,10 @@ function assertLanternGoldenReplay(state, events, expected) {
       && events.filter((event) =>
         event.type === "job.contribution.resolved"
           && event.content?.includes("lantern-keeper:rekindle-the-beacon")).length === 1
-      && events.filter((event) => event.type === "first_tale.public_trace").length === 1
+      && events.filter((event) =>
+        event.type === "first_tale.public_trace"
+          && event.actor_id === expected.actorId
+          && event.source_world_tick == null).length === 1
       && events.filter((event) =>
         event.type === "job.updated" && event.content?.includes(":completed:")).length === 1
       && events.filter((event) =>
