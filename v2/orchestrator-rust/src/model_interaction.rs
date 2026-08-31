@@ -13,9 +13,12 @@ const MODEL_INTERACTION_IMAGE_CONTEXT_VERSION: &str = "authoritative-scene-v1";
 const MODEL_INTERACTION_LEGACY_SEMANTIC_CONTEXT_VERSION: &str = "authoritative-model-neighbors-v1";
 const MODEL_INTERACTION_MESSAGE_SEMANTIC_CONTEXT_VERSION: &str =
     "authoritative-room-message-resonance-v1";
-const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-v2";
-const MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION: &str = "authoritative-world-speech-text-v1";
-const MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION: &str = "authoritative-world-echo-v1";
+const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-awakening-v1";
+const MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION: &str =
+    "authoritative-world-speech-text-awakening-v1";
+const MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION: &str = "authoritative-world-echo-awakening-v1";
+const MODEL_INTERACTION_SPEECH_AWAKENING: &str = "I wake as myself inside a living world. The place around me is solid only where the scene holds it. One small, natural line rises to my mouth.";
+const MODEL_INTERACTION_ECHO_AWAKENING: &str = "I surface inside an old world-moment, still myself there. Its remembered setting is solid only where the evidence holds it. One small echo returns to my mouth.";
 const MODEL_INTERACTION_SEMANTIC_CANDIDATES: usize = 8;
 const MODEL_INTERACTION_SEMANTIC_RESULTS: usize = 3;
 const MODEL_INTERACTION_SEMANTIC_MIN_CANDIDATES: usize = MODEL_INTERACTION_SEMANTIC_RESULTS + 1;
@@ -1786,9 +1789,9 @@ fn batch_talk_context_hash(plan: &ModelInteractionPlan) -> String {
 }
 
 fn batch_talk_messages(plan: &ModelInteractionPlan) -> (String, String) {
-    let system = "Return one brief line of in-world dialogue as the named resident. This is a delayed echo tied to an earlier world moment. Return only the spoken words: no label, quotation marks, markdown, stage direction, tool call, or explanation. Use only the supplied authoritative setting and stay under 240 characters.".to_string();
+    let system = MODEL_INTERACTION_ECHO_AWAKENING.to_string();
     let user = format!(
-        "Resident: {name}\nOrigin location: {location}\nAuthoritative setting at submission: {description}\nLet one fitting echo return from that moment.",
+        "SELF · {name}\nORIGIN · {location}\nSCENE · {description}\nECHO · one fitting spoken line · ≤240 characters · no label or stage direction",
         name = compact_whitespace(&plan.target_name),
         location = compact_whitespace(&plan.location_name),
         description = compact_whitespace(&plan.location_description),
@@ -2722,21 +2725,8 @@ async fn execute_direct_audio_model_interaction(
                 .into());
         }
         (None, persisted_transcript) => {
-            let system = if persisted_transcript.is_some() {
-                "Respond directly in audio as the named resident. Say the supplied recovery line exactly, with no added words."
-            } else {
-                "Respond directly in audio as the named resident. Speak one brief, natural in-world line with no preamble, label, stage direction, or explanation."
-            };
-            let recovery = persisted_transcript
-                .as_deref()
-                .map(|transcript| format!("\nRecovery line to say exactly: {transcript}"))
-                .unwrap_or_default();
-            let user = format!(
-                "Resident: {name}\nLocation: {location}\nAuthoritative setting: {description}{recovery}",
-                name = compact_whitespace(&job.plan.target_name),
-                location = compact_whitespace(&job.plan.location_name),
-                description = compact_whitespace(&job.plan.location_description),
-            );
+            let (system, user) =
+                model_interaction_speech_messages(&job.plan, persisted_transcript.as_deref());
             let direct = request_direct_audio_completion_with_binding(
                 config,
                 binding,
@@ -2850,13 +2840,7 @@ async fn generate_tts_transcript(
     actor_id: u64,
     plan: &ModelInteractionPlan,
 ) -> Result<(String, ModelInteractionUsage), ModelInteractionAttemptError> {
-    let system = "Write one brief line of in-world dialogue for the named resident. Return only the words they should speak: no speaker label, quotation marks, stage direction, markdown, or explanation. Stay within the supplied setting and keep the line under 240 characters.";
-    let user = format!(
-        "Resident: {name}\nLocation: {location}\nAuthoritative setting: {description}\nSpeak naturally from this moment.",
-        name = compact_whitespace(&plan.target_name),
-        location = compact_whitespace(&plan.location_name),
-        description = compact_whitespace(&plan.location_description),
-    );
+    let (system, user) = model_interaction_speech_messages(plan, None);
     let completion = request_routed_chat_completion(
         config,
         OPENROUTER_FREE_MODEL,
@@ -2916,6 +2900,27 @@ async fn generate_tts_transcript(
             payer_mode,
         },
     ))
+}
+
+fn model_interaction_speech_messages(
+    plan: &ModelInteractionPlan,
+    recovery_line: Option<&str>,
+) -> (&'static str, String) {
+    let cue = recovery_line
+        .map(|line| format!("SAY EXACTLY · {}", compact_whitespace(line)))
+        .unwrap_or_else(|| {
+            "SPEAK · one natural in-world line · ≤240 characters · no label or stage direction"
+                .to_string()
+        });
+    (
+        MODEL_INTERACTION_SPEECH_AWAKENING,
+        format!(
+            "SELF · {name}\nHERE · {location}\nSCENE · {description}\n{cue}",
+            name = compact_whitespace(&plan.target_name),
+            location = compact_whitespace(&plan.location_name),
+            description = compact_whitespace(&plan.location_description),
+        ),
+    )
 }
 
 fn semantic_context_version(plan: &ModelInteractionPlan) -> &'static str {
@@ -4195,6 +4200,38 @@ mod tests {
             source_world_tick: Some(11),
             observed_through_seq: Some(77),
         }
+    }
+
+    #[test]
+    fn model_resident_fields_never_enter_speech_system_awakenings() {
+        let mut plan = frozen_batch_talk_job().plan;
+        plan.target_name = "Player Resident Sentinel".to_string();
+        plan.location_name = "Player Place Sentinel".to_string();
+        plan.location_description = "Player Scene Sentinel".to_string();
+        let (speech_system, speech_user) =
+            model_interaction_speech_messages(&plan, Some("Player Recovery Sentinel"));
+        let (echo_system, echo_user) = batch_talk_messages(&plan);
+
+        for system in [speech_system, echo_system.as_str()] {
+            assert!(system.starts_with('I'));
+            for sentinel in [
+                "Player Resident Sentinel",
+                "Player Place Sentinel",
+                "Player Scene Sentinel",
+                "Player Recovery Sentinel",
+            ] {
+                assert!(!system.contains(sentinel));
+            }
+        }
+        for sentinel in [
+            "Player Resident Sentinel",
+            "Player Place Sentinel",
+            "Player Scene Sentinel",
+        ] {
+            assert!(speech_user.contains(sentinel));
+            assert!(echo_user.contains(sentinel));
+        }
+        assert!(speech_user.contains("Player Recovery Sentinel"));
     }
 
     #[tokio::test]

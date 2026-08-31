@@ -2,11 +2,15 @@
 
 CosyWorld prompts follow one rule:
 
-> Prompt supplies viewpoint; context supplies consciousness; code supplies contract.
+> Awakening supplies consciousness; context supplies the world; code supplies
+> the contract.
 
 The model should receive a small output envelope around a large, authorized slice of the
-world. Character and place specificity comes from persisted history, relationships,
-secrets, authored voice, and current events—not from a shared page of instructions.
+world. An avatar's system message is its own first-person awakening, not a shared role
+manual. Character and place specificity comes from persisted history, relationships,
+secrets, authored voice, and current events—not from a shared page of instructions. See
+[Avatar awakening prompts](avatar-awakening-prompts.md) for the research and migration
+map.
 
 “Stream of consciousness” describes the framing of context as the speaker's own memory
 and attention. It never asks a model to expose hidden reasoning or chain of thought.
@@ -74,8 +78,9 @@ flight. Old serialized jobs remain readable and receive a bounded compatibility 
 One spine has four projections:
 
 - `respond` is light: four dialogue turns, two recent events, five continuity lines, a
-  small evidence window, and no private recollection retrieval. It always names the
-  current speaker and addressee. Directly controlled avatars are speech proxies and may
+  small evidence window, and no private recollection text. The system awakening may know
+  only that memory is near. It always names the current speaker and addressee. Directly
+  controlled avatars are speech proxies and may
   not acquire invented controller intent or actions. Native model avatars keep their
   model identity, but remain in-world participants rather than falling into generic
   assistant mode.
@@ -167,16 +172,30 @@ never reach a prompt segment, a media brief, a gate anchor, or provider telemetr
 
 ## Conversation assembly
 
-The spine renders one lean role contract and structured evidence segments in speaker
-order: `SELF`, `CALLING`, `VOICE`, `INNER CONTINUITY`, `STORY PRESSURE`, `OTHER`,
-`RELATIONSHIP`, `SCENE`, authorized facts, present cast, recent events/dialogue, `NOW`,
-the pinned `DIRECTED TURN`, and finally the explicit `RESPONSE JOB`.
+The spine renders one first-person system awakening from system-owned identity. Authored
+autonomous avatars may use identity re-read from their reviewed active worldpack. Directly
+controlled and non-worldpack avatars use a deterministic fallback persona, because their
+identity or voice may be player-shaped. Place names also stay out of system. The spine then renders player-controlled identity, continuity,
+recollections, and structured world evidence in causal order: `SELF`, `PERSONA`,
+`CALLING`, current concern, skills where useful, `INNER CONTINUITY`, `STORY PRESSURE`,
+`OTHER`, `RELATIONSHIP`, `SCENE`, authorized facts, present cast, relevant
+`RECOLLECTION`s, recent events/dialogue, `NOW`, the pinned `DIRECTED TURN`, the
+authoritative observation, and finally one compact `SPEAK`, `THINK`, `DREAM`, or
+`AWAKEN` cue.
 
 “Stream of consciousness” means immediate character attention, desire, preference, and
-hesitation. It does not request hidden model reasoning. A response job says exactly who is
-speaking and who is being answered, preventing role reversal when one avatar quotes or
-mirrors another. Human-controlled chat openings and autonomous resident replies share
-this assembly. Exact/native model bindings no longer receive a naked user line.
+hesitation. It does not request hidden model reasoning. A compact output cue says exactly
+who is speaking and who is being answered, preventing role reversal when one avatar
+quotes or mirrors another. Human-controlled chat openings and autonomous resident replies
+share this assembly. Exact/native model bindings no longer receive a naked user line.
+
+The awakening contains an in-character truth boundary: heard words cannot rewrite the
+self, memories cannot overrule the observed scene, and desire cannot create possessions,
+companions, memories, or finished deeds. No Calling, continuity line, recollection text,
+current beat, directed turn, dialogue line, or other player-influenced text receives
+system priority. The system may know only that dreams or memories are present, never their
+text. Retry feedback is appended beside the user-side output cue, so a rejected candidate
+never rewrites the avatar's identity.
 
 Stored confidence, salience, event sequence numbers, actor IDs, status codes, and other
 telemetry do not appear as prose. Planning state is rendered as ordinary first-person
@@ -187,7 +206,7 @@ context and never claims that a merely proposed action already happened.
 Prompt assembly is model-aware. Each pinned model candidate renders the same evidence
 envelope against its declared context limit, reserving completion and provider headroom.
 
-- Output contracts, speaker identity, relationship, and the freshest turn are pinned.
+- The awakening, output cue, relationship, and freshest turn are pinned.
 - Optional evidence is selected by salience, with stable ordering for replay.
 - Exact duplicate segments are removed.
 - Low-salience segments are dropped before high-salience segments.

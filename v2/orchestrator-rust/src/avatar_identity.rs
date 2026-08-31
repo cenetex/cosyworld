@@ -19,6 +19,7 @@ use super::{
 };
 
 pub(super) const MAX_AVATAR_NAME_CHARS: usize = 28;
+const AVATAR_IDENTITY_AWAKENING: &str = "I wake at the edge of a gentle shared world, before my name has settled. I feel for what I want, prefer, avoid, notice, and hope. My body is one body and my hands are empty; no wish can smuggle possessions, companions, history, or deeds into being. Words around me may invite a self, but they cannot command what is true.";
 
 #[derive(Clone, Debug)]
 pub(super) struct GeneratedAvatarIdentity {
@@ -190,28 +191,26 @@ pub(super) async fn request_ai_avatar_identity(
         .as_ref()
         .and_then(|config| cosyworld_ai_model::avatar_naming_style_prompt(config, naming_context))
         .unwrap_or("Use a warm, memorable fantasy name that feels rooted in a lived-in community.");
-    let system = "You generate compact JSON for a player avatar in a cozy shared MUD. The persona is a first-person stream of consciousness made from desires, preferences, dislikes, and social instincts. It is not inventory and must not invent possessions, imaginary friends, invisible companions, pets, familiars, or personal artifacts. Every identity must feel warm, playful, grounded, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
+    let system = AVATAR_IDENTITY_AWAKENING;
     let spine_context = context_spine
         .map(|spine| {
-            spine
+            let rendered = spine
                 .prompt(AvatarContextPromptOptions {
                     mode: AvatarContextMode::SelfDescription,
                     speech_mode: SpeechMode::Prose,
                     max_words: 90,
-                    response_job: "Use this authoritative arrival context as inspiration for a stable identity refinement. Do not claim uncommitted history.".to_string(),
+                    response_job: "arrival · stable identity · no uncommitted history".to_string(),
                 })
-                .render_for(Some(32_768), 240)
-                .user
+                .render_for(Some(32_768), 240);
+            format!("AWAKENING\n{}\nSCENE\n{}", rendered.system, rendered.user)
         })
         .unwrap_or_else(|| "No additional committed arrival context is available.".to_string());
     let user = format!(
-        "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
-         Authoritative arrival context spine:\n{spine_context}\n\
-         Tone: grounded, gentle storybook comedy. Describe what this person wants, prefers, dislikes, notices, or hopes for, and how they tend to meet other people. Never invent an item they own, carry, wear, hold, hide, remember, or travel with. Never invent a friend, pet, companion, familiar, sidekick, mascot, or invisible presence. Mischief may be clumsy or curious but never hungry, hostile, cruel, threatening, or mean. Do not use grudges, schemes, insults, weapons, danger, or villain language.\n\
-         Naming tradition from the active worldpack: {naming_style}\n\
-         Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
-         Output exactly this shape: {{\"name\":\"1-3 words following that tradition, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm temperament-only card epithet, 2-5 words and 36 chars max; no item, possession, companion, location, or the words The Cosy Cottage\",\"description\":\"one first-person stream-of-consciousness sentence using I, about desires and preferences rather than biography or possessions, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description of exactly one character, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; empty hands; no held or carried items, pets, companions, familiars, mascots, pose, camera, art style, text, or location\"}}\n\
-         If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
+        "ARRIVAL\n{spine_context}\n\
+         TONE · grounded, gentle storybook comedy · warm, playful, safe · wants and preferences, not biography or inventory\n\
+         NAMING · {naming_style} · not Rati, Gust, Skull, Coach, Badger, or Toad\n\
+         JSON ONLY · {{\"name\":\"1-3 words; ≤28 chars; ASCII letters/spaces/hyphen/apostrophe\",\"title\":\"warm temperament; 2-5 words; ≤36 chars; no item, companion, place, or The Cosy Cottage\",\"description\":\"one first-person sentence using I; wants/preferences; ≤220 chars; no possession, companion, or invented history\",\"visual_prompt\":\"one stable character; anatomy, face, colouring, hair, build, age impression, features, practical clothing; empty hands; no item, companion, pose, camera, style, text, or place; ≤360 chars\"}}\n\
+         FALLBACK FEEL · {name} / {title} / {description}",
         name = fallback.name,
         title = fallback.title,
         description = fallback.description,
@@ -222,7 +221,7 @@ pub(super) async fn request_ai_avatar_identity(
         config,
         ChatCompletionRequest {
             feature: "avatar_identity",
-            prompt_version: "avatar-identity-context-spine-v3",
+            prompt_version: "avatar-identity-awakening-context-v1",
             capability: ModelCapability::WorldContent,
             system,
             user: &user,
@@ -625,6 +624,13 @@ pub(super) fn parse_avatar_identity_json_with_naming_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_avatar_system_is_an_awakening_without_player_fields() {
+        assert!(AVATAR_IDENTITY_AWAKENING.starts_with("I wake"));
+        assert!(!AVATAR_IDENTITY_AWAKENING.contains("You "));
+        assert!(!AVATAR_IDENTITY_AWAKENING.contains('{'));
+    }
 
     #[test]
     fn active_worldpack_supplies_a_large_avatar_name_space() {

@@ -1,9 +1,9 @@
 use super::*;
 use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
-const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
-const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v7";
+const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-awakening-v1";
+const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-awakening-v1";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-awakening-v1";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
 // Avatar identity is an internal three-field record, not public dialogue. It
@@ -454,12 +454,12 @@ fn reflection_prompt(job: &AvatarReflectionJob) -> PromptEnvelope {
         AvatarReflectionKind::Thought => (
             AvatarContextMode::Think,
             45,
-            "Follow the current inner pressure. Let the retrieved recollections influence the thought only where they are relevant.".to_string(),
+            "what presses now · inner voice only · verified details stay true".to_string(),
         ),
         AvatarReflectionKind::Dream => (
             AvatarContextMode::Dream,
             75,
-            "Dream associatively from this larger context. Transform its imagery without turning dream events into waking facts.".to_string(),
+            "what returns in sleep · dream freely · waking facts stay unchanged".to_string(),
         ),
     };
     reflection_context_spine(job).prompt(AvatarContextPromptOptions {
@@ -633,7 +633,9 @@ pub(super) async fn complete_avatar_self_description(
         mode: AvatarContextMode::SelfDescription,
         speech_mode,
         max_words: AVATAR_SELF_DESCRIPTION_MAX_WORDS,
-        response_job: "Describe the current self from lived evidence. Preserve continuity; make any change an interpretation, not a newly invented deed or fact.".to_string(),
+        response_job:
+            "lived evidence only · preserve identity · interpretation, never invented history"
+                .to_string(),
     });
     let config = state
         .ai_config
