@@ -734,7 +734,9 @@ async function commitReplayMarker(baseUrl, actorId, actorSession) {
   ) {
     return passCurrentHand(baseUrl, actorId, actorSession);
   }
-  const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
+  const dealtIds = new Set((state.action_hand?.entries || []).flatMap((entry) => (
+    entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
+  )));
   const offer = (state.action_offers || []).find((candidate) => (
     !candidate.disabled && dealtIds.has(candidate.offer_id)
   ));
@@ -784,9 +786,16 @@ function assertLanternSuggestions(state, label) {
     candidate.id === "lantern-keeper:rekindle-the-beacon");
   assert(question, `${label} lost the Lantern Keeper shared question`);
   if (question.presentation_state !== "active") return;
-  const suggestions = state.action_offers || [];
+  const handEntries = state.action_hand?.entries || [];
+  const dealtOfferIds = new Set(handEntries.flatMap((entry) => entry.offer_ids || []));
+  const suggestions = (state.action_offers || []).filter((suggestion) => (
+    dealtOfferIds.has(suggestion.offer_id)
+  ));
   assert(
-    suggestions.length === 3
+    Number(state.action_hand?.capacity) === 3
+      && handEntries.length === 3
+      && handEntries.every((entry) => entry.card_id && entry.label && entry.offer_ids?.length)
+      && suggestions.length >= 3
       && suggestions.every((suggestion) =>
         suggestion.offer_id
           && suggestion.accessible_label
@@ -795,7 +804,8 @@ function assertLanternSuggestions(state, label) {
           && suggestion.effect)
       && Number.isFinite(Number(question.filled))
       && Number.isFinite(Number(question.danger_filled)),
-    `${label} did not expose exactly three accessible truthful suggestions: ${JSON.stringify({
+    `${label} did not expose three noun cards with accessible truthful actions: ${JSON.stringify({
+      hand: state.action_hand,
       suggestions,
       question,
     })}`,
@@ -805,8 +815,9 @@ function assertLanternSuggestions(state, label) {
 function firstTaleAdvancingOffer(state, label) {
   const offerId = state.first_tale?.advancing_offer_id
     ?? state.first_tale?.continuation?.advancing_offer_id;
-  const handMatches = state.action_hand?.entries?.filter((entry) =>
-    entry.offer_id === offerId) ?? [];
+  const handMatches = state.action_hand?.entries?.filter((entry) => (
+    entry.offer_ids || (entry.offer_id ? [entry.offer_id] : [])
+  ).includes(offerId)) ?? [];
   const offer = state.action_offers?.find((candidate) => candidate.offer_id === offerId);
   assert(
     typeof offerId === "string" && offerId && handMatches.length === 1 && offer,
@@ -1350,6 +1361,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   return {
     state: completed,
     expected: {
+      actorId,
       orbs: completed.economy?.orbs,
       progress: 6,
       danger: dangerBeforeFinale,
@@ -1392,7 +1404,9 @@ function assertLanternGoldenReplay(state, events, expected) {
     event.type === "job.contribution.resolved"
       && event.content?.includes("rain-soft-garden:trustworthy-path"));
   const firstTaleTrace = events.filter((event) =>
-    event.type === "first_tale.public_trace");
+    event.type === "first_tale.public_trace"
+      && event.actor_id === expected.actorId
+      && event.source_world_tick == null);
 
   assert(
     state.character_identity?.class_id === "lantern-warden"
@@ -1449,7 +1463,10 @@ function assertLanternGoldenReplay(state, events, expected) {
       && events.filter((event) =>
         event.type === "job.contribution.resolved"
           && event.content?.includes("lantern-keeper:rekindle-the-beacon")).length === 1
-      && events.filter((event) => event.type === "first_tale.public_trace").length === 1
+      && events.filter((event) =>
+        event.type === "first_tale.public_trace"
+          && event.actor_id === expected.actorId
+          && event.source_world_tick == null).length === 1
       && events.filter((event) =>
         event.type === "job.updated" && event.content?.includes(":completed:")).length === 1
       && events.filter((event) =>
