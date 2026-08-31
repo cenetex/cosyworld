@@ -19285,21 +19285,29 @@
 
     function visibleFocusedAction() {
       const visible = actionBarActions();
-      return visible.find((action) => action.actionIndex === focusIndex) || visible[0] || null;
+      return visible.find((action) => storyHandKey(action) === storyHandActiveKey)
+        || visible.find((action) => storyHandKey(action) === focusedKey)
+        || visible.find((action) => Number.isInteger(action.actionIndex) && action.actionIndex === focusIndex)
+        || visible[0]
+        || null;
     }
 
     function moveVisibleActionFocus(delta) {
       const visible = actionBarActions();
       if (!visible.length) return;
-      const current = visible.findIndex((action) => action.actionIndex === focusIndex);
+      const current = visible.findIndex((action) => (
+        storyHandKey(action) === storyHandActiveKey
+          || storyHandKey(action) === focusedKey
+          || (Number.isInteger(action.actionIndex) && action.actionIndex === focusIndex)
+      ));
       const next = current < 0
         ? (delta > 0 ? 0 : visible.length - 1)
         : ((current + delta) % visible.length + visible.length) % visible.length;
       const action = visible[next];
-      focusIndex = action.actionIndex;
+      if (Number.isInteger(action.actionIndex)) focusIndex = action.actionIndex;
       focusedKey = action.focusKey || "";
+      storyHandActiveKey = storyHandKey(action);
       if (usesInlineStoryHand() && storyHandExpanded) {
-        storyHandActiveKey = storyHandKey(action);
         actionConfirmAction = originalStoryHandAction(action);
         storyHandScrollPending = true;
       }

@@ -661,6 +661,7 @@ async function main() {
       }
       focusIndex = candidate.actionIndex;
       focusedKey = actionHandKey(candidate);
+      storyHandActiveKey = storyHandKey(candidate);
       renderCommands();
       return {
         key: focusedKey,
@@ -10592,7 +10593,7 @@ async function main() {
     assert(result.pfpCount > 0, "resident chat rows should render character pfps");
   }
 
-  async function focusPrimaryMatching(label, predicate, attempts = 24, stopWhen = null) {
+  async function focusPrimaryMatching(label, predicate, attempts = 24, stopWhen = null, preferredSlot = "") {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -10653,14 +10654,20 @@ async function main() {
         return match.text;
       }
       if (draw + 1 < Math.min(attempts, deckSize)) {
-        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
+        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`, preferredSlot);
       }
     }
     throw new Error(`${label} was not dealt within one full hand rotation: ${JSON.stringify(candidates)}`);
   }
 
-  async function focusPrimaryMatchingAcrossShuffles(label, predicate, shuffles = 8, stopWhen = null) {
-    return focusPrimaryMatching(label, predicate, Math.max(64, shuffles), stopWhen);
+  async function focusPrimaryMatchingAcrossShuffles(
+    label,
+    predicate,
+    shuffles = 8,
+    stopWhen = null,
+    preferredSlot = "",
+  ) {
+    return focusPrimaryMatching(label, predicate, Math.max(64, shuffles), stopWhen, preferredSlot);
   }
 
   async function drawPrimaryMatching(label, needles, stopWhen = null) {
@@ -11011,8 +11018,11 @@ async function main() {
       }, needle);
       const primary = await focusPrimaryMatchingAcrossShuffles(
         `route ${text}`,
-        (candidate) => /^(travel|scout|flee|inspect)\b/.test(candidate)
+        (candidate) => /^(head to|travel|scout|flee|inspect)\b/.test(candidate)
           && candidate.includes(routeTarget),
+        8,
+        null,
+        "story",
       );
       const route = await page.evaluate(() => {
         const action = actions[focusIndex] || null;
@@ -11187,6 +11197,7 @@ async function main() {
         focusedSelectionIdentity = {
           handKey: focused.handKey,
           offerIds: focused.offerIds,
+          selectedCardIds: focused.selectedCardIds || [],
           generation: focused.generation,
           routeIdentity: focused.routeIdentity || "",
           destinationLocationId: Number(focused.destinationLocationId || 0),
@@ -11571,7 +11582,7 @@ async function main() {
           ))
             || (
               responsePath === "/commands"
-                && ["stale_offer", "stale_location_version"].includes(body?.error_kind)
+                && ["stale_offer", "stale_location_version", "stale_actor_version"].includes(body?.error_kind)
             )
         );
       assert(
@@ -11619,12 +11630,37 @@ async function main() {
           action?.risk,
           action?.effect,
         ].filter(Boolean).join(" ").toLowerCase();
-        const visible = actionBarActions();
-        const action = visible.find((candidate) => terms.every((term) => actionText(candidate).includes(term)));
+        const nounCards = actionBarActions();
+        const combinations = nounCards.flatMap((first, firstIndex) => [
+          [first],
+          ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+            [first, second],
+            ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+          ]),
+        ]);
+        const selectedCardIdsFor = (candidate) => {
+          const previous = [...sceneMeldKeys];
+          try {
+            for (const combination of combinations) {
+              sceneMeldKeys = combination.map(storyHandKey);
+              const resolution = sceneMeldResolution(nounCards);
+              if ((candidate.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+                return resolution.selected.map(sceneMeldEntityKey);
+              }
+            }
+            return [];
+          } finally {
+            sceneMeldKeys = previous;
+          }
+        };
+        const action = actions.find((candidate) => (
+          terms.every((term) => actionText(candidate).includes(term))
+            && selectedCardIdsFor(candidate).length > 0
+        ));
         if (!action) {
           return {
             ok: false,
-            hand: visible.map(actionText),
+            hand: nounCards.map(actionText),
             allActions: actions.map(actionText),
             items: (state?.items || []).map((item) => ({
               name: item.name,
@@ -11633,13 +11669,16 @@ async function main() {
             })),
           };
         }
-        focusIndex = action.actionIndex;
+        const selectedCardIds = selectedCardIdsFor(action);
+        focusIndex = actions.indexOf(action);
         focusedKey = actionHandKey(action);
+        sceneMeldKeys = [...selectedCardIds];
         return {
           ok: true,
           action: actionText(action),
           handKey: actionHandKey(action),
           offerIds: (action.offerIds || []).map(String),
+          selectedCardIds,
           generation: Number(state?.action_hand?.generation || 0),
         };
       }, normalizedNeedles);
@@ -11652,6 +11691,7 @@ async function main() {
         focusedSelectionIdentity = {
           handKey: selected.handKey,
           offerIds: selected.offerIds,
+          selectedCardIds: selected.selectedCardIds,
           generation: selected.generation,
         };
         useFocusedActionOnNextClick = true;
@@ -11846,6 +11886,8 @@ async function main() {
     const current = await fetchCurrentState();
     const destinationIsDirect = (current.exits || []).some((exit) => (
       exit.destination_location_name === name
+        && exit.accessible === true
+        && exit.locked !== true
     ));
     const journeyTargetsDestination = current.journey?.destination_name === name;
     const liveHandTargetsDestination = (current.action_offers || []).some((offer) => (
@@ -11913,11 +11955,35 @@ async function main() {
         const { nextLocationId, destinationId, currentStep } = expected;
         const exitKey = `exit:${nextLocationId}`;
         const searchKey = `journey-search:${destinationId}:${currentStep}`;
-        const visibleAction = actionBarActions().find((candidate) => (
-          actionMatchesFocusKey(candidate, exitKey) || actionMatchesFocusKey(candidate, searchKey)
+        const nounCards = actionBarActions();
+        const combinations = nounCards.flatMap((first, firstIndex) => [
+          [first],
+          ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+            [first, second],
+            ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+          ]),
+        ]);
+        const selectedCardIdsFor = (candidate) => {
+          const previous = [...sceneMeldKeys];
+          try {
+            for (const combination of combinations) {
+              sceneMeldKeys = combination.map(storyHandKey);
+              const resolution = sceneMeldResolution(nounCards);
+              if ((candidate.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+                return resolution.selected.map(sceneMeldEntityKey);
+              }
+            }
+            return [];
+          } finally {
+            sceneMeldKeys = previous;
+          }
+        };
+        const action = actions.find((candidate) => (
+          (actionMatchesFocusKey(candidate, exitKey) || actionMatchesFocusKey(candidate, searchKey))
+            && selectedCardIdsFor(candidate).length > 0
         ));
-        if (!visibleAction) return false;
-        const action = actions[visibleAction.actionIndex];
+        if (!action) return false;
+        const selectedCardIds = selectedCardIdsFor(action);
         const journeyChoice = (action.choices || []).find((choice) => {
           const value = String(choice.value || "");
           return value.includes(searchKey)
@@ -11925,10 +11991,12 @@ async function main() {
             || value === String(nextLocationId);
         });
         if (journeyChoice) action.selectedChoice = journeyChoice.value;
-        focusAction(visibleAction.actionIndex, actionMatchesFocusKey(action, exitKey) ? exitKey : searchKey);
+        focusAction(actions.indexOf(action), actionMatchesFocusKey(action, exitKey) ? exitKey : searchKey);
+        sceneMeldKeys = [...selectedCardIds];
         return {
           handKey: actionHandKey(action),
           offerIds: (action.offerIds || []).map(String),
+          selectedCardIds,
           generation: Number(state?.action_hand?.generation || 0),
           routeIdentity: String(journeyChoice?.value || ""),
           destinationLocationId: Number(action.selectedPayload?.()?.destination_location_id || 0),
@@ -12687,8 +12755,31 @@ async function main() {
       result = await page.evaluate(({ residentName, itemName }) => {
         const needle = residentName.toLowerCase();
         const itemNeedle = itemName.toLowerCase();
-        const action = actionBarActions().find((candidate) => (
-          ["give", "swap", "trade"].includes(candidate.label)
+        const nounCards = actionBarActions();
+        const combinations = nounCards.flatMap((first, firstIndex) => [
+          [first],
+          ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+            [first, second],
+            ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+          ]),
+        ]);
+        const selectedCardIdsFor = (candidate) => {
+          const previous = [...sceneMeldKeys];
+          try {
+            for (const combination of combinations) {
+              sceneMeldKeys = combination.map(storyHandKey);
+              const resolution = sceneMeldResolution(nounCards);
+              if ((candidate.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+                return resolution.selected.map(sceneMeldEntityKey);
+              }
+            }
+            return [];
+          } finally {
+            sceneMeldKeys = previous;
+          }
+        };
+        const action = actions.find((candidate) => (
+          ["give", "swap", "trade"].includes(String(candidate.label || "").toLowerCase())
           && (
             String(candidate.detail || "").toLowerCase().includes(needle)
             || (candidate.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(needle))
@@ -12701,23 +12792,39 @@ async function main() {
               ...(candidate.choices || []).flatMap((choice) => [choice.label, choice.detail]),
             ].filter(Boolean).join(" ").toLowerCase().includes(itemNeedle)
           )
+          && selectedCardIdsFor(candidate).length > 0
         ));
         if (!action) {
+          const avatarCard = nounCards.find((candidate) => sceneMeldCardType(candidate) === "avatar");
+          const itemCard = nounCards.find((candidate) => sceneMeldCardType(candidate) === "item");
+          const avatarMatches = String(avatarCard?.nounEntry?.label || avatarCard?.label || "")
+            .toLowerCase() === needle;
+          const itemMatches = !itemNeedle || String(itemCard?.nounEntry?.label || itemCard?.label || "")
+            .toLowerCase() === itemNeedle;
           return {
             ok: false,
-            actions: actionBarActions().map((candidate) => ({
+            preferredSlot: itemMatches && !avatarMatches ? "anchor" : "self",
+            cards: nounCards.map((candidate) => ({
               label: candidate.label,
               detail: candidate.detail,
               choices: candidate.choices || [],
             })),
+            actions: actions.map((candidate) => ({
+              label: candidate.label,
+              detail: candidate.detail,
+              command: candidate.command,
+            })),
           };
         }
-        focusIndex = action.actionIndex;
-        focusedKey = actionHandKey(actions[action.actionIndex]);
+        const selectedCardIds = selectedCardIdsFor(action);
+        focusIndex = actions.indexOf(action);
+        focusedKey = actionHandKey(action);
+        sceneMeldKeys = [...selectedCardIds];
         return {
           ok: true,
           handKey: actionHandKey(action),
           offerIds: (action.offerIds || []).map(String),
+          selectedCardIds,
           generation: Number(state?.action_hand?.generation || 0),
           text: [
             action.label,
@@ -12729,18 +12836,20 @@ async function main() {
       if (result.ok) break;
       if (stopWhen && await stopWhen()) return null;
       if (draw + 1 < deckSize) {
-        const canThink = await page.evaluate(() => actionBarActions().some((action) => (
-          projectedHandEntryForAction(action)?.slot === "self"
+        const preferredSlot = result?.preferredSlot || "self";
+        const canThink = await page.evaluate((slot) => actionBarActions().some((action) => (
+          projectedHandEntryForAction(action)?.slot === slot
             && projectedHandEntryForAction(action)?.think?.available === true
-        )));
+        )), preferredSlot);
         if (!canThink && stopWhen) return null;
-        await passCertifiedHandForDraw(`find ${name} gift`, "self");
+        await passCertifiedHandForDraw(`find ${name} gift`, preferredSlot);
       }
     }
-    assert(result?.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
+    assert(result?.ok, `${name} and ${expectedItemName || "the held item"} should resolve one exact Give or Trade meld: ${JSON.stringify(result)}`);
     focusedSelectionIdentity = {
       handKey: result.handKey,
       offerIds: result.offerIds,
+      selectedCardIds: result.selectedCardIds,
       generation: result.generation,
     };
     useFocusedActionOnNextClick = true;
@@ -12810,7 +12919,30 @@ async function main() {
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       lastJourney = await joinResident(name);
       const availability = await page.evaluate(({ residentName, itemName }) => {
-        const dealt = actionBarActions();
+        const nounCards = actionBarActions();
+        const combinations = nounCards.flatMap((first, firstIndex) => [
+          [first],
+          ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+            [first, second],
+            ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+          ]),
+        ]);
+        const selectedCardIdsFor = (candidate) => {
+          const previous = [...sceneMeldKeys];
+          try {
+            for (const combination of combinations) {
+              sceneMeldKeys = combination.map(storyHandKey);
+              const resolution = sceneMeldResolution(nounCards);
+              if ((candidate.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+                return resolution.selected.map(sceneMeldEntityKey);
+              }
+            }
+            return [];
+          } finally {
+            sceneMeldKeys = previous;
+          }
+        };
+        const dealt = actions.filter((action) => selectedCardIdsFor(action).length > 0);
         const item = (state?.items || []).find((candidate) => candidate.name === itemName) || null;
         const resident = (state?.actors || []).find((actor) => actor.name === residentName) || null;
         const useAction = dealt.find((action) => (
@@ -12841,6 +12973,7 @@ async function main() {
           use: useAction ? {
             handKey: actionHandKey(useAction),
             offerIds: (useAction.offerIds || []).map(String),
+            selectedCardIds: selectedCardIdsFor(useAction),
             generation: Number(state?.action_hand?.generation || 0),
             choiceValue: matchingUseChoices.length === 1
               ? String(matchingUseChoices[0].value || "")
@@ -12894,8 +13027,13 @@ async function main() {
       lastPrimary = await focusGiftForResident(name, () => page.evaluate(
         ({ residentName, heldItemName }) => (
           !(state?.actors || []).some((actor) => actor.name === residentName)
-            || actionBarActions().some((action) => (
+            || actions.some((action) => (
               String(action.label || "").toLowerCase() === "use"
+                && (state?.action_hand?.entries || []).some((entry) => (
+                  (entry.offer_ids || []).some((offerId) => (
+                    (action.offerIds || []).map(String).includes(String(offerId))
+                  ))
+                ))
                 && [
                   action.detail,
                   action.command,
