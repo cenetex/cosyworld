@@ -285,11 +285,12 @@ impl Serialize for ActionHandEntryView {
             id: &'a str,
         }
 
-        let mut out = serializer.serialize_struct("ActionHandEntryView", 9)?;
+        let mut out = serializer.serialize_struct("ActionHandEntryView", 10)?;
         out.serialize_field("offer_id", &self.offer_id)?;
         out.serialize_field("kind", &self.kind)?;
         out.serialize_field("intention", &self.intention)?;
         out.serialize_field("slot", &self.slot)?;
+        out.serialize_field("card_type", &self.card_type)?;
         out.serialize_field("suit", &self.suit)?;
         out.serialize_field("verb", &self.verb)?;
         out.serialize_field("think", &self.think)?;

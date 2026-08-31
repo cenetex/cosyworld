@@ -720,10 +720,13 @@ async function main() {
         inspectorVisible: document.querySelector("#hand-inspector")?.hidden === false,
         modalHidden: document.querySelector("#action-modal")?.hidden === true,
         cardCount: visibleSlots.length,
-        inlineActions: visibleSlots.every((slot) => (
-          slot.querySelector("[data-hand-play]")?.getClientRects().length > 0
+        meldControls: visibleSlots.every((slot) => (
+          slot.querySelector("[data-meld-select]")?.getClientRects().length > 0
             && slot.querySelector("[data-hand-discard]")?.getClientRects().length > 0
         )),
+        composerVisible: document.querySelector("#scene-meld")?.getClientRects().length > 0
+          && document.querySelectorAll("[data-meld-approach]").length === 4
+          && document.querySelector("#scene-meld-play")?.getClientRects().length > 0,
         imageLed: visibleSlots.every((slot) => {
           const thumb = slot.querySelector(".cmd .thumb");
           return Boolean(thumb && (
@@ -756,13 +759,14 @@ async function main() {
         && !expanded.inspectorVisible
         && expanded.modalHidden
         && expanded.cardCount === initial.visibleKeys.length
-        && expanded.inlineActions
+        && expanded.meldControls
+        && expanded.composerVisible
         && expanded.imageLed
         && expanded.fullWidthArtwork
         && expanded.consistentArtwork
         && expanded.framed
         && expanded.squareCorners,
-      `the expanded Story Hand should show three sharp illustrated cards with inline Play and Discard: ${JSON.stringify(expanded)}`,
+      `the expanded Story Hand should show three sharp illustrated noun cards with Add, Think, and Scene Meld controls: ${JSON.stringify(expanded)}`,
     );
     await focusThinkableCard("opening scene");
     const discardControl = await page.evaluate(() => {
@@ -781,10 +785,10 @@ async function main() {
     });
     assert(
       discardControl?.id
-        && discardControl.text === "Discard · Free"
+        && discardControl.text === "Think · Free"
         && discardControl.free
         && !discardControl.consumesTurn,
-      `the first discard should be clearly free: ${JSON.stringify(discardControl)}`,
+      `the first Think should be clearly free: ${JSON.stringify(discardControl)}`,
     );
     const [response] = await Promise.all([
       page.waitForResponse((candidate) => (
@@ -825,7 +829,7 @@ async function main() {
         ropeVisible: $("turn-rope")?.hidden === false,
         ropeTitle: $("turn-rope-title")?.textContent.trim() || "",
         ropeWidth: $("turn-rope-toggle")?.style.getPropertyValue("--turn-progress") || "",
-        turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+        turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
           .every((button) => button.getClientRects().length === 0),
       };
       heldStoryHand = previous.heldStoryHand;
@@ -843,14 +847,14 @@ async function main() {
       };
     });
     assert(
-      paidDiscard.text === "Discard · Turn"
+      paidDiscard.text === "Think · Turn"
         && !paidDiscard.free
         && paidDiscard.consumesTurn
         && paidDiscard.resolving.ropeVisible
-        && paidDiscard.resolving.ropeTitle.startsWith("Discard ·")
+        && paidDiscard.resolving.ropeTitle.startsWith("Think ·")
         && paidDiscard.resolving.ropeWidth === "8%"
         && paidDiscard.resolving.turnLocksHidden,
-      `the second discard should show its turn cost and use the shared resolving rope: ${JSON.stringify(paidDiscard)}`,
+      `the second Think should show its turn cost and use the shared resolving rope: ${JSON.stringify(paidDiscard)}`,
     );
     await page.evaluate(() => setStoryHandExpanded(false));
     const current = await handSnapshot();
@@ -923,10 +927,10 @@ async function main() {
         && layout.primaryLabelsFit
         && layout.statusWraps
         && layout.journaled,
-      `inline Discard should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
+      `inline Think should replace one Story Hand card without adding a fourth card: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "inline Discard replaces one Story Hand card",
+      label: "inline Think replaces one Story Hand card",
       actions: current.visibleKeys.length,
       draws: 1,
     });
@@ -988,7 +992,7 @@ async function main() {
           progressVisible: Boolean(progressButton?.getClientRects().length),
           progressWidth: progressButton?.style.getPropertyValue("--turn-progress") || "",
           compactHeight: document.querySelector("#hand-rail")?.getBoundingClientRect().height || 0,
-          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
@@ -1029,7 +1033,7 @@ async function main() {
           progressWidth: waitingProgress?.style.getPropertyValue("--turn-progress") || "",
           handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
           allCardsInspectable: inspectableCards.every((button) => !button.disabled),
-          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+          turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
           selectedCardCurrent: selectedCard?.getAttribute("aria-current") === "true",
           selectedCardActive: String(selectedCard?.dataset.handKey || "") === storyHandActiveKey,
@@ -1655,7 +1659,7 @@ async function main() {
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
     // Initiative limits action, not inspection. The current hand stays dealt
-    // while Play and Discard enforce the ordered floor.
+    // while Scene Meld and Think enforce the ordered floor.
     assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "look", `an explicitly ordered scene should keep an inspectable fallback hand: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `another player's turn should leave the projected hand available to inspect: ${JSON.stringify(guide)}`);
@@ -2138,9 +2142,9 @@ async function main() {
     assert(result.travelCards[0]?.focusKeys.length === 2, `grouped travel should keep both route focus targets: ${JSON.stringify(result)}`);
     assert(result.connectWalletActionCount === 0, `locked room routes should not deal wallet cards: ${JSON.stringify(result)}`);
     assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
-    const travelLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "travel");
+    const travelLabel = result.labels.find((entry) => /\btravel$/i.test(entry.kicker));
     assert(travelLabel, `travel should remain visible as the exact route verb: ${JSON.stringify(result)}`);
-    const noticeLabel = result.labels.find((entry) => entry.kicker.toLowerCase() === "notice");
+    const noticeLabel = result.labels.find((entry) => /\bnotice$/i.test(entry.kicker));
     assert(noticeLabel, `Notice should remain visible as the exact action verb: ${JSON.stringify(result)}`);
     for (const label of [travelLabel, noticeLabel]) {
       assert(label.scrollWidth <= label.clientWidth + 1, `${label.text} should fit without visual clipping: ${JSON.stringify(result)}`);
@@ -4365,7 +4369,7 @@ async function main() {
         && result.busy?.progressBars === 1
         && result.busy?.opacity === "1"
         && result.busy?.cursor === "progress"
-        && /travel.*Rain-Silver Crossing/i.test(result.busy?.text || ""),
+        && /travel.*Rain-Silver Crossing/i.test(`${result.busy?.text || ""} ${result.busy?.ariaLabel || ""}`),
       `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
     );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
@@ -4406,13 +4410,13 @@ async function main() {
       `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
     );
     assert(
-      result.singleCard?.text === "TRAVEL Rain-Silver Crossing"
-        && result.singleCard?.label === "Rain-Silver Crossing"
+      result.singleCard?.text === "LOCATION · TRAVEL Bethlehem"
+        && result.singleCard?.label === "Bethlehem"
         && !result.singleCard?.detail
         && !result.singleCard?.provider
         && !result.singleCard?.story
         && result.singleCard?.aria === "control, Travel, Rain-Silver Crossing",
-      `a synthetic Travel offer without server presentation should show its exact verb and target while failing closed to a control: ${JSON.stringify(result)}`,
+      `a synthetic Travel offer should keep the current Location noun card while naming its exact destination accessibly: ${JSON.stringify(result)}`,
     );
     assert(
       result.singleModal?.title === "Begin route to Rain-Silver Crossing"
@@ -5113,7 +5117,7 @@ async function main() {
     assert(result.visibleHand.length === 3, `the authoritative browser Story Hand should expose exactly three actions: ${JSON.stringify(result)}`);
     assert(
       result.hasThirdCard && result.hasInlineDiscard && !result.hasFourthCard,
-      `the browser should provide three Story Hand slots with inline Discard: ${JSON.stringify(result)}`,
+      `the browser should provide three Story Hand slots with inline Think: ${JSON.stringify(result)}`,
     );
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -10644,8 +10648,8 @@ async function main() {
           && ["primary", "secondary", "tertiary"].includes(before.controlId)
           && before.visible
           && !before.disabled
-          && /^discard(?:\s*·\s*(?:free|turn))?$/i.test(before.label),
-        `${label} replacement must start from the focused card's certified Discard control: ${JSON.stringify(before)}`,
+          && /^think(?:\s*·\s*(?:free|turn))?$/i.test(before.label),
+        `${label} replacement must start from the focused card's certified Think control: ${JSON.stringify(before)}`,
       );
       let response;
       try {
@@ -11095,7 +11099,7 @@ async function main() {
     useFocusedActionOnNextClick = false;
     await page.locator("#primary").click({ force: true });
     if (!(await actionModalIsOpen())) {
-      await page.locator('[data-hand-play="primary"]:visible').click();
+      await page.locator("#scene-meld-play:visible").click();
     }
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
@@ -11461,7 +11465,7 @@ async function main() {
       useFocusedActionOnNextClick = false;
       await page.locator("#primary").click();
       if (!(await actionModalIsOpen())) {
-        await page.locator('[data-hand-play="primary"]:visible').click();
+        await page.locator("#scene-meld-play:visible").click();
       }
     }
     await confirmActionModalIfOpen();
@@ -13222,9 +13226,9 @@ async function main() {
       await page.locator("#command-toggle, #command-palette, #command-input").count() === 0
         && await page.locator("#shuffle").count() === 0
         && await page.locator("[data-hand-discard]").count() === 3
-        && await page.locator("[data-hand-play]").count() === 3
+        && await page.locator("[data-meld-select]").count() === 3
         && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
-      "the browser room should expose only its three-card hand, with inline Play and Discard and no command entry or full-deck chooser",
+      "the browser room should expose only its three noun cards, with Add, Think, and no command entry or full-deck chooser",
     );
     assert(
       before.length >= 1 && before.length <= 3,
@@ -13384,7 +13388,7 @@ async function main() {
             !document.querySelector("#action-modal")?.hidden
               || (
                 document.querySelector(".prompt")?.classList.contains("hand-expanded")
-                && !document.querySelector('[data-hand-play="primary"]')?.disabled
+                && !document.querySelector("#scene-meld-play")?.disabled
               )
           ));
           const activation = await other.evaluate(() => ({
@@ -13394,7 +13398,7 @@ async function main() {
               : 0,
           }));
           if (activation.inline) {
-            await other.locator('[data-hand-play="primary"]').click();
+            await other.locator("#scene-meld-play").click();
             if (activation.choiceCount > 1) {
               await other.waitForFunction(() => !document.querySelector("#action-modal")?.hidden);
               await other.locator("#action-modal-confirm").click();
@@ -13452,7 +13456,7 @@ async function main() {
           handExpanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
           cardsInspectable: [...document.querySelectorAll(".story-card-slot:not([hidden]) .cmd")]
             .every((button) => !button.disabled),
-          turnActionsDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-hand-play], .story-card-slot:not([hidden]) [data-hand-discard]")]
+          turnActionsDisabled: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.disabled),
           economy: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
           guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
@@ -14699,8 +14703,8 @@ async function main() {
       await page.locator("#action-modal-meta:visible").count() === 0
         && await page.locator("#action-modal-cancel").textContent() === "close"
         && await page.locator("#action-modal-confirm").textContent() === "play"
-        && await page.locator("#action-modal-discard").textContent() === "discard",
-      "core arrival should use the focused card surface without a hand dashboard",
+        && (await page.locator("#action-modal-discard").textContent()).startsWith("think"),
+      "core arrival should use the focused card surface with a certified Think choice",
     );
     await page.locator("#action-modal-cancel").click();
     await page.locator("#primary").click();

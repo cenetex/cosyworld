@@ -86,8 +86,8 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
     expect(index).not.toContain('data-player-concept="think"');
     expect(index).toContain('id="action-modal-discard"');
     expect(index).toContain('data-hand-discard="primary"');
-    expect(index).toContain('data-hand-play="primary"');
-    expect(index).toContain('`Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card;');
+    expect(index).toContain('data-meld-select="primary"');
+    expect(index).toContain('`Think past this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card;');
     expect(index).toContain('command: "think"');
     expect(index).not.toContain('command: "pass"');
   });

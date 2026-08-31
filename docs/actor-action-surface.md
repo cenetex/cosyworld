@@ -8,7 +8,8 @@ Every avatar with the same facets in the same scene receives the same candidate
 verbs and targets. `control_mode` decides which intelligence chooses from that
 surface:
 
-- `direct_input`: a person selects one of the two current certified cards or Think/Pass;
+- `direct_input`: a person selects one to three current noun cards, resolves a
+  certified verb through an approach, or Thinks past one card;
 - `reactive_ai`, `local_ai`, `roaming_ai`, or `delegated_ai`: an inference
   controller selects from the same hand or Passes.
 

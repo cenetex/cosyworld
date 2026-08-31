@@ -2370,7 +2370,7 @@
       grid-column: 1 / -1;
     }
     .prompt[hidden] { display: none; }
-    /* Thinking about a replacement belongs to the opened card as Discard. */
+    /* Thinking about a replacement belongs to the opened noun card. */
     #shuffle { display: none !important; }
     .cmd {
       --cmd-accent: var(--card-control);
@@ -6229,18 +6229,24 @@
       right: 9px;
       z-index: 4;
       display: grid;
-      width: 24px;
+      min-width: 24px;
       height: 24px;
       place-items: center;
+      padding: 0 7px;
       border: 1px solid rgba(var(--slot-accent-rgb), 0.76);
       background: rgba(8, 9, 6, 0.82);
       color: var(--slot-accent);
       font: 800 9px/1 ui-sans-serif, system-ui, sans-serif;
       letter-spacing: 0.04em;
     }
-    .prompt.hand-expanded .story-card-slot[data-story-card-slot="primary"]::after { content: "I"; }
-    .prompt.hand-expanded .story-card-slot[data-story-card-slot="secondary"]::after { content: "II"; }
-    .prompt.hand-expanded .story-card-slot[data-story-card-slot="tertiary"]::after { content: "III"; }
+    .prompt.hand-expanded .story-card-slot::after { content: attr(data-card-kind); }
+    .story-card-slot.meld-selected {
+      outline-color: rgba(var(--slot-accent-rgb), 0.78);
+      box-shadow:
+        0 0 0 2px rgba(var(--slot-accent-rgb), 0.48),
+        0 12px 30px rgba(0, 0, 0, 0.42);
+    }
+    .story-card-slot.meld-selected .cmd { background: rgba(var(--slot-accent-rgb), 0.11); }
     .story-card-slot[hidden] { display: none !important; }
     .story-card-actions {
       display: none;
@@ -6263,7 +6269,7 @@
       cursor: pointer;
     }
     .story-card-actions button + button { border-left: 1px solid rgba(var(--slot-accent-rgb), 0.28); }
-    .story-card-actions .story-card-play {
+    .story-card-actions .story-card-select {
       position: relative;
       isolation: isolate;
       overflow: hidden;
@@ -6276,6 +6282,81 @@
       color: var(--text);
     }
     .story-card-actions button:disabled { opacity: 0.5; cursor: default; }
+    .scene-meld {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 9px 14px;
+      align-items: center;
+      border-top: 1px solid rgba(222, 194, 141, 0.2);
+      background:
+        radial-gradient(circle at 15% 0%, rgba(222, 194, 141, 0.09), transparent 48%),
+        #0b0c08;
+      padding: 11px clamp(12px, 2vw, 20px) 13px;
+    }
+    .scene-meld[hidden] { display: none !important; }
+    .scene-meld-copy { min-width: 0; }
+    .scene-meld-title {
+      display: block;
+      color: var(--text);
+      font: 850 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .scene-meld-status {
+      display: block;
+      margin-top: 4px;
+      color: var(--dim);
+      font: 650 11px/1.35 ui-sans-serif, system-ui, sans-serif;
+    }
+    .scene-meld-approaches {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+      grid-column: 1 / -1;
+    }
+    .scene-meld-approach,
+    .scene-meld-verb,
+    .scene-meld-play {
+      border: 1px solid rgba(244, 239, 227, 0.16);
+      background: rgba(244, 239, 227, 0.035);
+      color: var(--dim);
+      font: 800 10px/1.1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .scene-meld-approach { min-height: 38px; padding: 6px; }
+    .scene-meld-approach[aria-pressed="true"] {
+      border-color: rgba(var(--approach-rgb), 0.72);
+      background: rgba(var(--approach-rgb), 0.14);
+      color: var(--text);
+    }
+    .scene-meld-approach:disabled { opacity: 0.34; cursor: default; }
+    .scene-meld-approach[data-meld-approach="head"] { --approach-rgb: var(--suit-head-rgb); }
+    .scene-meld-approach[data-meld-approach="heart"] { --approach-rgb: var(--suit-heart-rgb); }
+    .scene-meld-approach[data-meld-approach="hustle"] { --approach-rgb: var(--suit-hustle-rgb); }
+    .scene-meld-approach[data-meld-approach="honor"] { --approach-rgb: var(--suit-honor-rgb); }
+    .scene-meld-verbs {
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .scene-meld-verb { min-height: 34px; padding: 7px 10px; text-align: left; }
+    .scene-meld-verb[aria-pressed="true"] {
+      border-color: rgba(222, 194, 141, 0.66);
+      background: rgba(222, 194, 141, 0.12);
+      color: var(--text);
+    }
+    .scene-meld-play {
+      min-width: 126px;
+      min-height: 42px;
+      border-color: rgba(222, 194, 141, 0.54);
+      background: rgba(222, 194, 141, 0.14);
+      color: var(--amber);
+      padding: 8px 14px;
+    }
+    .scene-meld-play:disabled { opacity: 0.38; cursor: default; }
     .prompt .cmd {
       width: 100%;
       min-width: 0;
@@ -6671,6 +6752,9 @@
       .prompt.hand-expanded .cmd-label { font-size: 18px; }
       .prompt.hand-expanded .detail { font-size: 11px; -webkit-line-clamp: 3; }
       .story-card-actions button { min-height: 46px; font-size: 10px; }
+      .scene-meld { grid-template-columns: minmax(0, 1fr); }
+      .scene-meld-approaches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .scene-meld-play { width: 100%; }
       .account-panel.minimal-menu { border-right: 0; border-left: 0; }
       .minimal-menu-player,
       .minimal-menu-orbs,
@@ -6857,6 +6941,28 @@
         font-size: 14px;
         line-height: 1.16;
       }
+      .prompt.hand-expanded .story-card-slot {
+        height: 230px;
+      }
+      .prompt.hand-expanded .cmd {
+        grid-template-rows: 100px minmax(0, 1fr);
+      }
+      .scene-meld {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px 8px;
+        padding: 8px 10px 10px;
+      }
+      .scene-meld-approaches {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .scene-meld-approach {
+        min-height: 34px;
+        font-size: 9px;
+      }
+      .scene-meld-play {
+        width: auto;
+        min-width: 112px;
+      }
     }
   </style>
 </head>
@@ -6936,25 +7042,39 @@
         <article class="story-card-slot" data-story-card-slot="primary">
           <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
           <div class="story-card-actions" aria-label="First card actions">
-            <button class="story-card-discard" type="button" data-hand-discard="primary">Discard</button>
-            <button class="story-card-play" type="button" data-hand-play="primary">Play</button>
+            <button class="story-card-discard" type="button" data-hand-discard="primary">Think</button>
+            <button class="story-card-select" type="button" data-meld-select="primary">Add</button>
           </div>
         </article>
         <article class="story-card-slot" data-story-card-slot="secondary">
           <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
           <div class="story-card-actions" aria-label="Second card actions">
-            <button class="story-card-discard" type="button" data-hand-discard="secondary">Discard</button>
-            <button class="story-card-play" type="button" data-hand-play="secondary">Play</button>
+            <button class="story-card-discard" type="button" data-hand-discard="secondary">Think</button>
+            <button class="story-card-select" type="button" data-meld-select="secondary">Add</button>
           </div>
         </article>
         <article class="story-card-slot" data-story-card-slot="tertiary">
           <button class="cmd tertiary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
           <div class="story-card-actions" aria-label="Third card actions">
-            <button class="story-card-discard" type="button" data-hand-discard="tertiary">Discard</button>
-            <button class="story-card-play" type="button" data-hand-play="tertiary">Play</button>
+            <button class="story-card-discard" type="button" data-hand-discard="tertiary">Think</button>
+            <button class="story-card-select" type="button" data-meld-select="tertiary">Add</button>
           </div>
         </article>
       </div>
+      <section class="scene-meld" id="scene-meld" aria-label="Build a play" hidden>
+        <div class="scene-meld-copy">
+          <strong class="scene-meld-title">Build a play</strong>
+          <span class="scene-meld-status" id="scene-meld-status" role="status" aria-live="polite"></span>
+        </div>
+        <div class="scene-meld-approaches" id="scene-meld-approaches" role="group" aria-label="Choose an approach">
+          <button class="scene-meld-approach" type="button" data-meld-approach="head" aria-pressed="false">🧠 Learn</button>
+          <button class="scene-meld-approach" type="button" data-meld-approach="heart" aria-pressed="false">❤️ Relate</button>
+          <button class="scene-meld-approach" type="button" data-meld-approach="hustle" aria-pressed="false">🛠️ Act</button>
+          <button class="scene-meld-approach" type="button" data-meld-approach="honor" aria-pressed="false">🛡️ Risk</button>
+        </div>
+        <div class="scene-meld-verbs" id="scene-meld-verbs" role="group" aria-label="Certified verbs"></div>
+        <button class="scene-meld-play" id="scene-meld-play" type="button" disabled>Play meld</button>
+      </section>
       <section class="turn-rope" id="turn-rope" aria-label="Turn status and log" hidden>
         <button class="turn-rope-toggle" id="turn-rope-toggle" type="button" aria-expanded="false" aria-controls="turn-log">
           <span class="turn-rope-icon" id="turn-rope-icon" aria-hidden="true">▶</span>
@@ -7082,6 +7202,12 @@
       honor: "🛡️",
       hustle: "🛠️",
     };
+    const sceneMeldApproachLabels = {
+      head: "Learn",
+      heart: "Relate",
+      hustle: "Act",
+      honor: "Risk",
+    };
     const actionCardSuitClasses = actionCardSuits.map((suit) => `suit-${suit}`);
     const actionCardAccentClasses = [...actionCardSuitClasses, "card-control"];
     const bootParams = new URLSearchParams(window.location.search);
@@ -7096,6 +7222,9 @@
     let focusIndex = 0;
     let focusedKey = "";
     let handKeys = [];
+    let sceneMeldKeys = [];
+    let sceneMeldApproach = "";
+    let sceneMeldVerbKey = "";
     let discardedHandKeys = [];
     let handCompositionSignature = "";
     let handDealNonce = 1;
@@ -7807,6 +7936,9 @@
       await pingPresence();
       handKeys = [];
       discardedHandKeys = [];
+      sceneMeldKeys = [];
+      sceneMeldApproach = "";
+      sceneMeldVerbKey = "";
       handCompositionSignature = "";
       focusIndex = 0;
       focusedKey = "";
@@ -7869,6 +8001,9 @@
       if (nextHandCompositionSignature !== handCompositionSignature) {
         handKeys = [];
         discardedHandKeys = [];
+        sceneMeldKeys = [];
+        sceneMeldApproach = "";
+        sceneMeldVerbKey = "";
         handCompositionSignature = nextHandCompositionSignature;
         handDealNonce += 1;
         playerPromotedHandKey = "";
@@ -7885,6 +8020,9 @@
       if (locationChanged) {
         handKeys = [];
         discardedHandKeys = [];
+        sceneMeldKeys = [];
+        sceneMeldApproach = "";
+        sceneMeldVerbKey = "";
         focusIndex = 0;
         focusedKey = "";
         playerPromotedHandKey = "";
@@ -8605,6 +8743,8 @@
           action.offerIds.includes(String(entry?.offer_id || ""))
         )) || null;
         action.storyHandSlot = handEntry?.slot || "";
+        action.sceneCardType = handEntry?.card_type || "";
+        action.sceneOffer = exactOffer;
         action.storyHandThink = handEntry?.think || null;
         return action;
       };
@@ -10792,7 +10932,7 @@
           ok: false,
           status: 409,
           events: [],
-          output: "That card is no longer in your Story Hand. Discard or choose a current card.",
+          output: "That card is no longer in your Story Hand. Think or choose a current card.",
         };
         setError(result.output);
         void queueRefresh();
@@ -10993,7 +11133,7 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        setError("Whole-hand redeals have retired. Open the card you want to replace, then choose Discard.");
+        setError("Whole-hand redeals have retired. Open the card you want to replace, then choose Think.");
         return null;
       }
       const beforeOrbs = economyOrbCount();
@@ -13466,7 +13606,7 @@
       let title = progress
         ? (progress.activity
           ? progress.label
-          : `${progress.kind === "discard" ? "Discard" : "Play"} · ${progress.title}`)
+          : `${progress.kind === "discard" ? "Think" : "Play"} · ${progress.title}`)
         : (latestBeat?.summary || "Recent turns");
       let detail = turnStatusCopy(view?.turn, combat)
         || latestBeat?.detail
@@ -17836,6 +17976,224 @@
         : action;
     }
 
+    function sceneMeldCardType(action) {
+      const projected = projectedHandEntryForAction(originalStoryHandAction(action));
+      const explicit = String(action?.sceneCardType || projected?.card_type || "").toLowerCase();
+      if (["location", "item", "avatar"].includes(explicit)) return explicit;
+      const shape = String(action?.shape || "").toLowerCase();
+      if (shape === "location" || shape === "item" || shape === "avatar") return shape;
+      return "location";
+    }
+
+    function sceneMeldCardTypeLabel(action) {
+      const type = sceneMeldCardType(action);
+      return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+    }
+
+    function sceneMeldOffer(action) {
+      const original = originalStoryHandAction(action);
+      if (original?.sceneOffer) return original.sceneOffer;
+      const offerIds = Array.isArray(original?.offerIds) ? original.offerIds : [];
+      return (state?.action_offers || []).find((offer) => (
+        offerIds.includes(String(offer?.offer_id || ""))
+      )) || null;
+    }
+
+    function sceneMeldEntityKey(action) {
+      const type = sceneMeldCardType(action);
+      const offer = sceneMeldOffer(action);
+      const target = offer?.target || action?.target || null;
+      const source = offer?.source_collectible || null;
+      if (type === "location") {
+        return `location:${Number(state?.location?.id || 0)}`;
+      }
+      if (type === "item") {
+        if (String(source?.kind || "") === "item" && source?.instance_id !== undefined) {
+          return `item:${String(source.instance_id)}`;
+        }
+        if (String(target?.kind || "") === "item" && target?.id !== undefined) {
+          return `item:${String(target.id)}`;
+        }
+      }
+      if (type === "avatar") {
+        if (String(target?.kind || "") === "actor" && target?.id !== undefined) {
+          return `avatar:${String(target.id)}`;
+        }
+        if (["rest", "defend"].includes(String(offer?.kind || action?.kind || ""))) {
+          return `avatar:${Number(actorId || 0)}`;
+        }
+      }
+      return `${type}-card:${storyHandKey(action)}`;
+    }
+
+    function sceneMeldActionBindingKeys(action) {
+      const offer = sceneMeldOffer(action);
+      const target = offer?.target || action?.target || null;
+      const source = offer?.source_collectible || null;
+      const bindings = new Set([
+        `location:${Number(state?.location?.id || 0)}`,
+        sceneMeldEntityKey(action),
+      ]);
+      if (String(source?.kind || "") === "item" && source?.instance_id !== undefined) {
+        bindings.add(`item:${String(source.instance_id)}`);
+      }
+      if (target?.id !== undefined) {
+        if (String(target.kind || "") === "item") bindings.add(`item:${String(target.id)}`);
+        if (String(target.kind || "") === "actor") bindings.add(`avatar:${String(target.id)}`);
+        if (String(target.kind || "") === "location") bindings.add(`location:${String(target.id)}`);
+      }
+      const cardType = sceneMeldCardType(action);
+      if (Array.isArray(action?.choices) && ["avatar", "location"].includes(cardType)) {
+        const prefix = cardType === "avatar" ? "avatar" : "location";
+        for (const choice of action.choices) {
+          if (String(choice?.value || "").match(/^\d+$/)) {
+            bindings.add(`${prefix}:${String(choice.value)}`);
+          }
+        }
+      }
+      return bindings;
+    }
+
+    function sceneMeldVerb(action) {
+      return String(action?.presentation?.verb || action?.label || "Act").trim();
+    }
+
+    function sceneMeldVerbLabel(action) {
+      const verb = sceneMeldVerb(action);
+      const offer = sceneMeldOffer(action);
+      const subject = String(
+        offer?.target?.label
+          || action?.target?.label
+          || action?.destinationOnlyCardLabel
+          || action?.card?.display_name
+          || action?.detail
+          || ""
+      ).trim();
+      return subject && !verb.toLowerCase().includes(subject.toLowerCase())
+        ? `${verb} · ${subject}`
+        : verb;
+    }
+
+    function sceneMeldResolution(visibleActions = actionBarActions()) {
+      const byKey = new Map(visibleActions.map((action) => [storyHandKey(action), action]));
+      const selected = sceneMeldKeys.map((key) => byKey.get(key)).filter(Boolean);
+      const requiredBindings = new Set(selected.map(sceneMeldEntityKey));
+      const legalActions = selected.filter((action) => {
+        const bindings = sceneMeldActionBindingKeys(action);
+        return [...requiredBindings].every((binding) => bindings.has(binding));
+      });
+      const availableApproaches = new Set(legalActions.map(actionCardSuit).filter(Boolean));
+      const chosenApproach = availableApproaches.has(sceneMeldApproach) ? sceneMeldApproach : "";
+      const effectiveApproach = chosenApproach
+        || (availableApproaches.size === 1 ? [...availableApproaches][0] : "");
+      const candidates = effectiveApproach
+        ? legalActions.filter((action) => actionCardSuit(action) === effectiveApproach)
+        : [];
+      const chosenVerb = candidates.find((action) => storyHandKey(action) === sceneMeldVerbKey)
+        || (candidates.length === 1 ? candidates[0] : null);
+      return {
+        selected,
+        legalActions,
+        availableApproaches,
+        effectiveApproach,
+        inferredApproach: Boolean(effectiveApproach && !chosenApproach),
+        candidates,
+        chosenVerb,
+      };
+    }
+
+    function reconcileSceneMeld(visibleActions, seedAction = null) {
+      const validKeys = new Set(visibleActions.map(storyHandKey).filter(Boolean));
+      sceneMeldKeys = sceneMeldKeys.filter((key, index, keys) => (
+        validKeys.has(key) && keys.indexOf(key) === index
+      )).slice(0, 3);
+      const seedKey = storyHandKey(seedAction);
+      if (!sceneMeldKeys.length && seedKey && validKeys.has(seedKey)) sceneMeldKeys = [seedKey];
+      if (!sceneMeldKeys.length && visibleActions[0]) sceneMeldKeys = [storyHandKey(visibleActions[0])];
+      const resolution = sceneMeldResolution(visibleActions);
+      if (sceneMeldApproach && !resolution.availableApproaches.has(sceneMeldApproach)) {
+        sceneMeldApproach = "";
+      }
+      if (sceneMeldVerbKey && !resolution.candidates.some((action) => (
+        storyHandKey(action) === sceneMeldVerbKey
+      ))) {
+        sceneMeldVerbKey = "";
+      }
+    }
+
+    function toggleSceneMeldCard(action) {
+      if (!action || actionBusy || action?.heldStoryHandAction) return;
+      const key = storyHandKey(action);
+      if (!key) return;
+      if (sceneMeldKeys.includes(key)) {
+        sceneMeldKeys = sceneMeldKeys.filter((entry) => entry !== key);
+      } else if (sceneMeldKeys.length < 3) {
+        sceneMeldKeys = [...sceneMeldKeys, key];
+      }
+      sceneMeldVerbKey = "";
+      renderCommands();
+    }
+
+    function renderSceneMeld(visibleActions, expanded) {
+      const host = $("scene-meld");
+      host.hidden = !expanded || !usesInlineStoryHand() || Boolean(activeHeldStoryHandActions());
+      if (host.hidden) return;
+      reconcileSceneMeld(visibleActions);
+      const resolution = sceneMeldResolution(visibleActions);
+      const nounLabels = resolution.selected.map(sceneMeldCardTypeLabel);
+      const nounText = nounLabels.join(" + ");
+      let status = "Choose one to three noun cards.";
+      if (resolution.selected.length && !resolution.legalActions.length) {
+        status = `No exact verb joins ${nounText}. Remove a card or Think for another card.`;
+      } else if (resolution.selected.length && !resolution.effectiveApproach) {
+        status = `${nounText} supports more than one approach. Choose how you act.`;
+      } else if (resolution.candidates.length > 1 && !resolution.chosenVerb) {
+        status = `${nounText} allows ${resolution.candidates.length} exact verbs. Choose one.`;
+      } else if (resolution.chosenVerb) {
+        const inference = resolution.inferredApproach ? " inferred" : "";
+        status = `${sceneMeldVerb(resolution.chosenVerb)} is certified for ${nounText}; ${sceneMeldApproachLabels[resolution.effectiveApproach]}${inference}.`;
+      }
+      $("scene-meld-status").textContent = status;
+      for (const button of $("scene-meld-approaches").querySelectorAll("[data-meld-approach]")) {
+        const approach = String(button.dataset.meldApproach || "");
+        const available = resolution.availableApproaches.has(approach);
+        button.disabled = !available || actionBusy;
+        button.setAttribute("aria-pressed", resolution.effectiveApproach === approach ? "true" : "false");
+        button.title = available
+          ? `${sceneMeldApproachLabels[approach]} is certified by this selection`
+          : `${sceneMeldApproachLabels[approach]} has no exact verb for this selection`;
+      }
+      const verbs = $("scene-meld-verbs");
+      verbs.hidden = resolution.candidates.length < 2;
+      verbs.innerHTML = resolution.candidates.length < 2 ? "" : resolution.candidates.map((action) => {
+        const key = storyHandKey(action);
+        const active = resolution.chosenVerb && storyHandKey(resolution.chosenVerb) === key;
+        return `<button class="scene-meld-verb" type="button" data-meld-verb="${escapeAttr(key)}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(sceneMeldVerbLabel(action))}</button>`;
+      }).join("");
+      const play = $("scene-meld-play");
+      play.disabled = !resolution.chosenVerb
+        || actionBusy
+        || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb));
+      play.textContent = resolution.chosenVerb
+        ? `Play ${sceneMeldVerb(resolution.chosenVerb)}`
+        : "Play meld";
+    }
+
+    function playSceneMeld() {
+      const resolution = sceneMeldResolution(actionBarActions());
+      const action = originalStoryHandAction(resolution.chosenVerb);
+      if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;
+      sceneMeldVerbKey = storyHandKey(resolution.chosenVerb);
+      if (Array.isArray(action.choices) && action.choices.length > 1) {
+        openActionModal(action);
+        return;
+      }
+      if (Array.isArray(action.choices) && action.choices.length === 1 && !action.selectedChoice) {
+        action.selectedChoice = action.choices[0].value;
+      }
+      void runAction(action);
+    }
+
     function turnActivation(turn = state?.turn) {
       const match = String(turn?.handoff_key || "").match(/(?:^|:)activation:(\d+)(?:$|:)/);
       return match ? Number(match[1]) : 0;
@@ -17877,7 +18235,7 @@
       if (!heldStoryHand || !["story.card.played", "hand.thought"].includes(event?.type)) return false;
       const actor = cleanStatusText(event.actor_name || "Someone") || "Someone";
       if (event.type === "hand.thought") {
-        storyHandTurnActivity = `${actor} discarded a card`;
+        storyHandTurnActivity = `${actor} thought past a card`;
       } else {
         const card = cleanStatusText(event.content || "a card").toLowerCase() || "a card";
         storyHandTurnActivity = `${actor} played ${card}`;
@@ -17912,8 +18270,8 @@
         value: Math.min(total, Math.max(0, advanced)),
         max: total,
         label: storyHandTurnActivity || (actionSlow
-          ? `still ${heldStoryHand.actionKind === "discard" ? "discarding" : "playing"}…`
-          : `${heldStoryHand.actionKind === "discard" ? "discarding" : "playing"}…`),
+          ? `still ${heldStoryHand.actionKind === "discard" ? "thinking" : "playing"}…`
+          : `${heldStoryHand.actionKind === "discard" ? "thinking" : "playing"}…`),
         activity: Boolean(storyHandTurnActivity),
         kind: heldStoryHand.actionKind || "play",
         title: heldStoryHand.actionTitle || "Story Hand card",
@@ -17984,16 +18342,20 @@
         || visibleActions[0]
         || null;
       if (expanded && selected && !storyHandActiveKey) storyHandActiveKey = storyHandKey(selected);
+      if (expanded) reconcileSceneMeld(visibleActions, selected);
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
         const card = slot.querySelector(".cmd");
         const cardActions = slot.querySelector(".story-card-actions");
-        const play = document.querySelector(`[data-hand-play="${id}"]`);
+        const select = document.querySelector(`[data-meld-select="${id}"]`);
         const discard = document.querySelector(`[data-hand-discard="${id}"]`);
         slot.hidden = !action;
         if (!action) {
           card.removeAttribute("aria-current");
+          card.removeAttribute("aria-pressed");
+          slot.classList.remove("meld-selected");
+          slot.removeAttribute("data-card-kind");
           return;
         }
         if (expanded && storyHandKey(action) === storyHandKey(selected)) {
@@ -18001,40 +18363,44 @@
         } else {
           card.removeAttribute("aria-current");
         }
+        const meldSelected = sceneMeldKeys.includes(storyHandKey(action));
+        const cardKind = sceneMeldCardTypeLabel(action);
+        card.setAttribute("aria-pressed", meldSelected ? "true" : "false");
+        slot.classList.toggle("meld-selected", meldSelected);
+        slot.dataset.cardKind = cardKind;
         const original = originalStoryHandAction(action);
         const title = actionTitle(original);
         const held = Boolean(action.heldStoryHandAction);
         const waitingForTurn = storyHandActionWaitsForTurn(original);
         const hideTurnActions = waitingForTurn || held;
-        play.hidden = hideTurnActions;
+        select.hidden = hideTurnActions;
         discard.hidden = hideTurnActions;
         cardActions.hidden = hideTurnActions;
         cardActions.classList.remove("progress-only");
-        play.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
-        play.classList.remove("turn-progress");
-        play.style.removeProperty("--turn-progress");
-        play.textContent = "Play";
-        play.setAttribute("aria-label", `Play ${title}`);
+        select.disabled = !inline || waitingForTurn || Boolean(original.busy) || held || actionBusy;
+        select.textContent = meldSelected ? "Remove" : "Add";
+        select.setAttribute("aria-label", `${meldSelected ? "Remove" : "Add"} ${cardKind} ${title} ${meldSelected ? "from" : "to"} this play`);
         const think = handCardThink(original);
         const discardCost = think?.free ? "Free" : "Turn";
         discard.disabled = !inline || held || actionBusy || !canDiscardHandCard(original) || handShuffleBusy;
-        discard.textContent = think?.available ? `Discard · ${discardCost}` : "Discard";
+        discard.textContent = think?.available ? `Think · ${discardCost}` : "Think";
         discard.setAttribute("aria-label", !think?.available
-          ? `${title} cannot be discarded right now`
+          ? `${title} has no other card to Think into right now`
           : think.free
-            ? `Discard ${title} for free`
-            : `Discard ${title}; uses this turn`);
+            ? `Think past ${title} for free`
+            : `Think past ${title}; uses this turn`);
         discard.title = discard.disabled
           ? "No replacement is available for this card right now."
           : think?.free
-            ? `Discard ${title} and draw its replacement for free`
-            : `Discard ${title}, draw its replacement, and use this turn`;
+            ? `Think past ${title} and draw its replacement for free`
+            : `Think past ${title}, draw its replacement, and use this turn`;
       });
       const shouldScroll = storyHandScrollPending;
       storyHandScrollPending = false;
       if (expanded && selected && shouldScroll) {
         window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
       }
+      renderSceneMeld(visibleActions, expanded);
       renderStoryHandInspector(null);
       renderTurnRope();
     }
@@ -18054,6 +18420,7 @@
           focusIndex = selected.actionIndex;
           focusedKey = originalStoryHandAction(selected)?.focusKey || "";
           actionConfirmAction = originalStoryHandAction(selected);
+          reconcileSceneMeld(visibleActions, selected);
           storyHandScrollPending = true;
         }
       } else {
@@ -18071,10 +18438,17 @@
         openActionModal(action, { handCard: true });
         return;
       }
+      if (storyHandExpanded) {
+        toggleSceneMeldCard(action);
+        return;
+      }
       const index = actions.indexOf(action);
       if (index >= 0) focusIndex = index;
       focusedKey = action.focusKey || actionHandKey(action) || "";
       storyHandActiveKey = storyHandKey(action);
+      sceneMeldKeys = [storyHandKey(action)];
+      sceneMeldApproach = "";
+      sceneMeldVerbKey = "";
       setStoryHandExpanded(true, action);
     }
 
@@ -18087,17 +18461,10 @@
       await discardActionCard(action);
     }
 
-    function playStoryHandCard(id) {
+    function selectStoryHandCardForMeld(id) {
       const action = actionForButton(id);
-      if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;
-      if (Array.isArray(action.choices) && action.choices.length > 1) {
-        openActionModal(action);
-        return;
-      }
-      if (Array.isArray(action.choices) && action.choices.length === 1 && !action.selectedChoice) {
-        action.selectedChoice = action.choices[0].value;
-      }
-      void runAction(action);
+      if (!action) return;
+      toggleSceneMeldCard(action);
     }
 
     function selectStoryHandCardFromScroll() {
@@ -18188,13 +18555,13 @@
       discardButton.hidden = handCard ? false : !canDiscard;
       discardButton.disabled = handShuffleBusy || (handCard && !canDiscard);
       discardButton.textContent = discardCertificate?.available
-        ? (discardCertificate.free ? "discard · free" : "discard · turn")
-        : "discard";
+        ? (discardCertificate.free ? "think · free" : "think · turn")
+        : "think";
       discardButton.setAttribute(
         "aria-label",
         canDiscard
-          ? `Discard this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
-          : "This Story Hand card cannot be discarded",
+          ? `Think past this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card; ${discardCertificate.free ? "free" : "uses this turn"}`
+          : "This Story Hand card has no other thought available",
       );
       const actionButtons = discardButton.closest(".action-actions");
       actionButtons?.classList.toggle("has-discard", Boolean(canDiscard) && !handCard);
@@ -18534,6 +18901,7 @@
           String(entry?.provider?.kind || ""),
           String(entry?.provider?.id || ""),
           String(entry?.slot || ""),
+          String(entry?.card_type || ""),
           String(entry?.suit || ""),
           String(entry?.think?.offer_id || ""),
         ]),
@@ -18647,6 +19015,9 @@
       if (compositionChanged) {
         handKeys = [];
         discardedHandKeys = [];
+        sceneMeldKeys = [];
+        sceneMeldApproach = "";
+        sceneMeldVerbKey = "";
         playerPromotedHandKey = "";
       } else {
         pruneDiscardedHandKeys(validKeys);
@@ -18766,6 +19137,7 @@
         button.removeAttribute("data-card-type");
         button.removeAttribute("data-card-suit");
         button.removeAttribute("data-card-rarity");
+        button.removeAttribute("data-scene-card-type");
         button.removeAttribute("data-story-guide");
         button.classList.remove(...actionCardAccentClasses);
         button.classList.remove("dealt");
@@ -18793,11 +19165,14 @@
       else button.removeAttribute("data-command");
       button.classList.remove(...actionCardAccentClasses);
       const { cardType, suit, rarity, className } = actionCardAccentClass(action);
+      const sceneCardType = sceneMeldCardType(action);
+      const sceneCardLabel = sceneMeldCardTypeLabel(action);
       const storyGuide = action.storyGuide === true;
       const storyGuideLabel = storyGuide
         ? String(action.storyGuideLabel || "next tale beat")
         : "";
       button.dataset.cardType = cardType;
+      button.dataset.sceneCardType = sceneCardType;
       if (suit) button.dataset.cardSuit = suit;
       else button.removeAttribute("data-card-suit");
       if (rarity) button.dataset.cardRarity = rarity;
@@ -18833,8 +19208,14 @@
           ? "Travel"
           : (presentation.verb || action.label || "Act")
       ).trim();
+      const locationNoun = sceneCardType === "location" ? cardForLocation(state?.location?.id) : null;
+      const displayAction = locationNoun
+        ? { ...action, card: locationNoun, shape: "location" }
+        : action;
       const cardTitle = String(
-        action.destinationOnlyCardLabel
+        locationNoun?.display_name
+          || locationNoun?.name
+          || action.destinationOnlyCardLabel
           || action.target?.label
           || action.card?.display_name
           || action.detail
@@ -18892,7 +19273,7 @@
       const pathwayBadgeHtml = pathwaySide
         ? `<span class="pathway-side-badge" aria-hidden="true">${pathwaySide === "back" ? "←" : "→"}</span>`
         : "";
-      const thumb = thumbnailHtml(action, false, "action-mini-card", pathwayBadgeHtml);
+      const thumb = thumbnailHtml(displayAction, false, "action-mini-card", pathwayBadgeHtml);
       button.classList.add("has-copy");
       const labelText = cardTitle;
       const detailHtml = effectText && !destinationOnlyCardLabel
@@ -18908,7 +19289,9 @@
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      const kicker = suitEmoji ? `${suitEmoji} · ${exactVerb}` : exactVerb;
+      const kicker = [sceneCardLabel, suitEmoji ? `${suitEmoji} ${exactVerb}` : exactVerb]
+        .filter(Boolean)
+        .join(" · ");
       const economy = [visibleCostText, minimalTravelCard ? "" : riskText].filter(Boolean).join(" · ");
       const mechanicsHtml = minimalTravelCard && riskText
         ? `<span class="cmd-symbols"><span class="cmd-symbol" title="${escapeAttr(riskText)}" aria-label="${escapeAttr(riskText)}">${iconSvg("danger")}</span></span>`
@@ -18943,7 +19326,12 @@
             : "",
         });
       }
-      return entries;
+      const nounOrder = { location: 0, avatar: 1, item: 2 };
+      return entries.sort((left, right) => (
+        Number(right.storyGuide === true) - Number(left.storyGuide === true)
+          || Number(nounOrder[sceneMeldCardType(left)] ?? 99)
+          - Number(nounOrder[sceneMeldCardType(right)] ?? 99)
+      ));
     }
 
     function visibleFocusedAction() {
@@ -18985,7 +19373,7 @@
       const entry = projectedHandEntryForAction(focused);
       const think = entry?.think;
       if (!think?.available || !think?.offer_id) {
-        setError("That Story Hand card has no other current possibility to discard into.");
+        setError("That Story Hand card has no other current possibility to Think into.");
         return null;
       }
       const spendsTurn = think.consumes_turn === true || think.free === false;
@@ -19029,7 +19417,7 @@
     }
 
     // Kept for transport/browser compatibility; the player-facing control is
-    // Discard on each card in the expanded Story Hand.
+    // Think on each card in the expanded Story Hand.
     async function passHand(focused = visibleFocusedAction()) {
       return discardActionCard(focused);
     }
@@ -19985,11 +20373,11 @@
     });
 
     $("hand-rail").addEventListener("click", (event) => {
-      const play = event.target.closest("[data-hand-play]");
-      if (play) {
+      const select = event.target.closest("[data-meld-select]");
+      if (select) {
         event.preventDefault();
         event.stopPropagation();
-        playStoryHandCard(play.getAttribute("data-hand-play") || "");
+        selectStoryHandCardForMeld(select.getAttribute("data-meld-select") || "");
         return;
       }
       const discard = event.target.closest("[data-hand-discard]");
@@ -19998,6 +20386,27 @@
         event.stopPropagation();
         void discardStoryHandCard(discard.getAttribute("data-hand-discard") || "");
       }
+    });
+
+    $("scene-meld-approaches").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-meld-approach]");
+      if (!button || button.disabled) return;
+      const approach = String(button.dataset.meldApproach || "");
+      sceneMeldApproach = sceneMeldApproach === approach ? "" : approach;
+      sceneMeldVerbKey = "";
+      renderCommands();
+    });
+
+    $("scene-meld-verbs").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-meld-verb]");
+      if (!button) return;
+      sceneMeldVerbKey = String(button.dataset.meldVerb || "");
+      renderCommands();
+    });
+
+    $("scene-meld-play").addEventListener("click", (event) => {
+      event.preventDefault();
+      playSceneMeld();
     });
 
     $("hand-close").addEventListener("click", (event) => {

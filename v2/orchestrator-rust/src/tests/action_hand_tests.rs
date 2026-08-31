@@ -2587,6 +2587,15 @@ fn story_hand_deals_at_most_one_item_location_and_avatar() {
     );
 
     let hand = compose_story_hand_at(&candidates, [0; 3]);
+    assert_eq!(hand.schema_version, 3);
+    assert_eq!(
+        hand.entries
+            .iter()
+            .map(|entry| entry.card_type.as_str())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["avatar", "item", "location"]),
+        "the public hand names the three noun card types"
+    );
     let dealt_slots = hand
         .entries
         .iter()

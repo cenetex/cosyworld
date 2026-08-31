@@ -2484,6 +2484,7 @@ pub(super) fn compose_action_hand_at(
 }
 
 pub(super) const STORY_HAND_SLOTS: [&str; 3] = ["story", "self", "anchor"];
+pub(super) const STORY_HAND_CARD_TYPES: [&str; 3] = ["location", "item", "avatar"];
 
 pub(super) fn story_hand_natural_slot(offer: &RankedActionOffer) -> usize {
     // The three visible cards are an entity hand, not three abstract action
@@ -2561,6 +2562,7 @@ fn story_hand_entry(
         intention: offer.intention.clone(),
         provider: offer.provider.clone(),
         slot: STORY_HAND_SLOTS[slot_index].to_string(),
+        card_type: STORY_HAND_CARD_TYPES[slot_index].to_string(),
         suit: action_card_suit(offer)
             .unwrap_or_else(|error| panic!("{error}"))
             .to_string(),
@@ -2653,7 +2655,7 @@ fn compose_story_hand_with_pin(
         .fold(0usize, usize::saturating_add);
 
     ActionHandView {
-        schema_version: 2,
+        schema_version: 3,
         capacity: CAPACITY as u8,
         deck_size: u16::try_from(deck_size).unwrap_or(u16::MAX),
         draw_available: slot_pools.iter().any(|pool| pool.len() > 1),
