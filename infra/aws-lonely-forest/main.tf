@@ -668,7 +668,7 @@ locals {
       }) },
       { name = "COSYWORLD_AI_REGISTRY_JSON", value = jsonencode({
         schema_version   = 1
-        snapshot_version = "cosyworld-aws-2026-08-13a"
+        snapshot_version = "cosyworld-aws-2026-08-31b"
         declared = [
           {
             requested_model_id = var.openrouter_chat_model
@@ -681,7 +681,8 @@ locals {
               json_mode         = true
               tools             = true
               seed              = true
-              stop              = true
+              stop              = false
+              reasoning         = true
             }
             data_policy  = { retention = "none", training = "prohibited" }
             capabilities = ["voice"]

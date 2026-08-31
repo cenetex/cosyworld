@@ -262,8 +262,8 @@ variable "openrouter_api_key_secret_arn" {
 
 variable "openrouter_chat_model" {
   type        = string
-  default     = "mistralai/mistral-nemo"
-  description = "OPENROUTER_CHAT_MODEL to use for resident avatar voice when openrouter_api_key_secret_arn is set."
+  default     = "openai/gpt-5.4-nano"
+  description = "OPENROUTER_CHAT_MODEL to use for unbound and directly controlled avatar voice when openrouter_api_key_secret_arn is set."
 }
 
 variable "openrouter_metacognitive_model" {

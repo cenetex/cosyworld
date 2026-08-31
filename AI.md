@@ -48,9 +48,10 @@ Relevant implementation points:
 
 - `v2/orchestrator-rust/src/main.rs` already supports OpenAI-compatible text generation through `AiConfig`.
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
-- OpenRouter defaults to `https://openrouter.ai/api/v1`, with
-  `mistralai/mistral-nemo` for avatar voice and `openai/gpt-5.6-sol` for
-  metacognitive `intent_json` and `world_content` work. Set
+- OpenRouter defaults to `https://openrouter.ai/api/v1`, with the low-latency
+  `openai/gpt-5.4-nano` for unbound and directly controlled avatar voice and
+  `openai/gpt-5.6-sol` for metacognitive `intent_json` and `world_content`
+  work. Exact-bound residents keep their own model. Set
   `OPENROUTER_METACOGNITIVE_MODEL` to override the latter in development;
   production pins both lanes through the reviewed capability registry.
 - `POST /actions/create-bond` is projected as `Chat` only when advancement and an eligible nearby resident are available. The legacy `/actions/chat` endpoint delegates to the same advancement-backed behavior.

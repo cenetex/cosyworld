@@ -585,6 +585,22 @@ describe('deploy workflow', () => {
     }
   });
 
+  it('uses the low-latency model for unbound and player-avatar voice', () => {
+    const voiceDefault =
+      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"openai/gpt-5.4-nano"';
+    const voiceDeclaration =
+      '"requested_model_id":"openai/gpt-5.4-nano","provider":"openrouter"';
+
+    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
+      expect(config).toContain(voiceDefault);
+      expect(config).toContain(voiceDeclaration);
+      expect(config).not.toContain('"voice":"mistralai/mistral-nemo"');
+    }
+    expect(lonelyForestFlyConfig).toContain(
+      'OPENROUTER_CHAT_MODEL = "openai/gpt-5.4-nano"'
+    );
+  });
+
   it('copies every out-of-crate compile-time input into the release image build', () => {
     const dependencyBuild = 'RUN cargo chef cook --release --recipe-path /app/recipe.json';
     const engineVersionCopy =

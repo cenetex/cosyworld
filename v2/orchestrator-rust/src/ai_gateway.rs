@@ -31,7 +31,7 @@ use std::{
 };
 use tokio::time::{sleep, Instant};
 
-pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "mistralai/mistral-nemo";
+pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.4-nano";
 pub(crate) const DEFAULT_OPENROUTER_METACOGNITIVE_MODEL: &str = "openai/gpt-5.6-sol";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const OPENROUTER_METACOGNITIVE_MODEL_ENV: &str = "OPENROUTER_METACOGNITIVE_MODEL";
