@@ -5,7 +5,7 @@ use cosyworld_orchestrator::card_policy::{
     card_kind_code_q15, CardPolicyAction, CARD_POLICY_FEATURES,
 };
 
-const RESIDENT_PLANNER_PROMPT_VERSION: &str = "resident-intent-context-spine-v2";
+const RESIDENT_PLANNER_PROMPT_VERSION: &str = "resident-intent-awakening-context-v1";
 const RESIDENT_PLANNER_ELIGIBILITY_POLICY: &str = "resident-planner-offers-v1";
 const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
     "pass",
@@ -1627,15 +1627,18 @@ pub(super) async fn request_resident_plan(
             ..AvatarContextSpine::default()
         }
     };
-    let spine_context = spine
+    let rendered_spine = spine
         .prompt(AvatarContextPromptOptions {
             mode: AvatarContextMode::Think,
             speech_mode: SpeechMode::Prose,
             max_words: 45,
-            response_job: "Use present motives and relevant recollections to choose one legal candidate. The JSON reason is a brief in-character motive, not hidden reasoning or a new world fact.".to_string(),
+            response_job: "present motive · legal candidate only · no new fact".to_string(),
         })
-        .render_for(Some(32_768), 120)
-        .user;
+        .render_for(Some(32_768), 120);
+    let spine_context = format!(
+        "AWAKENING\n{}\nSCENE\n{}",
+        rendered_spine.system, rendered_spine.user
+    );
     let system = "You are a bounded intent selector. Select exactly one candidate from the supplied authoritative planner-eligible list. Return one JSON object only. Echo candidate_id and state_revision exactly. speech_act must be inform, propose, commit, refuse, or react. reason is private proposal metadata, not a world fact. Never invent an action, target, item, destination, cost, outcome, reward, belief, candidate, or revision.";
     let user = format!(
         "Avatar context spine:\n{spine_context}\nEligibility policy: {policy}; closed offer kinds: {eligible_kinds}\nExact current planner-eligible legal candidates:\n{candidates}\nReturn only {{\"candidate_id\":\"exact id\",\"state_revision\":0,\"speech_act\":\"inform|propose|commit|refuse|react\",\"reason\":\"brief in-character motive\"}}.",

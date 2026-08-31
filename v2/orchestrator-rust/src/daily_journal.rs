@@ -17,7 +17,8 @@ use super::*;
 
 const DAILY_JOURNAL_PROTOCOL: &str = "cosyworld.daily-journal.v1";
 const DAILY_JOURNAL_FEATURE: &str = "avatar_daily_journal";
-const DAILY_JOURNAL_PROMPT_VERSION: &str = "avatar-daily-journal-relationships-v2";
+const DAILY_JOURNAL_PROMPT_VERSION: &str = "avatar-daily-journal-awakening-v1";
+const DAILY_JOURNAL_AWAKENING: &str = "I wake where the day touches sleep. Faces and unfinished feelings come nearer than places. Hopes tug at one another; small moments keep their warmth. What truly happened stays with the evidence, while memory decides only what it means to me.";
 const DAILY_JOURNAL_IMAGE_FEATURE: &str = "avatar_daily_journal_image";
 const DAILY_JOURNAL_IMAGE_PROMPT_VERSION: &str = "avatar-daily-journal-image-v1";
 const DAILY_JOURNAL_STYLE_REVISION: &str = "cosyworld-hand-painted-page/2";
@@ -604,14 +605,12 @@ async fn complete_daily_journal_page(
     };
     let fallback = fallback_daily_journal_entry(&page);
     let entry = if let Some(config) = state.ai_config.as_ref().as_ref() {
-        let system = "You write one avatar's private daily journal in a cozy shared world. Write strictly in that avatar's first person, using I/my/me. Make it a human-feeling reflection, never an itinerary, quest recap, or event log. Remember relationships first, then connect them to the avatar's calling, hopes, journey, growth, and dreams. Places are background context, not the subject. Use only the supplied evidence. Never invent or quote dialogue, possessions, motives, feelings, or outcomes. Never mention mechanics, rolls, IDs, prompts, models, policies, or UI. Output only one 75-120 word journal entry with no heading.";
         // Exact chat excerpts stay in the player's journal view and are never
         // forwarded to the configured writing service.
         let evidence = daily_journal_ai_evidence(&page);
-        let user = format!(
-            "Avatar: {}\nPlace where the avatar finally rested: {}\nRelationship-first private context since the previous page:\n{}",
-            page.avatar_name,
-            page.location_name,
+        let (system, user) = daily_journal_messages(
+            &page.avatar_name,
+            &page.location_name,
             if evidence.is_empty() {
                 "- A quiet day settled without one large event."
             } else {
@@ -730,6 +729,19 @@ fn daily_journal_ai_evidence(page: &DailyJournalPageState) -> String {
         .map(|update| format!("- {}", update.text))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn daily_journal_messages(
+    avatar_name: &str,
+    location_name: &str,
+    evidence: &str,
+) -> (&'static str, String) {
+    (
+        DAILY_JOURNAL_AWAKENING,
+        format!(
+            "SELF · {avatar_name}\nRESTED · {location_name}\nMEMORY · {evidence}\nJOURNAL · first person · 75–120 words · relationships before places · reflection, not log · evidence only · no heading, quoted dialogue, mechanics, IDs, prompt/model, or UI talk",
+        ),
+    )
 }
 
 fn fallback_daily_journal_entry(page: &DailyJournalPageState) -> String {
@@ -1026,6 +1038,24 @@ fn xml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn player_journal_fields_never_enter_the_system_awakening() {
+        let (system, user) = daily_journal_messages(
+            "Player Name Sentinel",
+            "Player Place Sentinel",
+            "Player Memory Sentinel",
+        );
+        assert!(system.starts_with("I wake"));
+        for sentinel in [
+            "Player Name Sentinel",
+            "Player Place Sentinel",
+            "Player Memory Sentinel",
+        ] {
+            assert!(!system.contains(sentinel));
+            assert!(user.contains(sentinel));
+        }
+    }
 
     fn journal_test_event(
         seq: u64,

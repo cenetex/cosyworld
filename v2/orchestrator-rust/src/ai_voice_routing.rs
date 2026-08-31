@@ -630,13 +630,13 @@ fn request_with_retry_feedback(
 ) -> VoiceAttemptRequest {
     let mut request = request.clone();
     if let Some(instruction) = retry_instruction(rejections, gate, request.max_tokens) {
-        request.prompt = if gate.mode == SpeechMode::Raw {
+        // The avatar's system message is its stable awakening monologue on every
+        // attempt. Bounded publication feedback belongs beside the output cue,
+        // never inside the avatar's identity or memory.
+        request.prompt =
             request
                 .prompt
-                .user(instruction, PromptSegmentKind::Envelope, u8::MAX, true)
-        } else {
-            request.prompt.system(instruction)
-        };
+                .user(instruction, PromptSegmentKind::Envelope, u8::MAX, true);
     }
     request
 }
@@ -2588,11 +2588,12 @@ mod tests {
         let (systems, users) = backend.rendered_prompts();
         assert_eq!(systems.len(), 2);
         assert_eq!(systems[0], "Write one short anchored line.");
+        assert_eq!(systems[1], "Write one short anchored line.");
+        assert_eq!(users[0], "The teapot rattled.");
         assert_eq!(
-            systems[1],
-            "Write one short anchored line.\nagain · one short complete line · at most 20 words · one voice · no speaker labels",
+            users[1],
+            "The teapot rattled.\nagain · one short complete line · at most 20 words · one voice · no speaker labels",
         );
-        assert_eq!(users, vec!["The teapot rattled."; 2]);
         assert!(systems
             .iter()
             .chain(&users)
@@ -2838,10 +2839,11 @@ mod tests {
         .expect("the signpost-corrected retry certifies");
 
         assert_eq!(certified.text(), "The teapot is warm.");
-        let (systems, _) = backend.rendered_prompts();
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(systems[1], "Write one short anchored line.");
         assert_eq!(
-            systems[1],
-            "Write one short anchored line.\nagain · start with a person, object, action, or sensation · mention the place later only if it matters"
+            users[1],
+            "The teapot rattled.\nagain · start with a person, object, action, or sensation · mention the place later only if it matters"
         );
     }
 
@@ -2869,10 +2871,11 @@ mod tests {
         .await
         .expect("the emoji retry certifies");
 
-        let (systems, _) = backend.rendered_prompts();
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(systems[1], "Write one short anchored line.");
         assert_eq!(
-            systems[1],
-            "Write one short anchored line.\nagain · 3–6 emoji only · touch something already present"
+            users[1],
+            "The teapot rattled.\nagain · 3–6 emoji only · touch something already present"
         );
     }
 
