@@ -78,6 +78,13 @@ identity, invitations, claims, or player copy.
 Presence may briefly lag. Item ownership, affordability, access, action
 eligibility, and committed story outcomes may not.
 
+The browser renders the current authoritative room state before hydrating its
+journal. Initial journal hydration reads a globally bounded event tail through
+batched visible-location queries, so worlds with hundreds of locations do not
+turn one page load into hundreds of SQLite queries. A slow or temporarily
+unavailable history read may delay the journal, but it must not leave the
+playable room on its boot shell.
+
 ## Command envelope
 
 Horizontal-capacity implementation must carry a logical envelope equivalent to:
