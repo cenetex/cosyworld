@@ -54,6 +54,7 @@ mod first_tale_presentations;
 mod generated_places;
 mod generation_policy;
 mod hosted_access;
+mod item_identity;
 mod jobs;
 mod journal_checkpoint;
 mod kernel;
@@ -183,6 +184,7 @@ use first_tale_presentations::*;
 use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
+use item_identity::*;
 use jobs::*;
 use journal_checkpoint::read_persistence_compaction_report;
 use kernel::*;
@@ -1150,6 +1152,9 @@ enum ProjectionMutation {
         content: String,
         reason: String,
     },
+    RevealItemIdentity {
+        reveal: ItemIdentityRevealState,
+    },
     ResolveEncounterByFeature {
         job_id: String,
         target_actor_id: u64,
@@ -1593,6 +1598,7 @@ struct RuntimeWorld {
     settlement_buildings: BTreeMap<String, SettlementBuildingState>,
     building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
     loot_allocations: BTreeMap<String, LootAllocationState>,
+    item_identity_reveals: BTreeMap<u64, ItemIdentityRevealState>,
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
@@ -1734,6 +1740,8 @@ struct RuntimeSnapshot {
     building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
     #[serde(default)]
     loot_allocations: BTreeMap<String, LootAllocationState>,
+    #[serde(default)]
+    item_identity_reveals: BTreeMap<u64, ItemIdentityRevealState>,
     #[serde(default)]
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
@@ -5237,6 +5245,7 @@ impl RuntimeSnapshot {
             settlement_buildings: runtime.settlement_buildings.clone(),
             building_footprint_claims: runtime.building_footprint_claims.clone(),
             loot_allocations: runtime.loot_allocations.clone(),
+            item_identity_reveals: runtime.item_identity_reveals.clone(),
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
@@ -5495,6 +5504,7 @@ impl RuntimeSnapshot {
             settlement_buildings: self.settlement_buildings,
             building_footprint_claims: self.building_footprint_claims,
             loot_allocations: self.loot_allocations,
+            item_identity_reveals: self.item_identity_reveals,
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
@@ -5704,6 +5714,7 @@ impl RuntimeWorld {
             settlement_buildings: BTreeMap::new(),
             building_footprint_claims: BTreeMap::new(),
             loot_allocations: BTreeMap::new(),
+            item_identity_reveals: BTreeMap::new(),
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
@@ -7063,58 +7074,6 @@ impl RuntimeWorld {
                 continue;
             };
             self.ensure_actor(actor.id, CW_ACTOR_NPC, location_id, seed_actor_stats(actor));
-        }
-    }
-
-    fn ensure_seed_items(&mut self) {
-        for item in &active_content().items {
-            let Some(kind) = seed_item_kind(item) else {
-                continue;
-            };
-            self.ensure_item(item.id, kind, item.location_id, item.charges);
-            let (Some(role), Some(size_class)) = (seed_item_role(item), seed_item_size(item))
-            else {
-                continue;
-            };
-            let status = unsafe {
-                cw_world_set_item_profile(
-                    &mut *self.world,
-                    item.id,
-                    item.weight_tenths.max(1),
-                    size_class,
-                    role,
-                    item.container_capacity_tenths,
-                )
-            };
-            debug_assert_eq!(status, CW_OK);
-            let (max_charges, recovery, ready_zone) = seed_item_recovery_profile(item);
-            let recovery_status = unsafe {
-                cw_world_set_item_recovery_profile(
-                    &mut *self.world,
-                    item.id,
-                    max_charges,
-                    recovery,
-                    ready_zone,
-                )
-            };
-            debug_assert_eq!(recovery_status, CW_OK);
-            let policy_status = unsafe {
-                cw_world_set_item_policy(
-                    &mut *self.world,
-                    item.id,
-                    declared_item_policy_flags(item.mechanics.as_ref())
-                        & !CW_ITEM_POLICY_CONFIGURED,
-                )
-            };
-            debug_assert_eq!(policy_status, CW_OK);
-            if role == CW_ITEM_ROLE_WEAPON {
-                if let Some(world_item) = self.world.items[..self.world.item_count]
-                    .iter_mut()
-                    .find(|world_item| world_item.id == item.id)
-                {
-                    world_item.reserved = seed_weapon_die_sides(item);
-                }
-            }
         }
     }
 
@@ -8846,6 +8805,11 @@ impl RuntimeWorld {
                         &format!("feature_use:{location_id}:{feature_key}:{item_id}"),
                     ) {
                         events.push(ledger_event);
+                    }
+                }
+                ProjectionMutation::RevealItemIdentity { reveal } => {
+                    if let Some(event) = self.apply_item_identity_reveal(action.actor_id, reveal) {
+                        events.push(event);
                     }
                 }
                 mutation @ ProjectionMutation::ResolveEncounterByFeature { .. } => events

@@ -11,6 +11,63 @@
 use super::*;
 use projection::{DeclaredWrites, ProjectionContext, StateKey};
 
+impl RuntimeWorld {
+    pub(super) fn ensure_seed_items(&mut self) {
+        for item in &active_content().items {
+            let Some(kind) = seed_item_kind(item) else {
+                continue;
+            };
+            self.ensure_item(item.id, kind, item.location_id, item.charges);
+            if self.item_identity_reveals.contains_key(&item.id) {
+                continue;
+            }
+            let (Some(role), Some(size_class)) = (seed_item_role(item), seed_item_size(item))
+            else {
+                continue;
+            };
+            let status = unsafe {
+                cw_world_set_item_profile(
+                    &mut *self.world,
+                    item.id,
+                    item.weight_tenths.max(1),
+                    size_class,
+                    role,
+                    item.container_capacity_tenths,
+                )
+            };
+            debug_assert_eq!(status, CW_OK);
+            let (max_charges, recovery, ready_zone) = seed_item_recovery_profile(item);
+            let recovery_status = unsafe {
+                cw_world_set_item_recovery_profile(
+                    &mut *self.world,
+                    item.id,
+                    max_charges,
+                    recovery,
+                    ready_zone,
+                )
+            };
+            debug_assert_eq!(recovery_status, CW_OK);
+            let policy_status = unsafe {
+                cw_world_set_item_policy(
+                    &mut *self.world,
+                    item.id,
+                    declared_item_policy_flags(item.mechanics.as_ref())
+                        & !CW_ITEM_POLICY_CONFIGURED,
+                )
+            };
+            debug_assert_eq!(policy_status, CW_OK);
+            if role == CW_ITEM_ROLE_WEAPON {
+                if let Some(world_item) = self.world.items[..self.world.item_count]
+                    .iter_mut()
+                    .find(|world_item| world_item.id == item.id)
+                {
+                    world_item.reserved = seed_weapon_die_sides(item);
+                }
+            }
+        }
+    }
+}
+
 /// `ProjectionMutation::SetItemContained`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetItemContained {

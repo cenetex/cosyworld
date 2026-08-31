@@ -666,15 +666,10 @@ impl RuntimeWorld {
                     seed,
                 )
                 .into_actor_consequence(self.world.tick, caused_by_event_seq);
-                record
-                    .projection_mutations
-                    .push(ProjectionMutation::UseFeature {
-                        item_id: candidate.item_id,
-                        location_id: candidate.location_id,
-                        feature_key: candidate.feature_key,
-                        content: candidate.content,
-                        reason: "resident_card_policy".to_string(),
-                    });
+                record.projection_mutations.extend(
+                    self.feature_use_projection_mutations(&candidate, "resident_card_policy")
+                        .ok()?,
+                );
                 record
             }
             "attack" | "defend" | "flee" => {
