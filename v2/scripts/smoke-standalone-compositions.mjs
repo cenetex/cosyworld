@@ -147,7 +147,7 @@ const worldCases = [
     scoutDestination: "Void 002",
     additionalScoutDestination: "Void 003",
     multiStepScoutPath: true,
-    connectionItem: "Void Token 001",
+    connectionItem: "Unresolved Void Marker 001",
     legacyGeneratedCheckpoint: {
       bundleHash: "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee",
       packVersion: "0.2.0",
