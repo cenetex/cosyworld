@@ -452,7 +452,8 @@ async function assertModerationCanSuspendActor(probeAvatar) {
   const preSuspensionState = await fetch(
     `${baseUrl}/state?actor_id=${actorId}&actor_session=${encodeURIComponent(actorSession)}`,
   ).then((response) => response.json());
-  const dealtOfferIds = new Set((preSuspensionState.action_hand?.entries || []).map((entry) => entry.offer_id));
+  const dealtOfferIds = new Set((preSuspensionState.action_hand?.entries || [])
+    .flatMap((entry) => entry.offer_ids || []));
   const suspendedProbeOffer = (preSuspensionState.action_offers || []).find((offer) =>
     dealtOfferIds.has(offer.offer_id) && String(offer.command || "").trim());
   assert(suspendedProbeOffer, `suspension probe needs a dealt command card: ${JSON.stringify(preSuspensionState.action_hand)}`);
@@ -646,7 +647,7 @@ async function main() {
           turn: state?.turn || null,
           handKeys: [...handKeys],
           hand: (state?.action_hand?.entries || []).map((entry) => ({
-            offerId: entry.offer_id,
+            cardId: entry.card_id,
             slot: entry.slot,
             replacementCount: entry.replacement_count,
             thinkAvailable: entry.think?.available === true,
@@ -692,7 +693,8 @@ async function main() {
         .map((event) => Number(event.seq || 0))),
       authoritativeSlots: (state?.action_hand?.entries || []).map((entry) => ({
         slot: String(entry?.slot || ""),
-        offerId: String(entry?.offer_id || ""),
+        cardId: String(entry?.card_id || ""),
+        entityKind: String(entry?.entity_kind || ""),
         generation: Number(entry?.think?.generation || 0),
       })),
       hasFourthCard: Boolean(document.querySelector("#shuffle")),
@@ -704,9 +706,9 @@ async function main() {
     );
     await focusThinkableCard("opening scene");
     const expanded = await page.evaluate(() => {
-      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const focusedHandKey = storyHandKey(visibleFocusedAction());
       const controlId = ["primary", "secondary", "tertiary"].find((id) => (
-        Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+        String(document.querySelector(`#${id}`)?.dataset?.handKey || "") === focusedHandKey
       )) || "";
       setStoryHandExpanded(true, visibleFocusedAction());
       const prompt = document.querySelector("footer.prompt");
@@ -725,7 +727,7 @@ async function main() {
             && slot.querySelector("[data-hand-discard]")?.getClientRects().length > 0
         )),
         composerVisible: document.querySelector("#scene-meld")?.getClientRects().length > 0
-          && document.querySelectorAll("[data-meld-approach]").length === 4
+          && document.querySelectorAll("[data-meld-approach], [data-meld-verb]").length === 0
           && document.querySelector("#scene-meld-play")?.getClientRects().length > 0,
         imageLed: visibleSlots.every((slot) => {
           const thumb = slot.querySelector(".cmd .thumb");
@@ -773,9 +775,9 @@ async function main() {
       const focused = originalStoryHandAction(visibleFocusedAction());
       setStoryHandExpanded(true, focused);
       renderCommands();
-      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const focusedHandKey = storyHandKey(visibleFocusedAction());
       const id = ["primary", "secondary", "tertiary"].find((candidate) => (
-        Number(document.querySelector(`#${candidate}`)?.dataset?.actionIndex) === focusedIndex
+        String(document.querySelector(`#${candidate}`)?.dataset?.handKey || "") === focusedHandKey
       )) || "";
       const discard = document.querySelector(`[data-hand-discard="${id}"]`);
       const think = projectedHandEntryForAction(focused)?.think || null;
@@ -812,12 +814,12 @@ async function main() {
     ));
     await focusThinkableCard("after the free discard");
     const paidDiscard = await page.evaluate(() => {
-      const focused = originalStoryHandAction(visibleFocusedAction());
+      const focused = visibleFocusedAction();
       setStoryHandExpanded(true, focused);
       renderCommands();
-      const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+      const focusedHandKey = storyHandKey(visibleFocusedAction());
       const id = ["primary", "secondary", "tertiary"].find((candidate) => (
-        Number(document.querySelector(`#${candidate}`)?.dataset?.actionIndex) === focusedIndex
+        String(document.querySelector(`#${candidate}`)?.dataset?.handKey || "") === focusedHandKey
       )) || "";
       const discard = document.querySelector(`[data-hand-discard="${id}"]`);
       const think = projectedHandEntryForAction(focused)?.think || null;
@@ -1595,8 +1597,8 @@ async function main() {
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace === "normal" && guide.layout?.overflow === "visible", `Journal guidance should read as wrapped handwriting instead of a clipped status row: ${JSON.stringify(guide)}`);
-    assert(guide.primary.toLowerCase().startsWith("head suit, notice"), `first-thread guidance should keep a Head · Notice card in the dealt hand: ${JSON.stringify(guide)}`);
-    assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
+    assert(/^(location|avatar|item) card,/i.test(guide.primary), `first-thread guidance should keep a plain noun card in the dealt hand: ${JSON.stringify(guide)}`);
+    assert(guide.storyGuide === "", `first-thread guidance should stay in the Journal instead of becoming an option on a noun card: ${JSON.stringify(guide)}`);
     assert(
       guide.settledNoticeStep?.stage === 2
         && guide.settledNoticeStep?.actionKey === "exit:2"
@@ -1604,11 +1606,11 @@ async function main() {
       `a successful Notice should reveal a concrete shared-world lead: ${JSON.stringify(guide)}`,
     );
     assert(
-      guide.restoredFocusHand?.join(",") === "notice,take"
-        && guide.playerFocusedHand?.join(",") === "notice,take"
+      guide.restoredFocusHand?.join(",") === "take,notice"
+        && guide.playerFocusedHand?.join(",") === "take,notice"
         && guide.regroupedFocusedHand?.join(",") === "notice,travel"
         && guide.regroupedFocusedChoice === "2",
-      `the server-authored hand should stay stable while restoring explicit player selection: ${JSON.stringify(guide)}`,
+      `restoring focus should preserve the server-authored noun-card order: ${JSON.stringify(guide)}`,
     );
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
@@ -1652,7 +1654,7 @@ async function main() {
     assert(
       guide.roomThreadHand?.labels?.join(",") === "chat,travel"
         && guide.roomThreadHand.guided?.every((entry) => (
-          entry.storyGuide === false && entry.storyGuideLabel === ""
+          !entry.storyGuide && !entry.storyGuideLabel
         ))
         && guide.roomThreadHand.buttonGuide === ""
         && guide.roomThreadHand.buttonCue === "",
@@ -1709,7 +1711,13 @@ async function main() {
           primary_action: { kind: "check" },
           action_hand: { entries: [{
             slot: "story",
-            offer_id: "notice-19",
+            card_id: "location:1",
+            card_type: "Location",
+            entity_kind: "location",
+            entity_id: 1,
+            label: "The Cosy Cottage",
+            offer_ids: ["notice-19"],
+            replacement_count: 1,
             think: {
               available: true,
               slot: "story",
@@ -1738,7 +1746,13 @@ async function main() {
             world_seq: 20,
             action_hand: { entries: [{
               slot: "story",
-              offer_id: "notice-20",
+              card_id: "location:2",
+              card_type: "Location",
+              entity_kind: "location",
+              entity_id: 2,
+              label: "Rain-Soft Garden",
+              offer_ids: ["notice-20"],
+              replacement_count: 1,
               think: {
                 available: true,
                 slot: "story",
@@ -2218,7 +2232,7 @@ async function main() {
     });
     const freshNotice = result.fresh.find((action) => action.label === "notice");
     assert(freshNotice?.detail === "Rati" && freshNotice?.command === "notice Rati", `certified actor Notice should name its exact target: ${JSON.stringify(result)}`);
-    assert(result.exhausted.some((action) => action.label === "chat"), `free Chat should remain when no Notice fact is eligible: ${JSON.stringify(result)}`);
+    assert(!result.exhausted.some((action) => action.label === "chat"), `Chat must not reappear as a generic action when no exact Chat offer exists: ${JSON.stringify(result)}`);
     assert(!result.exhausted.some((action) => action.label === "notice" || action.label === "notice again"), `Notice should disappear after its certified fact is exhausted: ${JSON.stringify(result)}`);
     assert(!result.staleLegacy.some((action) => action.label === "notice" || action.label === "notice again"), `stale legacy cost and attempt fields must not recreate Notice: ${JSON.stringify(result)}`);
   }
@@ -2314,7 +2328,7 @@ async function main() {
     const travel = certified.find((action) => action.label === "travel");
     const chatIndex = certified.findIndex((action) => action.label === "chat");
     assert(certified[0]?.label === "notice", `fresh Notice can still lead calm-room discovery: ${JSON.stringify(result)}`);
-    assert(chatIndex >= 0, `calm-room fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
+    assert(chatIndex === -1, `an eligible resident alone must not create a generic Chat action without an exact offer: ${JSON.stringify(result)}`);
     assert(searchIndex === -1 || searchIndex > travelIndex, `calm-room feature search should stay behind travel unless focused: ${JSON.stringify(result)}`);
     assert(locationSearch?.title === "inspect the cosy cottage", `room Inspect should name where the player is looking: ${JSON.stringify(result)}`);
     assert(
@@ -2442,7 +2456,7 @@ async function main() {
     const listenAgainIndex = result.findIndex((action) => action.label === "notice again");
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
-    assert(chatIndex >= 0, `optional feature fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
+    assert(chatIndex === -1, `an optional room feature must not create a generic Chat action without an exact offer: ${JSON.stringify(result)}`);
     assert(listenAgainIndex === -1, `ambient repeat Notice must stay absent from the feature surface: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
@@ -2748,6 +2762,99 @@ async function main() {
     assert(result.carePayload?.item_id === 2001 && result.carePayload?.target_actor_id === 5000, `care choice should preserve its action payload: ${JSON.stringify(result)}`);
     assert(result.focusKeys.includes("item:2001") && result.focusKeys.includes("actor:5000") && result.focusKeys.includes("location:1"), `combined Use should retain affinity for every option: ${JSON.stringify(result)}`);
     assert(result.rows.some((row) => row[0] === "Choose" && /how you want to use/i.test(row[1])), `combined Use modal should describe an in-card choice: ${JSON.stringify(result)}`);
+  }
+
+  async function assertNounCardsInferExactActions() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const previousSceneMeldKeys = [...sceneMeldKeys];
+      try {
+        actorId = 5000;
+        state = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          primary_action: { kind: "chat", options: [] },
+          economy: { orbs: 0, can_chat_with_orbs: false, listen_attempted_here: true },
+          ledger: { advancement_points: 0 },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+            { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+            { id: 1002, name: "Gust", kind: "npc", status: "active", stats: { level: 1 } },
+          ],
+          items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", holder_actor_id: 5000 }],
+          exits: [],
+          room_features: [],
+          cards: { actors: {}, items: {}, locations: {} },
+          access: {},
+          action_offers: [
+            { offer_id: "chat-rati", kind: "chat", label: "Chat with Rati", command: "chat Rati", target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "actor", id: "actor:1001" } },
+            { offer_id: "chat-gust", kind: "chat", label: "Chat with Gust", command: "chat Gust", target: { kind: "actor", id: 1002, label: "Gust" }, provider: { kind: "actor", id: "actor:1002" } },
+            { id: "give_item:2001:1001", offer_id: "give-rati", kind: "give_item", label: "Give Hearth Tonic to Rati", command: "give Hearth Tonic to Rati", source_collectible: { kind: "item", instance_id: 2001 }, target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "item", id: "item:2001" } },
+          ],
+          action_hand: { entries: [
+            { card_id: "actor:1001", card_type: "Avatar", entity_kind: "actor", entity_id: 1001, label: "Rati", offer_ids: ["chat-rati", "give-rati"] },
+            { card_id: "actor:1002", card_type: "Avatar", entity_kind: "actor", entity_id: 1002, label: "Gust", offer_ids: ["chat-gust"] },
+            { card_id: "item:2001", card_type: "Item", entity_kind: "item", entity_id: 2001, label: "Hearth Tonic", offer_ids: ["give-rati"] },
+          ] },
+        };
+        actions = buildActions(state);
+        const nounCards = actionBarActions();
+        const byLabel = (label) => nounCards.find((card) => card.nounEntry?.label === label);
+        const resolutionFor = (...labels) => {
+          sceneMeldKeys = labels.map(byLabel).filter(Boolean).map(storyHandKey);
+          return sceneMeldResolution(nounCards);
+        };
+        const rati = resolutionFor("Rati");
+        const gust = resolutionFor("Gust");
+        const gift = resolutionFor("Rati", "Hearth Tonic");
+        return {
+          cards: nounCards.map((card) => ({
+            type: sceneMeldCardTypeLabel(card),
+            label: card.nounEntry?.label,
+            detail: card.detail,
+            command: card.command,
+            choices: card.choices || [],
+          })),
+          chats: actions.filter((action) => action.label === "chat").map((action) => ({
+            title: actionTitle(action),
+            choices: action.choices || [],
+          })),
+          rati: { offerId: rati.chosenOffer?.offer_id, title: sceneMeldVerb(rati.chosenVerb, rati.chosenOffer) },
+          gust: { offerId: gust.chosenOffer?.offer_id, title: sceneMeldVerb(gust.chosenVerb, gust.chosenOffer) },
+          gift: {
+            offerId: gift.chosenOffer?.offer_id,
+            title: sceneMeldVerb(gift.chosenVerb, gift.chosenOffer),
+            selectedCardIds: gift.selected.map(sceneMeldEntityKey),
+          },
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+        sceneMeldKeys = previousSceneMeldKeys;
+      }
+    });
+    assert(
+      result.cards.map((card) => `${card.type}:${card.label}`).join(",") === "Avatar:Rati,Avatar:Gust,Item:Hearth Tonic"
+        && result.cards.every((card) => !card.detail && !card.command && card.choices.length === 0),
+      `the hand should contain plain Avatar and Item nouns without verbs or options: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.chats.length === 2
+        && result.chats.every((chat) => chat.choices.length === 0)
+        && result.rati.offerId === "chat-rati"
+        && result.rati.title === "Chat with Rati"
+        && result.gust.offerId === "chat-gust"
+        && result.gust.title === "Chat with Gust",
+      `one Avatar card should infer its own exact Chat target without a target picker: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.gift.offerId === "give-rati"
+        && result.gift.title === "Give Hearth Tonic to Rati"
+        && result.gift.selectedCardIds.join(",") === "actor:1001,item:2001",
+      `Avatar plus Item should infer the exact Give action: ${JSON.stringify(result)}`,
+    );
   }
 
   async function assertExactTwoCardHandKeepsOfferAndPayloadBindings() {
@@ -3080,7 +3187,14 @@ async function main() {
             effect: "a friendship with Skull begins",
           },
         ],
-        action_hand: { entries: [{ offer_id: "chat-skull", kind: "chat" }] },
+        action_hand: { entries: [{
+          card_id: "actor:1003",
+          card_type: "avatar",
+          entity_kind: "actor",
+          entity_id: 1003,
+          label: "Skull",
+          offer_ids: ["chat-skull"],
+        }] },
         economy: { orbs: 0, chat_cost_orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
         ledger: { advancement_points: 1 },
         bonds: [],
@@ -3309,12 +3423,12 @@ async function main() {
     assert(result.freshOrder?.some((action) => action.label === "chat"), `eligible Chat should stay available beside travel: ${JSON.stringify(result)}`);
     assert(result.claimedOrder?.some((action) => action.label === "chat"), `an existing friendship should not remove Chat: ${JSON.stringify(result)}`);
     assert(result.multiResident?.length === 1, `one dealt Chat offer should render one card: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.detail === "choose someone nearby", `the one avatar card should open a resident chooser: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.title === "choose someone to chat with", `the avatar card should name its chooser clearly: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby for a short back-and-forth conversation.", `the avatar chooser should explain its bounded conversation: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.choices?.length === 2 && result.multiResident[0]?.alternateTargetId === 1003, `the one avatar card must include every eligible resident: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.alternateCertificateOfferId === "chat-skull", `the dealt avatar card must certify the chosen eligible resident: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001,actor:1003", `the one avatar card must focus every eligible resident: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.detail === "with Rati · a short exchange", `the exact Rati offer should stay bound to Rati: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.title === "chat with Rati", `the resolved Chat action should name its exact avatar: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Your avatar and Rati open the conversation, then nearby avatars choose chat or pass.", `the exact Chat action should explain its bounded conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.choices?.length === 0 && result.multiResident[0]?.alternateTargetId === 0, `an Avatar noun must not grow a target chooser: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.payload?.target_actor_id === 1001, `the Rati action must submit Rati: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001", `the exact Chat action must focus only Rati: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.summary === "Your avatar and Skull open the conversation, then nearby avatars choose chat or pass.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
@@ -4731,7 +4845,14 @@ async function main() {
               { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
             ],
             action_hand: {
-              entries: [{ offer_id: "pickup-watch-bell", kind: "pick_up" }],
+              entries: [{
+                card_id: "item:2007",
+                card_type: "Item",
+                entity_kind: "item",
+                entity_id: 2007,
+                label: "Watch Bell",
+                offer_ids: ["pickup-watch-bell"],
+              }],
             },
           }, "take"),
           projectedDouble: (() => {
@@ -4744,10 +4865,14 @@ async function main() {
                 { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
               ],
               action_hand: {
-                entries: [
-                  { offer_id: "pickup-story-button", kind: "pick_up" },
-                  { offer_id: "pickup-watch-bell", kind: "pick_up" },
-                ],
+                entries: [{
+                  card_id: "item:2005",
+                  card_type: "Item",
+                  entity_kind: "item",
+                  entity_id: 2005,
+                  label: "Story Button",
+                  offer_ids: ["pickup-story-button"],
+                }],
               },
             };
             state = projected;
@@ -4755,11 +4880,12 @@ async function main() {
             handKeys = [];
             discardedHandKeys = [];
             authoritativeHandIdentity = "";
-            const visible = actionBarActions().filter((action) => action.label === "take");
+            const visible = actionBarActions();
             return visible.map((action) => ({
-              detail: action.detail,
+              label: action.label,
+              type: sceneMeldCardTypeLabel(action),
               offerIds: action.offerIds,
-              itemId: action.selectedPayload().item_id,
+              choices: (action.choices || []).length,
             }));
           })(),
           capacityExchange: (() => {
@@ -4782,7 +4908,14 @@ async function main() {
                 target: { kind: "item", id: 2005, label: "Story Button" },
               }],
               action_hand: {
-                entries: [{ offer_id: "pickup-story-button", kind: "pick_up" }],
+                entries: [{
+                  card_id: "item:2005",
+                  card_type: "Item",
+                  entity_kind: "item",
+                  entity_id: 2005,
+                  label: "Story Button",
+                  offer_ids: ["pickup-story-button"],
+                }],
               },
             };
             state = atCapacity;
@@ -4824,10 +4957,9 @@ async function main() {
     );
     assert(
       JSON.stringify(result.projectedDouble) === JSON.stringify([
-        { detail: "Story Button", offerIds: ["pickup-story-button"], itemId: 2005 },
-        { detail: "Watch Bell", offerIds: ["pickup-watch-bell"], itemId: 2007 },
+        { label: "Story Button", type: "Item", offerIds: ["pickup-story-button"], choices: 0 },
       ]),
-      `two distinct dealt pickup offers must render as two exact cards, not one chooser: ${JSON.stringify(result.projectedDouble)}`,
+      `the dealt Item noun must stay plain while retaining its exact pickup certificate: ${JSON.stringify(result.projectedDouble)}`,
     );
     assert(
       result.capacityExchange.label === "swap"
@@ -5832,8 +5964,7 @@ async function main() {
           action_hand: {
             capacity: 2,
             entries: [
-              { offer_id: "move:rain-soft-garden", kind: "move" },
-              { offer_id: "check:room", kind: "check" },
+              { card_id: "location:2", card_type: "Location", entity_kind: "location", entity_id: 2, label: "Rain-Soft Garden", offer_ids: ["move:rain-soft-garden", "check:room"] },
             ],
           },
         };
@@ -5847,8 +5978,8 @@ async function main() {
           action_hand: {
             capacity: 2,
             entries: [
-              { offer_id: "rest:dealt", kind: "rest" },
-              { offer_id: "move:rain-soft-garden", kind: "move" },
+              { card_id: "actor:5000", card_type: "Avatar", entity_kind: "actor", entity_id: 5000, label: "Lantern Stitch", offer_ids: ["rest:dealt"] },
+              { card_id: "location:2", card_type: "Location", entity_kind: "location", entity_id: 2, label: "Rain-Soft Garden", offer_ids: ["move:rain-soft-garden"] },
             ],
           },
         };
@@ -5967,8 +6098,8 @@ async function main() {
             ],
             action_hand: {
               entries: [
-                { offer_id: "bond-rati", kind: "create_bond" },
-                { offer_id: "bond-gust", kind: "create_bond" },
+                { card_id: "actor:1001", card_type: "Avatar", entity_kind: "actor", entity_id: 1001, label: "Rati", offer_ids: ["bond-rati"] },
+                { card_id: "actor:1002", card_type: "Avatar", entity_kind: "actor", entity_id: 1002, label: "Gust", offer_ids: ["bond-gust"] },
               ],
             },
             actors: [
@@ -6003,11 +6134,11 @@ async function main() {
           { detail: "with Gust · use what you learned", offerIds: ["bond-gust"] },
           { detail: "with Rati · use what you learned", offerIds: ["bond-rati"] },
         ]),
-      `each dealt friendship offer should remain its own exact certified card: ${JSON.stringify(result)}`,
+      `each Avatar noun should retain its own exact certified friendship action: ${JSON.stringify(result)}`,
     );
     assert(
       multipleBonds.every((action) => action.choices.length === 0),
-      `a certified Befriend card must not expose an undealt resident choice: ${JSON.stringify(result)}`,
+      `an inferred Befriend action must not expose another resident as a choice: ${JSON.stringify(result)}`,
     );
     const visibleRelationshipCopy = {
       label: actions[bondIndex]?.label,
@@ -6104,8 +6235,8 @@ async function main() {
             ],
             action_hand: {
               entries: [
-                { offer_id: "remember-rati", kind: "resolve_bond" },
-                { offer_id: "remember-gust", kind: "resolve_bond" },
+                { card_id: "actor:1001", card_type: "Avatar", entity_kind: "actor", entity_id: 1001, label: "Rati", offer_ids: ["remember-rati"] },
+                { card_id: "actor:1002", card_type: "Avatar", entity_kind: "actor", entity_id: 1002, label: "Gust", offer_ids: ["remember-gust"] },
               ],
             },
             bonds: [
@@ -6149,11 +6280,11 @@ async function main() {
           { detail: "Gust, keep what mattered", offerIds: ["remember-gust"] },
           { detail: "Rati, keep what mattered", offerIds: ["remember-rati"] },
         ]),
-      `each dealt Remember offer should remain its own exact certified card: ${JSON.stringify(result)}`,
+      `each Avatar noun should retain its own exact certified Remember action: ${JSON.stringify(result)}`,
     );
     assert(
       multipleRemember.every((action) => action.choices.length === 0),
-      `a certified Remember card must not expose an undealt friendship choice: ${JSON.stringify(result)}`,
+      `an inferred Remember action must not expose another friendship as a choice: ${JSON.stringify(result)}`,
     );
     assert(!result.fresh.some((action) => action.label === "remember"), `fresh strength-1 Bonds should not resolve immediately: ${JSON.stringify(result)}`);
     assert(![...result.mature, ...result.multiple, ...result.fresh].some((action) => String(action.detail || "").includes(" / ")), `remember copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
@@ -6555,8 +6686,8 @@ async function main() {
             [{ kind: "use_item" }, { kind: "chat" }],
             [],
             [
-              { offer_id: "use_item:2001:5000", kind: "use_item" },
-              { offer_id: "use_item:2001:1004", kind: "use_item" },
+              { card_id: "item:2001", card_type: "Item", entity_kind: "item", entity_id: 2001, label: "Hearth Tonic", offer_ids: ["use_item:2001:5000", "use_item:2001:1004"] },
+              { card_id: "actor:1004", card_type: "Avatar", entity_kind: "actor", entity_id: 1004, label: "Moonlit Echo", offer_ids: ["use_item:2001:1004"] },
             ],
           ),
           multiAttack: actionsFor(
@@ -6564,8 +6695,7 @@ async function main() {
             [{ kind: "attack" }, { kind: "defend" }],
             [{ id: 1005, name: "Bramble Bear", kind: "npc", status: "active", hp: 7, stats: { hp_base: 7, level: 1 } }],
             [
-              { offer_id: "attack-moonlit-echo", kind: "attack" },
-              { offer_id: "attack-bramble-bear", kind: "attack" },
+              { card_id: "actor:1004", card_type: "Avatar", entity_kind: "actor", entity_id: 1004, label: "Moonlit Echo", offer_ids: ["attack-moonlit-echo"] },
             ],
             [
               { offer_id: "attack-moonlit-echo", kind: "attack", target: { kind: "actor", id: 1004, label: "Moonlit Echo" } },
@@ -6605,12 +6735,11 @@ async function main() {
         .map((action) => ({ detail: action.detail, offerIds: action.offerIds }))
         .sort((left, right) => left.offerIds[0].localeCompare(right.offerIds[0])))
         === JSON.stringify([
-          { detail: "Bramble Bear · unarmed strike", offerIds: ["attack-bramble-bear"] },
           { detail: "Moonlit Echo · unarmed strike", offerIds: ["attack-moonlit-echo"] },
         ]),
-      `each dealt attack offer should remain its own exact Attack card: ${JSON.stringify(result)}`,
+      `the dealt Avatar noun should retain only its own exact Attack action: ${JSON.stringify(result)}`,
     );
-    assert(multiAttack.every((action) => action.choices.length === 0), `certified Attack cards must not expose an undealt opponent picker: ${JSON.stringify(result)}`);
+    assert(multiAttack.every((action) => action.choices.length === 0), `an inferred Attack action must not expose an undealt opponent picker: ${JSON.stringify(result)}`);
   }
 
   async function assertCombatProjectActionsUseCompactTradeoffCopy() {
@@ -10473,23 +10602,51 @@ async function main() {
     let candidates = [];
     for (let draw = 0; draw < Math.min(attempts, deckSize); draw += 1) {
       if (stopWhen && await stopWhen()) return null;
-      candidates = await page.evaluate(() => actionBarActions().map((action) => ({
-        index: action.actionIndex,
-        handKey: actionHandKey(action),
-        offerIds: (action.offerIds || []).map(String),
-        generation: Number(state?.action_hand?.generation || 0),
-        text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
-          .filter(Boolean).join(" "),
-      })));
+      candidates = await page.evaluate(() => {
+        const nounCards = actionBarActions();
+        const combinations = nounCards.flatMap((first, firstIndex) => [
+          [first],
+          ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+            [first, second],
+            ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+          ]),
+        ]);
+        const selectedCardIdsFor = (action) => {
+          const previous = [...sceneMeldKeys];
+          try {
+            for (const combination of combinations) {
+              sceneMeldKeys = combination.map(storyHandKey);
+              const resolution = sceneMeldResolution(nounCards);
+              if ((action.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+                return resolution.selected.map(sceneMeldEntityKey);
+              }
+            }
+            return [];
+          } finally {
+            sceneMeldKeys = previous;
+          }
+        };
+        return actions.map((action, index) => ({
+          index,
+          handKey: actionHandKey(action),
+          offerIds: (action.offerIds || []).map(String),
+          selectedCardIds: selectedCardIdsFor(action),
+          generation: Number(state?.action_hand?.generation || 0),
+          text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
+            .filter(Boolean).join(" "),
+        })).filter((candidate) => candidate.selectedCardIds.length > 0);
+      });
       const match = candidates.find((candidate) => predicate(candidate.text.toLowerCase()));
       if (match) {
-        await page.evaluate((index) => {
-          focusIndex = index;
-          focusedKey = actionHandKey(actions[index]);
-        }, match.index);
+        await page.evaluate((selection) => {
+          focusIndex = selection.index;
+          focusedKey = actionHandKey(actions[selection.index]);
+          sceneMeldKeys = [...selection.selectedCardIds];
+        }, match);
         focusedSelectionIdentity = {
           handKey: match.handKey,
           offerIds: match.offerIds,
+          selectedCardIds: match.selectedCardIds,
           generation: match.generation,
         };
         useFocusedActionOnNextClick = true;
@@ -10530,15 +10687,40 @@ async function main() {
         action?.card?.blurb,
         ...(action?.choices || []).flatMap((choice) => [choice.label, choice.detail]),
       ].filter(Boolean).join(" ").toLowerCase();
-      const action = actionBarActions().find((candidate) => (
+      const nounCards = actionBarActions();
+      const combinations = nounCards.flatMap((first, firstIndex) => [
+        [first],
+        ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+          [first, second],
+          ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+        ]),
+      ]);
+      const selectedCardIdsFor = (candidate) => {
+        const previous = [...sceneMeldKeys];
+        try {
+          for (const combination of combinations) {
+            sceneMeldKeys = combination.map(storyHandKey);
+            const resolution = sceneMeldResolution(nounCards);
+            if ((candidate.offerIds || []).map(String).includes(String(resolution.chosenOffer?.offer_id || ""))) {
+              return resolution.selected.map(sceneMeldEntityKey);
+            }
+          }
+          return [];
+        } finally {
+          sceneMeldKeys = previous;
+        }
+      };
+      const action = actions.find((candidate) => (
         terms.every((term) => actionText(candidate).includes(term))
+          && selectedCardIdsFor(candidate).length > 0
       ));
       if (!action) {
         return {
           ok: false,
-          actions: actionBarActions().map((candidate) => actionText(candidate)),
+          actions: actions.map((candidate) => actionText(candidate)),
         };
       }
+      const selectedCardIds = selectedCardIdsFor(action);
       const selectedChoice = (action.choices || []).find((choice) => {
         const choiceText = [
           action.label,
@@ -10548,12 +10730,13 @@ async function main() {
         ].filter(Boolean).join(" ").toLowerCase();
         return terms.every((term) => choiceText.includes(term));
       });
-      if (selectedChoice) actions[action.actionIndex].selectedChoice = selectedChoice.value;
+      if (selectedChoice) action.selectedChoice = selectedChoice.value;
       return {
         ok: true,
-        index: action.actionIndex,
+        index: actions.indexOf(action),
         handKey: actionHandKey(action),
         offerIds: (action.offerIds || []).map(String),
+        selectedCardIds,
         generation: Number(state?.action_hand?.generation || 0),
         choiceMatched: Boolean(selectedChoice),
         text: actionText(action),
@@ -10565,13 +10748,15 @@ async function main() {
       }
     }
     assert(result.ok, `${label} card was not drawable from actions: ${JSON.stringify(result)}`);
-    await page.evaluate((index) => {
-      focusIndex = index;
-      focusedKey = actionHandKey(actions[index]);
-    }, result.index);
+    await page.evaluate((selection) => {
+      focusIndex = selection.index;
+      focusedKey = actionHandKey(actions[selection.index]);
+      sceneMeldKeys = [...selection.selectedCardIds];
+    }, result);
     focusedSelectionIdentity = {
       handKey: result.handKey,
       offerIds: result.offerIds,
+      selectedCardIds: result.selectedCardIds,
       generation: result.generation,
     };
     useFocusedActionOnNextClick = true;
@@ -10627,9 +10812,9 @@ async function main() {
       const before = await page.evaluate(() => {
         const entry = projectedHandEntryForAction(visibleFocusedAction());
         const think = entry?.think || {};
-        const focusedIndex = Number(visibleFocusedAction()?.actionIndex);
+        const focusedHandKey = storyHandKey(visibleFocusedAction());
         const controlId = ["primary", "secondary", "tertiary"].find((id) => (
-          Number(document.querySelector(`#${id}`)?.dataset?.actionIndex) === focusedIndex
+          String(document.querySelector(`#${id}`)?.dataset?.handKey || "") === focusedHandKey
         )) || "";
         setStoryHandExpanded(true, visibleFocusedAction());
         const control = document.querySelector(`[data-hand-discard="${controlId}"]`);
@@ -10814,6 +10999,36 @@ async function main() {
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
     const needle = text.toLowerCase();
+    const usesNounCards = await page.evaluate(() => (
+      (state?.action_hand?.entries || []).some((entry) => Boolean(entry?.card_id))
+    ));
+    if (usesNounCards) {
+      const routeTarget = await page.evaluate((destination) => {
+        const journeyDestination = String(state?.journey?.destination_name || "").toLowerCase();
+        return journeyDestination === destination
+          ? String(state?.journey?.next_location_name || destination).toLowerCase()
+          : destination;
+      }, needle);
+      const primary = await focusPrimaryMatchingAcrossShuffles(
+        `route ${text}`,
+        (candidate) => /^(travel|scout|flee|inspect)\b/.test(candidate)
+          && candidate.includes(routeTarget),
+      );
+      const route = await page.evaluate(() => {
+        const action = actions[focusIndex] || null;
+        const selected = (action?.choices || []).find((choice) => choice.value === action.selectedChoice) || null;
+        return {
+          routeIdentity: String(selected?.value || ""),
+          destinationLocationId: Number(action?.selectedPayload?.()?.destination_location_id || 0),
+        };
+      });
+      focusedSelectionIdentity = {
+        ...focusedSelectionIdentity,
+        routeIdentity: route.routeIdentity,
+        destinationLocationId: route.destinationLocationId,
+      };
+      return primary;
+    }
     const focus = async () => page.evaluate((destination) => {
       const visible = actionBarActions();
       const visibleAction = visible.find((action) => {
@@ -10868,7 +11083,9 @@ async function main() {
             .map((offer) => ({
               kind: offer.kind,
               target: offer.target?.label || offer.target?.id || "",
-              inHand: (state?.action_hand?.entries || []).some((entry) => entry.offer_id === offer.offer_id),
+              inHand: (state?.action_hand?.entries || []).some((entry) => (
+                (entry.offer_ids || []).includes(offer.offer_id)
+              )),
             })),
           allActions: visible.map((action) => ({
             label: action?.label || "",
@@ -11126,13 +11343,20 @@ async function main() {
     assert(expectedSelection, `${label} should retain the exact selected hand identity before commit`);
     const selectionStaleness = (expected) => page.evaluate((selection) => {
       const handOfferIds = new Set((state?.action_hand?.entries || [])
-        .map((entry) => String(entry?.offer_id || ""))
+        .flatMap((entry) => entry?.offer_ids || [])
+        .map(String)
+        .filter(Boolean));
+      const handCardIds = new Set((state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.card_id || ""))
         .filter(Boolean));
       return {
         generation: Number(state?.action_hand?.generation || 0),
         expectedGeneration: Number(selection.generation || 0),
         missingOfferIds: (selection.offerIds || []).filter((offerId) => (
           !handOfferIds.has(String(offerId))
+        )),
+        missingCardIds: (selection.selectedCardIds || []).filter((cardId) => (
+          !handCardIds.has(String(cardId))
         )),
       };
     }, expected);
@@ -11143,13 +11367,16 @@ async function main() {
         const wanted = (expected.offerIds || []).map(String).sort();
         return actual.length === wanted.length && actual.every((offerId, index) => offerId === wanted[index]);
       };
-      const visibleAction = actionBarActions().find((candidate) => (
+      const action = actions.find((candidate) => (
         actionHandKey(candidate) === expected.handKey && sameOffers(candidate)
-      ));
-      const action = visibleAction ? actions[visibleAction.actionIndex] : null;
-      if (action && (!sameOffers(action) || actionHandKey(action) !== expected.handKey)) return false;
+      )) || actions.find((candidate) => sameOffers(candidate));
       if (!action) return false;
-      focusIndex = visibleAction.actionIndex;
+      sceneMeldKeys = [...(expected.selectedCardIds || [])];
+      const resolution = sceneMeldResolution(actionBarActions());
+      if (!sameOffers(action)
+          || !action.offerIds.includes(String(resolution.chosenOffer?.offer_id || ""))) return false;
+      action.selectedCardIds = [...sceneMeldKeys];
+      focusIndex = actions.indexOf(action);
       focusedKey = actionHandKey(action);
       openActionModal(action);
       return true;
@@ -11158,7 +11385,8 @@ async function main() {
       const staleness = await selectionStaleness(expectedSelection);
       assert(
         staleness.generation !== staleness.expectedGeneration
-          || staleness.missingOfferIds.length > 0,
+          || staleness.missingOfferIds.length > 0
+          || staleness.missingCardIds.length > 0,
         `${label} exact current certificate disappeared only from the rendered action model: ${JSON.stringify(staleness)}`,
       );
       await page.evaluate(() => refresh());
@@ -11185,7 +11413,9 @@ async function main() {
       const aggregate = actionConfirmAction;
       const selected = aggregate?.selectedMode?.()?.source || aggregate;
       const offerIds = (selected?.offerIds || []).map(String);
-      const handOfferIds = new Set((state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")));
+      const handOfferIds = new Set((state?.action_hand?.entries || [])
+        .flatMap((entry) => entry.offer_ids || [])
+        .map(String));
       const focusKey = String(selected?.focusKey || "");
       const selectedPayload = selected?.selectedPayload?.() || null;
       const intention = String(selected?.intention || "").toLowerCase();
@@ -11264,7 +11494,8 @@ async function main() {
       const staleness = await selectionStaleness(expectedSelection);
       assert(
         staleness.generation !== staleness.expectedGeneration
-          || staleness.missingOfferIds.length > 0,
+          || staleness.missingOfferIds.length > 0
+          || staleness.missingCardIds.length > 0,
         `${label} exact current certificate resolved to an uncertified modal action: ${JSON.stringify({ staleness, submission })}`,
       );
       await page.evaluate(() => {
@@ -11924,7 +12155,8 @@ async function main() {
       }
       await focusPrimaryMatchingAcrossShuffles(
         `discover route to ${name}`,
-        (text) => /^(inspect|scout)\b/.test(text),
+        (text) => text.startsWith("inspect")
+          || (text.startsWith("scout") && text.includes(name.toLowerCase())),
       );
       await clickSearchAndAssertProgress(`discover route to ${name} ${attempt}`);
     }
@@ -12325,9 +12557,10 @@ async function main() {
     await drawPrimaryMatching("current room Notice", ["notice"]);
     const noticeBefore = await page.evaluate(() => {
       const currentActorId = Number(actorId || 0);
-      const focused = actionBarActions().find((action) => action.actionIndex === focusIndex) || null;
+      const focused = actions[focusIndex] || null;
       const handOfferIds = new Set((state?.action_hand?.entries || [])
-        .map((entry) => String(entry?.offer_id || ""))
+        .flatMap((entry) => entry?.offer_ids || [])
+        .map(String)
         .filter(Boolean));
       const exactOffer = (state?.action_offers || []).find((offer) =>
         (focused?.offerIds || []).includes(offer.offer_id)) || null;
@@ -13188,6 +13421,7 @@ async function main() {
           run("emote waves"),
         ]),
         primaryCommand: document.querySelector("#primary")?.dataset.command || "",
+        primaryCardId: document.querySelector("#primary")?.dataset.handKey || "",
       };
     });
     assert(result.look.ok === true && result.look.output.includes("The Cosy Cottage"), `look command should describe the current room: ${JSON.stringify(result.look)}`);
@@ -13216,8 +13450,11 @@ async function main() {
       )),
       `client-authored speech commands must remain absent: ${JSON.stringify(result.unsupportedSpeech)}`,
     );
-    assert(result.primaryCommand.length > 0, `primary button should expose command metadata: ${JSON.stringify(result)}`);
-    steps.push({ label: "mud command api", primaryCommand: result.primaryCommand });
+    assert(
+      result.primaryCommand === "" && result.primaryCardId.length > 0,
+      `a noun card should expose only its card identity, not a raw command: ${JSON.stringify(result)}`,
+    );
+    steps.push({ label: "mud command api", primaryCardId: result.primaryCardId });
   }
 
   async function assertBrowserCommandEntryAbsent() {
@@ -13379,33 +13616,32 @@ async function main() {
         let lastResult = null;
         for (let attempt = 1; attempt <= 3; attempt += 1) {
           await other.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+          const prepared = await other.evaluate(() => {
+            const offerId = String(state?.first_tale?.advancing_offer_id || "");
+            const nounCards = actionBarActions();
+            const combinations = nounCards.flatMap((first, firstIndex) => [
+              [first],
+              ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+                [first, second],
+                ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+              ]),
+            ]);
+            const combination = combinations.find((candidate) => {
+              sceneMeldKeys = candidate.map(storyHandKey);
+              return String(sceneMeldResolution(nounCards).chosenOffer?.offer_id || "") === offerId;
+            }) || [];
+            if (!offerId || !combination.length) return false;
+            sceneMeldKeys = combination.map(storyHandKey);
+            setStoryHandExpanded(true, combination[0]);
+            renderCommands();
+            return !document.querySelector("#scene-meld-play")?.disabled;
+          });
+          assert(prepared, `${label} should resolve from the newcomer’s noun cards`);
           const responsePromise = other.waitForResponse((response) => (
             response.request().method() === "POST"
               && new URL(response.url()).pathname.startsWith("/actions/")
           ));
-          await other.locator("#primary").click();
-          await other.waitForFunction(() => (
-            !document.querySelector("#action-modal")?.hidden
-              || (
-                document.querySelector(".prompt")?.classList.contains("hand-expanded")
-                && !document.querySelector("#scene-meld-play")?.disabled
-              )
-          ));
-          const activation = await other.evaluate(() => ({
-            inline: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
-            choiceCount: Array.isArray(actionForButton("primary")?.choices)
-              ? actionForButton("primary").choices.length
-              : 0,
-          }));
-          if (activation.inline) {
-            await other.locator("#scene-meld-play").click();
-            if (activation.choiceCount > 1) {
-              await other.waitForFunction(() => !document.querySelector("#action-modal")?.hidden);
-              await other.locator("#action-modal-confirm").click();
-            }
-          } else {
-            await other.locator("#action-modal-confirm").click();
-          }
+          await other.locator("#scene-meld-play").click();
           const response = await responsePromise;
           lastResult = { httpStatus: response.status(), body: await response.json() };
           if (lastResult.body?.ok === true) {
@@ -13438,7 +13674,7 @@ async function main() {
         turnEnabled: state?.turn?.enabled === true,
         currentActorId: Number(state?.turn?.current_actor_id || 0),
       }));
-      assert(firstTaleStart.primary.toLowerCase().startsWith("head suit, notice"), `second player should enter through a welcoming Head · Notice card: ${JSON.stringify(firstTaleStart)}`);
+      assert(/^(location|avatar|item) card,/i.test(firstTaleStart.primary), `second player should enter through a plain noun card: ${JSON.stringify(firstTaleStart)}`);
       const firstNotice = await playOtherPrimary("second-player Notice", () => (
         state?.first_tale?.phase === "follow_lead"
         && state?.first_tale?.trace_event_seq == null
@@ -14482,10 +14718,10 @@ async function main() {
     const actionButtons = shell.buttons.filter((button) => ["primary", "secondary", "tertiary"].includes(button.id));
     assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: shell should expose at most three Story Hand cards: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
-    assert(actionButtons.every((button) => button.hasIcon), `${label}: action names should use the recovered SVG icon system: ${JSON.stringify(shell.buttons)}`);
+    assert(actionButtons.every((button) => !button.hasIcon), `${label}: plain noun cards should not carry action icons: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
       assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: narrow screens should preserve every authoritative Story Hand card: ${JSON.stringify(shell.buttons)}`);
-      assert(actionButtons.every((button) => button.width >= 60 && !button.verbClipped), `${label}: mobile card suit and verb kickers should remain readable: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.every((button) => button.width >= 60 && !button.verbClipped), `${label}: mobile card type and noun labels should remain readable: ${JSON.stringify(shell.buttons)}`);
       assert(shell.roomFallbackStacked, `${label}: mobile room story should use the full transcript width: ${JSON.stringify(shell)}`);
       assert(!shell.roomFallbackClipped, `${label}: mobile room story should not end mid-sentence: ${JSON.stringify(shell)}`);
     } else {
@@ -15211,12 +15447,15 @@ async function main() {
       .includes("take")
   )));
   if (itemAvailable) {
-    const itemCard = await focusPrimaryMatching("item card", (text) => text.includes("take"), 64);
+    const itemCard = await page.evaluate(() => {
+      const card = actionBarActions().find((action) => sceneMeldCardType(action) === "item");
+      return String(card?.nounEntry?.label || card?.label || "");
+    });
     steps.push({
-      label: "focus item card",
+      label: "plain item card",
       primary: itemCard,
     });
-    assert(itemCard.toLowerCase().includes("take"), "a room with an item should keep Take available in the authoritative hand");
+    assert(itemCard, "a room with an item action should expose the Item noun in the authoritative hand");
     useFocusedActionOnNextClick = false;
   }
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
@@ -15233,7 +15472,7 @@ async function main() {
   await assertProjectFeatureUseSurfacesBeforePrepare();
   await assertProjectFeatureUseRequiresServerEffect();
   await assertFeatureAndCareShareOneUseCard();
-  await assertExactTwoCardHandKeepsOfferAndPayloadBindings();
+  await assertNounCardsInferExactActions();
   await assertChatPrimaryUsesCompactActorDetail();
   await assertModelInteractionProfilesStayModalityTruthful();
   await assertModelInteractionLifecycleRehydratesAfterReloadAndGap();
@@ -15300,20 +15539,23 @@ async function main() {
     const buttons = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
       .filter((button) => !button.disabled && button.id !== "shuffle");
     const visible = buttons.map((button) => {
-      const actionIndex = Number(button.getAttribute("data-action-index"));
-      const action = actions[actionIndex] || null;
-      const reason = handProviderReason(action);
+      const cardId = String(button.getAttribute("data-hand-key") || "");
+      const entry = projected.find((candidate) => String(candidate?.card_id || "") === cardId) || null;
       return {
-        label: action?.label || "",
-        destinationOnlyCardLabel: action?.destinationOnlyCardLabel || "",
-        offerKinds: action?.offerKinds || [],
-        reason,
+        cardId,
+        type: entry?.card_type || "",
+        label: entry?.label || "",
         providerCopy: button.querySelector(".provider-call")?.textContent.trim() || "",
+        optionCount: button.querySelectorAll(".action-choice, .cmd-meta, .story-call").length,
         aria: button.getAttribute("aria-label") || "",
       };
     });
     return {
-      projectedKinds: projected.map((entry) => entry.kind),
+      projectedCards: projected.map((entry) => ({
+        cardId: String(entry.card_id || ""),
+        type: String(entry.card_type || ""),
+        label: String(entry.label || ""),
+      })),
       visible,
       thread: thread?.text || "",
       redundantSurface: Boolean(document.querySelector("#updates .journal-row.story-thread")),
@@ -15321,18 +15563,19 @@ async function main() {
   });
   assert(
     projectedRoomHand.visible.every((action) => (
-      (
-        action.offerKinds.some((kind) => projectedRoomHand.projectedKinds.includes(kind))
-        || action.aria.includes("next tale beat")
-      )
-        && action.reason
-        && (action.destinationOnlyCardLabel
-          ? !action.providerCopy && !action.aria.includes(action.reason)
-          : action.providerCopy.includes(action.reason) && action.aria.includes(action.reason))
+      projectedRoomHand.projectedCards.some((card) => (
+        card.cardId === action.cardId
+          && card.type === action.type
+          && card.label === action.label
+        ))
+        && action.providerCopy === ""
+        && action.optionCount === 0
+        && action.aria === `${action.type.charAt(0).toUpperCase()}${action.type.slice(1)} card, ${action.label}`
     ))
-      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item|something in .* is still waiting to be found)/i.test(projectedRoomHand.thread)
+      && projectedRoomHand.visible.length === projectedRoomHand.projectedCards.length
+      && /(path to Rain-Soft Garden is waiting|next stretch toward .* is waiting to be scouted|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item|something in .* is still waiting to be found)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
-    `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
+    `the visible hand should match the authoritative plain noun projection without card options: ${JSON.stringify(projectedRoomHand)}`,
   );
   steps.push({ label: "authoritative room hand", thread: projectedRoomHand.thread, primary: await primaryText() });
   await travelTo("Rain-Soft Garden");
@@ -15352,16 +15595,32 @@ async function main() {
       const phase = String(state?.first_tale?.phase || "");
       if (phase === "complete") return { complete: true };
       const offerId = String(state?.first_tale?.advancing_offer_id || "");
-      const action = actionBarActions().find((candidate) => (
+      const action = actions.find((candidate) => (
         (candidate.offerIds || []).map(String).includes(offerId)
       ));
-      if (!offerId || !action) {
+      const nounCards = actionBarActions();
+      const combinations = nounCards.flatMap((first, firstIndex) => [
+        [first],
+        ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+          [first, second],
+          ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+        ]),
+      ]);
+      const previousMeld = [...sceneMeldKeys];
+      const selectedCardIds = combinations.find((combination) => {
+        sceneMeldKeys = combination.map(storyHandKey);
+        return String(sceneMeldResolution(nounCards).chosenOffer?.offer_id || "") === offerId;
+      })?.map(sceneMeldEntityKey) || [];
+      sceneMeldKeys = previousMeld;
+      if (!offerId || !action || !selectedCardIds.length) {
         return {
           complete: false,
           ok: false,
           phase,
           offerId,
-          handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+          handOfferIds: (state?.action_hand?.entries || []).flatMap((entry) => (
+            (entry.offer_ids || []).map(String)
+          )),
           actions: actionBarActions().map((candidate) => ({
             label: candidate.label,
             offerIds: (candidate.offerIds || []).map(String),
@@ -15377,6 +15636,7 @@ async function main() {
         text,
         handKey: actionHandKey(action),
         offerIds: (action.offerIds || []).map(String),
+        selectedCardIds,
         generation: Number(state?.action_hand?.generation || 0),
       };
     });
@@ -15386,6 +15646,7 @@ async function main() {
     focusedSelectionIdentity = {
       handKey: guided.handKey,
       offerIds: guided.offerIds,
+      selectedCardIds: guided.selectedCardIds,
       generation: guided.generation,
     };
     useFocusedActionOnNextClick = true;
@@ -15448,8 +15709,10 @@ async function main() {
       instruction: String(continuation.instruction || ""),
       advancingOfferId: String(continuation.advancing_offer_id || ""),
       guideActionKey: String(guide?.actionKey || ""),
-      guided: visible.some((action) => action.storyGuide === true),
-      handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+      plainNouns: visible.every((action) => action.nounCard === true && action.storyGuide !== true),
+      handOfferIds: (state?.action_hand?.entries || []).flatMap((entry) => (
+        (entry.offer_ids || []).map(String)
+      )),
     };
   });
   assert(
@@ -15459,7 +15722,7 @@ async function main() {
       && lanternHandoff.advancingOfferId
       && lanternHandoff.handOfferIds.includes(lanternHandoff.advancingOfferId)
       && lanternHandoff.guideActionKey
-      && lanternHandoff.guided,
+      && lanternHandoff.plainNouns,
     `the completed first tale should hand off one exact, dealt Lantern route: ${JSON.stringify(lanternHandoff)}`,
   );
   await assertReloadContinuity("Rain-Soft Garden");
@@ -15468,16 +15731,32 @@ async function main() {
     const route = await page.evaluate(() => {
       if (Number(state?.location?.id || 0) === 800) return { arrived: true };
       const offerId = String(state?.first_tale?.continuation?.advancing_offer_id || "");
-      const action = actionBarActions().find((candidate) => (
+      const action = actions.find((candidate) => (
         (candidate.offerIds || []).map(String).includes(offerId)
       ));
-      if (!offerId || !action) {
+      const nounCards = actionBarActions();
+      const combinations = nounCards.flatMap((first, firstIndex) => [
+        [first],
+        ...nounCards.slice(firstIndex + 1).flatMap((second, secondOffset) => [
+          [first, second],
+          ...nounCards.slice(firstIndex + secondOffset + 2).map((third) => [first, second, third]),
+        ]),
+      ]);
+      const previousMeld = [...sceneMeldKeys];
+      const selectedCardIds = combinations.find((combination) => {
+        sceneMeldKeys = combination.map(storyHandKey);
+        return String(sceneMeldResolution(nounCards).chosenOffer?.offer_id || "") === offerId;
+      })?.map(sceneMeldEntityKey) || [];
+      sceneMeldKeys = previousMeld;
+      if (!offerId || !action || !selectedCardIds.length) {
         return {
           arrived: false,
           ok: false,
           location: state?.location?.name || "",
           offerId,
-          handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+          handOfferIds: (state?.action_hand?.entries || []).flatMap((entry) => (
+            (entry.offer_ids || []).map(String)
+          )),
           actions: actionBarActions().map((candidate) => ({
             label: candidate.label,
             offerIds: (candidate.offerIds || []).map(String),
@@ -15490,6 +15769,7 @@ async function main() {
         location: state?.location?.name || "",
         handKey: actionHandKey(action),
         offerIds: (action.offerIds || []).map(String),
+        selectedCardIds,
         generation: Number(state?.action_hand?.generation || 0),
       };
     });
@@ -15510,6 +15790,7 @@ async function main() {
     focusedSelectionIdentity = {
       handKey: route.handKey,
       offerIds: route.offerIds,
+      selectedCardIds: route.selectedCardIds,
       generation: route.generation,
     };
     useFocusedActionOnNextClick = true;
@@ -15717,7 +15998,7 @@ async function main() {
               ok: false,
               actionHand: {
                 capacity: Number(state?.action_hand?.capacity || 0),
-                deckSize: Number(state?.action_hand?.offer_queue_size || 0),
+                deckSize: Number(state?.action_hand?.noun_queue_size || 0),
                 generation: Number(state?.action_hand?.generation || 0),
               },
               combat: state?.combat || null,

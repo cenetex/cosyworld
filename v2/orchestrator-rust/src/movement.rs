@@ -923,21 +923,28 @@ mod tests {
             .journey_advancing_offer(actor_id, &offers)
             .expect("the active journey has one exact advancing offer");
         let journey_slot = story_hand_natural_slot(journey_offer);
-        let expected_slot_offers = offers
+        let expected_slot_cards = offers
             .iter()
             .filter(|offer| {
                 offer.ranked_hand_eligible
                     && action_offer_is_reachable(offer)
                     && story_hand_natural_slot(offer) == journey_slot
             })
-            .map(|offer| offer.offer_id.clone())
+            .map(action_offer_hand_group)
             .collect::<BTreeSet<_>>();
         let expected_deck_size = offers
             .iter()
             .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
-            .count();
-        let mut seen_slot_offers = BTreeSet::new();
-        for generation in 0..expected_slot_offers.len().max(1) {
+            .map(|offer| {
+                (
+                    story_hand_natural_slot(offer),
+                    action_offer_hand_group(offer),
+                )
+            })
+            .collect::<BTreeSet<_>>()
+            .len();
+        let mut seen_slot_cards = BTreeSet::new();
+        for generation in 0..expected_slot_cards.len().max(1) {
             runtime
                 .hand_generations
                 .insert(actor_id, u64::try_from(generation).unwrap());
@@ -948,16 +955,18 @@ mod tests {
                 .find(|entry| entry.slot == STORY_HAND_SLOTS[journey_slot])
                 .expect("the journey's location slot stays visible");
             if generation == 0 {
-                assert_eq!(journey_slot_entry.offer_id, journey_offer.offer_id);
+                assert!(journey_slot_entry
+                    .offer_ids
+                    .contains(&journey_offer.offer_id));
             }
             assert_eq!(
                 journey_slot_entry.think.available,
-                expected_slot_offers.len() > 1
+                expected_slot_cards.len() > 1
             );
             assert_eq!(usize::from(hand.deck_size), expected_deck_size);
-            seen_slot_offers.insert(journey_slot_entry.offer_id.clone());
+            seen_slot_cards.insert(journey_slot_entry.card_id.clone());
         }
-        assert_eq!(seen_slot_offers, expected_slot_offers);
+        assert_eq!(seen_slot_cards, expected_slot_cards);
         let MovementPlan::Journey { mutation, .. } = runtime
             .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
             .expect("the next revealed segment remains a legal Travel choice")
@@ -1461,7 +1470,7 @@ mod tests {
                     .action_hand
                     .entries
                     .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id)
+                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
                     && offer
                         .target
                         .as_ref()
@@ -1505,6 +1514,7 @@ mod tests {
                 route: offer.route.clone(),
                 target: offer.target.clone(),
                 cost: offer.cost.clone(),
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": actor_id,
                     "destination_location_id": forged_destination,
@@ -1713,6 +1723,7 @@ mod tests {
                 route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": RATI_ACTOR_ID,
                     "destination_location_id": COSY_COTTAGE_LOCATION_ID,
@@ -1819,6 +1830,7 @@ mod tests {
                 route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::Value::Object(payload),
             }),
         )

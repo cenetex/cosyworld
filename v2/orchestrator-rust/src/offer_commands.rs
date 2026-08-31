@@ -82,7 +82,7 @@ fn select_current_offer(
     if let Some(offer) = exact.filter(|offer| {
         hand.entries
             .iter()
-            .any(|entry| entry.offer_id == offer.offer_id)
+            .any(|entry| entry.offer_ids.contains(&offer.offer_id))
     }) {
         return Ok(offer);
     }

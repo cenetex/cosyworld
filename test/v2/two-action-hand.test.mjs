@@ -70,23 +70,37 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
   });
 
-  it("builds a one-to-three-card meld and only resolves exact certified verbs", () => {
+  it("builds a one-to-three noun meld and infers one exact verb without options", () => {
     expect(browser).toContain('id="scene-meld"');
-    expect(browser).toContain('data-meld-approach="head"');
-    expect(browser).toContain('data-meld-approach="heart"');
-    expect(browser).toContain('data-meld-approach="hustle"');
-    expect(browser).toContain('data-meld-approach="honor"');
-    expect(browser).toContain("function sceneMeldOffer(action)");
-    expect(browser).toContain("function sceneMeldActionBindingKeys(action)");
-    expect(browser).toContain("const requiredBindings = new Set(selected.map(sceneMeldEntityKey));");
-    expect(browser).toContain("return [...requiredBindings].every((binding) => bindings.has(binding));");
-    expect(browser).toContain("availableApproaches.size === 1");
-    expect(browser).toContain("candidates.length === 1 ? candidates[0] : null");
+    expect(browser).not.toContain("data-meld-approach");
+    expect(browser).not.toContain('id="scene-meld-verbs"');
+    expect(browser).toContain("function exactActionForOffer(offer)");
+    expect(browser).toContain("function sceneMeldResolutionRank(kind)");
+    expect(browser).toContain("const selectedIds = new Set(selected.map(sceneMeldEntityKey));");
+    expect(browser).toContain("const chosenOffer = candidates[0] || null;");
+    expect(browser).toContain("const chosenVerb = exactActionForOffer(chosenOffer);");
     expect(browser).toContain("sceneMeldKeys = [...sceneMeldKeys, key];");
     expect(browser).toContain("sceneMeldKeys = sceneMeldKeys.filter");
     expect(browser).toContain("const nounOrder = { location: 0, avatar: 1, item: 2 };");
     expect(browser).toContain("const action = originalStoryHandAction(resolution.chosenVerb);");
+    expect(browser).toContain("action.selectedCardIds = resolution.selected.map(sceneMeldEntityKey);");
+    expect(browser).toContain("selected_card_ids: (pendingAction?.selectedCardIds || []).map(String)");
     expect(browser).toContain("void runAction(action);");
+  });
+
+  it("renders noun cards without action mechanics or choices", () => {
+    const nounRender = browser.slice(
+      browser.indexOf("if (action.nounCard)"),
+      browser.indexOf('if (action.kind === "model-interaction"'),
+    );
+    expect(nounRender).toContain('const label = String(action?.nounEntry?.label');
+    expect(nounRender).toContain('button.title = `${sceneCardLabel}: ${label}`;');
+    expect(nounRender).not.toContain("exactVerb");
+    expect(nounRender).not.toContain("effectText");
+    expect(nounRender).not.toContain("sourceText");
+    expect(nounRender).not.toContain("choices");
+    expect(browser).toContain("const firstChat = actorTargets.find");
+    expect(browser).not.toContain('detail: "choose someone nearby"');
   });
 
   it("shows each action result once without a second narration panel", () => {
@@ -104,12 +118,12 @@ describe("three-slot Story Hand", () => {
   });
 
   it("keeps same-kind Search and Scout targets bound to their dealt certificates", () => {
-    expect(browser).toContain('const projectedSearchOfferIds = new Set((view.action_hand?.entries || [])');
+    expect(browser).toContain('const projectedSearchOfferIds = handOfferIdsForKind("search");');
     expect(browser).toContain('&& (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))');
     expect(browser).toContain('const searchGroups = projectedSearchOfferIds.size > 1');
     expect(browser).toContain('inspectAction.selectedTarget = () => searchCandidates.find((candidate) => (');
     expect(browser).toContain('const scoutOffers = (view.action_offers || []).filter((offer) => (');
-    expect(browser).toContain('const projectedScoutOfferIds = new Set((view.action_hand?.entries || [])');
+    expect(browser).toContain('const projectedScoutOfferIds = handOfferIdsForKind("explore_path");');
     expect(browser).toContain('const scoutGroups = projectedScoutOfferIds.size > 1');
     expect(browser).toContain('scoutAction.selectedTarget = () => scoutCandidates.find((candidate) => (');
     expect(browser).toContain('scoutAction.selectedPayload = () => ({');

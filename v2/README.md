@@ -143,9 +143,9 @@ The Rust orchestrator currently owns:
 - Actor/item/location/content labels.
 - Native calls into the local Rust model for deterministic avatar identity and speech sanitizer behavior that can also run in WASM; dialogue is generated only through configured AI inference.
 - Card projections for visible actors, items, and locations.
-- Rules-bound legal-action envelopes, a deterministic three-slot Story Hand
-  with exact per-card Think certificates, composition traces, and stale/tampered
-  submission rejection.
+- Rules-bound legal-action envelopes behind a deterministic three-slot noun
+  hand, with per-noun Think certificates, exact meld resolution, composition
+  traces, and stale/tampered submission rejection.
 - Read-only legacy item-materialization migration receipts and possession
   provenance. No materialize or Collection-return mutation remains; the
   verified avatar-NFT actor adapter is a separate seam.
@@ -329,7 +329,7 @@ Generated avatar titles are short portable card epithets rather than room descri
 
 After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative Story Hand. The server-authored first-tale projection is the only story guide that may pin and label a matching Story card.
 
-Choice-bearing cards keep one confirmation flow while making the selected option feel concrete. Avatar, Item, Location, Give, Trade, Travel, Take, Attack, friendship, and mixed Use choices carry their corresponding cards; selecting another option immediately swaps the preview and accessible image name. Portrait and square art use a contained preview instead of being cropped into the wide action frame.
+Story Hand cards are plain nouns: one Location, one Avatar, and one Item. They never contain target, verb, or approach options. Selecting up to three nouns resolves one exact sentence from current world state; the server re-resolves the submitted noun ids so an Avatar card for Rati can mean only `Chat with Rati`, never generic Chat with anyone nearby. Portrait and square art use a contained preview instead of being cropped into the wide card frame.
 
 For the current browser MVP smoke, run the single-writer service without wallet
 or ownership configuration:
@@ -933,8 +933,10 @@ rendered; terminal and agent clients acknowledge after presentation with
 Listen, Study, Travel, item, social, work, and combat choices all enter through
 `POST /actions/submit`, which revalidates the current Story Hand, offer
 identity, rules binding, target, collectible source, and state revision before
-dispatch. A current Think certificate submitted to `POST /commands` replaces
-its exact Story, Self, or Anchor card. It is free once per safe scene and otherwise consumes one turn. There are no direct mechanical
+dispatch. Current clients also submit `selected_card_ids`; the server resolves
+those nouns again and requires the same exact offer. A current Think certificate
+submitted to `POST /commands` replaces its exact Location, Item, or Avatar noun.
+It is free once per safe scene and otherwise consumes one turn. There are no direct mechanical
 compatibility routes.
 
 The deterministic `cosyworld.combat/4` protocol includes NPC initiative and

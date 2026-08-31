@@ -425,7 +425,7 @@ impl RuntimeWorld {
                 offers.iter().any(|offer| {
                     hand.entries
                         .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
+                        .any(|entry| entry.offer_ids.contains(&offer.offer_id))
                         && self.resident_offer_matches_record(offer, record)
                 })
             }) {

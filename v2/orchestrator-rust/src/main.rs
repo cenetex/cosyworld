@@ -3023,47 +3023,6 @@ struct ActionProviderView {
     priority: u8,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-struct ActionHandView {
-    schema_version: u8,
-    capacity: u8,
-    deck_size: u16,
-    draw_available: bool,
-    generation: u64,
-    pass: ActionHandPassView,
-    entries: Vec<ActionHandEntryView>,
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-struct ActionHandPassView {
-    offer_id: String,
-    label: String,
-    state_revision: u64,
-    generation: u64,
-    scene_key: String,
-    slot: String,
-    replaces_offer_id: String,
-    free: bool,
-    consumes_turn: bool,
-    available: bool,
-}
-
-#[derive(Clone, Debug)]
-struct ActionHandEntryView {
-    offer_id: String,
-    kind: String,
-    intention: String,
-    provider: ActionProviderView,
-    slot: String,
-    card_type: String,
-    suit: String,
-    verb: String,
-    think: ActionHandPassView,
-    replacement_count: u16,
-}
-
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 struct StoryHandActorState {
     scene_key: String,
@@ -3250,6 +3209,8 @@ struct ActionOfferSubmissionRequest {
     route: Option<RouteOfferBinding>,
     target: Option<ActionTargetView>,
     cost: Option<ActionCostView>,
+    #[serde(default)]
+    selected_card_ids: Vec<String>,
     payload: serde_json::Value,
 }
 
@@ -30945,6 +30906,7 @@ mod tests {
                         route: accept_offer.route.clone(),
                         target: accept_offer.target.clone(),
                         cost: accept_offer.cost.clone(),
+                        selected_card_ids: Vec::new(),
                         payload: serde_json::json!({
                             "actor_id": 5001,
                             "offer_id": offer_id,
@@ -43708,7 +43670,7 @@ mod tests {
                             .action_hand
                             .entries
                             .iter()
-                            .any(|entry| entry.offer_id == offer.offer_id)
+                            .any(|entry| entry.offer_ids.contains(&offer.offer_id))
                 })
                 .expect("Moonlit Trail deals an authored Study offer")
         };
@@ -43742,6 +43704,7 @@ mod tests {
                 route: study_offer.route,
                 target: study_offer.target,
                 cost: study_offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": 5000,
                     "actor_session": offered_session,
@@ -48104,40 +48067,49 @@ mod tests {
         let all_offers = runtime
             .legal_action_candidates(Some(5000), &AccessContext::default())
             .1;
-        let expected_think = runtime.action_hand_for(Some(5000), &all_offers).pass;
-        let expected_composition_id =
-            format!("think:{}:{}", expected_think.scene_key, expected_think.slot);
+        let current_hand = runtime.action_hand_for(Some(5000), &all_offers);
+        let expected_defend = all_offers
+            .iter()
+            .find(|offer| {
+                offer.kind == "defend"
+                    && current_hand
+                        .entries
+                        .iter()
+                        .any(|entry| entry.offer_ids.contains(&offer.offer_id))
+            })
+            .cloned()
+            .expect("the self Avatar noun carries the exact Defend action");
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-        let think = runtime
+        let defend = runtime
             .resident_combat_autonomy_record(encounter_id, 71_723, Some(77))
             .expect("hurt inferred avatar chooses");
-        assert_eq!(think.origin, JournalOrigin::ActorConsequence);
-        assert_eq!(think.action.kind, CW_ACTION_COMBAT_PASS);
-        assert!(think.projection_mutations.iter().any(|mutation| {
-            matches!(mutation, ProjectionMutation::ThinkHand { reason, .. }
-                if reason == "resident_combat_pass")
-        }));
-        let trace = think
+        assert_eq!(defend.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(defend.action.kind, CW_ACTION_COMBAT_DODGE);
+        assert!(!defend
+            .projection_mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::ThinkHand { .. })));
+        let trace = defend
             .resident_decision
             .as_ref()
             .expect("combat choice carries a trace");
         assert_eq!(trace.controller, "local_ai");
-        assert_eq!(trace.choice.offer_kind, "pass");
+        assert_eq!(trace.choice.offer_kind, "defend");
         assert_eq!(
             trace.choice.offer_id.as_deref(),
-            Some(expected_think.offer_id.as_str()),
-            "the deterministic combat Think must retain its exact current certificate"
+            Some(expected_defend.offer_id.as_str()),
+            "the inferred Defend must retain its exact current certificate"
         );
         assert_eq!(
             trace.choice.composition_id.as_deref(),
-            Some(expected_composition_id.as_str()),
-            "the deterministic combat Think must retain its scene-bound composition"
+            Some(expected_defend.composition_id.as_str()),
+            "the inferred Defend must retain its scene-bound composition"
         );
         assert!(trace.candidates.iter().any(|candidate| {
-            candidate.kind == "pass"
+            candidate.kind == "defend"
                 && candidate.selected
-                && candidate.offer_id == expected_think.offer_id
-                && candidate.composition_id == expected_composition_id
+                && candidate.offer_id == expected_defend.offer_id
+                && candidate.composition_id == expected_defend.composition_id
         }));
         assert!(trace
             .candidates
@@ -48146,11 +48118,11 @@ mod tests {
 
         let state = test_app_state(runtime.clone(), Some(path.clone()));
         let (status, events) =
-            commit_journal_record(&state, &mut runtime, think).expect("Think commits");
+            commit_journal_record(&state, &mut runtime, defend).expect("Defend commits");
         assert_eq!(status, CW_OK);
         assert!(events
             .iter()
-            .any(|event| { event.type_name == "hand.thought" && event.actor_id == Some(5000) }));
+            .any(|event| { event.type_name == "combat.dodge" && event.actor_id == Some(5000) }));
         let persisted = read_action_journal(&path).expect("combat journal reads");
         let persisted_record = persisted.last().expect("combat decision persists");
         let outcome = persisted_record
@@ -48162,7 +48134,7 @@ mod tests {
         assert!(outcome
             .events
             .iter()
-            .any(|event| event.event_type == "hand.thought" && event.success));
+            .any(|event| event.event_type == "combat.dodge" && event.success));
 
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
             .expect("committed state serializes");
@@ -51272,7 +51244,7 @@ mod tests {
         let calling_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
         let repeated_calling_state =
             calling_runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(calling_state.action_hand.schema_version, 3);
+        assert_eq!(calling_state.action_hand.schema_version, 4);
         assert_eq!(calling_state.action_hand.capacity, 3);
         assert!(!calling_state.action_hand.entries.is_empty());
         assert!(calling_state.action_hand.entries.len() <= 3);

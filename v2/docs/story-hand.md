@@ -1,137 +1,108 @@
 # Story Hand
 
-The Story Hand is the player-facing action system. It deals up to three noun
-cards: the current **Location**, one **Item**, and one **Avatar**. A player
-selects one, two, or all three cards, then plays the resulting Scene Meld.
+The Story Hand is the player-facing play system. It deals up to three plain
+noun cards:
 
-The noun cards provide context. The four suits provide intent. The exact verb
-remains a server-certified action offer underneath.
+- one **Location**;
+- one **Avatar**;
+- one **Item**.
 
-## The four action suits
+A card chooses a thing. It does not choose an action. There is no Chat card,
+Give card, Attack card, suit selector, target list, or verb menu in the hand.
 
-Only playable actions have suits. Actor, Item, Location, Spell, Calling,
-Friendship, Journal, and Worldpack cards keep their own roles and may be the
-source or target of an action.
+The player selects one, two, or three nouns. The current world state resolves
+that selection to one exact sentence. The player can play that sentence or
+change the selected nouns.
 
-| Suit | Meaning | Typical exact verbs |
-| --- | --- | --- |
-| **Head** | Learn, notice, interpret, or reveal. | Notice, Inspect, Search, Study, Scout, Listen, Find resonance, Rank echoes |
-| **Heart** | Relate, communicate, exchange, recover, or grow. | Chat, Speak, Befriend, Remember, Give, Accept, Trade, Rest, Train, Evolve |
-| **Honor** | Face immediate danger or protect someone from it. | Attack, Defend, Flee, Rescue, Steal |
-| **Hustle** | Move, manipulate, make, prepare, or contribute. | Travel, Take, Drop, Use, Open, Craft, Prepare, Work, Help, Finish, Illustrate |
+## Noun queues
 
-Suit is navigation, not the action identity. `Take`, `Use`, and `Craft` are
-different actions even though each is Hustle. Danger is risk metadata, not a
-fifth suit. A Spell is still an Item/source card; the spell action's suit is
-derived from its effect.
+The server builds one queue for each noun type. Legal action offers are grouped
+by the concrete entity they concern, so every visible card has a stable identity
+such as `location:1`, `actor:1001`, or `item:2001`.
 
-## Three noun cards
+One noun may have several legal verbs behind it. Those verbs are resolution
+candidates, not options printed on the card. For example, a Hearth Tonic item
+may currently support Take, Drop, Use, Give, or Trade. The card face still says
+only **Item — Hearth Tonic**.
 
-The server composes three independent queues, one per kind of world entity the
-action is *about*:
-
-- **Item** — a tangible object: Take, Drop, Use, Give, Trade, Accept, Steal,
-  Craft, and Cast.
-- **Location** — a place or the room itself: Travel, Flee, Search, Study,
-  Scout, Explore, Open, and the place-bound job verbs (Prepare, Work, Help)
-  plus the room Check.
-- **Avatar** — a person, yourself or another: Chat, Notice, Befriend,
-  Remember, Attack, Defend, Rescue, Steal, Rest, Train, Evolve, Cast.
-
-Each queue surfaces its strongest current exact offer. This means the hand does
-not show two Location cards while hiding the Avatar card. The public hand names
-each noun with `card_type: location | item | avatar`; the older internal slot
-names remain in Think certificates so old journals still replay.
-
-Grouping is by exact offer, not by suit, provider, or narrative role. A few
-kinds are deliberately filed against their source rather than their target:
-`give_item`, `trade_item`, and `theft` involve another Avatar but belong to
-**Item**, because the Item is what is being decided about. An unrecognised kind
-uses its target or source entity and otherwise falls to **Location**.
-
-Empty entity queues stay empty. The queues remain disjoint, so advancing one
-cannot move another. First-tale and journey guarantees are inserted into the
-queue that owns their entity.
+Empty noun queues stay empty. A slot never borrows a second card from another
+type. Think advances only its own queue, so another Item replaces the Item and
+another Avatar replaces the Avatar.
 
 ## Build a play
 
-A Scene Meld follows a small grammar:
+The grammar is:
 
-`one to three noun cards + one approach -> one exact verb`
+`one to three nouns + world state -> one exact verb`
 
-The browser starts with the exact offers already certified in the current
-hand. It never creates a verb from card names or artwork.
+The resolver starts with exact legal offers already certified by the server.
+It then applies these rules:
 
-1. Select one to three noun cards.
-2. Compare their stable entity bindings with each selected exact offer.
-3. Keep only offers that name every selected entity. The current Location is
-   an implicit binding for ordinary scene actions.
-4. Filter those offers by Head, Heart, Hustle, or Honor.
-5. If one verb remains, it may be inferred. If several remain, show their exact
-   names and let the player choose. If none remain, ask the player to remove a
-   card or Think.
+1. An offer must belong to one selected noun.
+2. Every important non-location noun named by the offer must also be selected.
+   Give therefore needs its Item and target Avatar. It cannot silently choose
+   another nearby person.
+3. The current Location may be selected as scene context. A destination
+   Location must be the place named by the exact offer.
+4. Extra unrelated nouns make no play. They never add power or widen a target.
+5. If several exact offers match, a fixed server order chooses one. State gives
+   that order its meaning: an Avatar normally resolves to Chat, an opponent in
+   active combat can resolve to Attack, a loose Item resolves to Take, and a
+   carried useful Item can resolve to Use.
 
-For example, Location + Item can resolve **Take** when that exact item is at the
-current Location. Location + Avatar can resolve **Chat** when that Avatar is a
-legal target. Location + Avatar + Item can resolve **Give** only when the offer
-binds that same Item and Avatar. Adding an unrelated Item to Chat does not make
-a new action.
+Examples:
 
-Selecting extra cards does not add power, combine effects, or widen targets.
-The selected cards only disambiguate an already legal offer. Authored
-three-card recipes may later add special presentation or rewards, but they must
-still resolve through a named server offer and deterministic rules.
+| Selected nouns | Possible resolved sentence |
+| --- | --- |
+| Rati | Chat with Rati |
+| Hearth Tonic | Use Hearth Tonic |
+| Cosy Cottage | Search the Cosy Cottage |
+| Rati + Hearth Tonic | Give Hearth Tonic to Rati |
+| Garden Path | Travel to the Garden Path |
+
+The browser shows only the resolved sentence and one Play button. It never asks
+the player to choose an approach, verb, or target after selecting the nouns.
+
+## Exact validation
+
+The browser submits the selected noun card ids with the exact resolved offer.
+The server rebuilds the current hand and resolves the same nouns again. The play
+is accepted only when the submitted offer, route, source, and target still match.
+
+This is especially important for conversation. An Avatar card for Rati can
+resolve only to **Chat with Rati**. It is not permission to chat with anyone
+nearby.
+
+Older clients may still submit the representative exact offer without noun ids
+for replay compatibility. That path remains narrow: it never widens Chat or any
+other target-bearing action.
 
 ## Think
 
-Think replaces one noun card, never the whole hand. Every replaceable
-entry contains its own certificate with actor, scene, state revision, slot,
-slot generation, and exact replaced offer. The journal and wire format retain
-the historical `ThinkHand` name for replay compatibility.
+Think replaces one noun card, never the whole hand.
 
 - The first Think after entering a safe scene is free.
 - Later Thinks in that scene consume the turn.
 - Think always consumes the turn in risky, dangerous, and ordered scenes.
-- A queue with no other current possibility disables Think, and the
-  card says so rather than showing a dead control.
-- Because a queue is one noun kind's offers, Think reads as "show me another way
-  to act on this" — the same rotation mechanism, a legible meaning.
-- Moving to another scene resets the slot counters and safe-scene allowance.
+- A noun queue with no other current entity disables Think.
+- Moving to another scene resets the queue positions and safe-scene allowance.
 
-The hidden deterministic structure is an **Offer queue**, not a player deck.
+The certificate still records the historical slot name and generation so old
+journals replay, but its replacement identity is the noun card rather than one
+of the hidden verbs.
 
 ## Presentation contract
 
-Every published playable offer must carry these independent dimensions:
+A noun card publishes only what its face needs:
 
-- `family`: action, control, or ceremony;
-- `suit`: one of Head, Heart, Honor, or Hustle for an action, absent for controls/ceremonies;
-- `verb`: the exact authored action;
-- `source`: kind, stable id, and player-facing label;
-- `state`: ready or locked;
-- `provenance`: Core, Worldpack, Community, or Legacy;
-- `rarity`: Everyday, Curious, Rare, or Storybook;
-- `power`: separate from rarity;
-- optional `cost`, `risk`, and `effect`.
+- `card_id`;
+- `card_type` (`location`, `avatar`, or `item`);
+- concrete `entity_kind` and `entity_id`;
+- `label`;
+- its Think certificate.
 
-The server owns this mapping. A new playable kind or model-interaction intention
-that has no explicit mapping fails publication rather than falling back to a
-client-inferred `utility` or `danger` type.
+`offer_ids` are also published for deterministic local preview and exact
+submission, but they are not rendered as choices. Action suit, cost, risk,
+effect, provider, rarity, and verb do not appear on the noun card face.
 
-The compact card face reads in this order: noun type, suit and verb,
-title/target, effect, cost and risk, source, then art. Suit controls the main
-colour. Rarity is only a small collectible mark. On mobile the footer never
-renders more than the three Story Hand cards.
-
-## Player vocabulary
-
-| Concept | Player-facing term |
-| --- | --- |
-| carried physical inventory | **Pack** |
-| equipped weapon, bag, shelter, and worn charms | **Loadout** |
-| ready magic | **Prepared spells** / **Spellbook** |
-| exhausted or discarded cards | **Spent** |
-| three current actions | **Story Hand** |
-| deterministic internal action sequence | **Offer queue** (not normally shown) |
-
-The design rule is: simple on the surface, exact underneath.
+The design rule is: **cards choose things; the world chooses the verb**.

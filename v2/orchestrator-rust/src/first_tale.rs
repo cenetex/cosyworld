@@ -450,7 +450,7 @@ mod tests {
         assert_eq!(
             hand.entries
                 .iter()
-                .filter(|entry| entry.offer_id == offer_id)
+                .filter(|entry| entry.offer_ids.iter().any(|id| id == offer_id))
                 .count(),
             1,
             "the Story Hand contains exactly one advancing offer"
@@ -729,7 +729,7 @@ mod tests {
                     && (offer.offer_id == advancing_offer_id
                         || !advancing_offer_ids.contains(&offer.offer_id))
             })
-            .map(|offer| offer.offer_id.clone())
+            .map(action_offer_hand_group)
             .collect::<BTreeSet<_>>();
         let mut seen = BTreeSet::new();
         for generation in 0..expected.len().max(1) {
@@ -743,10 +743,10 @@ mod tests {
                 .find(|entry| entry.slot == STORY_HAND_SLOTS[advancing_slot])
                 .expect("the advancing entity slot stays visible");
             if generation == 0 {
-                assert_eq!(advancing_slot_entry.offer_id, advancing_offer_id);
+                assert!(advancing_slot_entry.offer_ids.contains(&advancing_offer_id));
             }
             assert_eq!(advancing_slot_entry.think.available, expected.len() > 1);
-            seen.insert(advancing_slot_entry.offer_id.clone());
+            seen.insert(advancing_slot_entry.card_id.clone());
         }
         assert_eq!(seen, expected);
     }

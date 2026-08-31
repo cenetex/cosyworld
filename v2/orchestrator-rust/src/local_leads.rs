@@ -555,6 +555,7 @@ mod tests {
                 route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": TEST_ACTOR_ID,
                     "actor_session": session,

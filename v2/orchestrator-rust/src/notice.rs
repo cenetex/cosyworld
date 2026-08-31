@@ -494,6 +494,7 @@ mod tests {
                 route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
+                selected_card_ids: Vec::new(),
                 payload: serde_json::json!({
                     "actor_id": 5000,
                     "target_actor_id": RATI_ACTOR_ID,

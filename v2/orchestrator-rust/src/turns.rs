@@ -1947,7 +1947,7 @@ pub(super) async fn recover_available_focused_job_turns(
                             offers.iter().any(|offer| {
                                 hand.entries
                                     .iter()
-                                    .any(|entry| entry.offer_id == offer.offer_id)
+                                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
                                     && runtime.resident_offer_matches_record(offer, record)
                             })
                         })
@@ -3641,7 +3641,7 @@ mod tests {
                 if hand
                     .entries
                     .iter()
-                    .any(|entry| entry.offer_id == preferred_offer.offer_id)
+                    .any(|entry| entry.offer_ids.contains(&preferred_offer.offer_id))
                 {
                     dealt_generation = Some(generation);
                     break;
@@ -3692,7 +3692,7 @@ mod tests {
             5000
         );
 
-        let (off_hand_generation, before_off_hand_tick, before_off_hand_progress, journal_len) = {
+        {
             let mut runtime = state.inner.lock().await;
             runtime
                 .actor_autonomy
@@ -3700,91 +3700,36 @@ mod tests {
                 .expect("first worker controller")
                 .control_mode = ActorControlMode::LocalAi;
             let actor = runtime.actor_by_id(5000).expect("focused inference actor");
-            let mut off_hand_generation = None;
+            let preferred = runtime
+                .resident_job_autonomy_record(actor, 82_200)
+                .expect("focused worker has a preferred contribution");
+            let (_, initial_offers) =
+                runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+            let preferred_offer = initial_offers
+                .iter()
+                .find(|offer| runtime.resident_offer_matches_record(offer, &preferred))
+                .expect("focused contribution has an exact offer");
+            let preferred_slot = story_hand_natural_slot(preferred_offer);
+            let (scene_key, _) = runtime.story_hand_scene_for_actor(5000);
             for generation in 0..64 {
-                runtime.hand_generations.insert(5000, generation);
+                let mut story_state = runtime.story_hand_state_for_scene(5000, &scene_key);
+                story_state.slot_generations[preferred_slot] = generation;
+                runtime.story_hand_states.insert(5000, story_state);
                 let (_, offers) =
                     runtime.legal_action_candidates(Some(5000), &AccessContext::default());
                 let hand = runtime.action_hand_for(Some(5000), &offers);
-                let preferred = runtime
-                    .resident_job_autonomy_record(actor, 82_200)
-                    .expect("focused worker has a preferred contribution");
                 let preferred_is_dealt = offers.iter().any(|offer| {
                     hand.entries
                         .iter()
-                        .any(|entry| entry.offer_id == offer.offer_id)
+                        .any(|entry| entry.offer_ids.contains(&offer.offer_id))
                         && runtime.resident_offer_matches_record(offer, &preferred)
                 });
-                if !preferred_is_dealt {
-                    off_hand_generation = Some(generation);
-                    break;
-                }
+                assert!(
+                    preferred_is_dealt,
+                    "the focused Location noun keeps its exact Work binding"
+                );
             }
-            (
-                off_hand_generation.expect("a finite hand eventually excludes the preferred Work"),
-                runtime.world.tick,
-                runtime
-                    .clocks
-                    .get(FIRST_TALE_PROGRESS_CLOCK_ID)
-                    .expect("focused progress clock")
-                    .filled,
-                read_action_journal(&path)
-                    .expect("focused journal before off-hand recovery")
-                    .len(),
-            )
-        };
-        let off_hand_events = recover_available_focused_job_turns(&state)
-            .await
-            .expect("off-hand focused recovery chooses the certified Pass");
-        assert!(off_hand_events
-            .iter()
-            .any(|event| { event.type_name == "focused.pass" && event.actor_id == Some(5000) }));
-        assert!(
-            !off_hand_events
-                .iter()
-                .any(|event| event.type_name == "job.contribution.resolved"),
-            "an undealt preferred contribution must not bypass the current hand"
-        );
-        let runtime = state.inner.lock().await;
-        assert_eq!(
-            runtime.world.tick,
-            before_off_hand_tick + 1,
-            "an inference-controlled certified Pass spends one world tick"
-        );
-        assert_eq!(
-            runtime
-                .clocks
-                .get(FIRST_TALE_PROGRESS_CLOCK_ID)
-                .expect("focused progress clock")
-                .filled,
-            before_off_hand_progress,
-            "the certified focused Pass cannot advance project progress"
-        );
-        assert_eq!(
-            runtime.hand_generations.get(&5000).copied(),
-            Some(off_hand_generation + 1)
-        );
-        assert_eq!(
-            focused_job_encounter(&runtime, 5001)
-                .expect("off-hand Pass hands focus over once")
-                .current_actor_id,
-            5001
-        );
-        drop(runtime);
-        let journal = read_action_journal(&path).expect("focused journal after off-hand recovery");
-        assert_eq!(journal.len(), journal_len + 1);
-        assert!(journal.last().is_some_and(|record| {
-            record.action.actor_id == 5000
-                && record.origin == JournalOrigin::PlayerCard
-                && record.offer_kind.as_deref() == Some("pass")
-                && record.projection_mutations.iter().any(|mutation| {
-                    matches!(
-                        mutation,
-                        ProjectionMutation::ShuffleHand { reason }
-                            if reason == "resident_focused_pass"
-                    )
-                })
-        }));
+        }
         let _ = fs::remove_file(path);
     }
 
