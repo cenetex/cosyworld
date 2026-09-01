@@ -270,10 +270,13 @@ pub(super) fn default_calling_statement() -> &'static str {
 
 pub(super) fn authored_calling_statement(statement: &str) -> Option<String> {
     let normalized = normalize_calling_statement(statement)?;
-    AUTHORED_CALLING_STATEMENTS
-        .iter()
-        .find(|choice| **choice == normalized)
-        .map(|choice| (*choice).to_string())
+    if AUTHORED_CALLING_STATEMENTS.contains(&normalized.as_str())
+        || calling_forge::is_calling_forge_statement(&normalized)
+    {
+        Some(normalized)
+    } else {
+        None
+    }
 }
 
 pub(super) fn calling_statement_is_explorer(statement: &str) -> bool {

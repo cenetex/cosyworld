@@ -12,6 +12,34 @@ impl RuntimeWorld {
     }
 }
 
+impl RuntimeWorld {
+    /// The authoritative bond statement, derived server-side: an authored
+    /// resident relationship contract when one exists, otherwise a
+    /// deterministic sentence composed by the Calling Forge from the two
+    /// actors' names and a shared-road fact. The player never types this; the
+    /// client request's `statement` field is ignored.
+    pub(super) fn server_authored_bond_statement(
+        &self,
+        actor_id: u64,
+        target_actor_id: u64,
+    ) -> String {
+        if let Some(relationship) = self.relationship_contract(target_actor_id) {
+            return relationship.statement.clone();
+        }
+        let me = self
+            .actor_name(actor_id)
+            .unwrap_or_else(|| format!("Traveler {actor_id}"));
+        let them = self
+            .actor_name(target_actor_id)
+            .unwrap_or_else(|| format!("Resident {target_actor_id}"));
+        let fact = "we walk the same road";
+        let seed = actor_id ^ target_actor_id.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        calling_forge::bond_proposals(&me, &them, fact, seed)[0]
+            .statement
+            .clone()
+    }
+}
+
 pub(super) const RELATIONSHIP_DIALOGUE_PENDING: &str = "pending";
 pub(super) const RELATIONSHIP_DIALOGUE_DELIVERED: &str = "delivered";
 pub(super) const RELATIONSHIP_DIALOGUE_UNAVAILABLE: &str = "unavailable";
