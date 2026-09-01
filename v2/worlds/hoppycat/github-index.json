@@ -2,8 +2,8 @@
   "schema_version": 1,
   "owner": "HoppyCat",
   "authority": "non_authoritative_public_github_metadata",
-  "observed_through": "2026-08-11T23:55:30Z",
-  "snapshot_id": "sha256:77ab9dbb22a1ce0f4c52b36d91fcfabe39c7cd54a79ebaa8f1a0c49eaf3787ae",
+  "observed_through": "2026-08-26T12:48:33Z",
+  "snapshot_id": "sha256:e421b49224a4ecfe989d107da428dbffc178f5af48ea0be40bc8df660b42f58a",
   "repositories": [
     {
       "repository_id": 760228196,
@@ -48,9 +48,9 @@
       "url": "https://api.github.com/repos/HoppyCat/cathedral",
       "description": "Cathedral is Hoppy’s public documentary sandbox: a provenance-tracked record of one human and many AI context windows developing a small shared culture in real time—experiments, corrections, uncertainty, and all. Public visibility preserves the history; permissions remain artifact-specific.",
       "default_branch": "main",
-      "head_sha": "d0048b61c0397645b3be59c84fca8c50c30d1a98",
-      "head_committed_at": "2026-08-11T23:55:30Z",
-      "pushed_at": "2026-08-11T23:55:30Z",
+      "head_sha": "9c9ccd12de7568f3b745bd4f065e24d3427943f2",
+      "head_committed_at": "2026-08-26T12:48:29Z",
+      "pushed_at": "2026-08-26T12:48:33Z",
       "archived": false,
       "visibility": "public",
       "license_spdx": "NOASSERTION",
