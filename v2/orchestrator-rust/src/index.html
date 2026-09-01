@@ -15302,12 +15302,20 @@
 
     function eventIsChatTranscriptEvent(event) {
       const type = event?.type;
-      return chatEventTypes.has(type) || (
-        sceneCardEventTypes.has(type)
-        && type !== "actor.created"
-        && !combatTranscriptEventTypes.has(type)
-        && !combatOnlyTranscriptEventTypes.has(type)
-      );
+      if (chatEventTypes.has(type)) return true;
+      if (
+        !sceneCardEventTypes.has(type)
+        || type === "actor.created"
+        || combatTranscriptEventTypes.has(type)
+        || combatOnlyTranscriptEventTypes.has(type)
+      ) return false;
+      const sourceActorId = Number(event?.actor_id || 0);
+      const targetActorId = Number(event?.target_actor_id || 0);
+      const currentActorId = Number(actorId || 0);
+      return !currentActorId
+        || !sourceActorId
+        || sourceActorId === currentActorId
+        || targetActorId === currentActorId;
     }
 
     function transcriptEventHtml(event) {
