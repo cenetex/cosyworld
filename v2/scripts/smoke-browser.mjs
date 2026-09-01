@@ -4675,6 +4675,98 @@ async function main() {
     );
   }
 
+  async function assertPendingChatStaysInItsOriginRoom() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        state,
+        actorId,
+        pendingChats,
+        pendingAction,
+        actionBusy,
+        journalNotifications,
+        pendingReflection,
+        dismissedJournalActivityKeys: new Set(dismissedJournalActivityKeys),
+      };
+      try {
+        actorId = 77;
+        state = {
+          location: { id: 1, name: "Old Room" },
+          actors: [
+            { id: 77, name: "Basil", location_id: 1 },
+            { id: 78, name: "Gemini", location_id: 1 },
+          ],
+        };
+        pendingAction = null;
+        actionBusy = false;
+        journalNotifications = [];
+        pendingReflection = null;
+        dismissedJournalActivityKeys.clear();
+        pendingChats = [{
+          id: 901,
+          locationId: 1,
+          targetActorId: 78,
+          targetName: "Gemini",
+          typingActorId: 78,
+          typingName: "Gemini",
+          afterSeq: 99,
+          queueEventSeq: 100,
+          segmentsCompleted: 1,
+          segmentCount: 2,
+        }];
+        const originHtml = pendingChatsHtml();
+        const originActivities = currentJournalActivities().length;
+
+        state = { ...state, location: { id: 2, name: "New Room" } };
+        const awayHtml = pendingChatsHtml();
+        const awayActivities = currentJournalActivities().length;
+        const wrongRoomEventHandled = resolvePendingChat({
+          type: "chat.typing",
+          seq: 101,
+          actor_id: 78,
+          target_actor_id: 77,
+          caused_by_event_seq: 100,
+          location_id: 2,
+          actor_name: "Gemini",
+        });
+        const cleared = clearPendingChatsForLocationChange(1, 2);
+
+        return {
+          originHtml,
+          originActivities,
+          awayHtml,
+          awayActivities,
+          wrongRoomEventHandled,
+          cleared,
+          remaining: pendingChats.length,
+        };
+      } finally {
+        state = previous.state;
+        actorId = previous.actorId;
+        pendingChats = previous.pendingChats;
+        pendingAction = previous.pendingAction;
+        actionBusy = previous.actionBusy;
+        journalNotifications = previous.journalNotifications;
+        pendingReflection = previous.pendingReflection;
+        dismissedJournalActivityKeys.clear();
+        for (const key of previous.dismissedJournalActivityKeys) {
+          dismissedJournalActivityKeys.add(key);
+        }
+      }
+    });
+    assert(
+      /thinking…/.test(result.originHtml) && !/typing…/.test(result.originHtml),
+      `a resident generation should be presented as thinking in its origin room: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.originActivities === 1 && result.awayHtml === "" && result.awayActivities === 0,
+      `pending Chat must not follow the player into another room: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.wrongRoomEventHandled && result.cleared && result.remaining === 0,
+      `room transitions must reject mismatched typing events and clear the old pending Chat: ${JSON.stringify(result)}`,
+    );
+  }
+
   async function assertChoicePreviewFollowsSelectedCard() {
     const result = await page.evaluate(() => {
       const card = (cardId, name, role, aspect, image) => ({
@@ -15619,6 +15711,7 @@ async function main() {
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
   await assertChatActivityStaysOutOfStatusSurface();
+  await assertPendingChatStaysInItsOriginRoom();
   await assertChoicePreviewFollowsSelectedCard();
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDealtInStoryHand();

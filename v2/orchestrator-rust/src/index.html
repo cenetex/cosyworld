@@ -7953,6 +7953,7 @@
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
       if (locationChanged) {
+        clearPendingChatsForLocationChange(previousLocationId, state.location?.id);
         handKeys = [];
         discardedHandKeys = [];
         sceneMeldKeys = [];
@@ -11431,7 +11432,7 @@
         state.state_revision = Number(receipt.state_revision || 0);
         const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
         if (locationChanged) {
-          pendingChats = [];
+          clearPendingChatsForLocationChange(previousLocationId, state.location?.id);
           rebuildLogFromAuthoritativeState(state);
           connectStream();
         }
@@ -11535,7 +11536,7 @@
     function currentJournalActivities() {
       return [
         ...journalNotifications,
-        pendingChatJournalActivity(pendingChats[0]),
+        pendingChatJournalActivity(pendingChats.find(pendingChatBelongsToCurrentRoom)),
         pendingReflection ? {
           key: `reflection:${pendingReflection.sourceSeq}`,
           label: pendingReflection.kind,
@@ -11693,6 +11694,7 @@
       const self = actorForId(actorId);
       pendingChats.push({
         id,
+        locationId: Number(state?.location?.id || 0),
         targetActorId: Number(target.id || 0),
         targetName: actorLabel(target),
         typingActorId: Number(actorId),
@@ -11711,6 +11713,20 @@
       return { id, created: true };
     }
 
+    function pendingChatBelongsToCurrentRoom(chat) {
+      const currentLocationId = Number(state?.location?.id || 0);
+      const chatLocationId = Number(chat?.locationId || 0);
+      return !currentLocationId || !chatLocationId || currentLocationId === chatLocationId;
+    }
+
+    function clearPendingChatsForLocationChange(previousLocationId, nextLocationId) {
+      const previous = Number(previousLocationId || 0);
+      const next = Number(nextLocationId || 0);
+      if (!previous || !next || previous === next) return false;
+      pendingChats = [];
+      return true;
+    }
+
     function cancelPendingChat(pending) {
       if (!pending || pending.created === false) return;
       const id = Number(pending.id || pending || 0);
@@ -11722,6 +11738,9 @@
     function pendingChatMatchesEvent(chat, event) {
       const eventSeq = Number(event?.seq || 0);
       if (!eventSeq || eventSeq <= Number(chat.afterSeq || 0)) return false;
+      const chatLocationId = Number(chat.locationId || 0);
+      const eventLocationId = Number(event.location_id || 0);
+      if (chatLocationId && eventLocationId && chatLocationId !== eventLocationId) return false;
       const queueEventSeq = Number(chat.queueEventSeq || 0);
       const eventQueueSeq = event.type === "chat.queued"
         ? eventSeq
@@ -11777,7 +11796,7 @@
           matchingChat.typingName = String(
             event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby"),
           );
-          matchingChat.activityText = `${matchingChat.typingName} is composing a line`;
+          matchingChat.activityText = `${matchingChat.typingName} is thinking`;
           return true;
         }
         return false;
@@ -15215,13 +15234,13 @@
 
     function pendingChatsHtml() {
       if (actionBusy && pendingAction?.kind === "orb-chat") return "";
-      return pendingChats.map((chat) => {
+      return pendingChats.filter(pendingChatBelongsToCurrentRoom).map((chat) => {
         const typingActorId = Number(chat.typingActorId || chat.targetActorId || 0);
         const actor = actorForId(typingActorId);
         const speaker = chat.typingName || (actor ? actorLabel(actor) : chat.targetName || "Someone nearby");
         const deciding = chat.stage === "deciding";
-        const status = deciding ? "choosing chat or pass…" : "typing…";
-        const aria = `${speaker} is ${deciding ? "choosing whether to chat or pass" : "typing"}. Your next actions are ready while the conversation unfolds.`;
+        const status = deciding ? "choosing chat or pass…" : "thinking…";
+        const aria = `${speaker} is ${deciding ? "choosing whether to chat or pass" : "thinking"}. Your next actions are ready while the conversation unfolds.`;
         return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: typingActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>${status}</span></div>`;
       }).join("");
     }

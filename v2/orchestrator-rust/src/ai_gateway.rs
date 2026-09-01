@@ -80,12 +80,11 @@ static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::
 const TRANSCRIPTION_MAX_AUDIO_BYTES: usize = 8 * 1024 * 1024;
 #[allow(dead_code)]
 const TRANSCRIPTION_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
-// Raw residents have a deliberately small visible-speech budget. Even a
-// "minimal" reasoning request can consume that entire budget and return a
-// reasoning-only choice with `content: null` (observed from Qwen 3.6 through
-// OpenRouter). Disable optional reasoning for speech; endpoints where reasoning
-// is mandatory use the bounded compatibility fallback below.
-const RAW_DIALOGUE_REASONING_EFFORT: &str = "none";
+// Bound model residents are the models they represent, including when that
+// model reasons before it speaks. Keep the published speech bounded in the
+// deterministic voice gate, but let the provider manage the private reasoning
+// budget instead of forcing thought and speech through one tiny token cap.
+const RAW_DIALOGUE_REASONING_MODE: &str = "enabled";
 const REASONING_TRACE_MAX_CHARS: usize = 2_048;
 const REASONING_MANDATORY_ERROR: &str =
     "reasoning is mandatory for this endpoint and cannot be disabled";
@@ -1362,7 +1361,7 @@ pub(crate) async fn request_chat_completion(
                 .candidate()
                 .supported_parameters()
                 .reasoning
-                .then_some(RAW_DIALOGUE_REASONING_EFFORT)
+                .then_some(RAW_DIALOGUE_REASONING_MODE)
         } else {
             config.reasoning_effort.as_deref()
         },
@@ -1409,7 +1408,7 @@ pub(crate) async fn request_chat_completion_with_selection(
                 .candidate()
                 .supported_parameters()
                 .reasoning
-                .then_some(RAW_DIALOGUE_REASONING_EFFORT)
+                .then_some(RAW_DIALOGUE_REASONING_MODE)
         } else {
             config.reasoning_effort.as_deref()
         },
@@ -3444,6 +3443,8 @@ async fn request_completion(
             })
             .unwrap_or(u32::MAX);
         let max_tokens = max_tokens.min(candidate_output_cap);
+        let mut provider_managed_reasoning =
+            raw_mode && reasoning_effort == Some(RAW_DIALOGUE_REASONING_MODE);
         let messages = if raw_mode && system.trim().is_empty() {
             json!([{ "role": "user", "content": user_content }])
         } else {
@@ -3454,9 +3455,11 @@ async fn request_completion(
         };
         let mut payload = json!({
             "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens
+            "messages": messages
         });
+        if !provider_managed_reasoning {
+            payload["max_tokens"] = json!(max_tokens);
+        }
         let temperature = selection
             .and_then(|selection| selection.candidate().sampling().temperature)
             .or(temperature);
@@ -3473,9 +3476,8 @@ async fn request_completion(
         }
         add_openrouter_room_session(config, &mut payload, room_id);
         if let Some(reasoning_effort) = reasoning_effort {
-            payload["reasoning"] = if raw_mode && reasoning_effort == RAW_DIALOGUE_REASONING_EFFORT
-            {
-                json!({ "enabled": false })
+            payload["reasoning"] = if raw_mode && reasoning_effort == RAW_DIALOGUE_REASONING_MODE {
+                json!({ "enabled": true })
             } else {
                 json!({ "effort": reasoning_effort })
             };
@@ -3567,6 +3569,8 @@ async fn request_completion(
                             if let Some(body) = payload.as_object_mut() {
                                 body.remove("reasoning");
                             }
+                            payload["max_tokens"] = json!(max_tokens);
+                            provider_managed_reasoning = false;
                         }
                     }
                     reasoning_compatibility_retried = true;
@@ -3686,7 +3690,8 @@ async fn request_completion(
             // tight from a model that stops cleanly but fails the structural
             // check meant reproducing the failure locally.
             finish_reason = %finish_reason,
-            requested_max_tokens = max_tokens,
+            requested_max_tokens = if provider_managed_reasoning { 0 } else { max_tokens },
+            provider_managed_reasoning,
             completion_tokens = usage.completion_tokens.unwrap_or(0),
             "CosyWorld AI inference completed"
         );
@@ -6724,7 +6729,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn raw_actor_disables_optional_reasoning_and_enables_it_once_when_mandatory() {
+    async fn raw_reasoning_actor_thinks_without_an_application_token_cap() {
         use std::sync::Mutex;
 
         let request_bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -6735,21 +6740,9 @@ mod tests {
                 move |Json(body): Json<Value>| {
                     let request_bodies = Arc::clone(&request_bodies);
                     async move {
-                        let ordinal = {
+                        {
                             let mut bodies = request_bodies.lock().expect("capture raw requests");
                             bodies.push(body.clone());
-                            bodies.len()
-                        };
-                        if ordinal == 1 {
-                            return (
-                                StatusCode::BAD_REQUEST,
-                                Json(json!({
-                                    "error": {
-                                        "message": "Reasoning is mandatory and cannot be disabled"
-                                    }
-                                })),
-                            )
-                                .into_response();
                         }
                         Json(json!({
                             "model": "arcee-ai/trinity-large-thinking",
@@ -6815,8 +6808,7 @@ mod tests {
                 temperature: 0.0,
                 max_tokens: 160,
                 timeout: Duration::from_secs(2),
-                // Even with a larger ordinary retry budget, compatibility is an
-                // inner one-shot fallback and must not amplify across attempts.
+                // The provider owns the reasoning budget for this raw model.
                 max_attempts: 4,
                 referer: "http://127.0.0.1",
                 response_format: None,
@@ -6825,7 +6817,7 @@ mod tests {
             &selection,
         )
         .await
-        .expect("mandatory reasoning fallback succeeds");
+        .expect("raw reasoning request succeeds");
 
         assert_eq!(completion.attempts, 1);
         assert_eq!(
@@ -6833,19 +6825,21 @@ mod tests {
             Some("I connected the question to the room before answering.")
         );
         let bodies = request_bodies.lock().expect("read raw requests");
-        assert_eq!(bodies.len(), 2, "one 400 gets exactly one shape fallback");
+        assert_eq!(
+            bodies.len(),
+            1,
+            "reasoning starts enabled without a shape retry"
+        );
         assert_eq!(
             bodies[0]
                 .pointer("/reasoning/enabled")
                 .and_then(Value::as_bool),
-            Some(false)
+            Some(true)
         );
         assert!(bodies[0].pointer("/reasoning/exclude").is_none());
-        assert_eq!(
-            bodies[1]
-                .pointer("/reasoning/enabled")
-                .and_then(Value::as_bool),
-            Some(true)
+        assert!(
+            bodies[0].get("max_tokens").is_none(),
+            "reasoning and visible speech must not share a tiny completion cap",
         );
         for body in bodies.iter() {
             assert_eq!(

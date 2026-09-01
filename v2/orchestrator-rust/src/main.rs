@@ -37030,7 +37030,7 @@ mod tests {
         assert!(INDEX_HTML.contains("event.type === \"chat.typing\""));
         assert!(INDEX_HTML
             .contains("pendingModelInteractions.length !== pendingInteractionCountBefore"));
-        assert!(INDEX_HTML.contains("typing…"));
+        assert!(INDEX_HTML.contains("thinking…"));
         assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
         assert!(!INDEX_HTML.contains("reacting to your card…"));
         assert!(!INDEX_HTML.contains("responding to your card…"));
