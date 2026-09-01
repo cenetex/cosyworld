@@ -30,6 +30,8 @@ pub(crate) const VOICE_EXPLORATION_FLOOR_BPS_ENV: &str = "COSYWORLD_AI_VOICE_EXP
 const MAX_VOICE_ATTEMPTS: u8 = 10;
 const MAX_JOB_LEASE_RETRIES: u32 = 1;
 const VOICE_RETRY_FEEDBACK_RESERVE_TOKENS: u32 = 96;
+const REASONING_VOICE_LATENCY_CEILING: Duration = Duration::from_secs(120);
+const REASONING_COMPLETION_PLANNING_TOKENS: u32 = 4_096;
 
 #[derive(Clone, Debug)]
 pub(crate) struct VoiceRoutingConfig {
@@ -106,6 +108,37 @@ impl VoiceRoutingConfig {
             unknown_cost_microdollars,
             exploration_floor: exploration_floor_bps as f64 / 10_000.0,
         })
+    }
+}
+
+fn effective_voice_routing_config(
+    configured: &VoiceRoutingConfig,
+    request: &VoiceAttemptRequest,
+) -> VoiceRoutingConfig {
+    let mut effective = configured.clone();
+    if request_uses_provider_managed_reasoning(request) {
+        effective.latency_ceiling = effective
+            .latency_ceiling
+            .max(REASONING_VOICE_LATENCY_CEILING);
+    }
+    effective
+}
+
+fn request_uses_provider_managed_reasoning(request: &VoiceAttemptRequest) -> bool {
+    request.model_binding.as_ref().is_some_and(|binding| {
+        binding.speech_mode == "raw"
+            && binding
+                .supported_parameters
+                .iter()
+                .any(|parameter| matches!(parameter.as_str(), "reasoning" | "reasoning_effort"))
+    })
+}
+
+fn completion_tokens_for_planning(request: &VoiceAttemptRequest) -> u32 {
+    if request_uses_provider_managed_reasoning(request) {
+        request.max_tokens.max(REASONING_COMPLETION_PLANNING_TOKENS)
+    } else {
+        request.max_tokens
     }
 }
 
@@ -248,9 +281,10 @@ impl VoiceAttemptBackend for GatewayVoiceBackend {
     ) -> VoiceAttemptFuture {
         let config = self.config.clone();
         Box::pin(async move {
+            let planning_tokens = completion_tokens_for_planning(&request);
             let rendered = request
                 .prompt
-                .render_for(selection.candidate().context_limit(), request.max_tokens);
+                .render_for(selection.candidate().context_limit(), planning_tokens);
             request_chat_completion_with_selection(
                 &config,
                 ChatCompletionRequest {
@@ -295,6 +329,7 @@ async fn route_certified_voice_with(
 ) -> Result<CertifiedSpeech, VoiceRoutingError> {
     let generation_id = publication_generation_id(&gate, request.prompt_version);
     let owner = crate::random_hex(12);
+    let routing_config = effective_voice_routing_config(&config.voice_routing, &request);
     if let Some(path) = store_path {
         match claim_voice_job(
             path,
@@ -303,7 +338,7 @@ async fn route_certified_voice_with(
             request.feature,
             gate.mode.as_str(),
             &owner,
-            &config.voice_routing,
+            &routing_config,
         )
         .map_err(|_| routing_error("voice_job_store_unavailable", Vec::new()))?
         {
@@ -332,7 +367,7 @@ async fn route_certified_voice_with(
         gate.speaker_actor_id,
         gate.mode.as_str(),
         &request,
-        &config.voice_routing,
+        &routing_config,
         candidates,
     )
     .map_err(|_| routing_error("voice_job_store_unavailable", Vec::new()))?;
@@ -362,12 +397,12 @@ async fn route_certified_voice_with(
     'generation: while next_candidate < planned.len() {
         let remaining_candidates = planned.len() - next_candidate;
         let available_to_batch =
-            if first_batch && (config.voice_routing.hedge_width as usize) < remaining_candidates {
+            if first_batch && (routing_config.hedge_width as usize) < remaining_candidates {
                 remaining_candidates - 1
             } else {
                 remaining_candidates
             };
-        let batch_width = (config.voice_routing.hedge_width as usize)
+        let batch_width = (routing_config.hedge_width as usize)
             .min(available_to_batch)
             .max(1);
         let batch_end = next_candidate + batch_width;
@@ -375,7 +410,7 @@ async fn route_certified_voice_with(
         next_candidate = batch_end;
         first_batch = false;
         let elapsed = started.elapsed();
-        let Some(remaining) = config.voice_routing.latency_ceiling.checked_sub(elapsed) else {
+        let Some(remaining) = routing_config.latency_ceiling.checked_sub(elapsed) else {
             mark_timed_out_batch(store_path, &generation_id, batch, &BTreeSet::new());
             if !certified_candidates.is_empty() {
                 break 'generation;
@@ -399,7 +434,7 @@ async fn route_certified_voice_with(
 
         while !attempts.is_empty() {
             let elapsed = started.elapsed();
-            let Some(remaining) = config.voice_routing.latency_ceiling.checked_sub(elapsed) else {
+            let Some(remaining) = routing_config.latency_ceiling.checked_sub(elapsed) else {
                 attempts.abort_all();
                 mark_timed_out_batch(store_path, &generation_id, batch, &completed_ordinals);
                 if !certified_candidates.is_empty() {
@@ -810,9 +845,10 @@ fn build_voice_plan(
             let latency_ms = observed.latency_p50_ms.unwrap_or(1_000).max(1) as f64;
             let ceiling_ms = config.latency_ceiling.as_millis().max(1) as f64;
             let latency_weight = ceiling_ms / (ceiling_ms + latency_ms);
-            let rendered = request
-                .prompt
-                .render_for(candidate.context_limit(), request.max_tokens);
+            let rendered = request.prompt.render_for(
+                candidate.context_limit(),
+                completion_tokens_for_planning(request),
+            );
             let estimated_cost_microdollars = estimated_cost(
                 observed.input_cost_per_million,
                 observed.output_cost_per_million,
@@ -956,7 +992,8 @@ fn estimated_cost(
         return unknown;
     };
     let input_tokens = prompt_budget.estimated_prompt_tokens.max(1) as usize;
-    (input_rate * input_tokens as f64 + output_rate * request.max_tokens as f64)
+    (input_rate * input_tokens as f64
+        + output_rate * completion_tokens_for_planning(request) as f64)
         .ceil()
         .max(1.0) as u64
 }
@@ -1892,6 +1929,45 @@ mod tests {
             "../../content/hoppycat-archive/actor_model_bindings.json"
         ))
         .expect("Hoppycat actor model bindings")
+    }
+
+    #[test]
+    fn exact_reasoning_resident_gets_a_thinking_window() {
+        let mut exact_request = request("dialogue_resident_raw");
+        let mut binding = hoppycat_bindings()
+            .into_iter()
+            .find(|binding| {
+                binding
+                    .supported_parameters
+                    .iter()
+                    .any(|parameter| matches!(parameter.as_str(), "reasoning" | "reasoning_effort"))
+            })
+            .expect("fixture includes a reasoning model");
+        binding.speech_mode = "raw".to_string();
+        exact_request.model_binding = Some(binding.clone());
+        let configured = VoiceRoutingConfig {
+            latency_ceiling: Duration::from_secs(12),
+            ..VoiceRoutingConfig::default()
+        };
+
+        assert_eq!(
+            effective_voice_routing_config(&configured, &exact_request).latency_ceiling,
+            Duration::from_secs(120),
+        );
+        assert_eq!(
+            completion_tokens_for_planning(&exact_request),
+            REASONING_COMPLETION_PLANNING_TOKENS,
+            "cost and prompt planning stay honest without becoming a provider cap",
+        );
+
+        binding.supported_parameters.clear();
+        exact_request.model_binding = Some(binding);
+        assert_eq!(
+            effective_voice_routing_config(&configured, &exact_request).latency_ceiling,
+            Duration::from_secs(12),
+            "ordinary speech keeps the fast voice window",
+        );
+        assert_eq!(completion_tokens_for_planning(&exact_request), 70);
     }
 
     fn gate(key: &str) -> SpeechGateContext {
