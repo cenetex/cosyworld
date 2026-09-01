@@ -4,31 +4,45 @@ CosyWorld is a shared AI MUD: players enter one living world, become an avatar,
 and act through a small card-driven browser surface backed by a deterministic
 C rules kernel and a Rust HTTP/SSE orchestrator.
 
-CosyWorld V2 is the canonical product. The older Node service still exists in
-this repository as a companion for legacy integrations and experiments, but new
-gameplay work should target `v2/`.
+CosyWorld V2 is the canonical product and runtime. Gameplay, world content,
+browser behavior, and deployment work live under `v2/`.
 
 The stable product release is **CosyWorld 1.0**. See the
 [`CHANGELOG`](CHANGELOG.md) for its supported product surface and upgrade notes.
 
-## Start Here
+## Quick Start
 
-Run the current browser game:
+You need:
+
+- Node.js 24 or newer.
+- A Rust toolchain with Cargo and a working C compiler.
+- Python 3, `screen`, and `lsof` for the local runtime scripts.
+
+Install the JavaScript dependencies, then start the current browser game:
 
 ```sh
+npm install
 npm run dev
 ```
 
-Run the local V2 gate:
+The first run builds the Rust service, starts it in a detached session, and
+opens [http://127.0.0.1:3102](http://127.0.0.1:3102). Local play does not
+require a wallet or external AI credentials.
+
+Check the running service, inspect its logs, or stop it with:
 
 ```sh
-npm run check:local
+npm run v2:status
+./v2/mvp.sh logs
+npm run v2:stop
 ```
 
-Run only the legacy Node companion:
+The full local gate also builds the browser-facing Rust model for WebAssembly.
+Install that target once, then run the gate:
 
 ```sh
-npm run dev:node
+rustup target add wasm32-unknown-unknown
+npm run check:local
 ```
 
 ## Repository Map
@@ -41,7 +55,8 @@ npm run dev:node
   cards, factions, fronts, clocks, jobs, and access gates.
 - `v2/worlds/official/`: official seed-world selection and integrity lock.
 - `v2/content/official/`: generated, deterministic bundle consumed by the runtime.
-- `src/`: legacy Node companion service and inherited social/community tooling.
+- `v2/scripts/`: content compilers, contract checks, and local smoke tests.
+- `infra/`: infrastructure and operational support for deployed services.
 - `docs/`, `AI.md`, `ECONOMY.md`, `PRD.md`: product and system notes.
 
 ## Current Product Shape
@@ -57,12 +72,14 @@ durable journal, routing, and failover gates in
 `COSYWORLD_V2_SHARD_ID` setting and `/meta.deployment.shard_id` remain matching
 compatibility aliases; neither value is world identity.
 
-The current public world mounts CosyWorld Core and Ruby High: First Bell as peer
-world packs. Ruby owns its school rooms, rules context, cards, faction, and assets;
-optional bridge rows connect its resources to Core
-when both packs are mounted. Players can create avatars, chat through
-server-authored avatar lines, use moderated room speech, move, collect and trade
-items, earn and spend Orbs, report players, and inspect card presentations.
+The official bundle mounts CosyWorld Core with The Lantern Keeper, The Holy
+Land, Ruby High: First Bell, and the Lonely Forest character pack. Versioned
+SRD references and the executable SRD5 rules profile provide the shared rules
+layer. Each expansion owns its rooms, actors, items, cards, and assets; explicit
+composition packs connect expansion resources to Core. Players can create
+avatars, chat through server-authored avatar lines, use moderated room speech,
+move, collect and trade items, earn and spend Orbs, report players, and inspect
+card presentations.
 
 Generated avatar personas are first-person streams of consciousness: desires,
 preferences, dislikes, and social instincts grounded in the character's actual
@@ -95,17 +112,6 @@ Historical Box, pack, and item-materialization rows remain read-only audit
 evidence. The runtime has no burn, reveal, collection, or materialization player
 endpoint.
 
-## Legacy Node Companion
-
-The Node service was the original multi-platform community/agent tool. It still
-contains Discord, X, Telegram, AI-provider, media, admin, and migration code that
-may remain useful as companion infrastructure. It is not the source of truth for
-the CosyWorld V2 game loop.
-
-Use `npm run dev:node` when working on that companion surface. Keep new gameplay
-rules, world content, browser MUD behavior, and production deployment changes in
-the V2 runtime unless a task explicitly targets legacy integrations.
-
 ## Useful Commands
 
 ```sh
@@ -122,7 +128,8 @@ npm run v2:syntax
 
 ## More Detail
 
-- V2 runtime guide: `v2/README.md`
-- Product requirements: `PRD.md`
-- Economy and NFT model: `ECONOMY.md`
-- AI model/provider notes: `AI.md`
+- [V2 runtime guide](v2/README.md)
+- [Product requirements](PRD.md)
+- [Economy and NFT model](ECONOMY.md)
+- [AI model and provider notes](AI.md)
+- [License](LICENSE)
