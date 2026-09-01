@@ -14,7 +14,8 @@
       "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
       "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
       "sha256:18d7c38d6fd234817cae5fd9ad1bc473fd27eef7924986cffc7c3bd67bc36eab",
-      "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5"
+      "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5",
+      "sha256:95263c868c4120f18ca927ead1186b2254edcd5b8ffb1b7e150f66ba257644b5"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -185,7 +186,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:95263c868c4120f18ca927ead1186b2254edcd5b8ffb1b7e150f66ba257644b5",
+  "bundle_hash": "sha256:8d132b1900df06a6e7e5afd375ecf6d943f1133de0b70bcfb4bb6571e2038ae0",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -351,7 +352,7 @@
       "id": "hoppycat.archive",
       "name": "Hoppycat: February Third",
       "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit/",
@@ -550,7 +551,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:18ec727baaca5b98bb1eecd5679d645d06776c8c2ebd3da6ed76aee5d9fe3246"
+      "integrity": "sha256:30792418351b50b6b68f910745ea7398753b4922bbb62d2f951b23993de25e0a"
     }
   ],
   "files": {
