@@ -44,3 +44,6 @@ The current product proof sequence is
 [Seventh-Visit Product Proof Plan](seventh-visit-operating-queue.md). The
 construction/living-world sequence is
 [Construction, Place Development, and Route Discovery](../worldpacks/construction-and-routing-discovery.md).
+
+[Runtime Maintenance](runtime-maintenance.md) preserves the extraction sequence
+and connection reuse proposals until the product proof makes room for them.

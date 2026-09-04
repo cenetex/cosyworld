@@ -383,3 +383,23 @@ The epic is complete when:
 - Rewriting canonical historical events or breaking old replay records.
 - Building a portable all-world avatar journal.
 - A broad visual redesign of the room, transcript, or action cards.
+
+## Generated page presentation
+
+**Shipped**: Daily long-rest Journal pages have generated images and accessible
+text through #817. The browser presents one page per avatar-day. It also shows
+recent chat lines beneath a page and recent moments before the first page.
+
+**Planning**: The wider image-only presentation proposed in #968 remains a
+product change. That issue is a historical reference for the proposal.
+
+Use the authoritative Journal pages, room memory, Visit Ledger marks, and daily
+Journal state as inputs to the media pipeline. The proposed player surface is
+a generated page image with a short accessible caption. Keep the source data
+journaled and replayable behind that presentation.
+
+Promote a bounded implementation slice after community-art retries recover
+reliably and the campaign proof supports this presentation change. Define the
+pending, failure, and accessible reading states before implementation. The
+acceptance proof must cover the image and caption, client treatment of the
+source rows, and replay of the authoritative Journal data.
