@@ -5,10 +5,12 @@ subject of a deterministic, replayable waking quest — the Circuit — composed
 from existing journey, threshold, clock, and journal machinery, with a bounded
 voice that never gains authority.
 
-**Status**: groomed and filed (2026-08-29). Execution backlog: epic
-[#953](https://github.com/cenetex/cosyworld/issues/953). The linked issues are the
-source of truth for implementation state. This document owns the product law,
-the accepted design decisions, the dependency order, and the proof gates.
+**Status**: Planning. The Circuit, token stages, and Waystone await implementation.
+The accepted decisions below define their product contract. This document owns
+the design, dependency order, and proof gates. Issues #953 and #955–#962 are
+historical design references. Promote one bounded slice after its prerequisites
+and the production and campaign proof gates pass. The entity-level contract
+repair in #954 has independent value as an authority correction.
 
 ## Diagnosis
 
