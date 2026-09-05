@@ -927,8 +927,16 @@ impl RuntimeWorld {
     }
 
     fn context_spine_actor(&self, actor: CwActor) -> Option<AvatarContextActor> {
-        let meta = self.actors.get(&actor.id)?;
         let identity_policy = self.avatar_identity_policy(actor.id).unwrap_or_default();
+        self.context_spine_actor_with_identity(actor, identity_policy)
+    }
+
+    fn context_spine_actor_with_identity(
+        &self,
+        actor: CwActor,
+        identity_policy: SeedActorIdentityContent,
+    ) -> Option<AvatarContextActor> {
+        let meta = self.actors.get(&actor.id)?;
         let level_identity = self.latest_avatar_level_identity(actor.id);
         let control_mode = self
             .actor_autonomy
@@ -989,7 +997,14 @@ impl RuntimeWorld {
             name: grounded_avatar_name_for_prompt(actor.id, &meta.name),
             title: meta.title.clone(),
             description,
-            stable_traits: self.avatar_description_for_prompt(actor.id, meta),
+            stable_traits: if identity_policy.mode == "authored"
+                && control_mode != ActorControlMode::DirectInput
+                && !identity_policy.persona.trim().is_empty()
+            {
+                compact_whitespace(&identity_policy.persona)
+            } else {
+                self.avatar_description_for_prompt(actor.id, meta)
+            },
             appearance,
             identity_mode: identity_policy.mode,
             canonical_description: if identity_policy.canonical_description.trim().is_empty() {
@@ -1280,6 +1295,63 @@ pub(crate) fn semantic_top_recollections(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_hoppycat_authored_persona_reaches_the_speech_context() {
+        let actors: Vec<SeedActorContent> =
+            serde_json::from_str(include_str!("../../content/hoppycat/actors.json")).unwrap();
+        let mut checked = 0;
+        for seed in actors.into_iter().filter(|seed| {
+            seed.identity
+                .as_ref()
+                .is_some_and(|identity| !identity.persona.is_empty())
+        }) {
+            let identity = seed.identity.clone().unwrap();
+            let mut runtime = RuntimeWorld::seeded();
+            create_test_human(&mut runtime, seed.id, COSY_COTTAGE_LOCATION_ID, &seed.name);
+            runtime.actors.get_mut(&seed.id).unwrap().description = seed.description;
+            runtime
+                .actor_autonomy
+                .entry(seed.id)
+                .or_default()
+                .control_mode = ActorControlMode::LocalAi;
+            let actor = runtime.actor_by_id(seed.id).unwrap();
+            let speaker = runtime
+                .context_spine_actor_with_identity(actor, identity.clone())
+                .unwrap();
+            assert_eq!(speaker.stable_traits, identity.persona);
+            let mut spine = runtime
+                .avatar_context_spine(seed.id, None, None, "A traveler arrives.".to_string())
+                .unwrap();
+            spine.speaker = speaker;
+            let rendered = spine
+                .prompt(AvatarContextPromptOptions {
+                    mode: AvatarContextMode::Respond,
+                    speech_mode: SpeechMode::Prose,
+                    max_words: 34,
+                    response_job: "speak".to_string(),
+                })
+                .render_for(Some(32_768), 70);
+            assert!(rendered
+                .user
+                .contains(&format!("PERSONA · {}", identity.persona)));
+            assert!(!rendered.system.contains(&identity.persona));
+
+            // Taking direct control keeps the player-authored grounding rule.
+            runtime
+                .actor_autonomy
+                .entry(seed.id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+            let direct = runtime
+                .context_spine_actor_with_identity(actor, identity.clone())
+                .unwrap();
+            assert_ne!(direct.stable_traits, identity.persona);
+            assert!(avatar_persona_is_grounded(&direct.stable_traits));
+            checked += 1;
+        }
+        assert_eq!(checked, 8);
+    }
 
     #[test]
     fn authored_npc_description_replaces_the_generic_persona_fallback() {

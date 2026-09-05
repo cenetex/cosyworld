@@ -183,6 +183,13 @@ recollections, and structured world evidence in causal order: `SELF`, `PERSONA`,
 authoritative observation, and finally one compact `SPEAK`, `THINK`, `DREAM`, or
 `AWAKEN` cue.
 
+For an autonomous avatar with an authored identity, a populated `identity.persona`
+supplies the `PERSONA` traits. The authored description remains its observable
+background, and committed level descriptions retain their own place in the
+spine. An empty persona uses the authored description as before. These traits
+enter as character context in the user evidence message. Direct control keeps
+the grounded player-description rule.
+
 “Stream of consciousness” means immediate character attention, desire, preference, and
 hesitation. It does not request hidden model reasoning. A compact output cue says exactly
 who is speaking and who is being answered, preventing role reversal when one avatar
