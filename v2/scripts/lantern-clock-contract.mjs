@@ -40,11 +40,6 @@ export function lanternClockEffectValidationErrors({
       errors.push(`clock ${clockId} on_fill cannot be tag-only`);
       continue;
     }
-    // The job status is required and may appear exactly once. A clock may
-    // additionally open a road it has earned, so at most one unlock_exit is
-    // admitted alongside it. Nothing else: the clock still cannot grant items,
-    // currency, or access at large. Mirrors validate_lantern_clock_effect_contract
-    // in v2/orchestrator-rust/src/content_load.rs.
     let jobStatusEffects = 0;
     let unlockEffects = 0;
     let foreign = false;

@@ -1,15 +1,3 @@
-//! The append-only action journal: source of truth.
-//!
-//! A record is the *inputs* of a commit — action, seed, tick flag, projection
-//! mutations — plus the committed status and events for the public feed.
-//! Replay re-applies inputs through kernel and registry, and asserts the
-//! re-derived events match the stored ones. Snapshots remain disposable
-//! accelerators.
-//!
-//! Storage lives behind the `Journal` trait from day one: health tracking,
-//! retry, and degraded-mode policy attach to the trait rather than threading
-//! through free functions over paths.
-
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
@@ -24,8 +12,6 @@ pub struct JournalRecord {
     pub action: Action,
     pub seed: u64,
     pub advance_tick: bool,
-    /// The room whose rotation this commit advanced, if turn-consuming.
-    /// Journaled so replay advances the same rotation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turn_room: Option<u64>,
     #[serde(default)]
@@ -80,16 +66,12 @@ impl std::fmt::Display for JournalError {
 impl std::error::Error for JournalError {}
 
 pub trait Journal: Send {
-    /// Append one committed record. Returns its sequence number.
     fn append(&mut self, record: &JournalRecord) -> Result<u64, JournalError>;
-    /// Read committed records in order, strictly after `after_seq`.
     fn read_from(&self, after_seq: u64, limit: usize) -> Result<Vec<JournalRecord>, JournalError>;
     fn latest_seq(&self) -> Result<u64, JournalError>;
     fn health(&self) -> JournalHealth;
 }
 
-/// SQLite-backed journal. Append-only by construction: there is no update or
-/// delete path.
 pub struct SqliteJournal {
     conn: Connection,
     health: JournalHealth,
@@ -101,7 +83,6 @@ impl SqliteJournal {
         Self::init(conn)
     }
 
-    /// In-memory journal for tests; the trait contract is identical.
     pub fn in_memory() -> Result<Self, JournalError> {
         let conn = Connection::open_in_memory().map_err(|e| JournalError::Io(e.to_string()))?;
         Self::init(conn)
@@ -229,7 +210,6 @@ mod tests {
         let err = journal.append(&record(1)).unwrap_err();
         assert!(matches!(err, JournalError::Io(_)));
         assert_eq!(journal.health().status(), "degraded");
-        // The original record is untouched: append-only means no overwrite.
         assert_eq!(journal.read_from(0, 10).unwrap().len(), 1);
     }
 }

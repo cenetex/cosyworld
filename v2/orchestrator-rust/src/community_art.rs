@@ -45,8 +45,6 @@ use crate::{
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
-/// Mirrors `MAX_REVIEW_FAILURES` in the media verdict store, which already
-/// counts and clamps review failures per candidate.
 pub(super) const MAX_COMMUNITY_ART_REVIEW_ATTEMPTS: u8 = 3;
 
 fn exhausted_community_art_review_attempts() -> u8 {
@@ -58,13 +56,7 @@ pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 5;
 pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
-/// Journaled error code for a frozen media brief that its own validator
-/// rejects. The brief is derived deterministically from persisted subject facts
-/// and this profile's code, so an identical retry reproduces the identical
-/// rejection: the job is terminal until a newer generation profile reopens it.
 pub(super) const COMMUNITY_ART_BRIEF_INVALID_CODE: &str = "community_art_brief_invalid";
-/// A stored candidate belongs to another frozen brief. Recovery requires an
-/// operator reconciliation; a profile upgrade keeps this failure terminal.
 pub(super) const COMMUNITY_ART_BRIEF_CONFLICT_CODE: &str = "community_art_brief_conflict";
 pub(super) const AVATAR_APPEARANCE_REQUIRED_CODE: &str = "avatar_appearance_required";
 pub(super) const COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE: &str =
@@ -122,19 +114,6 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) revision: u32,
     #[serde(default)]
     pub(super) provider_attempts: u8,
-    /// Review attempts spent on a saved candidate.
-    ///
-    /// A job whose candidate exists but whose review failed used to be
-    /// retryable forever. On Lonely Forest one such job re-ran 975 times
-    /// between 2026-08-15 and 2026-08-22, accelerating to 239 attempts a day,
-    /// because the reviewer was paused by the daily spend cap and nothing
-    /// counted the attempts. `MAX_REVIEW_FAILURES` existed in the verdict
-    /// record and saturated at 3 while the retry decision never read it.
-    ///
-    /// A state that predates this counter is treated as exhausted: it is only
-    /// reachable through a status this field now governs, and a job already
-    /// looping must stop rather than earn a fresh budget. Replay converges on
-    /// the same value because the counter saturates at the cap.
     #[serde(default = "exhausted_community_art_review_attempts")]
     pub(super) review_attempts: u8,
     #[serde(default)]
@@ -453,7 +432,6 @@ pub(super) fn community_art_generation_retryable(
     if generation.funded_orbs < generation.required_orbs {
         return false;
     }
-    // Deterministic brief and quarantine failures require explicit recovery.
     if matches!(
         generation.last_error_code.as_deref(),
         Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
@@ -536,7 +514,7 @@ pub(super) fn community_art_prompt_history(
     }
 }
 
-#[allow(clippy::too_many_arguments)] // Mirrors the bounded prompt components.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build_community_art_prompt(
     subject_kind: &str,
     name: &str,
@@ -1105,7 +1083,7 @@ impl RuntimeWorld {
         })
     }
 
-    #[allow(clippy::too_many_arguments)] // Mirrors the durable funding mutation fields.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply_fund_community_art_projection(
         &mut self,
         subject_kind: &str,
@@ -1208,7 +1186,7 @@ impl RuntimeWorld {
         Some(event)
     }
 
-    #[allow(clippy::too_many_arguments)] // Mirrors the durable begin-generation mutation.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply_begin_community_art_generation_projection(
         &mut self,
         action_actor_id: u64,
@@ -1255,7 +1233,7 @@ impl RuntimeWorld {
         ))
     }
 
-    #[allow(clippy::too_many_arguments)] // Mirrors the durable completion mutation fields.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply_complete_community_art_generation_projection(
         &mut self,
         action_actor_id: u64,
@@ -1273,8 +1251,6 @@ impl RuntimeWorld {
             generation.revision = generation.revision.saturating_add(1);
         }
         if matches!(status, "review_failed" | "review_unavailable") {
-            // Saturating keeps journal replay and snapshot load on the same
-            // value once the cap is reached.
             generation.review_attempts = generation
                 .review_attempts
                 .saturating_add(1)
@@ -1402,11 +1378,6 @@ pub(super) async fn preflight_community_art_funding(
         .validate()
         .map_err(CommunityArtGenerationError::BriefInvalid)?;
     preflight_community_art_storage(generated_asset_dir, plan)?;
-    // This performs the same media-registry resolution, provider request
-    // construction, stale-brief migration, route/cooldown check,
-    // saved-candidate validation, and quarantine recovery as the funded worker,
-    // but never calls Replicate. It must run before the exact-brief storage
-    // probe so an auditable legacy provider-failure record can be retired.
     prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
     preflight_media_verdict_storage(generated_asset_dir, &media_brief)
         .map_err(CommunityArtGenerationError::from_storage)?;
@@ -1574,9 +1545,6 @@ pub(super) fn prepare_community_art_generation(
         remove_community_art_candidate(generated_asset_dir, plan)
             .map_err(CommunityArtGenerationError::from_storage)?;
     }
-    // A frozen evolution job always carries an approved prior-level parent.
-    // Running the base generator here silently starts over, so evolution is a
-    // hard reference-preserving route rather than a probabilistic canary.
     let evolution_route = if plan.evolution_job.is_some() {
         EvolutionRolloutRoute::Canary
     } else {
@@ -1772,9 +1740,6 @@ async fn generate_and_store_prepared_community_art(
             let image = match request {
                 Ok(image) => image,
                 Err(error) => {
-                    // All deterministic validation and request construction ran
-                    // before the durable provider attempt. Never discard this
-                    // failure: a lost cooldown is an uncapped paid retry.
                     if let Err(cooldown_error) = record_media_provider_failure(
                         generated_asset_dir,
                         media_brief.clone(),
@@ -2607,11 +2572,6 @@ pub(super) fn pending_avatar_self_description_actor_ids(runtime: &RuntimeWorld) 
         .collect()
 }
 
-/// Backfills durable jobs for funded generations created before the media
-/// queue existed or interrupted before they reached it. Persona recovery
-/// belongs to the subject avatar and is independent of whether the original
-/// contributor remains active or nearby. A usable frozen plan still requires
-/// an eligible contributor who can see the subject.
 pub(super) fn resume_pending_community_art_generations(state: &AppState) {
     if state.avatar_art_config.as_ref().is_none() {
         return;

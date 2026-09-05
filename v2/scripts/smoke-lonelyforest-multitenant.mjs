@@ -49,17 +49,12 @@ export function requestTarget(base, host, {
   routerProbe = false,
   sharedTransport = false,
 } = {}) {
-  // Local tests and the explicit deployment transport exercise nginx's Host
-  // dispatch through one listener. Other remote smokes still connect to each
-  // advertised hostname so DNS, TLS SNI, and Host agree.
   const connectToBase = loopbackHosts.has(base.hostname) || routerProbe || sharedTransport;
   const hostname = connectToBase ? base.hostname : host;
   return {
     hostname,
     port: base.port || undefined,
     hostHeader: host,
-    // Node otherwise derives SNI from Host. Router probes intentionally send
-    // an untrusted Host through the base certificate, so pin SNI separately.
     servername: base.protocol === "https:" ? hostname : undefined,
   };
 }
@@ -110,7 +105,6 @@ export function request(host, path, {
             try {
               json = JSON.parse(text);
             } catch {
-              // Some intentional routing failures have an empty nginx body.
             }
           }
           resolveRequest({ status: response.statusCode, json, text });
@@ -199,8 +193,6 @@ async function main() {
     );
   }
 
-  // This is intentionally a router probe rather than a tenant request: there
-  // is no public DNS/TLS identity for the untrusted host.
   const unknown = await request("untrusted.lonelyforest.com", "/", { routerProbe: true }, baseUrl);
   assert(unknown.status === 421, `unknown host returned HTTP ${unknown.status}`);
 

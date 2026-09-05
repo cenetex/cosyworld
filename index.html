@@ -1,7 +1,3 @@
-<!--
-  Copyright (c) 2019-2024 Cenetex Inc.
-  Licensed under the MIT License.
--->
 
 <!DOCTYPE html>
 <html>
@@ -15,7 +11,7 @@
     }
     #chat-messages {
       height: 200px;
-      overflow-y: scroll; /* Enable scrolling if content overflows */
+      overflow-y: scroll;
       border: 1px solid #ccc;
       padding: 5px;
     }
@@ -26,7 +22,6 @@
 <body>
   <div id="chat-container">
     <div id="chat-messages">
-      <!-- Messages will appear here -->
     </div>
   </div>
 
@@ -42,7 +37,6 @@
       const message = messageInput.value;
       if (message) {
         displayMessage(message);
-        // You'd need to send this message to me (the server) here.
       }
     }
 
@@ -51,7 +45,7 @@
 
     messageInput.addEventListener("keydown", function(event) {
       if (event.key === "Enter") {
-        event.preventDefault(); // Prevent form submission
+        event.preventDefault();
         sendMessage();
       }
     });

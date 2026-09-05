@@ -20,8 +20,6 @@ pub struct SyntheticDatasetConfig {
     pub min_nodes: u8,
     pub max_nodes: u8,
     pub seed: u64,
-    /// Percentage of behavior decisions that follow the oracle top-3 adapter.
-    /// The remaining decisions uniformly explore A, B, and DRAW.
     pub oracle_behavior_percent: u8,
 }
 
@@ -158,7 +156,7 @@ impl SyntheticWorld {
         seen[usize::from(from)] = true;
         while let Some((node, distance)) = queue.pop_front() {
             if node == self.treasure {
-                return distance.saturating_add(1); // final SEARCH
+                return distance.saturating_add(1);
             }
             for &neighbor in &self.adjacency[usize::from(node)] {
                 if !seen[usize::from(neighbor)] {
@@ -460,11 +458,6 @@ pub fn evaluate_synthetic_oracle(
     })
 }
 
-/// Runs a population of independent treasure-seeking avatars on shared worlds.
-///
-/// Every avatar owns its episode state. `history_ablated` is a paired control:
-/// it sees the same world and initial hand but forgets visits, searches, clues,
-/// used edges, and previous locations before every decision.
 pub fn simulate_synthetic_population(
     model: &CardPolicyModel,
     config: SyntheticDatasetConfig,

@@ -425,7 +425,6 @@
             </div>
 
             <div class="attributes-grid" id="attributesGrid">
-                <!-- Attributes will be populated here -->
             </div>
         </div>
 
@@ -455,7 +454,6 @@
             </button>
 
             <div class="deployment-status" id="deploymentStatus">
-                <!-- Status items will be added here -->
             </div>
 
             <div class="error-message" id="errorMessage"></div>
@@ -469,7 +467,6 @@
             </div>
 
             <div class="arweave-links" id="arweaveLinks">
-                <!-- Arweave transaction links will be added here -->
             </div>
         </div>
     </div>
@@ -488,7 +485,6 @@
         let walletConnected = false;
         let currentManifest = 'base';
 
-        // Get avatar ID from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const avatarId = urlParams.get('id');
 
@@ -542,7 +538,6 @@
 
         async function connectWallet() {
             try {
-                // Check if Arweave wallet is available (ArConnect browser extension)
                 if (typeof window.arweaveWallet !== 'undefined') {
                     showLoading('Connecting to Arweave wallet...');
                     await window.arweaveWallet.connect(['ACCESS_ADDRESS', 'SIGN_TRANSACTION']);
@@ -557,7 +552,6 @@
                     
                     hideLoading();
                 } else {
-                    // Fallback: simulate connection for testing
                     alert('ArConnect wallet extension not found. For testing, we\'ll simulate a connection. Install ArConnect for production use.');
                     walletConnected = true;
                     document.getElementById('walletAddress').textContent = 'Demo Mode (No Real Wallet)';
@@ -579,7 +573,6 @@
                 statusDiv.innerHTML = '';
                 hideError();
 
-                // Step 1: Generate metadata
                 addStatusItem('generating', 'Generating NFT metadata...', 'loading');
                 const metadataResponse = await fetch(`/api/nft/avatar/${avatarId}/metadata`);
                 if (!metadataResponse.ok) {
@@ -588,11 +581,9 @@
                 manifestData = await metadataResponse.json();
                 updateStatusItem('generating', 'NFT metadata generated ✓', 'complete');
                 
-                // Show manifest preview
                 document.getElementById('manifestPreview').classList.add('active');
                 showManifest('base');
 
-                // Step 2: Deploy to Arweave
                 addStatusItem('deploying', 'Uploading to Arweave...', 'loading');
                 const deployResponse = await fetch(`/api/nft/avatar/${avatarId}/deploy`, {
                     method: 'POST',
@@ -607,7 +598,6 @@
                 deploymentResult = await deployResponse.json();
                 updateStatusItem('deploying', 'Deployed to Arweave ✓', 'complete');
 
-                // Step 3: Show results
                 addStatusItem('complete', 'Deployment complete! 🎉', 'complete');
                 displayArweaveLinks();
 
@@ -621,13 +611,11 @@
             currentManifest = chain;
             const content = document.getElementById('manifestContent');
             
-            // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
 
-            // Show appropriate manifest
             if (manifestData) {
                 const manifest = chain === 'base' ? manifestData.base : manifestData.solana;
                 content.textContent = JSON.stringify(manifest, null, 2);
@@ -709,7 +697,6 @@
             });
         }
 
-        // Event listeners
         document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
         document.getElementById('deployBtn').addEventListener('click', deployToArweave);
     </script>

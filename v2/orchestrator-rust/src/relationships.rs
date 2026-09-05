@@ -13,11 +13,6 @@ impl RuntimeWorld {
 }
 
 impl RuntimeWorld {
-    /// The authoritative bond statement, derived server-side: an authored
-    /// resident relationship contract when one exists, otherwise a
-    /// deterministic sentence composed by the Calling Forge from the two
-    /// actors' names and a shared-road fact. The player never types this; the
-    /// client request's `statement` field is ignored.
     pub(super) fn server_authored_bond_statement(
         &self,
         actor_id: u64,
@@ -468,9 +463,6 @@ pub(super) async fn complete_player_tick_reply(
     }
     let Some(expectation) = relationship_reply else {
         if let Some(plan) = plan {
-            // Ordinary resident narration is optional. The player's action is
-            // already committed, so an unavailable AI provider must not retry
-            // the whole background job or leave it in a durable dead state.
             if let Err(error) = complete_avatar_reply(state, plan, None).await {
                 warn!(
                     "optional resident narration unavailable after deterministic action: {}",
@@ -846,9 +838,6 @@ mod tests {
                 .dialogue_status,
             RELATIONSHIP_DIALOGUE_DELIVERED
         );
-        // Ranking compares the peers inside one hedged batch, and generation
-        // stops as soon as a batch certifies. At the default hedge width of one
-        // that is a single provider call for a line that passes first time.
         assert_eq!(requests.load(Ordering::SeqCst), 1);
         drop(runtime);
         server.abort();
@@ -907,9 +896,6 @@ mod tests {
                 .expect("heartbeat planning succeeds");
         let plan = plan.expect("grounded reply plan");
 
-        // Model the old crash window: speech reached the journal, but the
-        // relationship status mutation did not. Recovery must trust the
-        // causally linked durable message instead of asking the provider again.
         {
             let mut runtime = state.inner.lock().await;
             let events = commit_resident_reply_record(

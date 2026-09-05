@@ -226,10 +226,6 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      # An unreachable primary app fails this gate closed, which blocks the very
-      # deploy that would fix it. Supply a reviewed committed capture of the
-      # last known /meta to recover; the captured hash is still evaluated
-      # against the candidate registry exactly like a live identity.
       - name: Guard primary worldpack bundle compatibility
         run: |
           if [ -n "$COSYWORLD_PRIMARY_RECOVERY_CAPTURE" ]; then
@@ -271,9 +267,6 @@ jobs:
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
     needs: [deployment-impact, release-owner, production-gate]
-    # Ordinary main pushes must never replace an intentional Lonely Forest
-    # release. Tags are committed releases; workflow_dispatch is an explicit
-    # operator action against the selected GitHub ref.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
@@ -363,8 +356,6 @@ jobs:
     permissions:
       issues: write
     steps:
-      # A merge to main that produces no successful deploy must be visible
-      # without anyone going to look.
       - name: Open a loud tracking issue when a required production deploy did not succeed
         if: >-
           needs.deployment-impact.outputs.deploy == 'true' &&

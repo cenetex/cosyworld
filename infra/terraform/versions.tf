@@ -13,5 +13,4 @@ terraform {
 }
 
 provider "aws" {
-  # Region may be inherited from AWS_REGION/AWS_DEFAULT_REGION
 }

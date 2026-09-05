@@ -424,11 +424,6 @@ pub(super) fn legacy_generated_policy_binding(
     }
 }
 
-/// The legacy compatibility binding fabricates no media identity, so two
-/// legacy bindings for the same owner pack and version are the same policy
-/// even when their bookkeeping (historical bundle hash, composition id)
-/// drifted. Pathways were backfilled with whatever historical hash was
-/// current at that boot, and media bound at begin time keeps its own copy.
 pub(super) fn generated_policy_drift_is_legacy_bookkeeping(
     record: &GeneratedPolicyBinding,
     pathway: &GeneratedPolicyBinding,
@@ -451,11 +446,6 @@ fn policy_declares_preserved_binding(
     })
 }
 
-/// Generated media captures the pathway policy that existed when generation
-/// began. A later, explicitly declared `preserve_descendants` upgrade can
-/// therefore leave an older media record beside a newer pathway binding in the
-/// same checkpoint. Reconcile only that monotonic, reviewed transition; every
-/// tuple on both sides must be current or named exactly by the active policy.
 pub(super) fn generated_policy_drift_is_declared_preserving_upgrade(
     record: &GeneratedPolicyBinding,
     pathway: &GeneratedPolicyBinding,
@@ -485,9 +475,6 @@ pub(super) fn generated_policy_drift_is_declared_preserving_upgrade(
     let pathway_is_current = pathway.policy_id == policy.policy_id
         && pathway.migration_version == policy.migration_version
         && pathway.owner_pack_version == pack.version;
-    // A pathway can itself still carry an explicitly preserved compatibility
-    // policy. Requiring its policy id to equal the active policy id would
-    // ignore the exact cross-policy tuple named by the migration manifest.
     let pathway_is_preserved_history = policy_declares_preserved_binding(&policy, pathway);
     let record_is_preserved_history = policy_declares_preserved_binding(&policy, record);
     let transition_is_monotonic = pathway_is_current
@@ -1175,10 +1162,6 @@ mod tests {
 
     #[test]
     fn funded_unbound_location_media_adopts_its_pathway_binding_on_snapshot_load() {
-        // Media is bound when generation begins; a snapshot taken while the
-        // record is funded but unbegun carries an empty binding. That state is
-        // legitimate live state, so loading adopts the pathway binding exactly
-        // as begin would instead of rejecting the checkpoint.
         let mut runtime = RuntimeWorld::seeded();
         let pathway = holy_land_pathway(&runtime);
         let subject_id = pathway.waypoints[0].id;
@@ -1213,9 +1196,6 @@ mod tests {
 
     #[test]
     fn generated_media_whose_pathway_binding_changed_fails_closed() {
-        // A non-empty binding that no longer matches its pathway is a real
-        // divergence: reconciliation must fail closed rather than rewrite
-        // history.
         let mut runtime = RuntimeWorld::seeded();
         let pathway = holy_land_pathway(&runtime);
         let subject_id = pathway.waypoints[0].id;
@@ -1254,10 +1234,6 @@ mod tests {
 
     #[test]
     fn declared_preserving_upgrade_adopts_the_newer_pathway_binding() {
-        // Production can contain media begun under migration v1 beside the
-        // same pathway after it advanced to v2. Both historical tuples are
-        // explicitly preserved by the current Holy Land policy, so loading
-        // adopts the newer pathway binding without permitting arbitrary drift.
         let mut runtime = RuntimeWorld::seeded();
         let mut pathway = holy_land_pathway(&runtime);
         let subject_id = pathway.waypoints[0].id;
@@ -1317,14 +1293,8 @@ mod tests {
 
     #[test]
     fn production_legacy_media_owner_upgrade_adopts_the_pathway_binding() {
-        // Production checkpoint subject 157216 was generated under Holy Land
-        // 1.1.4's host compatibility policy. Its pathway was then migrated to
-        // 1.1.6 with every other identity field unchanged. The active policy
-        // declares this exact historical tuple as descendant-preserving.
         let mut runtime = RuntimeWorld::seeded();
         let mut pathway = holy_land_pathway(&runtime);
-        // Use the fixture pathway's canonical waypoint id; subject 157216 is
-        // the production instance carrying the same policy tuple.
         let subject_id = pathway.waypoints[0].id;
         let shared_bundle =
             "sha256:9e91a900766633f5f52b8fe58e8f409f020233553e3fe5bf24ff519553e972ac";
@@ -1407,10 +1377,6 @@ mod tests {
 
     #[test]
     fn legacy_bookkeeping_drift_adopts_the_pathway_binding_on_snapshot_load() {
-        // Production carried media bound to a legacy compatibility binding
-        // with the historical bundle hash that was current at begin time,
-        // while its pathway was backfilled with a different one. Same legacy
-        // policy, same owner: bookkeeping drift, adopted on load.
         let mut runtime = RuntimeWorld::seeded();
         let pathway = holy_land_pathway(&runtime);
         let subject_id = pathway.waypoints[0].id;

@@ -709,8 +709,6 @@ pub(super) struct StateResponse {
     pub(super) exits: Vec<ExitView>,
     pub(super) actors: Vec<ActorView>,
     pub(super) items: Vec<ItemView>,
-    // These internal projections remain available to Rust-side invariant tests;
-    // clients receive the explicitly named visible projection below.
     #[allow(dead_code)]
     pub(super) factions: Vec<FactionView>,
     pub(super) room_features: Vec<RoomFeatureView>,
@@ -740,9 +738,6 @@ pub(super) struct StateResponse {
     pub(super) turn: RoomTurnView,
     pub(super) branch: Option<BranchView>,
     pub(super) safety: ActorSafetyView,
-    // The current-state endpoint must not resend room history on every
-    // projection refresh. Keep it available for server-side memory assembly;
-    // clients load the same bounded, visibility-filtered history from /events.
     pub(super) recent_events: Vec<EventView>,
     pub(super) journal_beats: Vec<JournalBeatView>,
     pub(super) journal: DailyJournalView,
@@ -759,10 +754,6 @@ pub(super) struct StateResponse {
     pub(super) character_identity: Option<CharacterIdentityView>,
 }
 
-// `/state` is a browser capability, not a dump of RuntimeWorld's projections.
-// Keep this allowlist explicit: adding an internal field above must never make
-// it public unless it is deliberately added here as something the UI renders
-// or submits.
 impl Serialize for StateResponse {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -4114,9 +4105,6 @@ impl RuntimeWorld {
             scene_notices: client_actor_id
                 .map(|id| self.discovery_scene_notices(id))
                 .unwrap_or_default(),
-            // Only an avatar that can act may be told a search is here. A
-            // downed avatar that hears otherwise is handed a card it cannot
-            // play.
             search_available: client_actor_id
                 .map(|id| {
                     self.actor_by_id(id).is_some_and(Self::actor_can_act)
@@ -5516,9 +5504,6 @@ impl RuntimeWorld {
         let current_location_id = client_actor_id
             .and_then(|id| self.actor_by_id(id))
             .map(|actor| actor.location_id);
-        // The world map is one shared canonical projection. The actor id adds
-        // the viewer's current-location marker and control context, but never
-        // hides world locations from another viewer.
         let visible_location_ids: BTreeSet<u64> = self.world.locations[..self.world.location_count]
             .iter()
             .map(|location| location.id)

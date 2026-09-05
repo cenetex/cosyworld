@@ -63,8 +63,6 @@ pub(super) struct ShutdownTrigger {
 #[derive(Clone)]
 pub(super) struct ShutdownSubscription {
     receiver: watch::Receiver<ShutdownNotice>,
-    // Keep the channel open for routers constructed outside the production
-    // signal lifecycle, including focused handler tests.
     _sender: Arc<watch::Sender<ShutdownNotice>>,
     metrics: Arc<ShutdownMetrics>,
 }
@@ -90,8 +88,6 @@ impl ShutdownTrigger {
     pub(super) fn notify(&self, reason: ShutdownReason) -> ShutdownNotice {
         let prior_signal_count = self.metrics.signals.fetch_add(1, Ordering::AcqRel);
         if prior_signal_count == 0 {
-            // Capture before publishing the notice: awakened SSE tasks can
-            // otherwise finish and decrement the active count first.
             self.metrics.active_streams_at_first_signal.store(
                 self.metrics.active_streams.load(Ordering::Acquire),
                 Ordering::Release,

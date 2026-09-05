@@ -20,8 +20,6 @@ pub(super) struct TreasureObjectiveState {
     pub(super) schema_version: u32,
     pub(super) id: String,
     pub(super) actor_id: u64,
-    /// Authoritative supervision only. Never copy this into model inputs or
-    /// card-policy traces.
     pub(super) treasure_item_id: u64,
     pub(super) max_turns: u16,
     pub(super) turns_taken: u16,
@@ -50,11 +48,9 @@ pub(super) struct TreasureObjectiveStart {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct TreasureBranchLabel {
     pub(super) schema_version: u32,
-    /// Stable episode key. The hidden treasure item id is deliberately absent.
     pub(super) objective_id: String,
     pub(super) objective_turn: u16,
     pub(super) evaluator: String,
-    /// Counterfactual cost after forcing each candidate, in deck order.
     pub(super) child_losses: Vec<u16>,
 }
 
@@ -248,10 +244,6 @@ impl RuntimeWorld {
         &self,
         mut plan: AvatarReplyPlan,
     ) -> AvatarReplyPlan {
-        // A moderator-created objective is explicit supervised intent work.
-        // Direct Chat normally needs voice only, but while this private
-        // objective is active it must also capture the bounded card decision
-        // and counterfactual label used by shadow training.
         if self.actor_has_active_treasure_objective(plan.speaker_actor_id) {
             plan.planner_requested = true;
         }
@@ -451,8 +443,6 @@ impl RuntimeWorld {
             return None;
         };
         let travel = self.shortest_unlocked_distance(actor.location_id, target_location_id)?;
-        // One optimistic terminal interaction: pickup for a loose item, or an
-        // exact give/trade once the current holder is reached.
         Some(travel.saturating_add(1))
     }
 
@@ -618,11 +608,6 @@ fn commit_resident_card_policy_turn(
                 if status != CW_OK {
                     return Err(format!("card_policy_draw_kernel_rejected:{status}"));
                 }
-                // Think advances exactly one authoritative Story Hand slot.
-                // Usually we immediately re-rank the replacement, but if the
-                // objective budget ended or a pathological model keeps Thinking
-                // beyond one offer-queue traversal, publish this completed
-                // reflection and resume on the next reply turn.
                 if !runtime.actor_has_active_treasure_objective(base_plan.speaker_actor_id)
                     || draw_index == maximum_draws
                 {

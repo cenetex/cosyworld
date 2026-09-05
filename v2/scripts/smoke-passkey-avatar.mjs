@@ -43,7 +43,6 @@ try {
   assert.equal(credentials[0].isResidentCredential, true);
   await first.context.close();
 
-  // A synced passkey is the only state copied to the second browser.
   const second = await device(credentials);
   target.search = "";
   await second.page.goto(target.toString());

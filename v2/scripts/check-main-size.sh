@@ -5,10 +5,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="$ROOT/orchestrator-rust/src/main.rs"
 CEILING_FILE="$ROOT/scripts/main-rs-line-ceiling.txt"
 
-# The file is an append-only history of reviewed ceiling changes followed by
-# exactly one bare number: the current ceiling. Read the LAST bare number, not
-# the first, and refuse an ambiguous file so a malformed merge fails loudly
-# instead of comparing against a stale value.
 ceiling="$(awk '!/^[[:space:]]*(#|$)/ { print NR": "$1 }' "$CEILING_FILE" | tail -1 | cut -d' ' -f2)"
 count="$(awk '!/^[[:space:]]*(#|$)/ { n++ } END { print n+0 }' "$CEILING_FILE")"
 if [[ "$count" -ne 1 ]]; then

@@ -96,8 +96,6 @@ pub(crate) enum PublicationCheckCode {
     VoiceRecentDuplicate,
     VoiceUnsafeTone,
     VoiceProposedActionClaim,
-    // Append-only. Stored receipts keep the codes they were written with, so a
-    // new variant never changes how an old rejection reads.
     VoiceObjectAgency,
     VoiceFallbackIdentity,
     VoiceSignpostOpening,
@@ -136,10 +134,6 @@ impl PublicationCheckCode {
         }
     }
 
-    /// Narrative variety is useful for ranking, but it is not a safety,
-    /// grounding, or action-authority boundary. A safe grounded line must not
-    /// disappear merely because its prose shape differs from the requested
-    /// rotation.
     pub(crate) fn blocks_publication(self) -> bool {
         self != Self::VoiceBeatFormMismatch
     }
@@ -159,9 +153,6 @@ pub(crate) struct SpeechGateContext {
     pub(crate) mode: SpeechMode,
     pub(crate) max_words: usize,
     pub(crate) anchors: Vec<String>,
-    /// Place names that must not be used as the first words of a conversational
-    /// opening. They remain valid anchors later in the line; this only rejects
-    /// the repetitive signpost shape ("Mossbell Inn, I've arrived").
     pub(crate) signpost_openers: Vec<String>,
     pub(crate) recent_lines: Vec<String>,
     pub(crate) recent_speaker_shingle_hashes: Vec<u64>,
@@ -171,12 +162,6 @@ pub(crate) struct SpeechGateContext {
     pub(crate) candidate_round: u8,
 }
 
-/// A deterministic rank for candidates that have already passed every hard
-/// publication check. This is intentionally not another safety gate and does
-/// not ask a second model to judge the first one: it only prefers deeper scene
-/// grounding, then narrative-shape fit, then voice variety, then wording that
-/// is less similar to recent dialogue, then lexical variety. The tuple ordering
-/// is the selection policy.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct SpeechCandidateScore {
     pub(crate) anchor_matches: u16,
@@ -205,8 +190,6 @@ pub(crate) fn score_speech_candidate(
                     .any(|anchor| anchor_words_match(word, anchor))
         })
         .count()
-        // More than four scene references mostly rewards longer, anchor-stuffed
-        // prose rather than a better conversational reply.
         .min(4) as u16;
     let max_recent_similarity_bps = context
         .recent_lines
@@ -337,9 +320,6 @@ impl CertifiedSpeech {
 pub(crate) struct PublicationRejection {
     pub(crate) receipt: AiPublicationReceipt,
     pub(crate) failure_code: PublicationCheckCode,
-    /// The normalized run of words that tripped the recent-duplicate check.
-    /// This is diagnostic only and never returns to a model prompt. It stays
-    /// off the durable receipt so rejected prose does not become world state.
     pub(crate) repeated_phrase: Option<String>,
 }
 
@@ -587,9 +567,6 @@ pub(crate) fn record_ai_publication_rejections_with_logs(
             candidate_round = rejection.receipt.candidate_round,
             provider = %rejection.receipt.provider,
             requested_model = %rejection.receipt.model,
-            // Which run tripped the gate, so a duplicate storm is diagnosable
-            // from logs alone. Normalized tokens from a line no player saw, and
-            // only ever on the rejection path.
             repeated_phrase = rejection.repeated_phrase.as_deref().unwrap_or("-"),
             "AI voice candidate rejected by publication gate"
         );
@@ -672,16 +649,7 @@ impl crate::RuntimeWorld {
         } else {
             None
         };
-        // A generation key is not always unique per utterance: the
-        // deterministic-fallback key is a pure function of actor and scope, so
-        // two different lines by one resident derive the same generation id.
-        // The live path accepts both, so replay must too — rejecting the second
-        // leaves the world permanently unbootable. Only a receipt that
-        // reproduces a registered publication byte for byte is a true repeat,
-        // and that is handled as already-applied rather than as a violation.
         if self.ai_publication_record_already_applied(record) {
-            // Not a violation: apply_journal_record's already-applied group
-            // turns this into an idempotent skip.
             return true;
         }
         receipt.generation_id
@@ -694,11 +662,6 @@ impl crate::RuntimeWorld {
             && published_text.is_some_and(|text| receipt_matches_text(receipt, text))
     }
 
-    /// True when this record's publication is already reflected in world state.
-    ///
-    /// Registration is keyed by generation id, but a colliding id whose output
-    /// differs belongs to a distinct utterance that still has to be applied, so
-    /// only an identical output counts as already applied.
     pub(crate) fn ai_publication_record_already_applied(
         &self,
         record: &crate::JournalRecord,
@@ -1077,9 +1040,6 @@ fn has_non_signpost_anchor(context: &SpeechGateContext) -> bool {
             anchors.remove(&word);
         }
     }
-    // The speaker's own name is prompt identity, not a natural scene detail.
-    // Counting it here would claim every solitary scene has an easy alternative
-    // and could turn the signpost check into a bounded but fruitless retry loop.
     for word in normalized_words(&context.speaker_name) {
         anchors.remove(&word);
     }
@@ -1162,9 +1122,6 @@ fn strip_outer_quote_pair(value: &str) -> String {
 }
 
 fn strip_own_speaker_label(value: &str, speaker_name: &str) -> String {
-    // Model-backed residents can carry provider-qualified display names such
-    // as `Anthropic: Claude Fable Latest`. Match that exact name before the
-    // generic first-colon parser so punctuation inside the name is harmless.
     if let Some(rest) = value.strip_prefix(speaker_name) {
         let rest = strip_leading_speaker_annotation(rest.trim_start());
         if let Some(speech) = rest.strip_prefix(':') {
@@ -1314,10 +1271,6 @@ fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> b
     shared_speaker_phrase(value, recent_shingle_hashes).is_some()
 }
 
-/// The speaker's own wording that the candidate reused, as the run of words the
-/// shared shingles cover. Adjacent shingles overlap by `width - 1` words, so a
-/// run of `VOICE_SIGNATURE_MIN_SHARED_SHINGLES` adjacent shingles covers
-/// `VOICE_SIGNATURE_MIN_SHARED_SHINGLES + VOICE_SIGNATURE_SHINGLE_WIDTH - 1` words.
 fn shared_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> Option<String> {
     if recent_shingle_hashes.is_empty() {
         return None;
@@ -1338,17 +1291,11 @@ fn shared_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> Option<S
     Some(words[start..end].join(" "))
 }
 
-/// The concrete wording behind a `VoiceRecentDuplicate` verdict, checked along
-/// the same two paths `evaluate_checks` uses to fail it. This exists for bounded
-/// diagnostics only; routing never copies it into a retry prompt.
 fn duplicated_phrase(text: &str, context: &SpeechGateContext) -> Option<String> {
     shared_speaker_phrase(text, &context.recent_speaker_shingle_hashes)
         .or_else(|| repeated_dialogue_phrase(text, context))
 }
 
-/// The run `repeats_recent_dialogue` matched against, found the same way it
-/// attributes a recent line: a verbatim echo of another speaker, or a
-/// near-duplicate of the candidate's own prior words.
 fn repeated_dialogue_phrase(text: &str, context: &SpeechGateContext) -> Option<String> {
     let candidate_key = normalized_resident_speech_key(text);
     context
@@ -1367,10 +1314,6 @@ fn repeated_dialogue_phrase(text: &str, context: &SpeechGateContext) -> Option<S
         })
 }
 
-/// The longest run of words a duplicate candidate shares with the recent line
-/// it duplicated. `near_duplicate` compares token sets, so a reordered
-/// restatement can have no long contiguous run at all; the caller then keeps
-/// the generic instruction.
 fn longest_shared_run(candidate: &str, recent: &str) -> Option<String> {
     const MIN_SHARED_RUN_WORDS: usize = 3;
 
@@ -1436,10 +1379,6 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
         .map(|name| canonical_speaker_label(name))
         .filter(|name| !name.is_empty() && *name != speaker)
         .collect::<BTreeSet<_>>();
-    // Remove the one harmless label we know exactly before scanning turn
-    // boundaries. This matters for punctuated names such as `Dr. Rati`: the
-    // period is otherwise indistinguishable from a sentence boundary. A
-    // second same-line label remains in the scan and is rejected below.
     let label_scan = value
         .lines()
         .map(str::trim)
@@ -1546,8 +1485,6 @@ fn dialogue_boundary_labels(value: &str) -> Vec<DialogueBoundaryLabel> {
 }
 
 fn looks_like_speaker_label(value: &str) -> bool {
-    // A leading ASCII dash is a common dialogue bullet, not part of the name.
-    // Keep internal hyphens intact for names such as Anne-Marie.
     let value = value.trim();
     let value = value
         .strip_prefix('-')
@@ -1670,10 +1607,6 @@ fn has_deterministic_anchor(value: &str, anchors: &[String], mode: SpeechMode) -
     }
     let candidate = normalized_words(value).into_iter().collect::<BTreeSet<_>>();
     let anchors = anchor_tokens(anchors);
-    // An empty anchor set rejects. A scene that offers nothing to be grounded
-    // to cannot certify that a line is grounded, and silently accepting here
-    // would remove the gate exactly where the scene is least described. This
-    // is deliberate: see the empty-anchor test below.
     !anchors.is_empty()
         && candidate.iter().any(|word| {
             anchors
@@ -1682,16 +1615,6 @@ fn has_deterministic_anchor(value: &str, anchors: &[String], mode: SpeechMode) -
         })
 }
 
-/// Anchors are drawn from location names, titles, and remembered activity, so a
-/// grounded line often shares a stem rather than a whole word: "rain on the
-/// sill" against an anchor of `rainlit`, or "hearths" against `hearth`. Exact
-/// set matching rejected those, which silenced residents deterministically —
-/// resampling could not help because the mismatch is a property of the scene
-/// vocabulary rather than of the sample.
-///
-/// Match when the words are equal, or when the shorter is a prefix of the
-/// longer and is itself long enough to carry meaning. The floor keeps short
-/// fragments from matching unrelated words.
 fn anchor_words_match(candidate: &str, anchor: &str) -> bool {
     const MIN_SHARED_PREFIX: usize = 4;
     if candidate == anchor {
@@ -1705,37 +1628,17 @@ fn anchor_words_match(candidate: &str, anchor: &str) -> bool {
     shorter.len() >= MIN_SHARED_PREFIX && longer.starts_with(shorter)
 }
 
-/// Whether a candidate repeats dialogue the room has already heard.
-///
-/// `recent_lines` holds every speaker's recent lines as `"{Name}: {content}"`,
-/// so the word-overlap test only applies to the candidate speaker's own lines.
-/// A reply necessarily reuses the vocabulary of the line it answers — in a
-/// two-person exchange that pushed set overlap past the threshold on almost
-/// every turn, and both candidate rounds were rejected until the conversation
-/// ended early. Repeating *another* speaker verbatim is still caught, because
-/// echoing someone's exact words back at them is never the intended reply.
 fn repeats_recent_dialogue(text: &str, context: &SpeechGateContext) -> bool {
     let candidate_key = normalized_resident_speech_key(text);
-    context.recent_lines.iter().any(|recent| {
-        match attributed_recent_line(recent, context) {
-            // Another speaker said it. Only a verbatim echo is a duplicate,
-            // because a reply is supposed to reuse the words it answers.
+    context
+        .recent_lines
+        .iter()
+        .any(|recent| match attributed_recent_line(recent, context) {
             Some(spoken) => candidate_key == normalized_resident_speech_key(spoken),
-            // The candidate's own line, or one this gate cannot attribute.
-            // Hold the stricter word-overlap bar in both cases, but compare
-            // against the words that were spoken rather than the `"Name: "`
-            // label in front of them: the speaker's own name is not evidence
-            // that they repeated themselves.
             None => near_duplicate(text, spoken_words_of(recent, context)),
-        }
-    })
+        })
 }
 
-/// The words of `recent` when some *other* speaker said them.
-///
-/// Room lines arrive as `"{Name}: {content}"`. An unprefixed line carries no
-/// attribution, so it is treated as the candidate speaker's own and held to the
-/// stricter bar rather than assumed to belong to someone else.
 fn attributed_recent_line<'a>(recent: &'a str, context: &SpeechGateContext) -> Option<&'a str> {
     let (speaker, spoken) = recent.split_once(':')?;
     let speaker = speaker.trim();
@@ -1749,10 +1652,6 @@ fn attributed_recent_line<'a>(recent: &'a str, context: &SpeechGateContext) -> O
         .then_some(spoken)
 }
 
-/// The words of a recent room line, without the `"{Name}: "` label.
-///
-/// Only strips a label this gate recognises, so a line whose content happens to
-/// contain a colon keeps all of its words.
 fn spoken_words_of<'a>(recent: &'a str, context: &SpeechGateContext) -> &'a str {
     let Some((speaker, spoken)) = recent.split_once(':') else {
         return recent;
@@ -1770,14 +1669,6 @@ fn spoken_words_of<'a>(recent: &'a str, context: &SpeechGateContext) -> &'a str 
     }
 }
 
-/// The smallest number of shared distinct words that can evidence a repetition.
-///
-/// Word-set overlap alone is order-blind and dominated by function words on a
-/// short line: "I watch the door." against "I watch the door again." shares
-/// only `i`, `watch`, `the`, `door` and still scores the eighty percent that
-/// used to reject it. Below this floor only an exact repetition counts, which
-/// leaves catchphrase detection to the shingle check, where adjacency is
-/// actually measured.
 const VOICE_NEAR_DUPLICATE_MIN_SHARED_WORDS: usize = 5;
 
 fn near_duplicate(left: &str, right: &str) -> bool {
@@ -1817,9 +1708,6 @@ fn contains_unsafe_tone(value: &str) -> bool {
     .any(|needle| value.contains(needle))
 }
 
-/// Inanimate scene nouns. Deliberately does not include actor names: a person
-/// welcoming, remembering, or plotting is ordinary speech, and only the scenery
-/// doing it breaks the register.
 const SCENE_OBJECT_NOUNS: &[&str] = &[
     "path", "paths", "road", "roads", "trail", "trails", "lane", "hill", "hills", "ridge", "bend",
     "mile", "rise", "wall", "walls", "door", "doors", "gate", "window", "floor", "ceiling",
@@ -1829,12 +1717,6 @@ const SCENE_OBJECT_NOUNS: &[&str] = &[
     "biscuit", "biscuits", "boots", "kitchen", "cottage", "well", "fence", "roof", "step", "steps",
 ];
 
-/// Verbs that assert intent, judgement, or memory. `writing-style.md` §2 bans
-/// "objects that remember, weather with intentions" outright, and §5 states the
-/// same ban already applies to character voice — but only the speech prompt
-/// carried it, so nothing enforced it. This list is that ban made executable.
-/// Both the third-person singular and the bare plural form are listed, because a
-/// plural scene noun takes the bare verb: "these hills recruit me".
 const VOLITIONAL_VERBS: &[&str] = &[
     "remember",
     "remembers",
@@ -1867,8 +1749,6 @@ const VOLITIONAL_VERBS: &[&str] = &[
     "learns",
     "learning",
     "learned",
-    // Progressive forms: "the path is learning my name", "the teapot is
-    // staging a revolt". The auxiliary is absorbed by BRIDGES below.
     "remembering",
     "forgetting",
     "wanting",
@@ -1923,21 +1803,12 @@ const VOLITIONAL_VERBS: &[&str] = &[
     "believes",
 ];
 
-/// Reject scenery acting with intent: "the path is learning my name", "the next
-/// hill auditions for villainy", "Lantern Bend has welcomed me".
-///
-/// Matches a scene noun followed by a volitional verb, allowing one auxiliary or
-/// article between them ("has welcomed", "is learning"). Wit is still allowed —
-/// §5 protects it — so this only fires when the *scenery itself* is the one
-/// wanting, judging, or remembering. Issue #555.
 fn scene_object_acts_with_volition(value: &str) -> bool {
     let words = value
         .split(|character: char| !character.is_ascii_alphanumeric() && character != '\'')
         .filter(|word| !word.is_empty())
         .map(|word| word.to_ascii_lowercase())
         .collect::<Vec<_>>();
-    // Auxiliaries and determiners that may sit between the noun and its verb
-    // without changing who is doing the acting.
     const BRIDGES: &[&str] = &[
         "is", "are", "was", "were", "has", "have", "had", "keeps", "keep", "kept", "still", "now",
         "already", "just", "even", "seems", "seem",
@@ -2233,11 +2104,6 @@ mod tests {
         ));
     }
 
-    /// Issue #555: `writing-style.md` §2 bans "objects that remember, weather
-    /// with intentions", and §5 says the same ban already covers character
-    /// voice — but only the speech prompt carried it, so generated dialogue was
-    /// the one large body of player-visible prose with no executable register
-    /// check. These are lines sampled from production.
     #[test]
     fn scenery_acting_with_intent_is_rejected() {
         for line in [
@@ -2256,8 +2122,6 @@ mod tests {
         }
     }
 
-    /// §5 protects wit in character voice. The check must fire on the scenery
-    /// doing the wanting, not on humour, imagery, or a person with intentions.
     #[test]
     fn wit_and_ordinary_actor_intent_still_pass_the_register_check() {
         for line in [
@@ -2327,36 +2191,28 @@ mod tests {
 
     #[test]
     fn anchor_accepts_a_shared_stem_and_still_rejects_ungrounded_speech() {
-        // The Cosy Cottage is titled "Rainlit Hearth", so these are the real
-        // anchor tokens a resident is judged against.
         let anchors = vec!["The Cosy Cottage".to_string(), "Rainlit Hearth".to_string()];
 
-        // Near miss on a shared stem: exact matching rejected this
-        // deterministically, so the resident never spoke.
         assert!(has_deterministic_anchor(
             "Rain on the sill again.",
             &anchors,
             SpeechMode::Prose,
         ));
-        // Plural of an anchor word.
         assert!(has_deterministic_anchor(
             "Both hearths are lit.",
             &anchors,
             SpeechMode::Prose,
         ));
-        // Whole-word match keeps working.
         assert!(has_deterministic_anchor(
             "The cottage is warm.",
             &anchors,
             SpeechMode::Prose,
         ));
-        // Ungrounded output is still rejected.
         assert!(!has_deterministic_anchor(
             "I have opinions about quarterly logistics.",
             &anchors,
             SpeechMode::Prose,
         ));
-        // A short fragment must not match an unrelated longer word.
         assert!(!has_deterministic_anchor(
             "Cot.",
             &anchors,
@@ -2366,9 +2222,6 @@ mod tests {
 
     #[test]
     fn an_empty_anchor_set_rejects_every_line() {
-        // Deliberate: a scene describing nothing cannot certify that a line is
-        // grounded in it. Documented so this is never mistaken for a bug and
-        // silently relaxed into an open gate.
         assert!(!has_deterministic_anchor(
             "Anything at all.",
             &[],
@@ -2674,11 +2527,6 @@ mod tests {
         );
     }
 
-    /// Production rejected eight of nine generations in an hour with
-    /// `voice_recent_duplicate`, and with a single pinned voice model the
-    /// old retry prompt asked for "fresh wording" and resampled the same phrase.
-    /// The rejection now carries the run for diagnostics while routing performs
-    /// a clean resample without copying it back into the prompt.
     #[test]
     fn a_reused_speaker_phrase_is_named_on_the_rejection() {
         let prior = "Bethlehem at last! My biscuit survived the journey, though my knees are filing a formal complaint.";
@@ -2711,11 +2559,6 @@ mod tests {
             .expect("a shared phrase shorter than four words remains eligible");
     }
 
-    /// A resident answering a player reuses the player's words. Comparing the
-    /// candidate against every speaker's recent lines therefore rejected almost
-    /// every reply in a two-person exchange, exhausted both candidate rounds,
-    /// and ended the conversation early. Chatting with Morph in Void 231 failed
-    /// this way in production.
     #[test]
     fn a_reply_may_reuse_the_words_of_the_line_it_answers() {
         let recent =
@@ -2734,9 +2577,6 @@ mod tests {
         .expect("answering a question may reuse the words of the question");
     }
 
-    /// A short line shares function words with almost anything the speaker
-    /// said before. Rejecting on that silenced residents in small rooms, where
-    /// there is little to talk about and every line is short.
     #[test]
     fn a_short_line_is_not_a_duplicate_for_sharing_function_words() {
         let recent = vec!["Morph: I watch the door.".to_string()];
@@ -2753,8 +2593,6 @@ mod tests {
         .expect("one added word is not a repeated line");
     }
 
-    /// The speaker's own name sits in front of every line they said, so
-    /// comparing against the unstripped row counted it as shared evidence.
     #[test]
     fn a_speaker_name_label_is_not_evidence_of_repetition() {
         let spoken = "The lantern gutters low against the cold slate step.";
@@ -2824,8 +2662,6 @@ mod tests {
         );
     }
 
-    /// A rejection unrelated to duplication carries no phrase, so the retry
-    /// keeps its generic instruction rather than quoting an innocent line back.
     #[test]
     fn a_non_duplicate_rejection_names_no_phrase() {
         let anchors = vec!["teapot".to_string()];
@@ -3256,9 +3092,6 @@ mod tests {
         let record = certified_record(
             1001,
             98_001,
-            // Neutral prose on purpose: these fixtures exercise replay and
-            // snapshot round-tripping, and the register check now rejects
-            // scenery acting with intent (#555).
             "The teapot sits beside the basket, lid askew.",
             "concurrent-context",
         );
@@ -3280,13 +3113,9 @@ mod tests {
             );
         let mut statuses = vec![first.await.unwrap(), second.await.unwrap()];
         statuses.sort_unstable();
-        // Re-applying the identical receipt is idempotent rather than a rule
-        // violation: the loser is already-applied and skips. A hard rejection
-        // here would make an ordinary replay unbootable.
         assert_eq!(statuses, vec![CW_OK, CW_OK]);
         let runtime = runtime.lock().await;
         assert_eq!(runtime.ai_publications.len(), 1);
-        // The point of the test: one commit, not two.
         assert_eq!(
             runtime
                 .event_log
@@ -3308,14 +3137,6 @@ mod tests {
 
     #[tokio::test]
     async fn colliding_generation_key_still_replays_the_second_distinct_line() {
-        // Regression for the outages of 2026-08-16/17, which bricked three
-        // worlds. publication_beat_id() falls back to
-        // "deterministic-fallback:actor:{id}:scope:{scope}" when a caller has no
-        // explicit beat id, and the generation id derives from that key, so a
-        // resident's second fallback line derives the id its first line already
-        // registered. The live path commits both. Replay used to refuse the
-        // second, and with the journal compacted past it no bootable path
-        // remained.
         let first = certified_record(
             1001,
             98_101,
@@ -3330,9 +3151,6 @@ mod tests {
         );
         let first_receipt = first.ai_publication.as_ref().unwrap().clone();
 
-        // Reproduce the weak key: the fixture derives a unique key per content
-        // id, so force the two receipts to share one, exactly as the
-        // deterministic fallback does in production.
         {
             let receipt = second.ai_publication.as_mut().unwrap();
             receipt.generation_key = first_receipt.generation_key.clone();
@@ -3421,8 +3239,6 @@ mod tests {
         assert!(replayed
             .ai_publications
             .contains_key(&receipt.generation_id));
-        // Re-applying the identical record is an idempotent no-op, not a rule
-        // violation: it emits nothing and leaves the registration alone.
         let (status, events) = replayed.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
         assert!(events.is_empty());

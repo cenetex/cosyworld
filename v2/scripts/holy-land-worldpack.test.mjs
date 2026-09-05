@@ -149,10 +149,6 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
 });
 
 test("the official world accepts the live pre-Ruby High population epoch", () => {
-  // #790 adds authored Ruby High residents, items, cards, and presentation art
-  // without changing any existing canonical IDs or journal action semantics.
-  // Production remained on this exact predecessor hash when the additive
-  // bundle was merged, so the release must preserve its journal and checkpoint.
   const compatible =
     officialWorld.persistence_compatibility.replay_compatible_bundle_hashes;
   assert.ok(
@@ -163,9 +159,6 @@ test("the official world accepts the live pre-Ruby High population epoch", () =>
 });
 
 test("the official world accepts the deployed pre-item-policy journal", () => {
-  // v1.0.139 is the exact bundle still recorded by the production journal.
-  // The later item-policy release preserves existing canonical IDs and replays
-  // legacy item state before applying the richer placement and transfer rules.
   const compatible =
     officialWorld.persistence_compatibility.replay_compatible_bundle_hashes;
   assert.ok(
@@ -176,17 +169,6 @@ test("the official world accepts the deployed pre-item-policy journal", () => {
 });
 
 test("Bethlehem accepts every declared production replay epoch", () => {
-  // #669 changed only authored voice text and prompt presentation: the world,
-  // resource identities, rules profile, pack versions, and persisted-state
-  // interpretation remain stable across this boundary.
-  // Tenant 7 persisted the second and third hashes before later content-pack
-  // compiler releases. The fourth is the provider-less bundle replaced by the
-  // Lonely Forest art mount. The fifth predates the Emmaus presentation update;
-  // the sixth is the Emmaus bundle replaced by Rati's authored portrait. The
-  // seventh is the bundle replaced by the Mossbell discovery slot, which adds
-  // one unplaced core item and no new state interpretation. The eighth is the
-  // exact v1.0.139 tenant journal before the richer item policies. All use the
-  // same canonical IDs and state meaning.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [

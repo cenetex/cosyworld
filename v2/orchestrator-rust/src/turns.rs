@@ -439,8 +439,6 @@ pub(super) struct RoomTurnView {
     pub handoff_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seat_expires_at_ms: Option<u64>,
-    // Legacy fields remain in the wire shape for old clients. Ordinary rooms no
-    // longer create a ping or a reflex countdown.
     pub can_request_timeout: bool,
     pub timeout_requests: Vec<u64>,
     pub waiting_actor_ids: Vec<u64>,
@@ -526,8 +524,6 @@ fn rolled_room_initiative_order(
         .map(|(actor_id, _)| actor_id)
         .collect::<Vec<_>>();
 
-    // The first directly controlled avatar to enter an unordered room opens
-    // play. After that bootstrap, the durable rolled order owns every handoff.
     if let Some(anchor) = order
         .iter()
         .position(|actor_id| active_direct_actor_ids.contains(actor_id))
@@ -630,9 +626,6 @@ fn ordinary_room_turn_view(
         is_current_actor,
         can_pass: is_current_actor,
         can_need_time: false,
-        // The room rope releases an idle directly controlled seat after the
-        // same grace used by focused scenes. Project that bound so clients can
-        // explain why a waiting hand is locked and when it recovers.
         grace_period_ms: ORDERED_SCENE_BASE_GRACE_MS,
         need_time_extension_ms: 0,
         handoff_key: Some(format!(
@@ -659,8 +652,6 @@ fn ordinary_room_turn_view(
 
 pub(super) fn journal_record_consumes_room_activation(record: &JournalRecord) -> bool {
     (matches!(record.origin, JournalOrigin::PlayerCard)
-        // A knocked-out avatar is not an initiative participant, but releasing
-        // it is still a durable player card that advances the world tick.
         && record.offer_kind.as_deref() != Some("abandon_avatar"))
         || (record.origin == JournalOrigin::ActorConsequence && record.resident_decision.is_some())
         || (record.offer_kind.as_deref() == Some("chat")
@@ -691,10 +682,6 @@ pub(super) fn bind_room_activation_context(
     else {
         return;
     };
-    // Ordinary-room initiative coordinates resident reactions in the
-    // background. A directly controlled player never waits for that queue:
-    // if a resident currently owns the internal seat, leave the player's
-    // record concurrent and let its observation wake the resident worker.
     if record.origin == JournalOrigin::PlayerCard && initiative.current_actor_id() != Some(actor.id)
     {
         return;
@@ -1692,10 +1679,6 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
         )
 }
 
-/// Local configuration, moderation, and transfer-offer responses do not require
-/// one of the finite Story Hand's three cards at the command boundary. Accepting an
-/// offer still consumes a room turn because it moves an item; declining or
-/// withdrawing remains available while a focused scene is locked.
 pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatch) -> bool {
     matches!(
         dispatch,
@@ -1716,10 +1699,6 @@ pub(super) fn command_actor_turn_rejection(
     actor_id: u64,
     dispatch: &CommandDispatch,
 ) -> Option<RoomTurnView> {
-    // A certified Story Hand Think owns its ordered-scene validation in
-    // pass_action: the current actor spends the turn by committing the
-    // focused encounter's Pass alongside the per-slot replacement. Waiting
-    // actors and stale certificates are still rejected there before mutation.
     if matches!(dispatch, CommandDispatch::Pass { .. }) {
         return None;
     }
@@ -2000,9 +1979,6 @@ pub(super) async fn recover_available_focused_job_turns(
                         control: "pass".to_string(),
                     });
                 if forced_certified_pass {
-                    // Recovery cannot play an undealt focused-work contribution.
-                    // It consumes the current certified Pass instead, rotating the
-                    // hand, spending one world tick, and handing off once.
                     record
                         .projection_mutations
                         .push(ProjectionMutation::ShuffleHand {
@@ -2027,10 +2003,6 @@ pub(super) async fn recover_available_focused_job_turns(
                     "focused work {job_id} recovery failed with status {status}"
                 )));
             }
-            // Do not let the recovery loop immediately spend the next
-            // inference participant after handing focus over.  A certified
-            // Pass is one bounded recovery decision, not a way to bypass the
-            // finite hand by searching the rest of the turn order.
             if forced_certified_pass {
                 break;
             }
@@ -2325,9 +2297,6 @@ pub(super) async fn pass_action(
         drop(runtime);
         return response;
     }
-    // Certificate and turn validation must be side-effect free. In particular,
-    // a stale or forged Pass cannot trigger unrelated inactive-inventory
-    // cleanup before it is refused.
     let released_events = release_inactive_direct_inventory_locked(&state, &mut runtime);
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
@@ -2337,10 +2306,6 @@ pub(super) async fn pass_action(
         .is_none()
         .then(|| runtime.avatar_reflection_job(payload.actor_id, AvatarReflectionKind::Thought))
         .flatten();
-    // A focused Pass is one authoritative action, not a hand shuffle followed
-    // by a second control mutation. Keeping both consequences in this record
-    // means the journal cannot retain a new hand if the focused scene rejects
-    // or fails to advance the pass.
     let mut record = if let Some(focused) = focused.as_ref() {
         if focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
             let mut record = JournalRecord::new(
@@ -2475,10 +2440,6 @@ pub(super) async fn legacy_pass_requires_certificate(
     legacy_action_requires_certificate(payload).await
 }
 
-/// Legacy per-action transports cannot prove that the submitted mutation was
-/// dealt in the actor's current hand.  Keep the handler helpers available for
-/// trusted composition and direct unit tests, but require public clients to
-/// submit the versioned offer certificate through `/actions/submit`.
 pub(super) async fn legacy_action_requires_certificate(
     Json(_payload): Json<ActorRequest>,
 ) -> (StatusCode, Json<ActionResponse>) {
@@ -3167,8 +3128,6 @@ mod tests {
             .into_runtime()
             .expect("timeout replay base restores");
         assert_eq!(replayed.apply_journal_record(&journal[0]).0, CW_OK);
-        // The reducer replays world state; the durable store supplies its row
-        // sequence separately when continuity restoration completes.
         replayed.action_journal_seq = committed_journal_seq;
         let replayed_bytes = runtime_snapshot_bytes(&replayed);
         if replayed_bytes != expected {

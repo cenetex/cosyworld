@@ -195,9 +195,9 @@ class SemanticStoryReceiptTests(unittest.TestCase):
             ],
             "primary_action": {"options": [{"kind": "attack", "label": "Attack"}]},
         }
-        game.state = lambda: state  # type: ignore[method-assign]
+        game.state = lambda: state
         payloads: list[tuple[str, dict[str, object]]] = []
-        game.client.post = lambda path, payload: (  # type: ignore[method-assign]
+        game.client.post = lambda path, payload: (
             payloads.append((path, payload)) or {"ok": True, "events": []}
         )
 
@@ -218,7 +218,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
 
     def test_cli_think_hashes_a_spaced_card_certificate(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
-        game.state = lambda: {  # type: ignore[method-assign]
+        game.state = lambda: {
             "action_hand": {"entries": [{
                 "slot": "story",
                 "offer_id": "move-garden",
@@ -226,7 +226,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
             }]}
         }
         payloads: list[dict[str, object]] = []
-        game.client.post = lambda _path, payload: payloads.append(payload) or {"ok": True, "events": []}  # type: ignore[method-assign]
+        game.client.post = lambda _path, payload: payloads.append(payload) or {"ok": True, "events": []}
 
         game.pass_hand()
 
@@ -259,7 +259,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
             state_calls += 1
             return first_state if state_calls == 1 else changed_state
 
-        game.state = state  # type: ignore[method-assign]
+        game.state = state
         payloads: list[dict[str, object]] = []
 
         def post(_path: str, payload: dict[str, object]) -> dict[str, object]:
@@ -268,7 +268,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
                 raise ClientError("transport interrupted")
             return {"ok": True, "events": []}
 
-        game.client.post = post  # type: ignore[method-assign]
+        game.client.post = post
 
         with self.assertRaisesRegex(ClientError, "transport interrupted"):
             game.pass_hand()
@@ -283,7 +283,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
 
     def test_cli_act_refuses_retired_draw_alias(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
-        game.state = lambda: {"action_offers": [], "action_hand": {"entries": []}}  # type: ignore[method-assign]
+        game.state = lambda: {"action_offers": [], "action_hand": {"entries": []}}
         with patch("builtins.input", return_value="draw"):
             with self.assertRaisesRegex(ValueError, "numbered Story Hand card"):
                 game.act()
@@ -316,7 +316,7 @@ class ExactOfferSelectionTests(unittest.TestCase):
                 {"offer_id": "work-b", "id": "work:b", "kind": "work", "project": {"id": "job-b", "strategy_id": "bold"}},
             ]
         }
-        game.state = lambda: state  # type: ignore[method-assign]
+        game.state = lambda: state
 
         state["action_hand"] = {"entries": [{"offer_id": "gift-b"}]}
         self.assertEqual(
@@ -372,7 +372,7 @@ class ExactOfferSelectionTests(unittest.TestCase):
             ],
         }
         payloads: list[tuple[str, dict[str, object]]] = []
-        game.client.post = lambda path, payload: (  # type: ignore[method-assign]
+        game.client.post = lambda path, payload: (
             payloads.append((path, payload)) or {"ok": True, "events": []}
         )
 
@@ -412,7 +412,7 @@ class ExactOfferSelectionTests(unittest.TestCase):
             ],
         }
         payloads: list[tuple[str, dict[str, object]]] = []
-        game.client.post = lambda path, payload: (  # type: ignore[method-assign]
+        game.client.post = lambda path, payload: (
             payloads.append((path, payload))
             or {"ok": True, "events": [{"seq": 74, "type": "message.created", "content": "done"}]}
         )
@@ -461,8 +461,8 @@ class ExactOfferSelectionTests(unittest.TestCase):
                 }],
             },
         }
-        game.state = lambda: state  # type: ignore[method-assign]
-        game.client.post = lambda _path, _payload: {"ok": False, "status": 409, "events": []}  # type: ignore[method-assign]
+        game.state = lambda: state
+        game.client.post = lambda _path, _payload: {"ok": False, "status": 409, "events": []}
 
         output = io.StringIO()
         with redirect_stdout(output):

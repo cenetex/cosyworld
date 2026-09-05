@@ -218,13 +218,6 @@ pub(crate) struct VoiceSelectionDecision {
     #[serde(default)]
     pub(crate) prompt_budget: PromptBudgetTelemetry,
     pub(crate) selected: bool,
-    /// True when this attempt reuses an already-planned model to fill the
-    /// attempt budget, because the registry pinned fewer distinct candidates
-    /// than the budget allows. Recorded so telemetry can tell a genuinely
-    /// diverse cast apart from a thin pool being resampled.
-    ///
-    /// Defaulted so `decision_json` rows written before this field existed
-    /// still deserialize.
     #[serde(default)]
     pub(crate) resampled: bool,
     pub(crate) excluded_reason: Option<String>,
@@ -468,10 +461,6 @@ async fn route_certified_voice_with(
             match result {
                 Err(error) => {
                     provider_failures += 1;
-                    // The aggregate `voice_provider_unavailable`/`voice_candidates_exhausted`
-                    // codes logged by the caller say a generation failed, not why. Without
-                    // this, diagnosing a real outage versus a client-side bug means
-                    // reproducing the failure locally instead of reading a log line.
                     tracing::warn!(
                         generation_id = %generation_id,
                         feature = request.feature,
@@ -665,9 +654,6 @@ fn request_with_retry_feedback(
 ) -> VoiceAttemptRequest {
     let mut request = request.clone();
     if let Some(instruction) = retry_instruction(rejections, gate, request.max_tokens) {
-        // The avatar's system message is its stable awakening monologue on every
-        // attempt. Bounded publication feedback belongs beside the output cue,
-        // never inside the avatar's identity or memory.
         request.prompt =
             request
                 .prompt
@@ -718,8 +704,6 @@ fn retry_instruction(
             }
         });
     }
-    // Repetition is enforced only by the deterministic publication gate.
-    // Rejected wording never goes back into the model prompt.
     if failed.contains(&PublicationCheckCode::VoiceMultipleSpeakers) {
         clauses.push("one voice · no speaker labels".to_string());
     }
@@ -944,14 +928,6 @@ fn build_voice_plan(
         all.push(decision);
     }
 
-    // A thin candidate pool must not silence a resident. Every publication gate
-    // gets its verdict from one sampled completion, so a single rejection is a
-    // property of that sample rather than of the model. When the registry pins
-    // fewer distinct models than the attempt budget allows, resample the best
-    // planned candidate to fill the remaining attempts. The gates still judge
-    // every sample independently and no rejected bytes become observable; this
-    // only stops one unlucky sample from being terminal. Still bounded by the
-    // spend ceiling, so the cost envelope is unchanged.
     if !planned.is_empty() && planned.len() < config.max_attempts as usize {
         let mut ordinal = planned.len() as u8;
         while planned.len() < config.max_attempts as usize {
@@ -2122,8 +2098,6 @@ mod tests {
         )
         .unwrap();
 
-        // One pinned model previously produced one attempt, so any single
-        // publication rejection was terminal and the resident fell silent.
         assert_eq!(planned.len(), 3, "the attempt budget is reachable");
         assert!(
             planned
@@ -2676,8 +2650,6 @@ mod tests {
             .all(|prompt| !prompt.contains(rejected)));
     }
 
-    /// Duplicate wording is a code-only rejection. A later sample gets no copy
-    /// of the rejected line or a prose reminder about repetition.
     #[tokio::test]
     async fn a_duplicate_retry_resamples_without_prompt_feedback() {
         let config = single_candidate(VoiceRoutingConfig {
@@ -2721,7 +2693,6 @@ mod tests {
         );
     }
 
-    /// Even several duplicate rounds must not build a prompt-side blocklist.
     #[tokio::test]
     async fn duplicate_rejections_never_accumulate_a_prompt_blocklist() {
         let config = single_candidate(VoiceRoutingConfig {

@@ -57,10 +57,6 @@ fn media_key(value: &(impl Serialize + ?Sized)) -> Option<String> {
         .and_then(|value| value.as_str().map(str::to_string))
 }
 
-/// A pack may declare its own media profile (world-specific model, LoRA, and
-/// prompt trigger) via the `x-cosyworld-media` extension in its manifest.
-/// Community art for that pack's actors, items, and locations should use it
-/// instead of the generic cross-world default.
 fn media_profile_from_pack_extension(
     extensions: &serde_json::Value,
     operation: MediaOperation,
@@ -106,10 +102,6 @@ fn community_art_media_profile(subject_kind: &str, subject_id: u64, intent: Medi
         .unwrap_or_else(|| BASE_COMMUNITY_ART_PROFILE.to_string())
 }
 
-/// A pack-declared profile can require a fixed prompt trigger (e.g. a LoRA
-/// activation phrase). Community art prompts are built generically and don't
-/// know about world-specific triggers, so add it here rather than teach every
-/// prompt builder about every pack's recipe.
 fn with_required_prompt_prefix(
     registry: &MediaRecipeRegistry,
     profile_id: &str,
@@ -1629,7 +1621,6 @@ mod tests {
             prompt,
             "P89, anime style, location Threshold Interface — The Custody Door. Level 1."
         );
-        // Already-prefixed prompts are left alone rather than double-stamped.
         assert_eq!(
             with_required_prompt_prefix(&registry, "project89.world-art.base/1", prompt.clone()),
             prompt

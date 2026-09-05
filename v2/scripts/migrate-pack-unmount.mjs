@@ -664,9 +664,6 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     "orb_balances",
     "prepared_spells",
   ]) maps[field] = takeMapKeys(migrated[field], actorIds);
-  // Deeds and their actor index are one projection. Leaving deed records
-  // active lets a pack-less restart rebuild the frozen actor's index, which
-  // then collides when the pack is remounted.
   maps.deeds = takeMapValues(
     migrated.deeds,
     (deed) => hasId(actorIds, deed.actor_id),
@@ -771,8 +768,6 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
           && hasId(locationIds, belief.subject_id)
         ),
   );
-  // Pre-v14 snapshots can still reach the pack migration tool before the
-  // orchestrator folds their two legacy maps into `beliefs`.
   maps.resident_memories = takeMapValues(
     migrated.resident_memories,
     (memory) =>

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Tiny terminal client for the CosyWorld v2 orchestrator."""
 
 from __future__ import annotations
 
@@ -17,7 +16,7 @@ import urllib.request
 try:
     import termios
     import tty
-except ImportError:  # pragma: no cover - non-posix fallback
+except ImportError:
     termios = None
     tty = None
 
@@ -90,7 +89,6 @@ def offer_provider_item_id(offer: dict[str, object]) -> int | None:
 
 
 def offer_matches_payload(offer: dict[str, object], path: str, payload: dict[str, object]) -> bool:
-    """Keep interactive controls bound to the exact certified offer payload."""
     if offer.get("disabled") or offer.get("kind") not in ACTION_KINDS_BY_PATH.get(path, set()):
         return False
     target = offer.get("target") or {}
@@ -1456,7 +1454,6 @@ class ButtonGame(Game):
 
 
 def offer_intent_id(actor_id: int, offer_id: str) -> str:
-    """Return a stable command intent accepted by the canonical envelope validator."""
     digest = hashlib.sha256(offer_id.encode("utf-8")).hexdigest()
     return f"cli:offer:{actor_id}:sha256:{digest}"
 

@@ -119,10 +119,6 @@ function main() {
   const baseBranch = determineBaseBranch(remote);
   const currentBranch = determineCurrentBranch();
 
-  // The Rust crate pins CARGO_PKG_VERSION to the root release at test time
-  // (content_registry::tests::official_registry_exposes_pack_aware_indexes),
-  // so a mismatch would only surface deep in the suite. Fail here instead,
-  // with the exact files to fix.
   const manifestPath = path.resolve(repoRoot, 'v2/orchestrator-rust/Cargo.toml');
   try {
     const manifest = readFileSync(manifestPath, 'utf8');

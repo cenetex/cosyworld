@@ -1,6 +1,5 @@
 use super::*;
 
-// --- moved from main.rs: projected world-event builder RuntimeWorld methods ---
 impl crate::RuntimeWorld {
     pub(crate) fn append_world_reset_event(&mut self) -> EventView {
         let entry_location_id = content_registry().entry_location_id();
@@ -244,8 +243,6 @@ impl crate::RuntimeWorld {
         let event = EventView {
             world_id: official_world_id(),
             world_epoch: official_world_epoch(),
-            // Presence is regional fan-out, not canonical world history. Sequence
-            // zero deliberately excludes it from durable cursors and resume.
             seq: 0,
             type_name: "actor.presence".to_string(),
             success: true,

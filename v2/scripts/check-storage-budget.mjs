@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Fails when a deployment's event store or generated art passes its committed
-// budget. The volume headroom check answers "is the disk nearly full"; this
-// answers "which store is filling it", early enough to choose a response.
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,8 +57,6 @@ for (const target of selected) {
     }
   }
 
-  // A store that reports "none" can never return a freed page, so every burst
-  // it takes is permanent until someone runs a full VACUUM in a window.
   if (persistence.event_store_auto_vacuum === "none") {
     console.log(
       `::warning::${target.label} event store has auto_vacuum=none, so compaction cannot ` +

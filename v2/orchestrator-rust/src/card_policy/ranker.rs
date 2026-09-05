@@ -51,7 +51,6 @@ impl CardPolicyAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CardPolicyCandidateSample {
     pub features_q15: [i16; CARD_POLICY_FEATURES],
-    /// Exact oracle cost-to-treasure after playing this card.
     pub child_loss: u16,
 }
 
@@ -59,9 +58,7 @@ pub struct CardPolicyCandidateSample {
 pub struct CardPolicySample {
     pub sample_id: String,
     pub world_seed: u64,
-    /// Candidate indices occupying the authoritative A and B slots.
     pub hand_candidate_indices: [Option<usize>; 2],
-    /// Every legal card, in authoritative deck order.
     pub candidates: Vec<CardPolicyCandidateSample>,
 }
 
@@ -375,8 +372,6 @@ pub fn adapt_ranking_to_hand(
             format!("card-policy top-k must be between 1 and {CARD_POLICY_MAX_TOP_K}").into(),
         );
     }
-    // A ranking alone says which card is better, but not whether a lower rank
-    // is an equivalent fallback. Fail closed and execute only the best card.
     for candidate_index in ranked_candidate_indices.iter().take(1) {
         if hand_candidate_indices[0] == Some(*candidate_index) {
             return Ok(CardPolicyAction::A);
@@ -388,12 +383,6 @@ pub fn adapt_ranking_to_hand(
     Ok(CardPolicyAction::Draw)
 }
 
-/// Adapts a scored shortlist to A/B/DRAW without turning `top_k` into a license
-/// to execute a known-inferior card.
-///
-/// The first ranked card is always eligible. Lower-ranked cards are eligible
-/// only when their quantized score exactly ties the best score. When scores do
-/// not express equivalence, the adapter draws until the best card is shown.
 pub fn adapt_scored_ranking_to_hand(
     ranked_candidate_indices: &[usize],
     scores_q8: &[i32],
@@ -446,9 +435,6 @@ pub fn train(
     )
 }
 
-/// Continue training from a pinned artifact. Callers should still evaluate the
-/// returned challenger before atomically promoting it; this function never
-/// mutates a deployed model in place.
 pub fn train_from_model(
     initial_model: CardPolicyModel,
     train_rows: &[CardPolicySample],

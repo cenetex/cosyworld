@@ -12,7 +12,6 @@ fn account_cookie(state: &AppState, id: &str) -> String {
         params![id, now_unix_secs() as i64],
     )
     .unwrap();
-    // Use the same durable session issuer as successful passkey ceremonies.
     state
         .account_auth
         .issue_session(id)
@@ -205,8 +204,6 @@ async fn passkey_account_recovers_walletless_avatar_after_restart_and_session_ex
         .into_runtime()
         .unwrap();
     let restarted = test_app_state(restored, Some(path.clone()));
-    // Every avatar session has expired on the server. Only a new account
-    // cookie from another successful passkey sign-in remains.
     open_event_store(&path)
         .unwrap()
         .execute("DELETE FROM actor_sessions", [])

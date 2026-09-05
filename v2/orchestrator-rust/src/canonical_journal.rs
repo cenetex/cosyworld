@@ -15,8 +15,6 @@ use std::{
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(30);
 const COMMAND_RECEIPT_ZSTD_PREFIX: &str = "zstd-base64:";
 const COMMAND_RECEIPT_COMPRESSION_THRESHOLD: usize = 4 * 1024;
-// The newest finalized receipt always survives, even if that single response
-// exceeds the byte budget, so its immediate crash-retry remains recoverable.
 pub(super) const MAX_DURABLE_COMMAND_RECEIPT_ENTRIES: usize = 512;
 pub(super) const MAX_DURABLE_COMMAND_RECEIPT_BYTES: usize = 32 * 1024 * 1024;
 
@@ -45,9 +43,6 @@ impl DerefMut for EventStoreConnection<'_> {
     }
 }
 
-/// Reuse the process-lifetime WAL connection for durable commits. Besides
-/// preserving SQLite's page cache, the mutex queues in-process writers before
-/// they enter SQLite's cross-process busy loop.
 pub(super) fn event_store_writer<'a>(
     shared: Option<&'a Mutex<Connection>>,
     path: &Path,
@@ -380,9 +375,6 @@ pub(super) fn init_canonical_journal(
         params![world_id, as_i64(world_epoch)?, max_seq],
     )
     .map_err(sqlite_error)?;
-    // Read the cursor, durable suffix, and commit count in one SQLite snapshot.
-    // Separate autocommit SELECTs can straddle another process's commit and
-    // briefly pair the new cursor with the old event maximum.
     let (stored_epoch, committed_seq, durable_max_seq, commit_count) = conn
         .query_row(
             "SELECT state.world_epoch,
@@ -630,8 +622,6 @@ pub(super) fn prepare_partition_leases_for_region(
         let Some(lease) =
             current_partition_lease(path, world_id, world_epoch, partition_key, now_ms)?
         else {
-            // An absent or expired lease needs a fenced acquisition. Once
-            // acquired, the world transaction renews it on every command.
             return acquire_partition_leases_for_region(
                 path,
                 world_id,
@@ -655,9 +645,6 @@ pub(super) fn prepare_partition_leases_for_region(
         }
         existing.insert(partition_key.clone(), lease);
     }
-    // The journal transaction validates the fencing epoch and renews these
-    // leases atomically with the world mutation. Writing the same renewal in
-    // preflight added a second durable commit without strengthening safety.
     Ok(existing)
 }
 
@@ -2236,10 +2223,6 @@ pub(super) fn finalize_atomic_command_receipt(
     Ok(updated == 1)
 }
 
-/// Durable receipts back every idempotent retry, so retention must comfortably
-/// exceed the window in which a client can resubmit an intent. Fourteen days is
-/// far longer than any live retry and still bounds a table whose rows carry a
-/// full state projection.
 pub(super) const DEFAULT_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 14;
 const MAX_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 3_650;
 const MIN_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 1;
@@ -2296,18 +2279,12 @@ impl Default for CommandReceiptRetention {
     }
 }
 
-/// Only finalized explicit receipts expire. An explicit provisional row is
-/// still owned by an in-flight commit, while a server-minted compatibility row
-/// cannot be presented by a client to recover a response and is always removed.
 pub(super) fn purge_expired_command_receipts_for_retention(
     path: &Path,
     retention: CommandReceiptRetention,
     now_ms: u64,
 ) -> io::Result<usize> {
     let conn = open_canonical_store(path)?;
-    // A compatibility intent is minted by the server after request receipt, so
-    // the client cannot reuse it to recover a lost response. Keep its exact
-    // response only in the bounded process cache and remove crash leftovers.
     let deleted_compatibility = conn
         .execute(
             "DELETE FROM canonical_command_receipts
@@ -2350,26 +2327,6 @@ pub(super) fn open_event_store(path: &Path) -> io::Result<Connection> {
     open_canonical_store(path)
 }
 
-/// An action-journal head that is guaranteed to already be on disk.
-///
-/// `synchronous = NORMAL` (see `open_canonical_store`) lets SQLite report a
-/// WAL-committed row as the head before that WAL frame has been fsynced, so a
-/// plain `MAX(journal_seq)` can name a row that a hard stop will discard. A
-/// snapshot that cites such a row becomes unbootable the moment the stop
-/// happens: the checkpoint leads the surviving journal head, and compaction
-/// has already removed the path back.
-///
-/// The head is read *before* the checkpoint on purpose. Everything at or
-/// below that value is transferred into the database file by the time this
-/// returns, so the answer stays correct even if a concurrent writer appends
-/// afterwards -- a later append can only make the real head larger, never
-/// invalidate the value returned here.
-///
-/// `FULL` (rather than `TRUNCATE`) transfers every frame without also
-/// requiring the WAL to be reset, which is far less likely to be refused by a
-/// concurrent reader. A refused or partial checkpoint is reported as an error
-/// so callers stay conservative: an unverifiable head must never be written
-/// into a checkpoint.
 pub(super) fn durable_action_journal_head(path: &Path) -> io::Result<u64> {
     let conn = open_event_store(path)?;
     let head = max_action_journal_seq(&conn)?;
@@ -2389,8 +2346,6 @@ pub(super) fn durable_action_journal_head(path: &Path) -> io::Result<u64> {
     Ok(head)
 }
 
-/// Retain an activated WAL reader for the process lifetime so closing each
-/// short-lived writer does not checkpoint the whole database.
 pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> {
     let connection = open_event_store(path)?;
     let _: i64 = connection
@@ -2399,22 +2354,6 @@ pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> 
     Ok(connection)
 }
 
-/// Opens a store that is about to be given its schema, choosing the vacuum
-/// mode before WAL is enabled.
-///
-/// `auto_vacuum` is recorded in the database header and SQLite silently
-/// ignores a change to it once the store is in WAL mode or holds any table.
-/// `open_canonical_store` enables WAL on first open, so a store initialized
-/// through it could never accept the mode afterwards, and every deployment ran
-/// with `auto_vacuum = none`: compaction freed pages onto the freelist and the
-/// file could only ever grow. Ordering the pragma ahead of WAL on the same
-/// connection that then creates the tables is what makes the header stick.
-///
-/// An existing store cannot be converted during ordinary initialization. That
-/// needs one full `VACUUM` in a maintenance window; run the opt-in conversion
-/// below with `COSYWORLD_ONE_TIME_AUTO_VACUUM=1`, and
-/// `/meta.persistence.event_store_auto_vacuum` reports which stores still
-/// need it.
 pub(super) fn open_canonical_store_for_initialization(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
@@ -2446,14 +2385,6 @@ fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
         .map_err(sqlite_error)?;
-    // WAL lets readers continue beside the single writer; NORMAL avoids an
-    // fsync per commit while retaining crash-safe journal recovery.
-    //
-    // journal_mode persists in the database. Re-applying the write-form
-    // pragma on every short-lived connection asks SQLite to take the mode
-    // change lock even when the store is already WAL. On the production Fly
-    // volume that lock round-trip sat on every command path. Inspect first and
-    // only mutate the persistent setting while initializing a non-WAL store.
     let journal_mode = conn
         .query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0))
         .map_err(sqlite_error)?;
@@ -2466,22 +2397,6 @@ fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     Ok(conn)
 }
 
-/// One-time maintenance conversion of an existing store to incremental
-/// `auto_vacuum`.
-///
-/// SQLite silently ignores an `auto_vacuum` change once a store is in WAL mode
-/// or holds tables, so every pre-#877 store runs with `auto_vacuum = none`:
-/// compaction frees pages onto the freelist and the file can only ever grow.
-/// Setting the pragma ahead of one full `VACUUM` rewrites the file with the
-/// header set (the confirmed ordering: `WAL -> CREATE TABLE -> auto_vacuum ->
-/// VACUUM => 2`). The rewrite holds the write lock for its duration, so the
-/// caller must invoke this at boot before serving traffic, behind the
-/// `COSYWORLD_ONE_TIME_AUTO_VACUUM` operator flag. Roughly 2x the store size
-/// must be free on the volume for the rewrite.
-///
-/// Returns whether a conversion ran. New stores already choose the mode ahead
-/// of WAL, and already-converted stores report `false` without touching the
-/// file.
 pub(super) fn convert_existing_store_to_incremental_auto_vacuum(path: &Path) -> io::Result<bool> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
@@ -2494,7 +2409,6 @@ pub(super) fn convert_existing_store_to_incremental_auto_vacuum(path: &Path) -> 
         )
         .map_err(sqlite_error)?;
     if table_count == 0 {
-        // A fresh store chooses its mode during schema initialization.
         return Ok(false);
     }
     let current_mode = conn
@@ -3041,8 +2955,6 @@ mod auto_vacuum_conversion_tests {
     fn legacy_wal_store(name: &str) -> std::path::PathBuf {
         let path = conversion_temp_db(name);
         let _ = fs::remove_file(&path);
-        // Simulate a pre-#877 store: WAL enabled first, tables created with
-        // the default `auto_vacuum = none`.
         let conn = Connection::open(&path).unwrap();
         conn.pragma_update(None, "journal_mode", "WAL").unwrap();
         conn.execute_batch(

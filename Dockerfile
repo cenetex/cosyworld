@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM lukemathwalker/cargo-chef:0.1.77-rust-1-bookworm AS chef
 
 WORKDIR /app/v2/orchestrator-rust
@@ -17,8 +16,6 @@ COPY --from=planner /app/recipe.json /app/recipe.json
 COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 
-# Keep third-party Rust dependencies in a layer that application source edits do
-# not invalidate. The release workflow persists this layer in ECR.
 RUN cargo chef cook --release --recipe-path /app/recipe.json
 
 COPY v2/core-c /app/v2/core-c
@@ -28,10 +25,6 @@ COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
-# Keep release incremental data outside the image layer so the remote builder
-# can reuse unchanged code after the application source COPY invalidates this
-# step. Serial Cargo jobs still cap memory after prior parallel builds were
-# killed by the builder's OOM guard.
 RUN --mount=type=cache,id=cosyworld-release-incremental,target=/app/v2/orchestrator-rust/target/release/incremental,sharing=locked \
   CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1 cargo build --release
 

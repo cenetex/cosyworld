@@ -10,10 +10,6 @@ primary_region = "sjc"
   FLY_ORG = "personal"
   VECTOR_LOG = "info"
 
-# ACCESS_TOKEN, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY are Fly secrets.
-# The NATS subscription is organization-wide because its subject grammar cannot
-# express a union of the two app names; vector.yaml immediately filters to the
-# exact production allowlist before normalizing or exporting an event.
 
 [[vm]]
   cpu_kind = "shared"

@@ -9,8 +9,6 @@ const intention = new Set(("remember remembers remembered remembering forget for
 const bridges = new Set("is are was were has have had keeps keep kept still now already just even seems seem".split(" "));
 
 export function sceneryActsWithIntent(value) {
-  // Keep sentence boundaries: “I found the cottage. Remember the key.” has
-  // a person remembering. A named character may remember an object too.
   for (const sentence of value.split(/[.!?;:]/)) {
     const words = sentence.toLowerCase().match(/[a-z0-9']+/g) || [];
     for (let index = 0; index < words.length; index += 1) {
@@ -44,8 +42,6 @@ export function writingRegisterErrors(collections) {
       }
       if (lyric) return;
       if (sceneryActsWithIntent(value)) errors.push(`${label} assigns intent or memory to scenery`);
-      // Persona fields direct a character. Authored item-use receipts also
-      // retain their existing direct address. Other world prose stays third person.
       const directAddress = collection === "actors" || collection === "cards"
         || field === "persona" || (field === "text" && trail.at(-3) === "uses");
       if (!directAddress && /\b(?:you|your|yours|yourself)\b/i.test(value)) {

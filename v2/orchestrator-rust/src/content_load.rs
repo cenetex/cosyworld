@@ -54,7 +54,6 @@ pub(super) struct SeedContent {
     pub(super) contributions: Vec<SeedContributionBundle>,
     pub(super) attributions: Vec<SeedAttribution>,
     pub(super) licenses: Vec<SeedLicenseRecord>,
-    // Loaded to type-check the attribution contract even though runtime seeding does not project it.
     #[allow(dead_code)]
     pub(super) modified_material: Vec<SeedModifiedMaterial>,
     pub(super) character_creation: Vec<SeedCharacterCreationBundle>,
@@ -2761,10 +2760,6 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             ));
         }
     }
-    // Items a discovery slot may reveal are authored unplaced: the kernel's
-    // reveal requires holder 0 and location 0, so those are the only items
-    // allowed to name no location. Anything else unplaced is a broken
-    // reference and still fails closed.
     let mut discovery_hidden_item_ids = BTreeSet::new();
     for pack in &content.manifest.packs {
         let Ok(Some(catalog)) = discovery_authority_catalog(pack) else {
@@ -4134,13 +4129,6 @@ fn validate_lantern_clock_effect_contract(content: &SeedContent) -> Result<(), S
         if authoritative.is_empty() {
             return Err(format!("clock {clock_id} on_fill cannot be tag-only"));
         }
-        // The job status is the required consequence and there may be exactly
-        // one of it. A clock may additionally open a road it has earned: the
-        // relit beacon is what makes the way onward passable, and paying that
-        // with an authored UnlockExit keeps the topology change authoritative,
-        // journaled, and replayable rather than a projection or a tag other
-        // surfaces would have to interpret. Nothing else is admitted here, so
-        // the clock still cannot grant items, currency, or access at large.
         let mut job_status_effects = 0usize;
         let mut unlock_effects = 0usize;
         for effect in &authoritative {

@@ -118,24 +118,6 @@ impl SnapshotJob {
         }
     }
 
-    /// Is the captured cursor backed by the durable commit point?
-    ///
-    /// A checkpoint whose `next_event_seq` leads `committed_seq`, or whose
-    /// `action_journal_seq` leads the durable action-journal head, is not a
-    /// valid checkpoint: every boot restores that lead, and the first replay
-    /// then finds a gap the journal can never fill. `synchronous = NORMAL`
-    /// lets SQLite ack a commit that a hard stop can still discard, so the
-    /// in-memory runtime (and the snapshot captured from it) can race ahead
-    /// of what actually reached disk on either cursor independently. Keeping
-    /// the previous good checkpoint is strictly better than freezing a torn
-    /// one, and skipping the write also skips compaction, so nothing is
-    /// discarded behind it.
-    ///
-    /// This guards both cursors because they are durable on separate tables
-    /// (`world_events` vs `action_journal`) and a hard stop can lose either
-    /// one without the other: an unguarded action-journal cursor was exactly
-    /// what left production unbootable on 2026-08-16 and 2026-08-18 even
-    /// though the world-event cursor below was fine both times.
     fn checkpoint_cursor_is_durable(&self) -> bool {
         let (Some(path), Some(snapshot)) =
             (self.event_store_path.as_deref(), self.snapshot.as_ref())
@@ -146,12 +128,8 @@ impl SnapshotJob {
             .and_then(|conn| current_world_seq(&conn, OFFICIAL_WORLD_ID))
         {
             Ok(committed_seq) => committed_seq,
-            // The commit point is unreadable, so there is nothing to contradict
-            // the capture. Let the write proceed rather than stall checkpoints.
             Err(_) => return true,
         };
-        // A store with no commit point yet still carries a freshly seeded world's
-        // bootstrap events in memory only, so there is nothing to contradict.
         if committed_seq != 0 && snapshot.next_event_seq > committed_seq.saturating_add(1) {
             error!(
                 "refusing to checkpoint CosyWorld snapshot: captured event cursor {} leads the \
@@ -160,21 +138,8 @@ impl SnapshotJob {
             );
             return false;
         }
-        // This must be the *durable* head, not whatever SQLite currently
-        // reports. Under `synchronous = NORMAL` a WAL-committed row counts as
-        // the head before its frame is fsynced, so comparing against a plain
-        // `MAX(journal_seq)` was not enough: the guard agreed, the machine
-        // stopped, the un-fsynced row evaporated, and the checkpoint it had
-        // already blessed was left leading the surviving journal. That is the
-        // 2026-08-19 outage, which happened *with* the earlier version of this
-        // guard in place. `durable_action_journal_head` flushes the WAL and
-        // only reports a head it has proven is on disk.
         let journal_head = match durable_action_journal_head(path) {
             Ok(journal_head) => journal_head,
-            // Unlike the commit point above, an unverifiable journal head must
-            // refuse the write. Allowing it is exactly how a world becomes
-            // unbootable; refusing only keeps the previous good checkpoint,
-            // which replay can still reach.
             Err(error) => {
                 error!(
                     "refusing to checkpoint CosyWorld snapshot: could not prove the action-journal \
@@ -183,11 +148,6 @@ impl SnapshotJob {
                 return false;
             }
         };
-        // Unlike `next_event_seq`, `action_journal_seq` has no bootstrap
-        // pathway that advances it without a durable `action_journal` insert
-        // (the only writer is the commit path, which sets it from that
-        // insert's own row id). So a lead over the durable head is always a
-        // genuine overshoot, even from a head of 0.
         if snapshot.action_journal_seq > journal_head {
             error!(
                 "refusing to checkpoint CosyWorld snapshot: captured action-journal cursor {} \
@@ -200,9 +160,6 @@ impl SnapshotJob {
     }
 
     fn write(self) -> io::Result<()> {
-        // Resident continuity is independent of the world cursor, so a rejected
-        // checkpoint must not stall it. Gating `snapshot_saved` also gates
-        // compaction, which must never run behind a checkpoint we refused.
         let cursor_is_durable = self.checkpoint_cursor_is_durable();
         let snapshot_saved = match (self.snapshot_path.as_deref(), self.snapshot.as_ref()) {
             (Some(path), Some(snapshot)) if cursor_is_durable => {
@@ -321,10 +278,6 @@ pub(super) fn retained_world_event_limit() -> usize {
         .unwrap_or(DEFAULT_RETAINED_WORLD_EVENTS)
 }
 
-/// Pages the runtime is willing to hand back to the filesystem in one pass.
-/// A full vacuum rewrites the whole volume under the world lock; an
-/// incremental pass this size costs a few milliseconds, so a burst becomes
-/// recoverable over the following snapshots instead of permanent.
 pub(super) fn incremental_vacuum_page_budget() -> u32 {
     std::env::var("COSYWORLD_V2_INCREMENTAL_VACUUM_PAGES")
         .ok()
@@ -333,11 +286,6 @@ pub(super) fn incremental_vacuum_page_budget() -> u32 {
         .min(MAX_INCREMENTAL_VACUUM_PAGES)
 }
 
-/// SQLite reports auto_vacuum as 0/1/2, and the mode can only be chosen while
-/// the database is empty. A store created before the runtime set INCREMENTAL
-/// reports "none", and no amount of incremental vacuuming will ever return a
-/// byte from it -- that needs one full VACUUM in a maintenance window. Naming
-/// the mode in /meta is what makes that difference visible from outside.
 pub(super) fn auto_vacuum_mode_label(mode: u64) -> &'static str {
     match mode {
         1 => "full",
@@ -358,9 +306,6 @@ pub(super) struct PersistenceStorageReport {
     pub(super) snapshot_temp_bytes: Option<u64>,
 }
 
-/// Generated art is the one store on the volume with no retention at all, so
-/// its size belongs in /meta beside the event store rather than behind an ssh
-/// session. The walk is bounded because this runs on a request path.
 fn generated_asset_usage(root: &Path) -> Option<(u64, u64)> {
     let mut pending = vec![root.to_path_buf()];
     let mut bytes = 0u64;
@@ -493,9 +438,6 @@ pub(super) fn persist_runtime_now(state: &AppState, runtime: &RuntimeWorld) {
 mod tests {
     use super::*;
 
-    /// The mode is only settable while a store is empty, so a deployment can
-    /// be permanently unable to reclaim space and nothing on the outside says
-    /// so. /meta has to name which case a store is in.
     #[test]
     fn the_storage_report_names_the_auto_vacuum_mode_and_measures_generated_art() {
         let root = std::env::temp_dir().join(format!(
@@ -567,10 +509,6 @@ mod tests {
         let _ = fs::remove_file(snapshot_path);
     }
 
-    /// A checkpoint whose cursor leads the commit point is not a checkpoint:
-    /// every later boot restores that lead and the first commit is rejected.
-    /// Keeping the previous good checkpoint is strictly better than freezing a
-    /// torn cursor into the only file a compacted journal can be rebuilt from.
     #[test]
     fn a_checkpoint_that_leads_the_commit_point_is_refused() {
         let snapshot_path = std::env::temp_dir().join(format!(
@@ -602,7 +540,6 @@ mod tests {
         )
         .expect("append durable event");
 
-        // A cursor level with the commit point checkpoints normally.
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.next_event_seq = 2;
         runtime.world.tick = 11;
@@ -610,7 +547,6 @@ mod tests {
         let durable = RuntimeWorld::load_snapshot(&snapshot_path).expect("durable snapshot loads");
         assert_eq!(durable.world.tick, 11);
 
-        // A cursor that leads it must not overwrite that checkpoint.
         runtime.world.next_event_seq = 5;
         runtime.world.tick = 22;
         persist_runtime_now(&state, &runtime);
@@ -638,14 +574,6 @@ mod tests {
         record
     }
 
-    /// Regression for the 2026-08-16 and 2026-08-18 outages: an unguarded
-    /// `action_journal_seq` let a checkpoint whose action-journal cursor
-    /// outran the durable journal survive into the only file a compacted
-    /// journal can be rebuilt from, leaving production unbootable. This
-    /// mirrors `a_checkpoint_that_leads_the_commit_point_is_refused` above,
-    /// but for the action-journal cursor instead of the world-event cursor —
-    /// the two are durable on separate tables and a hard stop can lose
-    /// either one independently of the other.
     #[test]
     fn a_checkpoint_that_leads_the_action_journal_head_is_refused() {
         let snapshot_path = std::env::temp_dir().join(format!(
@@ -664,8 +592,6 @@ mod tests {
         let mut state = test_app_state(RuntimeWorld::seeded(), Some(store_path.clone()));
         state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
         state.snapshot_writer = Some(Arc::new(SnapshotWriter::spawn().expect("snapshot writer")));
-        // Keep the world-event cursor durable throughout so only the
-        // action-journal guard is under test.
         append_event_store(
             &store_path,
             &[EventView {
@@ -681,7 +607,6 @@ mod tests {
         append_action_journal(&store_path, &fixture_action_journal_record(1))
             .expect("append durable action journal record");
 
-        // A cursor level with the durable journal head checkpoints normally.
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.next_event_seq = 2;
         runtime.action_journal_seq = 1;
@@ -690,9 +615,6 @@ mod tests {
         let durable = RuntimeWorld::load_snapshot(&snapshot_path).expect("durable snapshot loads");
         assert_eq!(durable.world.tick, 11);
 
-        // A cursor that leads the durable head — as if the runtime applied
-        // an action whose journal insert never reached disk — must not
-        // overwrite that checkpoint.
         runtime.action_journal_seq = 5;
         runtime.world.tick = 22;
         persist_runtime_now(&state, &runtime);
@@ -704,16 +626,6 @@ mod tests {
         let _ = fs::remove_file(store_path);
     }
 
-    /// The 2026-08-19 outage happened *with* the action-journal guard in
-    /// place, because the guard compared against whatever SQLite reported as
-    /// the head -- and `synchronous = NORMAL` reports a WAL-committed row
-    /// before its frame has been transferred into the database file.
-    ///
-    /// Losing the WAL is modelled by copying *only* the main `.sqlite` file
-    /// and opening that copy: whatever is still WAL-resident does not come
-    /// along, exactly as an un-fsynced machine stop would leave it. The
-    /// production keepalive reader is held open throughout so closing the
-    /// short-lived writers cannot checkpoint on our behalf and mask the bug.
     #[test]
     fn an_accepted_checkpoint_cites_only_journal_rows_that_survive_losing_the_wal() {
         let store_path = std::env::temp_dir().join(format!(
@@ -727,8 +639,6 @@ mod tests {
 
         append_action_journal(&store_path, &fixture_action_journal_record(1))
             .expect("seed the store so it exists");
-        // Hold the keepalive reader for the rest of the test so closing the
-        // writers below cannot quietly checkpoint the WAL for us.
         let keepalive =
             open_event_store_keepalive(&store_path).expect("process-lifetime WAL keepalive");
         for seed in 2..=6 {
@@ -739,8 +649,6 @@ mod tests {
         let head = durable_action_journal_head(&store_path).expect("durable head");
         assert_eq!(head, 6, "every committed row is reported as the head");
 
-        // Salvage only the database file, leaving any WAL-resident frames
-        // behind, while the keepalive still holds the WAL open.
         fs::copy(&store_path, &salvaged_path).expect("salvage the database file alone");
         drop(keepalive);
 

@@ -158,9 +158,6 @@ async function startServer(tempDir, registryPath, snapshotPath) {
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
-    // This lifecycle proof compares the same historical Ruby record before
-    // unmount and after remount. Preserve full history here; the standalone
-    // composition smoke exercises the default checkpoint compaction policy.
     COSYWORLD_V2_PERSISTENCE_COMPACTION: "off",
     COSYWORLD_V2_SNAPSHOT_PATH: snapshotPath,
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
@@ -179,11 +176,6 @@ async function startServer(tempDir, registryPath, snapshotPath) {
 }
 
 async function waitForActorJobs(eventDbPath) {
-  // A player-tick retry can include the resident heartbeat delay plus the
-  // worker's idle poll. Leave enough room for all durable retry attempts.
-  // Pending room-rope jobs are timers, not in-flight work. The pack migration
-  // retires them after shutdown so disconnected players are never auto-passed
-  // when the migrated server starts again.
   const deadline = Date.now() + 30_000;
   let activeJobs = [];
   while (Date.now() < deadline) {
@@ -444,8 +436,6 @@ async function commandExactOffer(baseUrl, actorId, actorSession, value) {
     actorId,
     actorSession,
     (candidate) => {
-      // The parser accepts bare `search`, while its certificate names the
-      // concrete target. Select that exact certified action by kind.
       if (expectedKind) return candidate.kind === expectedKind;
       return String(candidate.command || "").trim().toLowerCase() === normalized;
     },

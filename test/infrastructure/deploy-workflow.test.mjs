@@ -606,8 +606,6 @@ describe('deploy workflow', () => {
     const engineVersionCopy =
       'COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt';
     const mediaCopy = 'COPY v2/media /app/v2/media';
-    // Matched without the RUN prefix so the ordering contract survives
-    // env prefixes on the build command, such as CARGO_BUILD_JOBS.
     const releaseBuild = 'cargo build --release';
 
     expect(dockerignore).toContain('!v2/content-engine-version.txt');

@@ -211,7 +211,6 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <header class="mb-12 text-center">
             <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
                 CosyWorld Stories
@@ -219,12 +218,9 @@
             <p class="text-gray-400 text-lg">An ongoing narrative universe</p>
         </header>
 
-        <!-- Stats -->
         <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <!-- Stats will be populated by JavaScript -->
         </div>
 
-        <!-- Navigation -->
         <div class="flex justify-center gap-4 mb-8">
             <button id="latestBtn" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition">
                 Latest Chapters
@@ -237,29 +233,23 @@
             </button>
         </div>
 
-        <!-- Latest View -->
         <div id="latestView" class="view">
             <h2 class="text-3xl font-bold mb-6">Latest Chapters</h2>
             <div id="latestChapters" class="space-y-6">
-                <!-- Chapters will be populated by JavaScript -->
             </div>
         </div>
 
-        <!-- Archive View -->
         <div id="archiveView" class="view hidden">
             <h2 class="text-3xl font-bold mb-6">Story Archive (Arcs)</h2>
             <div id="archiveArcs" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             <div id="pagination" class="mt-8 flex justify-center gap-2">
-                <!-- Pagination will be populated by JavaScript -->
             </div>
         </div>
 
-        <!-- Characters View -->
         <div id="charactersView" class="view hidden">
             <h2 class="text-3xl font-bold mb-6">Core Characters</h2>
             <p class="text-gray-400 mb-6">The recurring cast that brings continuity to our story universe</p>
             <div id="coreCharacters" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <!-- Characters will be populated by JavaScript -->
             </div>
         </div>
     </div>
@@ -268,7 +258,6 @@
         const API_BASE = '/api/stories';
         let currentPage = 1;
 
-        // Helper function to escape HTML
         function escapeHtml(text) {
             if (!text) return '';
             const div = document.createElement('div');
@@ -276,14 +265,12 @@
             return div.innerHTML;
         }
 
-        // Initialize
         async function init() {
             await loadStats();
             await loadLatest();
             setupEventListeners();
         }
 
-        // Setup event listeners
         function setupEventListeners() {
             document.getElementById('latestBtn').addEventListener('click', () => showView('latest'));
             document.getElementById('archiveBtn').addEventListener('click', () => {
@@ -296,7 +283,6 @@
             });
         }
 
-        // View management
         function showView(viewName) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.querySelectorAll('button[id$="Btn"]').forEach(btn => {
@@ -313,7 +299,6 @@
             btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
         }
 
-        // Load statistics
         async function loadStats() {
             try {
                 const response = await fetch(`${API_BASE}/stats`);
@@ -344,7 +329,6 @@
             }
         }
 
-        // Load latest chapters
         async function loadLatest() {
             try {
                 const response = await fetch(`${API_BASE}/latest`);
@@ -358,7 +342,6 @@
             }
         }
 
-        // Load archive
         async function loadArchive(page) {
             try {
                 const response = await fetch(`${API_BASE}/archive?page=${page}&limit=9&view=arcs`);
@@ -374,7 +357,6 @@
             }
         }
 
-        // Load core characters
         async function loadCharacters() {
             try {
                 const response = await fetch(`${API_BASE}/core-characters`);
@@ -388,14 +370,12 @@
             }
         }
 
-        // Render full chapters (latest view)
         function renderChapters(chapters, containerId, expandable = false) {
             const container = document.getElementById(containerId);
             container.innerHTML = chapters.map(chapter => {
                 const firstBeat = chapter.beats?.[0] || {};
                 const isTitleCard = firstBeat.type === 'title';
                 
-                // Get character avatars for the chapter
                 const characterAvatars = [];
                 for (const beat of (chapter.beats || [])) {
                     if (beat.characters && Array.isArray(beat.characters)) {
@@ -482,7 +462,6 @@
             }).join('');
         }
 
-        // Render archive cards (arcs grid view)
         function renderArcCards(arcs) {
             const container = document.getElementById('archiveArcs');
             container.innerHTML = arcs.map(arc => {
@@ -522,7 +501,6 @@
             }).join('');
         }
 
-        // Render characters
         function renderCharacters(characters) {
             const container = document.getElementById('coreCharacters');
             container.innerHTML = characters.map(char => `
@@ -537,7 +515,6 @@
             `).join('');
         }
 
-        // Render pagination
         function renderPagination(pagination) {
             const container = document.getElementById('pagination');
             const pages = [];
@@ -553,7 +530,6 @@
             container.innerHTML = pages.join('');
         }
 
-        // Toggle beat visibility
         function toggleBeats(chapterNumber) {
             const panel = document.getElementById(`beats-${chapterNumber}`);
             const toggle = document.getElementById(`toggle-${chapterNumber}`);
@@ -567,14 +543,12 @@
             }
         }
 
-        // Expand chapter (when clicking archive card)
         async function expandChapter(chapterNumber, arcId) {
             try {
                 const response = await fetch(`${API_BASE}/chapters/${arcId}/${chapterNumber}`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Switch to latest view and show the chapter
                     showView('latest');
                     document.getElementById('latestChapters').innerHTML = '';
                     renderChapters([data.chapter], 'latestChapters', true);
@@ -584,7 +558,6 @@
             }
         }
 
-        // View an arc by showing its latest chapters
         async function viewArc(arcId) {
             try {
                 const response = await fetch(`${API_BASE}/latest?arcId=${encodeURIComponent(arcId)}`);
@@ -599,7 +572,6 @@
             }
         }
 
-        // Start
         init();
     </script>
 </body>

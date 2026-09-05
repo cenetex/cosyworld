@@ -1,28 +1,6 @@
-//! Structured, closed-vocabulary authoring for Callings and Bonds.
-//!
-//! Both surfaces are deliberately free-text-free: a player *composes* an
-//! identity from authored columns (the Calling Forge) and *ratifies* a Bond
-//! sentence the server derives from a committed world fact. The vocabulary is
-//! fixed and deterministic so a Calling or Bond statement is always replay-safe,
-//! kernel-trusted, and readable by AI prompts as tags rather than prose.
-//!
-//! Wire-up notes:
-//! * `is_calling_forge_statement` is wired into `keys::authored_calling_statement`
-//!   so composed Callings are authoritatively valid (superset of the legacy list).
-//! * `calling_candidates` and `bond_proposals` are the client-surface entry points;
-//!   the bond endpoint still streams them from /state in a follow-up PR rather than
-//!   accepting player-typed statements.
-
-// The outer module body is self-contained; the crate glob is only needed by
-// the test module to reach the legacy calling list and statement constants.
 #[cfg(test)]
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Calling vocabulary
-// ---------------------------------------------------------------------------
-
-/// A Calling verb renders as `prefix + " " + object`.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct CallingVerb {
     pub(super) id: &'static str,
@@ -252,8 +230,6 @@ fn render_calling(
     }
 }
 
-/// True when `statement` is a sentence the Calling Forge can render. This is a
-/// membership check over the closed verb × object × (stake|none) space.
 pub(super) fn is_calling_forge_statement(statement: &str) -> bool {
     CALLING_VERBS.iter().any(|verb| {
         CALLING_OBJECTS.iter().any(|object| {
@@ -265,9 +241,6 @@ pub(super) fn is_calling_forge_statement(statement: &str) -> bool {
     })
 }
 
-/// Deterministic candidate triples for the client Calling Forge. The same
-/// (seed, actor_id) always yields the same three distinct composed statements,
-/// so re-rolling is seed-driven and replay-safe rather than player-random.
 pub(super) fn calling_candidates(seed: u64, actor_id: u64) -> Vec<CallingCandidate> {
     let mut out = Vec::with_capacity(3);
     let mut seen = std::collections::HashSet::new();
@@ -309,10 +282,6 @@ fn mix64(mut x: u64) -> u64 {
     x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     x ^ (x >> 31)
 }
-
-// ---------------------------------------------------------------------------
-// Bond scripting
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug)]
 struct BondVerb {
@@ -375,10 +344,8 @@ const BOND_VERBS: &[BondVerb] = &[
     },
 ];
 
-/// A server-authored Bond sentence for each of the three direction shapes.
 #[derive(Clone, Debug)]
 pub(super) struct BondProposal {
-    /// `i_to_them` | `them_to_me` | `mutual`
     pub(super) shape: &'static str,
     pub(super) label: &'static str,
     pub(super) statement: String,
@@ -392,11 +359,6 @@ impl BondProposal {
     ];
 }
 
-/// Renders the three Bond directions from a committed world fact. `fact` should
-/// be a short clause the two actors took part in, e.g. "we traded the brass key"
-/// or "we helped uncover the first stones". The bonding verb is chosen
-/// deterministically from the closed bank, so a given world fact always yields
-/// the same three proposals.
 pub(super) fn bond_proposals(me: &str, them: &str, fact: &str, seed: u64) -> [BondProposal; 3] {
     let verb = &BOND_VERBS[(mix64(seed ^ 0xB0_5D) as usize) % BOND_VERBS.len()];
     let (i_to_them_shape, i_to_them_label) = BondProposal::SHAPES[0];
@@ -459,8 +421,6 @@ mod tests {
                 }
             }
         }
-        // 12 verbs × 16 objects × (1 + 8 stakes) — comfortably larger than the
-        // legacy flat list of 13, while still closed.
         assert_eq!(
             count,
             CALLING_VERBS.len() * CALLING_OBJECTS.len() * (1 + CALLING_STAKES.len())

@@ -1,5 +1,3 @@
-// Process Object Lambda
-// Currently logs S3 ObjectCreated events; can be extended for processing
 exports.handler = async (event) => {
   const records = Array.isArray(event?.Records) ? event.Records : [];
   console.log('process-object event records:', records.length);

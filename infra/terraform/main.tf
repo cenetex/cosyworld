@@ -111,7 +111,6 @@ resource "aws_iam_role_policy" "lambda_inline" {
   policy = data.aws_iam_policy_document.lambda_inline.json
 }
 
-# Lambda packages (inline content -> zip)
 
 data "archive_file" "create_zip" {
   type        = "zip"
@@ -212,7 +211,6 @@ resource "aws_lambda_function" "process" {
   }
 }
 
-# Allow S3 to invoke the process function (bucket notifications configured post-deploy)
 resource "aws_lambda_permission" "s3_invoke" {
   statement_id   = "s3-invoke-uploads"
   action         = "lambda:InvokeFunction"
@@ -224,7 +222,6 @@ resource "aws_lambda_permission" "s3_invoke" {
 
 data "aws_caller_identity" "current" {}
 
-# HTTP API
 resource "aws_apigatewayv2_api" "api" {
   name          = "simple-video-upload-api"
   protocol_type = "HTTP"
@@ -275,7 +272,6 @@ resource "aws_apigatewayv2_stage" "prod" {
   auto_deploy = true
 }
 
-# API -> Lambda permissions
 resource "aws_lambda_permission" "apigw_create" {
   statement_id  = "AllowAPIGatewayInvokeCreate"
   action        = "lambda:InvokeFunction"
@@ -302,7 +298,6 @@ resource "aws_lambda_permission" "apigw_complete" {
 
 data "aws_region" "current" {}
 
-# Optional: run setup script to attach S3 notifications
 resource "null_resource" "setup_notifications" {
   count = var.enable_notifications ? 1 : 0
 
@@ -318,9 +313,6 @@ resource "null_resource" "setup_notifications" {
   }
 }
 
-###############################################
-# CloudFront (optional)
-###############################################
 
 resource "aws_cloudfront_origin_access_control" "oac" {
   count                             = var.enable_cloudfront ? 1 : 0

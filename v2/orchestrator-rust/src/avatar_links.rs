@@ -295,9 +295,6 @@ pub(super) async fn create_avatar_with_account(
             events: Vec::new(),
         });
     };
-    // Avatar creation is a card action, so it commits with a deterministic
-    // identity immediately. Unnamed avatars are refined by AI after the
-    // response has returned and announced over the event stream.
     let naming_context = avatar_naming_context(character_selection.as_ref());
     let base_identity = cosyworld_ai_model::generate_avatar_identity_with_naming(
         actor_id,

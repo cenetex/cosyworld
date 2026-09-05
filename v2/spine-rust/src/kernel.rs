@@ -1,11 +1,3 @@
-//! The kernel boundary.
-//!
-//! `KernelPort` mirrors the semantics of `cw_world_apply` in
-//! `v2/core-c`: action + caller-supplied seed in, status + events out. The
-//! kernel owns all rule authority; the spine never decides whether an action
-//! succeeds. A production adapter wraps the real FFI; `FakeKernel` is a small
-//! deterministic world used to prove replay, snapshot, and pipeline behavior.
-
 use serde::{Deserialize, Serialize};
 
 use crate::types::{Action, ActionKind, KernelEvent, KernelStatus};
@@ -16,15 +8,9 @@ pub struct KernelOutcome {
 }
 
 pub trait KernelPort: Send {
-    /// Apply one action deterministically. `seed` is supplied by the caller
-    /// and journaled, so replay reproduces identical outcomes. `advance_tick`
-    /// mirrors `cw_world_apply_with_tick`: the caller owns played-time.
     fn apply(&mut self, action: &Action, seed: u64, advance_tick: bool) -> KernelOutcome;
     fn tick(&self) -> u64;
-    /// Kernel presence for a room. Turn rotation derives from this, never
-    /// from separately stored membership, so replay reproduces it exactly.
     fn room_occupants(&self, room_id: u64) -> Vec<u64>;
-    /// Serializable full state for snapshots. Must round-trip via `restore`.
     fn snapshot(&self) -> serde_json::Value;
     fn restore(&mut self, snapshot: &serde_json::Value) -> Result<(), String>;
 }
@@ -46,9 +32,6 @@ struct ItemState {
     holder: Holder,
 }
 
-/// A minimal deterministic world: actors in locations, items held by actors
-/// or resting on location floors. Rule outcomes depend only on state, the
-/// action, and the seed — never on wall-clock time or ambient randomness.
 #[derive(Default)]
 pub struct FakeKernel {
     tick: u64,
@@ -174,8 +157,6 @@ impl KernelPort for FakeKernel {
                 ),
             },
             ActionKind::Search => {
-                // The seed is the only source of randomness; journaling it
-                // makes the outcome replayable bit-for-bit.
                 let found = seed.is_multiple_of(2);
                 (
                     KernelStatus::Ok,

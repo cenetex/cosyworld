@@ -308,10 +308,6 @@ fn square_gate_png() -> Vec<u8> {
     gate_png_with_dimensions(16, 16)
 }
 
-/// Mirrors the production location plan: `community_art_plan` joins the
-/// per-trait bounded output of `stable_art_traits` into a single visual
-/// description, so the description is a multiple of the component budget rather
-/// than a single component.
 fn location_art_plan(
     subject_id: u64,
     aspect_ratio: &'static str,
@@ -391,9 +387,6 @@ fn review_failed_generation(review_attempts: u8) -> CommunityArtGenerationState 
     }
 }
 
-/// A saved candidate whose review failed used to be retryable forever. One
-/// Lonely Forest job re-ran 975 times over seven days because the reviewer was
-/// paused by the daily spend cap and nothing counted the attempts.
 #[test]
 fn a_failed_review_stops_retrying_once_its_attempts_are_spent() {
     for attempts in 0..MAX_COMMUNITY_ART_REVIEW_ATTEMPTS {
@@ -416,8 +409,6 @@ fn a_failed_review_stops_retrying_once_its_attempts_are_spent() {
     );
 }
 
-/// A newer generation profile is the documented way back in, and it must still
-/// reopen a job whose review budget is spent.
 #[test]
 fn a_newer_generation_profile_reopens_a_spent_review_budget() {
     let spent = review_failed_generation(MAX_COMMUNITY_ART_REVIEW_ATTEMPTS);
@@ -428,8 +419,6 @@ fn a_newer_generation_profile_reopens_a_spent_review_budget() {
     ));
 }
 
-/// Every state written before this counter existed belongs to a job that was
-/// already looping, so it loads as exhausted rather than earning a new budget.
 #[test]
 fn a_legacy_state_without_the_counter_loads_as_exhausted() {
     let mut value = serde_json::to_value(review_failed_generation(0)).expect("serialize");
@@ -2821,9 +2810,6 @@ fn location_brief_truncates_the_joined_stable_traits_instead_of_failing_validati
 
     let plan = location_art_plan(157_216, "16:9", &long_reviewed_landscape_brief());
 
-    // Production shape: every trait is individually bounded, so the reviewed
-    // landscape brief lands exactly on the component budget and the join of all
-    // four traits is unconditionally over it.
     assert!(
         plan.stable_traits
             .iter()
@@ -2975,10 +2961,6 @@ async fn an_invalid_frozen_brief_fails_before_any_provider_call() {
     let valid = location_art_plan(subject_id, "16:9", "chalk lanes and reed beds");
     let invalid = location_art_plan(subject_id, "16x9", "chalk lanes and reed beds");
 
-    // Close the provider route for this job key first. A regression that spends
-    // before validating would stop at the cooldown gate with a Provider error
-    // instead of reaching the network, so the two orderings stay hermetically
-    // distinguishable.
     let cooldown_brief = community_art_media_brief(&valid);
     cooldown_brief
         .validate()

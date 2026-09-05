@@ -6,12 +6,8 @@ const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-awakening-v1";
 const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-awakening-v1";
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
-// Avatar identity is an internal three-field record, not public dialogue. It
-// needs enough room to describe a body, face, colouring, clothing, persona,
-// and continuity without being rejected by the shorter public-prose budget.
 const AVATAR_SELF_DESCRIPTION_MAX_WORDS: usize = 80;
 const AVATAR_SELF_DESCRIPTION_MAX_TOKENS: u32 = 160;
-// Item and location descriptions still use the compact public-prose shape.
 const WORLD_ENTITY_SELF_DESCRIPTION_MAX_WORDS: usize = 48;
 const WORLD_ENTITY_SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
 pub(super) const AVATAR_REFLECTION_DC: u16 = 18;
@@ -625,9 +621,6 @@ pub(super) async fn complete_avatar_self_description(
         (spine, model_binding)
     };
     let level = spine.speaker.level;
-    // The typed identity stays private and is parsed below. Raw mode preserves
-    // its three required lines and gives it the internal 1,200-character
-    // ceiling while retaining grounding and safety checks.
     let speech_mode = SpeechMode::Raw;
     let prompt = spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::SelfDescription,

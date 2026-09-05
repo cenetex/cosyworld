@@ -1,12 +1,3 @@
-//! Resident trade, gift, and feature-use policy regressions.
-//!
-//! The behaviour these pin lives in autonomy.rs and the residents seam, which
-//! already own the trade, gift, and delivery candidate generators. The tests
-//! stayed behind in main.rs's inline module, where they spent the same line
-//! budget as production code without sitting beside the code they describe.
-//!
-//! Moved verbatim from `main.rs`: no test, assertion, or fixture changed.
-
 use super::*;
 
 #[test]
@@ -17,7 +8,6 @@ fn legacy_item_kind_restores_as_a_trinket_with_its_physical_state() {
         .iter_mut()
         .find(|item| item.id == THREADBARE_MAP_SCRAP_ITEM_ID)
         .unwrap();
-    // Value 3 and the old source spelling are durable compatibility inputs.
     item.kind = 3;
     item.charges = 0;
     let location_id = item.location_id;

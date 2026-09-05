@@ -223,7 +223,6 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
   for (const [index, line] of indexLines.entries()) {
     const assignment = line.match(/\bmodalSummary:(.*)$/);
     if (!assignment) continue;
-    // Required authority and input-boundary disclosures may opt out explicitly.
     if (indexLines[index - 1]?.includes("writing-register: allow-long-modal-summary")) continue;
     const literal = assignment[1].match(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`([^`]*)`/);
     if (literal) {
@@ -244,8 +243,6 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
 }
 
 function reportGenreAdvisories(content) {
-  // Case-sensitive: gothic diction is a lowercase phenomenon; capitalized
-  // matches are proper nouns (the Dark Abyss is a place, not a mood).
   const gothicVocabulary = [
     ["whisper", /\bwhisper\b/],
     ["eternal", /\beternal\b/],
@@ -263,8 +260,6 @@ function reportGenreAdvisories(content) {
     ["deterministic", /\bdeterministic\b/i],
   ];
 
-  // Both advisories scan prose fields only: enum/id fields (rarity "seed",
-  // source names) and steering fields (persona) are not player-facing prose.
   const proseFields = new Set([
     ...environmentRegisterFields,
     "memory",
@@ -275,7 +270,6 @@ function reportGenreAdvisories(content) {
     "discovery_text",
     "text",
   ]);
-  // Accepted existing lines; the words stay watched in new content.
   const advisoryAllowlist = new Set([
     "Tall shelves and a deep hush.",
     "Stone arches and a deep hush.",
@@ -524,9 +518,6 @@ const mountedLootDeliveryTags = new Set();
 const mountedBuildingCapabilities = new Set();
 const mountedBuildingRecipeTags = new Set();
 const mountedBuildingArchetypes = [];
-// Items a discovery slot may reveal. These are authored unplaced -- the kernel's
-// reveal requires holder 0 and location 0 -- so they are the only items allowed
-// to name no location. Anything else unplaced is a broken reference.
 const discoveryHiddenItemIds = new Set();
 for (const pack of packs) {
   const discovery = pack.extensions?.["x-cosyworld-discovery-slots"];
@@ -2137,7 +2128,6 @@ for (const policy of manifest.pack_lifecycle?.unmount ?? []) {
 }
 const publicReachableLocationIds = new Set();
 if (worldBearingPacks.length === 0 && locationIds.size === 0) {
-  // A services-only composition intentionally has no playable entry point.
 } else if (!has(locationIds, entryLocationId)) {
   fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
 } else if (gateByLocationId.has(entryLocationId)) {

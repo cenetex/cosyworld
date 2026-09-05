@@ -454,10 +454,6 @@ fn moderation_report_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Moder
     })
 }
 
-// ---------------------------------------------------------------------------
-// HTTP handlers and auth (extracted from main.rs)
-// ---------------------------------------------------------------------------
-
 #[derive(Debug, Deserialize)]
 pub(crate) struct ModerationEventsQuery {
     pub(crate) after: Option<u64>,

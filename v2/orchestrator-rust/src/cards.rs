@@ -36,8 +36,6 @@ pub(super) struct ActionHandEntryView {
     pub(super) entity_id: u64,
     pub(super) label: String,
     pub(super) offer_ids: Vec<String>,
-    // The first exact action remains an internal representative for resident
-    // planning and older command paths. It is not the noun card's identity.
     pub(super) offer_id: String,
     pub(super) kind: String,
     pub(super) intention: String,
@@ -229,8 +227,6 @@ impl RuntimeWorld {
                 && item.holder_actor_id == 0
                 && item.location_id == 0
             {
-                // Version 15 and older used an impossible World placement as
-                // the hidden-item sentinel. Normalize it once on load.
                 item.zone = CW_CARD_ZONE_HIDDEN;
             }
             if item.zone != CW_CARD_ZONE_CONTAINED {

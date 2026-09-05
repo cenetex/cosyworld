@@ -605,8 +605,6 @@ async fn complete_daily_journal_page(
     };
     let fallback = fallback_daily_journal_entry(&page);
     let entry = if let Some(config) = state.ai_config.as_ref().as_ref() {
-        // Exact chat excerpts stay in the player's journal view and are never
-        // forwarded to the configured writing service.
         let evidence = daily_journal_ai_evidence(&page);
         let (system, user) = daily_journal_messages(
             &page.avatar_name,

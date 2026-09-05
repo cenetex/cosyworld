@@ -1,39 +1,5 @@
-//! Projection mutation context and declared write sets.
-//!
-//! `ProjectionMutation` is the write API for the projection state that lives
-//! beside the deterministic kernel: the `RuntimeWorld` maps that the C world
-//! does not model but that must still survive journal replay and snapshot
-//! round trips. `RuntimeWorld::apply_projection_mutations` is its interpreter.
-//!
-//! Two things live here.
-//!
-//! [`ProjectionContext`] carries what every handler needs besides
-//! `&mut RuntimeWorld`, so handlers take one borrow instead of a growing
-//! positional argument list.
-//!
-//! [`DeclaredWrites`] lets a mutation payload state which projection state it
-//! may touch. The declaration is an upper bound, not an exact set, and it is
-//! enforced by test rather than trusted: handlers delegate through several
-//! layers, so a transitive write set cannot be read off the source by hand.
-//! `projection_write_set_tests` applies each mutation to a seeded world and
-//! fails if anything outside the declaration changed.
-//!
-//! Declaring writes is worth the line it costs because the coupling is
-//! otherwise invisible. `SetActorSafety` looks like it sets safety flags; it
-//! also invalidates pending transfer offers and gift auto-accept policies. That
-//! kind of reach is what makes moving these handlers risky, and a declared,
-//! enforced write set is what makes it safe.
-
 use super::*;
 
-/// A durable projection field, named by its `RuntimeSnapshot` key.
-///
-/// Write sets are expressed in snapshot terms because the snapshot is the
-/// surface that has to survive replay; a mutation that changes state outside
-/// the snapshot changes nothing a restart would remember.
-// Keys and context fields are consumed as the remaining variants are reshaped;
-// until then some are declared but unread. Kept deliberately rather than added
-// piecemeal so every reshape is a copy of one pattern.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) struct StateKey(pub(super) &'static str);
@@ -59,9 +25,6 @@ impl StateKey {
     pub(super) const CALLINGS: Self = Self("callings");
     pub(super) const SKILLS: Self = Self("skills");
     pub(super) const BONDS: Self = Self("bonds");
-    /// Appending an event is itself durable projection state. Any handler that
-    /// returns events writes these two, which is easy to miss by inspection and
-    /// is why the declaration is derived from a run rather than from reading.
     pub(super) const EVENT_LOG: Self = Self("event_log");
     pub(super) const NEXT_EVENT_SEQ: Self = Self("next_event_seq");
 
@@ -70,21 +33,13 @@ impl StateKey {
     }
 }
 
-/// Facts about the journal record being applied.
-///
-/// Live commits and replayed records take the same path; what differs is the
-/// record, so these belong to the record rather than to a runtime mode.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub(super) struct RecordProvenance<'a> {
-    /// Records written before `JOURNAL_RECORD_VERSION` predate generated
-    /// identity binding and may backfill it.
     pub(super) allow_legacy_generated_identity_backfill: bool,
-    /// The worldpack bundle hash recorded with this record.
     pub(super) historical_bundle_hash: &'a str,
 }
 
-/// Everything a projection handler needs besides `&mut RuntimeWorld`.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub(super) struct ProjectionContext<'a> {
@@ -100,18 +55,11 @@ impl<'a> ProjectionContext<'a> {
     }
 }
 
-/// A mutation payload that states which projection state it may write.
-///
-/// This is a compile-time marker with an associated constant. It introduces no
-/// dynamic dispatch: `ProjectionMutation` stays a closed enum matched
-/// exhaustively in list order, which is what journal replay determinism
-/// depends on.
 #[allow(dead_code)]
 pub(super) trait DeclaredWrites {
     const WRITES: &'static [StateKey];
 }
 
-/// `ProjectionMutation::ResolveTransferOffer`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ResolveTransferOffer {
     pub(super) offer_id: String,
@@ -135,7 +83,6 @@ impl ResolveTransferOffer {
     }
 }
 
-/// `ProjectionMutation::ConsumeGiftAutoAccept`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ConsumeGiftAutoAccept {
     pub(super) policy_id: String,
@@ -153,7 +100,6 @@ impl ConsumeGiftAutoAccept {
     }
 }
 
-/// `ProjectionMutation::SetItemEquipped`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetItemEquipped {
     pub(super) item_id: u64,
@@ -185,14 +131,6 @@ mod projection_write_set_tests {
     use super::*;
     use serde_json::{json, Value};
 
-    /// `ProjectionMutation` is `#[serde(tag = "kind")]` and is persisted inside
-    /// `JournalRecord`, so its JSON is a durable wire format, not an
-    /// implementation detail. Reshaping a variant from inline named fields to a
-    /// newtype payload must keep that encoding byte-identical or every journal
-    /// written before the change becomes unreadable.
-    ///
-    /// These literals are the encoding produced by the pre-reshape enum. They
-    /// are the contract; if a change makes them fail, the change breaks replay.
     #[test]
     fn reshaped_variants_keep_their_journal_encoding() {
         let cases: Vec<(ProjectionMutation, Value)> = vec![
@@ -456,7 +394,6 @@ mod projection_write_set_tests {
                 encoded, expected,
                 "journal encoding changed for {mutation:?}; existing journals would not replay",
             );
-            // A journal is read back, not just written.
             let decoded: ProjectionMutation =
                 serde_json::from_value(expected).expect("mutation round-trips from its encoding");
             assert_eq!(
@@ -466,14 +403,6 @@ mod projection_write_set_tests {
         }
     }
 
-    /// The durable projection keys touched by applying `mutation` to `world`.
-    ///
-    /// Snapshot terms, because the snapshot is what a restart remembers.
-    /// Returns the durable keys the mutation changed, plus the snapshot it
-    /// produced. The snapshot comes back because declared keys are validated
-    /// against it: `RuntimeSnapshot` skips empty collections when serializing,
-    /// so a field that starts empty is simply absent from a seeded world's JSON
-    /// and a correct declaration naming it would be rejected as unknown.
     fn changed_keys(
         world: &mut RuntimeWorld,
         apply: impl FnOnce(&mut RuntimeWorld),
@@ -500,17 +429,11 @@ mod projection_write_set_tests {
         declared: &[StateKey],
         label: &str,
     ) {
-        // A mutation that changed nothing satisfies containment trivially and
-        // would let a wrong declaration pass. Every fixture must exercise the
-        // handler for real.
         assert!(
             !changed.is_empty(),
             "{label}: fixture produced no durable change, so its write set is untested",
         );
         let allowed: Vec<&str> = declared.iter().map(|key| key.snapshot_key()).collect();
-        // Every declared key must name a real snapshot field, or the
-        // declaration is checking nothing. Validate against the post-mutation
-        // snapshot: a seeded world omits fields that are still empty.
         for key in &allowed {
             assert!(
                 snapshot.get(key).is_some(),
@@ -570,7 +493,6 @@ mod projection_write_set_tests {
             mutation.apply(world, &ctx);
         });
 
-        // The mutation must actually do something, or containment is vacuous.
         assert_eq!(
             world.transfer_offers["offer-1"].status,
             TransferOfferStatus::Accepted,
@@ -625,8 +547,6 @@ mod projection_write_set_tests {
     #[test]
     fn set_item_equipped_writes_only_its_declared_state() {
         let mut world = RuntimeWorld::seeded();
-        // Same fixture shape the playable-core equip tests use: the actor must
-        // actually hold the item, carried, before equipping does anything.
         let item = world
             .world
             .items
@@ -643,9 +563,6 @@ mod projection_write_set_tests {
             actor_id: 5000,
             ..CwAction::default()
         };
-        // Equipping reaches through item lookup, zone assignment, and deck
-        // events. The declaration is an upper bound over that whole reach,
-        // which is why it is checked rather than read off the source.
         let mutation = SetItemEquipped {
             item_id: 2012,
             equipped: true,

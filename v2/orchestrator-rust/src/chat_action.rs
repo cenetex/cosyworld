@@ -611,10 +611,6 @@ pub(super) async fn complete_queued_orb_chat_attempt(
     if terminal_status_already_committed {
         return Ok(());
     }
-    // A prior attempt may have reached a terminal context decision but failed
-    // while persisting its player-visible status. Preserve that decision in
-    // the durable job error and retry only the status write: reevaluating a
-    // recovered room would otherwise pay for a second, now-invalid inference.
     if let Some(rejection) = actor_job
         .and_then(|job| job.last_error.as_deref())
         .and_then(pending_chat_context_rejection)
@@ -3057,10 +3053,6 @@ mod tests {
         let _ = fs::remove_file(event_store_path);
     }
 
-    /// The scripted exchange the fake provider plays back, in order. Turn
-    /// selection reads the transcript already in the prompt rather than a call
-    /// counter, because voice routing asks the provider more than once per
-    /// turn and then ranks the certified candidates.
     const CHAT_SCRIPT: [&str; 4] = [
         "I found a quiet minute. How is the cottage treating you?",
         "Kindly enough, though the kettle has opinions about punctuality.",
@@ -3079,14 +3071,6 @@ mod tests {
                 let requests = requests.clone();
                 move |Json(request): Json<serde_json::Value>| {
                     calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    // Voice routing certifies and ranks several candidates per
-                    // turn, so a scripted reply cannot key off the call count.
-                    // Answer the turn the prompt is actually asking for: each
-                    // committed line adds one "said to" row to the transcript.
-                    // Voice routing certifies and ranks several candidates per
-                    // turn, so a scripted reply cannot key off the call count.
-                    // Answer whichever turn the transcript has not reached yet;
-                    // the prompt already carries every committed line.
                     let payload = request.to_string();
                     let index = CHAT_SCRIPT
                         .iter()
@@ -3474,9 +3458,6 @@ mod tests {
         state.ai_config = ai_config;
 
         fail_after_opening.store(false, std::sync::atomic::Ordering::SeqCst);
-        // The failed resident route opened the model's two-second health
-        // cooldown. The durable worker uses the same cooldown-sized retry
-        // floor; wait it out here before invoking the next attempt directly.
         tokio::time::sleep(Duration::from_millis(2_100)).await;
         complete_queued_orb_chat_attempt(
             &state,

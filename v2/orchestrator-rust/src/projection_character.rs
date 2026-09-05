@@ -1,19 +1,6 @@
-//! Payload structs for the character-progression `ProjectionMutation`
-//! variants: class selection, calling revision, and bond deepening/revision.
-//!
-//! This is the same reshape as `projection.rs` applied to a different batch
-//! of variants — see that module's doc comment and ADR 0008 for the pattern
-//! and its rationale. Payloads live in this file rather than `projection.rs`
-//! so that reshaping different variants in parallel does not collide on the
-//! same file.
-
 use super::*;
-// `Type::WRITES` resolves through this trait, so it must be in scope; the
-// `impl` headers below spell the trait name bare rather than fully qualified
-// so this import stays live outside `#[cfg(test)]` too.
 use projection::DeclaredWrites;
 
-/// `ProjectionMutation::ChooseClass`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ChooseClass {
     pub(super) profile_id: String,
@@ -31,10 +18,6 @@ impl DeclaredWrites for ChooseClass {
         projection::StateKey::CHARACTER_IDENTITIES,
         projection::StateKey::CALLINGS,
         projection::StateKey::SKILLS,
-        // `snapshot_actor_rules_facets` embeds the current event revision, so
-        // it reads as changed whenever next_event_seq moves, which every
-        // event-appending handler does. See ADR 0008 and SetItemEquipped's
-        // declaration in projection.rs for the same reach.
         projection::StateKey::ACTOR_RULES_FACETS,
         projection::StateKey::EVENT_LOG,
         projection::StateKey::NEXT_EVENT_SEQ,
@@ -59,7 +42,6 @@ impl ChooseClass {
     }
 }
 
-/// `ProjectionMutation::ReviseCalling`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ReviseCalling {
     pub(super) statement: String,
@@ -71,9 +53,6 @@ impl DeclaredWrites for ReviseCalling {
     const WRITES: &'static [projection::StateKey] = &[
         projection::StateKey::CALLINGS,
         projection::StateKey::ADVANCEMENT_SPENDS,
-        // See ChooseClass's declaration above: appending an event moves
-        // next_event_seq, which changes the embedded revision in every
-        // actor's snapshotted rules facet.
         projection::StateKey::ACTOR_RULES_FACETS,
         projection::StateKey::EVENT_LOG,
         projection::StateKey::NEXT_EVENT_SEQ,
@@ -90,7 +69,6 @@ impl ReviseCalling {
     }
 }
 
-/// `ProjectionMutation::DeepenBond`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct DeepenBond {
     pub(super) target_actor_id: u64,
@@ -104,9 +82,6 @@ impl DeclaredWrites for DeepenBond {
         projection::StateKey::BONDS,
         projection::StateKey::LEDGER_MARKS,
         projection::StateKey::RPG_CLAIMS,
-        // See ChooseClass's declaration above: appending an event moves
-        // next_event_seq, which changes the embedded revision in every
-        // actor's snapshotted rules facet.
         projection::StateKey::ACTOR_RULES_FACETS,
         projection::StateKey::EVENT_LOG,
         projection::StateKey::NEXT_EVENT_SEQ,
@@ -119,8 +94,6 @@ impl DeepenBond {
         world: &mut RuntimeWorld,
         ctx: &projection::ProjectionContext<'_>,
     ) -> Vec<EventView> {
-        // Mirrors the pre-reshape call site: the source event seq is read
-        // before the handler runs and appends its own events.
         let source_event_seq = world.world.next_event_seq;
         world.deepen_bond_from_event(
             ctx.actor_id(),
@@ -133,7 +106,6 @@ impl DeepenBond {
     }
 }
 
-/// `ProjectionMutation::ReviseBond`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ReviseBond {
     pub(super) target_actor_id: u64,
@@ -146,9 +118,6 @@ impl DeclaredWrites for ReviseBond {
     const WRITES: &'static [projection::StateKey] = &[
         projection::StateKey::BONDS,
         projection::StateKey::ADVANCEMENT_SPENDS,
-        // See ChooseClass's declaration above: appending an event moves
-        // next_event_seq, which changes the embedded revision in every
-        // actor's snapshotted rules facet.
         projection::StateKey::ACTOR_RULES_FACETS,
         projection::StateKey::EVENT_LOG,
         projection::StateKey::NEXT_EVENT_SEQ,
@@ -176,11 +145,6 @@ mod projection_character_write_set_tests {
     use super::*;
     use serde_json::Value;
 
-    /// Local copy of `projection::projection_write_set_tests::changed_keys`.
-    /// That helper is private to `projection.rs`'s test module, and this file
-    /// exists precisely so parallel reshapes do not share edits to
-    /// `projection.rs`; duplicating the small helper avoids reopening that
-    /// file's test internals.
     fn changed_keys(
         world: &mut RuntimeWorld,
         apply: impl FnOnce(&mut RuntimeWorld),
@@ -205,9 +169,6 @@ mod projection_character_write_set_tests {
         declared: &[projection::StateKey],
         label: &str,
     ) {
-        // A mutation that changed nothing satisfies containment trivially and
-        // would let a wrong declaration pass. Every fixture must exercise the
-        // handler for real.
         assert!(
             !changed.is_empty(),
             "{label}: fixture produced no durable change, so its write set is untested",
@@ -268,8 +229,6 @@ mod projection_character_write_set_tests {
             actor_id: RATI_ACTOR_ID,
             ..CwAction::default()
         };
-        // A starting skill with a known label exercises the skill-stepping
-        // reach too, not just the identity and calling writes.
         let mutation = ChooseClass {
             profile_id: "test-profile".to_string(),
             class_id: "lantern-warden".to_string(),
@@ -309,8 +268,6 @@ mod projection_character_write_set_tests {
     #[test]
     fn revise_calling_writes_its_declared_state() {
         let mut world = RuntimeWorld::seeded();
-        // A banked, unspent ledger mark funds one advancement point, which is
-        // what revise_calling's cost gate requires.
         world.ledger_marks.insert(
             "mark-1".to_string(),
             VisitLedgerMarkState {

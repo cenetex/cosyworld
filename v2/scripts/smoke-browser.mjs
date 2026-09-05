@@ -53,7 +53,6 @@ function loadPlaywright() {
     try {
       return createRequire(candidate)("playwright");
     } catch {
-      // Try the next workspace package.
     }
   }
   throw new Error(
@@ -1042,8 +1041,6 @@ async function main() {
             handoff_key: "room:1:round:2:activation:11:actor:9001",
           },
         };
-        // Ordinary-room initiative is internal. Model the refreshed server
-        // hand directly instead of hiding it behind another resident's seat.
         actions = visible;
         renderCommands();
         const waitingProgress = $("turn-rope-toggle");
@@ -1686,8 +1683,6 @@ async function main() {
         && guide.roomThreadHand.buttonCue === "",
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
-    // Initiative limits action, not inspection. The current hand stays dealt
-    // while Scene Meld and Think enforce the ordered floor.
     assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "look", `an explicitly ordered scene should keep an inspectable fallback hand: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.some((action) => action.label === "notice" && action.focusKey === "actor:1001"), `another player's turn should leave the projected hand available to inspect: ${JSON.stringify(guide)}`);
@@ -2328,9 +2323,6 @@ async function main() {
       }));
       try {
         const certified = project(fakeState);
-        // The same room with the certificate withheld. A bare room affordance
-        // must not become a card: the server refuses an offerless search, so
-        // drawing one hands the player something that cannot be played.
         const uncertifiedState = {
           ...fakeState,
           action_offers: fakeState.action_offers.filter((offer) => offer.kind !== "search"),
@@ -7312,10 +7304,6 @@ async function main() {
     );
     assert(/Moonlit Echo slips clear/.test(result.clashMarkup) && /not this time/.test(result.clashMarkup), `combat chance feedback should read as a clash, not a calculation: ${JSON.stringify(result)}`);
     assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch's Ashwood Practice Blade. Strength attack · d20 4 +2 = 6 vs AC 13.", `room memory should preserve the authoritative combat method in story language: ${JSON.stringify(result)}`);
-    // One disclosure rule for every d20 the kernel resolves. An attack and an
-    // ordinary check must not disagree about whether chance is legible, so the
-    // attack exposes the same arithmetic the non-combat assertion above pins,
-    // against AC rather than DC. See issue #464.
     assert(/Strength attack · d20 4 \+2 = 6 vs AC 13/.test(result.clashMarkup), `combat chance feedback should expose the same exact arithmetic as a non-combat check: ${JSON.stringify(result)}`);
     assert(!/\bDC\b/.test(result.clashMarkup), `an attack resolves against AC, never a DC: ${JSON.stringify(result)}`);
     assert(result.combatHitText === "Ashwood Practice Blade breaks through Moonlit Echo's guard.", `combat hits should preserve the authoritative method without damage accounting: ${JSON.stringify(result)}`);
@@ -7882,8 +7870,6 @@ async function main() {
         && communityArtStates.contributedPending.copy.includes("1 more Orb to unlock"),
       `a player who already contributed should be able to finish filling the slot: ${JSON.stringify(communityArtStates)}`,
     );
-    // Once funded, the panel disappears. The user cannot act on any later
-    // portrait step, so none of those steps should be visible.
     assert(
       communityArtStates.generating.button === ""
         && communityArtStates.generating.copy === "",
@@ -8077,9 +8063,6 @@ async function main() {
         && communityArtRetryLifecycle.generating.copy === "",
       `authoritative state should replace the filling latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
-    // A dropped request leaves the Orb unspent, so the only truthful report is
-    // that the slot is still fillable. Anything else asks the player to act on
-    // a workshop they do not operate.
     for (const [failureKind, failure] of [
       ["rejected fetch", communityArtRetryLifecycle.rejectedFetch],
       ["non-JSON response", communityArtRetryLifecycle.nonJsonFailure],
@@ -11741,9 +11724,6 @@ async function main() {
     ), null, { timeout: 35_000 });
     if (body?.ok !== true) {
       const responsePath = new URL(response.url()).pathname;
-      // A knockout can clear or replace the active browser actor while the
-      // rejected action is settling. Classify the response against the actor
-      // that actually submitted the certified action, not mutable UI state.
       const currentActorId = Number(submission.actorId || 0);
       const playerDefeated = (body?.events || []).some((event) => (
         event?.type === "combat.knockout"
@@ -12074,9 +12054,6 @@ async function main() {
         && String(offer?.target?.label || "") === name
     ));
     if (!destinationIsDirect && !journeyTargetsDestination && !liveHandTargetsDestination) {
-      // A completed long-route journey leaves its generated waypoints in the
-      // world. Later trips must follow those adjacent exits instead of looking
-      // for a card that still names the authored endpoint.
       await travelPathTo(name);
       return;
     }
@@ -12437,10 +12414,6 @@ async function main() {
     if (destination.currentName !== destination.destinationName) {
       await travelPathTo(destination.destinationName);
     }
-    // `/world` is authoritative for resident movement, while the action hand can
-    // still reflect the preceding room projection. Reconcile it before deciding
-    // whether the resident exposes Chat; otherwise a resident already in the
-    // current room can be missed repeatedly without another turn advancing.
     await reconcileActionHand();
     return destination;
   }
@@ -13827,9 +13800,6 @@ async function main() {
       );
     }
     const submitReport = async () => {
-      // The envelope binds the reporter's observed actor version. Refresh
-      // through the browser's normal state path immediately before building
-      // this form, since world activity may advance it between smoke steps.
       await refreshReportSubmissionState();
       await page.evaluate((targetActorId) => {
         const card = cardForActor(targetActorId);
@@ -15713,8 +15683,6 @@ async function main() {
   await assertNoComposerOrDebugChrome();
   await assertChatMarkdownTypography();
   await assertThoughtsStaySeparateFromMessages();
-  // Before an avatar exists there are core and optional campaign onboarding
-  // commands, rather than a dealt Story Hand. The three slots begin in play.
   await assertActionBarCapped("avatar gate", 2);
   const avatarGatePrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
   assert(/\bbegin\b/.test(avatarGatePrimaryAria), "first command should begin avatar creation");
@@ -15750,8 +15718,6 @@ async function main() {
       `an inferred opening welcome should be visibly warm and attributed to Rati: ${JSON.stringify(openingWelcome)}`,
     );
   }
-  // A fresh seed has not necessarily banked the advancement that authorizes
-  // Chat, so a sparse authoritative opening Story Hand may contain fewer than three cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
   await assertStalePassRefreshesAndRotatesReceipt();
@@ -16857,9 +16823,6 @@ async function main() {
           stopWhen: async () => (await moonlitProjectStatus()).completed,
         });
         if (!completionAction) {
-          // A resident can finish the shared project while this hand is being
-          // drawn. Confirm that completion is still authoritative before
-          // leaving the recovery loop; otherwise refresh and keep helping.
           if ((await moonlitProjectStatus()).completed) break;
           await reconcileActionHand();
           continue;
@@ -17317,10 +17280,6 @@ async function main() {
 
   await browser.close();
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));
-  // Playwright's Chromium transport can remain referenced after a successful
-  // close on some Node/macOS combinations. The journey has completed and the
-  // browser has been asked to close, so finish deterministically and let the
-  // browser-check wrapper tear down its isolated server/runtime.
   process.exit(0);
 }
 

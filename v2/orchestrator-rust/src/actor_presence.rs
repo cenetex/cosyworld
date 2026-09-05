@@ -299,8 +299,6 @@ pub(super) async fn renew_avatar_session(
             .map(|actor| runtime.actor_view(actor))
     };
     let Some(actor) = actor else {
-        // A terminal or missing actor cannot be resurrected by credential
-        // renewal. Character creation is a separate, authoritative choice.
         return rejected(409);
     };
 
@@ -409,9 +407,6 @@ impl RuntimeWorld {
             return Some(create_avatar_primary_action());
         };
 
-        // Knockout keeps the body in the world. A linked account summons a
-        // rescuer; anyone else abandons the fallen avatar to live on as a
-        // resident and begins again.
         if Self::actor_is_present(actor) && !Self::actor_can_act(actor) {
             return Some(abandon_avatar_primary_action());
         }
@@ -501,10 +496,6 @@ pub(super) fn abandon_avatar_primary_action() -> PrimaryAction {
     }
 }
 
-/// Avatar lifecycle actions answer "who are you playing", not "what can this
-/// avatar do here". Offer filtering may empty the hand of a downed or absent
-/// avatar, and that must never replace the lifecycle path with Wait: doing so
-/// strands the player with no way back into play.
 pub(super) fn primary_action_is_avatar_lifecycle(kind: &str) -> bool {
     matches!(
         kind,
@@ -512,9 +503,6 @@ pub(super) fn primary_action_is_avatar_lifecycle(kind: &str) -> bool {
     )
 }
 
-/// A knocked-out avatar holds a valid session and no legal action. Telling
-/// that player to reconnect sends them to repair something that is not broken,
-/// so the downed case answers with the way back into play instead.
 pub(super) fn actor_refusal_message(runtime: &RuntimeWorld, actor_id: u64) -> &'static str {
     let downed = runtime.actor_by_id(actor_id).is_some_and(|actor| {
         RuntimeWorld::actor_is_present(actor) && !RuntimeWorld::actor_can_act(actor)
@@ -590,7 +578,6 @@ impl RuntimeWorld {
     }
 }
 
-// --- moved from main.rs: autonomy credit/tick boundaries ---
 impl crate::RuntimeWorld {
     pub(crate) fn ensure_actor_autonomy(&mut self) {
         let actors = self.world.actors[..self.world.actor_count].to_vec();
@@ -943,7 +930,6 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Ended Tale");
 
-        // Alive, the avatar receives ordinary play.
         let alive = runtime.state_response_with_presence(
             Some(5000),
             &AccessContext::default(),
@@ -961,10 +947,6 @@ mod tests {
             .expect("the avatar exists");
         actor.status = CW_ACTOR_DEAD;
 
-        // Dead, the avatar still resolves through actor_by_id, so it used to
-        // fall through to ordinary actions: the client showed "this tale has
-        // ended" while the hand dealt Notice, and taking it failed as a stale
-        // offer with no way forward.
         let ended = runtime.state_response_with_presence(
             Some(5000),
             &AccessContext::default(),
@@ -999,8 +981,6 @@ mod tests {
             .expect("the avatar exists");
         actor.status = CW_ACTOR_KNOCKED_OUT;
 
-        // The body and its canonical identity stay in the world, but the
-        // player holding it has no legal mutation until rescue or recovery.
         let downed = runtime.state_response_with_presence(
             Some(5000),
             &AccessContext::default(),
@@ -1023,11 +1003,6 @@ mod tests {
         );
     }
 
-    /// The configured projection is what production serves, and it filters
-    /// offers by the model routes an operator enabled. That filter used to
-    /// replace an empty hand with a disabled Wait, which erased the release
-    /// path from every knocked-out player's screen while the unconfigured
-    /// projection kept passing.
     #[tokio::test]
     async fn the_configured_projection_keeps_the_release_path_for_a_downed_avatar() {
         let mut runtime = RuntimeWorld::seeded();
@@ -1140,8 +1115,6 @@ mod tests {
             .items
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
-        // Present and observable does not mean playable. The one available
-        // lifecycle action abandons the body without removing it.
         assert_eq!(observer_view.primary_action.kind, "abandon_avatar");
         assert!(!observer_view.primary_action.disabled);
         assert!(observer_view.action_offers.is_empty());
@@ -1813,11 +1786,6 @@ mod tests {
         }));
     }
 
-    /// The planner, the projection, and the route were all correct while the
-    /// endpoint refused every real attempt: its authorization gate required an
-    /// ACTIVE actor, and only a knocked-out one may abandon. Driving the
-    /// handler is the only way to catch that -- planning-level coverage passes
-    /// either way.
     #[tokio::test]
     async fn the_abandon_endpoint_accepts_a_knocked_out_avatar_holding_its_session() {
         let mut runtime = RuntimeWorld::seeded();
@@ -1927,9 +1895,6 @@ mod tests {
             _ => panic!("expected AbandonAvatar mutation"),
         }
 
-        // Commit the record exactly the way the endpoint journals it. The
-        // abandon effect is projection-only; a record that reached the C
-        // kernel would be rejected and poison replay.
         let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
         record.bind_offer_kind("abandon_avatar");
         record.projection_mutations.push(mutation);
@@ -1942,7 +1907,6 @@ mod tests {
             .any(|event| event.type_name == "avatar.abandoned"));
         assert_eq!(runtime.world.tick, tick_before + 1);
 
-        // Re-applying the same committed record is a settled no-op.
         let (status, events) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
         assert!(
@@ -1972,10 +1936,6 @@ mod tests {
             actor.status = CW_ACTOR_KNOCKED_OUT;
         }
 
-        // The first release of Abandon Avatar journalled kind 41, which the C
-        // kernel never knew: every such row was rejected at commit time, so
-        // its live effect was "nothing happened". Replay must preserve that
-        // history instead of failing the boot or applying a late effect.
         let mut record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_ABANDON_AVATAR,
@@ -1994,8 +1954,6 @@ mod tests {
         assert!(runtime.actor_control_mode(5000).is_direct_input());
         assert_eq!(runtime.world.tick, tick_before);
 
-        // Even once the world has moved on (the body recovered), the settled
-        // row still replays instead of bricking the journal.
         {
             let actor = runtime
                 .world
@@ -2094,9 +2052,6 @@ mod tests {
         record.projection_mutations.push(mutation);
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 
-        // A later cycle returns the released body to direct control (the
-        // rescue-inhabit path can do this). Planning must refuse instead of
-        // journalling a record whose claim is already spent.
         runtime.actor_autonomy.entry(5000).or_default().control_mode =
             ActorControlMode::DirectInput;
         let refusal = runtime
@@ -2160,8 +2115,6 @@ mod tests {
                     .0,
                 CW_OK
             );
-            // The knockout is world state the snapshot carries; the journal
-            // tail below must replay on top of it.
             {
                 let world = &mut runtime.world;
                 let actor = world
@@ -2192,8 +2145,6 @@ mod tests {
                 .iter()
                 .any(|event| event.type_name == "avatar.abandoned"));
 
-            // A legacy kind-41 row from the broken first release must also
-            // journal and replay as a settled no-op instead of bricking boot.
             let mut legacy = JournalRecord::new(
                 CwAction {
                     kind: CW_ACTION_ABANDON_AVATAR,

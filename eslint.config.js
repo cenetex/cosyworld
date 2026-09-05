@@ -1,5 +1,3 @@
-// Flat config for ESLint v9
-// Keep it lightweight and non-blocking by default.
 
 export default [
   {

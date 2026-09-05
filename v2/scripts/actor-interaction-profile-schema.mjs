@@ -62,9 +62,6 @@ const runtimeAdapterSupportedKinds = new Set([
   "voice_chat",
 ]);
 
-// Pinned from the provider's public model inventory on 2026-08-08. Models
-// absent from this map did not publish an authoritative supported voice, so
-// their Speak profile stays disabled instead of guessing a provider default.
 export const TTS_DEFAULT_VOICES = Object.freeze({
   "canopylabs/orpheus-3b-0.1-ft": "tara",
   "deepgram/aura-2": "aura-2-thalia-en",

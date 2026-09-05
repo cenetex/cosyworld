@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 mod rejections;
 pub(crate) use rejections::*;
 
-// These mirror the compiled capacities in core-c/include/cosy_kernel.h. They
-// are part of the cw_world layout, so the two files must move together.
 pub const CW_MAX_ACTORS: usize = 2048;
 pub const CW_MAX_ITEMS: usize = 2048;
 pub const CW_MAX_LOCATIONS: usize = 2048;
@@ -30,9 +28,6 @@ pub const CW_MAX_GATE_ACTOR_STATES: usize = 128;
 pub const CW_MAX_GATE_CLAIMS: usize = 128;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-// Kernel version 9 is reserved by #411 for project-push ABI state.
-// Version 15 widens the actor array; sizeof(cw_world) changed.
-// Version 16 adds explicit hidden-item placement and item transfer policy.
 pub const CW_KERNEL_VERSION: u32 = 16;
 
 pub const CW_OK: u32 = 0;
@@ -187,11 +182,7 @@ pub const CW_ACTION_UNLOCK_EXIT: u8 = 28;
 pub const CW_ACTION_REVEAL_ITEM: u8 = 29;
 pub const CW_ACTION_RULES_UTILIZE_ITEM: u8 = 30;
 pub const CW_ACTION_PROJECT_PUSH: u8 = 31;
-// Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH.
 pub const CW_ACTION_REST: u8 = 32;
-// Terminal closure for an encounter that can never advance again. Committed
-// only by the focused-encounter scheduler after bounded deterministic recovery
-// failures; see `combat::start_focused_encounter_scheduler`.
 pub const CW_ACTION_COMBAT_ABANDON: u8 = 33;
 pub const CW_ACTION_GATE_TRANSITION: u8 = 34;
 pub const CW_ACTION_FOCUSED_NOTICE_V2: u8 = 35;
@@ -200,12 +191,6 @@ pub const CW_ACTION_STUDY_V2: u8 = 37;
 pub const CW_ACTION_SCOUT_V2: u8 = 38;
 pub const CW_ACTION_COMPLETE_AVATAR_RESCUE: u8 = 39;
 pub const CW_ACTION_REPLACE_AVATAR_RESCUER: u8 = 40;
-// Legacy journal-only code from the broken first release of Abandon Avatar:
-// the C kernel never learned kind 41, so every record written with it was
-// rejected by `cw_world_apply_with_tick` and replay treats those rows as
-// settled no-ops. Never send this to the kernel and never reuse 41 for a
-// real kernel action; abandon records are projection-only (kind
-// CW_ACTION_NONE) and the effect lives in ProjectionMutation::AbandonAvatar.
 pub const CW_ACTION_ABANDON_AVATAR: u8 = 41;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
@@ -243,7 +228,6 @@ pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
 pub const CW_EVENT_EXIT_UNLOCKED: u8 = 39;
 pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
 pub const CW_EVENT_PROJECT_PUSH_RESOLVED: u8 = 41;
-// Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED.
 pub const CW_EVENT_ITEM_REFRESHED: u8 = 42;
 pub const CW_EVENT_GATE_TRANSITION_APPLIED: u8 = 43;
 pub const CW_EVENT_ITEM_INSTALLED: u8 = 44;
@@ -257,9 +241,6 @@ pub const CW_EVENT_AVATAR_RESCUE_COMPLETED: u8 = 51;
 pub const CW_EVENT_AVATAR_RELEASED: u8 = 52;
 pub const CW_EVENT_COMBAT_DEATH: u8 = 53;
 
-// These append-only values mirror the authoritative `CW_REASON_*` enum in
-// core-c. The numeric value remains the replay contract; player-facing copy is
-// derived by the orchestrator and is never written back into a kernel action.
 pub const CW_REASON_INVALID_ACTION: u16 = 1;
 pub const CW_REASON_ACTOR_NOT_FOUND: u16 = 2;
 pub const CW_REASON_ACTOR_INACTIVE: u16 = 3;
@@ -946,11 +927,6 @@ mod tests {
         assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_CAMP);
     }
 
-    /// One world that mounts every authored pack at once currently seeds 589
-    /// actors, 580 locations, and 1269 exits. This pins the headroom the
-    /// topology actually needs rather than each number in isolation, and
-    /// proves the far end of each widened array is addressable through the
-    /// shared struct.
     #[test]
     fn capacity_holds_every_authored_pack_in_one_world() {
         const UNIFIED_SEED_ACTORS: usize = 589;
@@ -959,8 +935,6 @@ mod tests {
         const ACTOR_CAPACITY_SENTINEL_ID: u64 = 9_999_999;
         const ELYSIUM_LAST_LOCATION_ID: u64 = 652_484;
 
-        // One world needs room for generated residents and pathway descendants
-        // beyond its seed, and every location must be able to carry one exit.
         const {
             assert!(CW_MAX_ACTORS >= UNIFIED_SEED_ACTORS * 2);
             assert!(CW_MAX_LOCATIONS >= UNIFIED_SEED_LOCATIONS * 2);

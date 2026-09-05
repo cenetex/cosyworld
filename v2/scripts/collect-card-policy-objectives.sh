@@ -291,8 +291,6 @@ seek_offer() {
       <<<"$state" >/dev/null; then
       return 0
     fi
-    # Prefer the Self slot for Heart-card collection actions such as Chat.
-    # Fall back to any rotatable slot for other custom collection actions.
     think="$(jq -c \
       '([.action_hand.entries[] | select(.slot == "self" and .think.available) | .think]
         + [.action_hand.entries[] | select(.think.available) | .think]) | first' \
@@ -333,8 +331,6 @@ for ((episode = START_EPISODE; episode < OBJECTIVE_COUNT; episode += 1)); do
     exit 1
   fi
 
-  # Optional setup cards run before the labeled objective. This is useful for
-  # custom datasets that require an unlocked card or a carried item.
   if [[ -n "$SETUP_ACTION_SEQUENCE" ]]; then
     for setup_action_kind in "${SETUP_ACTIONS[@]}"; do
       submit_offer "$actor_id" "$actor_session" "$setup_action_kind"

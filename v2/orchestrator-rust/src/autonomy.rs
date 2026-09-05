@@ -1,40 +1,5 @@
 use super::*;
 
-/// Resident desire rank tiers for inter-actor scheduling.
-///
-/// When multiple residents can act in the same tick, their candidate records
-/// are sorted by `(rank, score)` ascending — lower rank means higher priority.
-/// Ties break by score (descending), then actor id, then offer kind, then action
-/// kind, then item/target/destination ids (see `sort_resident_autonomy_candidates`).
-///
-/// The tiers, from most to least urgent:
-///
-/// 0  `USE_ITEM` — urgent self-preservation (healing self or companion).
-/// 1  `CRAFT_MEDICINE` — crafting a hearth tonic when hurt.
-/// 2  `PLANNER_DISCOVERY` — the AI planner explicitly selected a discovery.
-/// 5  `REST` — recovery / clearing a rest tag.
-/// 10 `TRADE` — mutual-benefit item exchange.
-/// 20 `GIVE` — altruistic item transfer.
-/// 30 `USE_FEATURE` — interactive world engagement (e.g. hearth, workbench).
-/// 35 `JOB_CONTRIBUTION` — shared work progress.
-/// 40 `PICK_UP` — item acquisition.
-/// 50 `DROP` — item shedding.
-/// 55 `OPEN` — container / door interaction.
-/// 60 `MOVE` — relocation.
-/// 64 `NOTICE` — social observation (notice_actor, focused_notice).
-/// 65 `SEARCH` — exploration (search, discovery_search).
-/// 66 `CRAFT` — general crafting / discovery_study.
-/// 67 `DISCOVERY_SCOUT` — reconnaissance.
-/// 70 `INFLUENCE` — social impact.
-/// 80 `CHECK` — ability check.
-/// 85 `EXPLORE_PATH` — pathway exploration.
-/// 90 `OTHER` — catch-all for unrecognised offer kinds.
-///
-/// These are separate from the intra-actor cascade in
-/// `resident_economy_autonomy_action`, which uses contextual guards
-/// (waiting_for_player_gift, staying_with_active_job, held healing items) to
-/// pick what a single actor *tries* first. The cascade generates one candidate;
-/// these ranks score it alongside other generated records.
 const RESIDENT_RANK_USE_ITEM: u8 = 0;
 const RESIDENT_RANK_CRAFT_MEDICINE: u8 = 1;
 const RESIDENT_RANK_PLANNER_DISCOVERY: u8 = 2;
@@ -56,17 +21,6 @@ const RESIDENT_RANK_CHECK: u8 = 80;
 const RESIDENT_RANK_EXPLORE_PATH: u8 = 85;
 const RESIDENT_RANK_OTHER: u8 = 90;
 
-/// Closed vocabulary for the offer-kind a resident autonomy record represents.
-///
-/// This is the autonomy-boundary projection of the broader (string-typed,
-/// serialized) `JournalRecord.offer_kind` / `RankedActionOffer.kind` fields.
-/// The conversion happens in [`RuntimeWorld::resident_record_offer_kind`];
-/// callers inside the autonomy system match on this enum instead of comparing
-/// raw strings, so adding a verb is a compiler-checked operation.
-///
-/// Ordering is lexicographic by `as_str()` to preserve the historical string
-/// sort used for candidate tie-breaking in `sort_resident_autonomy_candidates`.
-/// Do not derive `Ord` — the derived discriminant order would change behavior.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ResidentOfferKind {
     UseItem,
@@ -90,8 +44,6 @@ pub(crate) enum ResidentOfferKind {
     ExplorePath,
     Pass,
     Draw,
-    /// Catch-all for kinds the autonomy system does not explicitly rank.
-    /// Retains the original string so tie-break ordering is preserved.
     Other(String),
 }
 
@@ -196,8 +148,6 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return Vec::new();
         }
-        // A planner-selected Pass is a complete certified decision, not a
-        // hint to run another autonomous preference first.
         if let Some(record) = self.resident_pending_planner_pass_record(actor, seed, None) {
             return vec![record];
         }
@@ -449,8 +399,6 @@ impl RuntimeWorld {
                     seed,
                 )
                 .into_actor_consequence(self.world.tick, None);
-                // A resident uses the same finite-hand escape hatch as a player.
-                // This is a turn-consuming pass, never a free redeal.
                 record.bind_offer_kind("pass");
                 record.source_location_id = Some(actor.location_id);
                 record
@@ -568,7 +516,6 @@ impl RuntimeWorld {
     }
 }
 
-// --- moved from main.rs: ripple record/candidate selection ---
 impl RuntimeWorld {
     pub(crate) fn resident_ripple_candidate_ids(&self, context: &RippleContext) -> Vec<u64> {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
@@ -703,27 +650,7 @@ impl RuntimeWorld {
             > 1
     }
 }
-// --- moved from main.rs: autonomy record generation, action selection, intent ---
 impl RuntimeWorld {
-    /// Intra-actor desire cascade: decides what ONE action this resident tries
-    /// first, using contextual guards (not pure rank ordering).
-    ///
-    /// This is distinct from `resident_autonomy_record_priority`, which scores
-    /// records for inter-actor scheduling. The cascade is greedy — it returns
-    /// the first action that passes `fresh_resident_autonomy_action` (which
-    /// validates kernel offers and guards against repeating recent events).
-    ///
-    /// Priority (context-aware, not rank-ordered):
-    /// 1. AI planner's pending proposal (if it matches a legal offer).
-    /// 2. Use a held healing item on self or a hurt companion.
-    /// 3. Mutual trade with a co-present actor.
-    /// 4. Give an item to a co-present actor.
-    /// 5. Move toward a delivery target (unless waiting/staying).
-    /// 6. Pick up a sought item at this location, or move toward its memory.
-    /// 7. Roaming fallback (route choice / search).
-    ///
-    /// `waiting_for_player_gift` and `staying_with_active_job` suppress movement
-    /// and remote seeking so a resident stays near the player.
     pub(crate) fn resident_economy_autonomy_action(&self, actor: CwActor) -> Option<CwAction> {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
@@ -1626,8 +1553,6 @@ impl RuntimeWorld {
         };
         proposed_action.reason = Some(intent.clone());
         AvatarIntentProposal {
-            // Autonomy continuity is not visible dialogue. Spoken reactions are
-            // generated separately through the resident inference path.
             speech: intent.clone(),
             intent: Some(intent.clone()),
             belief: None,
@@ -2314,33 +2239,24 @@ impl RuntimeWorld {
 mod tests {
     use super::*;
 
-    /// Pins the resident desire rank ordering so future retuning is intentional.
-    /// Lower rank = higher priority. If a tier needs to move, this test breaks
-    /// and forces a conscious decision (and an update to the doc comment above).
     #[test]
-    #[allow(clippy::assertions_on_constants)] // intentional: pins compile-time constants
+    #[allow(clippy::assertions_on_constants)]
     fn resident_desire_rank_ordering_is_intentional() {
-        // Urgent self-preservation and planner selection (0-2).
         assert!(RESIDENT_RANK_USE_ITEM < RESIDENT_RANK_CRAFT_MEDICINE);
         assert!(RESIDENT_RANK_CRAFT_MEDICINE < RESIDENT_RANK_PLANNER_DISCOVERY);
-        // Recovery and social exchange (5-20).
         assert!(RESIDENT_RANK_PLANNER_DISCOVERY < RESIDENT_RANK_REST);
         assert!(RESIDENT_RANK_REST < RESIDENT_RANK_TRADE);
         assert!(RESIDENT_RANK_TRADE < RESIDENT_RANK_GIVE);
-        // World engagement and item acquisition (30-40).
         assert!(RESIDENT_RANK_GIVE < RESIDENT_RANK_USE_FEATURE);
         assert!(RESIDENT_RANK_USE_FEATURE < RESIDENT_RANK_JOB_CONTRIBUTION);
         assert!(RESIDENT_RANK_JOB_CONTRIBUTION < RESIDENT_RANK_PICK_UP);
-        // Item management and movement (50-60).
         assert!(RESIDENT_RANK_PICK_UP < RESIDENT_RANK_DROP);
         assert!(RESIDENT_RANK_DROP < RESIDENT_RANK_OPEN);
         assert!(RESIDENT_RANK_OPEN < RESIDENT_RANK_MOVE);
-        // Observation and exploration (64-67).
         assert!(RESIDENT_RANK_MOVE < RESIDENT_RANK_NOTICE);
         assert!(RESIDENT_RANK_NOTICE < RESIDENT_RANK_SEARCH);
         assert!(RESIDENT_RANK_SEARCH < RESIDENT_RANK_CRAFT);
         assert!(RESIDENT_RANK_CRAFT < RESIDENT_RANK_DISCOVERY_SCOUT);
-        // Low-priority actions (70-90).
         assert!(RESIDENT_RANK_DISCOVERY_SCOUT < RESIDENT_RANK_INFLUENCE);
         assert!(RESIDENT_RANK_INFLUENCE < RESIDENT_RANK_CHECK);
         assert!(RESIDENT_RANK_CHECK < RESIDENT_RANK_EXPLORE_PATH);

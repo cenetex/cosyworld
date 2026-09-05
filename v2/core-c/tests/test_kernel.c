@@ -37,9 +37,6 @@ static cw_gate *test_find_gate(cw_world *world, cw_id gate_id) {
 }
 
 static void test_kernel_capacities_are_runtime_sized(void) {
-  /* A world mounting every authored pack seeds 589 actors, 580 locations, and
-   * 1269 exits. Keep at least another seed's worth of room for generated
-   * residents and pathway descendants while the world is live. */
   assert(CW_MAX_ACTORS >= 1178u);
   assert(CW_MAX_ITEMS >= 2048u);
   assert(CW_MAX_LOCATIONS >= 1160u);
@@ -49,8 +46,6 @@ static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_EVOLUTION_TRACKS >= 128u);
   assert(CW_MAX_GATES >= 32u);
   assert(CW_MAX_GATE_CLAIMS >= 128u);
-  /* The world is one flat struct handed across the ABI. Keep it small enough
-   * to stay comfortable on a 2 MB worker stack even when built unoptimized. */
   assert(sizeof(cw_world) <= 410000u);
 }
 
@@ -524,7 +519,6 @@ static void test_combat_abandon_closes_a_stuck_encounter(void) {
   cw_combat_encounter *encounter = &world.combat_encounters[0];
   assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
 
-  /* An unknown encounter is rejected rather than closing anything. */
   cw_action missing = {0};
   missing.kind = CW_ACTION_COMBAT_ABANDON;
   missing.actor_id = human->id;
@@ -533,15 +527,12 @@ static void test_combat_abandon_closes_a_stuck_encounter(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
   assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
 
-  /* An abandon without an encounter id is an invalid action. */
   cw_action untargeted = {0};
   untargeted.kind = CW_ACTION_COMBAT_ABANDON;
   untargeted.actor_id = human->id;
   assert(cw_world_apply(&world, &untargeted, 503, &events) == CW_ERR_RULE);
   assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
 
-  /* An unrelated actor cannot use the system recovery action to close
-     somebody else's encounter. */
   cw_action unrelated = {0};
   unrelated.kind = CW_ACTION_COMBAT_ABANDON;
   unrelated.actor_id = world.actors[0].id;
@@ -550,8 +541,6 @@ static void test_combat_abandon_closes_a_stuck_encounter(void) {
   assert(events.events[0].reason == CW_REASON_NOT_PARTICIPANT);
   assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
 
-  /* Abandon closes the encounter with no winning side, from any participant
-     and regardless of whose turn it currently is. */
   cw_id waiting_id = encounter->participants[encounter->current_index].actor_id == human->id
       ? echo->id
       : human->id;
@@ -567,15 +556,12 @@ static void test_combat_abandon_closes_a_stuck_encounter(void) {
   assert(events.events[0].total == 0);
   assert(encounter->status == CW_COMBAT_ENCOUNTER_RESOLVED);
 
-  /* Participants are released: ordinary play is legal again for both. */
   cw_action move = {0};
   move.kind = CW_ACTION_MOVE;
   move.actor_id = human->id;
   move.destination_location_id = 2;
   assert(cw_world_apply(&world, &move, 506, &events) == CW_OK);
 
-  /* Abandoning an already-resolved encounter is rejected, so a repeated
-     closure can never double-resolve on replay. */
   assert(cw_world_apply(&world, &abandon, 507, &events) == CW_ERR_RULE);
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
@@ -2302,26 +2288,11 @@ static void test_discovery_procedures_reveal_regardless_of_pressure_check(void) 
   assert(events.events[0].reason == CW_REASON_NOT_SAME_LOCATION);
 }
 
-/*
- * Deterministic replay compares semantic state, never raw struct bytes.
- *
- * `memcmp` over these structs also compares padding, which is not part of the
- * C semantic value and is not guaranteed by structure assignment. That made
- * the replay gate fail intermittently depending on what the stack happened to
- * hold (observed under Debian GCC 12.2), which is worse than no gate: a flaky
- * determinism check trains everyone to re-run it.
- *
- * The size assertions below exist so that adding a field forces this file to
- * be updated. Without them a new field would silently stop being compared and
- * the gate would quietly narrow.
- */
 _Static_assert(sizeof(cw_event) == 144, "cw_event changed; update assert_event_equal");
 _Static_assert(sizeof(cw_actor) == 40, "cw_actor changed; update assert_actor_equal");
 _Static_assert(sizeof(cw_item) == 56, "cw_item changed; update assert_item_equal");
 _Static_assert(sizeof(cw_location) == 16, "cw_location changed; update assert_location_equal");
 
-/* Fill the stack with a known pattern so two replays cannot accidentally
- * inherit identical padding bytes from a previous frame. */
 static void perturb_stack(uint8_t pattern) {
   volatile uint8_t bytes[4096];
   for (size_t i = 0; i < sizeof(bytes); ++i) {

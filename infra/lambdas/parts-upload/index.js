@@ -1,5 +1,3 @@
-// Parts Upload Lambda (AWS SDK v3)
-// - Returns presigned URLs for specified part numbers of a multipart upload
 
 const { S3Client, UploadPartCommand } = require('@aws-sdk/client-s3');
 const { DynamoDBClient, GetItemCommand } = require('@aws-sdk/client-dynamodb');
@@ -9,7 +7,7 @@ const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-e
 const ddb = new DynamoDBClient({ region });
 const s3 = new S3Client({ region });
 
-const URL_EXPIRY = +process.env.URL_EXPIRY_SECONDS || 300; // 5 mins
+const URL_EXPIRY = +process.env.URL_EXPIRY_SECONDS || 300;
 
 exports.handler = async (event) => {
   try {
@@ -38,8 +36,6 @@ exports.handler = async (event) => {
 
     const urls = await Promise.all(
       parts.map(async (p) => {
-        // Important: remove flexible checksums middleware so the presigned URL
-        // does NOT embed x-amz-checksum-* params for an unknown body.
         const cmd = new UploadPartCommand({
           Bucket: process.env.BUCKET,
           Key: key,

@@ -86,7 +86,6 @@ pub(super) struct ResidentCardPolicyTrace {
     pub(super) scores_q8: Vec<i32>,
     #[serde(default)]
     pub(super) personalization_scores_q8: Vec<i32>,
-    /// Frozen per-avatar observation used for replay and gated online learning.
     pub(super) candidate_features_q15: Vec<Vec<i16>>,
     pub(super) hand_signature: String,
     pub(super) hand_offset: u16,
@@ -386,9 +385,6 @@ impl RuntimeWorld {
     ) -> ResidentPlannerCandidate {
         ResidentPlannerCandidate {
             candidate_id: hand.pass.offer_id.clone(),
-            // There is no ranked action offer for Think. Its synthetic
-            // composition id freezes the same focused-scene binding as the
-            // certificate without letting a model supply either value.
             composition_id: format!("think:{}:{}", hand.pass.scene_key, hand.pass.slot),
             state_revision: hand.pass.state_revision,
             kind: "pass".to_string(),
@@ -439,11 +435,6 @@ impl RuntimeWorld {
         if frozen_hash.len() != 16 || !frozen_hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return false;
         }
-        // Publishing the accepted resident sentence appends exactly one SAY
-        // event before its selected consequence runs. That event changes the
-        // generic state revision but not the selected hand generation or
-        // scene. Permit only that tightly linked one-revision translation;
-        // every other intervening mutation expires the frozen certificate.
         self.resident_continuities
             .get(&actor_id)
             .and_then(|continuity| continuity.pending_planning.as_ref())
@@ -1975,9 +1966,6 @@ mod tests {
             .card_policy_snapshot
             .as_ref()
             .is_some_and(|snapshot| snapshot.deck_candidate_ids.len() >= 3));
-        // Seeded discovery offers intentionally collapse to the same semantic
-        // feature vector. Give this inference-path fixture one varying signal;
-        // deck-order invariance is covered by the library adapter tests.
         if let Some(snapshot) = plan.card_policy_snapshot.as_mut() {
             let denominator = snapshot.candidate_features_q15.len().saturating_sub(1);
             for (index, features) in snapshot.candidate_features_q15.iter_mut().enumerate() {
@@ -2041,9 +2029,6 @@ mod tests {
         let runtime = RuntimeWorld::seeded();
         let plan = prepared_card_policy_plan(&runtime);
         let snapshot = plan.card_policy_snapshot.as_ref().unwrap();
-        // The seeded hand's A and B cards have identical policy features, so
-        // deterministic deck-order tie-breaking correctly makes B unreachable
-        // in this fixture. The ranker unit test covers the B adapter path.
         for action in [CardPolicyAction::A, CardPolicyAction::Draw] {
             let config = AiConfig {
                 card_policy: Some(live_rollout_selecting(&plan, action)),
@@ -2103,10 +2088,6 @@ mod tests {
                 let Some(candidate) =
                     runtime.resident_planner_candidate_from_offer(actor.id, offer)
                 else {
-                    // Some shared offer views remain visible outside their
-                    // tighter turn/focus preconditions. They are not part of
-                    // the resident policy deck until the exact resolver accepts
-                    // them in this state.
                     continue;
                 };
                 let actor = runtime.actor_by_id(actor.id).expect("seeded actor");

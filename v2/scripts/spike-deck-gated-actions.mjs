@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-// Design-spike simulator only. It does not import or mutate the active world.
 const actions = [
   "attack", "dash", "disengage", "dodge", "help", "hide",
   "influence", "magic", "ready", "search", "study", "utilize",
@@ -32,8 +31,6 @@ function runDeckGated(seed, required) {
   if (hand.includes(required)) {
     return { locked: false, delay: 0, suggested: true, fallbackUsed: false, required };
   }
-  // The proposed accessibility fallback exposes one legal non-card command
-  // immediately. It costs no turn, currency, discard, or ownership resource.
   return { locked: false, delay: 1, suggested: false, fallbackUsed: true, required };
 }
 

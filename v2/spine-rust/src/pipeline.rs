@@ -1,20 +1,3 @@
-//! The single commit pipeline.
-//!
-//! One `commit()` function replaces the `apply_and_broadcast_*` wrapper
-//! family in `main.rs`. The stages are fixed and ordered:
-//!
-//! ```text
-//! authorize → turn preflight → projection preflight → kernel apply
-//!          → journal append → projection apply → turn advance → publish
-//! ```
-//!
-//! Fail-closed rules:
-//! - Rejection at any pre-kernel stage leaves no journal record and no events.
-//! - A kernel rejection is journaled nowhere; rejected input produces no
-//!   world event.
-//! - Post-commit intents are returned, never executed inside the pipeline;
-//!   inference and other IO happen outside the world lock.
-
 use serde::{Deserialize, Serialize};
 
 use crate::journal::{Journal, JournalRecord, JOURNAL_RECORD_VERSION};
@@ -66,12 +49,9 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         &self.journal
     }
 
-    /// The one commit path. Every world mutation funnels through here.
     pub fn commit(&mut self, envelope: CommitEnvelope) -> CommitOutcome {
         let action = &envelope.action;
 
-        // 1. Authorize. Identity comes from the edge-verified session context,
-        //    rebound to the action's actor here; never from client fields.
         if !envelope.auth.session_verified
             || envelope.auth.suspended
             || envelope.auth.actor_id != action.actor_id
@@ -79,8 +59,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
             return CommitOutcome::Rejected(Rejection::Auth);
         }
 
-        // 2. Turn preflight for turn-consuming actions. Turn-exempt verbs
-        //    (speech) skip the tracker entirely.
         let turn_room = if action.kind.is_turn_consuming() {
             let Some(turn) = &envelope.turn else {
                 return CommitOutcome::Rejected(Rejection::NotYourTurn { room_id: 0 });
@@ -99,8 +77,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
             None
         };
 
-        // 3. Projection preflight: every mutation must be validatable before
-        //    the kernel commits, so projections never contradict it after.
         let ctx = MutationCtx {
             actor_id: action.actor_id,
             tick: self.kernel.tick(),
@@ -112,8 +88,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
             });
         }
 
-        // 4. Kernel apply. The seed is allocated here and journaled; replay
-        //    reuses the journaled seed, never a fresh one.
         let seed = self.next_seed;
         self.next_seed = self.next_seed.saturating_add(1);
         let outcome = self.kernel.apply(action, seed, true);
@@ -123,9 +97,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
             });
         }
 
-        // 5. Sequence events and journal the record. If the append fails the
-        //    commit fails loudly; recovery is snapshot + replay, the same
-        //    path as a cold boot.
         let journal_seq = self.journal_seq + 1;
         let tick = self.kernel.tick();
         let events: Vec<WorldEvent> = outcome
@@ -163,7 +134,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         }
         self.journal_seq = journal_seq;
 
-        // 6. Projection apply (claim-key idempotent), then turn advance.
         self.registry.apply_all(&envelope.mutations, ctx);
         if let Some(room_id) = turn_room {
             let occupants = self.kernel.room_occupants(room_id);
@@ -177,8 +147,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         }
     }
 
-    /// Disposable boot accelerator. Snapshots are never authoritative; the
-    /// journal is.
     pub fn snapshot(&self) -> Snapshot {
         Snapshot {
             version: SNAPSHOT_VERSION,
@@ -190,7 +158,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         }
     }
 
-    /// Restore from a snapshot, failing closed on version mismatch.
     pub fn restore(&mut self, snapshot: &Snapshot) -> Result<(), String> {
         if snapshot.version != SNAPSHOT_VERSION {
             return Err(format!(
@@ -208,9 +175,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         Ok(())
     }
 
-    /// Replay journal records through kernel and registry, asserting that
-    /// re-derived events match the stored feed bit-for-bit. This is the proof
-    /// that the journal alone rebuilds the world.
     pub fn replay(&mut self, records: &[JournalRecord]) -> Result<(), String> {
         for record in records {
             if record.version != JOURNAL_RECORD_VERSION {
@@ -324,7 +288,6 @@ mod tests {
     #[test]
     fn out_of_turn_commit_leaves_no_trace() {
         let mut p = pipeline();
-        // Actor 7 takes the first turn; actor 8 is now waiting.
         assert!(p.commit(envelope(7, ActionKind::Pass)).is_committed());
         let outcome = p.commit(envelope(7, ActionKind::Pass));
         assert_eq!(
@@ -354,7 +317,7 @@ mod tests {
                 text: "hello, room".to_string(),
             },
         );
-        env.turn = None; // speech carries no turn context
+        env.turn = None;
         let outcome = p.commit(env);
         match outcome {
             CommitOutcome::Committed { events, .. } => {
@@ -394,9 +357,6 @@ mod tests {
         assert_eq!(p.kernel.tick(), 0, "kernel never saw the rejected commit");
     }
 
-    /// The golden test: journal alone rebuilds the world. Commit a mixed
-    /// sequence, snapshot, then rebuild a fresh pipeline from nothing but
-    /// journal records and assert identical state.
     #[test]
     fn golden_replay_rebuilds_identical_state() {
         let mut p = pipeline();
@@ -426,7 +386,6 @@ mod tests {
             Pipeline::new(kernel, SqliteJournal::in_memory().unwrap(), registry());
         replayed.replay(&records).unwrap();
 
-        // Kernel state, projection state, claims, and turn rotation all match.
         assert_eq!(replayed.kernel.snapshot(), golden.kernel);
         let a: &LedgerProjection = replayed.registry().get("ledger").unwrap();
         assert_eq!(a.balance(7), 5);
@@ -435,8 +394,6 @@ mod tests {
         assert_eq!(replayed.snapshot().turns, golden.turns);
     }
 
-    /// Snapshot → restore → continue: the accelerator path must converge with
-    /// pure replay, and new commits after restore must keep sequencing.
     #[test]
     fn snapshot_restore_converges_and_continues() {
         let mut p = pipeline();
@@ -453,7 +410,6 @@ mod tests {
         restored.restore(&snap).unwrap();
         assert_eq!(restored.kernel.tick(), 2);
 
-        // Turn rotation survived: it is actor 7's turn again.
         let outcome = restored.commit(envelope(7, ActionKind::Pass));
         match outcome {
             CommitOutcome::Committed { journal_seq, .. } => assert_eq!(journal_seq, 3),

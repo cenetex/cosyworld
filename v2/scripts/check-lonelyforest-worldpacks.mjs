@@ -1,22 +1,4 @@
 #!/usr/bin/env node
-/**
- * Pre-deploy continuity gate for every Lonely Forest world process.
- *
- * This intentionally calls the same bundle compatibility evaluation as the
- * single-world gate. A Fly Machine shares a deploy boundary, but each tenant
- * owns a distinct journal and snapshot, so checking only the root hostname is
- * not sufficient evidence that replacing the image is safe.
- *
- * A normal deploy reads every live tenant's public /meta. If a tenant is
- * already unavailable, an operator may pass an explicit captured identity:
- *
- *   --recovery-capture lantern=ops/lantern-meta-capture.json
- *   --fresh-empty-tenant hoppycat
- *
- * Captures must record the tenant, source, timestamp, and unmodified /meta
- * response. This is an audited recovery path, not a bypass: the captured hash
- * is evaluated against the candidate registry exactly like a live identity.
- */
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";

@@ -1,4 +1,3 @@
-# slug|required|public_hosts|nginx_upstream|port|registry|entry_location|snapshot_path|event_db_path|generated_asset_dir|extra_origins
 root|required|lonelyforest.com,www.lonelyforest.com|lonelyforest_root|3100|/app/v2/content/official/registry.json|-|/data/cosyworld-v2-snapshot.json|/data/cosyworld-v2-events.sqlite|/data/generated|https://www.lonelyforest.com
 0|optional|0.lonelyforest.com|elysium|3101|/app/v2/content/elysium-only/registry.json|652000|/data/worldpacks/0/snapshot.json|/data/worldpacks/0/events.sqlite|/data/worldpacks/0/generated|
 7|required|7.lonelyforest.com|bethlehem|3107|/app/v2/content/bethlehem/registry.json|700|/data/worldpacks/7/snapshot.json|/data/worldpacks/7/events.sqlite|/data/worldpacks/7/generated|

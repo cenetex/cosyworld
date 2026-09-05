@@ -1,7 +1,3 @@
-// THR-1 publishes strict authored descriptors and replay receipts, THR-2
-// compiles their access predicates into the kernel, and THR-4 projects exact
-// player methods from that same authority. Keep the remaining staged API
-// compiled without spending the repository's production warning budget.
 #![cfg_attr(not(test), allow(dead_code))]
 
 use super::*;

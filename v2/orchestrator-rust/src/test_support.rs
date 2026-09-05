@@ -175,10 +175,6 @@ pub(super) fn create_test_human(
     assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 }
 
-/// Remove the guided-story pin from fixtures that are testing arbitrary card
-/// rotation rather than the First Tale itself. The production hand keeps the
-/// advancing Story card pinned; these fixtures model a player who has already
-/// completed that guided progression.
 pub(super) fn complete_guided_story_for_test(runtime: &mut RuntimeWorld, actor_id: u64) {
     let Some(first_tale) = active_first_tale() else {
         return;

@@ -187,12 +187,6 @@ pub(super) fn sanitize_room_memory_summary(value: &str) -> Result<String, &'stat
     ]
     .iter()
     .any(|needle| lowered.contains(needle))
-        // Elysium's canonical resident type is a "model avatar", and every one
-        // of its locations says so in its own authored memory (see location
-        // 652052, "Void 053"). A bare " model " ban meant that location could
-        // never pass this filter: the prompt hands the model its own memory
-        // text verbatim, so summarizing it necessarily reuses that phrase. The
-        // narrower phrase still catches an actual 4th-wall break.
         || lowered.contains("language model")
     {
         return Err("system_vocabulary");
@@ -237,7 +231,6 @@ fn room_memory_retry_is_blocked(
     }
 }
 
-// --- moved from main.rs: room-memory entry/label/log-text cluster ---
 pub(super) fn room_memory_entries(
     location_id: u64,
     events: &[EventView],
@@ -496,9 +489,6 @@ pub(super) fn room_memory_log_text_at_location(
             format!("{actor_name} carries the path a little farther into the world")
         }),
         "first_tale.public_trace" => {
-            // The trace copy is authored per worldpack (project89 records a
-            // covenant, not a garden stone). Render the authored content so
-            // room memory never describes a tale the pack does not contain.
             let trace = event
                 .content
                 .as_deref()
@@ -621,9 +611,6 @@ pub(super) fn room_memory_log_text_at_location(
                 .map(|(statement, reason)| (statement, reason.trim()))
                 .unwrap_or((content, ""));
             let statement = statement.trim().trim_end_matches('.');
-            // An arriving avatar is given a starting statement it never picked.
-            // Calling that a choice was the lie #360 reports: the journal
-            // claimed a purpose was chosen, then Class selection replaced it.
             if reason == CALLING_REASON_AVATAR_CREATED {
                 format!("{actor_name} arrives with a purpose still to choose")
             } else if statement.is_empty() {
@@ -819,7 +806,6 @@ pub(super) fn room_memory_text(value: Option<&str>) -> Option<String> {
     }
 }
 
-// --- moved from main.rs: room-memory view/chapter/cache/atmosphere cluster ---
 pub(super) fn room_memory_view_for_state(
     state: &AppState,
     location: &LocationView,
@@ -1256,7 +1242,6 @@ pub(super) fn sentence_fragment(value: &str) -> String {
         .to_string()
 }
 
-// --- moved from main.rs: room-memory chapter persistence ---
 pub(super) fn upsert_room_memory_chapter(
     path: &Path,
     location_id: u64,
@@ -1359,7 +1344,6 @@ pub(super) fn load_room_memory_prior_chapters(
     Ok(chapters)
 }
 
-// --- moved from main.rs: recent_room_* RuntimeWorld methods ---
 fn historical_actor_name(current: Option<&str>, historical: Option<&str>) -> String {
     current
         .into_iter()
@@ -1389,7 +1373,6 @@ fn replace_actor_reference(text: &str, old: &str, current: &str) -> String {
     result
 }
 
-// Resolve names in a presentation copy; saved events retain their original bytes.
 fn event_with_actor_names(
     event: &EventView,
     resolve: impl Fn(Option<u64>, Option<&str>) -> String,
@@ -1407,8 +1390,6 @@ fn event_with_actor_names(
             continue;
         }
         let current = resolve(id, historical.as_deref());
-        // Spoken words remain quotations. Generated event prose can contain
-        // the provisional label as well as the separate actor-name field.
         if event.type_name != "message.created" {
             if let Some(old) = historical
                 .as_deref()
@@ -1626,11 +1607,6 @@ mod tests {
         );
     }
 
-    /// Regression guard for the wrong-world-state class found beside the Void
-    /// 004 pathway narration bug: the public-trace room-memory line hardcoded
-    /// the core pack's washed-garden copy, so a worldpack that authors its own
-    /// trace (project89 records a liberation covenant) would report a tale its
-    /// world does not contain. The rendered line must be the authored copy.
     #[test]
     fn first_tale_public_trace_renders_the_authored_pack_copy() {
         let trace = |content: Option<&str>| EventView {
@@ -1643,8 +1619,6 @@ mod tests {
             ..EventView::default()
         };
 
-        // A pack-authored trace renders that pack's words, not the core
-        // pack's garden stone.
         let covenant = room_memory_log_text(&trace(Some(
             "recorded an attributed liberation covenant so the next independent actor can audit the changed convergence protocol",
         )))
@@ -1653,14 +1627,12 @@ mod tests {
         assert!(!covenant.contains("washed path"));
         assert!(covenant.contains("Rati recorded"));
 
-        // The core pack's own trace still reads as before.
         let garden = room_memory_log_text(&trace(Some(
             "marked the first uncovered stone so the next visitor can trust the washed path",
         )))
         .expect("core trace becomes room memory");
         assert!(garden.contains("marked the first uncovered stone"));
 
-        // Missing authored copy falls back to a truthful generic line.
         let fallback =
             room_memory_log_text(&trace(None)).expect("empty trace still becomes room memory");
         assert!(fallback.contains("left an authored public trace"));

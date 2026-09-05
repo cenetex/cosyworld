@@ -1,13 +1,5 @@
 #!/usr/bin/env node
 
-// Bump the release version across every file that must stay aligned, in one
-// step. The root package.json version is the source of truth for CI's version
-// guard, and content_registry pins CARGO_PKG_VERSION to it at test time, so a
-// PR must move all four files together or the Rust suite fails late.
-//
-// Usage:
-//   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
-//   npm run version:bump -- 1.1.0   # explicit version
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -20,7 +12,6 @@ function readJson(relative) {
 }
 
 function writeJson(relative, value) {
-  // package-lock.json ships with two-space indentation and a trailing newline.
   writeFileSync(path.join(repoRoot, relative), `${JSON.stringify(value, null, 2)}\n`);
 }
 
@@ -83,7 +74,6 @@ function bumpRustFiles(version) {
   }
   writeFileSync(manifest, updated);
 
-  // Keep Cargo.lock in lockstep without requiring a local toolchain build.
   const lock = path.join(repoRoot, 'v2/orchestrator-rust/Cargo.lock');
   const lockSource = readFileSync(lock, 'utf8');
   const lockUpdated = lockSource.replace(

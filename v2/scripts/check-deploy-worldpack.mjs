@@ -1,43 +1,4 @@
 #!/usr/bin/env node
-/**
- * Pre-deploy worldpack bundle compatibility gate.
- *
- * The runtime fails closed when the persisted journal/snapshot bundle hash
- * does not match the active bundle and is not declared replay-compatible.
- * That is correct — but discovering the mismatch only after the new machine
- * boots turns every stale-checkout, wrong-branch, or cross-migration deploy
- * into an outage (2026-07-29: both production worlds crash-looped to the
- * restart limit and recovered by rollback).
- *
- * This script performs the same comparison before the image is swapped:
- *
- *   candidate bundle hash (the checkout about to deploy)
- *     == live bundle hash (the bundle the target app's journal was written
- *        under, read from the running app's public /meta)
- *   OR the candidate bundle declares the live hash in
- *      persistence_compatibility.replay_compatible_bundle_hashes
- *
- * Anything else — mismatch, unreachable /meta, unverifiable identity — exits
- * non-zero so the deploy stops before the old machine is replaced. A rollback
- * across a migration boundary fails this gate by construction: the older
- * bundle cannot declare a newer hash.
- *
- * Usage:
- *   node v2/scripts/check-deploy-worldpack.mjs <fly-app | https://base-url>
- *     [--registry v2/content/official/registry.json]
- *     [--meta-file captured-meta.json]   # read /meta from disk instead of HTTP
- *     [--recovery-capture ops/capture.json]  # audited stand-in for an
- *                                            # unreachable /meta; see below
- *     [--timeout-ms 15000]
- *
- * Exit codes: 0 compatible; 1 incompatible or live identity unreadable
- * (fail closed); 2 usage or local registry error.
- *
- * When the target app is unreachable, failing closed blocks the deploy that
- * would fix it. `--recovery-capture` accepts a committed, reviewable capture of
- * the last known /meta so recovery stays possible without weakening the gate:
- * the captured hash is evaluated exactly like a live identity.
- */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -55,9 +16,8 @@ const REMEDIATION =
   "Either deploy the bundle the live journal was written under, or author an "
   + "explicit migration that declares the live hash replay-compatible "
   + "(v2/worlds/official/world.json persistence_compatibility, then "
-  + "npm run v2:worldpack:lock && npm run v2:worldpack), or follow the "
-  + "documented fresh-seed path in v2/docs/worldpacks.md "
-  + "('Identity and persistence') — a fresh seed is only allowed for "
+  + "npm run v2:worldpack:lock && npm run v2:worldpack), or create a "
+  + "fresh-seed install with a separate data directory. A fresh seed is only allowed for "
   + "isolated installs, never the official world. Never blank a recorded "
   + "bundle hash to force a load.";
 
@@ -204,21 +164,6 @@ const VALUE_OPTIONS = new Set([
 
 const CAPTURE_SOURCES = new Set(["app-volume", "operator-capture"]);
 
-/**
- * Read the audited recovery capture that stands in for an unreachable /meta.
- *
- * Failing closed on an unreachable app is correct for a stale-checkout deploy,
- * but it deadlocks the case that matters most: the app is unreachable *because*
- * it needs the deploy. That blocked production recovery twice (v557 on
- * 2026-08-05 and again on 2026-08-07, a ~2.5 day outage) because the primary
- * app had no recovery path while Lonely Forest did.
- *
- * This is an audited recovery path, not a bypass. The capture must be a
- * committed, reviewable file recording its source, timestamp, and the
- * unmodified /meta response, and the hash it carries is evaluated against the
- * candidate registry exactly like a live identity — a genuine mismatch still
- * fails. Mirrors `--recovery-capture` in check-lonelyforest-worldpacks.mjs.
- */
 function recoveryCaptureHash(capturePath) {
   const absolutePath = path.resolve(repoRoot, capturePath);
   const relativePath = path.relative(repoRoot, absolutePath);

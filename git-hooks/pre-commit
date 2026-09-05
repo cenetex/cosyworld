@@ -1,5 +1,4 @@
 #!/bin/sh
-# cosyworld-version-hook
 set -eu
 
 if command -v node >/dev/null 2>&1; then

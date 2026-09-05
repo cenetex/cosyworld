@@ -1350,9 +1350,6 @@ pub(super) fn retain_configured_model_interaction_offers(
     primary_action
         .options
         .retain(|option| offered_kinds.contains(option.kind.as_str()));
-    // A knocked-out or absent avatar has no offers to keep, and its primary
-    // action is the way back into play. Filtering configured model routes must
-    // not turn that into a disabled Wait.
     if actor_presence::primary_action_is_avatar_lifecycle(&primary_action.kind) {
         return;
     }
@@ -2583,8 +2580,6 @@ async fn execute_speech_model_interaction(
     let (authored_transcript, transcript_usage) = if let Some(transcript) = persisted_transcript {
         (transcript, None)
     } else if recovered.is_some() {
-        // Audio receipts created before model-authored TTS text used the
-        // deterministic authoritative line. Keep that recovery path coherent.
         (authoritative_speech_text(&job.plan), None)
     } else {
         let (transcript, usage) =

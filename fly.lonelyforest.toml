@@ -1,20 +1,13 @@
 app = "cosyworld-lonelyforest"
 primary_region = "sjc"
 
-# One Fly Machine owns the Lonely Forest volume. Nginx routes an allowlist of
-# hostnames to isolated one-world CosyWorld processes bound to loopback ports;
-# request hosts never select a registry or filesystem path inside a process.
 
 [env]
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_MULTITENANT_DATA_ROOT = "/data/worldpacks"
-  # Children close streams within three seconds; the supervisor independently
-  # force-stops a wedged child or Nginx before Fly escalates at five seconds.
   COSYWORLD_SHUTDOWN_DRAIN_MS = "3000"
   COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS = "4"
-  # One volume can attach to only one Machine, so a five-second stale-owner
-  # fence is sufficient and bounds write unavailability after process restart.
   COSYWORLD_CANONICAL_LEASE_TTL_MS = "5000"
   COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
   COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
@@ -33,19 +26,12 @@ primary_region = "sjc"
   COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"
   COSYWORLD_AI_VISION_REASONING_EFFORT = "low"
   OPENROUTER_REASONING_EFFORT = "none"
-  # Directly controlled avatars use the speed-oriented Nano route. Elysium
-  # residents keep their exact bindings. Four attempts share one 12-second
-  # ceiling and give duplicate/shape feedback room to converge.
   COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"
-  # The most expensive raw binding is $150/M input and $600/M output. This
-  # covers four 160-token responses, a 1,200-character input, and retry feedback.
   COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS = "650000"
   COSYWORLD_AI_CAPABILITY_MODELS_JSON = '{"voice":"openai/gpt-5.4-nano","intent_json":"openai/gpt-5.6-sol","world_content":"openai/gpt-5.6-sol"}'
   COSYWORLD_AI_REGISTRY_JSON = '{"schema_version":1,"snapshot_version":"cosyworld-prod-2026-08-31b","declared":[{"requested_model_id":"openai/gpt-5.4-nano","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.4-nano"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":false,"reasoning":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}},{"requested_model_id":"openai/gpt-5.6-sol","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.6-sol"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["intent_json","world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}},{"requested_model_id":"google/gemini-3.5-flash","provider":"openrouter","concrete_model":{"model_id":"google/gemini-3.5-flash"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["intent_json","world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}}],"discovered":[]}'
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
-# Required production secrets are provisioned independently for this app.
-# See docs/deployment/lonelyforest-fly.md.
 
 [processes]
   app = "/app/deploy/lonelyforest/run-multitenant.sh"
@@ -53,8 +39,6 @@ primary_region = "sjc"
 [[mounts]]
   source = "lonelyforest_data"
   destination = "/data"
-  # The root journal stays at its established path. Worldpack journals use
-  # /data/worldpacks/<tenant>/ and never open the same SQLite file.
   auto_extend_size_threshold = 80
   auto_extend_size_increment = "1GB"
   auto_extend_size_limit = "5GB"
@@ -65,9 +49,6 @@ primary_region = "sjc"
   memory = "2gb"
   processes = ["app"]
 
-# Deploy strategy stays `rolling`: a second Machine cannot mount this volume.
-# Each world is still one process with one journal; the shared boundary is the
-# Machine and physical volume, not a SQLite database.
 [http_service]
   internal_port = 3000
   force_https = true

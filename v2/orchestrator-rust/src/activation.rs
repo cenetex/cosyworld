@@ -478,9 +478,6 @@ fn append_activation_event_at(
 ) -> io::Result<bool> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
-    // The event-store schema version can already be current while a newer
-    // activation-only backfill has not run. Check that version key here
-    // without reacquiring schema locks for every polled activation receipt.
     backfill_activation_from_world_events(&conn)?;
     let metadata_json = serde_json::to_string(&metadata)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;

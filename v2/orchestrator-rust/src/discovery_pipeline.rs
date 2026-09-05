@@ -2,18 +2,9 @@ use super::*;
 use serde::ser::SerializeStruct;
 
 pub(super) const DISCOVERY_PIPELINE_SCHEMA_VERSION: u8 = 1;
-/// Append-only. `discovery-procedure-v2` froze a selection and deliberately
-/// materialized nothing; every v2 row in the journal means "receipt only", and
-/// replay must keep meaning exactly that. `v3` is the same procedure with the
-/// selected item actually placed, so the two versions stay distinguishable in
-/// history instead of one silently reinterpreting the other.
 pub(super) const DISCOVERY_PROCEDURE_VERSION: &str = "discovery-procedure-v3";
 const DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY: &str = "discovery-procedure-v2";
 
-/// Replay rejects a whole boot when one record fails its preconditions, so a
-/// superseded procedure version has to stay *readable* forever even though
-/// nothing new is minted at it. Only the current version is offered; both
-/// replay.
 fn discovery_procedure_version_is_supported(version: &str) -> bool {
     matches!(
         version,
@@ -205,7 +196,6 @@ impl DiscoveryRuntimeSource {
                         .clone()
                         .unwrap_or_else(|| format!("location:{}", self.location_id)),
                     "rules_profile" => active_content().manifest.rules_profile.clone(),
-                    // The authority layer inserts these fields itself.
                     "slot_id" | "slot_version" | "origin_id" | "claim_scope_id" => return None,
                     _ => return None,
                 };
@@ -775,31 +765,18 @@ impl RuntimeWorld {
         events
     }
 
-    /// Place the truth a discovery receipt already selected.
-    ///
-    /// The receipt froze *what* was found when it was minted; this turns that
-    /// frozen selection into world state through the same fail-closed effect
-    /// seam authored clock effects use, so the kernel stays the only authority
-    /// on whether the item may appear. Returns the disposition recorded in the
-    /// committed event, which never claims more than actually happened.
     fn materialize_discovery_result(
         &mut self,
         intent: &AcceptedDiscoveryIntent,
         source_event_seq: u64,
     ) -> (&'static str, Vec<EventView>) {
         if intent.procedure_version == DISCOVERY_PROCEDURE_VERSION_RECEIPT_ONLY {
-            // A historical row. It meant "receipt only" when it was committed
-            // and it still does; replay must not invent a placement.
             return ("not_performed", Vec::new());
         }
         if intent.phase_after != "revealed" {
-            // A Lead names where to look. Nothing is found yet.
             return ("not_performed", Vec::new());
         }
         if intent.target_kind != "item" {
-            // Location, route, feature, and resource slots keep their frozen
-            // receipts until their own materializers exist. Saying so is more
-            // useful than an empty field that reads like success.
             return ("unsupported_target_kind", Vec::new());
         }
 
@@ -818,8 +795,6 @@ impl RuntimeWorld {
             })
             .collect::<Vec<_>>();
         if effects.len() != intent.receipt.materialized_entity_ids.len() {
-            // A selected id that no longer resolves to an authored item means
-            // content moved under a frozen receipt. Fail closed and say so.
             return ("unresolved_result", Vec::new());
         }
 
@@ -1270,9 +1245,6 @@ mod tests {
         assert_ne!(second.claim_key.as_deref(), Some(first_claim.as_str()));
     }
 
-    /// A slot whose frozen selection names a real authored core item, so the
-    /// receipt can actually be turned into world state. A catalog may only
-    /// name entities inside its own pack, so this one is authored as core.
     fn materializing_catalog() -> DiscoveryAuthorityCatalog {
         serde_json::from_str(
             r#"{
@@ -1341,7 +1313,6 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Discovery Tester",
         );
-        // Clear the seed floor so this test can name the exact revealed item.
         runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
         let hidden = runtime.world.items[..runtime.world.item_count]
             .iter_mut()
@@ -1405,7 +1376,6 @@ mod tests {
             serde_json::from_str(revealed.content.as_deref().expect("content"))
                 .expect("discovery content");
         assert_eq!(content["materialization"], "revealed");
-        // Reveal is not Take and not Travel; those stay separate operations.
         assert_eq!(content["custody"], "not_performed");
         assert_eq!(content["movement"], "not_performed");
     }
@@ -1478,7 +1448,6 @@ mod tests {
             "Discovery Tester",
         );
         runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
-        // The stock fixture names items that no pack authors.
         runtime.install_discovery_catalog_for_test(
             fixture(),
             "fixture.discovery",
@@ -1517,9 +1486,6 @@ mod tests {
         assert_eq!(content["materialization"], "unresolved_result");
     }
 
-    /// The authored end of the loop: a slot shipped in the core worldpack, not
-    /// a fixture. Search at Mossbell Inn finds the pair of socks the pack
-    /// authors unplaced, and puts them on the floor where they were found.
     #[test]
     fn the_authored_mossbell_slot_reveals_its_hidden_item() {
         const MOSSBELL_INN_LOCATION_ID: u64 = 4;
@@ -1533,7 +1499,6 @@ mod tests {
             "Mossbell Guest",
         );
 
-        // Authored unplaced: it exists in the world but is nowhere yet.
         let hidden = runtime.world.items[..runtime.world.item_count]
             .iter()
             .find(|item| item.id == DRY_WOOL_SOCKS_ITEM_ID)

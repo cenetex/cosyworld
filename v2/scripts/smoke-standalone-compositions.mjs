@@ -72,8 +72,6 @@ const worldCases = [
       "cosyworld.composition.core-lantern-keeper",
       "cosyworld.lonely-forest.characters",
     ],
-    // Core card rows point at this pack's art, so the composition must mount it
-    // or every character card degrades to the provider placeholder.
     cardImagePath: "/assets/lonely-forest/characters/29-grey-winged-boy.png",
     location: "The Cosy Cottage",
     locationPack: "cosyworld.core",
@@ -904,7 +902,6 @@ async function commitLanternFinale(baseUrl, actorId, actorSession, towerReady, d
   let freshWorkOffer;
   let finalePayload;
   let attempted;
-  // Resident turns can expire a dealt certificate before the request arrives.
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const freshWorkDeal = await dealOffer(
       baseUrl,

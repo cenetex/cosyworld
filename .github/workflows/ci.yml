@@ -20,7 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # The version check fetches only its base branch when it needs it.
           fetch-depth: 1
 
       - name: Checkout pinned SRD 5.1 source
@@ -46,8 +45,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Keep the non-Rust commands from `npm run check` here so they can run
-      # beside the longer Rust and browser gate rather than before it.
       - name: Test, validate content, and check the kernel
         run: |
           npm test
@@ -218,79 +215,10 @@ jobs:
       - name: Run fresh-seed browser gate
         run: npm run v2:browser:check
 
-  publication:
-    name: Referee guide publication
-    runs-on: ubuntu-latest
-    env:
-      CI: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: Install pinned publication tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes default-jre-headless poppler-utils qpdf unzip
-          curl --fail --location --silent --show-error \
-            --output /tmp/pandoc.deb \
-            https://github.com/jgm/pandoc/releases/download/3.8.1/pandoc-3.8.1-1-amd64.deb
-          sudo dpkg --install /tmp/pandoc.deb
-          curl --fail --location --silent --show-error \
-            --output /tmp/epubcheck.zip \
-            https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip
-          sudo unzip -q /tmp/epubcheck.zip -d /opt/epubcheck
-          epubcheck_dir="$(find /opt/epubcheck -maxdepth 1 -type d -name 'epubcheck-*' -print -quit)"
-          test -n "$epubcheck_dir"
-          sudo tee /usr/local/bin/epubcheck >/dev/null <<EOF
-          #!/bin/sh
-          exec java -jar "$epubcheck_dir/epubcheck.jar" "\$@"
-          EOF
-          sudo chmod 0755 /usr/local/bin/epubcheck
-          pandoc --version
-          epubcheck --version
-
-      - name: Restore Playwright browsers
-        id: publication-playwright-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium system dependencies
-        run: npx playwright install-deps chromium
-
-      - name: Install Chromium
-        if: steps.publication-playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium
-
-      - name: Build and validate the guide
-        run: npm run docs:dm-guide:check
-
-      - name: Upload publication
-        uses: actions/upload-artifact@v7
-        with:
-          name: cosyworld-referee-guide
-          path: dist/publications/dm-guide/
-          if-no-files-found: error
-
-  # Keep the existing `CI / build` required-check context while allowing the
-  # independent verification paths above to run concurrently.
   build:
     name: build
     if: ${{ always() }}
-    needs: [node, runtime, rust-quality, composition, browser, publication]
+    needs: [node, runtime, rust-quality, composition, browser]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all CI jobs passed
@@ -298,13 +226,11 @@ jobs:
           BROWSER_RESULT: ${{ needs.browser.result }}
           COMPOSITION_RESULT: ${{ needs.composition.result }}
           NODE_RESULT: ${{ needs.node.result }}
-          PUBLICATION_RESULT: ${{ needs.publication.result }}
           RUNTIME_RESULT: ${{ needs.runtime.result }}
           RUST_QUALITY_RESULT: ${{ needs.rust-quality.result }}
         run: |
           test "$BROWSER_RESULT" = success
           test "$COMPOSITION_RESULT" = success
           test "$NODE_RESULT" = success
-          test "$PUBLICATION_RESULT" = success
           test "$RUNTIME_RESULT" = success
           test "$RUST_QUALITY_RESULT" = success

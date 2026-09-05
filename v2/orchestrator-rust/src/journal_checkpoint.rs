@@ -1,9 +1,5 @@
 use super::*;
 
-/// Boot-time checkpoint rejections, surfaced through `/meta.persistence` so a
-/// checkpoint that silently converts every boot into a full replay is visible
-/// in telemetry rather than only in logs. Rejections only happen during boot,
-/// so a process-lifetime record is exact.
 static CHECKPOINT_REJECTIONS: StdMutex<(u64, Option<String>)> = StdMutex::new((0, None));
 
 fn is_repeated_projection(
@@ -343,9 +339,6 @@ const PRUNE_COMPACTED_COMMIT_RANGES_SQL: &str = "DELETE FROM canonical_compacted
                  AND canonical_compacted_commit_ranges.last_world_seq
        )";
 
-// Snapshots stay frequent for recovery, while pruning is batched so the
-// single SQLite writer is not churned for every tiny suffix. The row bound
-// makes a high-traffic burst compact before the time interval elapses.
 const PERSISTENCE_COMPACTION_MIN_INTERVAL_MS: u64 = 5 * 60 * 1_000;
 const PERSISTENCE_COMPACTION_MAX_JOURNAL_DELTA: u64 = 512;
 
@@ -364,13 +357,6 @@ fn persistence_compaction_due(
             })
 }
 
-/// Hands freed pages back to the filesystem, bounded by `budget_pages`.
-///
-/// This is a no-op unless the store was created with `auto_vacuum` set to
-/// INCREMENTAL: SQLite only accepts that mode on an empty database, so a store
-/// older than that runtime setting keeps its pages on the freelist no matter
-/// how often this runs. `/meta.persistence.event_store_auto_vacuum` reports
-/// which case a deployment is in.
 fn reclaim_event_store_pages(conn: &Connection, budget_pages: u32) -> u64 {
     let auto_vacuum = conn
         .query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, u64>(0))
@@ -425,10 +411,6 @@ fn compact_event_store_after_snapshot_now(
     through_event_seq: u64,
     retained_world_events: usize,
 ) -> io::Result<PersistenceCompactionReport> {
-    // A command may advance the journal after the worker captured and wrote
-    // its snapshot. That snapshot is still a valid boot checkpoint, but it is
-    // no longer safe to use as a compaction frontier. Skip the expected race
-    // before taking the SQLite write lock; the transaction rechecks below.
     if checkpoint_seq != latest_action_journal_seq(path)? {
         return Ok(PersistenceCompactionReport::default());
     }
@@ -497,9 +479,6 @@ fn compact_event_store_after_snapshot_now(
         .map_err(|_| snapshot_error("world-event compaction floor is negative"))?
         .unwrap_or_default();
     let deleted_world_event_rows = if world_event_floor_seq > 0 {
-        // Natural-feature reveals remain canonical evidence during hydration.
-        // Their count is bounded by the location cap, so retaining them does
-        // not reintroduce unbounded event-store growth.
         tx.execute(
             "DELETE FROM world_events
              WHERE seq < ?1
@@ -617,12 +596,6 @@ fn compact_event_store_after_snapshot_now(
     )
     .map_err(sqlite_error)?;
     tx.commit().map_err(sqlite_error)?;
-    // A full VACUUM rewrites the whole volume while the world lock is held and
-    // stalls player commands, so it stays out of this path. A bounded
-    // incremental pass costs a few milliseconds and hands the pages this
-    // compaction just freed back to the filesystem, so a burst is recoverable
-    // over the following snapshots instead of ratcheting the file up forever.
-    // Pages beyond the budget stay on the freelist and SQLite reuses them.
     let reclaimed_bytes = reclaim_event_store_pages(&conn, incremental_vacuum_page_budget());
     if reclaimed_bytes > 0 {
         info!("returned {reclaimed_bytes} byte(s) of compacted CosyWorld event-store pages to the filesystem");
@@ -772,8 +745,6 @@ mod tests {
         record
     }
 
-    /// Compaction deletes rows; without this the file only ever ratchets up,
-    /// so one busy weekend costs the volume permanently.
     #[test]
     fn compacted_pages_return_to_the_filesystem_within_the_budget() {
         let path = temp_path("incremental-reclaim", "sqlite");

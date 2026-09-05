@@ -185,8 +185,6 @@ pub(super) async fn account_avatar(
         Ok(None) => return avatar_error(401, "Sign in with your passkey to recover your avatar."),
         Err(_) => return avatar_error(503, "Account sign-in is temporarily unavailable."),
     };
-    // Creation, ownership claims, and recovery share one local lifecycle lock.
-    // The database uniqueness constraint also protects claims across processes.
     let _guard = state.avatar_creation_lock.lock().await;
     let conn = match account_avatar_store(&state) {
         Ok(conn) => conn,

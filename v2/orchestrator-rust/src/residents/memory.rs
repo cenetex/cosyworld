@@ -20,9 +20,6 @@ pub(crate) struct BeliefState {
     pub(crate) hops: u8,
 }
 
-// Snapshot-only adapters for the two stores that preceded the unified belief
-// model. They never enter RuntimeWorld and are removed when a snapshot is
-// migrated.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct LegacyResidentMemoryState {
     pub(crate) id: String,

@@ -23,7 +23,6 @@ function resolveHooksDir(repoRoot) {
       return path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
     }
   } catch {
-    // Ignore missing configuration.
   }
   try {
     const resolved = execFileSync('git', ['rev-parse', '--git-path', 'hooks'], {

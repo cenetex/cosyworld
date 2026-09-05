@@ -687,8 +687,6 @@ impl RuntimeWorld {
                 seed,
             )
             .into_actor_consequence(self.world.tick, caused_by_event_seq);
-            // Combat residents pass the ordered floor and Think about one
-            // exact Story Hand card; they never receive a whole-hand redeal.
             record.bind_offer_kind("pass");
             record.source_location_id = Some(actor.location_id);
             let think = hand.pass;
@@ -769,23 +767,12 @@ pub(super) fn combat_ability_name(ability: u8) -> &'static str {
     }
 }
 
-/// Outcome of one attempt to advance an ordered scene by a single beat.
 enum CombatBeat {
-    /// An action was committed. The caller stops so the beat can be published
-    /// and answered before anything else acts.
     Committed,
-    /// Nothing was eligible to act automatically; the scene waits.
     Idle,
-    /// The kernel refused the action.
     Refused(u32),
 }
 
-/// Commit at most one automated action for whoever currently holds the turn.
-///
-/// Previously this drained every consecutive inference actor inside one call, so
-/// a whole automated sequence could race past the shared room transcript before
-/// players could read what happened. One beat per call is what lets the room
-/// reply between them. See issue #466.
 fn commit_next_automated_combat_beat(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -800,17 +787,12 @@ fn commit_next_automated_combat_beat(
         return Ok(CombatBeat::Idle);
     }
 
-    // An inference-controlled actor decides for itself. The record is rebuilt
-    // from current state under the runtime lock, and the kernel re-checks whose
-    // turn it is, so a stale or duplicated attempt cannot double-act.
     if runtime.actor_uses_inference(current_actor_id) {
         let Some(record) = runtime.resident_combat_autonomy_record(
             encounter_id,
             runtime.next_seed_value(),
             events.last().map(|event| event.seq),
         ) else {
-            // No legal automated choice. Mechanics must not deadlock behind a
-            // missing decision, so the scene simply waits for recovery.
             return Ok(CombatBeat::Idle);
         };
         let (status, inference_events) = commit_journal_record(state, runtime, record)?;
@@ -822,8 +804,6 @@ fn commit_next_automated_combat_beat(
         });
     }
 
-    // A directly controlled actor keeps its turn while its controller is still
-    // within the grace period. Only an absent one is passed for.
     if current_actor_id == requesting_actor_id {
         return Ok(CombatBeat::Idle);
     }
@@ -856,12 +836,6 @@ fn commit_next_automated_combat_beat(
     })
 }
 
-/// Advance an ordered scene by at most one automated beat.
-///
-/// Continuation is server-owned: `start_focused_encounter_scheduler` picks the
-/// next eligible automated actor up on a later tick, so consecutive automated
-/// actors each get their own transcript beat with a reply opportunity between
-/// them, and a hidden or disconnected client cannot pause the encounter.
 pub(super) fn drive_available_combat_turns(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -915,27 +889,12 @@ fn focused_combat_turn_needs_recovery(
         })
 }
 
-/// Consecutive deterministic recovery failures a focused encounter may take
-/// before the scheduler closes it. A deterministic kernel status means the
-/// encounter cannot advance from the state it is in, so retrying the same sweep
-/// cannot help; the small cap only absorbs a legitimate state change racing
-/// with the attempt.
 const FOCUSED_RECOVERY_DETERMINISTIC_FAILURE_LIMIT: u32 = 3;
 
-/// Consecutive transient recovery failures before the same terminal closure.
-/// Higher than the deterministic cap because I/O and inference failures do
-/// genuinely clear on their own, but still bounded so nothing retries forever.
 const FOCUSED_RECOVERY_TRANSIENT_FAILURE_LIMIT: u32 = 20;
 
-/// How long to leave a deterministically stuck encounter alone before trying
-/// again. Each attempt holds the runtime lock for its whole duration, so
-/// retrying a known-stuck encounter every second is what starved `/world` and
-/// `/meta` during the 2026-07-28 incident.
 const FOCUSED_RECOVERY_DETERMINISTIC_BACKOFF: Duration = Duration::from_secs(30);
 
-/// A kernel status that will not change while the encounter stays as it is.
-/// `CW_ERR_FULL` is excluded: a full event buffer clears once the pending
-/// events drain.
 fn focused_recovery_status_is_deterministic(status: u32) -> bool {
     matches!(status, CW_ERR_RULE | CW_ERR_INVALID | CW_ERR_NOT_FOUND)
 }
@@ -946,10 +905,6 @@ struct FocusedRecoveryFailures {
     retry_after: Option<Instant>,
 }
 
-/// Per-encounter recovery failure history for one scheduler task. This is
-/// deliberately task-local rather than world state: it is a retry budget, not a
-/// world fact, so it must not enter snapshots or the journal. A restart simply
-/// grants a stuck encounter a fresh budget before closing it again.
 #[derive(Default)]
 struct FocusedRecoveryTracker {
     encounters: BTreeMap<u64, FocusedRecoveryFailures>,
@@ -967,8 +922,6 @@ impl FocusedRecoveryTracker {
         self.encounters.remove(&encounter_id);
     }
 
-    /// Record a failed attempt and report whether the encounter has exhausted
-    /// its budget and must now be closed.
     fn record_failure(&mut self, encounter_id: u64, deterministic: bool, now: Instant) -> bool {
         let failures = self.encounters.entry(encounter_id).or_default();
         failures.consecutive = failures.consecutive.saturating_add(1);
@@ -982,9 +935,6 @@ impl FocusedRecoveryTracker {
     }
 }
 
-/// Terminally resolve an encounter that has exhausted its recovery budget. The
-/// closure goes through the journal so replay reproduces it, and resolves with
-/// no winning side so the room simply settles.
 fn abandon_stuck_encounter(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -1038,8 +988,6 @@ async fn recover_available_combat_turns(
             tracker.clear(encounter_id);
             continue;
         }
-        // One encounter's failure must not abandon the sweep: the rest of the
-        // world still needs its turns driven.
         let outcome =
             drive_available_combat_turns(state, &mut runtime, encounter_id, 0, &mut events);
         let (deterministic, detail) = match outcome {
@@ -1550,8 +1498,6 @@ pub(super) fn combat_join_action(actor_id: u64, encounter_id: u64) -> CwAction {
         kind: CW_ACTION_COMBAT_JOIN,
         actor_id,
         content_id: encounter_id,
-        // New journal records declare encounter allegiance explicitly. A zero
-        // modifier remains reserved for historical replay.
         modifier: 1,
         ..CwAction::default()
     }
@@ -1559,8 +1505,6 @@ pub(super) fn combat_join_action(actor_id: u64, encounter_id: u64) -> CwAction {
 
 pub(super) fn combat_encounter_id(job_id: &str) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
-    // Encounter identity predates the finesse rules and remains stable across
-    // protocol revisions so restored snapshots still map back to their jobs.
     for byte in b"cosyworld.combat/2:"
         .iter()
         .copied()
@@ -1732,10 +1676,6 @@ mod tests {
             actor_for_session(&state.actor_sessions, &session),
             Some(5000)
         );
-        // Issue #466: one sweep advances the scene by exactly one beat. Two
-        // absent controllers therefore take two sweeps, each producing its own
-        // transcript entry with a reply opportunity between them, rather than
-        // draining past the shared room in a single call.
         let events = recover_available_combat_turns(&state, &mut tracker).await;
         let passes = |events: &[EventView]| {
             events
@@ -1780,11 +1720,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// Issue #466: the scheduler used to drain every consecutive
-    /// inference-controlled turn inside one call, so a whole automated sequence
-    /// could race past the shared room transcript before players could read what
-    /// happened. One sweep must now commit at most one automated action, so each
-    /// automated actor gets its own beat with a reply opportunity between them.
     #[tokio::test]
     async fn consecutive_automated_actors_act_one_beat_per_sweep() {
         let mut runtime = RuntimeWorld::seeded();
@@ -1843,7 +1778,6 @@ mod tests {
                 .0,
             CW_OK
         );
-        // Both automated actors hold the turn before the slow human does.
         assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(1002));
 
         let path = std::env::temp_dir().join(format!(
@@ -1881,7 +1815,6 @@ mod tests {
             drop(runtime);
         }
 
-        // Two sweeps, two distinct automated actors — never both in one sweep.
         assert_eq!(
             acted,
             vec![1002, 1004],
@@ -1890,10 +1823,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// Production ran this loop for seven hours on 2026-07-28: an encounter
-    /// whose current participant can never complete a turn fails recovery with
-    /// the same deterministic status every sweep. The scheduler must give up
-    /// and close the scene instead of holding the runtime lock forever.
     #[tokio::test]
     async fn a_stuck_focused_encounter_is_closed_after_bounded_recovery_failures() {
         let mut runtime = RuntimeWorld::seeded();
@@ -1935,9 +1864,6 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
         assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5001));
 
-        // Strand the scene the way production was stranded: the participant
-        // holding the turn can no longer act, so no Pass will ever be accepted
-        // for them and the encounter can never advance on its own.
         runtime
             .world
             .actors
@@ -1979,8 +1905,6 @@ mod tests {
                 failures.retry_after.is_some(),
                 "a deterministic failure must back off instead of retrying every second"
             );
-            // Serve the backoff instantly so the test spends the budget without
-            // sleeping; the assertion above is what pins the backoff itself.
             failures.retry_after = None;
         }
 
@@ -1991,9 +1915,6 @@ mod tests {
             .expect("the exhausted scene closes");
         assert!(resolved.success);
         assert_eq!(resolved.content_id, Some(encounter_id));
-        // The kernel resolves an abandoned scene with winning side 0, which the
-        // projection carries as absent. Both clients already read that as "the
-        // scuffle is over for now" rather than announcing a victor.
         assert_eq!(
             resolved.total, None,
             "an abandoned scene has no winning side"
@@ -2004,7 +1925,6 @@ mod tests {
             runtime.active_combat_encounter(encounter_id).is_none(),
             "the encounter is closed"
         );
-        // Participants are released back to ordinary presence.
         for actor_id in [5000, 5001] {
             assert!(
                 runtime
