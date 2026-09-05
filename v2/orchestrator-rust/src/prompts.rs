@@ -1,6 +1,10 @@
 use super::*;
 use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest, VoiceRoutingError};
 
+#[cfg(test)]
+#[path = "speech_contract_evaluation.rs"]
+mod speech_contract_evaluation;
+
 pub(super) const DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT: &str =
     "This avatar is directly controlled and is reacting to the action its controller just chose. Write speech only; do not invent private controller intent or another physical action.";
 pub(super) const DIRECTLY_CONTROLLED_REACTION_CONTEXT: &str =
