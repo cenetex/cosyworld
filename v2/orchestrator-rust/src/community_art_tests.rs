@@ -1,11 +1,13 @@
 use super::*;
 use crate::media_recipes::media_verdict::{
-    prepare_media_candidate, record_media_provider_failure, MediaCandidateInput,
-    MediaVerdictDisposition, MEDIA_BRIEF_CONSTRAINT_LIMIT,
+    make_visual_verdict, prepare_media_candidate, record_media_provider_failure,
+    record_media_visual_verdict, MediaCandidateInput, MediaVerdictDisposition,
+    MEDIA_BRIEF_CONSTRAINT_LIMIT,
 };
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use serde_json::json;
 use sha2::{Digest as _, Sha256};
 use std::{
     io::Cursor,
@@ -3844,5 +3846,264 @@ fn brief_failures_are_terminal_across_replay_and_snapshots() {
             error_code == COMMUNITY_ART_BRIEF_INVALID_CODE,
             "a stored brief conflict requires operator reconciliation even after a profile upgrade"
         );
+    }
+}
+
+fn approved_portrait_recovery_fixture() -> (AppState, PathBuf, CommunityArtPlan, Vec<u8>) {
+    let root = std::env::temp_dir().join(format!(
+        "cosyworld-portrait-backfill-{}-{}",
+        std::process::id(),
+        random_hex(8)
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Portrait Patron",
+    );
+    let plan = runtime.community_art_plan(5000, "actor", 5000).unwrap();
+    fund_test_community_art(&mut runtime, 5000, &plan, "paid-portrait", 8001);
+    let key = community_art_generation_key("actor", 5000, 1);
+    let generation = runtime.community_art_generations.get_mut(&key).unwrap();
+    generation.status = "failed".to_string();
+    generation.revision = 2;
+    generation.last_error_code = Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE.to_string());
+    let bytes = gate_png_with_dimensions(64, 96);
+    let image = DownloadedReplicateImage {
+        bytes: bytes.clone(),
+        content_type: "image/png".to_string(),
+        source_url: "https://provider.invalid/paid-portrait.png".to_string(),
+        prediction_id: Some("paid-portrait".to_string()),
+    };
+    let brief = community_art_media_brief(&plan);
+    assert_eq!(
+        prepare_media_candidate(
+            &root,
+            brief.clone(),
+            MediaCandidateInput {
+                image: &image,
+                provider: "fixture",
+                model: "fixture",
+                claimed_digest: None,
+                prior_public_bytes: None,
+            }
+        )
+        .unwrap(),
+        MediaVerdictDisposition::ReviewPending
+    );
+    record_media_visual_verdict(
+        &root,
+        &key,
+        make_visual_verdict(
+            &brief,
+            format!("{:x}", Sha256::digest(&bytes)),
+            "fixture",
+            "1",
+            true,
+            Vec::new(),
+            "The saved portrait passed review.",
+            1,
+            1,
+            0,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    store_community_art_image(&root, &plan, &image).unwrap();
+    let mut state = test_app_state(runtime, Some(root.join("events.sqlite")));
+    state.generated_asset_dir = Arc::new(root.clone());
+    state.moderation_token = Some(Arc::new("portrait-recovery-test".to_string()));
+    (state, root, plan, bytes)
+}
+
+async fn request_portrait_recovery(
+    state: &AppState,
+    bytes: &[u8],
+    dry_run: bool,
+    authorized: bool,
+) -> (StatusCode, serde_json::Value) {
+    let mut headers = HeaderMap::new();
+    if authorized {
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer portrait-recovery-test".parse().unwrap(),
+        );
+    }
+    let response = community_art::recovery::moderation_recover_portrait(
+        State(state.clone()),
+        headers,
+        AxumPath(5000),
+        Json(community_art::recovery::PortraitRecoveryRequest {
+            level: 1,
+            revision: 2,
+            image_digest: format!("{:x}", Sha256::digest(bytes)),
+            dry_run,
+        }),
+    )
+    .await;
+    let status = response.status();
+    let body = axum::body::to_bytes(response.into_body(), 8192)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null),
+    )
+}
+
+#[tokio::test]
+async fn approved_portrait_recovery_preserves_paid_work_and_survives_replay() {
+    let (state, root, plan, bytes) = approved_portrait_recovery_fixture();
+    let key = community_art_generation_key("actor", 5000, 1);
+    let record_path = root
+        .join("media-verdicts/v1")
+        .join(format!("{:x}", Sha256::digest(key.as_bytes())))
+        .join("record.json");
+    let original_verdict = fs::read(&record_path).unwrap();
+    let (before, mut replay) = {
+        let runtime = state.inner.lock().await;
+        (
+            runtime.community_art_generations[&key].clone(),
+            RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .unwrap(),
+        )
+    };
+    assert_eq!(
+        request_portrait_recovery(&state, &bytes, false, false)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, preview) = request_portrait_recovery(&state, &bytes, true, true).await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert_eq!(preview["restored"], false);
+    assert!(read_action_journal(&root.join("events.sqlite"))
+        .unwrap()
+        .is_empty());
+    let (status, restored) = request_portrait_recovery(&state, &bytes, false, true).await;
+    assert_eq!(status, StatusCode::OK, "{restored}");
+    assert_eq!(restored["restored"], true);
+    let ready = state.inner.lock().await.community_art_generations[&key].clone();
+    assert_eq!(ready.status, "ready");
+    assert_eq!(ready.revision, before.revision + 1);
+    assert_eq!(ready.funded_orbs, before.funded_orbs);
+    assert_eq!(ready.contributions, before.contributions);
+    assert_eq!(ready.provider_attempts, before.provider_attempts);
+    assert_eq!(ready.review_attempts, before.review_attempts);
+    assert_eq!(ready.last_prediction_id.as_deref(), Some("paid-portrait"));
+    assert!(ready.last_error_code.is_none());
+    let (status, repeated) = request_portrait_recovery(&state, &bytes, false, true).await;
+    assert_eq!(status, StatusCode::OK, "{repeated}");
+    assert_eq!(repeated["restored"], false);
+    let records = read_action_journal(&root.join("events.sqlite")).unwrap();
+    assert_eq!(records.len(), 1);
+    for record in records {
+        assert_eq!(replay.apply_journal_record(&record).0, CW_OK);
+    }
+    let serialized = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&replay)).unwrap();
+    let reloaded = serde_json::from_slice::<RuntimeSnapshot>(&serialized)
+        .unwrap()
+        .into_runtime()
+        .unwrap();
+    assert_eq!(reloaded.community_art_generations[&key].status, "ready");
+    assert_eq!(
+        reloaded.community_art_generations[&key].contributions,
+        before.contributions
+    );
+    assert_eq!(fs::read(&record_path).unwrap(), original_verdict);
+    assert_eq!(
+        fs::read(stored_community_art_image_path(&root, "actor", 5000)).unwrap(),
+        bytes
+    );
+    assert_eq!(community_image_usage_count(&root.join("events.sqlite")), 0);
+    assert!(!community_art_candidate_exists(&root, &plan));
+    let response = generated_community_art_asset(
+        State(state.clone()),
+        AxumPath(("actor".to_string(), "5000.image".to_string())),
+        Query(BTreeMap::new()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        axum::body::to_bytes(response.into_body(), 1_000_000)
+            .await
+            .unwrap()
+            .as_ref(),
+        bytes.as_slice()
+    );
+    drop(state);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn approved_portrait_recovery_rejects_changed_state_and_unapproved_images() {
+    for case in [
+        "digest",
+        "revision",
+        "unfunded",
+        "policy_rejected",
+        "pending",
+        "disabled",
+        "wrong_visual",
+        "changed_bytes",
+    ] {
+        let (state, root, _, bytes) = approved_portrait_recovery_fixture();
+        let key = community_art_generation_key("actor", 5000, 1);
+        let record_path = root
+            .join("media-verdicts/v1")
+            .join(format!("{:x}", Sha256::digest(key.as_bytes())))
+            .join("record.json");
+        let mut submitted = bytes.clone();
+        {
+            let mut runtime = state.inner.lock().await;
+            let generation = runtime.community_art_generations.get_mut(&key).unwrap();
+            match case {
+                "digest" => submitted.push(1),
+                "revision" => generation.revision += 1,
+                "unfunded" => generation.funded_orbs = 0,
+                "policy_rejected" => {
+                    generation.last_error_code = Some("community_art_policy_rejected".to_string())
+                }
+                "changed_bytes" => fs::write(
+                    stored_community_art_image_path(&root, "actor", 5000),
+                    b"changed",
+                )
+                .unwrap(),
+                _ => {
+                    let mut record: serde_json::Value =
+                        serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap();
+                    match case {
+                        "pending" => {
+                            record["candidates"][0]["disposition"] = json!("review_pending")
+                        }
+                        "disabled" => record["disabled"] = json!(true),
+                        "wrong_visual" => {
+                            record["candidates"][0]["visual"]["candidate_digest"] =
+                                json!("0".repeat(64))
+                        }
+                        _ => unreachable!(),
+                    }
+                    fs::write(&record_path, serde_json::to_vec(&record).unwrap()).unwrap();
+                }
+            }
+        }
+        let (status, body) = request_portrait_recovery(&state, &submitted, false, true).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{case}: {body}");
+        assert_eq!(
+            state.inner.lock().await.community_art_generations[&key].status,
+            "failed",
+            "{case}"
+        );
+        assert!(
+            read_action_journal(&root.join("events.sqlite"))
+                .unwrap()
+                .is_empty(),
+            "{case}"
+        );
+        drop(state);
+        fs::remove_dir_all(root).unwrap();
     }
 }

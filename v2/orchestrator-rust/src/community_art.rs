@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::warn;
 
+#[path = "community_art_recovery.rs"]
+pub(crate) mod recovery;
+
 use crate::media_recipes::media_verdict::{
     bounded_brief_constraints, make_visual_verdict, media_candidate_approved,
     media_candidate_digest, media_candidate_violations, media_provider_route_available,
