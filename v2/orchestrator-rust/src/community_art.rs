@@ -608,7 +608,7 @@ impl RuntimeWorld {
                     .find(|item| item.id == subject_id)?;
                 let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
                     name: format!("Item {subject_id}"),
-                    description: "A found keepsake.".to_string(),
+                    description: "A found item.".to_string(),
                     skill_id: None,
                     skill_bonus: 0,
                     mechanics: None,
@@ -971,7 +971,7 @@ impl RuntimeWorld {
                     .cloned()
                     .unwrap_or(crate::ItemMeta {
                         name: format!("Item {subject_id}"),
-                        description: "A found keepsake.".to_string(),
+                        description: "A found item.".to_string(),
                         skill_id: None,
                         skill_bonus: 0,
                         mechanics: None,

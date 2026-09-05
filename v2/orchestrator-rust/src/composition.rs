@@ -2395,8 +2395,8 @@ impl RuntimeWorld {
                         .output
                         .as_ref()
                         .map(|output| output.name.as_str())
-                        .unwrap_or("a new keepsake");
-                    format!("creates {output} from the two present keepsakes")
+                        .unwrap_or("a new trinket");
+                    format!("creates {output} from the two present items")
                 }
             }),
             "create_bond" => self
