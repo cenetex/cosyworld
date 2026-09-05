@@ -1672,7 +1672,7 @@ mod dialogue_lane_tests {
         let (session, _) = issue_actor_session(&state, 5000);
         ping_actor_session_for_actor(&state.actor_sessions, 5000, &session);
         init_event_store(&path).unwrap();
-        append_event_store(&path, &[queue_event.clone()]).unwrap();
+        append_event_store(&path, std::slice::from_ref(&queue_event)).unwrap();
         let conn = open_event_store(&path).unwrap();
         insert_orb_chat_job(
             &conn,
