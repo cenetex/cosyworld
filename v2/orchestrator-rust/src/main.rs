@@ -31934,13 +31934,12 @@ mod tests {
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> CommandRequest {
         let offer_id = if kind == "*" {
-            let offers = runtime
-                .legal_action_candidates_with_presence(
-                    Some(actor_id),
-                    &AccessContext::default(),
-                    active_direct_actor_ids,
-                )
-                .1;
+            let (mut primary, mut offers) = runtime.legal_action_candidates_with_presence(
+                Some(actor_id),
+                &AccessContext::default(),
+                active_direct_actor_ids,
+            );
+            retain_configured_model_interaction_offers(&mut primary, &mut offers, None);
             runtime
                 .action_hand_for(Some(actor_id), &offers)
                 .entries
