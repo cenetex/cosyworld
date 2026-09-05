@@ -121,7 +121,7 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(supervisor, /health_url="http:\/\/127\.0\.0\.1:\$port\/health"/);
   assert.match(
     supervisor,
-    /Root readiness follows the same required\/optional boundary[\s\S]*?\[ "\$requirement" = "required" \] \|\| continue[\s\S]*?\[ "\$slug" = "root" \] && continue/,
+    /while IFS='\|' read -r slug requirement[\s\S]*?\[ "\$requirement" = "required" \] \|\| continue[\s\S]*?\[ "\$slug" = "root" \] && continue/,
     "root readiness must not couple optional tenant health to every hostname",
   );
   assert.match(supervisor, /COSYWORLD_REQUIRED_HEALTH_URLS="\$required_health_urls"/);

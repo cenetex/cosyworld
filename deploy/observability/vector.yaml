@@ -60,9 +60,6 @@ transforms:
       worldpack = if exists(runtime.span.worldpack) { to_string!(runtime.span.worldpack) } else if exists(runtime.worldpack) { to_string!(runtime.worldpack) } else { "unknown" }
       provider = if exists(runtime.provider) { to_string!(runtime.provider) } else if exists(runtime.span.provider) { to_string!(runtime.span.provider) } else { "" }
 
-      # Retain only reviewed operational fields. Unknown structured fields are
-      # discarded, so a newly added prompt or credential field cannot become
-      # durable merely because an application event starts emitting it.
       details = compact({
         "status": runtime.status,
         "method": runtime.method,
@@ -107,9 +104,6 @@ transforms:
         "queue_event_id": runtime.queue_event_id
       }, nullish: true, string: true, object: true, array: true)
 
-      # Remove credential-bearing fields at any nesting level before applying
-      # value-pattern redaction. This is deliberately a last line of defense;
-      # application and proxy logs also avoid emitting secrets at the source.
       details_json = encode_json(details)
       details_json = replace(
         details_json,

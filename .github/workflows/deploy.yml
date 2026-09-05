@@ -249,9 +249,6 @@ jobs:
 
       - name: Verify primary readiness and persistence
         run: |
-          # A fresh process refreshes the remote ownership feed every 60 seconds.
-          # Allow one full refresh interval, its bounded 15-second request, and
-          # a small scheduling margin before declaring the release unhealthy.
           for attempt in {1..13}; do
             if node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev; then
               exit 0

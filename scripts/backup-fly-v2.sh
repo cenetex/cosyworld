@@ -229,8 +229,6 @@ for candidate_id, records in by_id.items():
         status for status in statuses if status in terminal_statuses
     })
     if terminal:
-        # A terminal failure always wins over a duplicate stale success; never
-        # claim a backup was created while Fly reports any terminal failure.
         normalized[candidate_id] = terminal[0]
         continue
     normalized[candidate_id] = next(iter(statuses)) if len(statuses) == 1 else "conflicting"

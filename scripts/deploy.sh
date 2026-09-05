@@ -28,31 +28,25 @@ scp $ARCHIVE_NAME ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/
 
 echo -e "\n${GREEN}Step 4: Deploying on server${NC}"
 ssh ${DEPLOY_USER}@${DEPLOY_HOST} << EOF
-  # Create backup of current deployment
   if [ -d ${DEPLOY_PATH}/dist ]; then
     BACKUP_NAME="backup-\$(date +%Y%m%d%H%M%S)"
     echo "Creating backup: \${BACKUP_NAME}"
     cp -r ${DEPLOY_PATH}/dist ${DEPLOY_PATH}/\${BACKUP_NAME}
   fi
   
-  # Extract new files
   echo "Extracting new files"
   mkdir -p ${DEPLOY_PATH}
   tar -xzf /tmp/${ARCHIVE_NAME} -C ${DEPLOY_PATH}
   
-  # Set permissions
   echo "Setting permissions"
   chmod -R 755 ${DEPLOY_PATH}/dist
   
-  # Clean up
   echo "Cleaning up"
   rm /tmp/${ARCHIVE_NAME}
   
-  # Reload web server
   echo "Reloading Nginx"
   sudo systemctl reload nginx
   
-  # Restart application server
   echo "Restarting application server"
   sudo systemctl restart moonstone-sanctum
 EOF
