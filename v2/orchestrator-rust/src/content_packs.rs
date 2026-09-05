@@ -223,7 +223,7 @@ mod tests {
             provider.provider == "ruby-high.first-bell/assets"
                 && provider
                     .cache_namespace
-                    .contains("ruby-high.first-bell@1.4.1")
+                    .contains("ruby-high.first-bell@1.4.2")
                 && provider.content_hash.starts_with("sha256:")
         }));
         assert!(ruby.asset_providers.iter().any(|provider| {
