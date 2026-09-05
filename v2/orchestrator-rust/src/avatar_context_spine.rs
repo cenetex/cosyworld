@@ -766,8 +766,9 @@ impl RuntimeWorld {
                         .actor_by_id(speaker_actor_id)
                         .and_then(|speaker| self.context_spine_actor(speaker))
                         .map(|speaker| speaker.name)
-                        .or_else(|| event.actor_name.clone())
-                        .unwrap_or_else(|| "Someone".to_string()),
+                        .unwrap_or_else(|| {
+                            self.prompt_actor_name(event.actor_id, event.actor_name.as_deref())
+                        }),
                     recipient_actor_id: None,
                     recipient_name: None,
                     content: content.to_string(),
