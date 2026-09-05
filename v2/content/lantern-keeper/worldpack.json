@@ -24,7 +24,8 @@
       "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183",
       "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88",
       "sha256:028b50e201cba948d386d0433e51c595e43280b253fb82aafd03bfad10abbe30",
-      "sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d"
+      "sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d",
+      "sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d"
     ]
   },
   "pack_lifecycle": {
@@ -760,7 +761,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d",
+  "bundle_hash": "sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -926,7 +927,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.14",
+      "version": "1.3.15",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1145,6 +1146,12 @@
               "from_policy_id": "cosyworld.core/generation/1",
               "from_migration_version": 1,
               "from_pack_version": "1.3.13",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.14",
               "mode": "preserve_descendants"
             }
           ],
@@ -2041,7 +2048,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:fb8f03cb92578b871e347616675d7a0abed591164d5d41324d9aa4a65ccd74f2"
+      "integrity": "sha256:c147620bfcbfbc6596994a587a807e8debb7589d9bf4077bcb7044e8d16dad03"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -2123,7 +2130,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2351,6 +2358,12 @@
               "from_migration_version": 1,
               "from_pack_version": "0.1.12",
               "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.13",
+              "mode": "preserve_descendants"
             }
           ],
           "cross_pack_routes": []
@@ -2361,7 +2374,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:8ca4edf0c5974e3d27b1b3c5242fb77131baf02ad35f87f913d4a4c627645299"
+      "integrity": "sha256:d4e74eedac83723431f0ffa4d60153f6f26dd7e51c121bd7b6a929ed721777d9"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",

@@ -1,7 +1,7 @@
 [
   {
     "id": "lantern-keeper:hollow-light",
-    "premise": "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper.",
+    "premise": "The Hollow Light wears Rowan's shape and claims the keeper's place beside every road lamp.",
     "zone": "frontier",
     "status": "active",
     "location_ids": [801, 802, 803, 804],

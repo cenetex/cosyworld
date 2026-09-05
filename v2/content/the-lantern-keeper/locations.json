@@ -4,7 +4,7 @@
     "name": "Wayside Lantern Inn",
     "title": "The Last Warm Window",
     "description": "A low inn leans into the rain beneath a lantern that burns with half its usual flame.",
-    "persona": "The inn refuses despair by keeping soup hot, boots drying, and one chair ready for the missing keeper.",
+    "persona": "Soup stays hot, boots dry by the hearth, and one chair stands ready for the missing keeper.",
     "biome": "rainy roadside",
     "terrain": ["muddy yard", "warm common room", "lantern posts"],
     "memory": ["Rowan Vale left before dawn with the tower key.", "Every road lamp north of the inn went dark in order.", "The kettle stays warm overnight with no fire beneath it."],

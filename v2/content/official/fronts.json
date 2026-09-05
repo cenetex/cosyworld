@@ -11,7 +11,7 @@
       1004
     ],
     "stakes_questions": [
-      "Can the trail learn to carry quiet again?",
+      "Can travelers cross the trail in quiet again?",
       "Will the echo become a resident, a warning, or a wound?"
     ],
     "portent_clock_id": "moonlit-trail.danger",
@@ -116,7 +116,7 @@
   },
   {
     "id": "lantern-keeper:hollow-light",
-    "premise": "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper.",
+    "premise": "The Hollow Light wears Rowan's shape and claims the keeper's place beside every road lamp.",
     "zone": "frontier",
     "status": "active",
     "location_ids": [

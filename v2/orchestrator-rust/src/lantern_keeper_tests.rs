@@ -882,7 +882,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.13");
+    assert_eq!(restored_strategy.pack_version, "0.1.14");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)
@@ -905,7 +905,7 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     assert_eq!(encountered_front.presentation_state, "active");
     assert_eq!(
         encountered_front.premise,
-        "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper."
+        "The Hollow Light wears Rowan's shape and claims the keeper's place beside every road lamp."
     );
     assert!(encountered_front.stakes_questions.iter().any(|question| {
         question

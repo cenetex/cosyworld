@@ -86,12 +86,12 @@
     },
     {
       "id": "cosyworld.core",
-      "version": "1.3.14",
+      "version": "1.3.15",
       "source": {
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:fb8f03cb92578b871e347616675d7a0abed591164d5d41324d9aa4a65ccd74f2",
+      "integrity": "sha256:c147620bfcbfbc6596994a587a807e8debb7589d9bf4077bcb7044e8d16dad03",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -163,12 +163,12 @@
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "source": {
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:8ca4edf0c5974e3d27b1b3c5242fb77131baf02ad35f87f913d4a4c627645299",
+      "integrity": "sha256:d4e74eedac83723431f0ffa4d60153f6f26dd7e51c121bd7b6a929ed721777d9",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -216,12 +216,12 @@
     },
     {
       "id": "cosyworld.the-holy-land",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "source": {
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:f9c24f65f282f4c4096b5eb019e7969411a4c258381d7ea8e192ce77af708b21",
+      "integrity": "sha256:e6ac5faa2ac69666306c27389c82779126098a7beabbbf5c84c6e8f9d70f0f00",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -575,7 +575,7 @@
     {
       "pack_id": "cosyworld.core",
       "name": "CosyWorld Core",
-      "version": "1.3.14",
+      "version": "1.3.15",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -611,7 +611,7 @@
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "license_identifier": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "provenance": {
@@ -634,7 +634,7 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
