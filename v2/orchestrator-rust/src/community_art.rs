@@ -173,7 +173,21 @@ impl CommunityArtPlan {
         &self,
         generation: &CommunityArtGenerationState,
         candidate_exists: bool,
+        root: &Path,
     ) -> bool {
+        let mut recovered;
+        let generation = if generation.last_error_code.as_deref()
+            == Some(crate::generated_asset_budget::GENERATED_ASSET_LIMIT_CODE)
+        {
+            if crate::generated_asset_budget::require_generated_asset_headroom(root).is_err() {
+                return false;
+            }
+            recovered = generation.clone();
+            recovered.last_error_code = None;
+            &recovered
+        } else {
+            generation
+        };
         community_art_generation_retryable_for_profile(
             generation,
             candidate_exists,
@@ -362,6 +376,11 @@ impl CommunityArtGenerationError {
             Self::PolicyDeferred { .. } => "community_art_policy_review_deferred",
             Self::PolicyReview(_) => "community_art_policy_review_failed",
             Self::PolicyRejected(_) => "community_art_policy_rejected",
+            Self::Storage(error)
+                if error.starts_with(crate::generated_asset_budget::GENERATED_ASSET_LIMIT_CODE) =>
+            {
+                crate::generated_asset_budget::GENERATED_ASSET_LIMIT_CODE
+            }
             Self::Storage(_) => "community_art_storage_failed",
         }
     }
@@ -458,6 +477,7 @@ pub(super) fn community_art_generation_retryable(
         generation.last_error_code.as_deref(),
         Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
             | Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE)
+            | Some(crate::generated_asset_budget::GENERATED_ASSET_LIMIT_CODE)
             | Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
     ) {
         return false;
@@ -483,6 +503,7 @@ pub(super) fn community_art_generation_retryable_for_profile(
         generation.last_error_code.as_deref(),
         Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
             | Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE)
+            | Some(crate::generated_asset_budget::GENERATED_ASSET_LIMIT_CODE)
     ) && generation.funded_orbs >= generation.required_orbs
         && (generation_profile_version > generation.generation_profile_version
             || community_art_generation_retryable(generation, candidate_exists))
@@ -1469,6 +1490,8 @@ fn preflight_community_art_storage(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
 ) -> Result<(), CommunityArtGenerationError> {
+    crate::generated_asset_budget::require_generated_asset_headroom(generated_asset_dir)
+        .map_err(CommunityArtGenerationError::from_storage)?;
     let candidate_path = community_art_candidate_image_path(generated_asset_dir, plan);
     let candidate_parent = candidate_path.parent().ok_or_else(|| {
         CommunityArtGenerationError::Storage(
@@ -1488,13 +1511,18 @@ fn preflight_community_art_storage(
         (quarantine_root.as_path(), "quarantine"),
         (public_parent, "publication"),
     ] {
-        preflight_community_art_directory(directory, label)
+        preflight_community_art_directory(generated_asset_dir, directory, label)
             .map_err(CommunityArtGenerationError::from_storage)?;
     }
     Ok(())
 }
 
-fn preflight_community_art_directory(directory: &Path, label: &str) -> Result<(), String> {
+fn preflight_community_art_directory(
+    root: &Path,
+    directory: &Path,
+    label: &str,
+) -> Result<(), String> {
+    let _budget = crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, 32)?;
     fs::create_dir_all(directory).map_err(|error| {
         format!(
             "failed to create community-art {label} directory {}: {error}",
@@ -1569,6 +1597,8 @@ pub(super) fn prepare_community_art_generation(
     media_brief
         .validate()
         .map_err(CommunityArtGenerationError::BriefInvalid)?;
+    crate::generated_asset_budget::require_generated_asset_headroom(generated_asset_dir)
+        .map_err(CommunityArtGenerationError::from_storage)?;
     let job_key = media_brief.job_key.clone();
     let retry_preparation =
         prepare_rejected_media_candidate_replacement(generated_asset_dir, media_brief.clone())
@@ -2209,7 +2239,7 @@ pub(super) async fn begin_community_art_generation(
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let generation = runtime.community_art_generations.get(&key)?;
     let candidate_exists = !provider_attempt;
-    if !plan.generation_retryable(generation, candidate_exists) {
+    if !plan.generation_retryable(generation, candidate_exists, &state.generated_asset_dir) {
         return None;
     }
     if provider_attempt
@@ -2260,7 +2290,7 @@ async fn complete_community_art_generation(
     if let Some(candidate_exists) = preflight_candidate_exists {
         let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
         let generation = runtime.community_art_generations.get(&key)?;
-        if !plan.generation_retryable(generation, candidate_exists) {
+        if !plan.generation_retryable(generation, candidate_exists, &state.generated_asset_dir) {
             return None;
         }
     }
@@ -2351,7 +2381,11 @@ pub(super) async fn execute_community_art_media_job(
             .community_art_generations
             .get(&key)
             .is_some_and(|generation| {
-                plan.generation_retryable(generation, candidate_exists_before_preflight)
+                plan.generation_retryable(
+                    generation,
+                    candidate_exists_before_preflight,
+                    &state.generated_asset_dir,
+                )
             })
     };
     if !retryable {
@@ -2529,7 +2563,9 @@ pub(super) async fn execute_community_art_media_job(
         runtime
             .community_art_generations
             .get(&key)
-            .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists))
+            .is_some_and(|generation| {
+                plan.generation_retryable(generation, candidate_exists, &state.generated_asset_dir)
+            })
     };
     if retryable {
         MediaJobExecution::Retry {
@@ -2593,7 +2629,11 @@ pub(super) fn pending_community_art_resumption_plans(
                             generation.level,
                         );
                     (self_description_required
-                        || plan.generation_retryable(generation, candidate_exists))
+                        || plan.generation_retryable(
+                            generation,
+                            candidate_exists,
+                            generated_asset_dir,
+                        ))
                     .then_some((actor_id, plan))
                 })
         })
@@ -2686,6 +2726,7 @@ fn store_community_art_image_with_route(
         plan.subject_id,
     );
     store_community_art_bundle(
+        generated_asset_dir,
         &path,
         &content_type_path,
         &metadata_path,
@@ -2717,6 +2758,7 @@ pub(super) fn store_community_art_candidate_with_route(
         ));
     }
     store_community_art_bundle(
+        generated_asset_dir,
         &community_art_candidate_image_path(generated_asset_dir, plan),
         &community_art_candidate_content_type_path(generated_asset_dir, plan),
         &community_art_candidate_metadata_path(generated_asset_dir, plan),
@@ -2736,6 +2778,7 @@ fn store_community_art_shadow(
         .join(plan.subject_id.to_string());
     let stem = format!("level-{}", plan.level);
     store_community_art_bundle(
+        generated_asset_dir,
         &directory.join(format!("{stem}.image")),
         &directory.join(format!("{stem}.content-type")),
         &directory.join(format!("{stem}.metadata.json")),
@@ -2745,6 +2788,7 @@ fn store_community_art_shadow(
 }
 
 fn store_community_art_bundle(
+    root: &Path,
     path: &Path,
     content_type_path: &Path,
     metadata_path: &Path,
@@ -2756,6 +2800,9 @@ fn store_community_art_bundle(
     }
     let metadata = serde_json::to_vec(&community_art_candidate_metadata(image, evolution_canary))
         .map_err(|e| e.to_string())?;
+    let additional = image.bytes.len() + image.content_type.len() + metadata.len();
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, additional as u64)?;
     let temporary_suffix = format!("{}-{}", std::process::id(), now_millis());
     let file_stem = path
         .file_name()
@@ -2990,6 +3037,10 @@ fn quarantine_invalid_community_art_candidate(
         "created_at_ms": now_millis(),
     }))
     .map_err(|error| error.to_string())?;
+    let _budget = crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(
+        generated_asset_dir,
+        marker.len() as u64,
+    )?;
     let mut marker_file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)

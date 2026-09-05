@@ -2580,6 +2580,11 @@ async fn execute_speech_model_interaction(
         interaction_id,
         state.generated_asset_dir.as_path(),
     )?;
+    if recovered.is_none() {
+        crate::generated_asset_budget::require_generated_asset_headroom(
+            &state.generated_asset_dir,
+        )?;
+    }
     let (authored_transcript, transcript_usage) = if let Some(transcript) = persisted_transcript {
         (transcript, None)
     } else if recovered.is_some() {
@@ -2725,6 +2730,9 @@ async fn execute_direct_audio_model_interaction(
                 .into());
         }
         (None, persisted_transcript) => {
+            crate::generated_asset_budget::require_generated_asset_headroom(
+                &state.generated_asset_dir,
+            )?;
             let (system, user) =
                 model_interaction_speech_messages(&job.plan, persisted_transcript.as_deref());
             let direct = request_direct_audio_completion_with_binding(

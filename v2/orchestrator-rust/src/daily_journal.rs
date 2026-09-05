@@ -642,7 +642,10 @@ async fn complete_daily_journal_page(
     } else {
         fallback
     };
-    let generated_image = if let Some(config) = state.ai_config.as_ref().as_ref() {
+    let generated_image = if let Some(config) = state.ai_config.as_ref().as_ref().filter(|_| {
+        crate::generated_asset_budget::require_generated_asset_headroom(&state.generated_asset_dir)
+            .is_ok()
+    }) {
         let image_prompt = daily_journal_image_prompt(&page, &entry);
         request_image_generation_for_key(
             config,
@@ -893,6 +896,8 @@ fn store_daily_journal_image(
     if content_type != inferred {
         return Err("daily Journal image MIME type did not match its bytes".to_string());
     }
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let directory = daily_journal_image_dir(root);
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let path = daily_journal_generated_image_path(root, artifact_id);

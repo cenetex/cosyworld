@@ -299,6 +299,9 @@ pub(super) async fn generate_moderated_resident_image(
                 match load_resident_image_candidate(&state.generated_asset_dir, job_id)? {
                     Some(candidate) => candidate,
                     None => {
+                        crate::generated_asset_budget::require_generated_asset_headroom(
+                            &state.generated_asset_dir,
+                        )?;
                         let generated = request_image_generation_with_binding(
                             config,
                             binding,
@@ -769,10 +772,12 @@ fn publish_resident_image(
     approved.review_status = "approved".to_string();
     validate_stored_resident_image(&approved, bytes, "approved")?;
     atomic_write(
+        root,
         &resident_image_published_asset_path(root, &approved.job_id),
         bytes,
     )?;
     atomic_write(
+        root,
         &resident_image_published_metadata_path(root, &approved.job_id),
         &serde_json::to_vec(&approved).map_err(|error| error.to_string())?,
     )
@@ -785,6 +790,7 @@ fn store_resident_image_candidate(
 ) -> Result<(), String> {
     validate_stored_resident_image(stored, bytes, "pending")?;
     atomic_write(
+        root,
         &resident_image_candidate_asset_path(root, &stored.job_id),
         bytes,
     )?;
@@ -796,6 +802,7 @@ fn store_resident_image_candidate_metadata(
     stored: &StoredResidentImage,
 ) -> Result<(), String> {
     atomic_write(
+        root,
         &resident_image_candidate_metadata_path(root, &stored.job_id),
         &serde_json::to_vec(stored).map_err(|error| error.to_string())?,
     )
@@ -960,7 +967,9 @@ fn resident_image_published_metadata_path(root: &Path, job_id: &str) -> PathBuf 
     resident_image_published_dir(root).join(format!("{job_id}.json"))
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn atomic_write(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let parent = path
         .parent()
         .ok_or_else(|| "resident image storage path has no parent".to_string())?;

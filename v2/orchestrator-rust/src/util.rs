@@ -345,3 +345,15 @@ pub(crate) fn item_size_from_str(size: &str) -> Option<u8> {
         _ => None,
     }
 }
+
+pub(crate) fn default_seed_item_size() -> String {
+    "small".to_string()
+}
+
+pub(crate) fn default_seed_item_role() -> String {
+    "generic".to_string()
+}
+
+pub(crate) fn default_seed_item_weight_tenths() -> u16 {
+    CW_ITEM_DEFAULT_WEIGHT_TENTHS
+}
