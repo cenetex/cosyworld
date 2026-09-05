@@ -2398,6 +2398,8 @@ pub(super) async fn pass_action(
             slot: u8::try_from(slot_index.expect("a current Think has a valid slot"))
                 .expect("Story Hand has three slots"),
             scene_key: scene_key.clone(),
+            location_rotation_after: (think.slot == "story")
+                .then(|| think.replaces_offer_id.clone()),
             replaces_offer_id: think.replaces_offer_id.clone(),
             free: think.free,
             reason: "player_think".to_string(),

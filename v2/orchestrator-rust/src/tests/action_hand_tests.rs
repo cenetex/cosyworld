@@ -40,6 +40,7 @@ fn story_hand_scene_change_resets_each_slot_generation() {
     runtime.story_hand_states.insert(
         5000,
         StoryHandActorState {
+            location_rotation_after: None,
             scene_key: "safe:1".to_string(),
             slot_generations: [8, 4, 2],
             free_think_used: true,
@@ -1605,6 +1606,7 @@ fn certified_pass_runs_the_ordinary_played_turn_pipeline() {
     record
         .projection_mutations
         .push(ProjectionMutation::ThinkHand {
+            location_rotation_after: None,
             slot: 0,
             scene_key: format!("safe:{COSY_COTTAGE_LOCATION_ID}"),
             replaces_offer_id: "test-offer".to_string(),
@@ -2024,6 +2026,7 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         for generation in 0..64 {
             let mut story_state = runtime.story_hand_state_for_scene(actor_id, &scene_key);
             story_state.slot_generations[0] = generation;
+            story_state.location_rotation_after = None;
             runtime.story_hand_states.insert(actor_id, story_state);
             let (_, offers) =
                 runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
@@ -2746,6 +2749,7 @@ fn direct_chat_card_binds_one_exact_avatar_without_a_chooser() {
         runtime.story_hand_states.insert(
             actor_id,
             StoryHandActorState {
+                location_rotation_after: None,
                 scene_key: scene_key.clone(),
                 slot_generations,
                 free_think_used: false,
@@ -2881,6 +2885,7 @@ fn item_and_avatar_nouns_resolve_to_one_exact_give_action() {
             runtime.story_hand_states.insert(
                 actor_id,
                 StoryHandActorState {
+                    location_rotation_after: None,
                     scene_key: scene_key.clone(),
                     slot_generations: [0, item_generation as u64, avatar_generation as u64],
                     free_think_used: false,

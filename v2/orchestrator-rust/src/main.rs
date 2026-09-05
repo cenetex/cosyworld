@@ -967,6 +967,8 @@ enum ProjectionMutation {
     ThinkHand {
         slot: u8,
         scene_key: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        location_rotation_after: Option<String>,
         replaces_offer_id: String,
         free: bool,
         reason: String,
@@ -3017,22 +3019,6 @@ struct ResolvedActionBinding {
     pack_id: String,
     pack_version: String,
     namespace: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ActionProviderView {
-    kind: String,
-    id: String,
-    label: String,
-    reason: String,
-    priority: u8,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-struct StoryHandActorState {
-    scene_key: String,
-    slot_generations: [u64; 3],
-    free_think_used: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -5288,6 +5274,7 @@ impl RuntimeSnapshot {
                     scene_key: String::new(),
                     slot_generations: [*generation; 3],
                     free_think_used: false,
+                    location_rotation_after: None,
                 });
         }
         let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
@@ -7858,6 +7845,7 @@ impl RuntimeWorld {
                 ProjectionMutation::ThinkHand {
                     slot,
                     scene_key,
+                    location_rotation_after,
                     replaces_offer_id,
                     free,
                     reason,
@@ -7866,6 +7854,12 @@ impl RuntimeWorld {
                         action.actor_id,
                         (*slot, scene_key, replaces_offer_id, *free, reason),
                     ));
+                    if *slot == 0 {
+                        self.set_location_card_cursor(
+                            action.actor_id,
+                            location_rotation_after.clone(),
+                        );
+                    }
                 }
                 ProjectionMutation::UpdateDailyJournal { update } => {
                     self.apply_daily_journal_rest_update(update);

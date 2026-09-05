@@ -496,6 +496,8 @@ impl RuntimeWorld {
             .push(ProjectionMutation::ThinkHand {
                 slot: u8::try_from(slot).ok()?,
                 scene_key: think.scene_key,
+                location_rotation_after: (think.slot == "story")
+                    .then(|| think.replaces_offer_id.clone()),
                 replaces_offer_id: think.replaces_offer_id,
                 free: think.free,
                 reason: "resident_planner_pass".to_string(),
@@ -984,6 +986,8 @@ impl RuntimeWorld {
             .push(ProjectionMutation::ThinkHand {
                 slot: u8::try_from(slot).ok()?,
                 scene_key: think.scene_key,
+                location_rotation_after: (think.slot == "story")
+                    .then(|| think.replaces_offer_id.clone()),
                 replaces_offer_id: think.replaces_offer_id,
                 free: think.free,
                 reason: "resident_card_policy_draw".to_string(),

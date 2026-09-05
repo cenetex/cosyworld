@@ -453,4 +453,5 @@
 # 59830 + the independent Story Hand extraction -> 59802 after merging both
 # reductions; no behavior was dropped while resolving the ledger conflict.
 # 59802 -> 59586: move the actor worker and its room-lane test into actor_jobs.rs.
-59586
+# 59586 -> 59580: move Story Hand state and provider types into composition.rs.
+59580
