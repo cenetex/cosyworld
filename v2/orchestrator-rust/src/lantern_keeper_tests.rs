@@ -905,7 +905,7 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     assert_eq!(encountered_front.presentation_state, "active");
     assert_eq!(
         encountered_front.premise,
-        "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper."
+        "The Hollow Light wears Rowan's shape and claims the keeper's place beside every road lamp."
     );
     assert!(encountered_front.stakes_questions.iter().any(|question| {
         question
