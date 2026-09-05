@@ -606,9 +606,11 @@ impl RuntimeWorld {
                     return (pathway.art_eligible
                         && self.generated_places.contains_key(&subject_id))
                     .then(|| self.world_entity_level(WorldEntityRef::location(subject_id)))
-                    .flatten();
+                    .flatten()
+                    .filter(|level| *level > 0);
                 }
                 self.world_entity_level(WorldEntityRef::location(subject_id))
+                    .filter(|level| *level > 0)
             }
             _ => None,
         }
@@ -623,6 +625,15 @@ impl RuntimeWorld {
     ) -> CardView {
         if subject_kind == "location" {
             card = self.decorate_generated_location_card(card, subject_id);
+        }
+        let subject = match subject_kind {
+            "item" => Some(WorldEntityRef::item(subject_id)),
+            "location" => Some(WorldEntityRef::location(subject_id)),
+            _ => None,
+        };
+        if let Some(level) = subject.and_then(|subject| self.world_entity_level(subject)) {
+            card.level = level;
+            card.evolved = level >= 2;
         }
         let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
             return card;

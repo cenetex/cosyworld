@@ -830,6 +830,7 @@ async fn location_art_funding_fails_before_debit_without_policy_review() {
     discovery.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&discovery).0, CW_OK);
     let waypoint_id = runtime.journeys[&5000].path[1];
+    freeze_legacy_test_levels(&mut runtime);
     let mut state = test_app_state(runtime, None);
     state.avatar_art_config = Arc::new(Some(test_art_config()));
     assert!(state.ai_config.as_ref().is_none());
@@ -1218,6 +1219,7 @@ async fn concurrent_location_funding_coalesces_without_paid_policy_preflight() {
     discovery.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&discovery).0, CW_OK);
     let waypoint_id = runtime.journeys[&5000].path[1];
+    freeze_legacy_test_levels(&mut runtime);
 
     let policy_requests = Arc::new(AtomicUsize::new(0));
     let app = Router::new().route(
@@ -1823,6 +1825,7 @@ async fn location_funding_does_not_call_the_paid_policy_reviewer_inline() {
     discovery.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&discovery).0, CW_OK);
     let waypoint_id = runtime.journeys[&5000].path[1];
+    freeze_legacy_test_levels(&mut runtime);
 
     let policy_requests = Arc::new(AtomicUsize::new(0));
     let preflight_shape_seen = Arc::new(AtomicBool::new(false));
@@ -2615,6 +2618,7 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
     discovery.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&discovery).0, CW_OK);
     let waypoint_id = runtime.journeys[&5000].path[1];
+    freeze_legacy_test_levels(&mut runtime);
 
     let mut funding = JournalRecord::new(
         CwAction {

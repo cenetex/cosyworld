@@ -7,7 +7,9 @@
     "charges": 1,
     "location_id": 1,
     "role": "consumable",
-    "capabilities": ["camp_shelter"],
+    "capabilities": [
+      "camp_shelter"
+    ],
     "weight_tenths": 5,
     "size": "small",
     "mechanics": {
@@ -15,7 +17,9 @@
       "equipment_profile": "carried",
       "target_predicate": "active_actor_same_location_needing_healing",
       "resolver": "item_utilize_v1",
-      "effect_budget": {"healing": 10},
+      "effect_budget": {
+        "healing": 10
+      },
       "uses": 1,
       "exhaustion": "consume_charge",
       "recovery": "none",
@@ -51,7 +55,9 @@
       "equipment_profile": "bracelet",
       "target_predicate": "possessing_actor",
       "resolver": "equipped_charm_modifier_v1",
-      "effect_budget": {"skill_bonus": 1},
+      "effect_budget": {
+        "skill_bonus": 1
+      },
       "uses": 0,
       "exhaustion": "none",
       "recovery": "not_applicable",
@@ -79,7 +85,22 @@
     "location_id": 1,
     "role": "generic",
     "weight_tenths": 1,
-    "size": "tiny"
+    "size": "tiny",
+    "level_policy": {
+      "schema_version": 1,
+      "criteria": [
+        {
+          "id": "fit-the-scarf-basket",
+          "location_id": 1,
+          "feature_key": "scarf_basket"
+        },
+        {
+          "id": "hear-the-hollow-story",
+          "location_id": 40,
+          "feature_key": "hollow_voice"
+        }
+      ]
+    }
   },
   {
     "id": 2006,
@@ -109,12 +130,24 @@
       "equipment_profile": "bracelet",
       "target_predicate": "possessing_actor",
       "resolver": "equipped_charm_modifier_v1",
-      "effect_budget": {"skill_bonus": 1},
+      "effect_budget": {
+        "skill_bonus": 1
+      },
       "uses": 0,
       "exhaustion": "none",
       "recovery": "not_applicable",
       "transfer_policy": "transferable",
       "theft_policy": "eligible_when_carried"
+    },
+    "level_policy": {
+      "schema_version": 1,
+      "criteria": [
+        {
+          "id": "wake-the-watch",
+          "location_id": 1,
+          "feature_key": "low_doorway"
+        }
+      ]
     }
   },
   {
@@ -162,7 +195,16 @@
     "size": "medium",
     "container_capacity_tenths": 300,
     "container_opening_size": "medium",
-    "allowed_contents": ["generic", "consumable", "weapon", "skill_charm", "spell", "tool", "relic", "container"],
+    "allowed_contents": [
+      "generic",
+      "consumable",
+      "weapon",
+      "skill_charm",
+      "spell",
+      "tool",
+      "relic",
+      "container"
+    ],
     "access_cost": "free_out_of_combat",
     "nested_containers": "empty_storage_only",
     "mechanics": {
@@ -170,7 +212,9 @@
       "equipment_profile": "container_harness",
       "target_predicate": "possessing_actor",
       "resolver": "container_capacity_v1",
-      "effect_budget": {"capacity_tenths": 300},
+      "effect_budget": {
+        "capacity_tenths": 300
+      },
       "uses": 0,
       "exhaustion": "none",
       "recovery": "not_applicable",
@@ -193,7 +237,11 @@
       "equipment_profile": "weapon_hand",
       "target_predicate": "active_hostile_actor_same_combat",
       "resolver": "combat_attack_v4",
-      "effect_budget": {"damage_die": "1d6", "ability": "strength", "nonlethal": true},
+      "effect_budget": {
+        "damage_die": "1d6",
+        "ability": "strength",
+        "nonlethal": true
+      },
       "uses": 0,
       "exhaustion": "none",
       "recovery": "not_applicable",
@@ -217,7 +265,10 @@
       "target_predicate": "active_actor_same_location",
       "resolver": "bounded_magic_v1",
       "magic_effect": "cosyworld.magic/steady-light",
-      "effect_budget": {"tag": "steady light", "duration": "until_rest"},
+      "effect_budget": {
+        "tag": "steady light",
+        "duration": "until_rest"
+      },
       "uses": 1,
       "exhaustion": "consume_charge",
       "recovery": "none",

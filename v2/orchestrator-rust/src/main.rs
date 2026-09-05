@@ -52,6 +52,7 @@ mod daily_journal;
 mod delivery_matching_tests;
 mod discovery_pipeline;
 mod entity_context;
+mod entity_levels;
 mod event_replay_store;
 mod first_tale;
 mod first_tale_presentations;
@@ -177,6 +178,7 @@ use crafting::*;
 use daily_journal::*;
 use discovery_pipeline::*;
 use entity_context::*;
+use entity_levels::*;
 use event_replay_store::{
     insert_world_events, insert_world_events_strict, read_event_store_tail_for_locations,
 };
@@ -1612,6 +1614,7 @@ struct RuntimeWorld {
     bonds: BTreeMap<String, BondState>,
     beliefs: BTreeMap<String, BeliefState>,
     entity_memories: BTreeMap<String, WorldEntityMemoryState>,
+    entity_levels: EntityLevelLedger,
     goal_ledger: BTreeMap<String, EntityGoalState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     avatar_rescues: BTreeMap<String, AvatarRescueState>,
@@ -1771,6 +1774,8 @@ struct RuntimeSnapshot {
     #[serde(default)]
     entity_memories: BTreeMap<String, WorldEntityMemoryState>,
     #[serde(default)]
+    entity_levels: EntityLevelLedger,
+    #[serde(default)]
     goal_ledger: BTreeMap<String, EntityGoalState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_memories: BTreeMap<String, LegacyResidentMemoryState>,
@@ -1900,6 +1905,8 @@ struct ResidentDecisionTrace {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct JournalRecord {
     version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    entity_level_contract: Option<EntityLevelRecord>,
     #[serde(default)]
     worldpack_bundle_hash: String,
     #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
@@ -2001,6 +2008,7 @@ impl JournalRecord {
         let focused_encounter = focused_encounter_context_for_action(&action);
         Self {
             version: JOURNAL_RECORD_VERSION,
+            entity_level_contract: Some(EntityLevelRecord::default()),
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry()
                 .content_reference_context(action_content_handles(&action)),
@@ -3779,47 +3787,6 @@ fn default_seed_item_size() -> String {
     "small".to_string()
 }
 
-fn seed_item_role(item: &SeedItemContent) -> Option<u8> {
-    match item.role.as_str() {
-        "generic" => Some(CW_ITEM_ROLE_GENERIC),
-        "consumable" => Some(CW_ITEM_ROLE_CONSUMABLE),
-        "weapon" => Some(CW_ITEM_ROLE_WEAPON),
-        "skill_charm" => Some(CW_ITEM_ROLE_SKILL_CHARM),
-        "spell" => Some(CW_ITEM_ROLE_SPELL),
-        "container" => Some(CW_ITEM_ROLE_CONTAINER),
-        "tool" => Some(CW_ITEM_ROLE_TOOL),
-        "relic" => Some(CW_ITEM_ROLE_RELIC),
-        _ => None,
-    }
-}
-
-fn seed_item_size(item: &SeedItemContent) -> Option<u8> {
-    item_size_from_str(&item.size)
-}
-
-fn item_size_from_str(size: &str) -> Option<u8> {
-    match size {
-        "tiny" => Some(CW_ITEM_SIZE_TINY),
-        "small" => Some(CW_ITEM_SIZE_SMALL),
-        "medium" => Some(CW_ITEM_SIZE_MEDIUM),
-        "large" => Some(CW_ITEM_SIZE_LARGE),
-        _ => None,
-    }
-}
-
-fn seed_item_kind(item: &SeedItemContent) -> Option<u8> {
-    seed_item_kind_from_str(&item.kind)
-}
-
-fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
-    match kind {
-        "potion" => Some(CW_ITEM_POTION),
-        "evolution" => Some(CW_ITEM_EVOLUTION),
-        "trinket" | "keepsake" => Some(CW_ITEM_KEEPSAKE),
-        _ => None,
-    }
-}
-
 fn seed_item_recovery_profile(item: &SeedItemContent) -> (u8, u8, u8) {
     declared_item_recovery_profile(item.charges, item.mechanics.as_ref())
 }
@@ -5089,7 +5056,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 21,
+            version: 22,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5160,6 +5127,7 @@ impl RuntimeSnapshot {
             bonds: runtime.bonds.clone(),
             beliefs: runtime.beliefs.clone(),
             entity_memories: runtime.entity_memories.clone(),
+            entity_levels: runtime.entity_levels.clone(),
             goal_ledger: runtime.goal_ledger.clone(),
             resident_memories: BTreeMap::new(),
             search_memories: BTreeMap::new(),
@@ -5417,6 +5385,7 @@ impl RuntimeSnapshot {
             bonds: self.bonds,
             beliefs,
             entity_memories: self.entity_memories,
+            entity_levels: self.entity_levels,
             goal_ledger: self.goal_ledger,
             resident_continuities: self.resident_continuities,
             avatar_rescues: self.avatar_rescues,
@@ -5627,6 +5596,7 @@ impl RuntimeWorld {
             bonds: BTreeMap::new(),
             beliefs: BTreeMap::new(),
             entity_memories: BTreeMap::new(),
+            entity_levels: EntityLevelLedger::fresh(),
             goal_ledger: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             avatar_rescues: BTreeMap::new(),
@@ -7353,7 +7323,8 @@ impl RuntimeWorld {
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
         let avatar_rescue_already_applied = self.avatar_rescue_record_already_applied(record);
         let abandon_avatar_already_applied = self.abandon_avatar_record_already_applied(record);
-        if !focused_encounter_journal_context_is_supported(self, record)
+        if !Self::entity_level_record_supported(record)
+            || !focused_encounter_journal_context_is_supported(self, record)
             || !room_activation_record_preconditions_hold(self, record)
             || !self.route_record_preconditions_hold(record)
             || !threshold_record_preconditions_hold(record)
@@ -7379,6 +7350,7 @@ impl RuntimeWorld {
         {
             return (CW_OK, Vec::new());
         }
+        self.prepare_entity_level_contract(record);
         let enforce_active_contribution_contract =
             record.worldpack_bundle_hash == active_content().manifest.bundle_hash;
         self.expire_transfer_offers();
@@ -7620,6 +7592,7 @@ impl RuntimeWorld {
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
             self.record_committed_world_entity_memories(&events);
+            self.apply_entity_level_receipts(record, &events);
             self.refresh_entity_goal_ledger();
             self.ensure_active_actor_rules_facets();
             self.bump_entity_versions_for_events(&events);
@@ -27707,6 +27680,7 @@ fn commit_journal_record_blocking(
         return Ok((CW_ERR_RULE, Vec::new()));
     }
     runtime.bind_passive_item_perception(&mut record);
+    runtime.bind_entity_level_use_claims(&mut record);
     let pre_orb_balances = runtime.orb_balances.clone();
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
     let pre_entity_versions = runtime.canonical_identities.entity_versions.clone();
@@ -35295,7 +35269,15 @@ mod tests {
             first_card.image_url.as_deref(),
             Some(format!("/assets/generated/pathways/{first_waypoint_id}.svg").as_str())
         );
-        let first_art_plan = runtime
+        assert_eq!(
+            runtime.world_entity_level(WorldEntityRef::location(first_waypoint_id)),
+            Some(0)
+        );
+        let mut legacy = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .unwrap();
+        freeze_legacy_test_levels(&mut legacy);
+        let first_art_plan = legacy
             .community_art_plan(5000, "location", first_waypoint_id)
             .expect("revealed pathway builds a location-art plan");
         assert_eq!(
@@ -35319,7 +35301,7 @@ mod tests {
         let after_first_search = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(after_first_search.cards.locations[&first_waypoint_id]
             .community_art
-            .is_some());
+            .is_none());
         assert!(runtime
             .community_art_subject_level("location", second_waypoint_id)
             .is_none());
@@ -36115,6 +36097,7 @@ mod tests {
         for world in [&mut runtime, &mut replay] {
             world.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::LocalAi;
         }
+        assert_location_level_replay(&runtime, &replay, first_waypoint_id, 0);
         let item_count_before_construction = runtime.world.item_count;
         for (actor_id, seed) in [
             (5000, 910_014),
@@ -36178,6 +36161,7 @@ mod tests {
             .reconcile_settlement_buildings(5000, BuildingReconcileMode::EmitEvents)
             .is_empty());
 
+        assert_location_level_replay(&runtime, &replay, first_waypoint_id, 1);
         let civic_clock_id = settlement_civic_clock_id(first_waypoint_id);
         let mut civic_record = JournalRecord::new(
             CwAction {
@@ -36196,6 +36180,7 @@ mod tests {
                 reason: "generated_place_test_civic_slot".to_string(),
             });
         apply_pair(&mut runtime, &mut replay, &civic_record);
+        assert_location_level_replay(&runtime, &replay, first_waypoint_id, 2);
         let slot_view = runtime.settlement_building_slot_view(first_waypoint_id);
         assert_eq!(slot_view.capacity, 2);
         assert_eq!(slot_view.claimed, 1);
@@ -36248,6 +36233,7 @@ mod tests {
                 .expect("serialize replayed generated place")
         );
 
+        verify_development_level_receipts(&mut runtime, &mut replay, first_waypoint_id);
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("generated-place snapshot restores");
@@ -36301,7 +36287,8 @@ mod tests {
 
     #[test]
     fn pending_pack_art_exposes_community_orb_funding_for_every_card_shape() {
-        let runtime = RuntimeWorld::seeded();
+        let mut runtime = RuntimeWorld::seeded();
+        freeze_legacy_test_levels(&mut runtime);
 
         let actor_level = runtime
             .actor_by_id(8303)
@@ -37795,7 +37782,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.15");
+        assert_eq!(location_reference.pack_version, "1.3.16");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");

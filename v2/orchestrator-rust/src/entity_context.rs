@@ -330,30 +330,6 @@ impl RuntimeWorld {
         self.record_world_entity_memories(&committed_events);
     }
 
-    pub(crate) fn world_entity_level(&self, subject: WorldEntityRef) -> Option<u8> {
-        match subject.kind {
-            WorldEntityKind::Avatar => self
-                .actor_by_id(subject.id)
-                .map(|actor| actor.stats.level.max(1)),
-            WorldEntityKind::Item => self.item_by_id(subject.id).map(|_| {
-                let uses = self
-                    .entity_memories
-                    .get(&subject.key())
-                    .map(|state| state.use_count)
-                    .unwrap_or_default();
-                1u8.saturating_add((uses / 3).min(19) as u8)
-            }),
-            WorldEntityKind::Location => self.location_name(subject.id).map(|_| {
-                let history = self
-                    .entity_memories
-                    .get(&subject.key())
-                    .map(|state| state.meaningful_event_count)
-                    .unwrap_or_default();
-                1u8.saturating_add((history / 8).min(19) as u8)
-            }),
-        }
-    }
-
     fn world_entity_name(&self, subject: WorldEntityRef) -> Option<String> {
         match subject.kind {
             WorldEntityKind::Avatar => self
@@ -397,7 +373,7 @@ impl RuntimeWorld {
     }
 
     pub(crate) fn world_entity_self_description_due(&self, subject: WorldEntityRef) -> bool {
-        let Some(level) = self.world_entity_level(subject) else {
+        let Some(level) = self.world_entity_level(subject).filter(|level| *level > 0) else {
             return false;
         };
         !self
@@ -1196,7 +1172,8 @@ mod tests {
             .expect("location spine");
         assert!(spine.is_current());
         assert_eq!(spine.subject, location);
-        assert!(spine.self_description_due);
+        assert_eq!(spine.level, 0);
+        assert!(!spine.self_description_due);
         assert!(!spine.goals.is_empty());
     }
 

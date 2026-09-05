@@ -65,6 +65,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "access_cost",
     "mechanics",
     "identity_table_id",
+    "level_policy",
   ]),
   locations: new Set([
     "pack_id",

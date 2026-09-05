@@ -16,6 +16,7 @@ import {
   collectContentReferenceCandidates,
   parseCanonicalContentReference,
 } from "./content-references.mjs";
+import { itemLevelPolicyErrors } from "./item-level-policy.mjs";
 import { writingRegisterErrors } from "./writing-register.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
@@ -1634,6 +1635,7 @@ for (const actor of actors) {
 }
 
 for (const item of items) {
+  for (const error of itemLevelPolicyErrors(item, roomFeatures)) fail(error);
   try {
     validateWorldEntityResource(item.pack_id, "items", item);
   } catch (error) {

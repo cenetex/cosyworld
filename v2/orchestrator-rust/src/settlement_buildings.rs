@@ -556,7 +556,7 @@ pub(super) fn settlement_civic_clock_id(location_id: u64) -> String {
     format!("settlement-building:{location_id}:civic:second-major-slot")
 }
 
-fn settlement_civic_job_id(location_id: u64) -> String {
+pub(super) fn settlement_civic_job_id(location_id: u64) -> String {
     format!("settlement-building:{location_id}:civic:second-major-slot-job")
 }
 
@@ -1146,8 +1146,7 @@ impl RuntimeWorld {
                 "Make room for another major building".to_string(),
                 5,
                 "Will the settlement make room for a second major building?".to_string(),
-                "A second major footprint becomes available without changing a settlement level."
-                    .to_string(),
+                "A second major footprint becomes available.".to_string(),
                 "civic",
                 50,
             )
@@ -2017,7 +2016,7 @@ mod tests {
             (
                 "cosyworld.core:loot/fishery-catch",
                 "cosyworld.core",
-                "1.3.15",
+                "1.3.16",
             )
         );
         assert_eq!(

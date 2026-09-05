@@ -934,6 +934,8 @@ pub(super) struct SeedItemContent {
     #[serde(default)]
     pub(super) identity_table_id: Option<String>,
     #[serde(default)]
+    pub(super) level_policy: Option<ItemLevelPolicy>,
+    #[serde(default)]
     pub(super) container_opening_size: Option<String>,
     #[serde(default)]
     pub(super) allowed_contents: Vec<String>,
@@ -2571,6 +2573,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
 
     let mut item_ids = BTreeSet::new();
     for item in &content.items {
+        validate_item_level_policy(item, &content.room_features)?;
         if item.id == 0 || item.charges == 0 || !item_ids.insert(item.id) {
             return Err(format!("duplicate or invalid seed item id {}", item.id));
         }
