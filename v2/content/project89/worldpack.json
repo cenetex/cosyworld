@@ -10,7 +10,8 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51"
+      "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51",
+      "sha256:79e034d1e12bd759a1ea72c676aecbf1c2b6946a7d4189fbdf319fec5b83205d"
     ]
   },
   "pack_lifecycle": {
@@ -167,7 +168,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:79e034d1e12bd759a1ea72c676aecbf1c2b6946a7d4189fbdf319fec5b83205d",
+  "bundle_hash": "sha256:da7be7fc1c6a72743299ce093ed7c20b4fee51592973e6a3bd3e53e40e218847",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -331,7 +332,7 @@
       "id": "project89.operation-liberation",
       "name": "Project 89: Operation Liberation",
       "description": "The fully authored Project 89 inner loop: nine locations, a fixed cast, four relay keys, factions, and the Operation Liberation campaign spine.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "kind": "world",
       "license": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
@@ -470,7 +471,7 @@
           "goal": "Search for other Proxim8s and welcome them as independent actors.",
           "dynamic_item": {
             "name": "Agent Memory Seed",
-            "kind": "keepsake",
+            "kind": "trinket",
             "role": "relic"
           },
           "media": {
@@ -491,13 +492,13 @@
         "type": "workspace",
         "path": "../../content/project89-operation-liberation"
       },
-      "integrity": "sha256:bc5cd605ccfe98b0c609c5a4c50c3cd25439e4616e20b211f639a69ed571e86c"
+      "integrity": "sha256:72cbc0d6cf78393565c6d32bd21f609279df2d8670271060918ecce77bc30146"
     },
     {
       "id": "project89.perimeter-relay",
       "name": "Project 89: Perimeter Relay",
       "description": "Eight populated Project 89 relay anchors joined by an irregular authored web whose route interiors are generated and persisted.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "kind": "world",
       "license": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
@@ -739,7 +740,14 @@
               }
             }
           },
-          "migrations": [],
+          "migrations": [
+            {
+              "from_policy_id": "project89.perimeter-relay/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.0",
+              "mode": "preserve_descendants"
+            }
+          ],
           "cross_pack_routes": []
         }
       },
@@ -748,13 +756,13 @@
         "type": "workspace",
         "path": "../../content/project89-perimeter-relay"
       },
-      "integrity": "sha256:99c22ea5026aeba21ee8b9d640816b7c961ebbd4cad381a4a974f2eb1754faa9"
+      "integrity": "sha256:742460a66636452545389bebe1df942f92c8de491eb0b93630aa7e14501ffc0a"
     },
     {
       "id": "project89.open-signal-frontier",
       "name": "Project 89: Open Signal Frontier",
       "description": "Four populated Project 89 stations on a long frontier circuit, with persisted generated interiors and an explicit future fork contract.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "kind": "world",
       "license": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
@@ -1009,7 +1017,14 @@
               }
             }
           },
-          "migrations": [],
+          "migrations": [
+            {
+              "from_policy_id": "project89.open-signal-frontier/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.0",
+              "mode": "preserve_descendants"
+            }
+          ],
           "cross_pack_routes": []
         },
         "x-project89-frontier": {
@@ -1028,7 +1043,7 @@
         "type": "workspace",
         "path": "../../content/project89-open-signal-frontier"
       },
-      "integrity": "sha256:0590679eeb81b8121cd0e83db9d32a8a0cf8e4b1ab63e302a7a58c4246c9ed12"
+      "integrity": "sha256:eae54d8db43a3dc01a8d3e7eea9a1e1b5488243dab97a080624ff13ec4cc1b21"
     },
     {
       "id": "project89.composition.three-rings",

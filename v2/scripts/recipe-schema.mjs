@@ -104,7 +104,7 @@ export function versionedRecipeValidationErrors(
           || itemIds.has(output.item_id)
           || !nonEmpty(output.name)
           || !nonEmpty(output.description)
-          || !["potion", "evolution", "keepsake"].includes(output.kind)
+          || !["potion", "evolution", "trinket"].includes(output.kind)
           || !Number.isInteger(output.charges)
           || output.charges <= 0
           || output.target_kind !== outcome?.target_kind

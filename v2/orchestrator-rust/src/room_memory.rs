@@ -745,11 +745,11 @@ pub(super) fn room_memory_log_text_at_location(
         ),
         "item.picked_up" => format!(
             "{actor_name} picked up {}",
-            event.item_name.as_deref().unwrap_or("a keepsake")
+            event.item_name.as_deref().unwrap_or("a trinket")
         ),
         "item.dropped" => format!(
             "{actor_name} set down {}",
-            event.item_name.as_deref().unwrap_or("a keepsake")
+            event.item_name.as_deref().unwrap_or("a trinket")
         ),
         "item.used" => {
             let target = event
@@ -760,22 +760,22 @@ pub(super) fn room_memory_log_text_at_location(
                 .unwrap_or_default();
             format!(
                 "{actor_name} used {}{target}",
-                event.item_name.as_deref().unwrap_or("a keepsake")
+                event.item_name.as_deref().unwrap_or("a trinket")
             )
         }
         "item.given" => format!(
             "{actor_name} gave {} to {}",
-            event.item_name.as_deref().unwrap_or("a keepsake"),
+            event.item_name.as_deref().unwrap_or("a trinket"),
             event.target_actor_name.as_deref().unwrap_or("someone")
         ),
         "item.traded" => format!(
             "{actor_name} traded {} with {} for {}",
-            event.item_name.as_deref().unwrap_or("a keepsake"),
+            event.item_name.as_deref().unwrap_or("a trinket"),
             event.target_actor_name.as_deref().unwrap_or("someone"),
             event
                 .target_item_name
                 .as_deref()
-                .unwrap_or("another keepsake")
+                .unwrap_or("another trinket")
         ),
         "item.crafted" => {
             let contribution = event

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "ruby-high.first-bell",
   "name": "Ruby High: First Bell",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "kind": "world",
   "description": "An independently bootable public school world, card catalog, and First Bell experience.",
   "license": "MIT",

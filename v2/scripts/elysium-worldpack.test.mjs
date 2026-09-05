@@ -14,7 +14,7 @@ const pack = JSON.parse(
 test("Elysium preserves production generated descendants across its catalog upgrade", () => {
   const policy = pack.extensions?.["x-cosyworld-generation"];
 
-  assert.equal(pack.version, "0.3.0");
+  assert.equal(pack.version, "0.3.1");
   assert.equal(policy?.schema_version, 1);
   assert.equal(policy?.policy_id, "cosyworld.elysium/generation/1");
   assert.equal(policy?.migration_version, 1);
@@ -29,6 +29,12 @@ test("Elysium preserves production generated descendants across its catalog upgr
       from_policy_id: "cosyworld.elysium/generation/1",
       from_migration_version: 1,
       from_pack_version: "0.2.2",
+      mode: "preserve_descendants",
+    },
+    {
+      from_policy_id: "cosyworld.elysium/generation/1",
+      from_migration_version: 1,
+      from_pack_version: "0.3.0",
       mode: "preserve_descendants",
     },
   ]);

@@ -85,6 +85,25 @@ function signSignedSmokeMessage(messageBytes) {
   return [...signMessage(null, Buffer.from(messageBytes), signedSmokePrivateKey())];
 }
 
+async function assertCurrentPlayerVocabulary(page, label) {
+  const copy = await page.evaluate(() => {
+    const fragments = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!node.parentElement?.closest("script, style, template")) fragments.push(node.textContent);
+    }
+    for (const node of document.querySelectorAll("[aria-label], [aria-description], [alt], [title], [placeholder]")) {
+      for (const attribute of ["aria-label", "aria-description", "alt", "title", "placeholder"]) {
+        fragments.push(node.getAttribute(attribute) || "");
+      }
+    }
+    return fragments.join("\n");
+  });
+  assert(!/\b(?:keepsakes?|bundles?|wooden box|wallet pass)\b/i.test(copy),
+    `${label}: current visible and accessible copy contains a retired player noun`);
+}
+
 async function assertSignedWalletSession() {
   const baseUrl = new URL(targetUrl).origin;
   const challenge = await fetch(
@@ -689,6 +708,7 @@ async function main() {
 
   async function assertBrowserDrawReachesEveryLegalAction() {
     await assertBrowserReachability(page, "before card rotation");
+    await assertCurrentPlayerVocabulary(page, "current scene");
     const handSnapshot = () => page.evaluate(() => ({
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
         .filter((button) => getComputedStyle(button).display !== "none")
@@ -5961,6 +5981,7 @@ async function main() {
           conditionDetail,
           rescueClass: rescue?.className || "",
           rescueDetail: rescue?.getAttribute("aria-label") || "",
+          rescueCopy: rescueRow.outerHTML,
           rescueIsPortrait: rescue?.classList.contains("room-avatar-frame") || false,
           rescueSeparate: rail.nextElementSibling === rescueRow && rescueRow.parentElement === rail.parentElement,
           rescueSummary: rescueRow.querySelector(".room-rescue-summary")?.textContent || "",
@@ -6043,7 +6064,8 @@ async function main() {
     assert(result.combat.rescueClass === "combat-rescue-indicator"
       && !result.combat.rescueIsPortrait
       && result.combat.rescueSeparate
-      && result.combat.rescueDetail.includes("keepsake and rescue details")
+      && result.combat.rescueDetail.includes("rescue details")
+      && !/keepsake|wooden box|bundle/i.test(result.combat.rescueCopy)
       && result.combat.rescueDetail.includes("Unconscious"), `knocked-out participants should move to the compact, inspectable rescue treatment: ${JSON.stringify(result)}`);
     assert(result.combat.rescueSummary === "4 knocked out"
       && result.combat.visibleRescueCount === 3
@@ -15214,6 +15236,7 @@ async function main() {
     }
     await assertActionBarCapped("guest avatar gate", 2);
     await assertBrowserReachability(page, "guest avatar gate");
+    await assertCurrentPlayerVocabulary(page, "current scene");
     const openingPrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
     const openingPrimary = (await primaryText()).toLowerCase();
     assert(

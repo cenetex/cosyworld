@@ -13355,7 +13355,7 @@
       const card = cardForActor(participant.actor_id);
       const combat = view.combat || null;
       const label = combatParticipantLabel(participant, actor, combat, targetPresentation);
-      return `<button class="combat-rescue-indicator" type="button" data-rescue-actor-id="${Number(participant.actor_id)}" data-combat-rescue="true"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="${escapeAttr(`Open ${name}'s keepsake and rescue details. ${label}`)}" data-player-concept="card" data-analytics-event="card.open"><span class="combat-rescue-mark" aria-hidden="true">KO</span><span class="combat-rescue-name">${escapeHtml(name)}</span></button>`;
+      return `<button class="combat-rescue-indicator" type="button" data-rescue-actor-id="${Number(participant.actor_id)}" data-combat-rescue="true"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="${escapeAttr(`Open ${name}'s rescue details. ${label}`)}" data-player-concept="card" data-analytics-event="card.open"><span class="combat-rescue-mark" aria-hidden="true">KO</span><span class="combat-rescue-name">${escapeHtml(name)}</span></button>`;
     }
 
     function rescueRowEntries(view) {

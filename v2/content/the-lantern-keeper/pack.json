@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.campaign.the-lantern-keeper",
   "name": "The Lantern Keeper",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "kind": "campaign",
   "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
   "license": "CC-BY-4.0",
@@ -203,6 +203,12 @@
           "from_policy_id": "cosyworld.compatibility.host-generation/1",
           "from_migration_version": 0,
           "from_pack_version": "0.1.6",
+          "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "0.1.12",
           "mode": "preserve_descendants"
         }
       ],

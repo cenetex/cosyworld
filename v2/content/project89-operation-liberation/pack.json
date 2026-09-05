@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "project89.operation-liberation",
   "name": "Project 89: Operation Liberation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "world",
   "description": "The fully authored Project 89 inner loop: nine locations, a fixed cast, four relay keys, factions, and the Operation Liberation campaign spine.",
   "license": "LicenseRef-Project89-Prototype",
@@ -108,7 +108,7 @@
       "goal": "Search for other Proxim8s and welcome them as independent actors.",
       "dynamic_item": {
         "name": "Agent Memory Seed",
-        "kind": "keepsake",
+        "kind": "trinket",
         "role": "relic"
       },
       "media": {

@@ -64,7 +64,8 @@
       "sha256:d9b19b9b2a84dd4b25a6f2c0db3c1af2cf8588441bb19b98993905975bd1626f",
       "sha256:0118f492a0d2253e68023f8471ce54269649959d8b985961a3d990f78fb6b447",
       "sha256:d2f4d610d4c55b5a0565631940db57f94d97685640ae4b74632a529022530b61",
-      "sha256:559ee546f9fc49840dc8cc11ef0d4091914364496c6d88f4ab3070cdf7f86828"
+      "sha256:559ee546f9fc49840dc8cc11ef0d4091914364496c6d88f4ab3070cdf7f86828",
+      "sha256:33d90714210b995ecc762b5ee6efdb2b5afa51e1d9882ead547fd4d9757e52e1"
     ]
   },
   "pack_lifecycle": {
@@ -818,7 +819,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:33d90714210b995ecc762b5ee6efdb2b5afa51e1d9882ead547fd4d9757e52e1",
+  "bundle_hash": "sha256:e01346588e8118b1ea6725a44b2832a37e10f42fef052b7a9b3684bd70a131a5",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -984,7 +985,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.13",
+      "version": "1.3.14",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1197,6 +1198,12 @@
               "from_policy_id": "cosyworld.core/generation/1",
               "from_migration_version": 1,
               "from_pack_version": "1.3.11",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.13",
               "mode": "preserve_descendants"
             }
           ],
@@ -1785,7 +1792,7 @@
               "id": "river_sprat",
               "name": "River Sprat",
               "description": "A small silver fish caught through patient shared work.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
@@ -1799,7 +1806,7 @@
               "id": "smoked_river_sprat",
               "name": "Smoked River Sprat",
               "description": "A represented catch preserved at a completed smokehouse for later journeys.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1813,7 +1820,7 @@
               "id": "glassfin_scale",
               "name": "Glassfin Scale",
               "description": "A rare clear scale that keeps a ribbon of river light.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 1,
@@ -1826,7 +1833,7 @@
               "id": "iron_nodule",
               "name": "Iron Nodule",
               "description": "A workable dark nodule brought out by represented mining.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 20,
@@ -1839,7 +1846,7 @@
               "id": "iron_bloom",
               "name": "Iron Bloom",
               "description": "A compact bloom refined from represented ore at a working smithy.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 14,
@@ -1852,7 +1859,7 @@
               "id": "waystone_bracket",
               "name": "Waystone Bracket",
               "description": "A fitted iron bracket made to hold one lasting marker in place.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 12,
@@ -1865,7 +1872,7 @@
               "id": "quartz_chip",
               "name": "Quartz Chip",
               "description": "A pale mineral chip with one clean shining edge.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 5,
@@ -1878,7 +1885,7 @@
               "id": "orchard_apple",
               "name": "Orchard Apple",
               "description": "A firm apple gathered after tending the shared grove.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1891,7 +1898,7 @@
               "id": "amber_pear",
               "name": "Amber Pear",
               "description": "A golden pear with a warm speckled skin.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
@@ -1904,7 +1911,7 @@
               "id": "garden_beans",
               "name": "Garden Beans",
               "description": "A tied bundle of crisp beans from the public garden.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1917,7 +1924,7 @@
               "id": "moon_carrot",
               "name": "Moon Carrot",
               "description": "A pale carrot curled like a small crescent.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 2,
@@ -2093,7 +2100,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f"
+      "integrity": "sha256:fb8f03cb92578b871e347616675d7a0abed591164d5d41324d9aa4a65ccd74f2"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -2175,7 +2182,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2397,6 +2404,12 @@
               "from_migration_version": 0,
               "from_pack_version": "0.1.6",
               "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.12",
+              "mode": "preserve_descendants"
             }
           ],
           "cross_pack_routes": []
@@ -2407,13 +2420,13 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:ebb4d77689582a4e7222575be7a22c340c245ee5a6e5254b91c45bccb83b0a85"
+      "integrity": "sha256:8ca4edf0c5974e3d27b1b3c5242fb77131baf02ad35f87f913d4a4c627645299"
     },
     {
       "id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
       "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2663,6 +2676,12 @@
               "from_migration_version": 0,
               "from_pack_version": "1.1.3",
               "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.the-holy-land/generation/1",
+              "from_migration_version": 4,
+              "from_pack_version": "1.2.1",
+              "mode": "preserve_descendants"
             }
           ],
           "cross_pack_routes": []
@@ -2673,7 +2692,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:a0fc51ec447da44cc1a2135aef1268b812192ef31c174a96b35c2c79905e01e1"
+      "integrity": "sha256:f9c24f65f282f4c4096b5eb019e7969411a4c258381d7ea8e192ce77af708b21"
     },
     {
       "id": "cosyworld.composition.core-holy-land",
@@ -3055,7 +3074,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable public school world, card catalog, and First Bell experience.",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -3194,7 +3213,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:dce282e20411d49f024d58320f592258f8423895ea60955cdbb86927df45a19e"
+      "integrity": "sha256:106683a43ca2044e1e6ef6e63551dd31d8e0ed50ab436817e48d640968347888"
     },
     {
       "id": "cosyworld.composition.core-ruby",

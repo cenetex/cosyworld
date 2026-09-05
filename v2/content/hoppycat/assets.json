@@ -1,8 +1,8 @@
 [
   {
     "pack_id": "hoppycat.archive",
-    "pack_version": "0.4.1",
-    "pack_integrity": "sha256:30792418351b50b6b68f910745ea7398753b4922bbb62d2f951b23993de25e0a",
+    "pack_version": "0.4.2",
+    "pack_integrity": "sha256:b027d8adc264012ac7847cfd3d00be494c800443e230fe405deefae03988956d",
     "provider": "hoppycat.archive/assets",
     "mount": "cards",
     "root": "hoppycat-archive",

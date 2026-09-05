@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(core.asset_providers.len(), 2);
         assert!(core.asset_providers.iter().all(|provider| {
             provider.provider == "cosyworld.core/assets"
-                && provider.cache_namespace.contains("cosyworld.core@1.3.13")
+                && provider.cache_namespace.contains("cosyworld.core@1.3.14")
                 && provider.content_hash.starts_with("sha256:")
         }));
 
@@ -223,7 +223,7 @@ mod tests {
             provider.provider == "ruby-high.first-bell/assets"
                 && provider
                     .cache_namespace
-                    .contains("ruby-high.first-bell@1.4.1")
+                    .contains("ruby-high.first-bell@1.4.2")
                 && provider.content_hash.starts_with("sha256:")
         }));
         assert!(ruby.asset_providers.iter().any(|provider| {

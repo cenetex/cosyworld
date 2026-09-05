@@ -3468,7 +3468,7 @@ impl RuntimeWorld {
             )
         } else if self.resident_item_has_feature_use_attachment(resident.id, item.id) {
             (
-                "keepsake",
+                "attached",
                 format!("{resident_name} keeps {item_name} because it mattered in a room moment."),
             )
         } else if let Some(attachment) =

@@ -1,6 +1,6 @@
 [
-  { "id": 9120, "name": "Longhaul Route Ledger", "description": "A public field ledger for departures, observed hazards, rescues, and verified returns.", "kind": "keepsake", "charges": 1, "location_id": 8940, "role": "tool", "weight_tenths": 8, "size": "small" },
-  { "id": 9121, "name": "Consent Torque", "description": "A mechanical limiter that records who authorized a repair and how far it may proceed.", "kind": "keepsake", "charges": 1, "location_id": 8941, "role": "tool", "weight_tenths": 14, "size": "small" },
-  { "id": 9122, "name": "Reed Battery", "description": "A cultivated wet-circuit cell whose visible health reveals the real cost of stored power.", "kind": "keepsake", "charges": 3, "location_id": 8942, "role": "tool", "weight_tenths": 22, "size": "medium" },
-  { "id": 9123, "name": "Return Beacon", "description": "A coral-lit signal that promises an attended channel home without claiming its traveler.", "kind": "keepsake", "charges": 1, "location_id": 8943, "role": "tool", "weight_tenths": 11, "size": "small" }
+  { "id": 9120, "name": "Longhaul Route Ledger", "description": "A public field ledger for departures, observed hazards, rescues, and verified returns.", "kind": "trinket", "charges": 1, "location_id": 8940, "role": "tool", "weight_tenths": 8, "size": "small" },
+  { "id": 9121, "name": "Consent Torque", "description": "A mechanical limiter that records who authorized a repair and how far it may proceed.", "kind": "trinket", "charges": 1, "location_id": 8941, "role": "tool", "weight_tenths": 14, "size": "small" },
+  { "id": 9122, "name": "Reed Battery", "description": "A cultivated wet-circuit cell whose visible health reveals the real cost of stored power.", "kind": "trinket", "charges": 3, "location_id": 8942, "role": "tool", "weight_tenths": 22, "size": "medium" },
+  { "id": 9123, "name": "Return Beacon", "description": "A coral-lit signal that promises an attended channel home without claiming its traveler.", "kind": "trinket", "charges": 1, "location_id": 8943, "role": "tool", "weight_tenths": 11, "size": "small" }
 ]
