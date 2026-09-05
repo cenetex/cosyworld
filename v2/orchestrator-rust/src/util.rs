@@ -304,3 +304,44 @@ pub(crate) async fn required_processes_ready(urls: &[String]) -> Result<(), Stri
     }
     Ok(())
 }
+
+pub(crate) fn seed_item_kind(item: &SeedItemContent) -> Option<u8> {
+    seed_item_kind_from_str(&item.kind)
+}
+
+pub(crate) fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
+    match kind {
+        "potion" => Some(CW_ITEM_POTION),
+        "evolution" => Some(CW_ITEM_EVOLUTION),
+        "trinket" | "keepsake" => Some(CW_ITEM_KEEPSAKE),
+        _ => None,
+    }
+}
+
+pub(crate) fn seed_item_role(item: &SeedItemContent) -> Option<u8> {
+    match item.role.as_str() {
+        "generic" => Some(CW_ITEM_ROLE_GENERIC),
+        "consumable" => Some(CW_ITEM_ROLE_CONSUMABLE),
+        "weapon" => Some(CW_ITEM_ROLE_WEAPON),
+        "skill_charm" => Some(CW_ITEM_ROLE_SKILL_CHARM),
+        "spell" => Some(CW_ITEM_ROLE_SPELL),
+        "container" => Some(CW_ITEM_ROLE_CONTAINER),
+        "tool" => Some(CW_ITEM_ROLE_TOOL),
+        "relic" => Some(CW_ITEM_ROLE_RELIC),
+        _ => None,
+    }
+}
+
+pub(crate) fn seed_item_size(item: &SeedItemContent) -> Option<u8> {
+    item_size_from_str(&item.size)
+}
+
+pub(crate) fn item_size_from_str(size: &str) -> Option<u8> {
+    match size {
+        "tiny" => Some(CW_ITEM_SIZE_TINY),
+        "small" => Some(CW_ITEM_SIZE_SMALL),
+        "medium" => Some(CW_ITEM_SIZE_MEDIUM),
+        "large" => Some(CW_ITEM_SIZE_LARGE),
+        _ => None,
+    }
+}

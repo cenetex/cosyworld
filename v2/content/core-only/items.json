@@ -90,6 +90,21 @@
     "role": "generic",
     "weight_tenths": 1,
     "size": "tiny",
+    "level_policy": {
+      "schema_version": 1,
+      "criteria": [
+        {
+          "id": "fit-the-scarf-basket",
+          "location_id": 1,
+          "feature_key": "scarf_basket"
+        },
+        {
+          "id": "hear-the-hollow-story",
+          "location_id": 40,
+          "feature_key": "hollow_voice"
+        }
+      ]
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -129,6 +144,16 @@
       "recovery": "not_applicable",
       "transfer_policy": "transferable",
       "theft_policy": "eligible_when_carried"
+    },
+    "level_policy": {
+      "schema_version": 1,
+      "criteria": [
+        {
+          "id": "wake-the-watch",
+          "location_id": 1,
+          "feature_key": "low_doorway"
+        }
+      ]
     },
     "pack_id": "cosyworld.core"
   },

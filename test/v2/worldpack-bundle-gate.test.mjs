@@ -34,7 +34,7 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
-const LANTERN_CANDIDATE_HASH = "sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd";
+const LANTERN_CANDIDATE_HASH = "sha256:8f58656c6748e4c060a17f932923d2a9bb8864189d32afb4f52aa580ceef1073";
 const LANTERN_ACTIVE_HASH = "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88";
 const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
@@ -288,6 +288,7 @@ describe("worldpack deploy gate CLI", () => {
     const registry = JSON.parse(await readFile(lanternRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
     expect(candidate.bundleHash).toBe(LANTERN_CANDIDATE_HASH);
+    expect(candidate.replayCompatible).toContain("sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd");
     expect(candidate.replayCompatible).toContain("sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d");
     expect(candidate.replayCompatible).toContain("sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d");
     expect(candidate.replayCompatible).toContain(LANTERN_ACTIVE_HASH);

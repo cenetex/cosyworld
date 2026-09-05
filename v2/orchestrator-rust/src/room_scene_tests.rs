@@ -115,6 +115,7 @@ fn scene_fixture(label: &str) -> SceneFixture {
     runtime.world.items[0].holder_actor_id = ACTOR_A;
     runtime.world.items[0].location_id = COSY_COTTAGE_LOCATION_ID;
     let event_seq = runtime.world.next_event_seq;
+    freeze_legacy_test_levels(&mut runtime);
     let reference_seq = event_seq.saturating_sub(1).max(1);
     let mut asset_ids = Vec::new();
     let (location_asset, location_prediction) = approve_reference(
@@ -169,6 +170,7 @@ fn generated_waypoint_scene_brief_bounds_every_constraint_by_bytes() {
     create_test_human(&mut runtime, ACTOR_A, waypoint_id, "Aster");
 
     let event_seq = runtime.world.next_event_seq;
+    freeze_legacy_test_levels(&mut runtime);
     let reference_seq = event_seq.saturating_sub(1).max(1);
     approve_reference(&root, "location", waypoint_id, 1, reference_seq);
     approve_reference(&root, "actor", ACTOR_A, 1, reference_seq);

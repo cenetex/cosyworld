@@ -115,11 +115,12 @@ semantic recollections, and the latest committed persona/appearance. It never su
 or invents world state; it selects and renders authoritative state for a particular
 generation job.
 
-Items and locations do not use avatar XP. Item levels advance with use. The current
-runtime still derives location levels from a broad meaningful-event count, but that is a
-migration boundary rather than the product contract: location levels must instead derive
-only from unique, replay-safe development-project completion receipts as specified in
+Items advance through distinct authored use milestones. Locations advance through
+unique completed construction, upgrade, and civic expansion projects as specified in
 [Location Classes, Development Projects, and Buildings](../../docs/location-development.md).
+The [entity level contract](entity-level-authority.md) freezes existing levels at a
+versioned journal boundary and records each later milestone once. Fresh locations start
+at level 0; their numbered art and self-description pools open at level 1.
 Prompt construction consumes the authoritative level and must never infer advancement
 from transcript volume, model activity, descriptive prose, or Orb funding. Avatars,
 items, and locations each become eligible for one first-person persona-and-appearance
