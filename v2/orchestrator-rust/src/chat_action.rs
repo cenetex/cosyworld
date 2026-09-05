@@ -175,6 +175,55 @@ pub(super) struct CommittedChatFloorDecision {
 }
 
 impl RuntimeWorld {
+    pub(super) fn inference_chat_targets(&self, actor_id: u64) -> Vec<CwActor> {
+        self.active_chat_targets(actor_id)
+            .into_iter()
+            .filter(|target| {
+                self.actor_uses_inference(target.id)
+                    && resident_supports_text_reply(target.id)
+                    && !self.actors_blocked(actor_id, target.id)
+                    && !self.actor_muted(actor_id, target.id)
+            })
+            .collect()
+    }
+
+    pub(super) fn expand_chat_action_offers(
+        &self,
+        actor_id: u64,
+        offers: Vec<RankedActionOffer>,
+    ) -> Vec<RankedActionOffer> {
+        let mut expanded = Vec::new();
+        for offer in offers {
+            if offer.kind != "chat" {
+                expanded.push(offer);
+                continue;
+            }
+            for resident in self.inference_chat_targets(actor_id) {
+                let name = self.actor_view(resident).name;
+                let target = ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(resident.id),
+                    label: Some(name.clone()),
+                };
+                let mut exact = offer.clone();
+                exact.id = format!("chat:{}", resident.id);
+                exact.offer_id = format!(
+                    "{}:{}:{}",
+                    exact.rules_profile, exact.state_revision, exact.id
+                );
+                exact.label = format!("Chat with {name}");
+                exact.accessible_label = exact.label.clone();
+                exact.command = normalize_command_text(&format!("chat {name}"));
+                exact.effect = Some(format!("opens a small exchange with {name}"));
+                exact.provider = self.action_offer_provider("chat", actor_id, Some(&target), None);
+                exact.target = Some(target.clone());
+                exact.composition_trace.target = Some(target);
+                expanded.push(exact);
+            }
+        }
+        expanded
+    }
+
     pub(super) fn room_chat_initiative_order(
         &self,
         location_id: u64,
