@@ -200,6 +200,7 @@ test("Bethlehem accepts every declared production replay epoch", () => {
     "sha256:070906fd0fd90124fe93641d11c2c6285cf0c78b2e9126d805206a0d9136eb7f",
     "sha256:d6bb85c9b172307abb4c06faabb6d270e583b539947abb90d2e683832dff806d",
     "sha256:1480f6d16556ba2a61636c106a9aeae87f05cca72c02e043fa22eedad6188fbf",
+    "sha256:3015ec6fa4ee3332a54efedac4be96001bd17133d7e704e9eaf99f644619a8c4",
   ]);
 });
 

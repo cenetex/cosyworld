@@ -456,4 +456,7 @@
 # 59586 -> 59580: move Story Hand state and provider types into composition.rs.
 # 59580 -> 59559: move avatar creation request and response types into avatar_links.rs.
 # 59559 -> 59487: retire unused generated Box asset code.
-59487
+#
+# 59487 -> 59474: item helpers move to util; receipt-based entity levels live
+# in entity_levels.rs with their migration and replay checks.
+59474
