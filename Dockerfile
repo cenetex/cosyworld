@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM lukemathwalker/cargo-chef:0.1.77-rust-1-bookworm AS chef
 
 WORKDIR /app/v2/orchestrator-rust
