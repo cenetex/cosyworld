@@ -1,4 +1,5 @@
 mod account_auth;
+mod account_avatars;
 mod activation;
 #[cfg(test)]
 mod actor_autonomy_tests;
@@ -3230,31 +3231,6 @@ impl MoveActionResponse {
             events: self.events,
         }
     }
-}
-
-#[derive(Debug, Serialize)]
-struct AvatarResponse {
-    ok: bool,
-    status: u32,
-    actor: Option<ActorView>,
-    actor_session: Option<String>,
-    actor_session_expires_at_unix: Option<u64>,
-    events: Vec<EventView>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CreateAvatarRequest {
-    #[serde(default)]
-    actor_id: Option<u64>,
-    name: Option<String>,
-    calling: Option<String>,
-    wallet_session: Option<String>,
-    #[serde(default)]
-    summon_from_actor_id: Option<u64>,
-    character_creation_id: Option<String>,
-    character_choice_id: Option<String>,
-    species_id: Option<String>,
-    origin_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28935,6 +28911,8 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
     .map_err(sqlite_error)?;
     conn.pragma_update(None, "user_version", EVENT_STORE_SCHEMA_VERSION)
         .map_err(sqlite_error)?;
+    conn.execute_batch(account_avatars::SCHEMA)
+        .map_err(sqlite_error)?;
     Ok(())
 }
 
@@ -29767,6 +29745,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM model_interaction_batches;
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;
+         DELETE FROM account_avatar_links;
          DELETE FROM actor_suspensions;
          DELETE FROM moderation_reports;
          DELETE FROM orb_ledger;

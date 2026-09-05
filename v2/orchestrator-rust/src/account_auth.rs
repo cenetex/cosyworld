@@ -443,6 +443,12 @@ impl AccountAuth {
             .ok_or_else(|| account_error("account persistence is unavailable"))
     }
 
+    pub(super) fn authenticated_user_id(&self, headers: &HeaderMap) -> io::Result<Option<String>> {
+        self.session_from_headers(headers)
+            .map(|session| session.map(|session| session.user_id))
+            .map_err(|error| io::Error::other(error.to_string()))
+    }
+
     fn cleanup_ceremonies(&self) {
         let now = Instant::now();
         if let Ok(mut ceremonies) = self.ceremonies.lock() {
@@ -630,6 +636,11 @@ pub(super) async fn passkey_registration_start(
             Ok(value) => value,
             Err(error) => return auth_error(StatusCode::BAD_REQUEST, error),
         };
+    // Sign-in uses discoverable authentication. Request a resident credential
+    // so a fresh device can find the account without a username or local state.
+    let mut public_key = serde_json::to_value(public_key).unwrap_or(serde_json::Value::Null);
+    public_key["publicKey"]["authenticatorSelection"]["residentKey"] = "required".into();
+    public_key["publicKey"]["authenticatorSelection"]["requireResidentKey"] = true.into();
     let label = normalize_passkey_label(&payload.label)
         .unwrap_or_else(|| format!("Passkey {}", passkeys.len() + 1));
     let ceremony_id = match auth.store_ceremony(AccountCeremony::Registration {
@@ -650,7 +661,7 @@ pub(super) async fn passkey_registration_start(
         &CeremonyResponse {
             ok: true,
             ceremony_id,
-            public_key: serde_json::to_value(public_key).unwrap_or(serde_json::Value::Null),
+            public_key,
         },
         None,
     )
@@ -2427,6 +2438,10 @@ fn no_store_json<T: Serialize>(
     }
     response
 }
+
+#[cfg(test)]
+#[path = "account_avatar_tests.rs"]
+mod avatar_tests;
 
 #[cfg(test)]
 mod tests {
