@@ -758,6 +758,9 @@ impl crate::RuntimeWorld {
             };
         }
         let slot_index = usize::from(slot).min(state.slot_generations.len() - 1);
+        if slot_index == 0 {
+            state.location_rotation_after = None;
+        }
         state.slot_generations[slot_index] = state.slot_generations[slot_index].saturating_add(1);
         state.free_think_used |= free;
         let generation = self.hand_generations.entry(actor_id).or_default();

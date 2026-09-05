@@ -91,6 +91,20 @@ The certificate still records the historical slot name and generation so old
 journals replay, but its replacement identity is the noun card rather than one
 of the hidden verbs.
 
+Location Think records the location card it replaces. The next card is the
+first legal location identity after it in a fixed order, with one wrap at the
+end. A stable scene shows every legal exit within one location-pool cycle.
+When other offers change, a continuously legal exit stays reachable within one
+cycle of the distinct location cards in that scene's worldpack. The world
+has at most 2,048 locations, plus the fallback Here card. Most rooms have only a
+few location cards. A guided story can place its next route first while every
+other legal exit remains in the pool.
+
+The saved `location_rotation_after` field marks this rule in new Think journal
+records. Earlier records and snapshots omit it and retain their generation
+rule. The first new Location Think records a cursor for that scene. Leaving
+the scene clears it. Item and Avatar queues keep their generation rule.
+
 ## Presentation contract
 
 A noun card publishes only what its face needs:

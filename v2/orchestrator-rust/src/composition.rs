@@ -1,5 +1,23 @@
 use super::*;
 
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct ActionProviderView {
+    pub(super) kind: String,
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) reason: String,
+    pub(super) priority: u8,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct StoryHandActorState {
+    pub(super) scene_key: String,
+    pub(super) slot_generations: [u64; 3],
+    pub(super) free_think_used: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) location_rotation_after: Option<String>,
+}
+
 fn submitted_payload_target_key(path: &str, target: &ActionTargetView) -> Option<&'static str> {
     Some(match (path, target.kind.as_str()) {
         ("/actions/move" | "/actions/flee" | "/actions/explore-path", "location") => {
@@ -200,6 +218,13 @@ fn offer_composition_matches_at_submitted_revision(
 }
 
 impl RuntimeWorld {
+    pub(super) fn set_location_card_cursor(&mut self, actor_id: u64, after: Option<String>) {
+        self.story_hand_states
+            .entry(actor_id)
+            .or_default()
+            .location_rotation_after = after;
+    }
+
     pub(super) fn story_hand_scene_for_actor(&self, actor_id: u64) -> (String, bool) {
         if let Some(focused) = focused_encounter_for_actor(self, actor_id) {
             return (format!("ordered:{}", focused.handoff_key()), false);
@@ -250,12 +275,14 @@ impl RuntimeWorld {
                 scene_key: scene_key.to_string(),
                 slot_generations: [0; 3],
                 free_think_used: false,
+                location_rotation_after: None,
             };
         }
         StoryHandActorState {
             scene_key: scene_key.to_string(),
             slot_generations: [legacy_generation; 3],
             free_think_used: false,
+            location_rotation_after: None,
         }
     }
 
@@ -2891,13 +2918,14 @@ pub(super) fn compose_story_hand_at(
     offers: &[RankedActionOffer],
     slot_generations: [usize; 3],
 ) -> ActionHandView {
-    compose_story_hand_with_pin(offers, slot_generations, None)
+    compose_story_hand_with_pin(offers, slot_generations, None, None)
 }
 
 fn compose_story_hand_with_pin(
     offers: &[RankedActionOffer],
     slot_generations: [usize; 3],
     progression_pin: Option<(&RankedActionOffer, &BTreeSet<String>)>,
+    location_rotation_after: Option<&str>,
 ) -> ActionHandView {
     const CAPACITY: usize = STORY_HAND_SLOTS.len();
     let pinned_offer_id = progression_pin.map(|(offer, _)| offer.offer_id.as_str());
@@ -2908,7 +2936,8 @@ fn compose_story_hand_with_pin(
             offer.ranked_hand_eligible
                 && action_offer_is_reachable(offer)
                 && !matches!(offer.kind.as_str(), "create_avatar" | "wait")
-                && (Some(offer.offer_id.as_str()) == pinned_offer_id
+                && (matches!(offer.kind.as_str(), "move" | "explore_path" | "flee")
+                    || Some(offer.offer_id.as_str()) == pinned_offer_id
                     || excluded_offer_ids
                         .is_none_or(|excluded| !excluded.contains(&offer.offer_id)))
         })
@@ -2968,8 +2997,20 @@ fn compose_story_hand_with_pin(
         .filter(|(_, pool)| !pool.is_empty())
         .map(|(slot_index, pool)| {
             let generation = slot_generations[slot_index];
+            // A saved noun identity advances through the location order even
+            // when other cards enter or leave the pool. A continuously legal
+            // exit is reached within one cycle of the world's location cards.
+            let next_location = (slot_index == 0)
+                .then_some(location_rotation_after)
+                .flatten()
+                .and_then(|after| {
+                    pool.iter()
+                        .filter(|group| group.binding.card_id.as_str() > after)
+                        .min_by_key(|group| &group.binding.card_id)
+                        .or_else(|| pool.iter().min_by_key(|group| &group.binding.card_id))
+                });
             story_hand_entry(
-                &pool[generation % pool.len()],
+                next_location.unwrap_or(&pool[generation % pool.len()]),
                 slot_index,
                 pool.len().saturating_sub(1),
             )
@@ -3057,6 +3098,20 @@ impl RuntimeWorld {
     ) -> ActionHandView {
         let (scene_key, safe_scene) = self.story_hand_scene_for_actor(actor_id);
         let mut story_state = self.story_hand_state_for_scene(actor_id, &scene_key);
+        if slot_index == 0 {
+            story_state.location_rotation_after = self
+                .action_hand_for_story_state(
+                    Some(actor_id),
+                    offers,
+                    &scene_key,
+                    safe_scene,
+                    &story_state,
+                )
+                .entries
+                .into_iter()
+                .find(|entry| entry.slot == STORY_HAND_SLOTS[0])
+                .map(|entry| entry.card_id);
+        }
         if let Some(generation) = story_state.slot_generations.get_mut(slot_index) {
             *generation = generation.saturating_add(1);
         }
@@ -3125,6 +3180,7 @@ impl RuntimeWorld {
             offers,
             slot_generations,
             progression_offer.map(|offer| (offer, &progression_offer_ids)),
+            story_state.location_rotation_after.as_deref(),
         );
         for entry in &mut hand.entries {
             entry.label = match entry.entity_kind.as_str() {
@@ -3305,6 +3361,180 @@ impl RuntimeWorld {
                     .iter()
                     .any(|entry| entry.offer_ids.contains(&offer.offer_id))
         })
+    }
+}
+
+#[cfg(test)]
+mod location_rotation_tests {
+    use super::*;
+
+    fn route(id: u64, order: &str) -> RankedActionOffer {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Route Player");
+        let mut offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "explore_path")
+            .unwrap();
+        offer.id = order.to_string();
+        offer.offer_id = format!("route:{id}");
+        offer.provider.priority = 1;
+        offer.rank = 1;
+        offer.target.as_mut().unwrap().id = Some(id);
+        offer
+    }
+
+    fn changing_pool(generation: usize) -> Vec<RankedActionOffer> {
+        let mut pool = vec![route(10, "a"), route(20, "m")];
+        if generation % 2 == 1 {
+            pool.push(if generation % 3 == 2 {
+                route(30, "z")
+            } else {
+                route(15, "b")
+            });
+        }
+        pool
+    }
+
+    #[test]
+    fn saved_location_cursor_reaches_a_legal_exit_when_other_cards_change() {
+        // These pools reproduce the old index rule skipping location 20 on
+        // every draw, although that exit remains legal throughout the run.
+        for generation in 0..24 {
+            let hand = compose_story_hand_with_pin(
+                &changing_pool(generation),
+                [generation; 3],
+                None,
+                None,
+            );
+            assert_ne!(hand.entries[0].entity_id, 20);
+        }
+        for start in 0..12 {
+            let mut after = None;
+            let reached = (start..start + 4).any(|generation| {
+                let hand = compose_story_hand_with_pin(
+                    &changing_pool(generation),
+                    [generation; 3],
+                    None,
+                    after.as_deref(),
+                );
+                after = Some(hand.entries[0].card_id.clone());
+                hand.entries[0].entity_id == 20
+            });
+            assert!(
+                reached,
+                "the four possible location identities bound the draw count"
+            );
+        }
+    }
+
+    #[test]
+    fn every_exit_rotates_within_one_stable_pool_cycle_including_guided_routes() {
+        let pool = vec![
+            route(10, "a"),
+            route(15, "b"),
+            route(20, "m"),
+            route(30, "z"),
+        ];
+        let excluded = BTreeSet::from([pool[2].offer_id.clone()]);
+        let mut after = None;
+        let mut seen = BTreeSet::new();
+        for generation in 0..pool.len() {
+            let hand = compose_story_hand_with_pin(
+                &pool,
+                [generation; 3],
+                Some((&pool[0], &excluded)),
+                after.as_deref(),
+            );
+            let entry = &hand.entries[0];
+            seen.insert(entry.entity_id);
+            after = Some(entry.card_id.clone());
+        }
+        assert_eq!(seen, BTreeSet::from([10, 15, 20, 30]));
+    }
+
+    #[test]
+    fn location_rotation_boundary_preserves_old_saves_and_journal_replay() {
+        let legacy_state = serde_json::json!({
+            "scene_key": "safe:1", "slot_generations": [8, 4, 2], "free_think_used": true,
+        });
+        let state: StoryHandActorState = serde_json::from_value(legacy_state.clone()).unwrap();
+        assert!(state.location_rotation_after.is_none());
+        assert_eq!(serde_json::to_value(state).unwrap(), legacy_state);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Replay Player",
+        );
+        runtime.ensure_actor_autonomy();
+        let before = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).unwrap();
+        let (scene_key, _) = runtime.story_hand_scene_for_actor(5000);
+        let mut legacy = JournalRecord::new(
+            CwAction {
+                actor_id: 5000,
+                ..Default::default()
+            },
+            859,
+        );
+        legacy
+            .projection_mutations
+            .push(ProjectionMutation::ThinkHand {
+                slot: 0,
+                scene_key,
+                replaces_offer_id: "location:10".to_string(),
+                location_rotation_after: None,
+                free: false,
+                reason: "test_draw".to_string(),
+            });
+        let legacy_bytes = serde_json::to_string(&legacy).unwrap();
+        assert!(!legacy_bytes.contains("location_rotation_after"));
+        let legacy: JournalRecord = serde_json::from_str(&legacy_bytes).unwrap();
+        assert_eq!(runtime.apply_journal_record(&legacy).0, CW_OK);
+        assert!(runtime.story_hand_states[&5000]
+            .location_rotation_after
+            .is_none());
+        let at_boundary = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).unwrap();
+        let mut current = legacy.clone();
+        if let ProjectionMutation::ThinkHand {
+            location_rotation_after,
+            ..
+        } = &mut current.projection_mutations[0]
+        {
+            *location_rotation_after = Some("location:10".to_string());
+        }
+        assert_eq!(runtime.apply_journal_record(&current).0, CW_OK);
+        let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime)).unwrap();
+        for (snapshot, records) in [
+            (&before, vec![&legacy, &current]),
+            (&at_boundary, vec![&current]),
+        ] {
+            let mut replayed = serde_json::from_slice::<RuntimeSnapshot>(snapshot)
+                .unwrap()
+                .into_runtime()
+                .unwrap();
+            for record in records {
+                assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+            }
+            let actual = serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed)).unwrap();
+            let changed = expected
+                .as_object()
+                .unwrap()
+                .keys()
+                .filter(|key| actual[*key] != expected[*key])
+                .collect::<Vec<_>>();
+            assert!(changed.is_empty(), "replay differs in {changed:?}");
+        }
+        assert_eq!(
+            runtime.story_hand_states[&5000]
+                .location_rotation_after
+                .as_deref(),
+            Some("location:10")
+        );
+        let reset = runtime.story_hand_state_for_scene(5000, "safe:2");
+        assert!(reset.location_rotation_after.is_none());
     }
 }
 
