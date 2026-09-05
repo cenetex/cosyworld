@@ -658,7 +658,7 @@ async fn route_certified_voice_with(
     Err(routing_error(code, rejections))
 }
 
-fn request_with_retry_feedback(
+pub(crate) fn request_with_retry_feedback(
     request: &VoiceAttemptRequest,
     rejections: &[PublicationRejection],
     gate: &SpeechGateContext,
