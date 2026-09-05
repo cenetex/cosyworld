@@ -509,22 +509,22 @@ impl RuntimeWorld {
             && (exact_offer.is_none() || offer.composition_id != submission.composition_id)
         {
             Err("the scene composition changed; refresh and choose a current action")
-        } else if offer.kind != submission.kind || offer.disabled {
-            Err("offer identity, rules binding, target, cost, or availability was changed")
-        } else if (!submission.rules_profile.is_empty()
-            || submission.state_revision != 0
-            || submission.rules_action.is_some()
-            || submission.operation.is_some()
-            || submission.route.is_some()
-            || submission.target.is_some()
-            || submission.cost.is_some())
-            && (offer.rules_action != submission.rules_action
-                || offer.operation != submission.operation
-                || offer.rules_profile != submission.rules_profile
-                || (offer.state_revision != submission.state_revision && !revision_rebound)
-                || offer.route != submission.route
-                || offer.target != submission.target
-                || offer.cost != submission.cost)
+        } else if offer.kind != submission.kind
+            || offer.disabled
+            || ((!submission.rules_profile.is_empty()
+                || submission.state_revision != 0
+                || submission.rules_action.is_some()
+                || submission.operation.is_some()
+                || submission.route.is_some()
+                || submission.target.is_some()
+                || submission.cost.is_some())
+                && (offer.rules_action != submission.rules_action
+                    || offer.operation != submission.operation
+                    || offer.rules_profile != submission.rules_profile
+                    || (offer.state_revision != submission.state_revision && !revision_rebound)
+                    || offer.route != submission.route
+                    || offer.target != submission.target
+                    || offer.cost != submission.cost))
         {
             Err("offer identity, rules binding, target, cost, or availability was changed")
         } else if offer.target.as_ref().is_some_and(|target| {
