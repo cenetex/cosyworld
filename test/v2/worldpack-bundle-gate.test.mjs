@@ -34,11 +34,11 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
-const LANTERN_CANDIDATE_HASH = "sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d";
+const LANTERN_CANDIDATE_HASH = "sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d";
 const LANTERN_ACTIVE_HASH = "sha256:1075c33b5cbfa4ad4cbaa60477f6ebb04773b867f001e8af149bb9a408ab0d88";
 const LANTERN_PREVIOUS_ACTIVE_HASH = "sha256:4d9a92d92781710f980fb68595576b5a65176e1b02267e45d438d8c0c395a183";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
-const ELYSIUM_CANDIDATE_HASH = "sha256:6baaf732ec4d2b20bccbb9fc5c133365d84c0729f9c2f1a191193646a499efc4";
+const ELYSIUM_CANDIDATE_HASH = "sha256:60884f22af54f8a2c0c3b1ab6b868083d27905c5fe1b00b2dfe5e4ae72c6f447";
 const ELYSIUM_PREVIOUS_CANDIDATE_HASH = "sha256:8854e9c436496541fbd4581df7abc908ce34e95d95518c2e89cf9fb93246d805";
 const ELYSIUM_ACTIVE_HASH = "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c";
 const ELYSIUM_FAILED_CANDIDATE_HASH = "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099";
@@ -288,6 +288,7 @@ describe("worldpack deploy gate CLI", () => {
     const registry = JSON.parse(await readFile(lanternRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
     expect(candidate.bundleHash).toBe(LANTERN_CANDIDATE_HASH);
+    expect(candidate.replayCompatible).toContain("sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d");
     expect(candidate.replayCompatible).toContain(LANTERN_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(LANTERN_PREVIOUS_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(LANTERN_PERSISTED_HASH);
@@ -309,6 +310,7 @@ describe("worldpack deploy gate CLI", () => {
     const registry = JSON.parse(await readFile(elysiumRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
     expect(candidate.bundleHash).toBe(ELYSIUM_CANDIDATE_HASH);
+    expect(candidate.replayCompatible).toContain("sha256:6baaf732ec4d2b20bccbb9fc5c133365d84c0729f9c2f1a191193646a499efc4");
     expect(candidate.replayCompatible).toContain(ELYSIUM_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(ELYSIUM_PREVIOUS_CANDIDATE_HASH);
     expect(candidate.replayCompatible).toContain(ELYSIUM_PRODUCTION_HASH);
