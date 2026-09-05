@@ -2690,6 +2690,163 @@ fn story_hand_deals_at_most_one_item_location_and_avatar() {
 }
 
 #[test]
+fn every_eligible_resident_has_a_reachable_exact_chat_card() {
+    let actor_id = 5_000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Chat Witness",
+    );
+    complete_guided_story_for_test(&mut runtime, actor_id);
+    let targets = runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .filter(|actor| {
+            runtime.actor_uses_inference(actor.id) && resident_supports_text_reply(actor.id)
+        })
+        .map(|actor| actor.id)
+        .take(3)
+        .collect::<Vec<_>>();
+    assert_eq!(targets.len(), 3);
+    isolate_story_hand_actor(&mut runtime, actor_id);
+    for actor in runtime.world.actors[..runtime.world.actor_count].iter_mut() {
+        if targets.contains(&actor.id) {
+            actor.location_id = COSY_COTTAGE_LOCATION_ID;
+        }
+    }
+    let config = AiConfig {
+        api_key: "test".to_string(),
+        base_url: "http://127.0.0.1:9".to_string(),
+        model: "test-chat-model".to_string(),
+        ..AiConfig::default()
+    };
+    let (mut primary, mut offers) =
+        runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    retain_configured_model_interaction_offers(&mut primary, &mut offers, Some(&config));
+    let chats = offers
+        .iter()
+        .filter(|offer| offer.kind == "chat")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        chats.len(),
+        targets.len(),
+        "each nearby resident has a Chat action"
+    );
+    assert_eq!(
+        chats
+            .iter()
+            .map(|offer| &offer.offer_id)
+            .collect::<BTreeSet<_>>()
+            .len(),
+        targets.len()
+    );
+    let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
+    for target_id in &targets {
+        let offer = chats
+            .iter()
+            .find(|offer| offer.target.as_ref().and_then(|target| target.id) == Some(*target_id))
+            .expect("resident Chat offer");
+        let name = runtime.actor_name(*target_id).expect("resident name");
+        assert_eq!(offer.accessible_label, format!("Chat with {name}"));
+        assert_eq!(
+            offer.effect,
+            Some(format!("opens a small exchange with {name}"))
+        );
+        assert_eq!(
+            offer
+                .composition_trace
+                .target
+                .as_ref()
+                .and_then(|target| target.id),
+            Some(*target_id)
+        );
+        let slot = story_hand_natural_slot(offer);
+        let reached = (0..offers.len()).any(|generation| {
+            let mut slot_generations = [0; 3];
+            slot_generations[slot] = generation as u64;
+            runtime.story_hand_states.insert(
+                actor_id,
+                StoryHandActorState {
+                    scene_key: scene_key.clone(),
+                    slot_generations,
+                    location_rotation_after: None,
+                    free_think_used: false,
+                },
+            );
+            runtime
+                .action_hand_for(Some(actor_id), &offers)
+                .entries
+                .iter()
+                .any(|entry| {
+                    entry.entity_id == *target_id && entry.offer_ids.contains(&offer.offer_id)
+                })
+        });
+        assert!(reached, "rotation reaches each resident's own Chat card");
+        let mut submission = compact_submission_for_offer(
+            offer,
+            "/actions/chat",
+            serde_json::json!({"actor_id": actor_id, "target_actor_id": target_id}),
+        );
+        assert_eq!(
+            runtime.validate_action_offer_submission_with_presence(
+                actor_id,
+                &AccessContext::default(),
+                &submission,
+                None,
+                Some(&config)
+            ),
+            Ok(())
+        );
+        submission.payload["target_actor_id"] =
+            serde_json::json!(targets.iter().find(|other| *other != target_id).unwrap());
+        assert!(
+            runtime
+                .validate_action_offer_submission_with_presence(
+                    actor_id,
+                    &AccessContext::default(),
+                    &submission,
+                    None,
+                    Some(&config)
+                )
+                .is_err(),
+            "each certificate keeps its own target"
+        );
+    }
+    runtime
+        .actor_safety
+        .entry(actor_id)
+        .or_default()
+        .muted_actor_ids
+        .insert(targets[0]);
+    runtime
+        .actor_safety
+        .entry(targets[1])
+        .or_default()
+        .blocked_actor_ids
+        .insert(actor_id);
+    let (_, filtered) = runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    assert_eq!(
+        filtered
+            .iter()
+            .filter(|offer| offer.kind == "chat")
+            .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+            .collect::<Vec<_>>(),
+        vec![targets[2]]
+    );
+    runtime.world.actors[..runtime.world.actor_count]
+        .iter_mut()
+        .find(|actor| actor.id == targets[2])
+        .unwrap()
+        .location_id = DARK_ABYSS_LOCATION_ID;
+    assert!(runtime
+        .legal_action_candidates(Some(actor_id), &AccessContext::default())
+        .1
+        .iter()
+        .all(|offer| offer.kind != "chat"));
+}
+
+#[test]
 fn direct_chat_card_binds_one_exact_avatar_without_a_chooser() {
     let actor_id = 5_000;
     let mut runtime = RuntimeWorld::seeded();

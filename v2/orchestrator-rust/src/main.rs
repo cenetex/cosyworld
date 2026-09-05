@@ -15367,14 +15367,7 @@ The relationship statement they are preserving is: {statement}"
     }
 
     fn default_inference_chat_target(&self, actor_id: u64) -> Option<CwActor> {
-        self.active_chat_targets(actor_id)
-            .into_iter()
-            .find(|target| {
-                self.actor_uses_inference(target.id)
-                    && resident_supports_text_reply(target.id)
-                    && !self.actors_blocked(actor_id, target.id)
-                    && !self.actor_muted(actor_id, target.id)
-            })
+        self.inference_chat_targets(actor_id).into_iter().next()
     }
 
     fn has_active_chat_target(&self, actor_id: u64) -> bool {

@@ -967,6 +967,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
+        offers = self.expand_chat_action_offers(actor_id, offers);
         offers = self.expand_item_action_offers(actor_id, offers);
         offers = self.expand_job_contribution_offers(actor_id, offers);
         offers = self.expand_use_action_offers(actor_id, offers);
