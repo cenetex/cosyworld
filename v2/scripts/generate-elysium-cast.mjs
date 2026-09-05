@@ -206,7 +206,7 @@ function itemsFromBindings(bindings) {
     id: ITEM_BASE + index,
     name: `Unresolved Void Marker ${voidNumber(index)}`,
     description: "A sealed possibility unique to this private cell. Carry it and listen until it settles into one permanent identity.",
-    kind: "keepsake",
+    kind: "trinket",
     charges: 1,
     location_id: LOCATION_BASE + index,
     role: "relic",

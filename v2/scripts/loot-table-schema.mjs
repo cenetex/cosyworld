@@ -1,4 +1,4 @@
-const itemKinds = new Set(["potion", "evolution", "keepsake"]);
+const itemKinds = new Set(["potion", "evolution", "trinket"]);
 const itemRoles = new Set([
   "generic",
   "consumable",

@@ -154,10 +154,6 @@ fn app_router_with_dependencies(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
-        .route(
-            "/assets/generated/boxes/{box_state}/{box_file}",
-            get(generated_box_asset),
-        )
         .route("/assets/cosy-cottage.png", get(legacy_cosy_cottage_asset))
         .route("/assets/rati.png", get(legacy_rati_asset))
         .route("/assets/{*asset_path}", get(public_pack_asset))

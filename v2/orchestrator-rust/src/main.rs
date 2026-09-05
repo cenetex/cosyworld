@@ -3848,7 +3848,7 @@ fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
     match kind {
         "potion" => Some(CW_ITEM_POTION),
         "evolution" => Some(CW_ITEM_EVOLUTION),
-        "keepsake" => Some(CW_ITEM_KEEPSAKE),
+        "trinket" | "keepsake" => Some(CW_ITEM_KEEPSAKE),
         _ => None,
     }
 }
@@ -16287,24 +16287,24 @@ The relationship statement they are preserving is: {statement}"
             ),
             "item.picked_up" => format!(
                 "{actor_name} picked up {}.",
-                subject.as_deref().unwrap_or("a keepsake")
+                subject.as_deref().unwrap_or("a trinket")
             ),
             "item.dropped" => format!(
                 "{actor_name} set {} down for the room to find.",
-                subject.as_deref().unwrap_or("a keepsake")
+                subject.as_deref().unwrap_or("a trinket")
             ),
             "item.used" => format!(
                 "{actor_name} used {}.",
-                subject.as_deref().unwrap_or("a keepsake")
+                subject.as_deref().unwrap_or("a trinket")
             ),
             "item.given" => format!(
                 "{actor_name} gave {} to {}.",
-                subject.as_deref().unwrap_or("a keepsake"),
+                subject.as_deref().unwrap_or("a trinket"),
                 event.target_actor_name.as_deref().unwrap_or("a neighbour")
             ),
             "item.traded" => format!(
                 "{actor_name} traded {} with {}.",
-                subject.as_deref().unwrap_or("two keepsakes"),
+                subject.as_deref().unwrap_or("two trinkets"),
                 event.target_actor_name.as_deref().unwrap_or("a neighbour")
             ),
             "combat.attack.attempt" | "combat.attack.hit" | "combat.attack.miss" => format!(
@@ -26536,35 +26536,6 @@ async fn generated_avatar_asset(
         .into_response()
 }
 
-async fn generated_box_asset(
-    AxumPath((box_state, box_file)): AxumPath<(String, String)>,
-) -> impl IntoResponse {
-    let Some(box_id) = box_file.strip_suffix(".svg") else {
-        return (StatusCode::NOT_FOUND, "unknown box").into_response();
-    };
-    let state = match box_state.as_str() {
-        "closed" | "opening" | "open" => box_state.as_str(),
-        _ => return (StatusCode::NOT_FOUND, "unknown box").into_response(),
-    };
-    if box_id.is_empty()
-        || box_id.len() > 96
-        || !box_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
-    {
-        return (StatusCode::NOT_FOUND, "unknown box").into_response();
-    }
-    (
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=86400"),
-        ],
-        generated_box_svg(box_id, state),
-    )
-        .into_response()
-}
-
 async fn legacy_rati_asset() -> impl IntoResponse {
     serve_public_asset_path("/assets/cards/rati.png")
 }
@@ -26619,7 +26590,7 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
     let card_id = escape_xml(&spec.card_id);
 
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}' role='img' aria-label='{label} keepsake art' data-card-id='{card_id}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='62%'><stop offset='0' stop-color='{accent}' stop-opacity='.36'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='12' height='12' patternUnits='userSpaceOnUse'><path d='M0 12L12 0' stroke='{ink}' stroke-opacity='.045' stroke-width='2'/></pattern></defs><rect width='{width}' height='{height}' rx='18' fill='{bg}'/><rect width='{width}' height='{height}' fill='url(#glow)'/><rect width='{width}' height='{height}' fill='url(#grain)'/><rect x='10' y='10' width='{inner_w}' height='{inner_h}' rx='14' fill='none' stroke='{accent}' stroke-width='4' opacity='.78'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r}' fill='{accent}' opacity='.16'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r2}' fill='none' stroke='{accent}' stroke-width='5' opacity='.75'/><text x='{mid_x}' y='{glyph_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='{glyph_size}' font-weight='900' fill='{ink}'>{glyph}</text><text x='{mid_x}' y='{label_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='22' font-weight='850' fill='{accent}'>{label}</text><text x='22' y='34' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='14' font-weight='800' fill='{ink}' opacity='.72'>{role}</text></svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}' role='img' aria-label='{label} item art' data-card-id='{card_id}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='62%'><stop offset='0' stop-color='{accent}' stop-opacity='.36'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='12' height='12' patternUnits='userSpaceOnUse'><path d='M0 12L12 0' stroke='{ink}' stroke-opacity='.045' stroke-width='2'/></pattern></defs><rect width='{width}' height='{height}' rx='18' fill='{bg}'/><rect width='{width}' height='{height}' fill='url(#glow)'/><rect width='{width}' height='{height}' fill='url(#grain)'/><rect x='10' y='10' width='{inner_w}' height='{inner_h}' rx='14' fill='none' stroke='{accent}' stroke-width='4' opacity='.78'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r}' fill='{accent}' opacity='.16'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r2}' fill='none' stroke='{accent}' stroke-width='5' opacity='.75'/><text x='{mid_x}' y='{glyph_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='{glyph_size}' font-weight='900' fill='{ink}'>{glyph}</text><text x='{mid_x}' y='{label_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='22' font-weight='850' fill='{accent}'>{label}</text><text x='22' y='34' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='14' font-weight='800' fill='{ink}' opacity='.72'>{role}</text></svg>",
         inner_w = width - 20,
         inner_h = height - 20,
         circle_r = width.min(height) / 4,
@@ -26628,39 +26599,6 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
         bg = spec.bg.as_str(),
         ink = spec.ink.as_str(),
         accent = spec.accent.as_str(),
-    )
-}
-
-fn generated_box_svg(box_id: &str, state: &str) -> String {
-    let hash = stable_hash_u64(&["wooden-box-art", box_id]);
-    let (bg, wood, dark, ink, accent) = match hash % 5 {
-        0 => ("#21160f", "#8a5a31", "#3a2415", "#f7e3bd", "#efc96b"),
-        1 => ("#17261f", "#6f5a35", "#2d2116", "#d8f7dc", "#65e68a"),
-        2 => ("#1b2030", "#76614a", "#30231b", "#e9efff", "#8bb7ff"),
-        3 => ("#2a1d26", "#7d5239", "#332016", "#f4dce9", "#f29c9c"),
-        _ => ("#1d2118", "#826331", "#312514", "#f5e6b8", "#d0a84e"),
-    };
-    let lid = match state {
-        "opening" => format!(
-            "<g class='box-opening'><path d='M67 126 L228 70 L257 108 L91 161 Z' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M108 127 L223 91' stroke='{ink}' stroke-opacity='.2' stroke-width='5'/><path d='M160 126 L160 45 M128 139 L96 61 M192 134 L229 57' stroke='{accent}' stroke-width='4' stroke-linecap='round' opacity='.72'/><rect class='card' x='133' y='88' width='34' height='48' rx='5' fill='{ink}' opacity='.92'/><rect class='card' x='169' y='97' width='34' height='48' rx='5' fill='{accent}' opacity='.88'/></g>"
-        ),
-        "open" => format!(
-            "<g class='box-open'><path d='M67 114 L232 54 L261 91 L94 151 Z' fill='{dark}' stroke='{accent}' stroke-width='4' opacity='.9'/><rect class='card' x='101' y='68' width='44' height='66' rx='6' fill='{ink}' transform='rotate(-10 123 101)'/><rect class='card' x='142' y='54' width='44' height='66' rx='6' fill='{accent}' transform='rotate(4 164 87)'/><rect class='card' x='183' y='73' width='44' height='66' rx='6' fill='{ink}' opacity='.88' transform='rotate(13 205 106)'/><path d='M91 144 C120 110 205 110 236 144' fill='{accent}' opacity='.18'/></g>"
-        ),
-        _ => format!(
-            "<g class='box-closed'><rect x='58' y='100' width='204' height='61' rx='13' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M74 130 H246' stroke='{dark}' stroke-width='8' opacity='.42'/><circle cx='160' cy='148' r='12' fill='{dark}' stroke='{accent}' stroke-width='4'/></g>"
-        ),
-    };
-    let box_id_xml = escape_xml(box_id);
-    let state_xml = escape_xml(state);
-    let label = match state {
-        "opening" => "OPENING",
-        "open" => "OPEN",
-        _ => "SEALED",
-    };
-
-    format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320' role='img' aria-label='Intricately Carved Wooden Box {state_xml}' data-box-id='{box_id_xml}' data-box-state='{state_xml}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='70%'><stop offset='0' stop-color='{accent}' stop-opacity='.3'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='16' height='16' patternUnits='userSpaceOnUse'><path d='M0 11 C5 5 10 5 16 0 M-2 16 C5 9 12 9 18 4' fill='none' stroke='{ink}' stroke-width='1.8' stroke-opacity='.08'/></pattern></defs><rect width='320' height='320' rx='26' fill='{bg}'/><rect width='320' height='320' fill='url(#glow)'/><rect width='320' height='320' fill='url(#grain)'/><rect x='14' y='14' width='292' height='292' rx='20' fill='none' stroke='{accent}' stroke-width='4' opacity='.72'/>{lid}<g class='box-base'><rect x='70' y='145' width='180' height='88' rx='12' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M82 168 H238 M82 205 H238' stroke='{dark}' stroke-width='5' opacity='.35'/><path d='M104 151 V229 M216 151 V229' stroke='{dark}' stroke-width='5' opacity='.26'/><path d='M121 186 C138 173 180 173 198 186' fill='none' stroke='{accent}' stroke-width='3' opacity='.48'/></g><text x='160' y='270' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='21' font-weight='900' fill='{accent}'>{label}</text><text x='160' y='292' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='11' font-weight='800' fill='{ink}' opacity='.64'>{box_id_xml}</text></svg>"
     )
 }
 
@@ -49872,16 +49810,6 @@ mod tests {
             let spec = seed_card_art_spec(card_id).expect("seed card art spec");
             assert!(generated_seed_card_svg(&spec).contains(&format!("data-card-id='{card_id}'")));
         }
-
-        let closed_box = generated_box_svg("box-smoke-1", "closed");
-        assert!(closed_box.contains("data-box-id='box-smoke-1'"));
-        assert!(closed_box.contains("data-box-state='closed'"));
-        let opening_box = generated_box_svg("box-smoke-1", "opening");
-        assert!(opening_box.contains("data-box-state='opening'"));
-        assert!(opening_box.contains("class='card'"));
-        let open_box = generated_box_svg("box-smoke-1", "open");
-        assert!(open_box.contains("data-box-state='open'"));
-        assert!(open_box.contains("class='card'"));
     }
 
     #[test]
@@ -50221,7 +50149,7 @@ mod tests {
         let ordinary_item_count = content
             .items
             .iter()
-            .filter(|item| item.kind == "keepsake")
+            .filter(|item| item.kind == "trinket")
             .count();
         assert!(
             ordinary_item_count >= 3,

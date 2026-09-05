@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "project89.perimeter-relay",
   "name": "Project 89: Perimeter Relay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "kind": "world",
   "description": "Eight populated Project 89 relay anchors joined by an irregular authored web whose route interiors are generated and persisted.",
   "license": "LicenseRef-Project89-Prototype",
@@ -167,7 +167,14 @@
           "terminal_spurs": { "min": 0, "max": 0 }
         }
       },
-      "migrations": [],
+      "migrations": [
+        {
+          "from_policy_id": "project89.perimeter-relay/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "0.1.0",
+          "mode": "preserve_descendants"
+        }
+      ],
       "cross_pack_routes": []
     }
   }

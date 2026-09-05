@@ -13,7 +13,8 @@
       "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
       "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e",
       "sha256:d8c8c233967317140819efca5ad628d353cdd684fd4740a0c767aa0a09e9a3b8",
-      "sha256:0d7a17dc6ad0c8b66107f2ab3ea17e73c4597728c37a322b7702677a9230227c"
+      "sha256:0d7a17dc6ad0c8b66107f2ab3ea17e73c4597728c37a322b7702677a9230227c",
+      "sha256:c8a756ad8e74b9856f20f19ffb0cafa177b483a2d413514f8805ccf9d71a0918"
     ]
   },
   "pack_lifecycle": {
@@ -741,7 +742,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:c8a756ad8e74b9856f20f19ffb0cafa177b483a2d413514f8805ccf9d71a0918",
+  "bundle_hash": "sha256:1d4b358ae9adf58a59fbc259e5bf43e06037f729f084b75c2ad572215b915f14",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -905,7 +906,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.13",
+      "version": "1.3.14",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1117,6 +1118,12 @@
               "from_policy_id": "cosyworld.core/generation/1",
               "from_migration_version": 1,
               "from_pack_version": "1.3.11",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.13",
               "mode": "preserve_descendants"
             }
           ],
@@ -1705,7 +1712,7 @@
               "id": "river_sprat",
               "name": "River Sprat",
               "description": "A small silver fish caught through patient shared work.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
@@ -1719,7 +1726,7 @@
               "id": "smoked_river_sprat",
               "name": "Smoked River Sprat",
               "description": "A represented catch preserved at a completed smokehouse for later journeys.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1733,7 +1740,7 @@
               "id": "glassfin_scale",
               "name": "Glassfin Scale",
               "description": "A rare clear scale that keeps a ribbon of river light.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 1,
@@ -1746,7 +1753,7 @@
               "id": "iron_nodule",
               "name": "Iron Nodule",
               "description": "A workable dark nodule brought out by represented mining.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 20,
@@ -1759,7 +1766,7 @@
               "id": "iron_bloom",
               "name": "Iron Bloom",
               "description": "A compact bloom refined from represented ore at a working smithy.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 14,
@@ -1772,7 +1779,7 @@
               "id": "waystone_bracket",
               "name": "Waystone Bracket",
               "description": "A fitted iron bracket made to hold one lasting marker in place.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 12,
@@ -1785,7 +1792,7 @@
               "id": "quartz_chip",
               "name": "Quartz Chip",
               "description": "A pale mineral chip with one clean shining edge.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 5,
@@ -1798,7 +1805,7 @@
               "id": "orchard_apple",
               "name": "Orchard Apple",
               "description": "A firm apple gathered after tending the shared grove.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1811,7 +1818,7 @@
               "id": "amber_pear",
               "name": "Amber Pear",
               "description": "A golden pear with a warm speckled skin.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
@@ -1824,7 +1831,7 @@
               "id": "garden_beans",
               "name": "Garden Beans",
               "description": "A tied bundle of crisp beans from the public garden.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
@@ -1837,7 +1844,7 @@
               "id": "moon_carrot",
               "name": "Moon Carrot",
               "description": "A pale carrot curled like a small crescent.",
-              "kind": "keepsake",
+              "kind": "trinket",
               "charges": 1,
               "role": "generic",
               "weight_tenths": 2,
@@ -2013,13 +2020,13 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:1dce6a4d9ee46d392f3713f5d646bedaf6581b37597a399df7a071f086ef683f"
+      "integrity": "sha256:fb8f03cb92578b871e347616675d7a0abed591164d5d41324d9aa4a65ccd74f2"
     },
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable public school world, card catalog, and First Bell experience.",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2157,7 +2164,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:dce282e20411d49f024d58320f592258f8423895ea60955cdbb86927df45a19e"
+      "integrity": "sha256:106683a43ca2044e1e6ef6e63551dd31d8e0ed50ab436817e48d640968347888"
     },
     {
       "id": "cosyworld.composition.core-ruby",

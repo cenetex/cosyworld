@@ -16,28 +16,28 @@
         "target": { "kind": "job", "id": "project89:charter-the-open-circuit", "label": "the Meridian evidence term" },
         "requirements": [{ "kind": "at_location", "location_id": 8940 }, { "kind": "held_item", "item_id": 9121 }],
         "resolution": { "kind": "certain" }, "clock_id": "project89.open-circuit-charter", "baseline_progress": 2, "claim_policy": "once_per_target",
-        "strategy_label": "Publish the evidence term", "narration_key": "project89.frontier.meridian", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.0"
+        "strategy_label": "Publish the evidence term", "narration_key": "project89.frontier.meridian", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.1"
       },
       {
         "version": 1, "id": "limit-frontier-repair", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
         "target": { "kind": "job", "id": "project89:charter-the-open-circuit", "label": "the Reach consent term" },
         "requirements": [{ "kind": "at_location", "location_id": 8941 }, { "kind": "held_item", "item_id": 9122 }],
         "resolution": { "kind": "certain" }, "clock_id": "project89.open-circuit-charter", "baseline_progress": 2, "claim_policy": "once_per_target",
-        "strategy_label": "Limit frontier repair", "narration_key": "project89.frontier.reach", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.0"
+        "strategy_label": "Limit frontier repair", "narration_key": "project89.frontier.reach", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.1"
       },
       {
         "version": 1, "id": "reserve-visible-power", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
         "target": { "kind": "job", "id": "project89:charter-the-open-circuit", "label": "the Expanse maintenance term" },
         "requirements": [{ "kind": "at_location", "location_id": 8942 }, { "kind": "held_item", "item_id": 9123 }],
         "resolution": { "kind": "certain" }, "clock_id": "project89.open-circuit-charter", "baseline_progress": 2, "claim_policy": "once_per_target",
-        "strategy_label": "Reserve visible power", "narration_key": "project89.frontier.expanse", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.0"
+        "strategy_label": "Reserve visible power", "narration_key": "project89.frontier.expanse", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.1"
       },
       {
         "version": 1, "id": "attend-the-return", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
         "target": { "kind": "job", "id": "project89:charter-the-open-circuit", "label": "the Freeport return term" },
         "requirements": [{ "kind": "at_location", "location_id": 8943 }, { "kind": "held_item", "item_id": 9120 }],
         "resolution": { "kind": "certain" }, "clock_id": "project89.open-circuit-charter", "baseline_progress": 2, "claim_policy": "once_per_target",
-        "strategy_label": "Attend the return", "narration_key": "project89.frontier.freeport", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.0"
+        "strategy_label": "Attend the return", "narration_key": "project89.frontier.freeport", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.open-signal-frontier", "pack_version": "0.1.1"
       }
     ]
   }

@@ -66,7 +66,7 @@ pub(crate) fn item_kind(kind: u8) -> &'static str {
     match kind {
         CW_ITEM_POTION => "potion",
         CW_ITEM_EVOLUTION => "evolution",
-        CW_ITEM_KEEPSAKE => "keepsake",
+        CW_ITEM_KEEPSAKE => "trinket",
         _ => "unknown",
     }
 }

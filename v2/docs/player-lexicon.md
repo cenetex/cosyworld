@@ -135,3 +135,15 @@ This is the player-facing layer of
 supersedes ADR 0001's broader external-card, entitlement, and portable-item
 product direction. World entities, physical custody, Journal events, and
 worldpack composition remain canonical authority.
+
+## Item kind compatibility
+
+Current authored item kinds are `potion`, `evolution`, and `trinket`.
+A trinket is a physical item, with its own holder, location, and charges.
+The runtime reads the historical `keepsake` spelling as a trinket. Saved
+kernel value 3 stays stable. Current state uses `trinket`, and a resident's
+attachment uses `attached`.
+
+The generated Box route was retired after checking its callers. Current
+cards use the generated card and avatar asset routes. The browser copy
+check covers DOM text and accessible labels, including rescue details.

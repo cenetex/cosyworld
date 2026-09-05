@@ -165,7 +165,7 @@ pub(super) fn proxim8_materialization_record(
         || !config.pilot.already_materialized
         || config.pilot.actor_id == 0
         || config.pilot.name.trim().is_empty()
-        || config.dynamic_item.kind != "keepsake"
+        || !matches!(config.dynamic_item.kind.as_str(), "trinket" | "keepsake")
         || config.dynamic_item.role != "relic"
         || config.media.base_model != "flux-1"
         || config.media.lora != "ratimics/project89"

@@ -81,12 +81,12 @@
     },
     {
       "id": "project89.operation-liberation",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": {
         "type": "workspace",
         "path": "../../content/project89-operation-liberation"
       },
-      "integrity": "sha256:bc5cd605ccfe98b0c609c5a4c50c3cd25439e4616e20b211f639a69ed571e86c",
+      "integrity": "sha256:72cbc0d6cf78393565c6d32bd21f609279df2d8670271060918ecce77bc30146",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -118,12 +118,12 @@
     },
     {
       "id": "project89.perimeter-relay",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": {
         "type": "workspace",
         "path": "../../content/project89-perimeter-relay"
       },
-      "integrity": "sha256:99c22ea5026aeba21ee8b9d640816b7c961ebbd4cad381a4a974f2eb1754faa9",
+      "integrity": "sha256:742460a66636452545389bebe1df942f92c8de491eb0b93630aa7e14501ffc0a",
       "dependencies": [
         {
           "id": "project89.operation-liberation",
@@ -163,12 +163,12 @@
     },
     {
       "id": "project89.open-signal-frontier",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": {
         "type": "workspace",
         "path": "../../content/project89-open-signal-frontier"
       },
-      "integrity": "sha256:0590679eeb81b8121cd0e83db9d32a8a0cf8e4b1ab63e302a7a58c4246c9ed12",
+      "integrity": "sha256:eae54d8db43a3dc01a8d3e7eea9a1e1b5488243dab97a080624ff13ec4cc1b21",
       "dependencies": [
         {
           "id": "project89.perimeter-relay",
@@ -319,7 +319,7 @@
     {
       "pack_id": "project89.operation-liberation",
       "name": "Project 89: Operation Liberation",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license_identifier": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
       "provenance": {
@@ -340,7 +340,7 @@
     {
       "pack_id": "project89.perimeter-relay",
       "name": "Project 89: Perimeter Relay",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license_identifier": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
       "provenance": {
@@ -361,7 +361,7 @@
     {
       "pack_id": "project89.open-signal-frontier",
       "name": "Project 89: Open Signal Frontier",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license_identifier": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
       "provenance": {

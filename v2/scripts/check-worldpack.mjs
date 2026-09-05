@@ -1692,7 +1692,7 @@ for (const item of items) {
     fail(error.message);
   }
   validateRequiredStrings("item", item, ["name", "description", "kind", "role", "size"]);
-  if (!["potion", "evolution", "keepsake"].includes(item.kind)) {
+  if (!["potion", "evolution", "trinket"].includes(item.kind)) {
     fail(`item ${item.id} has invalid kind ${item.kind}`);
   }
   if (!Number.isInteger(item.charges) || item.charges <= 0) {

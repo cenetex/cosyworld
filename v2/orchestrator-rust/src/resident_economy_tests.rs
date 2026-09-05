@@ -10,6 +10,30 @@
 use super::*;
 
 #[test]
+fn legacy_item_kind_restores_as_a_trinket_with_its_physical_state() {
+    let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+    let item = snapshot
+        .world_items
+        .iter_mut()
+        .find(|item| item.id == THREADBARE_MAP_SCRAP_ITEM_ID)
+        .unwrap();
+    // Value 3 and the old source spelling are durable compatibility inputs.
+    item.kind = 3;
+    item.charges = 0;
+    let location_id = item.location_id;
+    let holder_actor_id = item.holder_actor_id;
+    assert_eq!(seed_item_kind_from_str("keepsake"), Some(item.kind));
+    let bytes = serde_json::to_vec(&snapshot).unwrap();
+    let restored: RuntimeSnapshot = serde_json::from_slice(&bytes).unwrap();
+    let runtime = restored.into_runtime().unwrap();
+    let item = runtime.item_by_id(THREADBARE_MAP_SCRAP_ITEM_ID).unwrap();
+    assert_eq!(item.charges, 0);
+    assert_eq!(item.location_id, location_id);
+    assert_eq!(item.holder_actor_id, holder_actor_id);
+    assert_eq!(runtime.item_view(item).kind, "trinket");
+}
+
+#[test]
 fn item_trade_swaps_player_and_resident_items() {
     let mut runtime = RuntimeWorld::seeded();
     let mut create = CwAction::default();
@@ -314,7 +338,7 @@ fn ordinary_keepsakes_drive_resident_trade_without_evolution() {
     let map_scrap = runtime
         .item_by_id(THREADBARE_MAP_SCRAP_ITEM_ID)
         .expect("map scrap exists");
-    assert_eq!(item_kind(map_scrap.kind), "keepsake");
+    assert_eq!(item_kind(map_scrap.kind), "trinket");
     assert!(!evolution_track_item_ids(MOUSE_WANDERER_ACTOR_ID)
         .unwrap_or_default()
         .contains(&THREADBARE_MAP_SCRAP_ITEM_ID));
@@ -1126,7 +1150,7 @@ fn resident_feature_use_can_turn_ordinary_item_into_keepsake() {
         .expect("Threadbare Map Scrap exists");
     assert!(runtime.resident_item_is_attached(RATI_ACTOR_ID, map));
     let held_map = runtime.resident_held_item_view(rati, map, None);
-    assert_eq!(held_map.disposition, "keepsake");
+    assert_eq!(held_map.disposition, "attached");
     assert!(held_map.reason.contains("mattered in a room moment"));
 }
 

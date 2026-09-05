@@ -11,5 +11,11 @@
     "ruby-high.first-bell",
     "cosyworld.rules-srd-5.2.1",
     "cosyworld.rules-profile-srd5"
-  ]
+  ],
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:59010cf1fe13712570c3b9bd07a3924e81857b5639f0c56f44683440826d4854"
+    ]
+  }
 }

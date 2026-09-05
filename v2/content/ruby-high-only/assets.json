@@ -1,8 +1,8 @@
 [
   {
     "pack_id": "ruby-high.first-bell",
-    "pack_version": "1.4.1",
-    "pack_integrity": "sha256:dce282e20411d49f024d58320f592258f8423895ea60955cdbb86927df45a19e",
+    "pack_version": "1.4.2",
+    "pack_integrity": "sha256:106683a43ca2044e1e6ef6e63551dd31d8e0ed50ab436817e48d640968347888",
     "provider": "ruby-high.first-bell/assets",
     "mount": "world-art",
     "root": "ruby-high-first-bell",
@@ -14,8 +14,8 @@
   },
   {
     "pack_id": "ruby-high.first-bell",
-    "pack_version": "1.4.1",
-    "pack_integrity": "sha256:dce282e20411d49f024d58320f592258f8423895ea60955cdbb86927df45a19e",
+    "pack_version": "1.4.2",
+    "pack_integrity": "sha256:106683a43ca2044e1e6ef6e63551dd31d8e0ed50ab436817e48d640968347888",
     "provider": "ruby-high.first-bell/assets",
     "mount": "cards",
     "root": "ruby-high-first-bell",
