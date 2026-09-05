@@ -18,11 +18,19 @@ pub(super) struct ActorJob {
 #[serde(tag = "payload_kind", content = "payload", rename_all = "snake_case")]
 pub(super) enum ActorJobPayload {
     PlayerTick(PlayerTickObservation),
+    PlayerTickReply(Box<PlayerTickReplyJob>),
     RoomRope(RoomRopeJob),
     OrbChat(Box<OrbChatJob>),
     ModelInteraction(ModelInteractionJob),
     AvatarReflection(Box<AvatarReflectionJob>),
     AvatarSelfDescription(Box<AvatarReflectionJob>),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct PlayerTickReplyJob {
+    pub(super) observation: PlayerTickObservation,
+    pub(super) plan: Option<AvatarReplyPlan>,
+    pub(super) relationship_reply: Option<RelationshipReplyExpectation>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -46,6 +54,7 @@ pub(super) struct OrbChatJob {
 }
 
 pub(super) const ACTOR_JOB_KIND_PLAYER_TICK: &str = "player_tick_observation";
+pub(super) const ACTOR_JOB_KIND_PLAYER_TICK_REPLY: &str = "player_tick_reply";
 pub(super) const ACTOR_JOB_KIND_ROOM_ROPE: &str = "room_rope";
 pub(super) const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
 pub(super) const ACTOR_JOB_KIND_MODEL_INTERACTION: &str = "model_interaction";
@@ -640,16 +649,20 @@ pub(super) fn schedule_player_tick_observation(
             tokio::time::sleep(Duration::from_millis(card_reaction_heartbeat_delay_ms())).await;
             match complete_player_tick_observation(&state, current_observation.clone()).await {
                 Ok((plan, relationship_reply, followup)) => {
-                    if let Err(error) = complete_player_tick_reply(
-                        &state,
-                        &current_observation,
-                        plan,
-                        relationship_reply,
-                    )
-                    .await
-                    {
-                        warn!("asynchronous resident dialogue failed: {}", error);
-                        break;
+                    if plan.is_some() || relationship_reply.is_some() {
+                        let reply_state = state.clone();
+                        tokio::spawn(async move {
+                            if let Err(error) = complete_player_tick_reply(
+                                &reply_state,
+                                &current_observation,
+                                plan,
+                                relationship_reply,
+                            )
+                            .await
+                            {
+                                warn!("asynchronous resident dialogue failed: {}", error);
+                            }
+                        });
                     }
                     next_observation = followup;
                 }
@@ -700,6 +713,8 @@ fn claim_next_actor_job_filtered(
                    SELECT 1 FROM actor_jobs AS active
                    WHERE active.id != actor_jobs.id
                      AND active.status = 'running'
+                     AND ((active.kind IN ('player_tick_observation', 'room_rope'))
+                          = (actor_jobs.kind IN ('player_tick_observation', 'room_rope')))
                      AND active.lease_until_ms > ?1
                      AND (
                          (actor_jobs.location_id IS NOT NULL
@@ -808,6 +823,8 @@ fn claim_next_actor_job_filtered(
                    SELECT 1 FROM actor_jobs AS active
                    WHERE active.id != actor_jobs.id
                      AND active.status = 'running'
+                     AND ((active.kind IN ('player_tick_observation', 'room_rope'))
+                          = (actor_jobs.kind IN ('player_tick_observation', 'room_rope')))
                      AND active.lease_until_ms > ?4
                      AND (
                          (actor_jobs.location_id IS NOT NULL
@@ -1420,5 +1437,553 @@ mod rope_tests {
             current_room_initiative_actor(&runtime, RAIN_SOFT_GARDEN_LOCATION_ID, &empty)
                 .is_none_or(|current| current != rope.actor_id)
         );
+    }
+}
+
+/// Atomically move the committed observation into the dialogue lane. The same
+/// durable row and dedupe key preserve recovery and exactly-once scheduling.
+fn handoff_player_tick_reply(
+    path: &Path,
+    job: &ActorJob,
+    observation: &PlayerTickObservation,
+    plan: Option<AvatarReplyPlan>,
+    relationship_reply: Option<RelationshipReplyExpectation>,
+) -> io::Result<()> {
+    let payload = ActorJobPayload::PlayerTickReply(Box::new(PlayerTickReplyJob {
+        observation: observation.clone(),
+        plan,
+        relationship_reply,
+    }));
+    let context = serde_json::to_string(&payload).map_err(io::Error::other)?;
+    let conn = open_event_store(path)?;
+    conn.execute(
+        "UPDATE actor_jobs SET kind = ?2, context_json = ?3, status = 'pending',
+             attempts = 0, lease_until_ms = NULL, available_at_ms = 0,
+             last_error = NULL, updated_at_ms = ?4
+         WHERE id = ?1 AND kind = ?5 AND status = 'running' AND attempts = ?6",
+        params![
+            job.id,
+            ACTOR_JOB_KIND_PLAYER_TICK_REPLY,
+            context,
+            now_millis() as i64,
+            ACTOR_JOB_KIND_PLAYER_TICK,
+            job.attempts
+        ],
+    )
+    .map_err(sqlite_error)?;
+    // A newer claim or an earlier handoff owns a row that no longer matches.
+    Ok(())
+}
+
+pub(super) async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
+    loop {
+        let path = state
+            .event_store_path
+            .as_deref()
+            .expect("actor worker requires an event store");
+        match claim_next_actor_job_of_kind(path, claimed_kind) {
+            Ok(Some(job)) => {
+                let result = match (&job.kind[..], &job.payload) {
+                    (ACTOR_JOB_KIND_PLAYER_TICK, ActorJobPayload::PlayerTick(observation))
+                        if job.actor_id == observation.source_actor_id =>
+                    {
+                        match complete_player_tick_observation(&state, observation.clone()).await {
+                            Ok((plan, relationship_reply, _next_observation))
+                                if plan.is_some() || relationship_reply.is_some() =>
+                            {
+                                handoff_player_tick_reply(
+                                    path,
+                                    &job,
+                                    observation,
+                                    plan,
+                                    relationship_reply,
+                                )
+                                .map(|()| {
+                                    state.actor_job_notify.notify_waiters();
+                                    false
+                                })
+                                .map_err(|error| error.to_string())
+                            }
+                            Ok(_) => Ok(true),
+                            Err(error) => Err(error),
+                        }
+                    }
+                    (ACTOR_JOB_KIND_PLAYER_TICK_REPLY, ActorJobPayload::PlayerTickReply(reply))
+                        if job.actor_id == reply.observation.source_actor_id =>
+                    {
+                        complete_player_tick_reply(
+                            &state,
+                            &reply.observation,
+                            reply.plan.clone(),
+                            reply.relationship_reply.clone(),
+                        )
+                        .await
+                        .map(|()| true)
+                    }
+                    (ACTOR_JOB_KIND_ORB_CHAT, ActorJobPayload::OrbChat(chat))
+                        if job.actor_id == chat.actor_id =>
+                    {
+                        complete_queued_orb_chat_attempt(
+                            &state,
+                            chat.actor_id,
+                            chat.target_actor_id,
+                            chat.plan.clone(),
+                            chat.queue_event_id,
+                            chat.source_world_tick,
+                            chat.observed_through_seq,
+                            Some(&job),
+                            job.attempts,
+                        )
+                        .await
+                        .map(|_| true)
+                    }
+                    (
+                        ACTOR_JOB_KIND_MODEL_INTERACTION,
+                        ActorJobPayload::ModelInteraction(interaction),
+                    ) if job.actor_id == interaction.actor_id => {
+                        complete_model_interaction_attempt(
+                            &state,
+                            interaction.clone(),
+                            job.attempts,
+                        )
+                        .await
+                        .map(|_| true)
+                    }
+                    (ACTOR_JOB_KIND_ROOM_ROPE, ActorJobPayload::RoomRope(rope))
+                        if job.actor_id == rope.actor_id =>
+                    {
+                        complete_room_rope_job(&state, rope).await.map(|_| true)
+                    }
+                    (
+                        ACTOR_JOB_KIND_AVATAR_REFLECTION,
+                        ActorJobPayload::AvatarReflection(reflection),
+                    ) if job.actor_id == reflection.actor_id => {
+                        complete_avatar_reflection(&state, reflection.as_ref().clone())
+                            .await
+                            .map(|_| true)
+                    }
+                    (
+                        ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
+                        ActorJobPayload::AvatarSelfDescription(self_description),
+                    ) if job.actor_id == self_description.actor_id => {
+                        complete_avatar_self_description(&state, self_description.as_ref())
+                            .await
+                            .map(|_| true)
+                    }
+                    _ => Err(format!(
+                        "unsupported or inconsistent actor job kind {}",
+                        job.kind
+                    )),
+                };
+                match result {
+                    Ok(true) => {
+                        if let Err(error) = complete_actor_job(path, job.id) {
+                            warn!("failed to complete actor job {}: {}", job.id, error);
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        warn!("actor job {} failed: {}", job.id, error);
+                        let retry_floor_ms = actor_job_retry_floor_ms(&state, &job, &error);
+                        if let Err(store_error) = fail_actor_job_for_runtime_state(
+                            path,
+                            &state,
+                            &job,
+                            &error.to_string(),
+                            retry_floor_ms,
+                        ) {
+                            warn!(
+                                "failed to update retry state for actor job {}: {}",
+                                job.id, store_error
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(None) => {
+                tokio::select! {
+                    _ = state.actor_job_notify.notified() => {},
+                    _ = tokio::time::sleep(actor_job_idle_poll()) => {},
+                }
+            }
+            Err(error) => {
+                warn!("durable actor worker could not claim a job: {}", error);
+                tokio::time::sleep(actor_job_idle_poll()).await;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod dialogue_lane_tests {
+    use super::*;
+    use axum::{routing::post, Router};
+
+    #[tokio::test]
+    async fn provider_timeout_leaves_gameplay_worker_and_room_turns_available() {
+        let started = Arc::new(Notify::new());
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let started = started.clone();
+                move |Json(_request): Json<serde_json::Value>| {
+                    let started = started.clone();
+                    async move {
+                        started.notify_one();
+                        std::future::pending::<Json<serde_json::Value>>().await
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await });
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-dialogue-timeout-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Lane Player");
+        let plan = runtime.avatar_chat_plan_for(5000, RATI_ACTOR_ID).unwrap();
+        let queue_event = EventView {
+            seq: runtime.world.next_event_seq,
+            type_name: "chat.queued".to_string(),
+            actor_id: Some(5000),
+            target_actor_id: Some(RATI_ACTOR_ID),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            success: true,
+            ..Default::default()
+        };
+        runtime.world.next_event_seq += 1;
+        runtime.event_log.push(queue_event.clone());
+        let mut state = test_app_state(runtime, Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-chat-model".to_string(),
+            voice_routing: crate::ai_voice_routing::VoiceRoutingConfig {
+                max_attempts: 1,
+                latency_ceiling: Duration::from_secs(2),
+                ..Default::default()
+            },
+            ..AiConfig::default()
+        }));
+        let (session, _) = issue_actor_session(&state, 5000);
+        ping_actor_session_for_actor(&state.actor_sessions, 5000, &session);
+        init_event_store(&path).unwrap();
+        append_event_store(&path, std::slice::from_ref(&queue_event)).unwrap();
+        let conn = open_event_store(&path).unwrap();
+        insert_orb_chat_job(
+            &conn,
+            &OrbChatJob {
+                actor_id: 5000,
+                target_actor_id: RATI_ACTOR_ID,
+                plan,
+                queue_event_id: Some(queue_event.seq),
+                source_world_tick: Some(40),
+                observed_through_seq: Some(queue_event.seq),
+            },
+            40,
+            Some(queue_event.seq),
+        )
+        .unwrap();
+        let chat_worker =
+            tokio::spawn(run_actor_job_worker(state.clone(), ACTOR_JOB_KIND_ORB_CHAT));
+        tokio::time::timeout(Duration::from_secs(5), started.notified())
+            .await
+            .expect("the provider is processing the resident request");
+
+        // The authoritative player action and its room handoff commit while
+        // the provider still holds the dialogue request.
+        {
+            let mut runtime = state.inner.lock().await;
+            let mut pass = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5000,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..Default::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            pass.bind_offer_kind("pass");
+            pass.projection_mutations
+                .push(ProjectionMutation::ShuffleHand {
+                    reason: "dialogue_lane_test".to_string(),
+                });
+            let (status, events) = commit_journal_record(&state, &mut runtime, pass).unwrap();
+            assert_eq!(status, CW_OK);
+            assert!(events
+                .iter()
+                .any(|event| event.type_name == "room.turn.advanced"));
+        }
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 41,
+            actor_job_generation: 0,
+            caused_by_event_seq: Some(401),
+            observed_through_seq: 401,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: false,
+            source_events: Vec::new(),
+            ripple_source: None,
+            relationship_reply: None,
+        };
+        append_actor_job(&path, &observation).unwrap();
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
+        let gameplay_worker = tokio::spawn(run_actor_job_worker(
+            state.clone(),
+            ACTOR_JOB_KIND_PLAYER_TICK,
+        ));
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                let finished: bool = conn.query_row(
+                    "SELECT status = 'completed' FROM actor_jobs WHERE kind = ?1 AND cause_event_seq = 401",
+                    [ACTOR_JOB_KIND_PLAYER_TICK], |row| row.get(0),
+                ).unwrap();
+                if finished { break; }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.expect("gameplay completes before the provider timeout");
+        let chat_status: String = conn
+            .query_row(
+                "SELECT status FROM actor_jobs WHERE kind = ?1",
+                [ACTOR_JOB_KIND_ORB_CHAT],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(chat_status, "running");
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let running: bool = conn
+                    .query_row(
+                        "SELECT status = 'running' FROM actor_jobs WHERE kind = ?1",
+                        [ACTOR_JOB_KIND_ORB_CHAT],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                if !running {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the dialogue timeout has a bounded outcome");
+        assert!(state.inner.lock().await.event_log.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "dialogue.unavailable" | "chat.failed" | "chat.retrying"
+            )
+        }));
+        gameplay_worker.abort();
+        chat_worker.abort();
+        server.abort();
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn gameplay_jobs_progress_while_chat_waits() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-actor-outbox-lanes-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize actor outbox lanes");
+        let mut runtime = RuntimeWorld::seeded();
+        crate::test_support::create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Lane Player",
+        );
+        let plan = runtime
+            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+            .expect("Rati is available for Chat");
+        let chat = OrbChatJob {
+            actor_id: 5000,
+            target_actor_id: RATI_ACTOR_ID,
+            plan,
+            queue_event_id: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+        };
+        let conn = open_event_store(&path).expect("open actor outbox lanes");
+        assert!(insert_orb_chat_job(&conn, &chat, 40, Some(400)).expect("queue slow Chat"));
+        drop(conn);
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 41,
+            actor_job_generation: 0,
+            caused_by_event_seq: Some(401),
+            observed_through_seq: 401,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: true,
+            source_events: Vec::new(),
+            ripple_source: None,
+            relationship_reply: None,
+        };
+        assert!(append_actor_job(&path, &observation).expect("queue gameplay turn"));
+
+        let claimed_chat = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim Chat lane")
+            .expect("Chat is running");
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("release gameplay heartbeat");
+        let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .unwrap()
+            .expect("gameplay proceeds while Chat holds its provider request");
+        let next = PlayerTickObservation {
+            source_world_tick: 42,
+            caused_by_event_seq: Some(402),
+            observed_through_seq: 402,
+            ..observation.clone()
+        };
+        assert!(append_actor_job(&path, &next).unwrap());
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
+        assert!(
+            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+                .unwrap()
+                .is_none()
+        );
+        complete_actor_job(&path, claimed_gameplay.id).unwrap();
+        let next_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .unwrap()
+            .expect("the next gameplay job starts while Chat still waits");
+        fail_or_retry_actor_job(&path, &claimed_chat, "timeout", 60_000).unwrap();
+        let conn = open_event_store(&path).unwrap();
+        let status: String = conn
+            .query_row(
+                "SELECT status FROM actor_jobs WHERE id = ?1",
+                [next_gameplay.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            status, "running",
+            "a dialogue timeout preserves the gameplay claim"
+        );
+        complete_actor_job(&path, next_gameplay.id).unwrap();
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn committed_observation_handoff_preserves_reply_and_recovery() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-dialogue-handoff-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let mut runtime = RuntimeWorld::seeded();
+        crate::test_support::create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Reply Player",
+        );
+        let plan = runtime
+            .resident_reply_plan_for_target(5000, RATI_ACTOR_ID, "The lantern is lit.")
+            .unwrap();
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 41,
+            actor_job_generation: 1,
+            caused_by_event_seq: Some(401),
+            observed_through_seq: 401,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: true,
+            source_events: Vec::new(),
+            ripple_source: None,
+            relationship_reply: None,
+        };
+        let expectation = RelationshipReplyExpectation {
+            actor_id: 5000,
+            target_actor_id: RATI_ACTOR_ID,
+            relationship_event_seq: 400,
+            user_text: "The lantern is lit.".to_string(),
+        };
+        assert!(append_actor_job(&path, &observation).unwrap());
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .unwrap()
+            .unwrap();
+        let conn = open_event_store(&path).unwrap();
+        conn.execute_batch("CREATE TRIGGER fail_handoff BEFORE UPDATE OF kind ON actor_jobs BEGIN SELECT RAISE(ABORT, 'test storage failure'); END;").unwrap();
+        assert!(handoff_player_tick_reply(
+            &path,
+            &claimed,
+            &observation,
+            Some(plan.clone()),
+            Some(expectation.clone())
+        )
+        .is_err());
+        let status: (String, String) = conn
+            .query_row(
+                "SELECT kind, status FROM actor_jobs WHERE id = ?1",
+                [claimed.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            status,
+            (
+                ACTOR_JOB_KIND_PLAYER_TICK.to_string(),
+                "running".to_string()
+            )
+        );
+        conn.execute_batch("DROP TRIGGER fail_handoff;").unwrap();
+        handoff_player_tick_reply(
+            &path,
+            &claimed,
+            &observation,
+            Some(plan.clone()),
+            Some(expectation.clone()),
+        )
+        .unwrap();
+        assert!(!append_actor_job(&path, &observation).unwrap());
+        assert!(
+            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+                .unwrap()
+                .is_none()
+        );
+        let reply = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK_REPLY)
+            .unwrap()
+            .unwrap();
+        assert_eq!(reply.id, claimed.id);
+        assert_eq!(
+            reply.attempts, 1,
+            "dialogue receives its own bounded attempt budget"
+        );
+        // An old gameplay completion cannot replace an already claimed reply.
+        handoff_player_tick_reply(&path, &claimed, &observation, None, None).unwrap();
+        conn.execute(
+            "UPDATE actor_jobs SET lease_until_ms = 0 WHERE id = ?1",
+            [reply.id],
+        )
+        .unwrap();
+        let recovered = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK_REPLY)
+            .unwrap()
+            .unwrap();
+        let ActorJobPayload::PlayerTickReply(recovered_payload) = recovered.payload else {
+            panic!("durable reply payload");
+        };
+        assert_eq!(
+            serde_json::to_value(recovered_payload.plan).unwrap(),
+            serde_json::to_value(Some(plan)).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(recovered_payload.relationship_reply).unwrap(),
+            serde_json::to_value(Some(expectation)).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(recovered_payload.observation).unwrap(),
+            serde_json::to_value(observation).unwrap()
+        );
+        complete_actor_job(&path, reply.id).unwrap();
+        let _ = fs::remove_file(path);
     }
 }
