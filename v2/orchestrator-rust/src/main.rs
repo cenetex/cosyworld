@@ -22414,6 +22414,7 @@ fn start_actor_job_worker(state: AppState) {
         return;
     }
     let gameplay_state = state.clone();
+    let reply_state = state.clone();
     let reflection_state = state.clone();
     let self_description_state = state.clone();
     let interaction_state = state.clone();
@@ -22423,6 +22424,9 @@ fn start_actor_job_worker(state: AppState) {
     });
     tokio::spawn(async move {
         run_actor_job_worker(state, ACTOR_JOB_KIND_ORB_CHAT).await;
+    });
+    tokio::spawn(async move {
+        run_actor_job_worker(reply_state, ACTOR_JOB_KIND_PLAYER_TICK_REPLY).await;
     });
     tokio::spawn(async move {
         run_actor_job_worker(interaction_state, ACTOR_JOB_KIND_MODEL_INTERACTION).await;
@@ -22549,164 +22553,6 @@ fn start_event_store_retry_scheduler(state: AppState) {
             persist_events(&state, &[]);
         }
     });
-}
-
-async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
-    loop {
-        let path = state
-            .event_store_path
-            .as_deref()
-            .expect("actor worker requires an event store");
-        match claim_next_actor_job_of_kind(path, claimed_kind) {
-            Ok(Some(job)) => {
-                let result = match (&job.kind[..], &job.payload) {
-                    (ACTOR_JOB_KIND_PLAYER_TICK, ActorJobPayload::PlayerTick(observation))
-                        if job.actor_id == observation.source_actor_id =>
-                    {
-                        match complete_player_tick_observation(&state, observation.clone()).await {
-                            Ok((plan, relationship_reply, _next_observation))
-                                if plan.is_some() || relationship_reply.is_some() =>
-                            {
-                                let reply_state = state.clone();
-                                let reply_path = path.to_path_buf();
-                                let reply_job = job.clone();
-                                let reply_observation = observation.clone();
-                                tokio::spawn(async move {
-                                    match complete_player_tick_reply(
-                                        &reply_state,
-                                        &reply_observation,
-                                        plan,
-                                        relationship_reply,
-                                    )
-                                    .await
-                                    {
-                                        Ok(()) => {
-                                            if let Err(error) =
-                                                complete_actor_job(&reply_path, reply_job.id)
-                                            {
-                                                warn!(
-                                                    "failed to complete actor job {}: {}",
-                                                    reply_job.id, error
-                                                );
-                                            }
-                                        }
-                                        Err(error) => {
-                                            warn!(
-                                                "actor job {} dialogue failed: {}",
-                                                reply_job.id, error
-                                            );
-                                            if let Err(store_error) = fail_or_retry_actor_job(
-                                                &reply_path,
-                                                &reply_job,
-                                                &error.to_string(),
-                                                0,
-                                            ) {
-                                                warn!(
-                                                    "failed to update retry state for actor job {}: {}",
-                                                    reply_job.id, store_error
-                                                );
-                                            }
-                                        }
-                                    }
-                                });
-                                Ok(false)
-                            }
-                            Ok(_) => Ok(true),
-                            Err(error) => Err(error),
-                        }
-                    }
-                    (ACTOR_JOB_KIND_ORB_CHAT, ActorJobPayload::OrbChat(chat))
-                        if job.actor_id == chat.actor_id =>
-                    {
-                        complete_queued_orb_chat_attempt(
-                            &state,
-                            chat.actor_id,
-                            chat.target_actor_id,
-                            chat.plan.clone(),
-                            chat.queue_event_id,
-                            chat.source_world_tick,
-                            chat.observed_through_seq,
-                            Some(&job),
-                            job.attempts,
-                        )
-                        .await
-                        .map(|_| true)
-                    }
-                    (
-                        ACTOR_JOB_KIND_MODEL_INTERACTION,
-                        ActorJobPayload::ModelInteraction(interaction),
-                    ) if job.actor_id == interaction.actor_id => {
-                        complete_model_interaction_attempt(
-                            &state,
-                            interaction.clone(),
-                            job.attempts,
-                        )
-                        .await
-                        .map(|_| true)
-                    }
-                    (ACTOR_JOB_KIND_ROOM_ROPE, ActorJobPayload::RoomRope(rope))
-                        if job.actor_id == rope.actor_id =>
-                    {
-                        complete_room_rope_job(&state, rope).await.map(|_| true)
-                    }
-                    (
-                        ACTOR_JOB_KIND_AVATAR_REFLECTION,
-                        ActorJobPayload::AvatarReflection(reflection),
-                    ) if job.actor_id == reflection.actor_id => {
-                        complete_avatar_reflection(&state, reflection.as_ref().clone())
-                            .await
-                            .map(|_| true)
-                    }
-                    (
-                        ACTOR_JOB_KIND_AVATAR_SELF_DESCRIPTION,
-                        ActorJobPayload::AvatarSelfDescription(self_description),
-                    ) if job.actor_id == self_description.actor_id => {
-                        complete_avatar_self_description(&state, self_description.as_ref())
-                            .await
-                            .map(|_| true)
-                    }
-                    _ => Err(format!(
-                        "unsupported or inconsistent actor job kind {}",
-                        job.kind
-                    )),
-                };
-                match result {
-                    Ok(true) => {
-                        if let Err(error) = complete_actor_job(path, job.id) {
-                            warn!("failed to complete actor job {}: {}", job.id, error);
-                        }
-                    }
-                    Ok(false) => {}
-                    Err(error) => {
-                        warn!("actor job {} failed: {}", job.id, error);
-                        let retry_floor_ms = actor_job_retry_floor_ms(&state, &job, &error);
-                        if let Err(store_error) = fail_actor_job_for_runtime_state(
-                            path,
-                            &state,
-                            &job,
-                            &error.to_string(),
-                            retry_floor_ms,
-                        ) {
-                            warn!(
-                                "failed to update retry state for actor job {}: {}",
-                                job.id, store_error
-                            );
-                        }
-                    }
-                }
-            }
-            Ok(None) => {
-                tokio::select! {
-                    _ = state.actor_job_notify.notified() => {},
-                    _ = tokio::time::sleep(actor_job_idle_poll()) => {},
-                }
-            }
-            Err(error) => {
-                warn!("durable actor worker could not claim a job: {}", error);
-                tokio::time::sleep(actor_job_idle_poll()).await;
-            }
-        }
-    }
 }
 
 fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
@@ -40398,64 +40244,6 @@ mod tests {
                 .expect("inspect drained player-card lane")
                 .is_none()
         );
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn room_jobs_wait_behind_the_active_room_job_across_worker_lanes() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-actor-outbox-lanes-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-        init_event_store(&path).expect("initialize actor outbox lanes");
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Lane Player");
-        let plan = runtime
-            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
-            .expect("Rati is available for Chat");
-        let chat = OrbChatJob {
-            actor_id: 5000,
-            target_actor_id: RATI_ACTOR_ID,
-            plan,
-            queue_event_id: None,
-            source_world_tick: None,
-            observed_through_seq: None,
-        };
-        let conn = open_event_store(&path).expect("open actor outbox lanes");
-        assert!(insert_orb_chat_job(&conn, &chat, 40, Some(400)).expect("queue slow Chat"));
-        drop(conn);
-        let observation = PlayerTickObservation {
-            source_actor_id: 5000,
-            source_world_tick: 41,
-            actor_job_generation: 0,
-            caused_by_event_seq: Some(401),
-            observed_through_seq: 401,
-            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
-            allow_ordinary_speech: true,
-            source_events: Vec::new(),
-            ripple_source: None,
-            relationship_reply: None,
-        };
-        assert!(append_actor_job(&path, &observation).expect("queue gameplay turn"));
-
-        let claimed_chat = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ORB_CHAT)
-            .expect("claim Chat lane")
-            .expect("Chat is running");
-        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
-            .expect("release gameplay heartbeat");
-        assert!(
-            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
-                .expect("inspect gameplay lane while Chat runs")
-                .is_none(),
-            "one room cannot run a Chat consequence and an initiative activation together"
-        );
-        complete_actor_job(&path, claimed_chat.id).expect("complete Chat");
-        let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
-            .expect("claim gameplay after Chat")
-            .expect("the room lane resumes after Chat completes");
-        complete_actor_job(&path, claimed_gameplay.id).expect("complete gameplay turn");
         let _ = fs::remove_file(path);
     }
 

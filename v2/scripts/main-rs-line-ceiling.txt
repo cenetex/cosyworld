@@ -452,4 +452,5 @@
 # adding permanent loot-table identity reveals at the item projection seam.
 # 59830 + the independent Story Hand extraction -> 59802 after merging both
 # reductions; no behavior was dropped while resolving the ledger conflict.
-59802
+# 59802 -> 59586: move the actor worker and its room-lane test into actor_jobs.rs.
+59586
