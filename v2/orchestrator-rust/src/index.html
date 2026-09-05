@@ -11140,6 +11140,11 @@
     }
 
     function pushCommandOutput(command, output, ok, events = []) {
+      if (!ok) {
+        console.warn("command_failed", { command, output });
+        renderTimelines();
+        return;
+      }
       if (ok && /^search(?:\s|$)/i.test(String(command || "").trim()) && events.some((event) => (
         event?.type === "feature.searched"
           || event?.type === "location.searched"
@@ -11365,6 +11370,7 @@
     }
 
     function appendLogEvent(event) {
+      if (eventIsHiddenContext(event)) return;
       if (event?.type === "study.resolved") {
         const rollIndex = logEvents.findLastIndex((prior) => (
           prior?.type === "ability_check.rolled"
@@ -11617,17 +11623,6 @@
                 ? "A dream is taking shape…"
                 : "A thought is taking shape…",
             };
-          } else {
-            const key = String(event.seq || `reflection:${Date.now()}`);
-            journalNotifications.push({
-              key,
-              label: String(event.content || "think"),
-              text: event.content === "dream"
-                ? "No dream came back this time."
-                : "No clear thought settled this time.",
-              filled: 1,
-              segments: 1,
-            });
           }
         }
         if (["avatar.thought", "avatar.dream"].includes(event?.type)) {
@@ -11860,13 +11855,6 @@
         if (matchingChatIndex >= 0) {
           if (event.type === "chat.failed") {
             pendingChats.splice(matchingChatIndex, 1);
-            ensureJournalNotification({
-              key: `chat-failed:${eventSeq}`,
-              label: "chat",
-              text: cleanStatusText(event.content || "The conversation ended early."),
-              filled: 1,
-              segments: 1,
-            });
             return true;
           }
           const chat = pendingChats[matchingChatIndex];
@@ -12589,7 +12577,7 @@
     ];
 
     function eventIsStatusUpdate(event) {
-      if (!event) return false;
+      if (eventIsHiddenContext(event)) return false;
       return !chatEventTypes.has(event.type);
     }
 
@@ -12609,7 +12597,16 @@
     }
 
     function eventIsHiddenContext(event) {
-      return event.type === "world.bootstrapped"
+      if (!event) return true;
+      if (event.type === "ability_check.rolled"
+          && ["think", "dream"].includes(String(event.content || ""))
+          && event.success !== true) return true;
+      return event.type === "dialogue.unavailable"
+        || event.type === "chat.failed"
+        || event.type === "model_interaction.failed"
+        || event.type === "action.receipt"
+        || event.type === "action.offer_rejected"
+        || event.type === "world.bootstrapped"
         || event.type === "actor.presence"
         || event.type === "chat.queued"
         || event.type === "chat.typing"
@@ -14570,7 +14567,7 @@
     }
 
     function roomMemoryEntryForEvent(event) {
-      if (!event) return null;
+      if (eventIsHiddenContext(event)) return null;
       if (["message.created", "image.created", "avatar.thought", "avatar.dream", "story.card.played"].includes(event.type)) {
         return null;
       }
@@ -14732,6 +14729,7 @@
     }
 
     function statusUpdateMeta(event) {
+      if (eventIsHiddenContext(event)) return { kind: "", label: "", text: "" };
       const repeat = Number(event.repeat_count || 0);
       const repeatSuffix = repeat > 1 ? ` x${repeat}` : "";
       const storyReceipt = semanticStoryReceipt(event);
@@ -14755,9 +14753,6 @@
       }
       if (event.type === "relationship.advanced") {
         return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "earned trust changes the relationship") };
-      }
-      if (event.type === "dialogue.unavailable") {
-        return { kind: "bond", label: "reply unavailable", text: "The promised resident reply could not run. No substitute reply was created." };
       }
       if (event.type === "calling.set") {
         if (callingEventReason(event) === "avatar_created") {
@@ -15320,6 +15315,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
+      if (eventIsHiddenContext(event)) return false;
       const type = event?.type;
       if (chatEventTypes.has(type)) return true;
       if (
@@ -15600,6 +15596,7 @@
     }
 
     function timelineEventHtml(event) {
+      if (eventIsHiddenContext(event)) return "";
       if (event.type === "message.created") return messageHtml(event);
       if (event.type === "image.created") return residentImageHtml(event);
       if (event.type === "model_interaction.output") return modelInteractionOutputHtml(event);
@@ -15649,6 +15646,7 @@
     }
 
     function sceneCardEventText(event) {
+      if (eventIsHiddenContext(event)) return "";
       const actor = String(event?.actor_name || "Someone").trim() || "Someone";
       const type = String(event?.type || "");
       const storyReceipt = semanticStoryReceipt(event);
@@ -15659,15 +15657,6 @@
       }
       if (type === "actor.moved") {
         return `The way opens, and ${actor} steps into ${event.destination_location_name || "somewhere new"}.`;
-      }
-      if (type === "chat.failed") {
-        return "The conversation slipped away before it could begin. Try talking again.";
-      }
-      if (type === "model_interaction.failed") {
-        return modelInteractionPresentation(event.clientModelInteractionProfile).failure;
-      }
-      if (type === "dialogue.unavailable") {
-        return "Reply unavailable: the resident's promised reply could not run. The authored relationship beat still stands, and no substitute reply was created.";
       }
       if (type === "relationship.beat" || type === "relationship.advanced") {
         return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
@@ -16128,6 +16117,7 @@
     }
 
     function rollHtml(event) {
+      if (eventIsHiddenContext(event)) return "";
       const meta = rollMeta(event);
       const outcome = event.success ? "success" : "failure";
       const detail = meta.detail ? `<span class="roll-detail">${escapeHtml(meta.detail)}</span>` : "";
@@ -16315,6 +16305,7 @@
     }
 
     function eventText(event) {
+      if (eventIsHiddenContext(event)) return "";
       const storyReceipt = semanticStoryReceipt(event);
       if (storyReceipt) return storyReceipt.text;
       if (event.type === "command.output") return event.content || "";
@@ -16411,7 +16402,6 @@
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
       if (event.type === "relationship.beat" || event.type === "relationship.advanced") return finishSentence(cleanStatusText(event.content || "the relationship changes"));
-      if (event.type === "dialogue.unavailable") return "Resident reply unavailable; no substitute reply was created.";
       if (event.type === "bond.created") {
         return String(event.content || "").includes(":forming:")
           ? `began a forming relationship with ${event.target_actor_name || "someone"}.`

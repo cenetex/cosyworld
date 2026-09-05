@@ -1,13 +1,40 @@
 import io
 import json
 import unittest
+from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from cosy_cli import ButtonGame, ClientError, CosyClient, Game, offer_intent_id, semantic_story_events
+from cosy_cli import ButtonGame, ClientError, CosyClient, Game, offer_intent_id, semantic_story_events, event_is_hidden_context
 
 
 class SemanticStoryReceiptTests(unittest.TestCase):
+    def test_transcript_visibility_for_live_batches_and_replay(self) -> None:
+        cases = json.loads((Path(__file__).parents[1] / "tests/fixtures/transcript-visibility.json").read_text())
+        for case in cases:
+            with self.subTest(event=case["event"]):
+                self.assertEqual(not event_is_hidden_context(case["event"]), case["visible"])
+        events = [case["event"] for case in cases]
+        expected = [case["event"]["seq"] for case in cases if case["visible"]]
+        for batches in [[events], [[event] for event in events]]:
+            game = Game(CosyClient("http://127.0.0.1:3102"), 5000, "session")
+            output = io.StringIO()
+            with redirect_stdout(output):
+                for batch in batches:
+                    game.print_events(batch)
+            rendered = output.getvalue()
+            self.assertEqual(game.last_seq, events[-1]["seq"])
+            self.assertNotIn("voice_provider_unavailable", rendered)
+            for case in cases:
+                self.assertEqual(f"[{case['event']['seq']}]" in rendered, case["visible"])
+            self.assertEqual(len(rendered.splitlines()), len(expected))
+        button_game = ButtonGame(CosyClient("http://127.0.0.1:3102"), 5000, "session")
+        for event in events:
+            button_game.capture_events([event])
+        self.assertEqual(button_game.last_seq, events[-1]["seq"])
+        self.assertEqual(len(button_game.message_log), len(expected))
+        self.assertTrue(all("voice_provider_unavailable" not in line for line in button_game.message_log))
+
     def test_cli_prints_one_authored_receipt_and_keeps_raw_events_inspectable(self) -> None:
         text = (
             "Kit Featherstep rekindles the dark Mothwood beacon. "
@@ -116,7 +143,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         self.assertNotIn("Suggestion 3", rendered)
         self.assertNotRegex(rendered, r"action \d+ of \d+")
 
-    def test_cli_keeps_forming_relationship_and_dialogue_failure_explicit(self) -> None:
+    def test_cli_keeps_relationship_story_and_hides_dialogue_failure(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
         forming = game.format_event(
             {
@@ -144,8 +171,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         self.assertIn("forming Bond with Mara Wick", forming)
         self.assertNotIn("friend", forming.lower())
         self.assertIn("empty key hook", beat)
-        self.assertIn("Dialogue unavailable with Mara Wick", unavailable)
-        self.assertIn("no substitute speech", unavailable)
+        self.assertEqual(unavailable, "")
 
     def test_cli_act_lists_and_runs_only_the_dealt_offer(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")

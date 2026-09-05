@@ -1,0 +1,237 @@
+[
+  {
+    "visible": false,
+    "event": {
+      "type": "dialogue.unavailable",
+      "content": "voice_provider_unavailable",
+      "seq": 910000,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "chat.failed",
+      "content": "voice_provider_unavailable",
+      "seq": 910001,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "chat.retrying",
+      "content": "voice_provider_unavailable",
+      "seq": 910002,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "chat.completed",
+      "content": "voice_provider_unavailable",
+      "seq": 910003,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "model_interaction.failed",
+      "content": "voice_provider_unavailable",
+      "seq": 910004,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "model_interaction.generating",
+      "content": "voice_provider_unavailable",
+      "seq": 910005,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "model_interaction.completed",
+      "content": "voice_provider_unavailable",
+      "seq": 910006,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "action.offer_rejected",
+      "content": "voice_provider_unavailable",
+      "seq": 910007,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "ability_check.rolled",
+      "content": "think",
+      "success": false,
+      "raw_roll": 12,
+      "total": 14,
+      "dc": 10,
+      "seq": 910008,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "ability_check.rolled",
+      "content": "think",
+      "success": true,
+      "raw_roll": 12,
+      "total": 14,
+      "dc": 10,
+      "seq": 910009,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": false,
+    "event": {
+      "type": "ability_check.rolled",
+      "content": "dream",
+      "success": false,
+      "raw_roll": 12,
+      "total": 14,
+      "dc": 10,
+      "seq": 910010,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "ability_check.rolled",
+      "content": "dream",
+      "success": true,
+      "raw_roll": 12,
+      "total": 14,
+      "dc": 10,
+      "seq": 910011,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "ability_check.rolled",
+      "content": "search",
+      "success": false,
+      "raw_roll": 2,
+      "total": 4,
+      "dc": 10,
+      "seq": 910012,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "message.created",
+      "content": "The lantern is lit.",
+      "success": true,
+      "seq": 910013,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "avatar.thought",
+      "content": "A path through the reeds.",
+      "success": true,
+      "seq": 910014,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "avatar.dream",
+      "content": "A moonlit garden.",
+      "success": true,
+      "seq": 910015,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "hand.thought",
+      "content": "A fresh card.",
+      "success": true,
+      "seq": 910016,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "relationship.beat",
+      "content": "Mara sets the key on the bar.",
+      "success": true,
+      "seq": 910017,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  },
+  {
+    "visible": true,
+    "event": {
+      "type": "story.receipt",
+      "content": "{\"schema_version\": 1, \"text\": \"The bridge opens.\", \"event_seqs\": []}",
+      "success": true,
+      "seq": 910018,
+      "actor_id": 5000,
+      "actor_name": "Kit",
+      "location_id": 1
+    }
+  }
+]
