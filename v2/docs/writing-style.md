@@ -41,6 +41,20 @@ add information, never restate the first one's mood.
 - Banned tells: "as if", "seems to", "meant for", objects that remember,
   weather with intentions.
 
+The authored-content check covers `description`, `look`, `search`, `persona`,
+`blurb`, `text`, `premise`, `completion_memory`, `memory`, `reason`, `stakes`,
+`stakes_questions`, `consequence`, `impending_outcome`, `doctrine`, and
+`discovery_text`.
+It follows these fields inside arrays and nested records, including character
+attachments and clock presentation. IDs and enum values keep their own schema.
+
+The scenery check looks for a named object followed by a verb of intent,
+judgement, or memory. A person can remember an object. Sentence punctuation
+keeps a new speaker or instruction separate from the preceding object.
+Character copy and persona steering retain direct address; other world prose
+uses third person, with the existing direct item-use receipt exception.
+The Left Sentences check applies only the two banned tells from section 7.
+
 ### 3. Memory lines (location `memory` arrays)
 
 Flat records of things that happened or things that are there. They read like

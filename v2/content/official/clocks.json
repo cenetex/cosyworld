@@ -163,7 +163,7 @@
       "situation": "Nib has three prices for every useful thing and trusts none of them.",
       "stakes": "An unnamed bargain lets every promise become collateral.",
       "outcome": "One clear bargain closes the loophole freely and leaves everyone able to walk away.",
-      "completion_memory": "Nib and the cave learned a fair price that named the wanting without owning the wanter."
+      "completion_memory": "Nib named a fair price without claiming the traveler who paid it."
     },
     "pack_id": "cosyworld.core"
   },
@@ -187,7 +187,7 @@
       "situation": "Every vague promise gives the loophole another edge.",
       "stakes": "If it hardens, every future bargain begins as a threat.",
       "outcome": "The cave turns every promise into collateral.",
-      "completion_memory": "The loophole hardened into leverage, and the cave learned to distrust every promise."
+      "completion_memory": "The loophole hardened into leverage, and Nib began to distrust every promise."
     },
     "pack_id": "cosyworld.core"
   },
@@ -371,7 +371,7 @@
       "situation": "Borrowed shadows are lingering longer between the last surviving lamps.",
       "stakes": "If the road goes fully dark, the shadows will know every shape that travels it.",
       "outcome": "The dark road becomes a lantern for borrowed shadows.",
-      "completion_memory": "The Mothwood road went fully dark, and the borrowed shadows learned its travelers."
+      "completion_memory": "The Mothwood road went fully dark, leaving travelers beyond the reach of its lamps."
     },
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },

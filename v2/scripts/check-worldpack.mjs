@@ -16,6 +16,7 @@ import {
   collectContentReferenceCandidates,
   parseCanonicalContentReference,
 } from "./content-references.mjs";
+import { writingRegisterErrors } from "./writing-register.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
 import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
@@ -73,13 +74,6 @@ const expectedFiles = {
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
 const environmentRegisterFields = new Set(["description", "look", "search"]);
-const bannedEnvironmentTells = [
-  ["as if", /\bas if\b/i],
-  ["seems to", /\bseems to\b/i],
-  ["meant for", /\bmeant for\b/i],
-];
-const secondPersonPattern = /\b(?:you|your|yours|yourself)\b/i;
-const objectSentimentPattern = /\b(?:pleased|approves|approving|delights|remembers)\b/i;
 const allowedSentenceShelves = new Set([
   "quiet-wing",
   "great-library",
@@ -196,44 +190,7 @@ function contentRowLabel(fileName, row, index, trail) {
 }
 
 function validateWritingRegister(contentCollections) {
-  for (const [collection, rows] of Object.entries(contentCollections)) {
-    if (collection === "actors" || collection === "cards" || collection === "sentences") continue;
-    const fileName = expectedFiles[collection];
-    rows.forEach((row, index) => {
-      visitStrings(row, (value, trail) => {
-        const label = contentRowLabel(fileName, row, index, trail);
-        const field = trail.at(-1);
-        if (environmentRegisterFields.has(field)) {
-          for (const [tell, pattern] of bannedEnvironmentTells) {
-            if (pattern.test(value)) fail(`${label} uses banned environment tell "${tell}"`);
-          }
-        }
-        const isUseText = trail.at(-1) === "text" && trail.at(-3) === "uses";
-        if (secondPersonPattern.test(value) && !isUseText) {
-          fail(`${label} uses second person outside the sentences register`);
-        }
-      });
-    });
-  }
-
-  for (const [index, location] of contentCollections.locations.entries()) {
-    for (const [memoryIndex, memory] of (location.memory ?? []).entries()) {
-      const label = contentRowLabel("locations.json", location, index, ["memory", memoryIndex]);
-      for (const [tell, pattern] of bannedEnvironmentTells) {
-        if (pattern.test(memory)) fail(`${label} uses banned environment tell "${tell}"`);
-      }
-    }
-  }
-
-  for (const feature of contentCollections.room_features) {
-    for (const use of feature.uses ?? []) {
-      if (objectSentimentPattern.test(use.text ?? "")) {
-        fail(
-          `room_features.json location ${feature.location_id} feature ${feature.key} item ${use.item_id} use text assigns sentiment to an object`,
-        );
-      }
-    }
-  }
+  for (const error of writingRegisterErrors(contentCollections)) fail(error);
 }
 
 function reportWritingRegisterAdvisories({ actors, cards, locations }) {

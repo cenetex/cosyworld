@@ -228,7 +228,7 @@
     "name": "Circle of the Moon",
     "title": "Forbidden Mountain",
     "description": "Silver stones mark a quiet circle.",
-    "persona": "The Circle listens ceremonially, as if every sentence should arrive barefoot.",
+    "persona": "Quiet and ceremonial; speakers pause at the edge of the silver stones.",
     "memory": [
       "An older path leads in from the Moonlit Trail.",
       "Goblin Cave lies below."
@@ -413,7 +413,7 @@
     "name": "Wayside Lantern Inn",
     "title": "The Last Warm Window",
     "description": "A low inn leans into the rain beneath a lantern that burns with half its usual flame.",
-    "persona": "The inn refuses despair by keeping soup hot, boots drying, and one chair ready for the missing keeper.",
+    "persona": "Soup stays hot, boots dry by the hearth, and one chair stands ready for the missing keeper.",
     "biome": "rainy roadside",
     "terrain": [
       "muddy yard",
@@ -524,7 +524,7 @@
     "name": "Bethlehem",
     "title": "Town of the Nativity",
     "description": "Pale stone homes gather along a Judean ridge while olive leaves turn silver in the evening wind.",
-    "persona": "Humble and watchful, Bethlehem has long practice finding room where none seems to remain.",
+    "persona": "Bethlehem's narrow rooms make shelter scarce. Its hosts keep a place for late arrivals.",
     "biome": "Judean hill country",
     "terrain": [
       "limestone ridge",

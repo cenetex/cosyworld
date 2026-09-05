@@ -2017,7 +2017,7 @@ mod tests {
             (
                 "cosyworld.core:loot/fishery-catch",
                 "cosyworld.core",
-                "1.3.14",
+                "1.3.15",
             )
         );
         assert_eq!(

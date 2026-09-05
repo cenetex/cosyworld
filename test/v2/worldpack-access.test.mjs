@@ -146,7 +146,7 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.14",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.15",
     );
   });
 
@@ -498,7 +498,7 @@ describe("worldpack writing register validation", () => {
     const result = runChecker(root);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('uses banned environment tell "seems to"');
+    expect(result.stderr).toContain('uses banned tell "seems to"');
   });
 
   it("rejects second person outside the sentences register", () => {
@@ -522,7 +522,7 @@ describe("worldpack writing register validation", () => {
     const result = runChecker(root);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("use text assigns sentiment to an object");
+    expect(result.stderr).toContain("assigns intent or memory to scenery");
   });
 
   it("allows second person in use-texts but rejects it in location descriptions", () => {
@@ -552,7 +552,7 @@ describe("worldpack writing register validation", () => {
       id: "quiet-wing/first",
       shelf: "quiet-wing",
       location_ids: [12],
-      text: "You read as if the shelf remembers your name.",
+      text: "You read while the shelf remembers your name.",
       weight: 1,
     }]);
 
@@ -561,6 +561,13 @@ describe("worldpack writing register validation", () => {
     expect(passResult.status, passResult.stderr).toBe(0);
     expect(passResult.stdout).toContain("worldpack ok");
 
+    for (const text of ["You read as if the shelf knew your name.", "The shelf seems to know your name."]) {
+      writeSentences(root, [{ id: "quiet-wing/first", shelf: "quiet-wing", location_ids: [12], text, weight: 1 }]);
+      const lyricResult = runChecker(root);
+      expect(lyricResult.status).toBe(1);
+      expect(lyricResult.stderr).toContain("sentences.json row quiet-wing/first text uses banned tell");
+    }
+
     const locations = JSON.parse(fs.readFileSync(path.join(root, "locations.json"), "utf8"));
     locations[0].description = "You read as if the shelf remembers your name.";
     writeJson(root, "locations.json", locations);
@@ -568,7 +575,7 @@ describe("worldpack writing register validation", () => {
     const failResult = runChecker(root);
 
     expect(failResult.status).toBe(1);
-    expect(failResult.stderr).toContain('uses banned environment tell "as if"');
+    expect(failResult.stderr).toContain('uses banned tell "as if"');
   });
 
   it("validates sentence ids, text, shelves, locations, and weights", () => {
