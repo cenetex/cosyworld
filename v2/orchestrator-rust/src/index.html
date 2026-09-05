@@ -7936,6 +7936,18 @@
       connectStream();
     }
 
+    async function beginNewTale() {
+      clearLocalSession();
+      actorId = 0;
+      actorSession = "";
+      actorSessionExpiresAtUnix = 0;
+      actorSessionTerminal = false;
+      actorSessionHandoffChecked = false;
+      clearDefeatTransition();
+      await refresh();
+      connectStream();
+    }
+
     async function chooseAvatarClass(selection) {
       const result = await post("/avatar/class", withAccess({
         actor_id: actorId,
@@ -8464,6 +8476,18 @@
             busyLabel: "reconnecting",
             busyDetail: "finding the same thread in the world…",
             run: () => reconnectAccountAvatar(),
+          }, {
+            kind: "begin-new-tale",
+            label: "new tale",
+            detail: "begin with a new avatar",
+            command: "begin new tale",
+            focusKey: "begin-new-tale",
+            card: cardForLocation(view.location?.id),
+            shape: "location",
+            modalTitle: "begin a new tale",
+            modalSummary: "Start with a new avatar. Your earlier avatar stays in the world.",
+            effect: "opens avatar creation",
+            run: () => beginNewTale(),
           }];
         }
         const beginningAgain = Boolean(defeatTransition) && !summoningAvatar;

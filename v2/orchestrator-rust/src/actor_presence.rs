@@ -697,6 +697,140 @@ impl crate::RuntimeWorld {
 mod tests {
     use super::*;
 
+    async fn player_route(
+        state: &AppState,
+        method: &str,
+        path: &str,
+        payload: serde_json::Value,
+    ) -> serde_json::Value {
+        use axum::body::{to_bytes, Body};
+        use tower::ServiceExt;
+        let mut request = axum::http::Request::builder()
+            .method(method)
+            .uri(path)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(payload.to_string()))
+            .unwrap();
+        request
+            .extensions_mut()
+            .insert(ConnectInfo("127.0.0.1:8830".parse::<SocketAddr>().unwrap()));
+        let response = crate::routes::app_router(state.clone())
+            .oneshot(request)
+            .await
+            .unwrap();
+        serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn production_router_keeps_entry_rotation_expiry_and_knockout_reachable() {
+        let state = test_app_state(RuntimeWorld::seeded(), None);
+        let entry = player_route(&state, "GET", "/state", serde_json::json!({})).await;
+        assert_eq!(entry["primary_action"]["kind"], "create_avatar");
+        assert_eq!(entry["primary_action"]["disabled"], false);
+        let created = player_route(
+            &state,
+            "POST",
+            "/avatar",
+            serde_json::json!({"name":"Moss Lantern"}),
+        )
+        .await;
+        assert_eq!(created["ok"], true);
+        let actor_id = created["actor"]["id"].as_u64().unwrap();
+        let mut token = created["actor_session"].as_str().unwrap().to_string();
+        for step in 0..4 {
+            let scene = player_route(
+                &state,
+                "GET",
+                &format!("/state?actor_id={actor_id}&actor_session={token}"),
+                serde_json::json!({}),
+            )
+            .await;
+            let offers = scene["action_offers"].as_array().unwrap();
+            let offer = offers
+                .iter()
+                .filter(|offer| offer["disabled"] != true)
+                .find(|offer| offer["kind"] == "think")
+                .or_else(|| offers.iter().find(|offer| offer["disabled"] != true))
+                .expect("an active player has a legal dealt action");
+            let receipt = player_route(
+                &state,
+                "POST",
+                "/commands",
+                serde_json::json!({
+                    "actor_id":actor_id, "actor_session":token,
+                    "offer_id":offer["offer_id"], "text":offer["command"],
+                    "intent_id":format!("reachability:{step}"),
+                }),
+            )
+            .await;
+            assert_eq!(
+                receipt["ok"], true,
+                "step {step}: {}",
+                receipt["error_code"]
+            );
+        }
+        state
+            .actor_sessions
+            .lock()
+            .unwrap()
+            .sessions
+            .get_mut(&token)
+            .unwrap()
+            .expires_at = Instant::now() - Duration::from_secs(1);
+        let expired = player_route(
+            &state,
+            "GET",
+            &format!("/state?actor_id={actor_id}&actor_session={token}"),
+            serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(expired["primary_action"]["kind"], "create_avatar");
+        let renewal = player_route(
+            &state,
+            "POST",
+            "/avatar/session",
+            serde_json::json!({"actor_id":actor_id,"actor_session":token}),
+        )
+        .await;
+        assert_eq!(renewal["status"], 403);
+        token = issue_actor_session(&state, actor_id).0;
+        {
+            let mut runtime = state.inner.lock().await;
+            runtime
+                .world
+                .actors
+                .iter_mut()
+                .find(|actor| actor.id == actor_id)
+                .unwrap()
+                .status = CW_ACTOR_KNOCKED_OUT;
+        }
+        let downed = player_route(
+            &state,
+            "GET",
+            &format!("/state?actor_id={actor_id}&actor_session={token}"),
+            serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(downed["primary_action"]["kind"], "abandon_avatar");
+        assert_eq!(downed["primary_action"]["disabled"], false);
+        let release = player_route(
+            &state,
+            "POST",
+            "/actions/abandon-avatar",
+            serde_json::json!({"actor_id":actor_id,"actor_session":token}),
+        )
+        .await;
+        assert_eq!(release["ok"], true);
+        let released = player_route(
+            &state,
+            "GET",
+            &format!("/state?actor_id={actor_id}&actor_session={token}"),
+            serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(released["primary_action"]["kind"], "create_avatar");
+    }
+
     #[test]
     fn browser_adopts_only_an_explicit_session_handoff() {
         for contract in [
