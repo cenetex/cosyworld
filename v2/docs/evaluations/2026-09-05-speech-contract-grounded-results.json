@@ -1,0 +1,3141 @@
+[
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 1,
+        "text": ""
+      },
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 2,
+        "text": "The hollow catches Aster’s arrival—feet on root, unusual after so much quiet; precedent says arrivals matter, though I’ve lost the thread, and the arrival is “Aster arrived in Old Oak Tree.”"
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 0,
+    "sample": "oak-0-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": false
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_repeated_ngram",
+        "round": 1,
+        "text": "The hollow is damp, and someone left a brass tag beside the ember-stone. That is not a Hearthstone Tag, Ring insists; precedent says tags are hung, not left. The thread—what thread?—Leaf asks. “Someone left a brass tag beside the ember-stone,” Hollow repeats to Bear, Ferret, Bastian, Doc, and Aster."
+      },
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 2,
+        "text": "The hollow catches Aster’s purpose hovering like a moth—Root says your boots are by my eastern root, Ring insists strangers have always brought questions, Leaf forgets which question, and Hollow repeats: “Aster arrives with a purpose still to choose.”"
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 0,
+    "sample": "oak-0-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": false,
+    "attempts": [
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 1,
+        "text": ""
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": false
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_finish_incomplete",
+        "round": 2,
+        "text": "“Those roots are pressing up around Aster’s boots.” “They have pressed there before, and the ring remembers it.” “Wait, were we watching Aster or Bear?” “Those roots are pressing up around Aster’s boots.”"
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 3,
+        "text": ""
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 1,
+    "sample": "oak-1-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The hollow catches Aster’s undecided purpose—Root says footsteps are circling, Ring cites older arrivals, Leaf forgets why we’re looking, and Hollow repeats, “Aster arrives with a purpose still to choose.”"
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 1,
+    "sample": "oak-1-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": false,
+    "attempts": [
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 1,
+        "text": ""
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 2,
+        "text": ""
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": false
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": false
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": false
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_empty",
+        "round": 3,
+        "text": ""
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 2,
+    "sample": "oak-2-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": false,
+    "attempts": [
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": false
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_finish_incomplete",
+        "round": 1,
+        "text": "The hollow catches Aster first. No, Root catches the newcomer’s presence. Ring says arrivals have always mattered. Leaf—wait, what were we saying? Aster is here, and that is the concrete thing: you stand among Bear, Ferret,"
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": false
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_repeated_ngram",
+        "round": 2,
+        "text": "Aster stands at the root-flare—watch them, Root says; no, Ring insists, guests have stood there before; Leaf loses the point; Hollow repeats, “Aster stands at the root-flare.”"
+      },
+      {
+        "accepted": false,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": false
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "failure": "voice_repeated_ngram",
+        "round": 3,
+        "text": "The Hearthstone Tag and Story Button catch my eye beneath the roots—Root says they were placed there, Ring says we’ve found such things before, Leaf forgets which is which, and Hollow says, “Hearthstone Tag and Story Button.”"
+      }
+    ],
+    "fixture": "oak",
+    "repeat": 2,
+    "sample": "oak-2-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Half these flowers will return after the first warm rain. I’m keeping count of which ones the bees favor today—and whether anyone’s hiding Moonwool Thread among them."
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 0,
+    "sample": "fern-0-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "A bee keeps worrying one bent clover beside your boot, Aster. I’m watching to see whether it’s after pollen, or merely has better sense than the rest of us."
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 0,
+    "sample": "fern-0-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Fern to Aster: “The warm bees keep worrying one blue flower by the Old Oak. It’s bent, not broken—someone’s brushed past it. I notice such things; they usually lead somewhere.”"
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 1,
+    "sample": "fern-1-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The crushed blue flower by your boot matters, Aster. It’s still trying to lift its head, and I dislike seeing anything here stepped on."
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 1,
+    "sample": "fern-1-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Those warm bees matter, Aster. They keep worrying the clover open, even while everyone here pretends the sky is listening."
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 2,
+    "sample": "fern-2-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The warm bees matter. One has settled deep in a blue flower and refuses to leave, even when the petals tremble. I’m keeping count of how long it stays—and whether Dottie notices."
+      }
+    ],
+    "fixture": "fern",
+    "repeat": 2,
+    "sample": "fern-2-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The Old Oak first, Aster. Its bark, roots, and any marks may show which path stays put."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 0,
+    "sample": "professor-0-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Aster, I’d inspect the Old Oak first. Its roots should tell me which path stays put."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 0,
+    "sample": "professor-0-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Aster, I inspect the moss beside the nearest path. Its dampness is real, even if the path repeats."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 1,
+    "sample": "professor-1-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The Old Oak first, Aster. Its roots are solid, and one path does not move."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 1,
+    "sample": "professor-1-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The Old Oak first. I’ll check its roots and the path beside them. Anything that stays put is worth recording."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 2,
+    "sample": "professor-2-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Aster, I’d inspect the Old Oak first. Its roots are real, and the path beside it stays put. If there’s a map scrap here, it may be under the moss."
+      }
+    ],
+    "fixture": "professor",
+    "repeat": 2,
+    "sample": "professor-2-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Rowan Vale took it before dawn—the tower key. I didn’t see them leave, but the hook has been empty since."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 0,
+    "sample": "mara-0-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The hook is empty because Rowan took the Keeper’s brass key before dawn—along with the tower key. I found rain on the sill, but no note. If Rowan dropped it, the road north is where I’d look."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 0,
+    "sample": "mara-0-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The hook is empty. I can’t tell whether Rowan took the Keeper’s Brass Key before dawn or whether someone lifted it afterward. I’ll check the kitchen ledger and the road door."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 1,
+    "sample": "mara-1-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Rowan took the Keeper’s brass key before dawn, Aster. The hook was empty when I checked the lamps. If he carried it to Mothwood, we’ll need to follow before the dark reaches this road."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 1,
+    "sample": "mara-1-grounded",
+    "variant": "grounded"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "The hook is empty; Rowan took the tower key before dawn. I don’t know whether that was the Keeper’s Brass Key."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 2,
+    "sample": "mara-2-baseline",
+    "variant": "baseline"
+  },
+  {
+    "accepted": true,
+    "attempts": [
+      {
+        "accepted": true,
+        "checks": [
+          {
+            "code": "voice_envelope_invalid",
+            "passed": true
+          },
+          {
+            "code": "voice_empty",
+            "passed": true
+          },
+          {
+            "code": "voice_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_finish_incomplete",
+            "passed": true
+          },
+          {
+            "code": "voice_repeated_ngram",
+            "passed": true
+          },
+          {
+            "code": "voice_multiple_speakers",
+            "passed": true
+          },
+          {
+            "code": "voice_instruction_leakage",
+            "passed": true
+          },
+          {
+            "code": "voice_mode_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_anchor_missing",
+            "passed": true
+          },
+          {
+            "code": "voice_recent_duplicate",
+            "passed": true
+          },
+          {
+            "code": "voice_unsafe_tone",
+            "passed": true
+          },
+          {
+            "code": "voice_proposed_action_claim",
+            "passed": true
+          },
+          {
+            "code": "voice_object_agency",
+            "passed": true
+          },
+          {
+            "code": "voice_fallback_identity",
+            "passed": true
+          },
+          {
+            "code": "voice_signpost_opening",
+            "passed": true
+          },
+          {
+            "code": "voice_question_monoculture",
+            "passed": true
+          },
+          {
+            "code": "voice_beat_form_mismatch",
+            "passed": true
+          },
+          {
+            "code": "voice_terminal_aphorism",
+            "passed": true
+          },
+          {
+            "code": "voice_unbacked_action_intent",
+            "passed": true
+          },
+          {
+            "code": "voice_action_budget_exceeded",
+            "passed": true
+          },
+          {
+            "code": "voice_anomaly_omitted",
+            "passed": true
+          }
+        ],
+        "round": 1,
+        "text": "Empty since before dawn, far as I know. Rowan left with the tower key; whether this brass one went with him, I can’t yet say. I’ll check the rain marks and his room."
+      }
+    ],
+    "fixture": "mara",
+    "repeat": 2,
+    "sample": "mara-2-grounded",
+    "variant": "grounded"
+  }
+]

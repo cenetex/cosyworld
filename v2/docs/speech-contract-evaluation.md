@@ -54,11 +54,18 @@ responses. It reads saved provider replies locally. Its inputs are
 
 On 2026-09-05, the first baseline request reached OpenRouter through the primary
 production credential and received HTTP 402, `limit_source: openrouter_credits`.
-The batch stopped with zero completed samples. The fixed first-round request
-estimate was $0.025480; the evaluation requires renewed provider credit.
+That batch stopped with zero completed samples. Its first-round request
+estimate was $0.025480.
 
-The production paragraph is retained while this comparison awaits samples.
-The fixture checks pass, including fresh-turn retention in a 2,048-token window.
+Provider requests succeeded when credit availability was checked again. The
+completed removal comparison and its follow-up are recorded in the
+[dated report](evaluations/2026-09-05-speech-contract.md). The fixture checks
+pass, including fresh-turn retention in a 2,048-token window. Null provider
+content is scored through the same empty-speech gate as a blank reply.
+
+Both candidates pass the numerical tolerances and fail manual grounding.
+The two completed comparisons cost $0.020333016 across 65 responses. The
+production truth paragraph is retained based on that result.
 
 The transport command is:
 
@@ -71,3 +78,8 @@ The default run checks pricing and the budget. Add `--execute` for provider
 sampling. The runner stops on provider errors and saves a pending request for
 inspection. Run the ignored Rust evaluation again to score replies and export
 only the next required rounds. The total cap is $0.50 across all saved responses.
+
+The original comparison uses `COSYWORLD_SPEECH_EVAL_CANDIDATE=candidate`.
+The follow-up uses `grounded` in a separate evaluation directory and a $0.48
+transport cap. Each saved comparison can be scored again with its matching
+variant and `responses.json` file.

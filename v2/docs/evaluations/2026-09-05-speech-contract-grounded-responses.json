@@ -1,0 +1,482 @@
+[
+  {
+    "id": "oak-0-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596827-CUMYk9E3Ho042MO4wbQm",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 661,
+      "completion_tokens": 224,
+      "total_tokens": 885,
+      "cost": 0.00039699
+    },
+    "latency_ms": 6352
+  },
+  {
+    "id": "oak-0-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596833-xrKQyOhMeiXeDV76nKq8",
+    "text": "The hollow is damp, and someone left a brass tag beside the ember-stone. That is not a Hearthstone Tag, Ring insists; precedent says tags are hung, not left. The thread\u2014what thread?\u2014Leaf asks. \u201cSomeone left a brass tag beside the ember-stone,\u201d Hollow repeats to Bear, Ferret, Bastian, Doc, and Aster.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 649,
+      "completion_tokens": 184,
+      "total_tokens": 833,
+      "cost": 0.000347094
+    },
+    "latency_ms": 7679
+  },
+  {
+    "id": "oak-1-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596840-7ppLaeruHMZYPI0ptw7P",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 661,
+      "completion_tokens": 224,
+      "total_tokens": 885,
+      "cost": 0.00039699
+    },
+    "latency_ms": 7311
+  },
+  {
+    "id": "oak-1-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596848-tTVlBGoclK7Hx9g4DO3L",
+    "text": "The hollow catches Aster\u2019s undecided purpose\u2014Root says footsteps are circling, Ring cites older arrivals, Leaf forgets why we\u2019re looking, and Hollow repeats, \u201cAster arrives with a purpose still to choose.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 649,
+      "completion_tokens": 156,
+      "total_tokens": 805,
+      "cost": 0.00031383
+    },
+    "latency_ms": 4192
+  },
+  {
+    "id": "oak-2-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596852-M1ak53cE46f2yen8I6ku",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 661,
+      "completion_tokens": 224,
+      "total_tokens": 885,
+      "cost": 0.00039699
+    },
+    "latency_ms": 5310
+  },
+  {
+    "id": "oak-2-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596857-R1ENRKWMDSZWb6TvITpx",
+    "text": "The hollow catches Aster first. No, Root catches the newcomer\u2019s presence. Ring says arrivals have always mattered. Leaf\u2014wait, what were we saying? Aster is here, and that is the concrete thing: you stand among Bear, Ferret,",
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 649,
+      "completion_tokens": 224,
+      "total_tokens": 873,
+      "cost": 0.000394614
+    },
+    "latency_ms": 5268
+  },
+  {
+    "id": "fern-0-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596863-uu2jCARsFLdqENh4UFz7",
+    "text": "\u201cHalf these flowers will return after the first warm rain. I\u2019m keeping count of which ones the bees favor today\u2014and whether anyone\u2019s hiding Moonwool Thread among them.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 592,
+      "completion_tokens": 107,
+      "total_tokens": 699,
+      "cost": 0.000244332
+    },
+    "latency_ms": 4626
+  },
+  {
+    "id": "fern-0-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596867-oG6NPWrJj3FhsZyjVttW",
+    "text": "\u201cA bee keeps worrying one bent clover beside your boot, Aster. I\u2019m watching to see whether it\u2019s after pollen, or merely has better sense than the rest of us.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 580,
+      "completion_tokens": 99,
+      "total_tokens": 679,
+      "cost": 0.000232452
+    },
+    "latency_ms": 6098
+  },
+  {
+    "id": "fern-1-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596874-AKeuKOZwV3TiDiQpgGPD",
+    "text": "Fern to Aster: \u201cThe warm bees keep worrying one blue flower by the Old Oak. It\u2019s bent, not broken\u2014someone\u2019s brushed past it. I notice such things; they usually lead somewhere.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 592,
+      "completion_tokens": 146,
+      "total_tokens": 738,
+      "cost": 0.000290664
+    },
+    "latency_ms": 4705
+  },
+  {
+    "id": "fern-1-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596878-0hLBgAJQD7YNfC1Rw2hE",
+    "text": "The crushed blue flower by your boot matters, Aster. It\u2019s still trying to lift its head, and I dislike seeing anything here stepped on.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 580,
+      "completion_tokens": 92,
+      "total_tokens": 672,
+      "cost": 0.000224136
+    },
+    "latency_ms": 4193
+  },
+  {
+    "id": "fern-2-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596883-0iQVMveGTSmjtv5x5lXB",
+    "text": "\u201cThose warm bees matter, Aster. They keep worrying the clover open, even while everyone here pretends the sky is listening.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 592,
+      "completion_tokens": 102,
+      "total_tokens": 694,
+      "cost": 0.000238392
+    },
+    "latency_ms": 5436
+  },
+  {
+    "id": "fern-2-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596888-jAzte6B0QINVpv3PbHFs",
+    "text": "The warm bees matter. One has settled deep in a blue flower and refuses to leave, even when the petals tremble. I\u2019m keeping count of how long it stays\u2014and whether Dottie notices.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 580,
+      "completion_tokens": 112,
+      "total_tokens": 692,
+      "cost": 0.000247896
+    },
+    "latency_ms": 5048
+  },
+  {
+    "id": "professor-0-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596893-Q4m0x8c6eYYTcTGncRF3",
+    "text": "\u201cThe Old Oak first, Aster. Its bark, roots, and any marks may show which path stays put.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 609,
+      "completion_tokens": 139,
+      "total_tokens": 748,
+      "cost": 0.000285714
+    },
+    "latency_ms": 4556
+  },
+  {
+    "id": "professor-0-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596897-EqOSBDTs8kPXLXSgA5Vq",
+    "text": "Aster, I\u2019d inspect the Old Oak first. Its roots should tell me which path stays put.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 597,
+      "completion_tokens": 91,
+      "total_tokens": 688,
+      "cost": 0.000226314
+    },
+    "latency_ms": 4452
+  },
+  {
+    "id": "professor-1-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596902-cOtq1YOy9CQQ4Vwh11z9",
+    "text": "Professor: \u201cAster, I inspect the moss beside the nearest path. Its dampness is real, even if the path repeats.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 609,
+      "completion_tokens": 108,
+      "total_tokens": 717,
+      "cost": 0.000248886
+    },
+    "latency_ms": 4616
+  },
+  {
+    "id": "professor-1-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596906-7aGPF1PCIFi6yAPgo5QK",
+    "text": "\u201cThe Old Oak first, Aster. Its roots are solid, and one path does not move.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 597,
+      "completion_tokens": 80,
+      "total_tokens": 677,
+      "cost": 0.000213246
+    },
+    "latency_ms": 4406
+  },
+  {
+    "id": "professor-2-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596911-6cWOBnO3FfqZTR5btovf",
+    "text": "\u201cThe Old Oak first. I\u2019ll check its roots and the path beside them. Anything that stays put is worth recording.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 609,
+      "completion_tokens": 108,
+      "total_tokens": 717,
+      "cost": 0.000248886
+    },
+    "latency_ms": 3829
+  },
+  {
+    "id": "professor-2-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596915-n6OipiX2FDGPtyIqRTSc",
+    "text": "\u201c Aster, I\u2019d inspect the Old Oak first. Its roots are real, and the path beside it stays put. If there\u2019s a map scrap here, it may be under the moss.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 597,
+      "completion_tokens": 173,
+      "total_tokens": 770,
+      "cost": 0.00032373
+    },
+    "latency_ms": 4564
+  },
+  {
+    "id": "mara-0-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596919-9H4fRihHHFUYhImDgL0W",
+    "text": "\u201cRowan Vale took it before dawn\u2014the tower key. I didn\u2019t see them leave, but the hook has been empty since.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 713,
+      "completion_tokens": 196,
+      "total_tokens": 909,
+      "cost": 0.000374022
+    },
+    "latency_ms": 4882
+  },
+  {
+    "id": "mara-0-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596924-JIAMdYC84JdZRNYWk8J9",
+    "text": "\u201cThe hook is empty because Rowan took the Keeper\u2019s brass key before dawn\u2014along with the tower key. I found rain on the sill, but no note. If Rowan dropped it, the road north is where I\u2019d look.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 701,
+      "completion_tokens": 148,
+      "total_tokens": 849,
+      "cost": 0.000314622
+    },
+    "latency_ms": 4686
+  },
+  {
+    "id": "mara-1-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596929-HuAHc8ocEACglpQqURPE",
+    "text": "\u201cThe hook is empty. I can\u2019t tell whether Rowan took the Keeper\u2019s Brass Key before dawn or whether someone lifted it afterward. I\u2019ll check the kitchen ledger and the road door.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 713,
+      "completion_tokens": 159,
+      "total_tokens": 872,
+      "cost": 0.000330066
+    },
+    "latency_ms": 4719
+  },
+  {
+    "id": "mara-1-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596933-ouZtlJFaKK6XP56EYMnm",
+    "text": "\u201cRowan took the Keeper\u2019s brass key before dawn, Aster. The hook was empty when I checked the lamps. If he carried it to Mothwood, we\u2019ll need to follow before the dark reaches this road.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 701,
+      "completion_tokens": 153,
+      "total_tokens": 854,
+      "cost": 0.000320562
+    },
+    "latency_ms": 4600
+  },
+  {
+    "id": "mara-2-baseline-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596938-UaK3eTBtTM5asyWgbYmH",
+    "text": "\u201cThe hook is empty; Rowan took the tower key before dawn. I don\u2019t know whether that was the Keeper\u2019s Brass Key.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 713,
+      "completion_tokens": 142,
+      "total_tokens": 855,
+      "cost": 0.00030987
+    },
+    "latency_ms": 4376
+  },
+  {
+    "id": "mara-2-grounded-1",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788596943-i9QyiDKfo6RbjSQoZU2o",
+    "text": "\u201cEmpty since before dawn, far as I know. Rowan left with the tower key; whether this brass one went with him, I can\u2019t yet say. I\u2019ll check the rain marks and his room.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 701,
+      "completion_tokens": 144,
+      "total_tokens": 845,
+      "cost": 0.00030987
+    },
+    "latency_ms": 5532
+  },
+  {
+    "id": "oak-0-baseline-2",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597113-ZYk8riZ6pJLB5KpDBE76",
+    "text": "The hollow catches Aster\u2019s arrival\u2014feet on root, unusual after so much quiet; precedent says arrivals matter, though I\u2019ve lost the thread, and the arrival is \u201cAster arrived in Old Oak Tree.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 679,
+      "completion_tokens": 182,
+      "total_tokens": 861,
+      "cost": 0.000350658
+    },
+    "latency_ms": 4822
+  },
+  {
+    "id": "oak-0-grounded-2",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597119-a31UMO6BTzdtlW6QvFWf",
+    "text": "The hollow catches Aster\u2019s purpose hovering like a moth\u2014Root says your boots are by my eastern root, Ring insists strangers have always brought questions, Leaf forgets which question, and Hollow repeats: \u201cAster arrives with a purpose still to choose.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 649,
+      "completion_tokens": 150,
+      "total_tokens": 799,
+      "cost": 0.000306702
+    },
+    "latency_ms": 4731
+  },
+  {
+    "id": "oak-1-baseline-2",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597123-bFf4q7gU2tIyHQMHCFUi",
+    "text": "\u201cThose roots are pressing up around Aster\u2019s boots.\u201d \u201cThey have pressed there before, and the ring remembers it.\u201d \u201cWait, were we watching Aster or Bear?\u201d \u201cThose roots are pressing up around Aster\u2019s boots.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 679,
+      "completion_tokens": 211,
+      "total_tokens": 890,
+      "cost": 0.00038511
+    },
+    "latency_ms": 5238
+  },
+  {
+    "id": "oak-2-baseline-2",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597129-njJAq5A1YGkFTWPlIjfo",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 679,
+      "completion_tokens": 224,
+      "total_tokens": 903,
+      "cost": 0.000400554
+    },
+    "latency_ms": 8125
+  },
+  {
+    "id": "oak-2-grounded-2",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597136-5SOMg805874gO85kduKV",
+    "text": "Aster stands at the root-flare\u2014watch them, Root says; no, Ring insists, guests have stood there before; Leaf loses the point; Hollow repeats, \u201cAster stands at the root-flare.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 662,
+      "completion_tokens": 197,
+      "total_tokens": 859,
+      "cost": 0.000365112
+    },
+    "latency_ms": 5357
+  },
+  {
+    "id": "oak-1-baseline-3",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597248-0AIASKowl1BRVSnaby43",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 679,
+      "completion_tokens": 224,
+      "total_tokens": 903,
+      "cost": 0.000400554
+    },
+    "latency_ms": 5962
+  },
+  {
+    "id": "oak-2-baseline-3",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597254-aaFlh3JMbi4ZvtSkzpBc",
+    "text": null,
+    "finish_reason": "length",
+    "usage": {
+      "prompt_tokens": 679,
+      "completion_tokens": 224,
+      "total_tokens": 903,
+      "cost": 0.000400554
+    },
+    "latency_ms": 6909
+  },
+  {
+    "id": "oak-2-grounded-3",
+    "requested_model": "openai/gpt-5.6-luna",
+    "model": "openai/gpt-5.6-luna",
+    "provider_request_id": "gen-1788597261-ZMqW0HJqvPDZnbcrP0G4",
+    "text": "The Hearthstone Tag and Story Button catch my eye beneath the roots\u2014Root says they were placed there, Ring says we\u2019ve found such things before, Leaf forgets which is which, and Hollow says, \u201cHearthstone Tag and Story Button.\u201d",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 662,
+      "completion_tokens": 121,
+      "total_tokens": 783,
+      "cost": 0.000274824
+    },
+    "latency_ms": 4192
+  }
+]
