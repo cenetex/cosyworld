@@ -459,4 +459,7 @@
 #
 # 59487 -> 59474: item helpers move to util; receipt-based entity levels live
 # in entity_levels.rs with their migration and replay checks.
-59474
+#
+# 59474 -> 59473: item defaults move to util as the asset budget
+# module joins the existing media storage seam.
+59473

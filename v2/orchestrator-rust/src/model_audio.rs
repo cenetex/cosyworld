@@ -63,7 +63,7 @@ pub(super) fn store_generated_model_audio(
             return Err("generated model-audio digest collision detected".to_string());
         }
     } else {
-        atomic_persist_model_audio(&path, bytes)?;
+        atomic_persist_model_audio(generated_asset_dir, &path, bytes)?;
         let persisted = read_validated_model_audio(generated_asset_dir, &digest)?;
         if persisted != bytes {
             return Err("generated model-audio persistence verification failed".to_string());
@@ -120,7 +120,7 @@ pub(super) fn store_generated_model_audio_for_interaction(
 
     let asset = store_generated_model_audio(bytes, generated_asset_dir)?;
     let receipt_path = model_audio_receipt_path(generated_asset_dir, interaction_id);
-    if persist_model_audio_receipt(&receipt_path, &asset.digest)? {
+    if persist_model_audio_receipt(generated_asset_dir, &receipt_path, &asset.digest)? {
         return Ok(asset);
     }
     load_generated_model_audio_for_interaction(interaction_id, generated_asset_dir)?.ok_or_else(
@@ -162,7 +162,7 @@ pub(super) fn store_generated_model_audio_transcript_for_interaction(
         return Ok(existing);
     }
     let path = model_audio_transcript_path(generated_asset_dir, interaction_id);
-    if persist_model_audio_receipt(&path, transcript)? {
+    if persist_model_audio_receipt(generated_asset_dir, &path, transcript)? {
         return Ok(transcript.to_string());
     }
     load_generated_model_audio_transcript_for_interaction(interaction_id, generated_asset_dir)?
@@ -340,7 +340,9 @@ fn model_audio_transcript_path(root: &Path, interaction_id: &str) -> PathBuf {
         .join(format!("{interaction_id}.txt"))
 }
 
-fn atomic_persist_model_audio(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn atomic_persist_model_audio(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let parent = path
         .parent()
         .ok_or_else(|| "generated model-audio storage path has no parent".to_string())?;
@@ -372,7 +374,11 @@ fn atomic_persist_model_audio(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_result
 }
 
-fn persist_model_audio_receipt(path: &Path, digest: &str) -> Result<bool, String> {
+fn persist_model_audio_receipt(root: &Path, path: &Path, digest: &str) -> Result<bool, String> {
+    let _budget = crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(
+        root,
+        digest.len() as u64,
+    )?;
     let parent = path
         .parent()
         .ok_or_else(|| "generated model-audio receipt path has no parent".to_string())?;

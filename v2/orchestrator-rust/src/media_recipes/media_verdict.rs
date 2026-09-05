@@ -439,8 +439,9 @@ pub(crate) fn preflight_media_verdict_storage(
     let brief_digest = brief.digest()?;
     let _guard = media_verdict_lock()?;
     let record = load_or_create_record(root, brief.clone(), &brief_digest)?;
-    preflight_atomic_write_directory(&record_dir(root, &record.record_id), "record")?;
+    preflight_atomic_write_directory(root, &record_dir(root, &record.record_id), "record")?;
     preflight_atomic_write_directory(
+        root,
         &record_dir(root, &record.record_id).join("candidates"),
         "candidate",
     )
@@ -1121,6 +1122,7 @@ fn retire_record(root: &Path, record: &PersistedMediaVerdict) -> Result<(), Stri
         .ok_or_else(|| "retired media verdict path has no parent".to_string())?;
     fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     atomic_write(
+        root,
         &retired,
         &serde_json::to_vec(record).map_err(|error| error.to_string())?,
     )
@@ -1188,6 +1190,7 @@ fn store_record(root: &Path, record: &PersistedMediaVerdict) -> Result<(), Strin
     let mut record = record.clone();
     record.updated_at_ms = crate::now_millis();
     atomic_write(
+        root,
         &record_path(root, &record.record_id),
         &serde_json::to_vec(&record).map_err(|error| error.to_string())?,
     )
@@ -1200,8 +1203,13 @@ fn store_candidate_object(
     image: &DownloadedReplicateImage,
 ) -> Result<(), String> {
     let directory = record_dir(root, record_id).join("candidates");
-    atomic_write(&directory.join(format!("{digest}.image")), &image.bytes)?;
     atomic_write(
+        root,
+        &directory.join(format!("{digest}.image")),
+        &image.bytes,
+    )?;
+    atomic_write(
+        root,
         &directory.join(format!("{digest}.metadata.json")),
         &serde_json::to_vec(&serde_json::json!({
             "schema_version": MEDIA_VERDICT_SCHEMA_VERSION,
@@ -1232,7 +1240,9 @@ fn media_verdict_lock() -> Result<MutexGuard<'static, ()>, String> {
         .map_err(|_| "media verdict lock was poisoned".to_string())
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn atomic_write(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let parent = path
         .parent()
         .ok_or_else(|| "media verdict path has no parent".to_string())?;
@@ -1246,7 +1256,11 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::rename(&temporary, path).map_err(|error| error.to_string())
 }
 
-fn preflight_atomic_write_directory(directory: &Path, label: &str) -> Result<(), String> {
+fn preflight_atomic_write_directory(
+    root: &Path,
+    directory: &Path,
+    label: &str,
+) -> Result<(), String> {
     fs::create_dir_all(directory).map_err(|error| {
         format!(
             "failed to create media verdict {label} directory {}: {error}",
@@ -1259,7 +1273,7 @@ fn preflight_atomic_write_directory(directory: &Path, label: &str) -> Result<(),
         crate::now_millis(),
         crate::random_hex(6)
     ));
-    atomic_write(&probe, b"cosyworld-media-verdict-preflight")?;
+    atomic_write(root, &probe, b"cosyworld-media-verdict-preflight")?;
     fs::remove_file(&probe).map_err(|error| {
         format!(
             "failed to remove media verdict {label} probe {}: {error}",

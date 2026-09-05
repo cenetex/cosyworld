@@ -11,7 +11,43 @@
       "label": "lonelyforest",
       "base_url": "https://cosyworld-lonelyforest.fly.dev",
       "event_store_mb": 400,
-      "generated_asset_mb": 500
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
+    },
+    {
+      "label": "lonelyforest-0",
+      "base_url": "https://0.lonelyforest.com",
+      "event_store_mb": 400,
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
+    },
+    {
+      "label": "lonelyforest-7",
+      "base_url": "https://7.lonelyforest.com",
+      "event_store_mb": 400,
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
+    },
+    {
+      "label": "lonelyforest-89",
+      "base_url": "https://89.lonelyforest.com",
+      "event_store_mb": 400,
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
+    },
+    {
+      "label": "hoppycat",
+      "base_url": "https://hoppycat.lonelyforest.com",
+      "event_store_mb": 400,
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
+    },
+    {
+      "label": "lantern",
+      "base_url": "https://lantern.lonelyforest.com",
+      "event_store_mb": 400,
+      "generated_asset_mb": 432,
+      "group": "lonelyforest"
     }
   ]
 }

@@ -58,6 +58,7 @@ mod entity_levels;
 mod event_replay_store;
 mod first_tale;
 mod first_tale_presentations;
+mod generated_asset_budget;
 mod generated_places;
 mod generation_policy;
 mod hosted_access;
@@ -2410,6 +2411,7 @@ struct MetaPersistence {
     event_store_live_bytes: Option<u64>,
     event_store_reusable_bytes: Option<u64>,
     event_store_auto_vacuum: Option<&'static str>,
+    generated_asset_limit_bytes: u64,
     generated_asset_bytes: Option<u64>,
     generated_asset_count: Option<u64>,
     snapshot_bytes: Option<u64>,
@@ -3806,18 +3808,6 @@ fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
         }
     }
     items
-}
-
-fn default_seed_item_role() -> String {
-    "generic".to_string()
-}
-
-fn default_seed_item_weight_tenths() -> u16 {
-    CW_ITEM_DEFAULT_WEIGHT_TENTHS
-}
-
-fn default_seed_item_size() -> String {
-    "small".to_string()
 }
 
 fn seed_item_recovery_profile(item: &SeedItemContent) -> (u8, u8, u8) {
@@ -16979,6 +16969,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             event_store_live_bytes: storage_report.event_store_live_bytes,
             event_store_reusable_bytes: storage_report.event_store_reusable_bytes,
             event_store_auto_vacuum: storage_report.event_store_auto_vacuum,
+            generated_asset_limit_bytes: generated_asset_budget::GENERATED_ASSET_LIMIT_BYTES,
             generated_asset_bytes: storage_report.generated_asset_bytes,
             generated_asset_count: storage_report.generated_asset_count,
             snapshot_bytes: storage_report.snapshot_bytes,
@@ -18952,8 +18943,9 @@ async fn fund_community_image(
         let candidate_retry_path =
             community_art_candidate_availability(&state.generated_asset_dir, &plan)
                 != CommunityArtCandidateAvailability::Absent;
-        let retry_generation = existing
-            .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
+        let retry_generation = existing.is_some_and(|generation| {
+            plan.generation_retryable(generation, candidate_retry_path, &state.generated_asset_dir)
+        });
         let same_intent =
             existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id));
         let working = existing.is_some_and(|generation| {
@@ -19070,8 +19062,9 @@ async fn fund_community_image(
         community_art_candidate_availability(&state.generated_asset_dir, &plan);
     let candidate_retry_path = candidate_availability != CommunityArtCandidateAvailability::Absent;
     if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
-        let retry_generation = existing
-            .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
+        let retry_generation = existing.is_some_and(|generation| {
+            plan.generation_retryable(generation, candidate_retry_path, &state.generated_asset_dir)
+        });
         drop(runtime);
         if retry_generation {
             continue_community_art_generation(&state, payload.actor_id, plan).await;
@@ -19083,7 +19076,11 @@ async fn fund_community_image(
     }
     if existing.is_some_and(|generation| {
         generation.funded_orbs >= generation.required_orbs
-            && !plan.generation_retryable(generation, candidate_retry_path)
+            && !plan.generation_retryable(
+                generation,
+                candidate_retry_path,
+                &state.generated_asset_dir,
+            )
     }) {
         return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
@@ -19144,7 +19141,9 @@ async fn fund_community_image(
     let fully_funded = runtime
         .community_art_generations
         .get(&key)
-        .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
+        .is_some_and(|generation| {
+            plan.generation_retryable(generation, candidate_retry_path, &state.generated_asset_dir)
+        });
     drop(runtime);
     if !events.is_empty() {
         broadcast_events(&state, &events);

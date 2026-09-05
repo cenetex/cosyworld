@@ -1388,6 +1388,8 @@ fn save_graph(root: &Path, graph: &MediaAssetGraph) -> Result<(), String> {
         .ok_or_else(|| "media asset graph path has no parent".to_string())?;
     fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let bytes = serde_json::to_vec_pretty(graph).map_err(|error| error.to_string())?;
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let temporary = path.with_file_name(format!(
         ".graph-v1.json.tmp-{}-{}",
         std::process::id(),
@@ -1492,6 +1494,8 @@ fn write_immutable_object(
             asset.content_digest
         ));
     }
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let parent = path
         .parent()
         .ok_or_else(|| "immutable media object path has no parent".to_string())?;

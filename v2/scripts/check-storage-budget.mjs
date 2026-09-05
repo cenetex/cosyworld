@@ -13,7 +13,7 @@ const MB = 1024 * 1024;
 const requested = process.argv[2] || "";
 const { targets } = JSON.parse(await readFile(budgetsPath, "utf8"));
 const selected = requested
-  ? targets.filter((target) => target.label === requested || target.base_url === requested)
+  ? targets.filter((target) => target.label === requested || target.group === requested || target.base_url === requested)
   : targets;
 
 if (!selected.length) {

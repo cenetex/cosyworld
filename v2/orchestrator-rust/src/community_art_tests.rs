@@ -44,6 +44,116 @@ fn test_avatar_level_identity(appearance: &str) -> AvatarLevelIdentity {
     }
 }
 
+#[tokio::test]
+async fn full_asset_budget_preserves_funding_and_blocks_candidate_writes() {
+    use crate::generated_asset_budget::{GENERATED_ASSET_LIMIT_BYTES, GENERATED_ASSET_LIMIT_CODE};
+    let root = std::env::temp_dir().join(format!("cosyworld-full-art-budget-{}", random_hex(8)));
+    fs::create_dir_all(&root).unwrap();
+    // A sparse legacy object exercises the production byte limit with little disk use.
+    fs::File::create(root.join("legacy.image"))
+        .unwrap()
+        .set_len(GENERATED_ASSET_LIMIT_BYTES)
+        .unwrap();
+    fs::write(root.join("published.image"), b"original published art").unwrap();
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
+    let item = runtime.world.items[..runtime.world.item_count]
+        .iter_mut()
+        .find(|item| item.id == 8403)
+        .unwrap();
+    item.holder_actor_id = 5000;
+    item.location_id = 0;
+    let plan = runtime.community_art_plan(5000, "item", 8403).unwrap();
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig::default()));
+    state.generated_asset_dir = Arc::new(root.clone());
+    let (session, _) = issue_actor_session(&state, 5000);
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:48885".parse().unwrap()),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id: 5000,
+            actor_session: Some(session),
+            subject_kind: "item".to_string(),
+            subject_id: 8403,
+            intent_id: "full-art-budget".to_string(),
+        }),
+    )
+    .await
+    .0;
+    assert!(!response.ok);
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some(GENERATED_ASSET_LIMIT_CODE)
+    );
+    assert!(response.events.is_empty());
+    let world = state.inner.lock().await;
+    assert_eq!(world.orb_balance(5000), STARTING_ORBS);
+    assert!(world.community_art_generations.is_empty());
+    drop(world);
+    let error = store_community_art_candidate(
+        &root,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: square_gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://provider.invalid/fixture.png".to_string(),
+            prediction_id: None,
+        },
+    )
+    .unwrap_err();
+    assert!(error.starts_with(GENERATED_ASSET_LIMIT_CODE));
+    assert_eq!(
+        fs::read(root.join("published.image")).unwrap(),
+        b"original published art"
+    );
+    assert!(!community_art_candidate_exists(&root, &plan));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn full_asset_budget_stops_a_funded_worker_before_provider_submission() {
+    use crate::generated_asset_budget::{GENERATED_ASSET_LIMIT_BYTES, GENERATED_ASSET_LIMIT_CODE};
+    let root = std::env::temp_dir().join(format!("cosyworld-full-art-worker-{}", random_hex(8)));
+    fs::create_dir_all(&root).unwrap();
+    fs::File::create(root.join("legacy.image"))
+        .unwrap()
+        .set_len(GENERATED_ASSET_LIMIT_BYTES)
+        .unwrap();
+    let plan = location_art_plan(181_885, "16:9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Funded Patron",
+    );
+    fund_test_community_art(&mut runtime, 5000, &plan, "full-art-worker", 7885);
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(root.clone());
+    schedule_community_art_generation(&state, 5000, plan.clone());
+    let generation = wait_for_community_art_status(&state, &key, "failed").await;
+    assert_eq!(
+        generation.last_error_code.as_deref(),
+        Some(GENERATED_ASSET_LIMIT_CODE)
+    );
+    assert_eq!(generation.provider_attempts, 0);
+    assert!(!community_art_generation_retryable(&generation, false));
+    assert!(!community_art_generation_retryable_for_profile(
+        &generation,
+        true,
+        u8::MAX
+    ));
+    assert_eq!(generation.funded_orbs, generation.required_orbs);
+    assert!(!plan.generation_retryable(&generation, false, &root));
+    fs::remove_file(root.join("legacy.image")).unwrap();
+    assert!(plan.generation_retryable(&generation, false, &root));
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn direct_avatar_portrait_can_be_funded_before_its_async_level_description() {
     let mut runtime = RuntimeWorld::seeded();

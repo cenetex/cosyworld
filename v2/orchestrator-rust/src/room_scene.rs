@@ -783,6 +783,7 @@ fn claim_room_scene_generation(
     attempt: u8,
     timeout: Duration,
 ) -> Result<bool, String> {
+    let budget = crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, 1024)?;
     let path = room_scene_claim_path(root, job_id);
     let now = crate::now_millis();
     match OpenOptions::new().write(true).create_new(true).open(&path) {
@@ -811,6 +812,7 @@ fn claim_room_scene_generation(
                 return Ok(false);
             }
             let _ = fs::remove_file(stale);
+            drop(budget);
             claim_room_scene_generation(root, job_id, attempt, timeout)
         }
         Err(error) => Err(error.to_string()),
@@ -919,6 +921,7 @@ where
         if !media_provider_route_available(root, &state.job.job_id)? {
             return Err("room-scene provider route is cooling down or disabled".to_string());
         }
+        crate::generated_asset_budget::require_generated_asset_headroom(root)?;
         let resolved = state.job.resolve(root)?;
         let attempt = state.provider_attempts.saturating_add(1);
         if !claim_room_scene_generation(root, job_id, attempt, timeout)? {
@@ -1325,6 +1328,7 @@ fn load_room_scene(root: &Path, job_id: &str) -> Result<PersistedRoomScene, Stri
 fn store_room_scene(root: &Path, scene: &PersistedRoomScene) -> Result<(), String> {
     scene.job.validate()?;
     atomic_write(
+        root,
         &room_scene_state_path(root, &scene.job.job_id),
         &serde_json::to_vec(scene).map_err(|error| error.to_string())?,
     )
@@ -1345,8 +1349,9 @@ fn store_room_scene_candidate(
         prediction_id: image.prediction_id.clone(),
         digest: candidate_digest(image),
     };
-    atomic_write(&room_scene_candidate_path(root, job), &image.bytes)?;
+    atomic_write(root, &room_scene_candidate_path(root, job), &image.bytes)?;
     atomic_write(
+        root,
         &room_scene_candidate_metadata_path(root, job),
         &serde_json::to_vec(&metadata).map_err(|error| error.to_string())?,
     )
@@ -1416,7 +1421,9 @@ pub(super) fn request_room_scene_candidate_replacement(
     Ok(true)
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn atomic_write(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let _budget =
+        crate::generated_asset_budget::GeneratedAssetWriteGuard::acquire(root, bytes.len() as u64)?;
     let parent = path
         .parent()
         .ok_or_else(|| "room-scene storage path has no parent".to_string())?;
