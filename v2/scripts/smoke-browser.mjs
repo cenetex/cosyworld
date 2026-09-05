@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spentPreparationTagBelongsToJob } from "./smoke-project-tags.mjs";
+import { assertBrowserReachability } from "./player-reachability.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const contentEngineVersion = (await readFile(
@@ -687,6 +688,7 @@ async function main() {
   }
 
   async function assertBrowserDrawReachesEveryLegalAction() {
+    await assertBrowserReachability(page, "before card rotation");
     const handSnapshot = () => page.evaluate(() => ({
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
         .filter((button) => getComputedStyle(button).display !== "none")
@@ -15211,6 +15213,7 @@ async function main() {
       throw new Error(`guest avatar gate did not become ready: ${JSON.stringify(diagnostic)}`, { cause: error });
     }
     await assertActionBarCapped("guest avatar gate", 2);
+    await assertBrowserReachability(page, "guest avatar gate");
     const openingPrimaryAria = ((await page.locator("#primary").getAttribute("aria-label")) || "").toLowerCase();
     const openingPrimary = (await primaryText()).toLowerCase();
     assert(

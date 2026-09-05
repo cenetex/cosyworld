@@ -11,6 +11,7 @@ import { spawn } from "node:child_process";
 import Database from "better-sqlite3";
 
 import { inspectActionJournal } from "./inspect-action-journal.mjs";
+import { assertPlayerReachability } from "./player-reachability.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const v2Root = resolve(scriptDir, "..");
@@ -528,7 +529,7 @@ function thinkForSlot(state, slot = "") {
     || entries.find((entry) => entry.think?.available)?.think;
 }
 
-async function dealOffer(baseUrl, actorId, actorSession, predicate, description) {
+async function dealOffer(baseUrl, actorId, actorSession, predicate, description, { completed = null } = {}) {
   let state;
   let offer;
   let passAttempts = 0;
@@ -541,6 +542,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
   let writeAuthorityRefreshes = 0;
   while (true) {
     state = await waitForActorTurn(baseUrl, actorId, actorSession, description);
+    if (completed?.(state)) return { state, offer: null, completed: true };
     offer = state.action_offers?.find(
       (candidate) => !candidate.disabled && predicate(candidate),
     );
@@ -604,8 +606,11 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
         target,
       })),
       firstTale: state?.first_tale,
-      questions: state?.shared_questions?.map(({ id, strategies }) => ({
+      questions: state?.shared_questions?.map(({ id, presentation_state, filled, danger_filled, strategies }) => ({
         id,
+        presentation_state,
+        filled,
+        danger_filled,
         strategies: strategies?.map(({ id: strategyId, available, availability_reason }) => ({
           id: strategyId,
           available,
@@ -829,6 +834,148 @@ function firstTaleAdvancingOffer(state, label) {
     })}`,
   );
   return offer;
+}
+
+function lanternFinaleCompleted(state) {
+  return state.shared_questions?.some((question) => question.id === "lantern-keeper:rekindle-the-beacon"
+    && question.presentation_state === "completed_memory");
+}
+
+async function commitLanternFinale(baseUrl, actorId, actorSession, towerReady, dangerBeforeFinale) {
+  const initialWorkDeal = await dealOffer(
+    baseUrl,
+    actorId,
+    actorSession,
+    (offer) =>
+      offer.kind === "work" &&
+      matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
+    "the finale Work card",
+    { completed: lanternFinaleCompleted },
+  );
+  if (initialWorkDeal.completed) return { autonomousFinale: true };
+  towerReady = initialWorkDeal.state;
+  const initialWorkOffer = initialWorkDeal.offer;
+  assert(
+    initialWorkOffer?.offer_id &&
+      initialWorkOffer?.command === "contribute rekindle-beacon",
+    `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+  );
+  traceLantern("lantern Tower ready", towerReady);
+
+  const tamperedOffer = await postJsonExpectingStatus(
+    `${baseUrl}/commands`,
+    {
+      actor_id: actorId,
+      actor_session: actorSession,
+      offer_id: `${initialWorkOffer.offer_id}:tampered`,
+      command: initialWorkOffer.command,
+    },
+    404,
+  );
+  assert(
+    tamperedOffer.ok === false &&
+      tamperedOffer.status === 404 &&
+      tamperedOffer.error_kind === "unknown_offer" &&
+      tamperedOffer.events?.length === 0,
+    `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
+  );
+
+  await passCurrentHand(baseUrl, actorId, actorSession);
+  const staleOffer = await postJsonExpectingStatus(
+    `${baseUrl}/commands`,
+    {
+      actor_id: actorId,
+      actor_session: actorSession,
+      offer_id: initialWorkOffer.offer_id,
+      command: initialWorkOffer.command,
+    },
+    409,
+  );
+  assert(
+    staleOffer.ok === false &&
+      staleOffer.status === 409 &&
+      staleOffer.error_kind === "stale_offer" &&
+      staleOffer.events?.length === 0,
+    `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
+  );
+
+  towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
+  traceLantern("lantern Tower after stale-offer check", towerReady);
+  const freshWorkDeal = await dealOffer(
+    baseUrl,
+    actorId,
+    actorSession,
+    (offer) =>
+      offer.kind === "work" &&
+      matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
+    "the refreshed finale Work card",
+    { completed: lanternFinaleCompleted },
+  );
+  if (freshWorkDeal.completed) return { autonomousFinale: true };
+  towerReady = freshWorkDeal.state;
+  const freshWorkOffer = freshWorkDeal.offer;
+  const readyQuestion = towerReady.shared_questions?.find(
+    (question) => question.id === "lantern-keeper:rekindle-the-beacon",
+  );
+  assert(
+    readyQuestion?.filled === 0 &&
+      readyQuestion?.danger_filled === dangerBeforeFinale &&
+      freshWorkOffer?.offer_id,
+    `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
+  );
+
+  const finalePayload = {
+    actor_id: actorId,
+    actor_session: actorSession,
+    offer_id: freshWorkOffer.offer_id,
+    command: freshWorkOffer.command,
+    envelope: {
+      ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id),
+      intent_id: "smoke:lantern-golden-finale",
+    },
+  };
+  const attempted = await postJsonWithStatus(`${baseUrl}/commands`, finalePayload);
+  if (attempted.status === 409 && attempted.body?.error_kind === "stale_offer"
+      && lanternFinaleCompleted(await fetchInspectableState(baseUrl, actorId, actorSession))) {
+    return { autonomousFinale: true };
+  }
+  assert(attempted.status === 200, `Finale command returned HTTP ${attempted.status}`);
+  const finale = attempted.body;
+  assert(
+    finale.ok === true &&
+      finale.events?.filter(
+        (event) => event.type === "job.contribution.resolved",
+      ).length === 1 &&
+      finale.events?.filter(
+        (event) =>
+          event.type === "job.updated" &&
+          event.content?.includes(":completed:"),
+      ).length === 1 &&
+      finale.events?.filter((event) => event.type === "story.receipt")
+        .length === 1,
+    `Lantern Keeper finale did not resolve with one coherent receipt: ${JSON.stringify(finale)}`,
+  );
+  const retriedFinale = await postJson(`${baseUrl}/commands`, finalePayload);
+  assert(
+    JSON.stringify(retriedFinale) === JSON.stringify(finale),
+    `Lantern Keeper finale retry was not idempotent: ${JSON.stringify({ finale, retriedFinale })}`,
+  );
+  const conflictingRetry = await postJsonExpectingStatus(
+    `${baseUrl}/commands`,
+    {
+      ...finalePayload,
+      offer_id: `${freshWorkOffer.offer_id}:tampered-retry`,
+    },
+    409,
+  );
+  assert(
+    conflictingRetry.ok === false &&
+      conflictingRetry.status === 409 &&
+      conflictingRetry.output?.includes("intent_id is already bound") &&
+      conflictingRetry.events?.length === 0,
+    `Lantern Keeper accepted a conflicting finale retry: ${JSON.stringify(conflictingRetry)}`,
+  );
+  return { autonomousFinale: false, finalePayload, finale };
 }
 
 async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial) {
@@ -1163,12 +1310,18 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const earlyCompletedQuestion = towerReady.shared_questions?.find(
     (question) => question.id === "lantern-keeper:rekindle-the-beacon",
   );
-  const autonomousFinale =
+  let autonomousFinale =
     earlyCompletedQuestion?.presentation_state === "completed_memory";
   const dangerBeforeFinale = Number(earlyCompletedQuestion?.danger_filled || 0);
   let finalePayload = null;
   let finale = null;
   const beforeFinaleOrbs = towerReady.economy?.orbs;
+  if (!autonomousFinale) {
+    const result = await commitLanternFinale(baseUrl, actorId, actorSession, towerReady, dangerBeforeFinale);
+    autonomousFinale = result.autonomousFinale;
+    finalePayload = result.finalePayload ?? null;
+    finale = result.finale ?? null;
+  }
   if (autonomousFinale) {
     const events = await fetchAllActorEvents(baseUrl, actorId, actorSession);
     assert(
@@ -1179,129 +1332,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
           event.content?.includes("lantern-keeper:rekindle-the-beacon"),
       ).length === 1,
       `Rowan's autonomous finale was not committed exactly once: ${JSON.stringify(earlyCompletedQuestion)}`,
-    );
-  } else {
-    const initialWorkDeal = await dealOffer(
-      baseUrl,
-      actorId,
-      actorSession,
-      (offer) =>
-        offer.kind === "work" &&
-        matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
-      "the finale Work card",
-    );
-    towerReady = initialWorkDeal.state;
-    const initialWorkOffer = initialWorkDeal.offer;
-    assert(
-      initialWorkOffer?.offer_id &&
-        initialWorkOffer?.command === "contribute rekindle-beacon",
-      `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
-    );
-    traceLantern("lantern Tower ready", towerReady);
-
-    const tamperedOffer = await postJsonExpectingStatus(
-      `${baseUrl}/commands`,
-      {
-        actor_id: actorId,
-        actor_session: actorSession,
-        offer_id: `${initialWorkOffer.offer_id}:tampered`,
-        command: initialWorkOffer.command,
-      },
-      404,
-    );
-    assert(
-      tamperedOffer.ok === false &&
-        tamperedOffer.status === 404 &&
-        tamperedOffer.error_kind === "unknown_offer" &&
-        tamperedOffer.events?.length === 0,
-      `Lantern Keeper accepted a tampered finale offer: ${JSON.stringify(tamperedOffer)}`,
-    );
-
-    await passCurrentHand(baseUrl, actorId, actorSession);
-    const staleOffer = await postJsonExpectingStatus(
-      `${baseUrl}/commands`,
-      {
-        actor_id: actorId,
-        actor_session: actorSession,
-        offer_id: initialWorkOffer.offer_id,
-        command: initialWorkOffer.command,
-      },
-      409,
-    );
-    assert(
-      staleOffer.ok === false &&
-        staleOffer.status === 409 &&
-        staleOffer.error_kind === "stale_offer" &&
-        staleOffer.events?.length === 0,
-      `Lantern Keeper accepted a stale finale offer: ${JSON.stringify(staleOffer)}`,
-    );
-
-    towerReady = await fetchInspectableState(baseUrl, actorId, actorSession);
-    const freshWorkDeal = await dealOffer(
-      baseUrl,
-      actorId,
-      actorSession,
-      (offer) =>
-        offer.kind === "work" &&
-        matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"),
-      "the refreshed finale Work card",
-    );
-    towerReady = freshWorkDeal.state;
-    const freshWorkOffer = freshWorkDeal.offer;
-    const readyQuestion = towerReady.shared_questions?.find(
-      (question) => question.id === "lantern-keeper:rekindle-the-beacon",
-    );
-    assert(
-      readyQuestion?.filled === 0 &&
-        readyQuestion?.danger_filled === dangerBeforeFinale &&
-        freshWorkOffer?.offer_id,
-      `Lantern Keeper lost its finale after refreshing the hand: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
-    );
-
-    finalePayload = {
-      actor_id: actorId,
-      actor_session: actorSession,
-      offer_id: freshWorkOffer.offer_id,
-      command: freshWorkOffer.command,
-      envelope: {
-        ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id),
-        intent_id: "smoke:lantern-golden-finale",
-      },
-    };
-    finale = await postJson(`${baseUrl}/commands`, finalePayload);
-    assert(
-      finale.ok === true &&
-        finale.events?.filter(
-          (event) => event.type === "job.contribution.resolved",
-        ).length === 1 &&
-        finale.events?.filter(
-          (event) =>
-            event.type === "job.updated" &&
-            event.content?.includes(":completed:"),
-        ).length === 1 &&
-        finale.events?.filter((event) => event.type === "story.receipt")
-          .length === 1,
-      `Lantern Keeper finale did not resolve with one coherent receipt: ${JSON.stringify(finale)}`,
-    );
-    const retriedFinale = await postJson(`${baseUrl}/commands`, finalePayload);
-    assert(
-      JSON.stringify(retriedFinale) === JSON.stringify(finale),
-      `Lantern Keeper finale retry was not idempotent: ${JSON.stringify({ finale, retriedFinale })}`,
-    );
-    const conflictingRetry = await postJsonExpectingStatus(
-      `${baseUrl}/commands`,
-      {
-        ...finalePayload,
-        offer_id: `${freshWorkOffer.offer_id}:tampered-retry`,
-      },
-      409,
-    );
-    assert(
-      conflictingRetry.ok === false &&
-        conflictingRetry.status === 409 &&
-        conflictingRetry.output?.includes("intent_id is already bound") &&
-        conflictingRetry.events?.length === 0,
-      `Lantern Keeper accepted a conflicting finale retry: ${JSON.stringify(conflictingRetry)}`,
     );
   }
 
@@ -1522,6 +1552,7 @@ function assertMountedComposition(meta, spec, addedActorCount = 0, addedLocation
 }
 
 function assertScene(state, spec, { requireOffer = true } = {}) {
+  assertPlayerReachability(state, spec.label);
   assert(state.location?.name === spec.location, JSON.stringify(state.location));
   const rulesContext = inspectedRulesContext(state);
   if (spec.selectedBy) {

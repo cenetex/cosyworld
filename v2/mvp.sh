@@ -233,6 +233,7 @@ run_smoke() {
   if [ "$mode" != "living-world" ]; then
     COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" node "$ROOT/scripts/smoke-browser.mjs"
     COSYWORLD_SMOKE_URL="${BASE_URL}/" node "$ROOT/scripts/smoke-passkey-avatar.mjs"
+    COSYWORLD_SMOKE_URL="${BASE_URL}/" node "$ROOT/scripts/smoke-player-reachability.mjs"
   fi
   if [ "$mode" = "baseline" ]; then
     return 0
