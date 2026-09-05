@@ -456,8 +456,6 @@ static int valid_item_placement(
   }
 }
 
-/* Placement is one transition so callers cannot leave holder, room, zone, and
- * container references out of sync between assignments. */
 static cw_status place_item(
     cw_item *item,
     uint8_t zone,
@@ -1093,9 +1091,6 @@ static cw_status apply_create_actor(cw_world *world, const cw_action *action, ui
   if (!find_location(world, location_id)) return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
 
   cw_stat_block stats = generated_stats(seed ^ action->actor_id);
-  /* Character-creation schema v2 deliberately begins before a class is
-     chosen. The orchestrator marks that path with modifier -1; legacy create
-     records retain their level-one semantics. */
   if (action->modifier == -1) stats.level = 0;
   cw_status status = add_actor(world, action->actor_id, CW_ACTOR_HUMAN, location_id, stats);
   if (status == CW_ERR_RULE) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
@@ -1483,10 +1478,6 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
     event->modifier = modifier;
     event->total = total;
     event->dc = dc;
-    /* Record which ability the check resolved against. The field already
-       existed but was left at zero, so every projected check looked like a
-       Strength check. Reporting it is what lets a client name the attribute
-       without guessing. See issue #464. */
     event->ability = action->ability;
   }
   return CW_OK;
@@ -1506,9 +1497,6 @@ static cw_status apply_discovery_procedure(
       || !find_location_const(world, action->location_id)) {
     return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
   }
-  /* Under pressure, the check only decides whether the separately frozen
-     event consequence fires. It never decides whether authored truth exists
-     or whether the procedure reveals it. */
   if (action->dc) {
     status = apply_ability_check(world, action, seed, out_events);
     if (status != CW_OK) return status;
@@ -1734,8 +1722,6 @@ static uint8_t item_rest_restore_zone(const cw_item *item) {
       && item->recovery_zone != CW_CARD_ZONE_EXHAUSTED) {
     return item->recovery_zone;
   }
-  /* Legacy snapshots predate captured recovery zones. The role fallback is
-     deterministic and applies only when that historical field is absent. */
   if (item->role == CW_ITEM_ROLE_SPELL) return CW_CARD_ZONE_SPELL_DECK;
   if (item->role == CW_ITEM_ROLE_SKILL_CHARM) return CW_CARD_ZONE_EQUIPPED;
   return CW_CARD_ZONE_CARRIED;
@@ -3051,9 +3037,6 @@ static cw_status apply_combat_join(cw_world *world, const cw_action *action, uin
   cw_combat_participant *participant = &encounter->participants[encounter->participant_count++];
   memset(participant, 0, sizeof(*participant));
   participant->actor_id = actor->id;
-  /* A zero modifier is the historical journal shape and must retain the
-     original kind-based replay rule. New callers write side 1 or 2
-     explicitly so controller provenance is not used as a faction. */
   participant->side = action->modifier == 1 || action->modifier == 2
       ? (uint8_t)action->modifier
       : (actor->kind == CW_ACTOR_HUMAN ? 1 : 2);
@@ -3129,8 +3112,6 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
     attack_ability = action->ability;
     attack_ability_mod = ability_modifier((int8_t)stat_value(&actor->stats, attack_ability));
   } else if (finesse && dexterity_mod > strength_mod) {
-    /* An ability-free finesse action is a legacy journal entry. Preserve its
-       historical best-of-Strength-or-Dexterity replay semantics. */
     attack_ability = CW_ABILITY_DEXTERITY;
     attack_ability_mod = dexterity_mod;
   }
@@ -3260,10 +3241,6 @@ static cw_status apply_combat_pass(cw_world *world, const cw_action *action, cw_
   return CW_OK;
 }
 
-/* Close an encounter that can never advance again. Unlike every other combat
-   action this does not require the caller to hold the current turn: a stuck
-   encounter is precisely one whose current turn can never be completed. It
-   resolves with no winning side (total 0) and releases the participants. */
 static cw_status apply_combat_abandon(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   if (!action->content_id) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   cw_combat_encounter *encounter = find_combat_encounter(world, action->content_id);

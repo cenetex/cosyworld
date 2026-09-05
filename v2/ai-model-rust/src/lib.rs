@@ -216,10 +216,6 @@ pub fn sanitize_resident_reply(input: &ResidentReplyModelInput, text: &str) -> O
 }
 
 pub fn fallback_avatar_name(actor_id: u64) -> String {
-    // A worldpack normally supplies a much larger culture grammar. This small
-    // built-in grammar is the last-resort path for an absent or invalid pack:
-    // it must still give people a stable identity instead of collapsing every
-    // avatar to the same visible placeholder.
     const GIVEN: [&str; 16] = [
         "Alder", "Anwen", "Basil", "Briony", "Clover", "Della", "Ember", "Fern", "Hollis", "Iona",
         "Jasper", "Lark", "Marlow", "Oona", "Rowan", "Wren",

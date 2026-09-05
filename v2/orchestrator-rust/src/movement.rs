@@ -43,8 +43,6 @@ impl RuntimeWorld {
         if exits.is_empty() {
             return None;
         }
-        // Read the legacy preference for compatibility and diagnostics, but
-        // LocalAI no longer needs that opt-in merely to take a local fallback.
         let _legacy_roaming_preference = seed_actor_roams(actor.id);
         let start = actor
             .id

@@ -546,10 +546,6 @@ impl RuntimeWorld {
         {
             return Err("This avatar was already released to the world once.".to_string());
         }
-        // The abandon effect is pure orchestrator state (autonomy control
-        // mode, claim, event), so the record is projection-only. Kind 41 was
-        // never a kernel action; sending it there got every attempt rejected
-        // and journalled as an unreplayable poison row.
         Ok((
             CwAction {
                 kind: CW_ACTION_NONE,
@@ -576,12 +572,6 @@ impl RuntimeWorld {
         true
     }
 
-    /// A settled abandon record replays as a no-op. This covers records whose
-    /// abandon claim already ran (idempotent re-application) and the legacy
-    /// kind-41 records written before the projection-only fix: those were
-    /// rejected by the kernel at commit time, so their live effect was
-    /// "nothing happened", and replay must preserve exactly that history
-    /// instead of failing the boot or applying a late effect.
     pub(super) fn abandon_avatar_record_already_applied(&self, record: &JournalRecord) -> bool {
         for mutation in &record.projection_mutations {
             if let ProjectionMutation::AbandonAvatar { actor_id } = mutation {
@@ -628,17 +618,6 @@ fn abandon_avatar_claim_key(actor_id: u64) -> String {
     format!("avatar_abandon:{actor_id}")
 }
 
-/// Releasing a fallen avatar is the one mutation a knocked-out player may
-/// submit, so it cannot use the ordinary submit gate.
-/// `client_actor_authorized_for_state` requires `client_actor_can_submit`,
-/// which requires an ACTIVE actor -- a state an abandoning player is never in.
-/// Gating the endpoint that way refused every real attempt with 403 while the
-/// route, the projection, and the planner were all correct.
-///
-/// The session must still own this exact actor, the avatar must still be
-/// present and under direct control, and the account must not be suspended.
-/// `plan_abandon_avatar` enforces the rest: knocked out, out of combat, and
-/// not already released.
 fn abandon_avatar_authorized(
     runtime: &RuntimeWorld,
     state: &AppState,

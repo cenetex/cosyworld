@@ -197,7 +197,7 @@ describe('deploy workflow', () => {
   it('runs the long CI smoke suites in parallel from one shared binary', () => {
     const runtime = ciJob('runtime', 'rust-quality');
     const composition = ciJob('composition', 'browser');
-    const browser = ciJob('browser', 'publication');
+    const browser = ciJob('browser', 'build');
     const build = ciJob('build');
 
     expect(runtime).toContain('actions/upload-artifact@v7');
@@ -210,7 +210,7 @@ describe('deploy workflow', () => {
     expect(browser).toContain('mode: [baseline, living-world]');
     expect(browser).toContain('actions/download-artifact@v8');
     expect(build).toContain(
-      'needs: [node, runtime, rust-quality, composition, browser, publication]'
+      'needs: [node, runtime, rust-quality, composition, browser]'
     );
   });
 
@@ -606,8 +606,6 @@ describe('deploy workflow', () => {
     const engineVersionCopy =
       'COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt';
     const mediaCopy = 'COPY v2/media /app/v2/media';
-    // Matched without the RUN prefix so the ordering contract survives
-    // env prefixes on the build command, such as CARGO_BUILD_JOBS.
     const releaseBuild = 'cargo build --release';
 
     expect(dockerignore).toContain('!v2/content-engine-version.txt');

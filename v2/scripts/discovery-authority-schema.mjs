@@ -34,10 +34,6 @@ const eventEffects = new Set([
   "change_hazard",
   "change_method",
 ]);
-// The entity path may be numeric: every shipped pack identifies items and
-// locations by number, and the Rust authority (discovery_authority.rs
-// valid_canonical_id) accepts any lowercase/digit/._-/ path. Requiring a
-// leading letter here rejected ids the runtime resolves happily.
 const canonicalIdPattern = /^[a-z][a-z0-9.-]*:[a-z][a-z0-9-]*\/[a-z0-9._/-]+$/;
 const rowIdPattern = /^[a-z][a-z0-9_]{1,63}$/;
 

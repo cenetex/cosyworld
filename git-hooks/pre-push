@@ -1,5 +1,4 @@
 #!/bin/sh
-# cosyworld-version-hook
 set -eu
 
 if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
@@ -7,11 +6,6 @@ if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
   exit 0
 fi
 
-# Tiered gate: CI is the final authority and always runs the full suite, so the
-# hook only needs to keep obviously-red code off the remote. A push that
-# touches nothing but Markdown/docs cannot fail the JS, pack, kernel, or Rust
-# stages, so those pushes run the cheap checks only -- every other push still
-# runs the full `npm run check`.
 changed="$(git diff --name-only @{push}...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD)"
 docs_only=1
 while IFS= read -r file; do

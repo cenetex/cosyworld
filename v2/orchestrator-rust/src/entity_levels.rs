@@ -122,8 +122,6 @@ pub(super) fn validate_item_level_policy(
 }
 
 impl RuntimeWorld {
-    // Only historical records and snapshots use the old interpretation. The
-    // first journal record carrying contract v1 freezes this result once.
     fn legacy_entity_level(&self, subject: WorldEntityRef) -> u8 {
         let memory = self.entity_memories.get(&subject.key());
         let progress = match subject.kind {
@@ -213,8 +211,6 @@ impl RuntimeWorld {
                         },
                     );
                 }
-                // Existing projects are already inside the grandfathered level.
-                // Reconciliation keeps their identity without awarding it twice.
                 for (subject, project, receipt) in self.completed_development_receipts() {
                     self.entity_levels
                         .entities
@@ -426,7 +422,6 @@ impl RuntimeWorld {
 
 #[cfg(test)]
 pub(crate) fn freeze_legacy_test_levels(runtime: &mut RuntimeWorld) {
-    // Media fixtures represent an existing world with numbered art pools.
     runtime.entity_levels = EntityLevelLedger::default();
     runtime.prepare_entity_level_contract(&JournalRecord::new(CwAction::default(), 954));
 }
@@ -471,8 +466,6 @@ pub(crate) fn verify_development_level_receipts(
         .unwrap()
         .progress_clock_id
         .clone();
-    // The authored upgrade and civic project each have one stable identity.
-    // A repeatable service retains its own rewards while the level stays put.
     for clock_id in [upgrade, &service, &settlement_civic_clock_id(location_id)] {
         let mut record = JournalRecord::new(
             CwAction {

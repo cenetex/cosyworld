@@ -11,12 +11,6 @@ const PROFILE_SCHEMA_VERSION: u32 = 1;
 const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-10.7";
 const PROFILE_BINDING_COUNT: usize = 500;
 
-// Interaction profiles describe operational provider routes, not authored or
-// persisted world state. Embedding this separately avoids changing worldpack
-// compatibility hashes for an endpoint-capability snapshot. The validator
-// still pins every row to the embedded actor binding catalog. If interaction
-// profiles become authored/persisted state, mount them through the content
-// registry and declare the resulting worldpack migration instead.
 const EMBEDDED_INTERACTION_PROFILES: &str =
     include_str!("../../content/elysium/actor_interaction_profiles.json");
 const EMBEDDED_ACTOR_MODEL_BINDINGS: &str =
@@ -105,8 +99,6 @@ pub(super) struct ActorInteractionProfile {
 }
 
 impl ActorInteractionProfile {
-    /// Provider and end-to-end adapter readiness only. Callers must still
-    /// apply data-policy, authorization, rate, and runtime configuration gates.
     pub(super) fn ready_before_policy(&self) -> bool {
         self.provider_available && self.runtime_adapter_supported
     }
@@ -386,12 +378,6 @@ pub(super) fn exact_actor_interaction_profile_for_model(
     exact_profile_at(registry, index, kind)
 }
 
-/// Resolve an operational profile for an authored actor binding without
-/// weakening the exact-model contract. The capability snapshot is generated
-/// from one canonical actor per OpenRouter model, while worldpacks may bind
-/// that same audited model to their own actor ids. An actor-id match remains
-/// authoritative; model lookup is only allowed when the authored actor is not
-/// present in the snapshot, and the complete route identity must still match.
 pub(super) fn exact_actor_interaction_profile_for_binding(
     actor_id: u64,
     requested_model_id: &str,

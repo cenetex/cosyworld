@@ -106,9 +106,6 @@ resource "aws_iam_policy" "incident_reader" {
   }
 }
 
-# Deliberately do not create aws_iam_access_key here: putting the secret in
-# Terraform state would create a second credential store. The runbook creates
-# one key immediately before setting the three required Fly secrets.
 
 resource "aws_sns_topic" "incident_alerts" {
   name = "cosyworld-production-log-alerts"

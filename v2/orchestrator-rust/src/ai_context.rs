@@ -289,8 +289,6 @@ impl PromptEnvelope {
         self
     }
 
-    /// Adds actor-specific system context without counting that context as
-    /// shared policy in prompt-budget telemetry.
     pub(crate) fn system_context(mut self, text: impl Into<String>) -> Self {
         self.system.push(PromptSegment {
             text: text.into(),

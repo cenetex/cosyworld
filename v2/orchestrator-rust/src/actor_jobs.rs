@@ -64,12 +64,8 @@ pub(super) const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 pub(super) const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 pub(super) const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
 const AVATAR_SELF_DESCRIPTION_RETRY_FLOOR_MS: u64 = 60_000;
-// Resident reactions still get a brief human-feeling beat, but they should not
-// hold the Story Hand for several seconds when there is no dialogue provider.
 pub(super) const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 750;
 pub(super) const ROOM_INITIATIVE_CHAIN_LIMIT: usize = CW_MAX_ACTORS;
-/// How long a directly controlled avatar may hold a room-initiative seat
-/// without acting before the server commits a certified Pass on its behalf.
 pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
@@ -150,11 +146,6 @@ pub(super) fn insert_room_rope_job(
         return Ok(true);
     }
 
-    // A rope that completed without effect because its holder disconnected
-    // must be usable again when that same certified seat resumes later. Older
-    // releases could also exhaust the retry budget before the room-pass path
-    // was healthy. That terminal row owns the same dedupe key, so revive it as
-    // well or the seat can never receive another timer.
     let now = now_millis() as i64;
     let rearmed = conn
         .execute(
@@ -174,9 +165,6 @@ pub(super) fn insert_room_rope_job(
     Ok(rearmed > 0)
 }
 
-/// Presence can reconstruct the first room seat without emitting a handoff.
-/// Arm that synthesized seat so reconnecting to an existing room cannot leave
-/// every waiting Story Hand locked forever.
 pub(super) fn schedule_resumed_room_rope(
     state: &AppState,
     runtime: &RuntimeWorld,
@@ -236,8 +224,6 @@ pub(super) fn schedule_resumed_room_rope(
     Ok(true)
 }
 
-/// The seat a fresh `room.turn.advanced` event just handed to a directly
-/// controlled avatar, if that avatar can still act in the room.
 pub(super) fn room_rope_target_from_events(
     runtime: &RuntimeWorld,
     events: &[EventView],
@@ -259,11 +245,6 @@ pub(super) fn room_rope_target_from_events(
     Some((location_id, actor_id, activation))
 }
 
-/// The room-initiative rope: when a directly controlled avatar's seat window
-/// elapses without a committed action, the server commits one certified Pass
-/// on that avatar's behalf and hands initiative onward. The seat certificate
-/// is re-checked under the world lock, so a seat that already moved on (the
-/// player acted, left, or a later rope fired) completes without any effect.
 pub(super) async fn complete_room_rope_job(
     state: &AppState,
     job: &RoomRopeJob,
@@ -439,10 +420,6 @@ pub(super) async fn complete_player_tick_observation(
         if current_generation != 0 && observation.actor_job_generation != current_generation {
             return Ok((None, None, None));
         }
-        // A worker may be reclaimed after its reaction committed but before the
-        // outbox row was acknowledged. Match the exact triggering event rather
-        // than a persisted world-tick watermark: restored worlds can legitimately
-        // resume behind an actor's historical last_acted_tick.
         if relationship_reply
             .as_ref()
             .is_some_and(|expectation| !runtime.relationship_reply_pending(expectation))
@@ -573,17 +550,6 @@ pub(super) async fn complete_player_tick_observation(
                             .then(|| runtime.resident_economy_action_reply_plan(&action))
                             .flatten()
                             .map(|plan| plan.with_observation(&observation));
-                        // The initiative actor's committed action is the beat.
-                        // Narrate that outcome instead of letting a generic
-                        // reaction from the same heartbeat hide it.
-                        // A room-initiative seat commits exactly one certified
-                        // action. The old reaction path would start a second AI
-                        // narration after the action had already advanced the
-                        // room, leaving its durable job holding the room lock
-                        // while the next seat was visible. Relationship beats
-                        // keep their dedicated reply contract; ordinary room
-                        // actions are fully represented by their committed
-                        // events.
                         let reply = if initiative_actor_id.is_some() && relationship_reply.is_none()
                         {
                             None
@@ -618,9 +584,6 @@ pub(super) fn schedule_player_tick_observation(
         observation.actor_job_generation = state.actor_job_generation.load(AtomicOrdering::Acquire);
     }
     if state.event_store_path.is_some() {
-        // The observation was inserted in the same SQLite transaction as the
-        // card journal and events. This call only wakes the durable worker;
-        // its available_at timestamp supplies the room-chat heartbeat delay.
         state.actor_job_notify.notify_waiters();
         return;
     }
@@ -903,10 +866,6 @@ pub(super) fn fail_actor_job_for_runtime_state(
                 | "voice_generation_in_flight"
         )
     {
-        // A funded portrait must not become permanently stranded because all
-        // server voice routes were briefly cooling down. Keep its private
-        // prerequisite durable, but wait beyond the provider cooldown before
-        // trying again so a recovery wave cannot create a request storm.
         return defer_actor_job_without_attempt(
             path,
             job,
@@ -1389,7 +1348,6 @@ mod rope_tests {
                 .expect("the opening pass commits");
             assert_eq!(status, CW_OK);
         }
-        // The activation counter moved past the stale certificate.
         let stale = RoomRopeJob {
             location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
             actor_id: 5001,
@@ -1424,7 +1382,6 @@ mod rope_tests {
         let ActorJobPayload::RoomRope(rope) = job.payload else {
             panic!("room rope jobs carry the room rope payload");
         };
-        // Drop every active session so the seated avatar is not connected.
         if let Ok(mut sessions) = state.actor_sessions.lock() {
             sessions.sessions.clear();
         }
@@ -1440,8 +1397,6 @@ mod rope_tests {
     }
 }
 
-/// Atomically move the committed observation into the dialogue lane. The same
-/// durable row and dedupe key preserve recovery and exactly-once scheduling.
 fn handoff_player_tick_reply(
     path: &Path,
     job: &ActorJob,
@@ -1471,7 +1426,6 @@ fn handoff_player_tick_reply(
         ],
     )
     .map_err(sqlite_error)?;
-    // A newer claim or an earlier handoff owns a row that no longer matches.
     Ok(())
 }
 
@@ -1694,8 +1648,6 @@ mod dialogue_lane_tests {
             .await
             .expect("the provider is processing the resident request");
 
-        // The authoritative player action and its room handoff commit while
-        // the provider still holds the dialogue request.
         {
             let mut runtime = state.inner.lock().await;
             let mut pass = JournalRecord::new(
@@ -1958,7 +1910,6 @@ mod dialogue_lane_tests {
             reply.attempts, 1,
             "dialogue receives its own bounded attempt budget"
         );
-        // An old gameplay completion cannot replace an already claimed reply.
         handoff_player_tick_reply(&path, &claimed, &observation, None, None).unwrap();
         conn.execute(
             "UPDATE actor_jobs SET lease_until_ms = 0 WHERE id = ?1",

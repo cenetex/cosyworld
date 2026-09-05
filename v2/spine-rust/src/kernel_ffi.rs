@@ -1,17 +1,3 @@
-//! `FfiKernel`: a `KernelPort` over the real C kernel (`v2/core-c`).
-//!
-//! The struct layouts below hand-mirror `cosy_kernel.h`, the same approach as
-//! `v2/orchestrator-rust/src/kernel.rs`. Drift is guarded from both sides:
-//! the header `static_assert`s `cw_item`, and the tests here assert every
-//! mirrored size against `sizeof()` exported from the compiled C shim, plus
-//! the kernel version constant.
-//!
-//! Authority stays in C. This module only translates the spine's action
-//! vocabulary into `cw_action`, supplies the journaled seed, and translates
-//! `cw_event` back out. The one exception is `Pass`, a projection-level verb
-//! per the kernel-promotion policy: it advances played time directly, which
-//! the ABI explicitly delegates to the caller ("Player-card callers own the
-//! tick").
 
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
@@ -393,9 +379,6 @@ extern "C" {
     fn cw_spine_sizeof_combat_encounter() -> usize;
 }
 
-/// Allocate a zeroed `T` directly on the heap. `CwWorld` is far too large to
-/// build on the stack first (the live orchestrator overflowed the main-thread
-/// stack exactly this way before boxing).
 fn alloc_zeroed_box<T>() -> Box<T> {
     let layout = std::alloc::Layout::new::<T>();
     assert!(layout.size() > 0);
@@ -444,13 +427,10 @@ struct FfiKernelSnapshot {
     gate_predicates: Vec<CwGatePredicate>,
     gate_actor_states: Vec<CwGateActorState>,
     gate_claims: Vec<CwGateClaim>,
-    /// The SAY content table is adapter state, not kernel state; it snapshots
-    /// alongside so replay interns identical content ids.
     content: BTreeMap<u64, String>,
     next_content_id: u64,
 }
 
-/// A `KernelPort` driving the production C kernel.
 pub struct FfiKernel {
     world: Box<CwWorld>,
     content: BTreeMap<u64, String>,
@@ -458,7 +438,6 @@ pub struct FfiKernel {
 }
 
 impl FfiKernel {
-    /// An initialized, empty world (`cw_world_init`).
     pub fn new() -> Self {
         let mut world: Box<CwWorld> = alloc_zeroed_box();
         unsafe { cw_world_init(world.as_mut()) };
@@ -469,9 +448,6 @@ impl FfiKernel {
         }
     }
 
-    /// The C demo world (`cw_seed_cosy_cottage`): 10 locations, 5 residents,
-    /// 7 items, 24 exits. Boot path for adapter tests until content-load
-    /// parity arrives.
     pub fn seed_cosy_cottage() -> Self {
         let mut kernel = Self::new();
         let mut events: Box<CwEventBuffer> = alloc_zeroed_box();
@@ -480,9 +456,6 @@ impl FfiKernel {
         kernel
     }
 
-    /// Create a human actor through the kernel's own action path
-    /// (`CW_ACTION_CREATE_ACTOR`); stats are kernel-generated from the seed.
-    /// This is the sanctioned content-load/character-creation entry point.
     pub fn create_player(&mut self, actor_id: u64, location_id: u64, seed: u64) -> KernelStatus {
         let action = CwAction {
             kind: CW_ACTION_CREATE_ACTOR,
@@ -553,7 +526,7 @@ impl FfiKernel {
                 item_id: *item,
                 ..base
             }),
-            ActionKind::Pass => None, // projection-level verb; no kernel action
+            ActionKind::Pass => None,
         }
     }
 
@@ -564,8 +537,6 @@ impl FfiKernel {
                 kind: event_kind_name(event.type_),
                 actor_id: event.actor_id,
                 location_id: event.location_id,
-                // Full-fidelity event content: every roll carries die, roll,
-                // modifier, total, and DC by construction.
                 content: serde_json::to_value(event).expect("cw_event serializes"),
             })
             .collect()
@@ -581,7 +552,6 @@ impl Default for FfiKernel {
 impl KernelPort for FfiKernel {
     fn apply(&mut self, action: &Action, seed: u64, advance_tick: bool) -> KernelOutcome {
         let Some(cw_action) = self.translate(action) else {
-            // Pass: the caller owns the tick, per the ABI contract.
             if advance_tick {
                 self.world.tick = self.world.tick.saturating_add(1);
             }
@@ -605,8 +575,6 @@ impl KernelPort for FfiKernel {
                 buffer.as_mut(),
             )
         };
-        // Rejections carry the kernel's public rule.rejected event; surface
-        // it on non-OK status exactly like accepted events.
         KernelOutcome {
             status: map_status(status),
             events: self.translate_events(&buffer),
@@ -618,8 +586,6 @@ impl KernelPort for FfiKernel {
     }
 
     fn room_occupants(&self, room_id: u64) -> Vec<u64> {
-        // Turn rotation covers players; residents are present but never hold
-        // a room turn, matching the live ping/pong eligibility rules.
         self.world.actors[..self.world.actor_count]
             .iter()
             .filter(|a| {
@@ -657,7 +623,6 @@ impl KernelPort for FfiKernel {
     fn restore(&mut self, snapshot: &serde_json::Value) -> Result<(), String> {
         let snap: FfiKernelSnapshot =
             serde_json::from_value(snapshot.clone()).map_err(|e| e.to_string())?;
-        // Fail closed on capacity drift rather than truncating state.
         let checks = [
             (snap.actors.len(), CW_MAX_ACTORS, "actors"),
             (snap.items.len(), CW_MAX_ITEMS, "items"),
@@ -781,7 +746,6 @@ mod tests {
         }
     }
 
-    /// Boot a seeded world with two players in the cottage (location 1).
     fn boot() -> FfiKernel {
         let mut kernel = FfiKernel::seed_cosy_cottage();
         assert_eq!(kernel.create_player(7, 1, 101), KernelStatus::Ok);
@@ -789,7 +753,6 @@ mod tests {
         kernel
     }
 
-    /// `cw_world_init` starts played time at tick 1.
     fn boot_tick() -> u64 {
         1
     }
@@ -797,7 +760,6 @@ mod tests {
     #[test]
     fn seeded_world_applies_real_rules() {
         let mut kernel = boot();
-        // Item 2001 (potion) rests on the cottage floor; actor 7 picks it up.
         let take = kernel.apply(
             &Action {
                 actor_id: 7,
@@ -809,8 +771,6 @@ mod tests {
         assert!(take.status.is_ok(), "kernel rejected a legal pickup");
         assert_eq!(take.events[0].kind, "item.picked_up");
 
-        // A second pickup of the held item is a public rule rejection, and
-        // played time does not advance for it.
         let tick_before = kernel.tick();
         let again = kernel.apply(
             &Action {
@@ -825,7 +785,6 @@ mod tests {
         assert_eq!(again.events[0].kind, "rule.rejected");
         assert_eq!(kernel.tick(), tick_before);
 
-        // Room turns see human players, not the NPC residents.
         let occupants = kernel.room_occupants(1);
         assert_eq!(occupants, vec![7, 8]);
     }
@@ -883,8 +842,6 @@ mod tests {
         env
     }
 
-    /// The golden replay, through the production kernel: journal alone
-    /// rebuilds identical C world state.
     #[test]
     fn golden_replay_through_real_kernel() {
         let mut p = pipeline_with_ffi();
@@ -894,7 +851,7 @@ mod tests {
                 text: "first line".to_string(),
             },
         );
-        say.turn = None; // speech is turn-exempt
+        say.turn = None;
         let commits = vec![
             say,
             envelope(7, ActionKind::PickUp { item: 2001 }),
@@ -920,9 +877,6 @@ mod tests {
     #[test]
     fn kernel_rule_rejection_journals_public_rejection() {
         let mut p = pipeline_with_ffi();
-        // Item 9999 does not exist: the C kernel rejects with CW_ERR_RULE and
-        // a public rule.rejected event (reason: item not found). The
-        // rejection journals; played time and the room turn do not advance.
         let outcome = p.commit(envelope(7, ActionKind::PickUp { item: 9999 }));
         match outcome {
             CommitOutcome::Committed {
@@ -942,7 +896,6 @@ mod tests {
             boot_tick(),
             "a rule rejection never advances played time"
         );
-        // The turn was not consumed: actor 7 can still play.
         assert!(p.commit(envelope(7, ActionKind::Pass)).is_committed());
     }
 }

@@ -1,8 +1,4 @@
 
-/**
- * Copyright (c) 2019-2024 Cenetex Inc.
- * Licensed under the MIT License.
- */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -14,7 +10,6 @@ async function build() {
 
   try {
 
-    // Build CSS
     await execAsync('npx tailwindcss -i ./src/tailwind.css -o ./public/css/tailwind.css --minify');
 
     console.log('✅ Build completed successfully');

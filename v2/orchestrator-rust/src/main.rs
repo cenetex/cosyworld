@@ -16,6 +16,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod autonomy;
 mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_levels;
@@ -24,9 +25,6 @@ mod avatar_reflections;
 mod avatar_rescue;
 #[cfg(test)]
 mod beliefs_tests;
-// The closed-vocabulary Calling Forge and event-derived Bond scripting.
-// Its candidate/proposal entry points power the client surface in a follow-up;
-// `is_calling_forge_statement` is wired into the authoritative calling path.
 #[allow(dead_code)]
 mod calling_forge;
 #[cfg(test)]
@@ -71,9 +69,6 @@ mod lantern_keeper_tests;
 mod legacy_import;
 mod local_leads;
 mod materialization_retirement;
-// The legacy canary evaluator remains readable for frozen-job compatibility
-// and audit tests, while live evolution now always preserves its parent image.
-mod autonomy;
 #[allow(dead_code)]
 mod media_evolution;
 mod media_jobs;
@@ -279,7 +274,6 @@ struct AppState {
     tx: broadcast::Sender<EventView>,
     deployment: DeploymentConfig,
     snapshot_path: Option<Arc<PathBuf>>,
-    /// Wall-clock millis of the last scheduled snapshot. Zero means never.
     last_snapshot_at_ms: Arc<AtomicU64>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     snapshot_writer: Option<Arc<SnapshotWriter>>,
@@ -505,10 +499,6 @@ struct BeliefTuning {
     gossip_salience_decay: u8,
 }
 
-// The former stores agreed on confidence, threshold, and decay amounts. The
-// unified policy keeps search's slightly stronger initial salience while using
-// resident autonomy's shorter decay interval so stale beliefs stop driving
-// actions promptly.
 const BELIEF_TUNING: BeliefTuning = BeliefTuning {
     capacity: 32,
     firsthand_confidence: 240,
@@ -676,9 +666,6 @@ struct JourneyNarrationPlan {
     current_step: usize,
     total_steps: usize,
     discovery: bool,
-    /// True only when the planned action actually moves the actor this turn.
-    /// Pathway discovery plans a route without moving, so its narration must
-    /// never claim the actor has already left.
     moved: bool,
 }
 
@@ -1579,10 +1566,6 @@ enum SearchRevealCandidate {
 
 #[derive(Clone, Debug)]
 struct RuntimeWorld {
-    // Boxed so `RuntimeWorld` stays small enough to move cheaply. The kernel
-    // world is a flat 285 KB struct; keeping it inline put several copies in
-    // the bootstrap match and its async state machine, which overflowed the
-    // main thread stack in unoptimized builds.
     world: Box<CwWorld>,
     canonical_identities: CanonicalIdentityState,
     command_receipts: CommandReceiptCache,
@@ -1646,7 +1629,6 @@ struct RuntimeWorld {
     treasure_objectives: BTreeMap<String, TreasureObjectiveState>,
     card_policy_preferences: BTreeMap<u64, BTreeMap<String, i16>>,
     world_simulation: WorldSimulationState,
-    /// Clocks filling right now; transient. See `apply_bounded_clock_fill`.
     clock_fill_cascade: Vec<String>,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
@@ -1654,8 +1636,6 @@ struct RuntimeWorld {
     listen_attempt_claims: BTreeSet<String>,
     pack_mount_state: PackMountState,
     action_journal_seq: u64,
-    // This is the authoritative per-actor hand rotation. The event log is a
-    // bounded presentation projection and must never determine a certificate.
     hand_generations: BTreeMap<u64, u64>,
     story_hand_states: BTreeMap<u64, StoryHandActorState>,
     room_initiatives: BTreeMap<u64, RoomInitiativeState>,
@@ -1699,9 +1679,6 @@ struct RuntimeSnapshot {
     next_event_seq: u64,
     #[serde(default)]
     canonical_identities: CanonicalIdentityState,
-    /// Read for compatibility with snapshots written before receipts moved out
-    /// of the checkpoint. Never written: receipts are recoverable from the
-    /// durable `canonical_command_receipts` table and are not world state.
     #[serde(default, skip_serializing)]
     command_receipts: BTreeMap<String, StoredCommandResponse>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1849,7 +1826,6 @@ struct RuntimeSnapshot {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum JournalOrigin {
-    /// Records written before origin-aware clocks landed keep their replayed tick behavior.
     #[default]
     Legacy,
     PlayerCard,
@@ -2243,9 +2219,6 @@ impl RippleBudget {
                 allow_movement: false,
             };
         }
-        // Zone does not differentiate the ripple budget: both frontier and
-        // sanctuary residents receive the same allowance. The zone is still
-        // tracked in the RippleContext for downstream filtering and projection.
         let _ = zone;
         Self {
             resident_actions: 1,
@@ -2507,7 +2480,7 @@ struct StateQuery {
     actor_id: Option<u64>,
     actor_session: Option<String>,
     wallet_session: Option<String>,
-    #[allow(dead_code)] // Legacy query; server AI configuration is authoritative.
+    #[allow(dead_code)]
     openrouter_connected: Option<String>,
 }
 
@@ -2975,10 +2948,6 @@ struct RankedActionOffer {
     ranked_hand_eligible: bool,
 }
 
-/// Public semantics for an action card. These dimensions deliberately stay
-/// separate: suit is navigation, verb is the exact action, source explains
-/// why it is available, and provenance/rarity describe collectibility rather
-/// than power.
 #[derive(Clone, Debug, Serialize)]
 struct ActionCardPresentationView {
     family: String,
@@ -3502,8 +3471,6 @@ struct ReviseBondRequest {
     actor_id: u64,
     actor_session: Option<String>,
     target_actor_id: u64,
-    // Kept for wire compatibility only: the server now derives the
-    // authoritative bond statement and ignores the client value.
     #[allow(dead_code)]
     statement: String,
 }
@@ -4531,11 +4498,6 @@ impl AppState {
             }
             hydrate_runtime_canonical_state(&mut runtime, path)?;
         }
-        // The public item-materialization route is already frozen. Convert the
-        // final replayed state before accepting traffic so no request can race
-        // receipt classification. This projection is deterministic and
-        // idempotent: a journal-only recovery derives the same typed receipts,
-        // while snapshots retain the original migration-point evidence.
         materialization_retirement::migrate_legacy_receipts(&mut runtime)?;
 
         let ownership_feed = OwnershipFeedConfig::from_env();
@@ -5196,9 +5158,6 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         let snapshot_version = self.version;
-        // Snapshots through v16 derived this from the bounded event projection.
-        // Preserve their observable hand at migration time, then retain the
-        // value independently of future projection eviction.
         let mut hand_generations = self.hand_generations;
         if snapshot_version < 17 {
             for event in &self.event_log {
@@ -7063,8 +7022,6 @@ impl RuntimeWorld {
         if self.world.item_count >= CW_MAX_ITEMS {
             return;
         }
-        // Location 0 is "authored but not placed" -- a hidden item awaiting its
-        // discovery slot. A non-zero unknown id is still a broken reference.
         if location_id != 0 && self.location_name(location_id).is_none() {
             return;
         }
@@ -7408,7 +7365,6 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
-        // Historic control/consequence draws remain projection-only.
         if record.version >= 14
             && matches!(
                 record.origin,
@@ -7642,8 +7598,6 @@ impl RuntimeWorld {
             self.bump_entity_versions_for_events(&events);
         }
         self.touch_threshold_access_after_projection(record, status);
-        // A pending direct-avatar transfer belongs to the shared room. The
-        // movement that separates either participant is its cancellation.
         self.expire_transfer_offers();
         self.refresh_canonical_events(&mut events);
         (status, events)
@@ -7658,10 +7612,6 @@ impl RuntimeWorld {
         allow_legacy_generated_identity_backfill: bool,
         historical_bundle_hash: &str,
     ) -> Vec<EventView> {
-        // Handlers take this instead of a growing positional argument list.
-        // Reshaped variants read everything they need from it; the arms that
-        // still destructure inline keep using the bindings above until they
-        // are reshaped in turn.
         let ctx = projection::ProjectionContext {
             action,
             committed_events,
@@ -8768,21 +8718,13 @@ impl RuntimeWorld {
                         reason,
                     ));
                 }
-                ProjectionMutation::LegacyAcceptQuest { .. } => {
-                    // The pre-worldpack prototype required explicit quest acceptance.
-                    // Mounted jobs are active by construction now, so replay only needs
-                    // to preserve this retired record's tick and causality.
-                }
+                ProjectionMutation::LegacyAcceptQuest { .. } => {}
                 ProjectionMutation::BankVisitLedger { reason } => {
                     if let Some(event) = self.bank_visit_ledger(action.actor_id, reason) {
                         events.push(event);
                     }
                 }
-                ProjectionMutation::SettleVisitLedgerAfterDiscovery { .. } => {
-                    // Discovery settlement runs after the current action's marks
-                    // have been projected. Keeping this as an explicit journal
-                    // mutation preserves the historical order for older records.
-                }
+                ProjectionMutation::SettleVisitLedgerAfterDiscovery { .. } => {}
                 ProjectionMutation::MarkVisitLedger(mutation) => {
                     if let Some(event) = mutation.apply(self, &ctx) {
                         events.push(event);
@@ -11026,10 +10968,6 @@ impl RuntimeWorld {
                 | CW_EVENT_COMBAT_ATTACK_MISS
                 | CW_EVENT_COMBAT_KNOCKOUT
         );
-        // An ordinary check rolls against an ability just as an attack does, and
-        // the kernel records which one on the event. Only combat used to project
-        // it, so a check could not name the attribute it was resolved against
-        // without the client guessing. See issue #464.
         let resolves_against_ability =
             is_combat_attack || event.type_ == CW_EVENT_ABILITY_CHECK_ROLLED;
         EventView {
@@ -14930,8 +14868,6 @@ The relationship statement they are preserving is: {statement}"
         }
         let explicit = job.status.trim();
         if matches!(explicit, "completed" | "failed") {
-            // Legacy snapshots may only have the terminal status. New quest state
-            // derives its terminal phase from journaled clock/effect events first.
             return explicit.to_string();
         }
         if explicit.is_empty() {
@@ -14984,9 +14920,6 @@ The relationship statement they are preserving is: {statement}"
         _client_actor_id: Option<u64>,
         _access: &AccessContext,
     ) -> BTreeSet<u64> {
-        // World events are a shared canonical history. Authentication chooses
-        // which avatar a client may control; it must not create a private copy
-        // of the world's room log.
         self.world.locations[..self.world.location_count]
             .iter()
             .map(|location| location.id)
@@ -15109,9 +15042,6 @@ The relationship statement they are preserving is: {statement}"
         let default_feature_use = self.default_player_feature_use_candidate(actor_id);
         let default_search_target = self.default_search_target(actor_id);
         let default_craft_recipe = self.default_craft_recipe(actor_id);
-        // The kernel flag covers ordinary pickups, while the orchestrator can
-        // also authorize an exact exchange when a carried Pack is full.
-        // Keep the primary options in lockstep with those retargeted offers.
         let has_pickup_offer = offers.option_flags & CW_OFFER_PICK_UP != 0
             || !self.pickup_offer_items(actor_id).is_empty();
 
@@ -17843,9 +17773,6 @@ async fn world_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
 ) -> Json<WorldResponse> {
-    // The canonical convergence scheduler refreshes the observational cache.
-    // Waiting for convergence here would put this read path behind `inner`
-    // again and recreate the convoy this cache exists to avoid.
     refresh_actor_session_for_read(&state, query.actor_session.as_deref());
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_query(
@@ -18291,7 +18218,6 @@ fn release_inactive_direct_inventory_locked(
         .iter()
         .copied()
         .filter(|actor| {
-            // Downed avatars remain present with their inventory attached.
             RuntimeWorld::actor_can_act(*actor)
                 && !runtime.actor_uses_inference(actor.id)
                 && !active_actor_ids.contains(&actor.id)
@@ -18406,9 +18332,6 @@ async fn ping_presence(
     if ping_actor_session_for_actor(&state.actor_sessions, payload.actor_id, token).is_none() {
         return client_actor_rejected_response();
     }
-    // A page resume normally reuses a session whose presence window is still
-    // active. Refresh the durable room rope on every valid heartbeat; the
-    // presence projection below still emits an event only on a real edge.
     let events = commit_presence_event(&state, payload.actor_id, true).await;
     Json(ActionResponse {
         ok: true,
@@ -18510,9 +18433,6 @@ async fn submit_action_offer(
         return invalid_offer_submission();
     }
 
-    // A certificate is valid only for the hand that dealt it. Serialize its
-    // validation and the dispatched mutation with Think so a hand cannot
-    // rotate between those two steps.
     let canonical_command_lock = Arc::clone(&state.canonical_command_lock);
     let _command_guard = canonical_command_lock.lock().await;
     let ownership = state.ownership_snapshot().await;
@@ -20371,7 +20291,6 @@ async fn command_with_forwarding(
             warn!("failed to refresh canonical actor session: {}", error);
         }
     }
-    // Local validation is serialized here; cross-process idempotency lives in SQLite.
     let _command_guard = state.canonical_command_lock.lock().await;
     let compatibility_envelope = payload.envelope.is_none();
     let envelope = {
@@ -22952,8 +22871,6 @@ async fn move_actor(
         narration: narration_plan,
     } = movement_plan.clone()
     {
-        // Movement and path discovery commit from deterministic content. Optional
-        // AI geography refinement runs after the card response has returned.
         let narration = travel_narration_fallback(&narration_plan);
         if let ProjectionMutation::JourneyTransition {
             narration: stored_narration,
@@ -23041,7 +22958,6 @@ async fn explore_pathway(
         Ok(plan) => plan,
         Err(reason) => return action_offer_rejected(reason),
     };
-    // Exploring a known journey step should resolve without a second AI round trip.
     let narration = travel_narration_fallback(&narration_plan);
     if let ProjectionMutation::JourneyTransition {
         narration: stored_narration,
@@ -23598,9 +23514,6 @@ async fn trade_item(
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
         let target_item_id = payload.target_item_id.unwrap_or_default();
-        // The current exact offer may come from a remembered carried-item
-        // observation without disclosing the resident's whole inventory.
-        // Planning below revalidates that exact item, target, and trade.
         let planned_action = match runtime.plan_transfer_choice_action(
             payload.actor_id,
             "trade_item",
@@ -27720,23 +27633,6 @@ fn canonical_fallback_command_response(
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
-/// Run blocking work on a worker that is allowed to stall.
-///
-/// A durable commit does synchronous SQLite I/O while holding
-/// `&mut RuntimeWorld`, so it cannot move into `spawn_blocking` -- that
-/// borrow is not `'static`. `block_in_place` is built for exactly this shape:
-/// it migrates the other tasks off this worker before we stall it.
-///
-/// Without it a slow commit blocks a tokio worker outright. Production showed
-/// commits reaching 11.5s; on the four-CPU Lonely Forest machine a few
-/// concurrent commits blocked every worker, so `/health` -- which takes no
-/// lock and does almost nothing -- could not be scheduled at all. Fly read the
-/// timeout as an unhealthy machine and pulled it from rotation while the app
-/// was busy but alive, which is what made a loaded tenant look like a dead one.
-///
-/// `block_in_place` panics on a current-thread runtime, which is what
-/// `#[tokio::test]` builds by default, so run inline when the flavor is not
-/// multi-thread.
 fn block_in_place_if_multi_thread<T>(f: impl FnOnce() -> T) -> T {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
@@ -28286,16 +28182,6 @@ fn rebuild_runtime_from_durable_state(
     Ok(Box::new(restored))
 }
 
-/// Does a failed canonical commit mean the event store itself is unwell?
-///
-/// Only a real persistence fault may degrade event-store health. A rejected
-/// proposal - a stale sequence, a lost lease, a duplicate event, a malformed
-/// payload - says nothing about whether the store can be written to, and
-/// `sqlite_error` reports genuine faults as `Other`. Conflating the two is what
-/// turned a single rejected write into a total outage on 2026-08-05: the
-/// rejection marked the store degraded, `/health` began answering 503, Fly took
-/// the machine out of the load balancer, and because only a *successful* append
-/// clears the counter the process could never earn its way back.
 fn canonical_commit_error_is_store_fault(error: &io::Error) -> bool {
     !matches!(
         error.kind(),
@@ -28322,18 +28208,6 @@ fn journal_commit_recovery_error(
     io::Error::new(commit_error.kind(), message)
 }
 
-/// Snapshots are disposable boot accelerators; the append-only action journal
-/// is the source of truth, and replaying it rebuilds state. Writing the whole
-/// world synchronously on every call therefore bought no durability while
-/// dominating command latency: a ~7.8 MB serialize, write, and rename ran
-/// inside the global world lock on every interaction, including read-only ones
-/// like `look`. Measured locally, that was roughly 90% of command latency —
-/// `look` 206ms -> 21ms and `listen` 442ms -> 61ms with snapshots disabled —
-/// and it is worse on a network-backed volume.
-///
-/// Coalesce instead: write at most once per interval, and let the journal cover
-/// the gap. A snapshot that trails the journal by a few seconds only costs a
-/// slightly longer replay at boot. See issue #481.
 fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
@@ -28417,8 +28291,6 @@ fn load_snapshot_or_seed_with_policy(
     }
 }
 
-/// Operator opt-in for the one-time event store auto_vacuum conversion
-/// (issue #886). Set only for the maintenance-window deploy; unset after.
 fn one_time_auto_vacuum_requested() -> bool {
     std::env::var("COSYWORLD_ONE_TIME_AUTO_VACUUM")
         .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
@@ -28453,12 +28325,8 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
     Ok(Duration::from_millis(millis))
 }
 
-/// Schema version stamped after DDL runs. Bump it when a table is added so
-/// existing stores self-heal once on their next initialization.
 const EVENT_STORE_SCHEMA_VERSION: i64 = 6;
 
-/// Ensures the schema exists without taking its write lock on steady-state
-/// commits. Missing, replaced, and older stores rerun the idempotent DDL.
 fn init_event_store(path: &Path) -> io::Result<()> {
     if path.exists() {
         let conn = open_event_store(path)?;
@@ -29415,14 +29283,6 @@ fn max_event_store_seq(path: &Path) -> io::Result<u64> {
     Ok(max_seq.unwrap_or(0).max(0) as u64)
 }
 
-/// Reconcile the restored event cursor with the durable commit point.
-///
-/// Proposals are minted from `next_event_seq`, but `validate_next_world_sequence`
-/// accepts them only against `canonical_world_state.committed_seq`. Raising the
-/// cursor to the last stored row is therefore not enough: a checkpoint written
-/// while the runtime led the commit point freezes that lead into every later
-/// boot, so the first commit proposes a sequence the journal can never accept
-/// and the world becomes permanently unwritable. Reconcile in both directions.
 fn advance_runtime_next_event_seq_from_store(
     runtime: &mut RuntimeWorld,
     path: &Path,
@@ -29435,9 +29295,6 @@ fn advance_runtime_next_event_seq_from_store(
         return Ok(());
     }
     if max_seq != committed_seq {
-        // The stored rows and the commit cursor disagree, so neither is
-        // authoritative. Leave the restored cursor alone and let the commit
-        // path keep failing loudly rather than guess which one to believe.
         warn!(
             "CosyWorld event store is inconsistent: world_events ends at {} but the canonical \
              commit cursor is {}; leaving the restored event cursor {} untouched",
@@ -29446,8 +29303,6 @@ fn advance_runtime_next_event_seq_from_store(
         return Ok(());
     }
     if durable_tip > 0 {
-        // An empty store still carries its seeded event log in memory, so only
-        // lower the cursor once something durable exists to lower it to.
         let restored = runtime.world.next_event_seq;
         runtime.world.next_event_seq = durable_tip.saturating_add(1);
         warn!(
@@ -29675,9 +29530,6 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
         .map_err(sqlite_error)?;
     transaction.commit().map_err(sqlite_error)?;
     drop(conn);
-    // The DELETEs above wiped the seed rows the version-gated initializer
-    // skips (for example canonical_world_state), so run the full schema and
-    // seed batch instead of the steady-state check.
     initialize_event_store_schema(path)?;
     append_event_store(path, events)
 }
@@ -30227,16 +30079,6 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
 #[cfg(test)]
 mod tests {
 
-    /// The bug this guards: a slow durable commit used to block a tokio worker
-    /// outright, so on a small machine a few concurrent commits starved every
-    /// worker and `/health` -- lock-free and nearly free -- could not be
-    /// scheduled. Fly read that timeout as a dead machine and pulled a busy but
-    /// alive tenant out of rotation.
-    ///
-    /// The runtime here has exactly one worker, which is the adversarial case:
-    /// a stall on it starves everything unless the runtime is told to hand the
-    /// remaining tasks to a replacement worker. Verified to fail when
-    /// `block_in_place_if_multi_thread` is reduced to calling `f` inline.
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn blocking_work_does_not_starve_a_cheap_task() {
         use std::sync::atomic::{AtomicBool, Ordering};
@@ -30272,9 +30114,6 @@ mod tests {
         blocker.await.expect("blocking task joins");
     }
 
-    /// `block_in_place` panics on a current-thread runtime, which is what the
-    /// bare `#[tokio::test]` used by most tests here builds. The helper must
-    /// run inline there instead of taking the whole suite down.
     #[tokio::test]
     async fn blocking_helper_runs_inline_on_a_current_thread_runtime() {
         assert_eq!(block_in_place_if_multi_thread(|| 7), 7);
@@ -31386,9 +31225,6 @@ mod tests {
         }
     }
 
-    /// Issue #464: the projection only sent `ability` for combat attacks, so an
-    /// ordinary check could not name the attribute the kernel resolved it
-    /// against and any client showing one would have been guessing.
     #[test]
     fn an_ordinary_check_projects_the_attribute_it_resolved_against() {
         let mut runtime = RuntimeWorld::seeded();
@@ -31419,7 +31255,6 @@ mod tests {
             Some(combat::combat_ability_name(CW_ABILITY_WISDOM)),
             "an ordinary check must name its attribute"
         );
-        // The arithmetic the shared formatter needs is all present.
         assert!(rolled.raw_roll.is_some(), "natural roll is projected");
         assert!(rolled.total.is_some(), "committed total is projected");
         assert_eq!(rolled.dc, Some(10));
@@ -33672,7 +33507,6 @@ mod tests {
             .0;
         assert!(first.ok, "{first:?}");
 
-        // Push the first receipt out of the bounded cache with later commands.
         for index in 0..(COMMAND_RECEIPT_CACHE_MAX_ENTRIES + 4) {
             let request = {
                 let runtime = state.inner.lock().await;
@@ -34604,9 +34438,6 @@ mod tests {
         let restored = snapshot
             .into_runtime()
             .expect("vector-backed legacy snapshot rehydrates");
-        // Snapshots persist active entries as vectors, not the fixed-array
-        // cw_world memory layout. Rehydration therefore upgrades an older
-        // layout safely into the currently compiled kernel ABI.
         assert_eq!(restored.world.version, CW_KERNEL_VERSION);
         assert!(restored.world.actor_count <= CW_MAX_ACTORS);
         assert!(restored.world.location_count <= CW_MAX_LOCATIONS);
@@ -34754,10 +34585,6 @@ mod tests {
             .expect("production config should accept remote feed plus guardrails");
     }
 
-    /// Issue #360: an arriving avatar is handed a starting calling it never
-    /// picked, and every surface reported that as "chose a purpose" — then Class
-    /// selection replaced it, so the journal carried two contradictory claims of
-    /// choice. A default arrival now reads as an arrival.
     #[test]
     fn a_default_arrival_calling_is_not_reported_as_a_chosen_purpose() {
         let arrival = [EventView {
@@ -34777,14 +34604,12 @@ mod tests {
             entries[0].text,
             "Moss Lantern arrives with a purpose still to choose"
         );
-        // The statement the avatar did not pick is not presented as its purpose.
         assert!(
             !entries[0].text.contains("odd jobs"),
             "an unchosen statement must not be shown as the purpose: {}",
             entries[0].text
         );
 
-        // A calling the player actually chose still reads as a choice.
         let chosen = [EventView {
             seq: 2,
             type_name: "calling.set".to_string(),
@@ -34942,12 +34767,6 @@ mod tests {
         assert!(sanitize_room_memory_summary("Log room state / recent voices / movement").is_err());
     }
 
-    /// Elysium's canonical resident type is a "model avatar", and every one of
-    /// its locations says so in its own authored memory. A bare "model" ban
-    /// meant a summary of that memory could never pass, so those rooms never
-    /// got a memory chapter (location 652052, "Void 053", in production). The
-    /// narrower "language model" phrase still catches an actual 4th-wall
-    /// break.
     #[test]
     fn ai_room_memory_allows_elysiums_own_model_avatar_vocabulary() {
         assert!(sanitize_room_memory_summary(
@@ -36830,8 +36649,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("ordered combat — your turn"));
-        // Issue #476: art that fails to load must fall back to the authored
-        // placeholder instead of the browser's broken-image icon.
         assert!(INDEX_HTML.contains("addEventListener(\"error\""));
         assert!(INDEX_HTML.contains("data-art-missing"));
         assert!(INDEX_HTML.contains("no art generated yet"));
@@ -36940,8 +36757,6 @@ mod tests {
         ));
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
-        // A knockout is not an ended tale: the scene keeps the same identity
-        // attached and may offer one signed-in rescuer rather than replacement.
         assert!(INDEX_HTML.contains("was knocked out by"));
         assert!(INDEX_HTML.contains("Their body is still where it fell"));
         assert!(INDEX_HTML.contains("Stay with them while help arrives."));
@@ -36996,8 +36811,6 @@ mod tests {
         assert!(INDEX_HTML.contains("error.payload = payload && typeof payload === \"object\""));
         assert!(INDEX_HTML.contains("return error.payload"));
         assert!(!INDEX_HTML.contains("!viewerContributed && balance >= 1"));
-        // Players only see the Orb cost they can act on. Every internal
-        // portrait step and failure stays on the server.
         assert!(INDEX_HTML.contains("function fillCommunityArtOrbSlot"));
         assert!(INDEX_HTML.contains("${funded}/${required} Orbs"));
         assert!(INDEX_HTML.contains("Orbs\"} to unlock."));
@@ -37485,8 +37298,6 @@ mod tests {
             .expect("read user_version");
         assert_eq!(version, EVENT_STORE_SCHEMA_VERSION);
 
-        // Steady-state init performs no DDL: dropping a table is not
-        // repaired while the store carries the current schema version.
         conn.execute("DROP TABLE room_memory_chapters", [])
             .expect("drop non-sentinel table");
         drop(conn);
@@ -37505,7 +37316,6 @@ mod tests {
         assert!(!table_exists, "steady-state init must not re-run DDL");
         drop(conn);
 
-        // A replaced or missing store self-heals on the next initialize.
         fs::remove_file(&path).expect("remove WAL event store");
         fs::remove_file(path.with_extension("sqlite-wal")).ok();
         fs::remove_file(path.with_extension("sqlite-shm")).ok();
@@ -38167,10 +37977,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// A checkpoint written while the runtime led the commit point used to
-    /// freeze that lead into every later boot, so the first commit proposed a
-    /// sequence the journal could never accept and the world became
-    /// permanently unwritable.
     #[test]
     fn a_restored_event_cursor_reconciles_down_to_the_durable_commit_point() {
         let path = std::env::temp_dir().join(format!(
@@ -38210,8 +38016,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// An empty store still carries its seeded event log in memory, so there is
-    /// no durable tip to reconcile against and the cursor must be left alone.
     #[test]
     fn an_empty_event_store_never_lowers_the_seeded_event_cursor() {
         let path = std::env::temp_dir().join(format!(
@@ -38231,9 +38035,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// Stored rows disagreeing with the commit cursor is real corruption, and
-    /// guessing which one to believe could reuse a sequence that already has a
-    /// row. Leave the cursor alone so the commit path keeps failing loudly.
     #[test]
     fn an_inconsistent_event_store_leaves_the_restored_cursor_untouched() {
         let path = std::env::temp_dir().join(format!(
@@ -38256,7 +38057,6 @@ mod tests {
         )
         .expect("append durable event");
 
-        // Rewind only the commit cursor, leaving the stored row behind.
         let conn = open_event_store(&path).expect("open event store");
         conn.execute(
             "UPDATE canonical_world_state SET committed_seq = 0 WHERE world_id = ?1",
@@ -38274,11 +38074,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    /// A rejected proposal says nothing about whether the store can be written
-    /// to. Counting it as an append failure degraded event-store health, which
-    /// failed `/health`, which took the machine out of the load balancer - and
-    /// because only a *successful* append clears the counter, no traffic could
-    /// ever reach the process to restore it.
     #[test]
     fn a_rejected_commit_leaves_event_store_health_untouched() {
         let path = std::env::temp_dir().join(format!(
@@ -38322,8 +38117,6 @@ mod tests {
                 assert_eq!(health.status(true), "healthy");
             }
 
-            // Lead the durable commit point exactly as a checkpoint written
-            // mid-flight does on boot.
             runtime.world.next_event_seq = runtime.world.next_event_seq.saturating_add(2);
             let mut stale_record = JournalRecord::new(
                 CwAction {
@@ -38348,7 +38141,6 @@ mod tests {
                 "a proposal that leads the commit point must be rejected"
             );
 
-            // Recovery reconciles the cursor, so the world stays writable.
             let conn = open_event_store(&path).expect("open event store");
             let committed = current_world_seq(&conn, OFFICIAL_WORLD_ID).expect("commit cursor");
             drop(conn);
@@ -49445,8 +49237,6 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Absent Companion",
         );
-        // Think must reveal a real next card. Discovering a second escape
-        // route gives this ordered fixture a fourth exact combat option.
         discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
         discover_seed_exit_pair_for_test(
             &mut runtime,
@@ -49873,8 +49663,6 @@ mod tests {
         assert_eq!(content.actors.len(), 65);
         assert!(content.access_gates.is_empty());
         assert_eq!(content.factions.len(), 12);
-        // 35 with the Mossbell floorboard socks, which the core pack authors
-        // unplaced for its discovery slot to reveal.
         assert_eq!(content.items.len(), 35);
         let satchel = content
             .items
@@ -50112,9 +49900,6 @@ mod tests {
             .actors
             .iter()
             .filter(|actor| actor.id != MOONLIT_ECHO_ACTOR_ID)
-            // The Holy Land pack is a narrative pilgrimage pack and deliberately
-            // declares no physical item resource. Its historical/composite cast
-            // therefore does not participate in the one-slot item economy.
             .filter(|actor| {
                 !content.cards.iter().any(|card| {
                     card.subject_kind == "actor"
@@ -50122,9 +49907,6 @@ mod tests {
                         && (card.source == "holy_land" || card.role == "encounter")
                 })
             })
-            // Ruby High is an independently bootable school world. Its cast
-            // has authored goals and cards, but deliberately does not inherit
-            // the core world's one-slot keepsake economy.
             .filter(|actor| actor.pack_id != "ruby-high.first-bell")
             .filter(|actor| actor.desires.is_empty() && actor.attachments.is_empty())
             .map(|actor| actor.name.as_str())
@@ -57052,8 +56834,6 @@ mod tests {
         state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
         state.resident_continuity_path = None;
 
-        // The first write always lands, so a fresh process is never left
-        // without a boot accelerator.
         persist_runtime(&state, &runtime);
         let first = fs::metadata(&snapshot_path)
             .expect("first snapshot persisted")
@@ -57062,9 +56842,6 @@ mod tests {
         let claimed = state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed);
         assert!(claimed > 0, "the write records when it happened");
 
-        // Immediately following writes are coalesced. Previously every command,
-        // including read-only ones, paid a full multi-megabyte serialize and
-        // write inside the global world lock.
         for _ in 0..5 {
             persist_runtime(&state, &runtime);
         }
@@ -57074,8 +56851,6 @@ mod tests {
             "writes inside the interval are skipped rather than repeated",
         );
 
-        // A forced write ignores the interval, which is what shutdown uses so a
-        // coalesced write is never simply lost.
         persist_runtime_now(&state, &runtime);
         assert!(
             state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed) >= claimed,

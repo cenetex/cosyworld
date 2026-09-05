@@ -459,9 +459,6 @@ fn claim_next_media_job(
         && (selected_status == "running"
             || reserved_day.is_some_and(|day| day.max(0) as u64 != current_day))
     {
-        // An expired worker may have reached the provider before it died. Count
-        // that reservation as spent before admitting replacement work; reusing
-        // it could let crash retries exceed the daily cap.
         settle_reservation(
             &tx,
             reserved_day.map(|day| day.max(0) as u64),

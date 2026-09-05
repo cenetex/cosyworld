@@ -11,13 +11,6 @@ const REGISTRY_SCHEMA_VERSION: u32 = 1;
 const ATTRIBUTION_SCHEMA_VERSION: u32 = 1;
 const COVERAGE_REPORT_CANDIDATE_LIMIT: usize = 8;
 
-/// Capabilities this build pins at runtime with no opt-in flag in front of
-/// them, paired with the subsystem that stops working when the pool is empty.
-///
-/// A capability belongs here only when a shipped code path reaches it in every
-/// deployment. Adding a capability that is gated behind an off-by-default
-/// feature switch would turn a deliberately narrow registry into an
-/// undeployable one, which is not the intent of the startup audit.
 const REQUIRED_CAPABILITIES: [(ModelCapability, &str); 3] = [
     (
         ModelCapability::Voice,
@@ -153,10 +146,6 @@ pub(crate) struct SupportedParameters {
     pub(crate) seed: bool,
     #[serde(default)]
     pub(crate) stop: bool,
-    /// The provider catalog says this model accepts OpenRouter's unified
-    /// `reasoning` request object. Raw actor bindings preserve this separately
-    /// from ordinary sampling controls because some endpoints reject the object
-    /// outright while reasoning-only endpoints reject an attempt to disable it.
     #[serde(default)]
     pub(crate) reasoning: bool,
 }
@@ -442,9 +431,6 @@ impl ModelCandidate {
             }
     }
 
-    /// Mirrors what `pin` will accept. Data-policy facts remain part of the
-    /// pinned attribution and provider request shape, but server-authored model
-    /// input does not make non-ZDR routes ineligible in production.
     fn eligible(&self, capability: ModelCapability, _policy_mode: DataPolicyMode) -> bool {
         self.supports(capability)
     }
@@ -695,9 +681,6 @@ impl CapabilityRegistrySnapshot {
         Ok(pinned)
     }
 
-    /// Reports every capability this build always pins that has no usable
-    /// candidate under `policy_mode`. Callers decide how loud the result is;
-    /// the report itself is inert so it can be tested without an environment.
     pub(crate) fn audit_required_capabilities(
         &self,
         policy_mode: DataPolicyMode,
@@ -776,9 +759,6 @@ pub(crate) struct CapabilityCoverageGap {
     hidden_excluded: usize,
 }
 
-/// Startup verdict for the capability pools an explicitly configured registry
-/// has to fill. An uncovered capability means the subsystem behind it fails
-/// every single call, so this is a boot-time question, not a per-request one.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CapabilityCoverageReport {
     snapshot_version: String,
@@ -792,8 +772,6 @@ impl CapabilityCoverageReport {
         self.gaps.is_empty()
     }
 
-    /// Production refuses to boot half-dead. Other profiles log and continue so
-    /// a local experiment with a narrow registry stays workable.
     pub(crate) fn is_fatal(&self) -> bool {
         self.policy_mode == DataPolicyMode::Production && !self.gaps.is_empty()
     }
@@ -870,8 +848,6 @@ impl fmt::Display for CapabilityCoverageReport {
     }
 }
 
-/// Why one candidate cannot serve one capability, phrased against the JSON
-/// fields an operator edits. Returns `None` when the candidate is usable.
 fn exclusion_reason(
     candidate: &ModelCandidate,
     capability: ModelCapability,
@@ -905,10 +881,6 @@ fn exclusion_reason(
     None
 }
 
-/// The `supported_parameters` a capability needs, named only when this
-/// candidate does not already declare them. `from_document` rejects a candidate
-/// that declares a capability it cannot back, so in practice this explains what
-/// to add alongside the capability name.
 fn missing_parameters(
     candidate: &ModelCandidate,
     capability: ModelCapability,
@@ -994,9 +966,6 @@ impl PinnedModelSelection {
                 capability: ModelCapability::Voice,
             });
         }
-        // Exact actor bindings drive server-authored world dialogue. Keep the
-        // catalog's retention status for attribution and provider routing, but
-        // do not use it as a production eligibility gate.
         let catalog_snapshot_version = normalize_token(
             &binding.catalog_snapshot_version,
             "registry snapshot version",
@@ -1106,10 +1075,6 @@ impl PinnedModelSelection {
                 capability: ModelCapability::ImageGeneration,
             });
         }
-        // Exact image bindings, like exact dialogue/embedding/rerank bindings,
-        // are used for server-authored world activity. Preserve the binding's
-        // actual policy metadata without turning non-ZDR into an eligibility
-        // rejection; the gateway only sends ZDR routing when this flag is true.
         let catalog_snapshot_version = normalize_token(
             &binding.catalog_snapshot_version,
             "registry snapshot version",
@@ -1239,7 +1204,7 @@ impl PinnedModelSelection {
         )
     }
 
-    #[allow(dead_code)] // Reserved for the exact-bound, server-authored STT action.
+    #[allow(dead_code)]
     pub(crate) fn from_actor_transcription_binding(
         binding: &crate::content_load::SeedActorModelBinding,
         policy_mode: DataPolicyMode,
@@ -1258,10 +1223,6 @@ impl PinnedModelSelection {
         )
     }
 
-    /// Builds an exact actor-bound selection for a server-authored, non-chat
-    /// endpoint. These requests may intentionally use a catalog binding that
-    /// is not ZDR; preserve that fact in attribution and let the gateway add a
-    /// provider privacy constraint only when the binding explicitly is ZDR.
     fn from_actor_exact_endpoint_binding(
         binding: &crate::content_load::SeedActorModelBinding,
         _policy_mode: DataPolicyMode,
@@ -1383,8 +1344,6 @@ impl PinnedModelSelection {
         self.candidate.data_policy.retention == DataRetention::None
     }
 
-    /// OpenRouter-specific request fields are valid only for an OpenRouter
-    /// route whose checked-in policy facts say it is actually ZDR.
     pub(crate) fn sends_openrouter_zdr_constraint(&self) -> bool {
         self.candidate.provider == "openrouter" && self.enforces_zero_data_retention()
     }
@@ -2176,9 +2135,6 @@ mod tests {
         assert_eq!(inspected.attribution.prompt_adapter_version, "7");
     }
 
-    /// Byte-for-byte the `COSYWORLD_AI_REGISTRY_JSON` that shipped to
-    /// production and left `intent_json` and `world_content` empty while the
-    /// process reported healthy.
     const OUTAGE_REGISTRY_JSON: &str = r#"{"schema_version":1,"snapshot_version":"cosyworld-prod-2026-07-28","declared":[{"requested_model_id":"openai/gpt-5.6-luna","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.6-luna"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}}],"discovered":[]}"#;
 
     #[test]
@@ -2300,8 +2256,6 @@ mod tests {
         assert!(report.to_string().contains("covers all 3"), "{report}");
     }
 
-    /// A narrow registry stays deployable: one candidate covering all three
-    /// capabilities is enough, and that is exactly what the legacy fallback is.
     #[test]
     fn legacy_fallback_registry_still_covers_every_required_capability() {
         let legacy = CapabilityRegistrySnapshot::legacy(
@@ -2319,9 +2273,6 @@ mod tests {
             .audit_required_capabilities(DataPolicyMode::Development)
             .is_covered());
 
-        // Production startup still requires an explicit registry before
-        // building this fallback. Policy facts do not make a valid capability
-        // pool unusable, even if a future caller constructs it directly.
         let production = legacy.audit_required_capabilities(DataPolicyMode::Production);
         assert!(production.is_covered());
         let attribution = legacy

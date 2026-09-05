@@ -388,15 +388,6 @@ impl RuntimeWorld {
             if identity.class_id.is_some() {
                 return Vec::new();
             }
-            // Every qualifying action counts toward readiness, but evidence
-            // freezes only on an action the profile can recommend from. The
-            // recommendation offer-kind vocabulary is closed (work/help/
-            // search) by the worldpack validator, so freezing on an
-            // unrecommendable kind (e.g. a Think pass, offer_kind "draw")
-            // could never resolve a recommendation — and because readiness
-            // may already be set, the freeze window must stay open after the
-            // readiness transition. Unrecommendable actions use the designed
-            // fallback copy ("That evidence does not point to one Class").
             let recommendable =
                 character_creation_profile(Some(&identity.profile_id)).is_some_and(|profile| {
                     profile
@@ -834,11 +825,6 @@ mod tests {
 
     #[test]
     fn unrecommendable_first_action_readies_without_freezing_evidence() {
-        // A Think pass (offer_kind "draw") qualifies toward readiness but is
-        // outside the closed recommendation vocabulary (work/help/search), so
-        // it must not freeze class evidence; the first recommendation-bearing
-        // action freezes it instead. This is the composition-smoke flake:
-        // whether a pass or the search froze first depended on the dealt hand.
         let mut runtime = RuntimeWorld::seeded();
         runtime.character_identities.insert(
             RATI_ACTOR_ID,
@@ -880,8 +866,6 @@ mod tests {
             "an unrecommendable draw must not freeze class evidence"
         );
 
-        // Readiness already set: no second event, but the recommendable
-        // search freezes evidence and resolves the authored recommendation.
         let second = runtime.apply_class_readiness_projection(
             &record,
             &action,

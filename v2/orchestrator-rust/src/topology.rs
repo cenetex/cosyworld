@@ -211,11 +211,6 @@ impl RouteRecordState {
     }
 }
 
-/// Deterministic narration for a planned journey transition. The `moved`
-/// flag distinguishes a route that was only charted or revealed (no actor
-/// movement) from an actual travel step: discovery narration must never
-/// claim the actor has already left, because room memory feeds this copy to
-/// later AI prompts as world state.
 pub(crate) fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     let remaining_turns = plan.total_steps.saturating_sub(plan.current_step);
     let turn_word = if remaining_turns == 1 { "" } else { "s" };
@@ -232,9 +227,6 @@ pub(crate) fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     );
     }
     if !plan.moved {
-        // The action only plans or reveals the route; the actor has not moved
-        // yet. Narrate the charted way without claiming a completed departure,
-        // so room memory never reports the actor as already gone.
         return format!(
             "{} charts a way from {} toward {}, with {} turn{} still between here and {}.",
             plan.actor_name,
@@ -262,8 +254,6 @@ impl RuntimeWorld {
         snapshot_version: u32,
         historical_bundle_hash: &str,
     ) -> Result<(), String> {
-        // The caller has already rejected every hash that is neither exact nor
-        // explicitly declared replay-compatible.
         let declared_worldpack_migration =
             historical_bundle_hash != active_content().manifest.bundle_hash;
         self.migrate_canonical_topology_for_snapshot(snapshot_version)?;
@@ -271,19 +261,10 @@ impl RuntimeWorld {
         if snapshot_version >= 14 && !declared_worldpack_migration {
             self.validate_canonical_route_records()?;
         }
-        // A declared worldpack migration may change authored pack versions or
-        // route metadata while preserving route identity and player history.
-        // Reconcile only after the persisted bundle has passed the explicit
-        // compatibility gate; exact current snapshots remain fail-closed
-        // above. Lifecycle, discovery, and entity history are preserved by
-        // reconcile_route_record.
         self.ensure_authored_route_records();
         self.ensure_hidden_route_records();
         self.migrate_generated_pathways_for_snapshot(snapshot_version, historical_bundle_hash)?;
         if declared_worldpack_migration {
-            // Only a declared migration may retire routes. An exact snapshot
-            // stays fail-closed above, so this can never silently drop a route
-            // from a bundle that was supposed to match.
             let retired = self.retire_routes_absent_from_active_bundle()?;
             if !retired.is_empty() {
                 tracing::warn!(
@@ -292,10 +273,6 @@ impl RuntimeWorld {
                     "declared worldpack migration retired routes the active bundle no longer declares"
                 );
             }
-            // The snapshot kernel still contains the historical authored
-            // edges. Rebuild it from the reconciled route projection so a
-            // compatible topology replacement cannot retain removed roads or
-            // omit newly authored ones.
             self.rebuild_kernel_exits_from_routes();
         }
         self.validate_canonical_route_records()
@@ -559,23 +536,10 @@ impl RuntimeWorld {
                 }
                 continue;
             };
-            // Funded media is bound only when generation begins, so a live
-            // snapshot legitimately carries an empty binding here. Adopt the
-            // pathway binding on load exactly as begin would; treating the
-            // unbound state as divergence rejects every checkpoint the running
-            // build writes. A non-empty binding still has to match: that is a
-            // real divergence unless it is an explicitly declared,
-            // descendant-preserving policy upgrade.
             if generation.generation_policy.is_empty() {
                 generation.generation_policy = binding.clone();
             }
             if &generation.generation_policy != binding {
-                // Two legacy compatibility bindings for the same owner pack
-                // and version differ only in bookkeeping: pathways were
-                // backfilled with whatever historical bundle hash was current,
-                // and media bound at begin time keeps its own. The legacy
-                // policy fabricates no media identity, so adopt the pathway's
-                // binding. Reviewed divergence still fails closed.
                 if generated_policy_drift_is_legacy_bookkeeping(
                     &generation.generation_policy,
                     binding,
@@ -611,10 +575,6 @@ impl RuntimeWorld {
         Ok(())
     }
 
-    /// The canonical route set the active bundle declares: authored exits,
-    /// hidden exits, and the edges of every generated pathway. Both
-    /// validation and declared-migration retirement read this one
-    /// definition so they can never disagree about what is canonical.
     pub(super) fn canonical_route_expectations(
         &self,
     ) -> Result<BTreeMap<String, RouteRecordState>, String> {
@@ -756,16 +716,6 @@ impl RuntimeWorld {
         Ok(expected)
     }
 
-    /// Retires persisted canonical routes the migrated bundle no longer
-    /// declares.
-    ///
-    /// `ensure_authored_route_records` and `ensure_hidden_route_records` add
-    /// and reconcile what the new bundle gained, but nothing removed what it
-    /// dropped, so a declared migration that retired an authored exit left a
-    /// persisted route with no canonical counterpart and failed validation on
-    /// boot. Returns the retired ids so the caller can record them; the
-    /// journal is untouched, since retiring a route forgets a path forward
-    /// rather than rewriting the history that used it.
     pub(super) fn retire_routes_absent_from_active_bundle(
         &mut self,
     ) -> Result<Vec<String>, String> {
@@ -2203,10 +2153,6 @@ impl RuntimeWorld {
                     );
                 }
                 ThresholdFactSource::AccessGrant { .. } => {
-                    // Legacy wallet-grant thresholds are public after the
-                    // avatar-NFT-only boundary. The declaration remains
-                    // readable for old worldpacks, but external ownership can
-                    // no longer gate a route or action.
                     push_fact(actor_id, 1, 0);
                 }
                 ThresholdFactSource::PerActorClaim { claim_id } => {
@@ -2676,11 +2622,6 @@ mod tests {
     use super::*;
     use crate::{travel_narration_fallback, JourneyNarrationPlan};
 
-    /// Regression guard for the Void 004 wrong-world-state incident: a
-    /// `pathway.discovered` event whose narration said the actor had already
-    /// "left" kept entering room memory and every later chat prompt, so model
-    /// avatars were told they were "three turns gone" while still standing in
-    /// the room. Discovery plans a route; it never moves anyone.
     #[test]
     fn pathway_discovery_narration_never_claims_departure() {
         let plan = |discovery: bool, moved: bool, current_step: usize| JourneyNarrationPlan {
@@ -2694,23 +2635,19 @@ mod tests {
             moved,
         };
 
-        // A re-used pathway on journey start: no movement happened.
         let charted = travel_narration_fallback(&plan(false, false, 1));
         assert!(charted.contains("charts a way from Void 004 toward Warm Rowan Verge"));
         assert!(!charted.contains("leaves Void 004 behind"));
         assert!(charted.contains("3 turns still between here and Void 002"));
 
-        // A fresh hidden-pathway discovery also does not move the actor.
         let discovered = travel_narration_fallback(&plan(true, false, 1));
         assert!(discovered.contains("reads the ground beyond Void 004"));
         assert!(!discovered.contains("leaves"));
 
-        // An actual mid-journey step may keep the departure phrasing.
         let progressed = travel_narration_fallback(&plan(false, true, 2));
         assert!(progressed.contains("leaves Void 004 behind"));
         assert!(progressed.contains("2 turns still between here and Void 002"));
 
-        // Arrival copy is unchanged.
         let arrived = travel_narration_fallback(&plan(false, true, 4));
         assert!(arrived.contains("arrives in Void 002"));
     }
@@ -4288,10 +4225,6 @@ mod tests {
         assert_eq!(replayed.routes, restored.routes);
     }
 
-    /// Issue #696: the Elysium rhizome (#680) retired the authored exit
-    /// between locations 652001 and 652002. Lonely Forest tenant 0 still had
-    /// that route in its snapshot, so the declared migration loaded it, found
-    /// no canonical counterpart, and crash-looped the whole multitenant app.
     #[test]
     fn declared_worldpack_migration_retires_routes_the_new_bundle_dropped() {
         let runtime = RuntimeWorld::seeded();
@@ -4299,7 +4232,6 @@ mod tests {
             .route_for_edge(700, 712)
             .expect("Holy Land authored route")
             .clone();
-        // A canonical authored id for a pair the active bundle does not join.
         let dropped_id = canonical_authored_route_id(&seed_route.owner_pack_id, 652_001, 652_002);
         assert!(
             !runtime.routes.contains_key(&dropped_id),
@@ -4323,7 +4255,6 @@ mod tests {
             ..seed_route
         };
 
-        // An exact snapshot stays fail-closed: only a declared migration may retire.
         let mut exact = RuntimeSnapshot::from_runtime(&runtime);
         exact.routes.insert(dropped_id.clone(), dropped.clone());
         assert!(

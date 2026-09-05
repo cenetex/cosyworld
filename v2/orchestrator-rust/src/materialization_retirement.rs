@@ -163,9 +163,6 @@ fn classify_receipt(
             .unwrap_or_default()
             > 1
     {
-        // Legacy receipts do not carry an owned asset-instance identifier, so
-        // separate live items for the same actor/card cannot be deduplicated
-        // safely without a later migration decision.
         return MaterializationReceiptClassification::Ambiguous;
     }
 
@@ -545,8 +542,6 @@ mod tests {
             "Migration Two",
         );
 
-        // Two distinct receipts for two copies of one card type remain valid
-        // because the controlled actors and item ids are distinct.
         materialize_fixture(
             &mut runtime,
             "legacy:copy-one",

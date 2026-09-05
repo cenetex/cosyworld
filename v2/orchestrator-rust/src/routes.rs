@@ -12,9 +12,6 @@ use tracing::Instrument;
 
 use super::*;
 
-// Keep command work bounded without making routine player and resident activity
-// contend for a single slot. Saturated callers fail fast and can safely retry
-// the same intent while health endpoints continue to bypass this admission gate.
 const COMMAND_CONCURRENCY_LIMIT: usize = 16;
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 const MAX_REQUEST_ID_LENGTH: usize = 128;
@@ -356,8 +353,6 @@ fn app_router_with_dependencies(
         .route("/actions/rest", post(legacy_action_requires_certificate))
         .route("/actions/bank-ledger", post(bank_ledger))
         .route("/actions/revise-calling", post(revise_calling))
-        // Releasing a knocked-out avatar is a lifecycle action with no dealt
-        // offer, so it needs its own route rather than an offer certificate.
         .route("/actions/abandon-avatar", post(abandon_avatar))
         .route(
             "/actions/create-bond",
@@ -411,16 +406,8 @@ fn app_router_with_dependencies(
             post(internal_canonical_legacy_import),
         )
         .route("/stream", get(stream).layer(Extension(shutdown.clone())))
-        // Action handlers return JSON envelopes with their authoritative
-        // status field. Promote that field to the HTTP status after handlers
-        // finish, before compression obscures the JSON body.
         .layer(middleware::map_response(action_response_http_status))
-        // Extractor and method rejections happen before the command handler.
-        // Normalize those last so /commands never leaks Axum's plain-text body.
         .layer(middleware::from_fn(command_response_json_contract))
-        // Existing keep-alive connections must not submit fresh work after the
-        // process begins draining. Liveness remains available to distinguish a
-        // draining process from a dead one.
         .layer(middleware::from_fn_with_state(shutdown, shutdown_admission))
         .layer(CompressionLayer::new())
         .layer(CorsLayer::permissive())
@@ -757,11 +744,6 @@ mod tests {
             .collect()
     }
 
-    /// The browser client posts a plain action path unless that path is offer
-    /// bound, in which case it travels through /actions/submit with a
-    /// certificate. A path that is neither served nor offer bound answers 404
-    /// on every attempt: that is how Abandon Avatar shipped unreachable and
-    /// left knocked-out players with no way back into play.
     #[test]
     fn every_client_action_path_stays_reachable() {
         let registered = registered_route_paths(include_str!("routes.rs"));

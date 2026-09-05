@@ -1,6 +1,3 @@
-// Complete Upload Lambda (AWS SDK v3)
-// - Marks single uploads as uploaded
-// - Completes multipart uploads with provided ETags
 
 const { S3Client, CompleteMultipartUploadCommand } = require('@aws-sdk/client-s3');
 const { DynamoDBClient, GetItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');

@@ -1,12 +1,3 @@
-//! The world loop: one task owns the pipeline outright.
-//!
-//! Replaces `Arc<Mutex<RuntimeWorld>>` plus the satellite mutexes in the live
-//! `AppState`. There is no shared mutable state: edges send commands over an
-//! mpsc channel, the loop applies them in order, and committed events fan out
-//! over a broadcast channel. Linearizability comes from singular ownership,
-//! not from a lock — so there is no lock-held-across-await and no lock
-//! ordering to reason about.
-
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::journal::Journal;
@@ -63,20 +54,15 @@ impl WorldHandle {
         let _ = self.commands.send(WorldCommand::Shutdown).await;
     }
 
-    /// Subscribe to the public event feed (the SSE contract).
     pub fn subscribe(&self) -> broadcast::Receiver<WorldEvent> {
         self.events.subscribe()
     }
 
-    /// Subscribe to post-commit intents; the scheduler that runs resident
-    /// observations and AI jobs consumes this outside the loop.
     pub fn subscribe_intents(&self) -> broadcast::Receiver<PostCommitIntent> {
         self.intents.subscribe()
     }
 }
 
-/// Spawn the world loop. `event_buffer` bounds the broadcast lag for slow
-/// subscribers, mirroring the live replay-gap behavior.
 pub fn spawn<K, J>(mut pipeline: Pipeline<K, J>, event_buffer: usize) -> WorldHandle
 where
     K: KernelPort + 'static,
@@ -102,8 +88,6 @@ where
                     } = &outcome
                     {
                         for event in committed {
-                            // No subscribers is not an error; the journal is
-                            // the durable feed, broadcast is the live one.
                             let _ = events.send(event.clone());
                         }
                         for intent in scheduled {

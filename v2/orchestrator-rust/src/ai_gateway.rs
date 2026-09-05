@@ -74,16 +74,10 @@ const OPENROUTER_KEY_RESPONSE_MAX_BYTES: usize = 64 * 1024;
 const OPENROUTER_ROOM_SESSION_PREFIX: &str = "cosyworld-room-";
 const SERVER_PAID_DAILY_LIMIT_USD: f64 = 20.0;
 static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
-// The exact-bound STT gateway is intentionally dormant until a server-authored
-// transcription action owns its input provenance and publication contract.
 #[allow(dead_code)]
 const TRANSCRIPTION_MAX_AUDIO_BYTES: usize = 8 * 1024 * 1024;
 #[allow(dead_code)]
 const TRANSCRIPTION_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
-// Bound model residents are the models they represent, including when that
-// model reasons before it speaks. Keep the published speech bounded in the
-// deterministic voice gate, but let the provider manage the private reasoning
-// budget instead of forcing thought and speech through one tiny token cap.
 const RAW_DIALOGUE_REASONING_MODE: &str = "enabled";
 const REASONING_TRACE_MAX_CHARS: usize = 2_048;
 const REASONING_MANDATORY_ERROR: &str =
@@ -373,9 +367,6 @@ impl AiConfig {
             .or_else(|| reasoning_effort.clone());
         let capability_models =
             parse_capability_models(std::env::var(AI_CAPABILITY_MODELS_ENV).ok().as_deref())?;
-        // Development does not require an operator registry, but it still
-        // preserves the production capability boundary: cheap character voice
-        // is not silently promoted into intent planning or world generation.
         let runtime_registry = if registry.is_some() {
             registry.clone()
         } else if using_openrouter {
@@ -430,9 +421,6 @@ impl AiConfig {
             capability_models,
             data_policy_mode,
             voice_routing,
-            // The local card ranker is loaded by AppState independently of the
-            // remote AI provider. AppState attaches it here when an AI-backed
-            // voice configuration is also present.
             card_policy: None,
             readiness,
         }))
@@ -472,10 +460,6 @@ impl AiConfig {
         capability: ModelCapability,
         routing_key: &str,
     ) -> Result<PinnedModelSelection, RegistryError> {
-        // A capability-specific override is an operator pin and therefore
-        // wins over exploration. The legacy global model is only a default;
-        // when a reviewed registry exposes a pool, stable keyed sampling keeps
-        // one avatar consistent while spreading different avatars across it.
         if self.capability_models.contains_key(&capability) {
             return self.pin_model(capability);
         }
@@ -587,7 +571,7 @@ impl AiConfig {
         PinnedModelSelection::from_actor_speech_synthesis_binding(binding, self.data_policy_mode)
     }
 
-    #[allow(dead_code)] // Reserved for the exact-bound, server-authored STT action.
+    #[allow(dead_code)]
     pub(crate) fn pin_actor_transcription_model(
         &self,
         binding: &crate::content_load::SeedActorModelBinding,
@@ -742,9 +726,6 @@ fn validate_ai_routing_configuration(
     capability_models: &BTreeMap<ModelCapability, String>,
     data_policy_mode: DataPolicyMode,
 ) -> Result<(), String> {
-    // An explicit override is the effective choice for a direct capability
-    // request, so validate it before accepting the broader pool. Otherwise a
-    // healthy pool can hide a configured model that fails every request.
     for (capability, model) in capability_models {
         registry
             .pin(*capability, Some(model), data_policy_mode)
@@ -756,9 +737,6 @@ fn validate_ai_routing_configuration(
             })?;
     }
 
-    // Audit the same effective snapshot runtime pinning uses. Production still
-    // refuses a registry that leaves a required capability entirely uncovered;
-    // data-policy declarations remain attribution rather than pool coverage.
     let coverage = registry.audit_required_capabilities(data_policy_mode);
     if coverage.is_fatal() {
         return Err(coverage.to_string());
@@ -1095,17 +1073,12 @@ pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) max_attempts: u8,
     pub(crate) referer: &'a str,
     pub(crate) response_format: Option<&'a Value>,
-    /// The canonical shared room associated with this inference. OpenRouter
-    /// receives one stable session id per room; other providers receive no
-    /// provider-specific session field.
     pub(crate) room_id: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct AiCompletion {
     pub(crate) text: String,
-    /// Readable provider reasoning, kept separate from publishable speech.
-    /// Encrypted reasoning blocks are deliberately never copied here.
     pub(crate) reasoning_trace: Option<String>,
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
@@ -1165,14 +1138,12 @@ pub(crate) struct EmbeddingRequest<'a> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AiEmbeddings {
-    /// Vectors are ordered to match the request inputs, even if the provider
-    /// sends its indexed response entries out of order.
     pub(crate) vectors: Vec<Vec<f32>>,
-    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    #[allow(dead_code)]
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: ModelAttribution,
-    #[allow(dead_code)] // Retained for publication accounting once token ledgers consume it.
+    #[allow(dead_code)]
     pub(crate) usage: AiTokenUsage,
     pub(crate) context_hash: String,
     pub(crate) prompt_version: String,
@@ -1197,14 +1168,12 @@ pub(crate) struct RerankScore {
 
 #[derive(Clone, Debug)]
 pub(crate) struct AiRerankResult {
-    /// Provider ranking order, with each original document index represented
-    /// exactly once.
     pub(crate) scores: Vec<RerankScore>,
-    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    #[allow(dead_code)]
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: ModelAttribution,
-    #[allow(dead_code)] // Retained for publication accounting once token ledgers consume it.
+    #[allow(dead_code)]
     pub(crate) usage: AiTokenUsage,
     pub(crate) context_hash: String,
     pub(crate) prompt_version: String,
@@ -1215,8 +1184,6 @@ pub(crate) struct SpeechSynthesisRequest<'a> {
     pub(crate) feature: &'static str,
     pub(crate) prompt_version: &'static str,
     pub(crate) text: &'a str,
-    /// Exact provider voice id chosen by the caller; the gateway never
-    /// substitutes a default voice behind the caller's back.
     pub(crate) voice: &'a str,
     pub(crate) timeout: Duration,
     pub(crate) max_attempts: u8,
@@ -1227,9 +1194,9 @@ pub(crate) struct SpeechSynthesisRequest<'a> {
 pub(crate) struct AiSynthesizedSpeech {
     pub(crate) bytes: Vec<u8>,
     pub(crate) content_type: String,
-    #[allow(dead_code)] // Preserved for provider generation audit correlation.
+    #[allow(dead_code)]
     pub(crate) generation_id: Option<String>,
-    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    #[allow(dead_code)]
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: ModelAttribution,
@@ -1255,18 +1222,18 @@ pub(crate) struct AiDirectAudioCompletion {
     pub(crate) bytes: Vec<u8>,
     pub(crate) content_type: String,
     pub(crate) transcript: String,
-    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    #[allow(dead_code)]
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: ModelAttribution,
-    #[allow(dead_code)] // Retained for provider usage audit correlation.
+    #[allow(dead_code)]
     pub(crate) usage: AiTokenUsage,
-    #[allow(dead_code)] // Retained for exact prompt provenance audits.
+    #[allow(dead_code)]
     pub(crate) context_hash: String,
     pub(crate) prompt_version: String,
 }
 
-#[allow(dead_code)] // Awaiting a server-authored STT action with bounded provenance.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TranscriptionRequest<'a> {
     pub(crate) feature: &'static str,
@@ -1278,7 +1245,7 @@ pub(crate) struct TranscriptionRequest<'a> {
     pub(crate) referer: &'a str,
 }
 
-#[allow(dead_code)] // Awaiting the same exact-bound STT action as TranscriptionRequest.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TranscriptionAudioFormat {
     Mp3,
@@ -1295,7 +1262,7 @@ impl TranscriptionAudioFormat {
     }
 }
 
-#[allow(dead_code)] // Complete result contract retained until STT publication is wired.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub(crate) struct AiTranscription {
     pub(crate) text: String,
@@ -2121,7 +2088,7 @@ pub(crate) async fn request_direct_audio_completion_with_binding(
     unreachable!("the bounded direct-audio attempt loop always returns")
 }
 
-#[allow(dead_code)] // Safe primitive is held dormant until input provenance is enforced.
+#[allow(dead_code)]
 pub(crate) async fn request_transcription_with_binding(
     config: &AiConfig,
     binding: &crate::content_load::SeedActorModelBinding,
@@ -2300,13 +2267,6 @@ fn exact_endpoint_model_attribution(
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
-    // OpenRouter's exact non-chat routes may attribute a successful response
-    // with the serving backend's implementation id rather than either the
-    // requested catalog id or its pinned catalog slug (for example,
-    // `baai/bge-m3` is returned as `parasail-bge-m3`). The authenticated
-    // request body remains pinned to `selection.requested_model_id()`; retain
-    // that requested identity and record the provider's non-empty normalized
-    // value as the resolved identity, just as exact raw Chat already does.
     selection
         .attribute_response(Some(provider_model))
         .map_err(|error| {
@@ -2317,7 +2277,7 @@ fn exact_endpoint_model_attribution(
         })
 }
 
-#[allow(dead_code)] // STT permits omitted response model while pinning the request model.
+#[allow(dead_code)]
 fn exact_endpoint_optional_model_attribution(
     feature: &str,
     selection: &PinnedModelSelection,
@@ -2429,8 +2389,6 @@ async fn post_bounded_exact_json(
         };
         let status = response.status();
         if !status.is_success() {
-            // Request-shape and other deterministic 4xx failures are terminal.
-            // Rate limiting is transient and retains the ordinary bounded retry.
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
                 sleep(retry_delay(attempt)).await;
@@ -3232,11 +3190,6 @@ impl ReasoningCompatibilityFallback {
     }
 }
 
-/// OpenRouter's catalog tells us whether a model accepts the unified reasoning
-/// object, but it does not say whether reasoning is mandatory. Some provider
-/// endpoints also lag the catalog and reject that object. Retry exactly once
-/// with the compatible shape; the normal provider retry loop must not multiply
-/// a deterministic request-shape error across every voice candidate round.
 fn reasoning_compatibility_fallback(
     status: reqwest::StatusCode,
     detail: Option<&str>,
@@ -3294,9 +3247,6 @@ fn bounded_reasoning_trace(value: &str) -> Option<String> {
     Some(bounded)
 }
 
-/// Chat-completion providers normally return a string, but OpenAI-compatible
-/// gateways also emit text-part arrays. Accept both without treating tool,
-/// image, or opaque parts as resident speech.
 fn readable_message_content(message: &Value) -> Option<String> {
     let content = message.get("content")?;
     let text = if let Some(text) = content.as_str() {
@@ -3326,8 +3276,6 @@ fn readable_message_content(message: &Value) -> Option<String> {
     (!text.is_empty()).then(|| text.to_string())
 }
 
-/// Extracts only readable reasoning. Structured summaries are preferred over
-/// raw text, while encrypted or redacted blocks are deliberately ignored.
 fn readable_reasoning_trace(message: &Value) -> Option<String> {
     let details = message.get("reasoning_details").and_then(Value::as_array);
     let detail_fragments = |field: &str| {
@@ -3683,12 +3631,6 @@ async fn request_completion(
                 .unwrap_or("vision-config"),
             attempts = attempt,
             latency_ms = started_at.elapsed().as_millis() as u64,
-            // A completion that reaches this line is not necessarily one the
-            // publication gate accepts: finish_reason "length" is a truncated
-            // completion, and voice_finish_incomplete rejects it downstream.
-            // Without these, distinguishing a token budget that is really too
-            // tight from a model that stops cleanly but fails the structural
-            // check meant reproducing the failure locally.
             finish_reason = %finish_reason,
             requested_max_tokens = if provider_managed_reasoning { 0 } else { max_tokens },
             provider_managed_reasoning,
@@ -3751,9 +3693,6 @@ pub(crate) async fn enforce_server_paid_daily_limit(
     if !uses_server_paid_openrouter(config) {
         return Ok(None);
     }
-    // Hold this guard through the inference request. OpenRouter's usage_daily
-    // is authoritative for the key, and serial admission prevents concurrent
-    // calls from all observing the same just-below-limit balance.
     let guard = SERVER_PAID_INFERENCE_LOCK
         .get_or_init(|| tokio::sync::Mutex::new(()))
         .lock()
@@ -6808,7 +6747,6 @@ mod tests {
                 temperature: 0.0,
                 max_tokens: 160,
                 timeout: Duration::from_secs(2),
-                // The provider owns the reasoning budget for this raw model.
                 max_attempts: 4,
                 referer: "http://127.0.0.1",
                 response_format: None,

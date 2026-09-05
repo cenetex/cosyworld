@@ -10,8 +10,6 @@ pub(super) async fn command_with_card_receipt(
     let submitted_text = normalize_command_text(&payload.command);
     let submitted_offer = payload.offer_id.is_some();
     let Json(mut response) = command_with_forwarding(client_addr, state, payload, true).await;
-    // The saved receipt belongs to the card identifier. Compare the current
-    // caller's text after receipt recovery so retries receive the same notice.
     if submitted_offer
         && response.ok
         && !submitted_text.is_empty()
@@ -431,10 +429,6 @@ pub(crate) async fn resolve_command_submission_at_boundary(
             Ok((resolved, presence_events))
         }
         Err(error) => {
-            // A normal stale Think is refused before `pass_action` is
-            // reached, because the certificate no longer names the current
-            // hand. Record that canonical-boundary rejection exactly once;
-            // direct/internal `pass_action` calls retain their own hook.
             if error.status == 409 {
                 if let Some(pass_offer_id) = payload.offer_id.as_deref().filter(|offer_id| {
                     offer_id.starts_with("pass:") || offer_id.starts_with("think:")

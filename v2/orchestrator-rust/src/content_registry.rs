@@ -132,7 +132,6 @@ pub(super) struct ContentRegistry {
     legacy_content_references: BTreeMap<(String, u64), String>,
     active_rulesets: Vec<ActiveRulesetContext>,
     zone_rulesets: BTreeMap<(String, String), String>,
-    // Kept mounted for pack-aware consumers added by later engine versions.
     #[allow(dead_code)]
     additional_resources: BTreeMap<String, serde_json::Value>,
 }

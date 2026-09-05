@@ -1,12 +1,3 @@
-//! Fast, deterministic ranking across every currently legal card.
-//!
-//! The deployed model scores each card independently with shared weights. The
-//! runtime ranks the complete legal offer queue, then maps that ranking onto the
-//! authoritative Story, Self, and Anchor slots. The top card is playable when
-//! shown; ranks two and three are playable only when their integer score ties
-//! the top score. Otherwise the legacy adapter name `DRAW` means Think about
-//! one exact slot, then rerank its replacement.
-
 mod ranker;
 mod synthetic;
 
@@ -24,8 +15,6 @@ pub use synthetic::{
     SyntheticTurnPercentiles,
 };
 
-/// Stable, human-readable per-card feature contract. Changing an entry changes
-/// the feature-schema hash embedded in every model artifact.
 pub const CARD_POLICY_FEATURE_SCHEMA: [&str; CARD_POLICY_FEATURES] = [
     "world_node_count",
     "current_degree",
@@ -53,9 +42,6 @@ pub const CARD_POLICY_FEATURE_SCHEMA: [&str; CARD_POLICY_FEATURES] = [
     "card_bias",
 ];
 
-/// Stable scalar embedding for an authored action kind. It is deliberately
-/// derived from the string rather than an enum ordinal so world-pack action
-/// additions do not renumber older model inputs.
 pub fn card_kind_code_q15(kind: &str) -> i16 {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     for byte in kind.bytes() {

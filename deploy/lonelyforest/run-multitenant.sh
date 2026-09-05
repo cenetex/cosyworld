@@ -44,8 +44,6 @@ wait_shutdown_grace() {
 wait_for_pid_exit() {
   process="$1"
   [ -n "$process" ] || return
-  # A trapped signal can interrupt wait before a shell subprocess finishes its
-  # own handler. Re-enter wait until the PID is actually gone, then reap it.
   while kill -0 "$process" 2>/dev/null; do
     wait "$process" 2>/dev/null || true
   done
@@ -69,8 +67,6 @@ run_world() {
   worldpack="$(basename "$(dirname "$registry")")"
   active_child=""
 
-  # Invoked indirectly by the signal trap below.
-  # shellcheck disable=SC2329
   stop_world() {
     trap '' TERM INT HUP
     started_at="$(date +%s)"
@@ -144,10 +140,6 @@ run_world() {
     fi
     active_child=""
     log "$slug exited with status $status; restarting in ${restart_delay}s"
-    # A required tenant's process is part of this Fly Machine's readiness.
-    # Do not leave nginx serving root health while another required world
-    # crash-loops behind its hostname. Terminating the supervisor makes the
-    # machine fail its health check and restart as one deploy boundary.
     if [ "$requirement" = "required" ]; then
       log "$slug is required; failing supervisor $supervisor_pid so Fly marks the Machine unhealthy"
       kill -USR1 "$supervisor_pid" 2>/dev/null || true
@@ -172,8 +164,6 @@ tenant_data_path() {
 
 monitor_required_tenants() {
   monitor_child_pid=""
-  # Invoked indirectly by the signal trap below.
-  # shellcheck disable=SC2329
   stop_health_monitor() {
     trap '' TERM INT HUP
     if [ -n "$monitor_child_pid" ]; then
@@ -192,8 +182,6 @@ monitor_required_tenants() {
     status="$?"
   fi
   monitor_child_pid=""
-  # The monitor is a required readiness component. Its own unexpected exit
-  # must not leave nginx serving only the root health endpoint indefinitely.
   log "required tenant health monitor exited with status $status; failing supervisor $supervisor_pid"
   kill -USR1 "$supervisor_pid" 2>/dev/null || true
   exit "$status"
@@ -215,8 +203,6 @@ stop_all() {
   fi
   if [ -n "$nginx_log_pid" ]; then
     kill -TERM "$nginx_log_pid" 2>/dev/null || true
-    # tail -F can keep polling after TERM on some shells. It is only a log
-    # forwarder, so stop it immediately while nginx and tenants drain.
     kill -KILL "$nginx_log_pid" 2>/dev/null || true
   fi
   for worker in $workers; do
@@ -284,10 +270,6 @@ mkdir -p \
   "$tenant_data_root" \
   "$shutdown_marker_dir"
 
-# tenants.tsv is the committed source of truth for hostname, registry, port,
-# and persistence identity. The deploy guard validates every required row
-# before Fly replaces this image. Elysium is explicitly optional: a release
-# without its registry leaves only 0.lonelyforest.com unavailable (HTTP 503).
 if [ ! -r "$tenant_config" ]; then
   log "tenant configuration is unreadable: $tenant_config"
   exit 1
@@ -296,12 +278,6 @@ if [ ! -x "$health_monitor" ]; then
   log "required tenant health monitor is not executable: $health_monitor"
   exit 1
 fi
-# Root readiness follows the same required/optional boundary as the supervisor
-# and dedicated health monitor. An optional world may restart independently
-# without making every hostname on the Machine fail its public health check.
-# These manifest passes do not need the upstream name; it remains a positional
-# field so every later column keeps the validated schema.
-# shellcheck disable=SC2034
 while IFS='|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins; do
   case "$slug" in
     ""|\#*) continue ;;
@@ -319,7 +295,6 @@ while IFS='|' read -r slug requirement hosts upstream port registry entry_locati
     required_health_urls="$health_url"
   fi
 done < "$tenant_config"
-# shellcheck disable=SC2034
 while IFS='|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins; do
   case "$slug" in
     ""|\#*) continue ;;

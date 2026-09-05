@@ -636,8 +636,6 @@ pub(super) async fn passkey_registration_start(
             Ok(value) => value,
             Err(error) => return auth_error(StatusCode::BAD_REQUEST, error),
         };
-    // Sign-in uses discoverable authentication. Request a resident credential
-    // so a fresh device can find the account without a username or local state.
     let mut public_key = serde_json::to_value(public_key).unwrap_or(serde_json::Value::Null);
     public_key["publicKey"]["authenticatorSelection"]["residentKey"] = "required".into();
     public_key["publicKey"]["authenticatorSelection"]["requireResidentKey"] = true.into();

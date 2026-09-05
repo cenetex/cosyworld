@@ -395,9 +395,6 @@ impl WorldSimulationState {
             .get(&route.to_location_id)
             .map(|location| location.trade_stock)
             .unwrap_or_default();
-        // Regional stock is pressure, not represented cargo. Sources
-        // replenish and destinations consume locally; only actor/item events
-        // may claim that anything travelled.
         if let Some(origin) = self.locations.get_mut(&route.from_location_id) {
             origin.trade_stock = origin.trade_stock.saturating_add(1).min(MAX_TRADE_STOCK);
             origin.trade_pressure = origin
@@ -615,12 +612,8 @@ impl WorldSimulationState {
             && before < MAX_CONFLICT_PRESSURE
             && after >= MAX_CONFLICT_PRESSURE;
         if escalated {
-            // Leave tension behind after the public consequence so a front can flare again,
-            // but never emit the same escalation every subsequent pulse.
             after = 1;
         } else {
-            // Background opportunity pulses may make tension visible, but only a
-            // causally relevant frontier action may cross into stakes.
             after = after.min(MAX_CONFLICT_PRESSURE - 1);
         }
         state.conflict_pressure = after;
@@ -662,8 +655,6 @@ fn select_public_beat(
     if conflict.escalated {
         return Some(PulseBeatKind::Conflict);
     }
-    // A due pulse is a scheduling opportunity. Most due pulses quietly
-    // maintain bounded state and publish nothing.
     if deterministic_index(entropy, pulse_index ^ 0xbea7_0001, 4) != 0 {
         return None;
     }

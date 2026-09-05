@@ -24,16 +24,9 @@ const MEDIA_VERDICT_SCHEMA_VERSION: u8 = 1;
 const MEDIA_CHECKER_VERSION: &str = "cosyworld.media-deterministic/1";
 const MEDIA_OPERATOR_REVIEWER_VERSION: &str = "cosyworld.media-operator/1";
 const MEDIA_VERDICT_DIR: &str = "media-verdicts/v1";
-/// Maximum length, in bytes, of any single frozen-brief constraint. Producers
-/// must bound each constraint they build to this budget; `validate` rejects the
-/// whole brief otherwise.
 pub(crate) const MEDIA_BRIEF_CONSTRAINT_LIMIT: usize = 240;
 pub(crate) const MEDIA_BRIEF_CONFLICT_ERROR: &str =
     "generated-image frozen brief changed for an existing job";
-/// Maximum persisted UTF-8 byte length for a visual-review summary. The
-/// provider response parser and durable verdict builder both normalize through
-/// `bounded_visual_verdict_summary`, so multi-byte punctuation cannot pass one
-/// boundary and fail the next.
 pub(crate) const MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT: usize = 240;
 const MAX_CANDIDATES_PER_JOB: usize = 4;
 const MAX_REVIEW_FAILURES: u8 = 3;
@@ -42,9 +35,6 @@ const PROVIDER_COOLDOWN_MS: u64 = 5 * 60 * 1000;
 
 static MEDIA_VERDICT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
-/// Bound every producer-authored constraint to the byte budget enforced by
-/// `FrozenMediaBrief::validate`. `bounded_component` cuts only at UTF-8
-/// boundaries; constraints with no content after trimming are omitted.
 pub(crate) fn bounded_brief_constraints(values: impl IntoIterator<Item = String>) -> Vec<String> {
     values
         .into_iter()
@@ -121,9 +111,6 @@ impl FrozenMediaBrief {
             .map_err(|error| error.to_string())
     }
 
-    /// Callers must run this before spending on a provider: every downstream
-    /// gate re-validates, so an invalid brief can only ever discard work that
-    /// has already been paid for.
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.schema_version != MEDIA_VERDICT_SCHEMA_VERSION
             || self.job_key.trim().is_empty()
@@ -348,10 +335,6 @@ pub(crate) struct MediaVerdictDashboard {
     review_retries: u64,
     provider_failures: u64,
     cooldown_routes: u64,
-    /// Directories left by a storage preflight whose job never produced a
-    /// candidate. They are reported rather than fatal: 19 of the primary's 40
-    /// verdict directories were in this state, and failing the listing on the
-    /// first one made the whole moderation surface answer 500.
     incomplete_records: u64,
     slices: Vec<MediaVerdictSlice>,
 }
@@ -427,10 +410,6 @@ pub(crate) fn prepare_media_candidate(
     Ok(disposition)
 }
 
-/// Proves that the exact verdict identity for a frozen brief is compatible
-/// with any existing record and that both record and candidate directories can
-/// complete the atomic-write lifecycle used after a paid provider response.
-/// The probe leaves no verdict record or candidate behind.
 pub(crate) fn preflight_media_verdict_storage(
     root: &Path,
     brief: &FrozenMediaBrief,
@@ -452,15 +431,6 @@ pub(crate) struct MediaBriefRetryPreparation {
     pub(crate) discard_staged_candidate: bool,
 }
 
-/// Retires an immutable review record when a legacy retry must adopt a newly
-/// frozen brief. Approved or still-pending work remains fail-closed: only an
-/// explicitly rejected active candidate or a candidate-free record may move to
-/// the new brief.
-///
-/// The retired record is preserved beside the live record for audit. A staged
-/// provider result is discarded only when it belongs to an explicitly rejected
-/// verdict; candidate-free records preserve any separately staged result so it
-/// can be reviewed under the repaired brief without another provider call.
 pub(crate) fn prepare_rejected_media_candidate_replacement(
     root: &Path,
     brief: FrozenMediaBrief,
@@ -851,9 +821,6 @@ fn apply_operator_action(
     record_id: &str,
     action: MediaVerdictActionRequest,
 ) -> Result<PersistedMediaVerdict, String> {
-    // Operator approval records a verdict only. The owning job must retry and
-    // atomically publish after `media_candidate_approved`; this endpoint never
-    // mutates the public asset graph.
     let _guard = media_verdict_lock()?;
     let mut record = load_record(root, record_id)?;
     let brief = record.brief.clone();
@@ -1152,13 +1119,6 @@ fn load_record(root: &Path, record_id: &str) -> Result<PersistedMediaVerdict, St
     Ok(record)
 }
 
-/// Returns every readable verdict record, plus the count of directories that
-/// hold no record yet.
-///
-/// A storage preflight creates the record and candidate directories before the
-/// provider is paid, so a job that never returns an image leaves a directory
-/// with no `record.json`. Propagating that as an error made one abandoned job
-/// hide every healthy record behind a 500.
 fn list_records(root: &Path) -> Result<(Vec<PersistedMediaVerdict>, u64), String> {
     let directory = root.join(MEDIA_VERDICT_DIR);
     let Ok(entries) = fs::read_dir(directory) else {

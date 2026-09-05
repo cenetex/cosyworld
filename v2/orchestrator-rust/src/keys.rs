@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Claim key generators
-// ---------------------------------------------------------------------------
-
 pub(super) fn ability_check_success_claim_key(
     actor_id: u64,
     location_id: u64,
@@ -32,9 +28,6 @@ pub(super) fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> Strin
     format!("listen_attempt:{actor_id}:{location_id}")
 }
 
-/// How deep one committed action may cascade clock fills before the chain is
-/// cut. Four is enough for an authored consequence chain to read as a story
-/// beat and far short of anything that could exhaust the stack.
 pub(super) const CLOCK_FILL_CASCADE_MAX_DEPTH: usize = 4;
 
 pub(super) fn clock_fill_claim_key(clock_id: &str, event_seq: u64) -> String {
@@ -90,20 +83,12 @@ pub(super) fn lifecycle_hook_claim_key(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Listen / progress clock
-// ---------------------------------------------------------------------------
-
 pub(super) fn listen_progress_clock_id_for_location(location_id: u64) -> Option<&'static str> {
     match location_id {
         MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_PROGRESS_CLOCK_ID),
         _ => None,
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tag ID generators
-// ---------------------------------------------------------------------------
 
 pub(super) fn tired_tag_id(actor_id: u64) -> String {
     format!("actor:{actor_id}:tired")
@@ -192,10 +177,6 @@ pub(super) fn echo_fractured_tag_id(location_id: u64) -> String {
     format!("room:{location_id}:echo_fractured")
 }
 
-// ---------------------------------------------------------------------------
-// Visit ledger / advancement / bond key generators
-// ---------------------------------------------------------------------------
-
 pub(super) fn visit_ledger_mark_id(actor_id: u64, category: &str, reason: &str) -> String {
     format!("ledger:{actor_id}:{category}:{reason}")
 }
@@ -239,10 +220,6 @@ pub(super) fn default_bond_statement(target_name: &str) -> String {
     format!("I bring small kindnesses to {target_name}.")
 }
 
-// ---------------------------------------------------------------------------
-// Calling statements
-// ---------------------------------------------------------------------------
-
 pub(super) const AUTHORED_CALLING_STATEMENTS: [&str; 13] = [
     "I listen for odd jobs nobody else wants.",
     "I listen for clues and stick my nose into lost-property trouble.",
@@ -250,7 +227,6 @@ pub(super) const AUTHORED_CALLING_STATEMENTS: [&str; 13] = [
     "I listen for snack breaks before tempers boil.",
     "I listen for muddy footsteps going somewhere useful.",
     "I listen first, then help with whatever broke.",
-    // Kept as valid history so existing avatars retain their chosen Calling.
     "I listen for small truths and help where I can.",
     "I listen for what lost things still need.",
     "I listen for what shy rooms are trying to say.",
@@ -260,8 +236,6 @@ pub(super) const AUTHORED_CALLING_STATEMENTS: [&str; 13] = [
     EXPLORER_CALLING_STATEMENT,
 ];
 
-/// Reason recorded when an arriving avatar is given a starting calling it did
-/// not pick. Player-facing copy must not report this as a chosen purpose (#360).
 pub(crate) const CALLING_REASON_AVATAR_CREATED: &str = "avatar_created";
 
 pub(super) fn default_calling_statement() -> &'static str {
@@ -284,10 +258,6 @@ pub(super) fn calling_statement_is_explorer(statement: &str) -> bool {
         .trim()
         .eq_ignore_ascii_case(EXPLORER_CALLING_STATEMENT)
 }
-
-// ---------------------------------------------------------------------------
-// Pathway / location ID generators
-// ---------------------------------------------------------------------------
 
 pub(super) fn canonical_pathway_anchors(left: u64, right: u64) -> (u64, u64) {
     if left <= right {
@@ -319,10 +289,6 @@ pub(super) fn generated_pathway_danger_clock_id(pathway_id: &str) -> String {
 pub(super) fn generated_pathway_job_id(pathway_id: &str) -> String {
     format!("{pathway_id}:community-work")
 }
-
-// ---------------------------------------------------------------------------
-// Natural resource helpers
-// ---------------------------------------------------------------------------
 
 pub(super) fn natural_resource_family_threshold(
     resource_kind: NaturalResourceKind,
@@ -397,10 +363,6 @@ pub(super) fn natural_investigation_contribution_strategies(
     })
     .collect()
 }
-
-// ---------------------------------------------------------------------------
-// Pathway edge key helpers
-// ---------------------------------------------------------------------------
 
 pub(super) fn pathway_edge_key(left: u64, right: u64) -> String {
     let (origin, destination) = canonical_pathway_anchors(left, right);

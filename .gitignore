@@ -1,28 +1,23 @@
 
-# Environment and Keys
 .keys/
 .env
 .env.*
 rati/keys/*
 *-wallet.json
 
-# Dependencies
 node_modules/
 bun.lock
 
-# Build outputs
 dist/
 build/
 output/
 coverage/
 
-# Logs
 *.log
 logs/
 app.log
 discordService.log
 
-# Media files
 images/*
 *.webp
 !v2/content/core/assets/generated/cards/*.webp
@@ -31,14 +26,12 @@ images/*
 !v2/content/ruby-high-first-bell/assets/world/**/*.webp
 attached_assets/*
 
-# Generated files
 src/config/user.config.json
 .lore-*
 .runtime/
 v2/orchestrator-rust/.runtime/
 v2/content/imports/
 
-# Terraform
 infra/terraform/.terraform/
 infra/terraform/.terraform.lock.hcl
 infra/terraform/terraform.tfstate
@@ -61,18 +54,15 @@ infra/production-logs/*.auto.tfvars.json
 infra/aws-lonely-forest/*.tfstate
 infra/aws-lonely-forest/*.tfstate.*
 
-# AWS
 .aws/
 *.pem
 
-# IDE and OS
 .DS_Store
 .vscode/settings.json
 *.swp
 *.swo
 *~
 
-# Temporary files
 tmp/
 temp/
 *.tmp

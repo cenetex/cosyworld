@@ -1,39 +1,3 @@
-//! Resident drive grammar and decay mechanics.
-//!
-//! Drives are *inclinations toward relationship patterns* between three
-//! primitives — avatars (`A`), locations (`L`), and items (`I`). A drive
-//! expresses *what kind of relationship* a resident is drawn toward; the
-//! concrete goal (which specific avatar, which location, which item) is
-//! generated from the drive plus the resident's beliefs about the current
-//! world state.
-//!
-//! This separates three layers that the autonomy system previously conflated:
-//!
-//! - **Drives** — *why*: typed inclinations toward relationship patterns,
-//!   with strengths that decay when satisfied and recover toward a baseline.
-//! - **Goals** — *what*: concrete desired relationship states ("the grail in
-//!   Jerusalem with Tapi"), derived from drives + beliefs. *(Not yet
-//!   implemented; this module establishes the vocabulary.)*
-//! - **Actions** — *how*: the steps to achieve a goal, planned by the
-//!   existing planner and validated by the C kernel.
-//!
-//! The grammar is compositional. The existing autonomy verbs are already
-//! implicit combinations: trade = `AI`, delivery = `ALI`, seek = `IL`,
-//! roam = `L`. Naming them makes the system extensible — a pack authors
-//! drives instead of hardcoding verbs.
-//!
-//! ## Decay model
-//!
-//! Each drive has a `strength` (current urgency, 0.0–1.0) and a `baseline`
-//! (resting level, the resident's personality). When a goal matching a
-//! drive's pattern is achieved, the strength drops (`satisfy`), creating
-//! satiety. Over time, strength recovers toward baseline (`recover`),
-//! creating renewed hunger. The rate is configurable per drive.
-
-// This module establishes the drive grammar vocabulary and decay mechanics.
-// The types are not yet wired into the running autonomy system; that
-// integration is a follow-up PR. Suppress dead-code warnings for the
-// foundation API until it is consumed.
 #![allow(dead_code)]
 
 use super::super::*;
@@ -42,19 +6,11 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
-/// A single atom in the drive grammar: the kind of world-entity a drive
-/// relates to.
-///
-/// The string form is a single lowercase letter (`a`, `l`, `i`) so that a
-/// multi-atom pattern serializes as a compact word like `"ali"` or `"alli"`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum DriveAtom {
-    /// Another actor / avatar.
     Avatar,
-    /// A place in the world.
     Location,
-    /// A tangible object.
     Item,
 }
 
@@ -83,32 +39,17 @@ impl fmt::Display for DriveAtom {
     }
 }
 
-/// A drive pattern: an ordered sequence of [`DriveAtom`]s describing the
-/// *kind of relationship* a resident is inclined toward.
-///
-/// The order encodes direction. `AI` means "an avatar-item relationship"
-/// (the resident wants some avatar to have some item — giving, trading);
-/// `IA` means "an item-avatar relationship" (the resident wants an item from
-/// some avatar — taking, seeking). Patterns with repeated atoms describe
-/// richer configurations: `ALLI` is "an avatar who wants an item moved from
-/// one location to another" (delivery quests).
-///
-/// Patterns serialize as their atoms concatenated: `AI` → `"ai"`, `ALI` →
-/// `"ali"`. This is the pack-authorable string form.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DrivePattern {
-    /// Atoms in canonical order. Non-empty.
     atoms: Vec<DriveAtom>,
 }
 
 impl DrivePattern {
-    /// Creates a pattern from atoms. Panics in debug if empty.
     pub(crate) fn new(atoms: Vec<DriveAtom>) -> Self {
         debug_assert!(!atoms.is_empty(), "DrivePattern must be non-empty");
         Self { atoms }
     }
 
-    /// Single-atom patterns.
     pub(crate) fn avatar() -> Self {
         Self::new(vec![DriveAtom::Avatar])
     }
@@ -119,7 +60,6 @@ impl DrivePattern {
         Self::new(vec![DriveAtom::Item])
     }
 
-    /// Two-atom patterns.
     pub(crate) fn avatar_item() -> Self {
         Self::new(vec![DriveAtom::Avatar, DriveAtom::Item])
     }
@@ -130,7 +70,6 @@ impl DrivePattern {
         Self::new(vec![DriveAtom::Item, DriveAtom::Location])
     }
 
-    /// Three-atom pattern: the full triad.
     pub(crate) fn avatar_location_item() -> Self {
         Self::new(vec![
             DriveAtom::Avatar,
@@ -139,7 +78,6 @@ impl DrivePattern {
         ])
     }
 
-    /// Four-atom pattern: item transport between locations for an avatar.
     pub(crate) fn avatar_location_location_item() -> Self {
         Self::new(vec![
             DriveAtom::Avatar,
@@ -149,25 +87,18 @@ impl DrivePattern {
         ])
     }
 
-    /// Returns the atoms, in order.
     pub(crate) fn atoms(&self) -> &[DriveAtom] {
         &self.atoms
     }
 
-    /// The number of atoms in the pattern.
     pub(crate) fn arity(&self) -> usize {
         self.atoms.len()
     }
 
-    /// Whether the pattern contains a given atom.
     pub(crate) fn contains(&self, atom: DriveAtom) -> bool {
         self.atoms.contains(&atom)
     }
 
-    /// Whether this pattern is a superset of (covers) another — i.e., every
-    /// atom in `other` appears in `self` at least as many times. A drive with
-    /// pattern `ALI` is satisfied by achieving a goal with pattern `AI`
-    /// (because the avatar-item relationship is part of the triad).
     pub(crate) fn covers(&self, other: &Self) -> bool {
         let mut remaining = self.atoms.clone();
         for atom in &other.atoms {
@@ -207,29 +138,16 @@ impl FromStr for DrivePattern {
     }
 }
 
-/// A single resident drive: an inclination toward a relationship pattern,
-/// with a decaying strength and optional bindings to specific entities.
-///
-/// An **unbound** drive expresses a general inclination ("I tend toward AI
-/// relationships") — the goal generator picks specific entities from beliefs.
-/// A **bound** drive targets specific entities ("I want item 42 at location
-/// 7") and behaves like a concrete desire.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct ResidentDrive {
-    /// The relationship pattern this drive inclines toward.
     pub(crate) pattern: DrivePattern,
-    /// Current urgency in `[0.0, 1.0]`. Decays toward `baseline`.
     #[serde(default = "default_strength")]
     pub(crate) strength: f32,
-    /// Resting urgency — the personality level the strength recovers toward.
     #[serde(default = "default_strength")]
     pub(crate) baseline: f32,
-    /// How fast strength recovers toward baseline, per tick fraction.
-    /// Higher = hungrier. In `[0.0, 1.0]`.
     #[serde(default = "default_recover_rate")]
     pub(crate) recover_rate: f32,
 
-    // Optional specific-entity bindings. `None` means "any".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) avatar_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -247,7 +165,6 @@ fn default_recover_rate() -> f32 {
 }
 
 impl ResidentDrive {
-    /// Creates an unbound drive with the given pattern and baseline strength.
     pub(crate) fn new(pattern: DrivePattern, baseline: f32) -> Self {
         Self {
             pattern,
@@ -260,62 +177,41 @@ impl ResidentDrive {
         }
     }
 
-    /// Binds the drive to a specific avatar.
     pub(crate) fn for_avatar(mut self, avatar_id: u64) -> Self {
         self.avatar_id = Some(avatar_id);
         self
     }
 
-    /// Binds the drive to a specific location.
     pub(crate) fn at_location(mut self, location_id: u64) -> Self {
         self.location_id = Some(location_id);
         self
     }
 
-    /// Binds the drive to a specific item.
     pub(crate) fn for_item(mut self, item_id: u64) -> Self {
         self.item_id = Some(item_id);
         self
     }
 
-    /// Whether the drive names any specific entity. Binding even one atom
-    /// makes it a concrete desire rather than a general inclination, so the
-    /// goal generator only has to fill in the atoms still left open.
     pub(crate) fn is_bound(&self) -> bool {
         self.avatar_id.is_some() || self.location_id.is_some() || self.item_id.is_some()
     }
 
-    /// Recovers strength toward baseline by one tick fraction.
-    ///
-    /// Uses exponential approach: `strength += (baseline - strength) * rate`.
-    /// This means recovery is fast when far from baseline and slows as it
-    /// approaches — the Sims-like "hunger returns" curve.
     pub(crate) fn recover(&mut self) {
         let delta = self.baseline - self.strength;
         self.strength += delta * self.recover_rate;
-        // Clamp to [0, 1] against floating-point drift.
         self.strength = self.strength.clamp(0.0, 1.0);
     }
 
-    /// Satisfies the drive: drops strength by `factor` (e.g. `0.3` drops to
-    /// 30% of current). Creates satiety — the drive becomes less urgent
-    /// until it recovers.
     pub(crate) fn satisfy(&mut self, factor: f32) {
         self.strength *= factor;
         self.strength = self.strength.clamp(0.0, 1.0);
     }
 
-    /// Whether the drive is currently urgent enough to act on.
     pub(crate) fn is_urgent(&self, threshold: f32) -> bool {
         self.strength >= threshold
     }
 }
 
-/// The collection of drives for one actor, with decay mechanics.
-///
-/// This is stored on [`ActorAutonomyState`] and persists across journal
-/// replay. When empty, it serializes to nothing (via `skip_serializing_if`),
-/// so adding the field is transparent to existing journal records.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ActorDriveState {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -323,42 +219,28 @@ pub(crate) struct ActorDriveState {
 }
 
 impl ActorDriveState {
-    /// Creates an empty drive state.
     pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    /// Adds a drive.
     pub(crate) fn push(&mut self, drive: ResidentDrive) {
         self.drives.push(drive);
     }
 
-    /// Whether there are no drives.
     pub(crate) fn is_empty(&self) -> bool {
         self.drives.is_empty()
     }
 
-    /// The number of drives.
     pub(crate) fn len(&self) -> usize {
         self.drives.len()
     }
 
-    /// Recovers all drives by one tick fraction. Call this alongside
-    /// observations of committed player actions.
     pub(crate) fn recover_all(&mut self) {
         for drive in &mut self.drives {
             drive.recover();
         }
     }
 
-    /// Satisfies all drives whose pattern exactly matches `achieved`.
-    ///
-    /// When a resident achieves a goal (e.g. a delivery = `ALI`), the drive
-    /// with pattern `ALI` is satisfied. Sub-pattern drives are not auto-
-    /// satisfied: completing a delivery does not satiate the `L`-only roaming
-    /// drive, because being-at-a-location-as-part-of-a-delivery is a different
-    /// relationship than the general inclination to roam. Each drive is an
-    /// independent inclination with its own satiety.
     pub(crate) fn satisfy(&mut self, achieved: &DrivePattern, factor: f32) {
         for drive in &mut self.drives {
             if drive.pattern == *achieved {
@@ -367,7 +249,6 @@ impl ActorDriveState {
         }
     }
 
-    /// Returns the drive with the highest current strength, or `None`.
     pub(crate) fn strongest(&self) -> Option<&ResidentDrive> {
         self.drives.iter().max_by(|a, b| {
             a.strength
@@ -376,7 +257,6 @@ impl ActorDriveState {
         })
     }
 
-    /// Returns all drives matching a pattern exactly.
     pub(crate) fn for_pattern<'a>(
         &'a self,
         pattern: &DrivePattern,
@@ -385,7 +265,6 @@ impl ActorDriveState {
         self.drives.iter().filter(move |d| d.pattern == pattern)
     }
 
-    /// Returns all drives that are currently urgent (strength >= threshold).
     pub(crate) fn urgent<'a>(
         &'a self,
         threshold: f32,
@@ -397,8 +276,6 @@ impl ActorDriveState {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── Grammar: parsing and display ──────────────────────────────────
 
     #[test]
     fn single_atom_patterns_round_trip() {
@@ -457,8 +334,6 @@ mod tests {
         assert!(ali.contains(DriveAtom::Item));
     }
 
-    // ── Grammar: covers (subset relationship) ───────────────────────────
-
     #[test]
     fn covers_is_subset_inclusion() {
         let ali = DrivePattern::avatar_location_item();
@@ -481,25 +356,20 @@ mod tests {
 
     #[test]
     fn covers_respects_repeated_atoms() {
-        // ALLI has two L atoms, so it covers a single-L pattern, but a
-        // single-L pattern does not cover ALLI.
         let alli = DrivePattern::avatar_location_location_item();
         assert!(alli.covers(&DrivePattern::location()));
         assert!(!DrivePattern::location().covers(&alli));
         assert!(alli.covers(&DrivePattern::avatar_location_item()));
     }
 
-    // ── Drive: decay and satisfaction ──────────────────────────────────
-
     #[test]
     fn recover_moves_strength_toward_baseline() {
         let mut drive = ResidentDrive::new(DrivePattern::item(), 0.8);
-        drive.strength = 0.1; // far below baseline
-        drive.recover_rate = 0.5; // fast
+        drive.strength = 0.1;
+        drive.recover_rate = 0.5;
 
         drive.recover();
 
-        // Exponential approach: moved halfway from 0.1 toward 0.8.
         let expected = 0.1 + (0.8 - 0.1) * 0.5;
         assert!((drive.strength - expected).abs() < 1e-6);
     }
@@ -516,14 +386,12 @@ mod tests {
             drive.recover();
         }
 
-        // Monotonically increasing toward baseline.
         for window in strengths.windows(2) {
             assert!(
                 window[1] >= window[0],
                 "strength must not decrease during recovery"
             );
         }
-        // After 50 ticks at rate 0.1, should be very close to 1.0.
         assert!((drive.strength - 1.0).abs() < 0.01);
     }
 
@@ -532,7 +400,7 @@ mod tests {
         let mut drive = ResidentDrive::new(DrivePattern::avatar_item(), 0.9);
         drive.strength = 0.9;
 
-        drive.satisfy(0.3); // drop to 30%
+        drive.satisfy(0.3);
 
         assert!((drive.strength - 0.27).abs() < 1e-6);
     }
@@ -542,11 +410,9 @@ mod tests {
         let mut drive = ResidentDrive::new(DrivePattern::avatar_item(), 0.9);
         drive.recover_rate = 0.2;
 
-        // Fully satisfied.
         drive.satisfy(0.0);
         assert!(drive.strength < 1e-6);
 
-        // After recovery, hunger returns.
         for _ in 0..20 {
             drive.recover();
         }
@@ -564,8 +430,6 @@ mod tests {
         drive.recover();
         assert!(drive.strength >= 0.0);
     }
-
-    // ── Drive: bindings ────────────────────────────────────────────────
 
     #[test]
     fn unbound_drive_is_general_inclination() {
@@ -591,13 +455,10 @@ mod tests {
         assert!(drive.is_bound());
     }
 
-    // ── DriveState: collection mechanics ───────────────────────────────
-
     #[test]
     fn empty_state_serializes_to_nothing() {
         let state = ActorDriveState::new();
         let json = serde_json::to_string(&state).unwrap();
-        // skip_serializing_if on the empty Vec means the field is omitted.
         assert_eq!(json, "{}");
     }
 
@@ -606,7 +467,6 @@ mod tests {
         let mut state = ActorDriveState::new();
         state.push(ResidentDrive::new(DrivePattern::item(), 0.8));
         state.push(ResidentDrive::new(DrivePattern::location(), 0.6));
-        // Push both below baseline.
         state.drives[0].strength = 0.0;
         state.drives[1].strength = 0.0;
         state.drives[0].recover_rate = 0.5;
@@ -621,16 +481,13 @@ mod tests {
     #[test]
     fn satisfy_targets_exact_pattern_only() {
         let mut state = ActorDriveState::new();
-        state.push(ResidentDrive::new(DrivePattern::avatar_item(), 0.9)); // AI
-        state.push(ResidentDrive::new(DrivePattern::location(), 0.5)); // L
+        state.push(ResidentDrive::new(DrivePattern::avatar_item(), 0.9));
+        state.push(ResidentDrive::new(DrivePattern::location(), 0.5));
         state.push(ResidentDrive::new(
             DrivePattern::avatar_location_item(),
             0.9,
-        )); // ALI
+        ));
 
-        // Achieving an ALI goal satisfies only the ALI drive — sub-pattern
-        // drives (AI, L) represent independent inclinations and are not
-        // auto-satiated.
         state.satisfy(&DrivePattern::avatar_location_item(), 0.3);
 
         let ai = state
@@ -683,8 +540,6 @@ mod tests {
         assert_eq!(urgent[0].pattern, DrivePattern::item());
     }
 
-    // ── Serialization round-trip ───────────────────────────────────────
-
     #[test]
     fn drive_round_trips_through_serde() {
         let drive = ResidentDrive::new(DrivePattern::avatar_location_item(), 0.7)
@@ -724,20 +579,15 @@ mod tests {
         assert_eq!(restored.drives[1].avatar_id, Some(7));
     }
 
-    // ── The grammar maps to existing autonomy verbs ─────────────────────
-
     #[test]
     fn existing_verbs_are_implicit_drive_patterns() {
-        // This test documents that the grammar names the combinations the
-        // existing cascade hardcodes as separate branches. When drives
-        // eventually replace the cascade, these patterns ARE the verbs.
-        assert_eq!(DrivePattern::avatar_item().to_string(), "ai"); // trade, give
-        assert_eq!(DrivePattern::item_location().to_string(), "il"); // seek, use_feature
-        assert_eq!(DrivePattern::location().to_string(), "l"); // roam, move
-        assert_eq!(DrivePattern::avatar_location_item().to_string(), "ali"); // delivery
+        assert_eq!(DrivePattern::avatar_item().to_string(), "ai");
+        assert_eq!(DrivePattern::item_location().to_string(), "il");
+        assert_eq!(DrivePattern::location().to_string(), "l");
+        assert_eq!(DrivePattern::avatar_location_item().to_string(), "ali");
         assert_eq!(
             DrivePattern::avatar_location_location_item().to_string(),
             "alli"
-        ); // fetch-and-deliver
+        );
     }
 }

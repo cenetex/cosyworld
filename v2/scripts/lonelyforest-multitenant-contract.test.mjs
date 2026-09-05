@@ -71,9 +71,6 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
     /curl --noproxy '\*' --fail --silent --show-error --max-time "\$probe_timeout_secs" "http:\/\/127\.0\.0\.1:\$port\/health"/,
   );
   assert.match(healthMonitor, /required tenant \$slug failed private \/health[\s\S]*?kill -USR1 "\$supervisor_pid"/);
-  // A required tenant that is briefly busy must not cost every hostname on the
-  // Machine: root can hold the authoritative runtime lock for seconds under
-  // load, so the supervisor only fails after repeated misses.
   assert.match(healthMonitor, /failure_threshold="\$\{5:-3\}"/);
   assert.match(healthMonitor, /probe_timeout_secs="\$\{6:-10\}"/);
   assert.match(healthMonitor, /\[ "\$failures" -ge "\$failure_threshold" \]/);
@@ -124,7 +121,7 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(supervisor, /health_url="http:\/\/127\.0\.0\.1:\$port\/health"/);
   assert.match(
     supervisor,
-    /Root readiness follows the same required\/optional boundary[\s\S]*?\[ "\$requirement" = "required" \] \|\| continue[\s\S]*?\[ "\$slug" = "root" \] && continue/,
+    /while IFS='\|' read -r slug requirement[\s\S]*?\[ "\$requirement" = "required" \] \|\| continue[\s\S]*?\[ "\$slug" = "root" \] && continue/,
     "root readiness must not couple optional tenant health to every hostname",
   );
   assert.match(supervisor, /COSYWORLD_REQUIRED_HEALTH_URLS="\$required_health_urls"/);
@@ -208,11 +205,6 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
   assert.doesNotMatch(nginx, /\/var\/lib\/nginx/, "non-root nginx must not retain default temp paths");
   assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
-  // The proxy boundary logs through the redacting cosyworld_safe format, not
-  // nginx's combined format, which retains query strings, cookies, and user
-  // agents. This assertion only runs in the deployment gate, so pinning the
-  // named format here is what keeps a later revert from reaching production
-  // through a green PR.
   assert.match(
     nginx,
     /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log cosyworld_safe;$/m,
@@ -492,10 +484,6 @@ test("required-tenant health monitor fails the Machine after startup grace when 
 });
 
 test("a required tenant that misses one probe and recovers keeps every hostname up", async () => {
-  // Root can hold the authoritative runtime lock for several seconds under
-  // load, which starves its readiness endpoint while the world is alive and
-  // serving. Tearing down every hostname on the first missed probe turned that
-  // into a site-wide flap, so a miss inside the threshold must be survivable.
   const tempRoot = await mkdtemp(resolve(tmpdir(), "cosyworld-required-health-transient-"));
   try {
     const binDir = resolve(tempRoot, "bin");
@@ -504,7 +492,6 @@ test("a required tenant that misses one probe and recovers keeps every hostname 
     const fakeCurl = resolve(binDir, "curl");
     const tenantConfig = resolve(deploymentRoot, "tenants.tsv");
     await mkdir(binDir);
-    // Root fails its very first probe, then answers normally for good.
     await writeFile(
       fakeCurl,
       "#!/bin/sh\n"

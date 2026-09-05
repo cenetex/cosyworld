@@ -52,9 +52,6 @@ pub(crate) enum EffectApplicationSource<'a> {
     Lifecycle(&'a str),
     ClockFill(&'a str),
     JobContribution,
-    /// A frozen discovery receipt materializing the truth it already selected.
-    /// The roll happened when the receipt was minted; this source only places
-    /// the authored result, so it carries no clock and no authored reason.
     DiscoveryMaterialization,
 }
 
@@ -94,23 +91,6 @@ impl<'a> EffectApplicationSource<'a> {
 }
 
 impl RuntimeWorld {
-    /// Run one clock's `on_fill` effects with the cascade bounded.
-    ///
-    /// `on_fill` may advance another clock, which may fill and advance a third,
-    /// so the descriptor vocabulary already allows a chain as long as there are
-    /// clocks to author. The per-fill claim key does not bound it: every hop
-    /// crosses at a new event sequence and so mints a fresh key.
-    ///
-    /// Saturation is what stops a *cycle* today — a filled clock returns early
-    /// because `after == before`, so A -> B -> A cannot re-enter A. That makes
-    /// the visited-set check below currently unreachable, and it is kept
-    /// deliberately: it is the guard that holds if a repeatable or resettable
-    /// clock ever exists, and it costs one comparison. The depth bound is the
-    /// live protection, since saturation alone still permits a chain as deep as
-    /// the clock table.
-    ///
-    /// Either cut is reported in the feed rather than dropping effects
-    /// silently.
     pub(crate) fn apply_bounded_clock_fill(
         &mut self,
         clock: &ClockState,
@@ -542,10 +522,6 @@ mod tests {
         assert!(!lifecycle_hook_requirements_met(&hook, &tags));
     }
 
-    /// Two clocks that fill each other. Saturation is the first line of
-    /// defence — a filled clock cannot advance again, so `after == before`
-    /// returns before the cascade re-enters — and this pins that, because the
-    /// depth bound alone would not stop a cycle among many distinct clocks.
     #[test]
     fn mutually_filling_clocks_do_not_recurse() {
         let mut runtime = RuntimeWorld::seeded();
@@ -568,8 +544,6 @@ mod tests {
             }],
         );
 
-        // Returning at all is the assertion: unbounded re-entry ends in a
-        // stack overflow, not a failed comparison.
         runtime.advance_clock("test:cycle-a", 1, 1001, "cycle_test");
 
         assert_eq!(runtime.clocks["test:cycle-a"].filled, 1);
@@ -580,8 +554,6 @@ mod tests {
         );
     }
 
-    /// A chain longer than the bound is cut at the bound rather than running to
-    /// whatever depth an author happened to write.
     #[test]
     fn a_clock_fill_chain_stops_at_its_depth_bound() {
         let mut runtime = RuntimeWorld::seeded();
@@ -621,7 +593,6 @@ mod tests {
         assert!(runtime.clock_fill_cascade.is_empty());
     }
 
-    /// The guard must not disturb an ordinary authored consequence.
     #[test]
     fn an_ordinary_single_fill_still_applies_its_effects() {
         let mut runtime = RuntimeWorld::seeded();

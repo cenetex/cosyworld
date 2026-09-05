@@ -925,8 +925,6 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             let returned = event
                 .target_item_name
                 .as_deref()
-                // An empty returned-item name renders as "hands you  to make
-                // room"; treat it as absent so the clause is omitted instead.
                 .filter(|item| !item.is_empty())
                 .map(|item| format!(", who hands you {item} to make room"))
                 .unwrap_or_default();
@@ -1378,9 +1376,6 @@ impl RuntimeWorld {
 
         match verb.as_str() {
             "help" => {
-                // Hand-honest help: only verbs whose exact card is currently
-                // dealt are presented as playable; everything else stays in
-                // the command reference without promising immediacy.
                 let (_, help_offers) = self.legal_action_candidates(Some(actor.id), access);
                 let mut playable_verbs = self
                     .current_action_hand_offers(actor.id, &help_offers)
@@ -3463,8 +3458,6 @@ impl RuntimeWorld {
             .filter(|item| item.location_id == location_id)
             .map(|item| self.item_view(item).name)
             .collect::<Vec<_>>();
-        // Hand-honest exits: an exit is only "travelable now" when its exact
-        // Travel offer is currently dealt; otherwise it awaits a draw.
         let (_, look_action_offers) = self.legal_action_candidates(Some(actor.id), access);
         let travelable_destinations = self
             .current_action_hand_offers(actor.id, &look_action_offers)
@@ -4236,7 +4229,6 @@ mod hand_honest_help_tests {
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Opal");
         let access = AccessContext::default();
 
-        // Reveal the cottage-to-garden route so look has an exit to mark.
         assert!(runtime.mark_route_discovered_for_edge(
             COSY_COTTAGE_LOCATION_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
@@ -4245,8 +4237,6 @@ mod hand_honest_help_tests {
             "rope_test_discovery",
         ));
 
-        // Deal a Travel card, then derive the complete set of destinations
-        // that the current hand really makes playable.
         runtime
             .draw_until_test_offer(5000, &access, |offer| {
                 offer.kind == "move" && offer.target.as_ref().is_some_and(|t| t.kind == "location")

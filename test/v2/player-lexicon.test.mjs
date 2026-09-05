@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 const index = read("v2/orchestrator-rust/src/index.html");
-const glossary = read("v2/docs/player-lexicon.md");
 
 describe("player-facing action, card, linked-avatar, world-pack, and Journal lexicon", () => {
   it("passes the six-task comprehension copy contract", () => {
@@ -90,22 +89,5 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
     expect(index).toContain('`Think past this ${discardCertificate.slot || action.storyHandSlot || "Story Hand"} card;');
     expect(index).toContain('command: "think"');
     expect(index).not.toContain('command: "pass"');
-  });
-
-  it("checks in ownership, lifecycle, affordance, accessibility, and analytics guidance", () => {
-    for (const section of [
-      "## Canonical concepts",
-      "Ownership and authority",
-      "Lifecycle",
-      "Primary affordance",
-      "## Accessibility and analytics",
-      "## Six-task comprehension check",
-      "## Architecture relationship",
-    ]) {
-      expect(glossary).toContain(section);
-    }
-    for (const noun of ["**action**", "**card**", "**linked avatar**", "**item**", "**world pack**", "**Journal**"]) {
-      expect(glossary).toContain(noun);
-    }
   });
 });

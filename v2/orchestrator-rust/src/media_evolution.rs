@@ -535,11 +535,6 @@ fn evolution_negative_constraints(subject_kind: &str) -> Vec<&'static str> {
     constraints
 }
 
-/// Compacts whitespace and trims a prompt component to the shared component
-/// budget. Every validator that consumes these components measures `len()`,
-/// which counts bytes, so the budget is enforced in bytes and the cut is taken
-/// on a character boundary: a multi-byte component can neither overflow the
-/// budget nor be sliced mid-codepoint.
 pub(super) fn bounded_component(value: &str) -> String {
     let compact = crate::compact_whitespace(value);
     let mut bounded = String::with_capacity(compact.len().min(MAX_COMPONENT_LENGTH));

@@ -1542,9 +1542,6 @@ fn immutable_asset_id(
         })
         .collect::<Vec<_>>()
         .join("\u{1f}");
-    // Preserve legacy asset IDs when recipe provenance is absent. New records
-    // append the exact recipe and LoRA binding, making two otherwise identical
-    // outputs from different style paths distinct and auditable.
     let recipe_identity = input
         .provenance
         .recipe_id

@@ -624,10 +624,6 @@ pub(super) async fn request_ai_avatar_intent(
                 prompt_version: "dialogue-resident-raw-awakening-v1",
                 prompt: resident_voice_prompt(plan, &planning_brief, &gate.requirements),
                 temperature: 0.0,
-                // Fable consumed the old 160-token allowance before reaching
-                // a clean stop. A provider "length" finish stays fail-closed,
-                // so give this exact binding room for one complete reply
-                // without raising the spend limit for every resident model.
                 max_tokens,
                 referer: "http://127.0.0.1:3102",
                 model_binding: Some(binding),
@@ -775,9 +771,6 @@ fn resident_voice_prompt(
     spine.public_room_memory = plan.public_room_memory.clone();
     spine.cast = plan.cast.clone();
     spine.recent_activity = plan.recent_activity.clone();
-    // The plan's continuity has already been filtered for the actor's control
-    // mode and pack boundary. Never revive a stale concern copied into an older
-    // context spine.
     spine.current_concern = plan
         .resident_continuity
         .current_intent
@@ -975,10 +968,6 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
     }));
     anchors.extend(plan.fresh_subject.iter().cloned());
     anchors.extend(plan.missing_need.iter().cloned());
-    // Whoever is actually in the room grounds a line as well as the room's own
-    // name does. Without this the place name is the only anchor guaranteed to be
-    // present, which made announcing it the cheapest way to pass the gate. See
-    // issue #553.
     anchors.extend(plan.cast.iter().cloned());
     anchors.extend(avatar_chat_context_spine(plan, followup).anchors(AvatarContextMode::Respond));
     let other_speaker_names = std::iter::once(plan.target_actor_name.clone())
@@ -1059,9 +1048,6 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
             turn.content.clone(),
         ]
     }));
-    // As in avatar chat: the present cast and the speaker's own goals ground a
-    // line as well as the room's name, so naming the room stops being the only
-    // guaranteed way through the gate. See issue #553.
     anchors.extend(plan.cast.iter().cloned());
     anchors.extend(plan.goals.iter().cloned());
     if plan.context_spine.is_current() {
@@ -1147,14 +1133,8 @@ fn resident_word_budget(plan: &AvatarReplyPlan) -> usize {
     }
 }
 
-/// Normalizes one durable note into a thought fragment: whitespace collapsed and the
-/// authored terminal period dropped, so the caller owns the sentence punctuation.
 fn continuity_thought(value: &str) -> String {
     let text = crate::compact_whitespace(value);
-    // Continuity artifacts written before action intents became prompt-safe may still
-    // contain the old machine projection, e.g. `propose pick_up; item 11453577331`.
-    // Collapse only that exact generated shape so restored state cannot reintroduce an
-    // entity id after the code path that created it has been fixed.
     let text = prompt_safe_legacy_action_intent(&text).unwrap_or(text);
     text.trim().trim_end_matches('.').trim().to_string()
 }
@@ -1178,12 +1158,6 @@ fn prompt_safe_legacy_action_intent(value: &str) -> Option<String> {
     })
 }
 
-/// Renders durable notes as first-person thought instead of a scored bullet list.
-///
-/// The lead-in ends with a colon so any authored note phrasing stays grammatical, and
-/// the stored confidence and source sequence never reach the prompt. Those fields still
-/// exist and still rank which notes survive the `take` window; they are simply telemetry
-/// about the mind rather than something the mind would ever think to itself.
 fn continuity_fragments(lead: &str, notes: &[ResidentContinuityNote]) -> Vec<String> {
     notes
         .iter()
@@ -1194,15 +1168,6 @@ fn continuity_fragments(lead: &str, notes: &[ResidentContinuityNote]) -> Vec<Str
         .collect()
 }
 
-/// Renders durable resident state as interior monologue rather than a status report.
-///
-/// The voice model is being handed its own mind, so it has to read as thought. A labelled
-/// dump ("beliefs:", "memory atoms:", "last observed event seq: 4751") reads as a record
-/// about a third party, and a model given a report about a character writes *about* that
-/// character instead of speaking as them.
-///
-/// Ordering is a pure function of persisted state — `BTreeMap` iteration for relationships
-/// and stable `Vec` order elsewhere — so this stays replay-identical.
 pub(super) fn format_resident_continuity_for(
     continuity: &ResidentContinuityState,
     relationship_actor_id: Option<u64>,
@@ -1340,9 +1305,6 @@ mod publication_tests {
         assert!(rendered.contains("i still owe: an answer to the Wayside Supplicant."));
         assert!(rendered.contains("i believe: the sealed doors in Jerusalem are watched."));
         assert!(rendered.contains("i remember: a limestone chip left at Quiet Rise."));
-        // Confidence, salience and source sequence still rank which notes survive the
-        // window, but they are facts about the mind rather than thoughts inside it. A
-        // model handed its own scored dossier writes about the character, not as them.
         for leak in [
             "confidence",
             "salience",
@@ -1403,8 +1365,6 @@ mod publication_tests {
 
     #[test]
     fn an_authored_persona_keeps_its_structural_contract_through_the_register_change() {
-        // Oak answers as a bickering chorus and the voice prompt is the only place that
-        // contract lives, so rewriting the register must not quietly drop a voice.
         let (_, mut reply) = seeded_plans();
         reply.speaker_actor_id = 1005;
         reply.economy_note = "no debts".to_string();
@@ -1488,12 +1448,6 @@ mod publication_tests {
         }
     }
 
-    /// Issue #553: the anchor gate rejected any line without a deterministic
-    /// anchor, and the room name was the only anchor guaranteed to be present.
-    /// The cheapest way for a model to pass was therefore to front-load the
-    /// place name, which it did on nearly every line ("Mossbell Inn, I've
-    /// arrived—"). Whoever is actually in the room grounds a line just as well,
-    /// so the cast now counts and naming the room stops being the cheap default.
     #[test]
     fn a_line_grounded_on_the_present_cast_passes_without_naming_the_room() {
         let (chat, _) = seeded_plans();
@@ -1510,8 +1464,6 @@ mod publication_tests {
             context.anchors
         );
 
-        // A line that speaks to the person in front of it and never announces
-        // where it is standing.
         let text = format!("{companion}, your hands are cold. Come sit nearer the kettle.");
         assert!(
             !text.contains(&chat.location_name),
@@ -1539,11 +1491,6 @@ mod publication_tests {
         }
     }
 
-    /// The residual #553 case after present-cast grounding shipped in #620:
-    /// pathway discovery is visible at both ends, so its narration enters the
-    /// current room's activity and anchor set while naming a different place.
-    /// The other place remains discussable, but cannot masquerade as the
-    /// speaker's location by opening a line like an arrival signpost.
     #[test]
     fn adjacent_pathway_place_is_context_not_an_arrival_signpost() {
         let mut runtime = RuntimeWorld::seeded();

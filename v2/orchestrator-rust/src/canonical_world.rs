@@ -95,11 +95,6 @@ pub(super) struct StoredCommandResponse {
     pub(super) response_json: String,
 }
 
-/// The durable `canonical_command_receipts` table is the source of truth for
-/// idempotent retries. This cache only spares a SQLite read on the retries
-/// clients actually make, so it is bounded by both entry count and retained
-/// response bytes; a stored response carries a full state projection and runs
-/// to hundreds of kilobytes.
 pub(super) const COMMAND_RECEIPT_CACHE_MAX_ENTRIES: usize = 128;
 pub(super) const COMMAND_RECEIPT_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
@@ -111,8 +106,6 @@ pub(super) struct CommandReceiptCache {
 }
 
 impl CommandReceiptCache {
-    /// Rebuild the cache from a legacy snapshot that still persisted receipts.
-    /// Newer snapshots omit them, and a miss falls through to the durable table.
     pub(super) fn from_persisted(persisted: BTreeMap<String, StoredCommandResponse>) -> Self {
         let mut cache = Self::default();
         for (key, stored) in persisted {
@@ -152,9 +145,6 @@ impl CommandReceiptCache {
         self.retained_bytes = 0;
     }
 
-    /// Drop the newest-first tail until both bounds hold. The most recently
-    /// inserted receipt is always kept, so a single oversized response still
-    /// answers its own immediate retry.
     fn evict_to_capacity(&mut self) {
         while self.entries.len() > 1
             && (self.entries.len() > COMMAND_RECEIPT_CACHE_MAX_ENTRIES
@@ -246,7 +236,6 @@ pub(super) fn command_request_hash(
     format!("sha256:{:x}", digest.finalize())
 }
 
-// --- moved from main.rs: canonical identity/version RuntimeWorld methods ---
 impl crate::RuntimeWorld {
     pub(crate) fn ensure_canonical_identities(&mut self, mint_seed: u64) {
         let generated_location_refs = self
@@ -545,7 +534,6 @@ mod tests {
         assert!(cache.retained_bytes() <= COMMAND_RECEIPT_CACHE_MAX_BYTES);
         assert!(cache.len() < 8, "byte bound never evicted: {}", cache.len());
 
-        // A response larger than the whole budget still answers its own retry.
         cache.insert(
             "world://test\u{0}intent-huge".to_string(),
             stored(99, "y".repeat(COMMAND_RECEIPT_CACHE_MAX_BYTES * 2)),

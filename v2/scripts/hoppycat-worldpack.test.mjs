@@ -31,9 +31,6 @@ function readJsonFrom(root, fileName) {
 }
 
 test("Hoppycat accepts replay from every deployed predecessor", () => {
-  // The illustrated roster extension adds new actor identities and local art
-  // without changing existing resource identities, topology, rules, or the
-  // meaning of persisted gameplay state.
   const world = readJsonFrom(worldRoot, "world.json");
   const registry = readJsonFrom(compiledRoot, "registry.json");
   const authoredHashes = world.persistence_compatibility

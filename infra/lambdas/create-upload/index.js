@@ -1,7 +1,3 @@
-// Create Upload Lambda (AWS SDK v3)
-// - Initializes single or multipart upload
-// - Writes session metadata to DynamoDB
-// - Returns presigned URL(s) for client-side upload
 
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand, CreateMultipartUploadCommand } = require('@aws-sdk/client-s3');
@@ -12,9 +8,9 @@ const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-e
 const ddb = new DynamoDBClient({ region });
 const s3 = new S3Client({ region });
 
-const SINGLE_MAX = +process.env.SINGLE_MAX_BYTES || 26214400; // 25 MiB
-const PART_SIZE = +process.env.PART_SIZE || 5242880; // 5 MiB minimum
-const URL_EXPIRY = +process.env.URL_EXPIRY_SECONDS || 300; // 5 mins
+const SINGLE_MAX = +process.env.SINGLE_MAX_BYTES || 26214400;
+const PART_SIZE = +process.env.PART_SIZE || 5242880;
+const URL_EXPIRY = +process.env.URL_EXPIRY_SECONDS || 300;
 
 exports.handler = async (event) => {
   try {
@@ -27,7 +23,7 @@ exports.handler = async (event) => {
     const date = new Date().toISOString().slice(0, 10);
     const ext = (body.fileExtension || 'mp4').toString().replace(/[^a-z0-9]/gi, '') || 'mp4';
     const key = `uploads/${date}/${id}.${ext}`;
-    const ttl = Math.floor(Date.now() / 1000) + 3600; // 1 hour default TTL
+    const ttl = Math.floor(Date.now() / 1000) + 3600;
 
     if (size <= SINGLE_MAX) {
       const putUrl = await getSignedUrl(
@@ -56,7 +52,6 @@ exports.handler = async (event) => {
       return json(200, { uploadSessionId: id, uploadType: 'single', key, putUrl, expiresIn: URL_EXPIRY });
     }
 
-    // Multipart
     const totalParts = Math.ceil(size / PART_SIZE);
     const mp = await s3.send(
       new CreateMultipartUploadCommand({ Bucket: process.env.BUCKET, Key: key, ContentType: ct })

@@ -293,11 +293,6 @@ impl AiReadiness {
         now_unix: u64,
     ) {
         match status {
-            // An exact OpenRouter route can surface authorization failures from
-            // its downstream provider even while the OpenRouter key itself is
-            // valid. Keep those failures scoped to the endpoint and model. The
-            // authenticated account probe remains the sole authority that can
-            // open the account-wide unauthorized circuit.
             401 => self.record_route_failure(
                 endpoint,
                 requested_model_id,
@@ -310,15 +305,9 @@ impl AiReadiness {
             402 => {
                 self.record_account_failure(AccountReadiness::CreditsExhausted, status, now_unix)
             }
-            // A 400 is request-specific: one malformed prompt or unsupported
-            // option must not poison the shared endpoint/model route for every
-            // later request in this process.
             400 => {
                 self.write_state().checked_at_unix = Some(now_unix);
             }
-            // Models can be temporarily withdrawn or provider routing can
-            // briefly return 404. Re-probe after a bounded cooldown instead of
-            // requiring a process restart to clear the route.
             404 => self.record_route_failure(
                 endpoint,
                 requested_model_id,

@@ -54,12 +54,6 @@ function normalizeStringArray(value) {
 }
 
 function exactRouteHasZeroDataRetention(modelId, zdrIds) {
-  // OpenRouter's ZDR-filtered model catalog can advertise a base model's ZDR
-  // availability on its `:free` variant even when the exact free endpoint has
-  // none. Exact requests to both Nemotron 3 free variants returned "No
-  // endpoints found matching your data policy (Zero data retention)" on
-  // 2026-08-09. Elysium binds exact route ids, so keep the conservative exact
-  // route interpretation until the endpoint inventory exposes that distinction.
   return zdrIds.has(modelId) && !modelId.endsWith(":free");
 }
 
@@ -91,11 +85,6 @@ function bindingsFromCatalog(
     ids.add(model.id);
   }
 
-  // Batch variants are asynchronous discounted routes, not additional model
-  // identities. Elysium's Talk contract is an immediate world exchange, and
-  // the runtime intentionally has no submit-and-poll Batch API adapter. Keep
-  // already-published batch actors as dormant compatibility tombstones, but
-  // do not embody newly advertised variants as residents.
   const currentModels = catalog.data.filter(
     (model) => !model.id.endsWith(":batch"),
   );
@@ -249,9 +238,6 @@ function voidTopology(nodeCount) {
     "the Wythoff tree must remain binary",
   );
 
-  // Preserve the lateral links from the published 485-node topology epoch.
-  // Later catalog additions extend the Wythoff tree without rewiring paths
-  // players may already have discovered and journaled.
   const lateralNodeCount = Math.min(nodeCount, VOID_TOPOLOGY_EPOCH_NODE_COUNT);
   const nodesByDepth = new Map();
   for (let index = 0; index < lateralNodeCount; index += 1) {

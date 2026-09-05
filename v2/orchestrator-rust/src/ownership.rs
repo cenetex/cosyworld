@@ -341,8 +341,6 @@ pub(super) async fn load_effective_ownership_index_strict(
                 }
             );
         }
-        // Historical Box and pack receipts remain readable by moderation and
-        // reconciliation, but they are not live ownership grants.
         let _ = load_receipt_ownership_index(path)?;
     }
     Ok(ownership)

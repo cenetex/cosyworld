@@ -5,15 +5,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="$ROOT/orchestrator-rust/src/main.rs"
 CEILING_FILE="$ROOT/scripts/main-rs-line-ceiling.txt"
 
-# The file is an append-only history of reviewed ceiling changes followed by
-# exactly one bare number: the current ceiling. Read the LAST bare number, not
-# the first, and refuse an ambiguous file so a malformed merge fails loudly
-# instead of comparing against a stale value.
 ceiling="$(awk '!/^[[:space:]]*(#|$)/ { print NR": "$1 }' "$CEILING_FILE" | tail -1 | cut -d' ' -f2)"
 count="$(awk '!/^[[:space:]]*(#|$)/ { n++ } END { print n+0 }' "$CEILING_FILE")"
 if [[ "$count" -ne 1 ]]; then
   echo "Invalid main.rs line ceiling in ${CEILING_FILE}: expected exactly one bare number, found ${count}." >&2
-  echo "Keep the history as comments; only the final ceiling is a bare number." >&2
+  echo "The ceiling file must contain one bare number." >&2
   exit 2
 fi
 if [[ ! "$ceiling" =~ ^[0-9]+$ ]]; then
@@ -29,9 +25,7 @@ if [[ "$current" -gt "$ceiling" ]]; then
 
 main.rs grew from ${ceiling} to ${current} lines.
 
-ENG.md Priority #1 forbids new systems in main.rs. Extract the change through
-the documented world/, cards.rs, economy/, rpg/, ai_gateway/, persistence.rs,
-or moderation.rs seams, including tests that belong to the extracted system.
+Move the change into its owning module, including its tests.
 
 If this is a deliberate reviewed exception, raise ${CEILING_FILE} to ${current}
 in the same diff so the exception is visible.

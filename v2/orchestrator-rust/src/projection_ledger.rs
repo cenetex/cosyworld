@@ -1,20 +1,6 @@
-//! Payload structs for `ProjectionMutation` variants reshaped from inline
-//! named fields into newtypes that own their `apply`.
-//!
-//! This is the same pattern as `projection.rs`: each payload declares the
-//! projection state it may write via `DeclaredWrites`, and the declaration is
-//! enforced by a per-mutation fixture test rather than trusted. See
-//! `docs/decisions/0008-projection-mutations-declare-their-writes.md`.
-//!
-//! The journal-encoding pin for every variant reshaped here lives in
-//! `projection::projection_write_set_tests::reshaped_variants_keep_their_journal_encoding`,
-//! alongside the pins for variants reshaped elsewhere, so that guarantee stays
-//! in one place.
-
 use super::*;
 use projection::{DeclaredWrites, ProjectionContext, StateKey};
 
-/// `ProjectionMutation::SetGiftAutoAccept`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetGiftAutoAccept {
     pub(super) policy: GiftAutoAcceptPolicy,
@@ -32,7 +18,6 @@ impl SetGiftAutoAccept {
     }
 }
 
-/// `ProjectionMutation::MarkVisitLedger`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct MarkVisitLedger {
     pub(super) category: String,
@@ -42,12 +27,6 @@ pub(super) struct MarkVisitLedger {
 }
 
 impl DeclaredWrites for MarkVisitLedger {
-    // `EVENT_LOG` and `NEXT_EVENT_SEQ` because a mark appends a `ledger.marked`
-    // event. `ACTOR_RULES_FACETS` is not touched directly; it appears because
-    // `snapshot_actor_rules_facets` re-stamps every active facet's
-    // `last_saved_at_revision` from `next_event_seq` on every snapshot, so any
-    // handler that advances `next_event_seq` perturbs it too. Same surprise the
-    // ADR documents for `SetItemEquipped`.
     const WRITES: &'static [StateKey] = &[
         StateKey::LEDGER_MARKS,
         StateKey::RPG_CLAIMS,
@@ -73,16 +52,12 @@ impl MarkVisitLedger {
     }
 }
 
-/// `ProjectionMutation::StartTreasureObjective`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct StartTreasureObjective {
     pub(super) start: TreasureObjectiveStart,
 }
 
 impl DeclaredWrites for StartTreasureObjective {
-    // `ACTOR_RULES_FACETS` is the same `next_event_seq`-revision surprise as
-    // `MarkVisitLedger`: starting an objective appends a
-    // `treasure_objective.started` event.
     const WRITES: &'static [StateKey] = &[
         StateKey::TREASURE_OBJECTIVES,
         StateKey::ACTOR_RULES_FACETS,
@@ -101,16 +76,7 @@ impl StartTreasureObjective {
     }
 }
 
-/// `ProjectionMutation::SetRouteLifecycle`
-///
-/// The payload, `RouteLifecycleMutation`, is defined in `topology.rs` next to
-/// the route model it transitions, and predates this reshape. Its
-/// `DeclaredWrites` and `apply` live here instead, alongside the rest of this
-/// batch, rather than in `topology.rs` or `projection.rs`.
 impl DeclaredWrites for RouteLifecycleMutation {
-    // `ACTOR_RULES_FACETS` is the same `next_event_seq`-revision surprise as
-    // `MarkVisitLedger`: a lifecycle change that actually transitions the
-    // route appends a `route.<state>` event.
     const WRITES: &'static [StateKey] = &[
         StateKey::ROUTES,
         StateKey::WORLD_EXITS,
@@ -142,21 +108,6 @@ mod projection_ledger_write_set_tests {
     use projection::RecordProvenance;
     use serde_json::Value;
 
-    /// The durable projection keys touched by applying `mutation` to `world`,
-    /// plus the post-mutation snapshot they were read from.
-    ///
-    /// A local copy of `projection::projection_write_set_tests::changed_keys`;
-    /// that helper is private to its own test module, and duplicating a dozen
-    /// lines here is cheaper than widening its visibility and risking a
-    /// collision with the other agents reshaping adjacent variants in
-    /// `projection.rs`. This copy diverges in one deliberate way: it also
-    /// returns `after` so `assert_within_declared_writes` can validate field
-    /// names against it instead of a freshly seeded world. Some snapshot
-    /// fields (e.g. `treasure_objectives`) carry
-    /// `skip_serializing_if = "BTreeMap::is_empty"`, so a field that is real
-    /// but empty on a fresh world silently vanishes from its JSON and reads
-    /// as "not a RuntimeSnapshot field". `after` is guaranteed non-empty for
-    /// any key the fixture actually wrote.
     fn changed_keys(
         world: &mut RuntimeWorld,
         apply: impl FnOnce(&mut RuntimeWorld),
@@ -186,17 +137,11 @@ mod projection_ledger_write_set_tests {
         declared: &[StateKey],
         label: &str,
     ) {
-        // A mutation that changed nothing satisfies containment trivially and
-        // would let a wrong declaration pass. Every fixture must exercise the
-        // handler for real.
         assert!(
             !changed.is_empty(),
             "{label}: fixture produced no durable change, so its write set is untested",
         );
         let allowed: Vec<&str> = declared.iter().map(|key| key.snapshot_key()).collect();
-        // Every declared key must name a real snapshot field, or the
-        // declaration is checking nothing. Checked against `after` rather
-        // than a fresh seeded snapshot; see `changed_keys`.
         for key in &allowed {
             assert!(
                 after.get(key).is_some(),

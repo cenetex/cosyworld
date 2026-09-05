@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import { journeyStops, storyRules, worldpackRuns } from './story-data';
 
 const Picture = ({ src, alt, caption }: { src: string; alt: string; caption: string }) => (

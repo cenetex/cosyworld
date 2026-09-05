@@ -1249,9 +1249,6 @@ fn assert_both_lantern_clock_fills_are_once_only() {
             .get(case.expected_tag_id)
             .is_some_and(|tag| tag.active));
 
-        // Winning pays a road. The light clock opens the way onward from the
-        // tower; the darkness clock must not, so failure cannot hand out the
-        // reward that only success earns.
         let road_is_open = !runtime.authored_route_locked_for_edge(804, 32);
         assert_eq!(
             road_is_open,

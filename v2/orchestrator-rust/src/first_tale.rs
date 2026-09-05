@@ -171,8 +171,6 @@ impl RuntimeWorld {
             self.rpg_claims.insert(claim_key);
         }
         let mut projected = vec![trace];
-        // Truthful actor Notice does not touch growth; completing the tale is
-        // the authored reward that funds its relationship continuation.
         if let Some(settlement) = self.bank_visit_ledger(action.actor_id, "first_tale") {
             projected.push(settlement);
         }
@@ -223,13 +221,6 @@ impl RuntimeWorld {
         })
     }
 
-    /// In the `contribute` phase, a latecomer whose shared question is already
-    /// answered still owes one truthful Listen. When the single-shot Search
-    /// reveal is spent, the only remaining hand card that resolves to that
-    /// Listen check is the generic Check, which the offer pipeline normally
-    /// discards. Keeping it only here (when Search is already exhausted)
-    /// preserves the existing latecomer flow while guaranteeing an advancing
-    /// card.
     pub(super) fn first_tale_latecomer_needs_listen_fallback(&self, actor_id: u64) -> bool {
         if self.first_tale_stage(actor_id) != Some(FirstTaleStage::Contribute) {
             return false;
@@ -303,12 +294,6 @@ impl RuntimeWorld {
                         && offer.target.as_ref().and_then(|target| target.id)
                             == Some(first_tale.destination_location_id)
                         && (offer.intention == "inspect"
-                            // A latecomer still owes one truthful Listen. After
-                            // the single-shot Search reveal is spent, the generic
-                            // Check (kind `check`, no project) resolves to a
-                            // Listen check in this room and can complete the
-                            // tale, so it must stay selectable as the advancing
-                            // card instead of leaving the hand without a pin.
                             || (offer.kind == "check" && offer.project.is_none())))
             }
             FirstTaleStage::ContinuationTravel => first_tale
@@ -835,7 +820,6 @@ mod tests {
             clock.filled = clock.segments;
         }
 
-        // Discover every seed exit. Hidden items still keep Search useful.
         for exit in active_content()
             .exits
             .iter()

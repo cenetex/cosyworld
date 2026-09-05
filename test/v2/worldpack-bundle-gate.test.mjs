@@ -90,8 +90,6 @@ describe("worldpack deploy gate evaluation", () => {
   });
 
   it("blocks a rollback across a migration boundary", () => {
-    // The older bundle was authored before the live hash existed, so it
-    // cannot declare it — the gate stops the rollback that would crash-loop.
     const decision = evaluateWorldpackGate({
       candidateHash: OLDER_HASH,
       candidateReplayCompatible: [],
@@ -220,7 +218,7 @@ describe("worldpack deploy gate CLI", () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain(LIVE_HASH);
     expect(result.output).toContain(CANDIDATE_HASH);
-    expect(result.output).toContain("v2/docs/worldpacks.md");
+    expect(result.output).toContain("v2/worlds/official/world.json persistence_compatibility");
     expect(result.output).toContain("fresh-seed");
   });
 
@@ -265,8 +263,6 @@ describe("worldpack deploy gate CLI", () => {
   });
 
   it("loads the committed official registry against its own declared history", () => {
-    // The compiled bundle must always be able to state its own identity;
-    // this catches a registry shape drift that would break the deploy gate.
     const result = spawnSync(
       process.execPath,
       [
@@ -299,8 +295,6 @@ describe("worldpack deploy gate CLI", () => {
       candidateReplayCompatible: candidate.replayCompatible,
       liveHash: LANTERN_PERSISTED_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
-    // The deployed world is persisted at the outgoing active hash, so the
-    // event-autonomy migration must not strand it.
     expect(evaluateWorldpackGate({
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,

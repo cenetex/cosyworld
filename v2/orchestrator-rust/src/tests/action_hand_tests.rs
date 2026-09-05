@@ -103,8 +103,6 @@ fn live_command_request(actor_id: u64, actor_session: &str, offer_id: String) ->
     CommandRequest {
         actor_id,
         actor_session: Some(actor_session.to_string()),
-        // The command text is deliberately inert: the current certified card
-        // identity, not reparsed prose, selects the authoritative action.
         command: "card identity selects this action".to_string(),
         offer_id: Some(offer_id),
         wallet_session: None,
@@ -325,9 +323,6 @@ async fn live_story_button_hand_lifecycle() {
             item_id: STORY_BUTTON_ITEM_ID
         }]
     ));
-    // Keep the golden deterministic even when Think rotates before the search:
-    // choose a fixture seed whose bounded projected Think sequence reveals the
-    // one available Story Button candidate. The hand itself is never mutated.
     let story_candidate = candidates[0].clone();
     let search_rotation_bound = usize::from(
         runtime
@@ -343,9 +338,6 @@ async fn live_story_button_hand_lifecycle() {
     runtime.next_seed = (0u64..100_000)
         .find(|seed| {
             let mut next = *seed;
-            // Each certified Think commits one player card and therefore
-            // advances `next_seed` exactly once. The rotation helper can make
-            // at most one Think per projected card before Search is dealt.
             (0..search_rotation_bound).all(|_| {
                 next = next
                     .wrapping_mul(6364136223846793005)
@@ -518,9 +510,6 @@ async fn live_story_button_hand_lifecycle() {
             }));
     }
 
-    // The exchange occupies the cottage floor. Scout the adjacent route with
-    // its current card, then use the newly dealt exact Move to an empty floor
-    // before the exact Drop card.
     let scout_offer = rotate_to_dealt_offer(
         &state,
         actor_id,
@@ -817,9 +806,6 @@ async fn assert_missing_and_wrong_fields_reject_without_mutation(
 async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_mutation() {
     let actor_id = 5000;
 
-    // A current offer is still unusable when it is not one of the Story Hand cards
-    // dealt to the actor.  Use three exact pickup choices so one is certainly
-    // outside the initial hand.
     let mut undealt_runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut undealt_runtime,
@@ -876,8 +862,6 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     )
     .await;
 
-    // Item Use and feature Use have different exact target encodings.  Cover
-    // both so a client cannot omit or substitute either side of their binding.
     let mut use_runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut use_runtime,
@@ -960,7 +944,6 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     )
     .await;
 
-    // Cast binds both its prepared spell card and the exact actor target.
     let mut cast_runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut cast_runtime,
@@ -1005,8 +988,6 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     )
     .await;
 
-    // Gift and Trade carry distinct exact tuples; all tuple members must be
-    // supplied from the dealt certificate.
     let mut transfer_runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut transfer_runtime,
@@ -1062,8 +1043,6 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
         .expect("the exact Give card is dealt");
     let gift_state = test_app_state(gift_runtime, None);
     let (gift_session, _) = issue_actor_session(&gift_state, actor_id);
-    // The counterparty needs an active direct session for the same visibility
-    // context used by the endpoint's authoritative certificate validation.
     let (gift_target_session, _) = issue_actor_session(&gift_state, 5001);
     assert_eq!(
         actor_for_session(&gift_state.actor_sessions, &gift_target_session),
@@ -1116,8 +1095,6 @@ async fn action_submit_rejects_malicious_certified_offer_payload_matrix_without_
     )
     .await;
 
-    // Contribution cards bind the project tuple even though it lives in the
-    // payload rather than ActionTargetView.
     let mut contribution_runtime = RuntimeWorld::seeded();
     create_test_human(
         &mut contribution_runtime,
@@ -1528,9 +1505,6 @@ async fn submit_offer_cannot_cross_a_certified_pass_hand_boundary() {
         }),
     );
 
-    // Queue Pass first, then the certified card behind the same mutex. Before
-    // submit_action_offer took this mutex the second task completed here,
-    // proving validation and mutation were separated by a hand-changing pass.
     let hand_guard = state.canonical_command_lock.lock().await;
     let pass_state = state.clone();
     let pass_task = tokio::spawn(async move {
@@ -1801,9 +1775,6 @@ async fn repeated_certified_thinks_rotate_and_roll_without_farming() {
         "Pass Boundary Witness",
     );
     complete_guided_story_for_test(&mut runtime, actor_id);
-    // Start immediately before a pulse. Two certified passes cross the
-    // boundary once, so the regression covers harmless simulation metadata
-    // advancing without turning Think into a way to farm progress or stakes.
     runtime.world.tick = WORLD_PULSE_INTERVAL_TICKS - 1;
     let event_store_path = std::env::temp_dir().join(format!(
         "cosyworld-repeated-pass-replay-{}-{}.sqlite",
@@ -2017,8 +1988,6 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         );
     }
 
-    // Select a real dealt Search without adding a third Pass to this specific
-    // metric window. The submitted certificate remains fully authoritative.
     let search_offer = {
         let mut runtime = state.inner.lock().await;
         let (scene_key, _) = runtime.story_hand_scene_for_actor(actor_id);
@@ -2984,9 +2953,6 @@ fn hand_generation_survives_projection_churn_snapshot_migration_and_replay() {
             ..EventView::default()
         });
     }
-    // The direct projection fixture bypasses normal event sequencing; keep
-    // the runtime counter coherent so snapshot restoration sees the same
-    // state revision as the live world.
     runtime.world.next_event_seq = 100_513;
     assert_eq!(runtime.event_log.len(), 512);
     assert!(runtime

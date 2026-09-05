@@ -2246,9 +2246,6 @@
     .hand-rail {
       display: contents;
     }
-    /* Art that has not been generated yet. The image itself already falls back
-       to the authored placeholder; this marks it as pending rather than final
-       so it never reads as finished art. See issue #476. */
     img[data-art-missing="true"] {
       opacity: 0.72;
       filter: saturate(0.7);
@@ -2286,9 +2283,6 @@
 
     .turn-banner {
       grid-column: 1 / -1;
-      /* The narrow layout turns .prompt into a flex row; grid-column is
-         meaningless there, so the banner must also claim a full flex line or
-         it squeezes in beside the combat cards (issue #490). */
       flex: 1 1 100%;
       display: flex;
       align-items: stretch;
@@ -2370,7 +2364,6 @@
       grid-column: 1 / -1;
     }
     .prompt[hidden] { display: none; }
-    /* Thinking about a replacement belongs to the opened noun card. */
     #shuffle { display: none !important; }
     .cmd {
       --cmd-accent: var(--card-control);
@@ -3893,7 +3886,6 @@
       }
     }
 
-    /* Private house visual refresh */
     :root {
       --bg: #11100d;
       --terminal: #191611;
@@ -4159,7 +4151,6 @@
       .terminal.panel-open .log { padding: 10px; }
     }
 
-    /* The room is chat-first. Everything explanatory lives in one quiet Journal. */
     .terminal {
       grid-template-rows: auto minmax(0, 1fr);
     }
@@ -4772,8 +4763,6 @@
       }
       .journal-page-nav { padding-inline: 14px; }
     }
-    /* The Journal is an image gallery. Legacy memory/activity nodes remain
-       available to internal renderers but never participate in its layout. */
     .journal-stream {
       display: grid;
       place-items: center;
@@ -4991,7 +4980,6 @@
       .journal-page { min-height: 320px; }
     }
 
-    /* Issue #387: production-safe recovery of the local UI polish. */
     body.large-text {
       font-size: 17px;
     }
@@ -5800,8 +5788,6 @@
         transition: none;
       }
     }
-    /* Play, turn-spending discard, and combat share one compact turn rope.
-       After a turn resolves, its latest beat stays available as a quiet log handle. */
     .turn-rope {
       --rope-rgb: 222, 194, 141;
       --rope-accent: var(--amber);
@@ -6009,8 +5995,6 @@
       .turn-log { max-height: min(22dvh, 160px); }
     }
 
-    /* Chat is the game table. Supporting controls use square, illustrated
-       card geometry and stay visually quiet beside the transcript. */
     .location-pill,
     .location-pill img,
     .room-hero,
@@ -6103,10 +6087,6 @@
       justify-content: flex-end;
       margin: 6px 8px 0;
     }
-    /* The acting player's turn status remains available to assistive
-       technology without becoming another card. A waiting player needs the
-       reason for the locked hand in sight, so that state becomes one compact
-       full-width notice. */
     .turn-status {
       position: absolute !important;
       width: 1px !important;
@@ -6751,18 +6731,6 @@
       .minimal-menu-slot { min-height: 82px; }
     }
 
-    /*
-     * Consolidated narrow-viewport Story Hand card layout. Placed last so it
-     * is authoritative over the earlier, partially-conflicting 561-900px
-     * rules above: several older `@media (max-width: 900px)` blocks size
-     * `.cmd` as a horizontal list row (small fixed thumb beside text), while
-     * the `.cmd.has-copy .thumb` selector's extra `.has-copy` class outranks
-     * the unconditional full-bleed rule's specificity, so a viewport between
-     * 561px and 900px got a small boxed thumbnail floating in an otherwise
-     * empty stacked card — full-bleed only actually worked at <=560px. This
-     * block unifies the whole <=900px range on one full-bleed, swipeable,
-     * shorter card design instead of maintaining two half-finished ones.
-     */
     @media (max-width: 900px) {
       .prompt.hand-expanded .hand-rail {
         display: flex;
@@ -6777,8 +6745,6 @@
         cursor: grab;
       }
       .prompt.hand-expanded .hand-rail::-webkit-scrollbar { display: none; }
-      /* Added by pointer-drag swipe (script below) while a mouse/pen drag is
-         in progress, so scroll-snap does not fight the live drag. */
       .prompt.hand-expanded .hand-rail.dragging {
         cursor: grabbing;
         scroll-snap-type: none;
@@ -6850,9 +6816,6 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      /* The full-bleed fix: `.has-copy` on the same selector as the older
-         rules gives this the specificity to win regardless of source-order
-         tie-breaks against the blocks above. */
       .prompt.hand-expanded .cmd.has-copy .thumb,
       .prompt.hand-expanded .cmd.has-copy .thumb.item,
       .prompt.hand-expanded .cmd.has-copy .thumb.location,
@@ -7275,10 +7238,6 @@
     sessionStorage.removeItem("cosyworld.openrouterLabel");
     sessionStorage.removeItem("cosyworld.openrouterOauthReturn");
 
-    // Stored avatar credentials are the only binding between a browser and
-    // its avatar: ordinary play has no account sign-in to fall back on. The
-    // gate version records which creation introduction a player saw, so it
-    // must heal forward across client updates instead of deleting identity.
     function storedAvatarCredentials() {
       const storedActorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
       const storedActorSession = localStorage.getItem("cosyworld.actorSession") || "";
@@ -7322,7 +7281,6 @@
           sessionStorage.removeItem(defeatTransitionStorageKey);
         }
       } catch {
-        // The transition remains visible for this page even when storage is unavailable.
       }
     }
 
@@ -7965,7 +7923,6 @@
       try {
         await post("/dev/reset", {});
       } catch {
-        // The reset endpoint is dev-gated; clearing the local avatar is still useful.
       }
       bootParams.delete("reset");
       const qs = bootParams.toString();
@@ -8245,7 +8202,6 @@
         pushEvents(result.events || []);
         if (!result.ok && result.status === 403) stopPresenceHeartbeat();
       } catch {
-        // EventSource retries cover live updates; presence heartbeat can wait for the next tick.
       }
     }
 
@@ -8295,7 +8251,6 @@
         focus: "illustrate",
         detail: "one visual interpretation",
         modalTitle: "illustrate with",
-        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
         modalSummary: (targetName) => `${targetName}'s exact image model will interpret the current world scene. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes one moderated visual interpretation of this place`,
         busyLabel: "illustrating",
@@ -8318,7 +8273,6 @@
         focus: "resonance",
         detail: "three resonant earlier messages",
         modalTitle: "find resonance with",
-        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
         modalSummary: (targetName) => `${targetName}'s exact embedding model will compare the latest visible room message with up to eight earlier room messages. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes the three earlier room messages that resonate most with the latest line`,
         busyLabel: "finding resonance",
@@ -8341,7 +8295,6 @@
         focus: "echoes",
         detail: "three ranked earlier messages",
         modalTitle: "rank echoes with",
-        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
         modalSummary: (targetName) => `${targetName}'s exact rerank model will order up to eight earlier visible room messages against the latest visible room message. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes the three earlier room messages ranked closest to the latest line`,
         busyLabel: "ranking echoes",
@@ -8364,7 +8317,6 @@
         focus: "speak",
         detail: "one server-authored spoken line",
         modalTitle: "speak with",
-        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
         modalSummary: (targetName) => `${targetName}'s exact speech model and voice will speak one short line derived only from frozen target and location details. There is no typed prompt or player-authored line.`,
         effect: (targetName) => `${targetName} publishes one server-authored spoken line as audio`,
         busyLabel: "speaking",
@@ -8387,7 +8339,6 @@
         focus: "echo",
         detail: "one delayed in-world echo",
         modalTitle: "leave an echo with",
-        // writing-register: allow-long-modal-summary -- required retention and input-boundary disclosure.
         modalSummary: (targetName) => `${targetName}'s exact batch route will receive frozen, server-authored world context. The result may return later, OpenRouter retains batch inputs and results for 30 days, and there is no typed prompt or player-authored line.`,
         effect: (targetName) => `${targetName} may publish one delayed echo tied to this place and moment`,
         busyLabel: "waiting for an echo",
@@ -8656,9 +8607,6 @@
             detail: "optional rules for this campaign",
             command: "choose campaign class",
             focusKey: "choose-class",
-            // Class selection is validated by its own server endpoint rather
-            // than represented by a ranked action offer. Keep this one
-            // progression card visible while the choice is pending.
             standaloneHandProjection: true,
             card: cardForActor(actorId),
             shape: "avatar",
@@ -8711,8 +8659,6 @@
       const offerFor = (kind) => offersForCurrentHand(kind)[0] || null;
       const exactOfferVariants = (kind) => {
         const offers = offersForCurrentHand(kind);
-        // A dealt same-kind pair is two certificates, not a client-side
-        // chooser. Without that exact pair, retain the legacy one-card UX.
         return handOfferIdsForKind(kind).size > 1 ? offers : [offers[0] || null];
       };
       const offerHand = (...candidateOffers) => {
@@ -8746,8 +8692,6 @@
           .filter(Boolean))];
         const providerProjection = offerHand(kinds.map(offerFor));
         action.offerKinds = [...new Set(kinds)];
-        // Exact actions remain certificates behind noun cards. They are not
-        // themselves rendered as cards.
         action.offerIds = exactOfferIds.length
           ? exactOfferIds
           : ((view.action_hand?.entries || []).length ? [] : providerProjection.offerIds);
@@ -8940,13 +8884,7 @@
         chatAction.run = () => action("/actions/create-bond", chatAction.selectedPayload());
         return chatAction;
       };
-      // Initiative controls whether a card can be played or discarded. It
-      // must not replace the player's hand: cards remain available to inspect
-      // while another participant has the floor.
 
-      // Pass, Need time, and Nudge are timing controls, not ranked actions.
-      // They render in the turn banner so the card row stays reserved for
-      // legal current-activation choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
       const discoveryKinds = new Set([
         "focused_notice",
@@ -9348,10 +9286,6 @@
           offer.kind === "search"
             && (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))
         ));
-        // A Search card exists only where the server dealt a certificate for
-        // it. A bare room affordance never becomes a card: the server refuses
-        // an offerless submission, so synthesizing one only hands the player
-        // something unplayable.
         if (searchOffers.length) {
         const searchCandidates = searchOffers.map((offer, index) => {
           const target = String(offer?.target?.label || locationName).trim() || locationName;
@@ -9447,8 +9381,6 @@
           const exchangeItem = direct ? null : exchangeCardFor(item);
           return { item, offer, direct, exchangeItem };
         }).filter((candidate) => candidate && (candidate.direct || candidate.exchangeItem));
-        // Distinct dealt pickup offers remain distinct cards. A picker is only
-        // valid when one dealt offer itself authorizes multiple choices.
         const pickupGroups = projectedPickupOfferIds.size > 1
           ? takeCandidates.map((candidate) => [candidate])
           : [takeCandidates];
@@ -9696,9 +9628,6 @@
           const groupedExits = routeGroup.exits;
           const firstExit = groupedExits[0];
           const onePath = groupedExits.length === 1;
-          // A journey exists at its origin before the pathway progress stage is
-          // active. Travel cards still represent the journey endpoint there,
-          // rather than the first generated waypoint.
           const firstPathwayDirection = pathwayDirectionForExit(firstExit, journey);
           const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
@@ -10395,15 +10324,9 @@
 
     function turnStatusCopy(turn = state?.turn, combat = state?.combat) {
       if (!turn?.enabled) return "";
-      // Ordinary-room initiative is only a server-side resident reaction
-      // order. It is already represented by the shared room log and must not
-      // appear as a second player-facing lock or status banner.
       if (turn.scene_kind === "room") return "";
       const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
       const sceneKind = String(turn.scene_kind || "");
-      // scene-turn is the ordered-combat protocol identity even when the
-      // adjacent combat projection has not arrived yet, so it has to keep
-      // reading as combat rather than falling through to the generic scene.
       const combatCopy = sceneKind === "combat"
         || Boolean(combat)
         || (!sceneKind && turn.policy === "scene-turn");
@@ -10421,7 +10344,6 @@
       const copy = turnStatusCopy(turn, combat);
       if (!copy) return "";
       const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
-      // Urgency carries a glyph and distinct wording, never colour alone.
       const mark = turn.is_current_actor
         ? `<span class="turn-ping-mark" aria-hidden="true">&#9654;</span>`
         : "";
@@ -10955,8 +10877,6 @@
         actorSessionHandoffChecked = false;
       }
       if (!result.ok) {
-        // Orb slots absorb their own failures: the slot state is the whole
-        // report, and the player has nothing to act on.
         if (path !== "/actions/fund-image") setError(actionFailureMessage(path, result));
       } else {
         await refresh();
@@ -11279,9 +11199,6 @@
     }
 
     function pacedChatTranscriptEvents(events) {
-      // Exact duplicate avatar lines are already collapsed when events enter
-      // the transcript. Keep distinct replies here so consecutive card plays do
-      // not erase one another just because the same avatar answered them.
       return [...(events || [])].slice(-24);
     }
 
@@ -12491,7 +12408,6 @@
           String(Math.max(0, Number(eventSeq || 0))),
         );
       } catch (_error) {
-        // Presentation remains usable when storage is unavailable.
       }
     }
 
@@ -13919,7 +13835,6 @@
         try {
           localStorage.setItem(key, "1");
         } catch (_error) {
-          // Leave the payoff available when storage cannot preserve its acknowledgement.
         }
       }
     }
@@ -14106,8 +14021,6 @@
         roomLogTickerFrame = null;
       }
       toggle.dataset.latest = value;
-      // The former scrolling Journal ticker is folded into the shared
-      // status/error surface, so the room never presents a popup notification.
       latest.hidden = true;
       latest.classList.remove("is-overflowing");
       latest.style.removeProperty("--room-log-duration");
@@ -16263,10 +16176,6 @@
           };
     }
 
-    // One formatter for every d20 the kernel resolves, so an attack and an
-    // ordinary check cannot disagree about how chance reads. Attacks say
-    // "attack ... vs AC" and let the card's result line carry the outcome;
-    // checks say "check ... vs DC" and spell the outcome out. See issue #464.
     function abilityCheckMechanics(event, options = {}) {
       const {
         kind = "check",
@@ -16515,9 +16424,6 @@
       return reasonIndex > 0 ? content.slice(0, reasonIndex) : content || "a small truth";
     }
 
-    // The server embeds why a calling was recorded. An arriving avatar is handed
-    // a starting statement it never picked, so that case must not be reported as
-    // a chosen purpose (#360).
     function callingEventReason(event) {
       const content = String(event.content || "").trim();
       const reasonIndex = content.lastIndexOf(":");
@@ -16840,8 +16746,6 @@
       communityArtClientStates.delete(key);
     }
 
-    // Players only see the Orb cost they can act on. Appearance writing,
-    // generation, review, retries, and failures stay on the server.
     function communityArtPanelHtml(card) {
       const art = card?.community_art;
       const subject = communityArtSubject(card);
@@ -17351,9 +17255,6 @@
       $("card-modal-economy").innerHTML = "";
     }
 
-    // Filling a slot has exactly two outcomes for the player: the slot shows
-    // filled, or it stays fillable. Provider errors, review pauses and retries
-    // are handled server side and are never surfaced here.
     async function fillCommunityArtOrbSlot(subjectKind, subjectId) {
       const subject = { kind: subjectKind, id: Number(subjectId) };
       const subjectKey = communityArtSubjectKey(subject);
@@ -17369,8 +17270,6 @@
         timeout: null,
       };
       communityArtClientStates.set(subjectKey, clientState);
-      // The latch is a spinner, not a deadline. If the server is slow the slot
-      // simply returns to fillable; nothing is announced.
       clientState.timeout = window.setTimeout(() => {
         if (communityArtClientStates.get(subjectKey) !== clientState) return;
         clearCommunityArtClientState(subjectKey);
@@ -17387,8 +17286,6 @@
           intent_id: `web-image:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`,
         });
       } catch {
-        // A dropped request leaves the Orb unspent, so the slot is still
-        // fillable and that is the whole story the player needs.
       }
       if (communityArtClientStates.get(subjectKey) === clientState) {
         clearCommunityArtClientState(subjectKey);
@@ -18752,8 +18649,6 @@
       return actor?.status === "knocked_out" || (actor?.status === "active" && maxHp > 0 && hp < maxHp);
     }
 
-    // A knocked-out avatar keeps a valid session, so a refusal must not send
-    // the player off to reconnect an account that is already connected.
     function avatarIsKnockedOut(view = state) {
       if (!actorId) return false;
       return (view?.actors || []).some((actor) => (
@@ -19284,10 +19179,6 @@
           action.heldStoryHandAction ? "turn in progress" : "",
         ].filter(Boolean).join(", ")
       );
-      // A journey travel card keeps the endpoint's Location art — the card is
-      // about the destination, and the arrow that used to replace the art said
-      // "direction exists" while hiding where the road leads. Direction rides
-      // a small corner badge on the art and the endpoint labels instead.
       const pathwaySide = action.pathwayDirection?.side === "back"
         || action.pathwayDirection?.side === "forward"
         ? action.pathwayDirection.side
@@ -19441,8 +19332,6 @@
         if (!result.ok) {
           setError(commandFailureMessage(result));
           if (isDefinitivePassRejection(result)) {
-            // A confirmed stale card or changed turn cannot succeed with this
-            // receipt. Keep it only for ambiguous transport/server retries.
             handPassSubmission = null;
             await refresh();
             renderCommands();
@@ -19459,8 +19348,6 @@
       }
     }
 
-    // Kept for transport/browser compatibility; the player-facing control is
-    // Think on each card in the expanded Story Hand.
     async function passHand(focused = visibleFocusedAction()) {
       return discardActionCard(focused);
     }
@@ -19897,12 +19784,6 @@
         .replaceAll(">", "&gt;");
     }
 
-    // Art that never generated used to reach the DOM as a live URL and render
-    // as the browser's broken-image icon: the `cardImage(x) || fallbackCardImage(x)`
-    // guard at each call site only catches an empty URL, not one that 404s.
-    // `error` does not bubble, but it does fire during capture, so one listener
-    // here covers every image including those built through innerHTML.
-    // See issue #476.
     document.addEventListener("error", (event) => {
       const image = event.target;
       if (!(image instanceof HTMLImageElement)) return;
@@ -20475,12 +20356,6 @@
       });
     }, { passive: true });
 
-    // Touch already swipes the hand rail natively via CSS scroll-snap. A
-    // narrow desktop window (a resized browser, no touch input) has no other
-    // way to reach it: the scrollbar is deliberately hidden for the mobile
-    // card look, and there is no click-drag affordance without this. Mouse
-    // and pen pointers get one here; touch is left to the native gesture so
-    // it is never double-handled.
     (function enableHandRailPointerSwipe() {
       const rail = $("hand-rail");
       let pointerId = null;

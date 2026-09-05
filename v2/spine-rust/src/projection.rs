@@ -1,14 +1,3 @@
-//! Projections: Rust-owned state derived from journaled mutations.
-//!
-//! Replaces the ~60-field `RuntimeWorld` struct with a registry. Each
-//! projection owns exactly four functions — `apply`, `check`, `snapshot`,
-//! `restore` — plus a schema version. Snapshot and replay iterate the
-//! registry; a new system is a new file that registers itself.
-//!
-//! Claim-key discipline lives here at registry level: a mutation carrying an
-//! already-claimed key is a silent no-op, which is what makes every mint,
-//! spend, and one-shot effect idempotent (ENG.md invariant 5).
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
@@ -31,14 +20,9 @@ pub trait Projection: Send + 'static {
     fn id(&self) -> &'static str;
     fn as_any(&self) -> &dyn std::any::Any;
     fn schema_version(&self) -> u32;
-    /// Preflight validation, run before the kernel applies. Failing here
-    /// rejects the whole commit with no state change — projections must
-    /// never contradict the kernel after it has committed.
     fn check(&self, mutation: &ProjectionMutation, ctx: MutationCtx) -> Result<(), String>;
     fn apply(&mut self, mutation: &ProjectionMutation, ctx: MutationCtx) -> Result<(), String>;
     fn snapshot(&self) -> serde_json::Value;
-    /// Restore is fail-closed on schema-version mismatch, mirroring the live
-    /// bundle-hash discipline: never silently coerce stale state.
     fn restore(&mut self, version: u32, data: serde_json::Value) -> Result<(), String>;
 }
 
@@ -58,8 +42,6 @@ pub struct RegistrySnapshot {
 #[derive(Default)]
 pub struct ProjectionRegistry {
     projections: BTreeMap<&'static str, Box<dyn Projection>>,
-    /// Every claim key ever applied. Persisted in the snapshot; a claim set
-    /// that isn't persisted re-mints on restart.
     claims: BTreeSet<String>,
 }
 
@@ -74,7 +56,6 @@ impl ProjectionRegistry {
             .and_then(|p| p.as_any().downcast_ref::<P>())
     }
 
-    /// Preflight every mutation of a commit before the kernel runs.
     pub fn check_all(
         &self,
         mutations: &[ProjectionMutation],
@@ -82,7 +63,7 @@ impl ProjectionRegistry {
     ) -> Result<(), ProjectionError> {
         for mutation in mutations {
             if self.is_claimed(mutation) {
-                continue; // idempotent no-op; nothing to validate
+                continue;
             }
             let projection = self
                 .projections
@@ -101,9 +82,6 @@ impl ProjectionRegistry {
         Ok(())
     }
 
-    /// Apply mutations after a successful kernel commit. Claimed mutations
-    /// are skipped; applied claim keys are recorded atomically with the
-    /// mutation (single-threaded registry, so this cannot race).
     pub fn apply_all(&mut self, mutations: &[ProjectionMutation], ctx: MutationCtx) {
         for mutation in mutations {
             if self.is_claimed(mutation) {
@@ -173,9 +151,6 @@ impl ProjectionRegistry {
     }
 }
 
-/// Example projection: the Orb ledger. Mints and spends are claim-keyed;
-/// spends are preflight-checked against the balance so a projection can never
-/// contradict a committed kernel action by going negative.
 #[derive(Default)]
 pub struct LedgerProjection {
     balances: BTreeMap<u64, i64>,
@@ -256,9 +231,6 @@ impl Projection for LedgerProjection {
     }
 }
 
-/// Example projection: progress clocks. Declared with a size, advanced by
-/// bounded amounts, complete exactly once. Advance on a completed or
-/// undeclared clock fails preflight — no silent coercion.
 #[derive(Default)]
 pub struct ClocksProjection {
     clocks: BTreeMap<String, ClockState>,
@@ -387,7 +359,7 @@ mod tests {
         let m = mint(7, 5, "listen:7:clock:1");
         r.check_all(std::slice::from_ref(&m), ctx()).unwrap();
         r.apply_all(std::slice::from_ref(&m), ctx());
-        r.apply_all(&[m], ctx()); // retry: silent no-op
+        r.apply_all(&[m], ctx());
         let ledger: &LedgerProjection = r.get("ledger").unwrap();
         assert_eq!(ledger.balance(7), 5);
         assert!(r.claimed("listen:7:clock:1"));

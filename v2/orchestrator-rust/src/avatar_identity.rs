@@ -132,9 +132,6 @@ pub(super) fn schedule_avatar_identity_refinement(
         };
         let mut identity =
             apply_avatar_creation_flavor(identity, character_selection.as_ref(), &initial_calling);
-        // The world grammar (or the player's accepted name) is authoritative.
-        // Model refinement may enrich the card, but must not collapse distinct
-        // residents back onto a fashionable repeated name.
         identity.name = fallback_identity.name;
         let actor_meta = ActorMeta {
             name: identity.name.clone(),
@@ -482,8 +479,6 @@ fn avatar_persona_claims_private_fiction(value: &str) -> bool {
         " wears an ",
         " has a ",
         " has an ",
-        // Repair the six pre-audit deterministic personas without rewriting
-        // unrelated historical biographies during snapshot restoration.
         " biscuit wrapped in a handkerchief ",
         " crooked picture ",
         " wipes their feet twice ",

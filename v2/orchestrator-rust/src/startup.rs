@@ -312,8 +312,6 @@ fn configured_listen_addr() -> Result<SocketAddr, std::net::AddrParseError> {
 }
 
 async fn persist_final_snapshot(state: &AppState) {
-    // Snapshot writes are coalesced during play, so force the latest runtime to
-    // disk on a graceful shutdown and keep the next journal replay inexpensive.
     let runtime = state.inner.lock().await;
     persist_runtime_now(state, &runtime);
 }

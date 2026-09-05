@@ -206,9 +206,6 @@ impl RuntimeWorld {
         }
     }
 
-    /// An active authored bond may disclose one exact held item for its
-    /// resident request, even if dialogue made the resident unavailable as a
-    /// generic chat target.
     fn authored_player_gift_requests(&self, actor_id: u64) -> Vec<(CwItem, CwActor)> {
         let Some(actor) = self
             .actor_by_id(actor_id)
@@ -328,8 +325,6 @@ impl RuntimeWorld {
         let mut choices = exact_requests.clone();
         for item in self.actor_held_items(actor.id) {
             for target in self.active_chat_targets(actor.id) {
-                // An authored request discloses only that one requested item.
-                // Do not turn it into a general view of a resident's economy.
                 if !self.economy_known_by(actor.id, target.id)
                     && exact_requests
                         .iter()

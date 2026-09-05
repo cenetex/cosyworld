@@ -8,18 +8,8 @@
 extern "C" {
 #endif
 
-/* Version 9 is reserved by #411 for project-push ABI state. */
-/* Version 15 widens the actor array; sizeof(cw_world) changed. */
-/* Version 16 expands the item array, gives undiscovered items an explicit
- * Hidden zone, makes transfer policy authoritative, and removes the unused
- * recharge timestamp from cw_item. */
 #define CW_KERNEL_VERSION 16u
 
-/* Capacities are compiled into cw_world as fixed arrays, so raising one is an
- * ABI change that must be mirrored in the Rust bindings. Actors, locations,
- * and exits are sized for a single world that mounts every authored pack at
- * once: the current union is 589 actors, 580 locations, and 1269 exits, and
- * generated residents and pathway descendants grow them at runtime. */
 #define CW_MAX_ACTORS 2048u
 #define CW_MAX_ITEMS 2048u
 #define CW_MAX_LOCATIONS 2048u
@@ -50,7 +40,6 @@ typedef enum {
   CW_ERR_RULE = 4
 } cw_status;
 
-/* Append-only rejection values persisted in `cw_event.reason`. */
 typedef enum {
   CW_REASON_NONE = 0,
   CW_REASON_INVALID_ACTION = 1,
@@ -191,8 +180,6 @@ typedef enum {
 
 typedef enum {
   CW_GATE_COMPAT_NONE = 0,
-  /* A historical CW_EXIT_LOCKED bit remains recorded on the route. Once a
-     descriptor is bound, this gate decision supersedes that bit. */
   CW_GATE_COMPAT_RECORDED_LOCK = 1
 } cw_gate_compatibility;
 
@@ -282,8 +269,6 @@ typedef enum {
   CW_ACTION_COMBAT_DODGE = 18,
   CW_ACTION_COMBAT_ESCAPE = 19,
   CW_ACTION_COMBAT_FINESSE_ATTACK = 20,
-  /* Append-only rules-profile actions. The legacy generic check (4) and
-     hidden-item search (13) retain their original journal meanings. */
   CW_ACTION_RULES_SEARCH = 21,
   CW_ACTION_RULES_STUDY = 22,
   CW_ACTION_RULES_MAGIC = 23,
@@ -293,31 +278,16 @@ typedef enum {
   CW_ACTION_COMBAT_NEED_TIME = 27,
   CW_ACTION_UNLOCK_EXIT = 28,
   CW_ACTION_REVEAL_ITEM = 29,
-  /* Project use records an authored item contribution without inheriting the
-     healing-and-consumption semantics of legacy USE_ITEM journals. */
   CW_ACTION_RULES_UTILIZE_ITEM = 30,
-  /* Append-only project resolution. Legacy action-0 project journals retain
-     their projection-owned meaning. */
   CW_ACTION_PROJECT_PUSH = 31,
-  /* Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH. */
   CW_ACTION_REST = 32,
-  /* Terminal closure for an encounter that can never advance again. The
-     orchestrator commits this only after bounded recovery attempts fail
-     deterministically; it resolves the encounter with no winning side so a
-     stuck scene releases its participants instead of retrying forever. */
   CW_ACTION_COMBAT_ABANDON = 33,
   CW_ACTION_GATE_TRANSITION = 34,
-  /* Append-only discovery procedures. These commit procedure use only; the
-     orchestrator-owned frozen claim decides what truth becomes revealed. */
   CW_ACTION_FOCUSED_NOTICE_V2 = 35,
   CW_ACTION_SEARCH_V2 = 36,
   CW_ACTION_STUDY_V2 = 37,
   CW_ACTION_SCOUT_V2 = 38,
-  /* Linked-account rescue completion atomically consumes the birth draught,
-     revives the fallen avatar, and releases the unchosen body as a resident. */
   CW_ACTION_COMPLETE_AVATAR_RESCUE = 39,
-  /* A second knockout during a rescue window kills the oldest body and
-     creates the next rescuer in one replayable transition. */
   CW_ACTION_REPLACE_AVATAR_RESCUER = 40
 } cw_action_kind;
 
@@ -364,7 +334,6 @@ typedef enum {
   CW_EVENT_EXIT_UNLOCKED = 39,
   CW_EVENT_ITEM_REVEALED = 40,
   CW_EVENT_PROJECT_PUSH_RESOLVED = 41,
-  /* Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED. */
   CW_EVENT_ITEM_REFRESHED = 42,
   CW_EVENT_GATE_TRANSITION_APPLIED = 43,
   CW_EVENT_ITEM_INSTALLED = 44,
@@ -427,8 +396,6 @@ typedef struct {
 
 typedef struct {
   cw_id id;
-  /* Legacy content family retained for journal and ABI compatibility. New
-   * mechanics must dispatch on role and the authored item profile. */
   uint8_t kind;
   uint8_t status;
   uint16_t reserved;
@@ -723,7 +690,6 @@ cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw
 cw_status cw_world_set_gate(cw_world *world, const cw_gate *gate, const cw_gate_method_definition *methods, size_t method_count);
 void cw_world_access_changed(cw_world *world);
 cw_status cw_gate_evaluate(const cw_world *world, cw_id gate_id, cw_id actor_id, const cw_gate_fact *facts, size_t fact_count, cw_id method_id, cw_gate_decision *out_decision);
-/* Deterministic apply without clock advancement. Player-card callers own the tick. */
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events);
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);

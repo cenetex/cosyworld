@@ -1,6 +1,3 @@
-// THR-D0 publishes the validated authority and receipt contract before the
-// procedure/materialization consumers in #601/#602. Keep that staged API
-// compiled in production without spending the repository's warning budget.
 #![cfg_attr(not(test), allow(dead_code))]
 
 use super::*;

@@ -1,7 +1,3 @@
-/* ABI drift guard: exports the C-side sizes and version so Rust tests can
- * assert the hand-mirrored layouts in kernel_ffi.rs have not drifted from
- * cosy_kernel.h. The header already static_asserts cw_item's layout; this
- * shim extends the same discipline across the FFI boundary. */
 #include "cosy_kernel.h"
 
 #include <stdint.h>

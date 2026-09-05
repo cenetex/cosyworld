@@ -21,7 +21,6 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center">
                 <div>
@@ -36,25 +35,18 @@
             </div>
         </div>
 
-        <!-- Service Status Cards -->
         <div id="serviceStatus" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <!-- Services will be dynamically added here -->
         </div>
 
-        <!-- Metrics Section -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">System Metrics</h2>
             <div id="systemMetrics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Metrics will be dynamically added here -->
             </div>
         </div>
 
-        <!-- Detailed Service Metrics -->
         <div id="serviceMetrics" class="space-y-4">
-            <!-- Detailed service metrics will be dynamically added here -->
         </div>
 
-        <!-- Auto-refresh controls -->
         <div class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4">
             <div class="flex items-center space-x-3">
                 <span class="text-sm text-gray-600">Auto-refresh:</span>
@@ -73,9 +65,8 @@
     <script>
         let autoRefreshEnabled = true;
         let refreshTimer = null;
-        const REFRESH_INTERVAL = 30000; // 30 seconds
+        const REFRESH_INTERVAL = 30000;
 
-        // Format numbers with K/M/B suffixes
         function formatNumber(num) {
             if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
@@ -83,7 +74,6 @@
             return num.toFixed(0);
         }
 
-        // Format duration
         function formatDuration(ms) {
             const seconds = Math.floor(ms / 1000);
             const minutes = Math.floor(seconds / 60);
@@ -96,7 +86,6 @@
             return `${seconds}s`;
         }
 
-        // Format timestamp
         function formatTimestamp(timestamp) {
             if (!timestamp) return 'Never';
             const date = new Date(timestamp);
@@ -109,7 +98,6 @@
             return date.toLocaleString();
         }
 
-        // Get status color class
         function getStatusClass(status) {
             switch (status) {
                 case 'healthy': return 'status-healthy';
@@ -119,7 +107,6 @@
             }
         }
 
-        // Get status icon
         function getStatusIcon(status) {
             switch (status) {
                 case 'healthy': return '✓';
@@ -129,19 +116,16 @@
             }
         }
 
-        // Fetch and display health data
         async function fetchHealthData() {
             try {
                 const response = await fetch('/api/health/status');
                 const health = await response.json();
                 
-                // Update overall status
                 const overallStatus = health.status || 'unknown';
                 document.getElementById('overallStatusText').textContent = overallStatus.toUpperCase();
                 document.getElementById('overallStatusText').className = `text-2xl font-bold ${getStatusClass(overallStatus)}`;
                 document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
                 
-                // Update service cards
                 const serviceContainer = document.getElementById('serviceStatus');
                 serviceContainer.innerHTML = '';
                 
@@ -150,7 +134,6 @@
                     serviceContainer.appendChild(card);
                 }
                 
-                // Fetch and display metrics
                 await fetchMetrics();
                 
             } catch (error) {
@@ -160,7 +143,6 @@
             }
         }
 
-        // Create service status card
         function createServiceCard(name, health) {
             const card = document.createElement('div');
             card.className = 'metric-card bg-white rounded-lg shadow p-4 border-l-4';
@@ -201,13 +183,11 @@
             return card;
         }
 
-        // Fetch and display metrics
         async function fetchMetrics() {
             try {
                 const response = await fetch('/api/health/metrics');
                 const data = await response.json();
                 
-                // Display system metrics
                 const systemMetricsContainer = document.getElementById('systemMetrics');
                 systemMetricsContainer.innerHTML = `
                     <div class="metric-card bg-blue-50 rounded-lg p-4">
@@ -228,7 +208,6 @@
                     </div>
                 `;
                 
-                // Display detailed service metrics
                 const serviceMetricsContainer = document.getElementById('serviceMetrics');
                 serviceMetricsContainer.innerHTML = '';
                 
@@ -261,7 +240,6 @@
             }
         }
 
-        // Setup auto-refresh
         function setupAutoRefresh() {
             const checkbox = document.getElementById('autoRefresh');
             const refreshButton = document.getElementById('refreshNow');
@@ -296,7 +274,6 @@
             }
         }
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             fetchHealthData();
             setupAutoRefresh();

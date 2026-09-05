@@ -1,13 +1,3 @@
-//! Payload structs for `ProjectionMutation` variants reshaped out of inline
-//! named fields, following the pattern established in `projection.rs`.
-//!
-//! `projection.rs` owns the shared machinery (`ProjectionContext`,
-//! `DeclaredWrites`, `StateKey`) and the first three reshaped variants. New
-//! reshapes land here instead, so agents working through the variant list in
-//! parallel do not collide on the same file. See ADR 0008 for the rationale
-//! and the hard constraints (journal encoding must not change; write sets are
-//! derived from a run, not read off the source).
-
 use super::*;
 use projection::{DeclaredWrites, ProjectionContext, StateKey};
 
@@ -68,7 +58,6 @@ impl RuntimeWorld {
     }
 }
 
-/// `ProjectionMutation::SetItemContained`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetItemContained {
     pub(super) item_id: u64,
@@ -77,9 +66,6 @@ pub(super) struct SetItemContained {
 }
 
 impl DeclaredWrites for SetItemContained {
-    // Empirically derived: a fixture that only moves an item into a container
-    // also changed `actor_rules_facets`, the same cross-cutting effect
-    // `SetItemEquipped` declares. See ADR 0008.
     const WRITES: &'static [StateKey] = &[
         StateKey::WORLD_ITEMS,
         StateKey::ACTOR_RULES_FACETS,
@@ -103,7 +89,6 @@ impl SetItemContained {
     }
 }
 
-/// `ProjectionMutation::SetCharmEquipped`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetCharmEquipped {
     pub(super) item_id: u64,
@@ -112,9 +97,6 @@ pub(super) struct SetCharmEquipped {
 }
 
 impl DeclaredWrites for SetCharmEquipped {
-    // Empirically derived: also writes `equipped_charms` (the handler's own
-    // bookkeeping) and `actor_rules_facets` (the same cross-cutting effect
-    // every event-appending handler here shows; see ADR 0008).
     const WRITES: &'static [StateKey] = &[
         StateKey::WORLD_ITEMS,
         StateKey::EQUIPPED_CHARMS,
@@ -134,7 +116,6 @@ impl SetCharmEquipped {
     }
 }
 
-/// `ProjectionMutation::UnlockCharmSlot`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct UnlockCharmSlot {
     pub(super) cost: u8,
@@ -142,9 +123,6 @@ pub(super) struct UnlockCharmSlot {
 }
 
 impl DeclaredWrites for UnlockCharmSlot {
-    // Empirically derived: also writes `actor_rules_facets`, the same
-    // cross-cutting effect every event-appending handler here shows; see
-    // ADR 0008.
     const WRITES: &'static [StateKey] = &[
         StateKey::ADVANCEMENT_SPENDS,
         StateKey::CHARM_SLOTS,
@@ -164,7 +142,6 @@ impl UnlockCharmSlot {
     }
 }
 
-/// `ProjectionMutation::UnlockCharmSlotForCharm`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct UnlockCharmSlotForCharm {
     pub(super) item_id: u64,
@@ -173,9 +150,6 @@ pub(super) struct UnlockCharmSlotForCharm {
 }
 
 impl DeclaredWrites for UnlockCharmSlotForCharm {
-    // Empirically derived: also writes `actor_rules_facets`, the same
-    // cross-cutting effect every event-appending handler here shows; see
-    // ADR 0008.
     const WRITES: &'static [StateKey] = &[
         StateKey::ADVANCEMENT_SPENDS,
         StateKey::CHARM_SLOTS,
@@ -195,7 +169,6 @@ impl UnlockCharmSlotForCharm {
     }
 }
 
-/// `ProjectionMutation::SetSpellPrepared`
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct SetSpellPrepared {
     pub(super) item_id: u64,
@@ -204,9 +177,6 @@ pub(super) struct SetSpellPrepared {
 }
 
 impl DeclaredWrites for SetSpellPrepared {
-    // Empirically derived: also writes `prepared_spells` (the handler's own
-    // bookkeeping) and `actor_rules_facets` (the same cross-cutting effect
-    // every event-appending handler here shows; see ADR 0008).
     const WRITES: &'static [StateKey] = &[
         StateKey::WORLD_ITEMS,
         StateKey::PREPARED_SPELLS,
@@ -231,11 +201,6 @@ mod projection_items_write_set_tests {
     use super::*;
     use test_support::create_test_human;
 
-    /// Local copy of `projection::projection_write_set_tests::changed_keys`.
-    /// The two test modules cannot share private helpers across files, and
-    /// duplicating a few lines here is cheaper than widening visibility on
-    /// `projection.rs` internals that other in-flight reshapes are also
-    /// touching.
     fn changed_keys(
         world: &mut RuntimeWorld,
         apply: impl FnOnce(&mut RuntimeWorld),
@@ -257,16 +222,11 @@ mod projection_items_write_set_tests {
     }
 
     fn assert_within_declared_writes(changed: &[String], declared: &[StateKey], label: &str) {
-        // A mutation that changed nothing satisfies containment trivially and
-        // would let a wrong declaration pass. Every fixture must exercise the
-        // handler for real.
         assert!(
             !changed.is_empty(),
             "{label}: fixture produced no durable change, so its write set is untested",
         );
         let allowed: Vec<&str> = declared.iter().map(|key| key.snapshot_key()).collect();
-        // Every declared key must name a real snapshot field, or the
-        // declaration is checking nothing.
         let snapshot = serde_json::to_value(RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded()))
             .expect("snapshot serializes");
         for key in &allowed {
@@ -297,8 +257,6 @@ mod projection_items_write_set_tests {
         }
     }
 
-    /// Puts playable-core item `item_id` into actor `actor_id`'s hand,
-    /// carried, uncontained. Same fixture shape the deck-loadout tests use.
     fn carry_item(world: &mut RuntimeWorld, actor_id: u64, item_id: u64) {
         let item = world
             .world
@@ -336,9 +294,6 @@ mod projection_items_write_set_tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Container Tester",
         );
-        // Item 2012 is a container-role playable-core card; item 2013 is
-        // eligible to be stored in it. Both must be held, carried, and
-        // uncontained before containment can do anything.
         carry_item(&mut world, 5000, 2012);
         carry_item(&mut world, 5000, 2013);
 
@@ -375,7 +330,6 @@ mod projection_items_write_set_tests {
     fn set_charm_equipped_writes_only_its_declared_state() {
         let mut world = RuntimeWorld::seeded();
         create_test_human(&mut world, 5000, MOONLIT_TRAIL_LOCATION_ID, "Charm Tester");
-        // Item 2003 is the seeded Wolfprint Charm (skill-charm role).
         carry_item(&mut world, 5000, 2003);
 
         let action = CwAction {
@@ -446,8 +400,6 @@ mod projection_items_write_set_tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Slot For Charm Tester",
         );
-        // Fill the single base slot with the seeded Wolfprint Charm so a
-        // second, unequipped charm becomes the expansion candidate.
         carry_item(&mut world, 5000, 2003);
         assert!(!world
             .set_charm_equipped(5000, 2003, true, "test")
@@ -506,7 +458,6 @@ mod projection_items_write_set_tests {
     fn set_spell_prepared_writes_only_its_declared_state() {
         let mut world = RuntimeWorld::seeded();
         create_test_human(&mut world, 5000, MOONLIT_TRAIL_LOCATION_ID, "Spell Tester");
-        // Item 2014 is the seeded spell-role playable-core card.
         carry_item(&mut world, 5000, 2014);
 
         let action = CwAction {

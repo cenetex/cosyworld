@@ -207,8 +207,6 @@ fn offer_composition_matches_at_submitted_revision(
     if offer.state_revision <= submitted_revision {
         return false;
     }
-    // Unrelated world events advance every offer envelope. Rebind only that
-    // volatile revision so the certificate still detects real scene changes.
     let mut trace = offer.composition_trace.clone();
     trace.state_revision = submitted_revision;
     if let Some(rules_context) = trace.rules_context.as_mut() {
@@ -511,26 +509,23 @@ impl RuntimeWorld {
             && (exact_offer.is_none() || offer.composition_id != submission.composition_id)
         {
             Err("the scene composition changed; refresh and choose a current action")
-        } else if offer.kind != submission.kind || offer.disabled {
-            Err("offer identity, rules binding, target, cost, or availability was changed")
-        } else if (!submission.rules_profile.is_empty()
-            || submission.state_revision != 0
-            || submission.rules_action.is_some()
-            || submission.operation.is_some()
-            || submission.route.is_some()
-            || submission.target.is_some()
-            || submission.cost.is_some())
-            && (offer.rules_action != submission.rules_action
-                || offer.operation != submission.operation
-                || offer.rules_profile != submission.rules_profile
-                || (offer.state_revision != submission.state_revision && !revision_rebound)
-                || offer.route != submission.route
-                || offer.target != submission.target
-                || offer.cost != submission.cost)
+        } else if offer.kind != submission.kind
+            || offer.disabled
+            || ((!submission.rules_profile.is_empty()
+                || submission.state_revision != 0
+                || submission.rules_action.is_some()
+                || submission.operation.is_some()
+                || submission.route.is_some()
+                || submission.target.is_some()
+                || submission.cost.is_some())
+                && (offer.rules_action != submission.rules_action
+                    || offer.operation != submission.operation
+                    || offer.rules_profile != submission.rules_profile
+                    || (offer.state_revision != submission.state_revision && !revision_rebound)
+                    || offer.route != submission.route
+                    || offer.target != submission.target
+                    || offer.cost != submission.cost))
         {
-            // Older clients echoed this expanded identity. Accept it only when
-            // every field still matches, while current clients submit the
-            // opaque offer/composition certificates and action payload alone.
             Err("offer identity, rules binding, target, cost, or availability was changed")
         } else if offer.target.as_ref().is_some_and(|target| {
             target.id.is_some_and(|expected| {
@@ -694,8 +689,6 @@ impl RuntimeWorld {
             }
             true
         });
-        // An avatar lifecycle action is the player's way back into play, so no
-        // offer ranking may replace it. Everything else follows the dealt hand.
         if !actor_presence::primary_action_is_avatar_lifecycle(&primary_action.kind) {
             let primary_offer_kind = match primary_action.kind.as_str() {
                 "travel" => "move",
@@ -757,9 +750,6 @@ impl RuntimeWorld {
                 "no_active_avatar",
             )];
         };
-        // Knockout preserves the canonical actor but permits observation only.
-        // Terminal actors may begin again; downed actors receive no mutation
-        // offer while another participant can still rescue them.
         if self
             .actor_by_id(actor_id)
             .is_some_and(|actor| Self::actor_is_present(actor) && !Self::actor_can_act(actor))
@@ -2127,8 +2117,6 @@ impl RuntimeWorld {
     pub(super) fn action_offer_cost(&self, kind: &str, actor_id: u64) -> Option<ActionCostView> {
         let _ = actor_id;
         match kind {
-            // Orbs are reserved for community image generation. Conversation,
-            // observation, and every other ordinary world verb are free.
             "chat" | "check" => None,
             _ => None,
         }
@@ -2689,8 +2677,6 @@ fn source_noun_binding(offer: &RankedActionOffer, kind: &str) -> Option<StoryHan
 fn story_hand_noun_binding(offer: &RankedActionOffer) -> StoryHandNounBinding {
     match STORY_HAND_CARD_TYPES[story_hand_natural_slot(offer)] {
         "location" => {
-            // A travel card is the destination. Other place-shaped actions
-            // belong to the current scene that made them possible.
             if matches!(
                 offer.kind.as_str(),
                 "move" | "flee" | "explore_path" | "open"
@@ -2781,9 +2767,6 @@ pub(super) const STORY_HAND_SLOTS: [&str; 3] = ["story", "self", "anchor"];
 pub(super) const STORY_HAND_CARD_TYPES: [&str; 3] = ["location", "item", "avatar"];
 
 pub(super) fn story_hand_natural_slot(offer: &RankedActionOffer) -> usize {
-    // The three visible cards are an entity hand, not three abstract action
-    // suits: one place, one item, and one avatar. Exact offers still rotate
-    // inside their own entity slot through Think.
     if offer.project.is_some() {
         return 0;
     }
@@ -2989,17 +2972,12 @@ fn compose_story_hand_with_pin(
             slot_pools[pinned_slot].rotate_left(position);
         }
     }
-    // Empty entity slots stay empty. Borrowing from another pool is what let
-    // three locations (or three items) occupy the three-card hand.
     let mut entries = slot_pools
         .iter()
         .enumerate()
         .filter(|(_, pool)| !pool.is_empty())
         .map(|(slot_index, pool)| {
             let generation = slot_generations[slot_index];
-            // A saved noun identity advances through the location order even
-            // when other cards enter or leave the pool. A continuously legal
-            // exit is reached within one cycle of the world's location cards.
             let next_location = (slot_index == 0)
                 .then_some(location_rotation_after)
                 .flatten()
@@ -3064,9 +3042,6 @@ impl RuntimeWorld {
         planner_backed: bool,
     ) -> Vec<&'a RankedActionOffer> {
         if planner_backed {
-            // Residents reason over the exact legal actions carried by their
-            // noun cards. Only direct player input uses noun-meld resolution;
-            // keeping this internal set complete does not expose card options.
             self.current_action_hand_offers(actor_id, offers)
                 .into_iter()
                 .filter(|offer| action_offer_is_reachable(offer))
@@ -3134,9 +3109,6 @@ impl RuntimeWorld {
         story_state: &StoryHandActorState,
     ) -> ActionHandView {
         let actor_id_value = actor_id.unwrap_or_default();
-        // Ordered scenes must never deal a card that their command boundary
-        // will reject. Chat remains concurrent; every other dealt card must
-        // be one of the focused encounter's exact actions for the turn owner.
         let focused_offers = actor_id
             .filter(|actor_id| focused_encounter_for_actor(self, *actor_id).is_some())
             .map(|actor_id| {
@@ -3345,9 +3317,6 @@ impl RuntimeWorld {
                 ),
             );
         }
-        // Thinking changes the state revision encoded into every certificate.
-        // Refresh the fallback from the final hand instead of returning a
-        // certificate cloned before the last rotation.
         let (mut primary_action, mut offers) =
             self.legal_action_candidates_with_presence(Some(actor_id), access, None);
         if direct_input {
@@ -3399,8 +3368,6 @@ mod location_rotation_tests {
 
     #[test]
     fn saved_location_cursor_reaches_a_legal_exit_when_other_cards_change() {
-        // These pools reproduce the old index rule skipping location 20 on
-        // every draw, although that exit remains legal throughout the run.
         for generation in 0..24 {
             let hand = compose_story_hand_with_pin(
                 &changing_pool(generation),
@@ -3689,9 +3656,6 @@ fn spell_effect_suit(effect: Option<&str>) -> Option<&'static str> {
     }
 }
 
-/// Exhaustive server-owned mapping from a playable offer to the four Story
-/// Hand suits. There is intentionally no utility/danger fallback: a new verb
-/// must choose its meaning before it can be published as a card.
 pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str, String> {
     if offer.kind == "cast_spell" {
         return spell_effect_suit(offer.effect.as_deref()).ok_or_else(|| {
@@ -3801,8 +3765,6 @@ pub(super) fn action_card_presentation(
         },
         state: if offer.disabled { "locked" } else { "ready" }.to_string(),
         provenance: action_card_provenance(offer).to_string(),
-        // Rarity is a collectible marker, never the action's primary colour or
-        // a proxy for strength. Content can author richer values later.
         rarity: "everyday".to_string(),
         power: "standard".to_string(),
         cost: offer.cost.clone(),

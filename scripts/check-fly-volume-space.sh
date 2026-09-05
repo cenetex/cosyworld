@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# Pre-deploy guard: refuse to swap a machine onto a nearly full data volume.
-#
-# A boot that cannot write (journal append, snapshot, migration) crash-loops
-# the release, and with a single machine that is an outage by construction.
-# The 2026-07-28 production outage was exactly this: the volume hit 100%, a
-# deploy swapped configs, and the app could not boot until the volume was
-# extended by hand.
-#
-# Usage: check-fly-volume-space.sh <fly-app> [mount-point] [threshold-percent]
-# Requires: flyctl authenticated (FLY_API_TOKEN) and ssh-agent access to the app.
 set -euo pipefail
 
 APP="${1:?fly app name required}"

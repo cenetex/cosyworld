@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
-# Create and verify an on-demand Fly Volume snapshot before a v2 deploy.
-#
-# Usage: backup-fly-v2.sh <fly-app> <primary|lonelyforest>
-# Requires: flyctl authenticated with the app-scoped FLY_API_TOKEN.
-#
-# The script deliberately resolves the configured volume by its exact mount
-# name, requires exactly one attached volume, and waits for the specific
-# snapshot returned by flyctl to reach `created`. It never destroys, detaches,
-# or replaces a volume, so a failed or interrupted run is recoverable.
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
@@ -69,9 +60,6 @@ for snapshot in snapshots:
         raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot status")
     ids.add(snapshot_id)
 
-# The before-set is identity-only. After every list record has passed schema
-# validation, duplicate statuses or incidental metadata cannot make an old id
-# appear new, so one copy of each id is sufficient.
 print(json.dumps(sorted(ids)))
 PY
 }
@@ -180,9 +168,6 @@ if [ -z "$snapshot_id" ]; then
   echo "::notice::flyctl snapshot create returned no JSON snapshot id; resolving the exact new snapshot from the verified list"
 fi
 
-# Transient Fly queueing can leave a successfully accepted snapshot in
-# `waiting` or `running` for more than three minutes. Keep the deploy
-# fail-closed while allowing that verified snapshot enough time to finish.
 timeout_secs="${COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS:-600}"
 poll_secs="${COSYWORLD_FLY_SNAPSHOT_POLL_SECS:-5}"
 if ! [[ "$timeout_secs" =~ ^[0-9]+$ ]] || [ "$timeout_secs" -lt 1 ]; then
@@ -244,8 +229,6 @@ for candidate_id, records in by_id.items():
         status for status in statuses if status in terminal_statuses
     })
     if terminal:
-        # A terminal failure always wins over a duplicate stale success; never
-        # claim a backup was created while Fly reports any terminal failure.
         normalized[candidate_id] = terminal[0]
         continue
     normalized[candidate_id] = next(iter(statuses)) if len(statuses) == 1 else "conflicting"

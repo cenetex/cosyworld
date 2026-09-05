@@ -146,8 +146,6 @@ pub(crate) struct AvatarContextSpine {
     pub(crate) world_tick: u64,
     #[serde(default)]
     pub(crate) observed_through_seq: u64,
-    /// The authoritative entity core shared with items and locations. The
-    /// remaining fields form the avatar-specific dialogue/reflection lens.
     #[serde(default)]
     pub(crate) entity_core: WorldEntityContextSpine,
     pub(crate) speaker: AvatarContextActor,
@@ -186,10 +184,6 @@ pub(crate) struct AvatarContextSpine {
     pub(crate) recent_dialogue: Vec<AvatarContextDialogueTurn>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) recent_activity: Vec<String>,
-    /// Current or non-local place names that are actually present in this
-    /// conversation context. The voice publication gate uses these as typed
-    /// provenance so an adjacent place mentioned by a pathway event cannot be
-    /// mistaken for the room the speaker currently occupies.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) known_place_names: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -263,9 +257,6 @@ impl AvatarContextSpine {
     fn awakening_monologue(&self, options: &AvatarContextPromptOptions) -> String {
         let mut thoughts = Vec::new();
         let directly_controlled = self.speaker.control_mode == "direct_input";
-        // System identity is re-read from reviewed worldpack content. Frozen
-        // job fields can contain generated or player-shaped text and must not
-        // become trusted merely because an avatar's control mode later changes.
         let authored = (!directly_controlled)
             .then(|| {
                 active_content()
@@ -907,13 +898,6 @@ impl RuntimeWorld {
         Some(spine)
     }
 
-    /// Authored worldpack descriptions of inference-controlled actors are trusted
-    /// canon: they already passed the worldpack publication register checks and
-    /// reach speech prompts verbatim. Directly controlled player avatars keep
-    /// the first-person grounding contract, because their descriptions may be
-    /// player-authored or generated persona text: a failed grounding check
-    /// falls back to a deterministic identity instead of leaking ungrounded
-    /// persona claims into a prompt.
     pub(crate) fn avatar_description_for_prompt(&self, actor_id: u64, meta: &ActorMeta) -> String {
         let control_mode = self
             .actor_autonomy
@@ -1338,7 +1322,6 @@ mod tests {
                 .contains(&format!("PERSONA · {}", identity.persona)));
             assert!(!rendered.system.contains(&identity.persona));
 
-            // Taking direct control keeps the player-authored grounding rule.
             runtime
                 .actor_autonomy
                 .entry(seed.id)
@@ -1356,10 +1339,6 @@ mod tests {
 
     #[test]
     fn authored_npc_description_replaces_the_generic_persona_fallback() {
-        // Issue #932: authored third-person NPC descriptions failed the
-        // first-person grounding check and every inference-controlled actor
-        // without a journaled self-description spoke from one of six generic
-        // fallback personas. Authored worldpack canon must reach the prompt.
         let runtime = RuntimeWorld::seeded();
         let simon = active_content()
             .actors

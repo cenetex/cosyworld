@@ -13,7 +13,6 @@ primary_region = "sjc"
   COSYWORLD_V2_ADDR = "0.0.0.0:3000"
   COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
   COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"
-  # Finish HTTP drain before Fly escalates the initial deploy signal.
   COSYWORLD_SHUTDOWN_DRAIN_MS = "3000"
   COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
   COSYWORLD_WEBAUTHN_RP_ID = "cosyworld.fly.dev"
@@ -28,7 +27,6 @@ primary_region = "sjc"
   COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"
   COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"
   COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"
-  # Durable community image jobs reserve $0.05 each inside a $1 UTC daily cap.
   COSYWORLD_MEDIA_DAILY_LIMIT_MICROUSD = "1000000"
   COSYWORLD_COMMUNITY_IMAGE_ESTIMATED_COST_MICROUSD = "50000"
   COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"
@@ -36,24 +34,15 @@ primary_region = "sjc"
   COSYWORLD_CARD_POLICY_MODE = "shadow"
   COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"
   COSYWORLD_CARD_POLICY_TOP_K = "3"
-  # Unbound and directly controlled avatars use the speed-oriented Nano voice
-  # route. The 12-second generation ceiling remains a stuck-provider guard;
-  # four bounded samples give the publication gate room inside that one ceiling.
   COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"
   COSYWORLD_AI_CAPABILITY_MODELS_JSON = '{"voice":"openai/gpt-5.4-nano","intent_json":"openai/gpt-5.6-sol","world_content":"openai/gpt-5.6-sol"}'
   COSYWORLD_AI_REGISTRY_JSON = '{"schema_version":1,"snapshot_version":"cosyworld-prod-2026-08-31b","declared":[{"requested_model_id":"openai/gpt-5.4-nano","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.4-nano"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":false,"reasoning":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}},{"requested_model_id":"openai/gpt-5.6-sol","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.6-sol"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["intent_json","world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}},{"requested_model_id":"google/gemini-3.5-flash","provider":"openrouter","concrete_model":{"model_id":"google/gemini-3.5-flash"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"structured_output":true,"json_mode":true,"tools":true,"seed":true,"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["intent_json","world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}}],"discovered":[]}'
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
-# Required production secrets:
-# fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
-# fly secrets set COSYWORLD_MODERATION_TOKEN=...
 
 [[mounts]]
   source = "cosyworld_data"
   destination = "/data"
-  # Extend before the 85% deploy guard can become the only warning. The 5 GB
-  # ceiling bounds spend while leaving several recovery windows after the
-  # 2026-07-28 full-disk outage.
   auto_extend_size_threshold = 80
   auto_extend_size_increment = "1GB"
   auto_extend_size_limit = "5GB"
@@ -64,10 +53,6 @@ primary_region = "sjc"
   memory = "2gb"
   processes = ["app"]
 
-# Deploy strategy stays `rolling`: bluegreen/canary would boot a second
-# machine beside this one, and the /data volume is single-writer — two
-# machines on one SQLite volume corrupts the journal. The deploy workflow
-# therefore guards volume free space before swapping (issue #546).
 [http_service]
   internal_port = 3000
   force_https = true
