@@ -383,14 +383,17 @@ pub(super) fn relationship_reply_expectation(
     let reply_prompt = runtime
         .relationship_contract(target_actor_id)
         .map(|relationship| relationship.reply_prompt.as_str())
-        .unwrap_or("Respond directly to the visible relationship beat.");
+        .unwrap_or("I am weighing what this new acquaintance means to me.");
     Some(RelationshipReplyExpectation {
         actor_id,
         target_actor_id,
         relationship_event_seq: event.seq,
         user_text: format!(
-            "This authored relationship beat just happened: {} Authored reply direction: {} Do not change the request or invent another reward.",
-            event.content.as_deref().unwrap_or("a clear request was made"),
+            "RELATIONSHIP BEAT · {}\nMY RELATIONSHIP CONTEXT · {}",
+            event
+                .content
+                .as_deref()
+                .unwrap_or("a clear request was made"),
             reply_prompt,
         ),
     })
@@ -640,9 +643,12 @@ mod tests {
                 && !(event.type_name == "message.created" && event.actor_id == Some(MARA_ACTOR_ID))
         }));
         let reply = relationship_reply_expectation(&runtime, TEST_ACTOR_ID, &events)
-            .expect("authored reply direction");
+            .expect("authored relationship context");
         assert!(reply.user_text.contains("empty key hook"));
-        assert!(reply.user_text.contains("Do not change the request"));
+        assert!(reply.user_text.contains("MY RELATIONSHIP CONTEXT"));
+        assert!(reply
+            .user_text
+            .contains("I want Rowan's Keeper Brass Key back"));
 
         let retry = relationship_record(&mut runtime, 362_002);
         let (_status, retry_events) = runtime.apply_journal_record(&retry);
@@ -752,16 +758,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fake_provider_delivers_one_grounded_mara_reply_without_fallback() {
+    async fn fake_provider_receives_maras_context_and_delivers_one_grounded_reply() {
         let requests = Arc::new(AtomicUsize::new(0));
         let app = Router::new().route(
             "/chat/completions",
             post({
                 let requests = requests.clone();
-                move || {
+                move |Json(body): Json<serde_json::Value>| {
                     let requests = requests.clone();
                     async move {
                         requests.fetch_add(1, Ordering::SeqCst);
+                        let user = body["messages"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .find(|message| message["role"] == "user")
+                            .unwrap()["content"]
+                            .as_str()
+                            .unwrap();
+                        assert!(user.contains("MY RELATIONSHIP CONTEXT"));
+                        assert!(user.contains("I want Rowan's Keeper Brass Key back"));
                         Json(serde_json::json!({
                             "choices": [{
                                 "message": {
@@ -790,6 +806,11 @@ mod tests {
             .as_ref()
             .expect("reply expectation")
             .relationship_event_seq;
+        let orbs_before = runtime.orb_balance(TEST_ACTOR_ID);
+        let key_holder_before = runtime
+            .item_by_id(KEEPER_KEY_ITEM_ID)
+            .unwrap()
+            .holder_actor_id;
         let mut state = test_app_state(runtime, None);
         state.ai_config = Arc::new(Some(AiConfig {
             api_key: "test".to_string(),
@@ -827,6 +848,17 @@ mod tests {
             replies[0].content
         );
         assert_eq!(replies[0].caused_by_event_seq, Some(beat_seq));
+        let bond = runtime.active_bond(TEST_ACTOR_ID, MARA_ACTOR_ID).unwrap();
+        assert_eq!(bond.status, "forming");
+        assert_eq!(bond.strength, 1);
+        assert_eq!(runtime.orb_balance(TEST_ACTOR_ID), orbs_before);
+        assert_eq!(
+            runtime
+                .item_by_id(KEEPER_KEY_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            key_holder_before
+        );
         assert_eq!(
             runtime
                 .event_log
