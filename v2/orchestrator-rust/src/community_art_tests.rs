@@ -1,6 +1,7 @@
 use super::*;
 use crate::media_recipes::media_verdict::{
-    record_media_provider_failure, MEDIA_BRIEF_CONSTRAINT_LIMIT,
+    prepare_media_candidate, record_media_provider_failure, MediaCandidateInput,
+    MediaVerdictDisposition, MEDIA_BRIEF_CONSTRAINT_LIMIT,
 };
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -3078,6 +3079,94 @@ async fn scheduler_preflight_failure_spends_no_attempt_and_records_no_provider_u
 }
 
 #[tokio::test]
+async fn frozen_brief_conflict_stops_the_worker_and_preserves_paid_work() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-brief-conflict-{nonce}.sqlite"));
+    let generated_dir = std::env::temp_dir().join(format!("cosyworld-brief-conflict-{nonce}"));
+    let actor_id = 5000;
+    let mut plan = location_art_plan(181_734, "16:9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let image = DownloadedReplicateImage {
+        bytes: gate_png(),
+        content_type: "image/png".to_string(),
+        source_url: "https://provider.invalid/saved-candidate.png".to_string(),
+        prediction_id: Some("saved-conflicting-candidate".to_string()),
+    };
+    store_community_art_candidate(&generated_dir, &plan, &image).unwrap();
+    assert_eq!(
+        prepare_media_candidate(
+            &generated_dir,
+            community_art_media_brief(&plan),
+            MediaCandidateInput {
+                image: &image,
+                provider: "fixture-provider",
+                model: "fixture-model",
+                claimed_digest: None,
+                prior_public_bytes: None,
+            },
+        )
+        .unwrap(),
+        MediaVerdictDisposition::ReviewPending
+    );
+    let record_id = format!("{:x}", Sha256::digest(key.as_bytes()));
+    let record_path = generated_dir
+        .join("media-verdicts/v1")
+        .join(record_id)
+        .join("record.json");
+    let original_record = fs::read(&record_path).unwrap();
+    plan.prompt = "A changed view of the chalk lane.".to_string();
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Conflict Patron",
+    );
+    fund_test_community_art(&mut runtime, actor_id, &plan, "brief-conflict", 7090);
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+
+    assert!(matches!(
+        execute_community_art_media_job(&state, actor_id, plan.clone()).await,
+        MediaJobExecution::Dead {
+            charge_reserved: false,
+            ..
+        }
+    ));
+    let seq_after_failure = {
+        let runtime = state.inner.lock().await;
+        let generation = &runtime.community_art_generations[&key];
+        assert_eq!(
+            generation.last_error_code.as_deref(),
+            Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE)
+        );
+        assert_eq!(generation.provider_attempts, 0);
+        runtime.world.next_event_seq
+    };
+    for _ in 0..3 {
+        assert!(matches!(
+            execute_community_art_media_job(&state, actor_id, plan.clone()).await,
+            MediaJobExecution::Completed {
+                charge_reserved: false
+            }
+        ));
+    }
+    assert_eq!(
+        state.inner.lock().await.world.next_event_seq,
+        seq_after_failure
+    );
+    assert_eq!(community_image_usage_count(&event_store_path), 0);
+    assert_eq!(fs::read(record_path).unwrap(), original_record);
+    assert!(community_art_candidate_exists(&generated_dir, &plan));
+    let candidate = generated_dir.join("community-art-candidates/location/181734/level-1.image");
+    assert_eq!(fs::read(candidate).unwrap(), image.bytes);
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
 async fn scheduler_candidate_review_retry_records_no_provider_attempt_or_usage() {
     let nonce = format!("{}-{}", std::process::id(), now_seed());
     let event_store_path =
@@ -3555,88 +3644,91 @@ async fn incomplete_candidate_quarantine_is_terminal_and_actionable() {
 }
 
 #[test]
-fn an_invalid_brief_failure_is_terminal_across_replay_and_snapshots() {
-    let mut runtime = RuntimeWorld::seeded();
-    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Brief Patron");
-    let mut funding = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: 5000,
-            ..CwAction::default()
-        },
-        7075,
-    );
-    funding
-        .projection_mutations
-        .push(ProjectionMutation::FundCommunityArt {
-            subject_kind: "actor".to_string(),
-            subject_id: 5000,
-            level: 1,
-            required_orbs: 1,
-            contributor_actor_id: 5000,
-            intent_id: "test-brief-invalid".to_string(),
-            amount: 1,
-            history_through_seq: 7075,
-            evolution_job: None,
-        });
-    assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
+fn brief_failures_are_terminal_across_replay_and_snapshots() {
+    for error_code in [
+        COMMUNITY_ART_BRIEF_INVALID_CODE,
+        COMMUNITY_ART_BRIEF_CONFLICT_CODE,
+    ] {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Brief Patron");
+        let mut funding = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7075,
+        );
+        funding
+            .projection_mutations
+            .push(ProjectionMutation::FundCommunityArt {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 1,
+                required_orbs: 1,
+                contributor_actor_id: 5000,
+                intent_id: "test-brief-invalid".to_string(),
+                amount: 1,
+                history_through_seq: 7075,
+                evolution_job: None,
+            });
+        assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
 
-    let mut completion = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: 5000,
-            ..CwAction::default()
-        },
-        7076,
-    );
-    completion
-        .projection_mutations
-        .push(ProjectionMutation::CompleteCommunityArtGeneration {
-            subject_kind: "actor".to_string(),
-            subject_id: 5000,
-            level: 1,
-            status: "failed".to_string(),
-            prediction_id: None,
-            error_code: Some(COMMUNITY_ART_BRIEF_INVALID_CODE.to_string()),
-        });
-    assert_eq!(runtime.apply_journal_record(&completion).0, CW_OK);
+        let mut completion = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7076,
+        );
+        completion
+            .projection_mutations
+            .push(ProjectionMutation::CompleteCommunityArtGeneration {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 1,
+                status: "failed".to_string(),
+                prediction_id: None,
+                error_code: Some(error_code.to_string()),
+            });
+        assert_eq!(runtime.apply_journal_record(&completion).0, CW_OK);
 
-    let key = community_art_generation_key("actor", 5000, 1);
-    let generation = runtime.community_art_generations[&key].clone();
-    assert_eq!(generation.status, "failed");
-    assert_eq!(
-        generation.last_error_code.as_deref(),
-        Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
-    );
-    assert_eq!(
-        generation.provider_attempts, 0,
-        "preflight rejection leaves the provider budget untouched"
-    );
-    assert!(!community_art_generation_retryable(&generation, false));
-    assert!(
-        !community_art_generation_retryable(&generation, true),
-        "a saved candidate must not reopen a deterministically invalid brief"
-    );
+        let key = community_art_generation_key("actor", 5000, 1);
+        let generation = runtime.community_art_generations[&key].clone();
+        assert_eq!(generation.status, "failed");
+        assert_eq!(generation.last_error_code.as_deref(), Some(error_code));
+        assert_eq!(
+            generation.provider_attempts, 0,
+            "preflight rejection leaves the provider budget untouched"
+        );
+        assert!(!community_art_generation_retryable(&generation, false));
+        assert!(
+            !community_art_generation_retryable(&generation, true),
+            "a saved candidate must not reopen a deterministically invalid brief"
+        );
 
-    let serialized =
-        serde_json::to_string(&runtime.community_art_generations).expect("serialize art state");
-    let restored: BTreeMap<String, CommunityArtGenerationState> =
-        serde_json::from_str(&serialized).expect("restore art state");
-    assert!(!community_art_generation_retryable(&restored[&key], true));
+        let serialized =
+            serde_json::to_string(&runtime.community_art_generations).expect("serialize art state");
+        let restored: BTreeMap<String, CommunityArtGenerationState> =
+            serde_json::from_str(&serialized).expect("restore art state");
+        assert!(!community_art_generation_retryable(&restored[&key], true));
 
-    let mut provider_failure = restored[&key].clone();
-    provider_failure.last_error_code = Some("community_art_generation_failed".to_string());
-    assert!(
-        community_art_generation_retryable(&provider_failure, true),
-        "an ordinary provider failure keeps its existing retry behavior"
-    );
+        let mut provider_failure = restored[&key].clone();
+        provider_failure.last_error_code = Some("community_art_generation_failed".to_string());
+        assert!(
+            community_art_generation_retryable(&provider_failure, true),
+            "an ordinary provider failure keeps its existing retry behavior"
+        );
 
-    assert!(
-        community_art_generation_retryable_for_profile(
-            &restored[&key],
-            false,
-            generation.generation_profile_version + 1
-        ),
-        "a newer generation profile remains the documented way back in"
-    );
+        assert_eq!(
+            community_art_generation_retryable_for_profile(
+                &restored[&key],
+                false,
+                generation.generation_profile_version + 1
+            ),
+            error_code == COMMUNITY_ART_BRIEF_INVALID_CODE,
+            "a stored brief conflict requires operator reconciliation even after a profile upgrade"
+        );
+    }
 }
