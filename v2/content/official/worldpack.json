@@ -67,7 +67,8 @@
       "sha256:559ee546f9fc49840dc8cc11ef0d4091914364496c6d88f4ab3070cdf7f86828",
       "sha256:33d90714210b995ecc762b5ee6efdb2b5afa51e1d9882ead547fd4d9757e52e1",
       "sha256:e01346588e8118b1ea6725a44b2832a37e10f42fef052b7a9b3684bd70a131a5",
-      "sha256:063748669f7f0787d1f0c79a8cff02103165b0fb74f6df895aa7ab4f6249516c"
+      "sha256:063748669f7f0787d1f0c79a8cff02103165b0fb74f6df895aa7ab4f6249516c",
+      "sha256:40cf33d59d355c8b7a07c0cc877f9a79e079bbde2775019aafa7b5aaa2d0c9c5"
     ]
   },
   "pack_lifecycle": {
@@ -821,7 +822,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:40cf33d59d355c8b7a07c0cc877f9a79e079bbde2775019aafa7b5aaa2d0c9c5",
+  "bundle_hash": "sha256:5fab6867e057582f210ef7cc15812e3a4647aa9d34d5493d287dd0eae58267d4",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2196,7 +2197,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2430,6 +2431,12 @@
               "from_migration_version": 1,
               "from_pack_version": "0.1.13",
               "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.14",
+              "mode": "preserve_descendants"
             }
           ],
           "cross_pack_routes": []
@@ -2440,7 +2447,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:d4e74eedac83723431f0ffa4d60153f6f26dd7e51c121bd7b6a929ed721777d9"
+      "integrity": "sha256:d2f3a37620602fcad447b6efe795c46f3a6ee8afe4f48eb41521aa138b11f900"
     },
     {
       "id": "cosyworld.the-holy-land",

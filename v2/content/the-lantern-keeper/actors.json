@@ -12,7 +12,7 @@
       "intent": "Begin a cautious acquaintance by accepting Mara's request about Rowan and the failed lamps.",
       "statement": "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.",
       "first_beat": "Mara places Rowan's empty key hook on the bar between you. Her request is clear: follow the failed lamps and bring the Keeper's Brass Key back.",
-      "reply_prompt": "Acknowledge the empty key hook and ask the traveler to follow the failed lamps and return Rowan's Keeper Brass Key.",
+      "reply_prompt": "I want Rowan's Keeper Brass Key back on its hook. The failed lamps are the clearest trail I have. I am weighing whether this traveler will follow them and earn my trust.",
       "active_on_gift_item_id": 8401,
       "active_beat": "Returning Rowan's Keeper Brass Key turns Mara's cautious request into earned trust."
     },

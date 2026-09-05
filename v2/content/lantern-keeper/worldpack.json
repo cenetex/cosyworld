@@ -26,7 +26,8 @@
       "sha256:028b50e201cba948d386d0433e51c595e43280b253fb82aafd03bfad10abbe30",
       "sha256:81fda49525831c905dce5a404bcfd2f452177736245d4e9eabe00b49047c027d",
       "sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d",
-      "sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd"
+      "sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd",
+      "sha256:8f58656c6748e4c060a17f932923d2a9bb8864189d32afb4f52aa580ceef1073"
     ]
   },
   "pack_lifecycle": {
@@ -762,7 +763,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:8f58656c6748e4c060a17f932923d2a9bb8864189d32afb4f52aa580ceef1073",
+  "bundle_hash": "sha256:c70cca4ab97ff442e20cb81c0d6dfe5b35ee7e95a043da7e9cd953d82164812e",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2137,7 +2138,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2371,6 +2372,12 @@
               "from_migration_version": 1,
               "from_pack_version": "0.1.13",
               "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "0.1.14",
+              "mode": "preserve_descendants"
             }
           ],
           "cross_pack_routes": []
@@ -2381,7 +2388,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:d4e74eedac83723431f0ffa4d60153f6f26dd7e51c121bd7b6a929ed721777d9"
+      "integrity": "sha256:d2f3a37620602fcad447b6efe795c46f3a6ee8afe4f48eb41521aa138b11f900"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",
