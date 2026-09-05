@@ -11,6 +11,9 @@ const contentEngineVersion = (await readFile(
   resolve(__dirname, "../content-engine-version.txt"),
   "utf8",
 )).trim();
+const transcriptVisibilityCases = JSON.parse(await readFile(
+  resolve(__dirname, "../tests/fixtures/transcript-visibility.json"), "utf8",
+));
 const defaultUrl = "http://127.0.0.1:3102/?reset=1";
 const targetUrl = process.env.COSYWORLD_SMOKE_URL || defaultUrl;
 const runLivingWorldStress = ["1", "true", "yes"].includes(
@@ -3760,9 +3763,8 @@ async function main() {
     assert(Object.values(result.rejectedSpeech || {}).every(Boolean), `unsafe or profile-incoherent speech output must be rejected: ${JSON.stringify(result.rejectedSpeech)}`);
     assert(result.escapedTranscript.includes("&lt;img src=x onerror=window.__modelAudioXss=true&gt;")
       && !result.escapedTranscript.includes("<img src=x onerror=window.__modelAudioXss=true>"), `speech transcripts must be escaped before rendering: ${result.escapedTranscript}`);
-    assert(/Try Find resonance again/.test(result.embeddingsFailure)
-      && /Try Rank echoes again/.test(result.rerankFailure)
-      && /Try Speak again/.test(result.speechFailure), `model interactions should retain their profile-specific retry action: ${JSON.stringify(result)}`);
+    assert(result.embeddingsFailure === "" && result.rerankFailure === "" && result.speechFailure === "",
+      "model failures stay outside the story transcript");
   }
 
   async function assertChatMarkdownTypography() {
@@ -4083,12 +4085,57 @@ async function main() {
         beat: sceneCardEventText(beat),
         unavailable: sceneCardEventText(unavailable),
         unavailableStatus: statusUpdateMeta(unavailable),
+        unavailableHidden: eventIsHiddenContext(unavailable),
       };
     });
     assert(/connection begins forming/i.test(result.forming) && /friendship has not been claimed/i.test(result.forming), `forming Bond presentation must not claim friendship: ${JSON.stringify(result)}`);
     assert(result.beat.includes("empty key hook") && result.beat.includes("Keeper's Brass Key"), `the authored campaign consequence should remain visible without dialogue: ${JSON.stringify(result)}`);
-    assert(/Reply unavailable/i.test(result.unavailable) && /no substitute reply/i.test(result.unavailable), `provider-offline failure must be explicit and truthful: ${JSON.stringify(result)}`);
-    assert(result.unavailableStatus?.label === "reply unavailable", `typed reply failure should keep its visible event label: ${JSON.stringify(result)}`);
+    assert(result.unavailable === "" && result.unavailableHidden, `dialogue failures stay outside the transcript: ${JSON.stringify(result)}`);
+    assert(result.unavailableStatus?.text === "", `dialogue failures have an empty presentation: ${JSON.stringify(result)}`);
+    const visibility = await page.evaluate((cases) => cases.map(({ event, visible }) => ({
+      type: event.type,
+      visible,
+      actual: !eventIsHiddenContext(event),
+      hiddenHtml: visible ? "" : timelineEventHtml(event),
+    })), transcriptVisibilityCases);
+    assert(visibility.every((entry) => entry.actual === entry.visible && entry.hiddenHtml === ""),
+      `browser and CLI share transcript visibility cases: ${JSON.stringify(visibility)}`);
+    const delivery = await page.evaluate((cases) => {
+      const saved = { logEvents, pendingChats, pendingModelInteractions, pendingReflection,
+        journalNotifications, seen: [...seenSeq] };
+      try {
+        logEvents = [];
+        pendingChats = [];
+        pendingModelInteractions = [];
+        pendingReflection = null;
+        journalNotifications = [];
+        seenSeq.clear();
+        const events = cases.map(({ event }) => ({ ...event }));
+        for (const event of events) pushEvents([event]);
+        const live = logEvents.map((event) => event.seq);
+        const beforeFailure = logEvents.length;
+        pushCommandOutput("chat", "voice_provider_unavailable", false, []);
+        const failedCommandQuiet = logEvents.length === beforeFailure;
+        rebuildLog(events);
+        const replay = logEvents.map((event) => event.seq);
+        return { live, replay, failedCommandQuiet };
+      } finally {
+        logEvents = saved.logEvents;
+        pendingChats = saved.pendingChats;
+        pendingModelInteractions = saved.pendingModelInteractions;
+        pendingReflection = saved.pendingReflection;
+        journalNotifications = saved.journalNotifications;
+        seenSeq.clear();
+        saved.seen.forEach((seq) => seenSeq.add(seq));
+        renderTimelines();
+        renderCommands();
+      }
+    }, transcriptVisibilityCases);
+    const expectedSeqs = transcriptVisibilityCases.filter((entry) => entry.visible).map((entry) => entry.event.seq);
+    assert(JSON.stringify(delivery.live) === JSON.stringify(expectedSeqs)
+      && JSON.stringify(delivery.replay) === JSON.stringify(expectedSeqs)
+      && delivery.failedCommandQuiet,
+    `live delivery and reconnect preserve the same story rows: ${JSON.stringify(delivery)}`);
   }
 
   async function assertGiftPrimaryUsesCompactVerb() {
@@ -7579,8 +7626,8 @@ async function main() {
     );
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
     assert(
-      result.asyncChatFailure === "The conversation slipped away before it could begin. Try talking again.",
-      `asynchronous Chat failure should be visible without implying a refund for a free action: ${JSON.stringify(result)}`,
+      result.asyncChatFailure === "",
+      `asynchronous Chat failure keeps the transcript quiet: ${JSON.stringify(result)}`,
     );
     assert(
       result.rejectedOffer.lowSignal && !result.rejectedOffer.rawJournalFallbackAvailable,
@@ -9418,7 +9465,7 @@ async function main() {
     assert(result.log.includes("Summit Trail") && result.log.includes("Intelligence") && result.log.includes("Homeroom"), `the room transcript should retain readable shared history: ${JSON.stringify(result)}`);
     assert(result.chatRows.length === 1 && result.chatRows[0].includes("Anyone want to follow the newly opened path?"), `speech should remain distinct from shared story beats: ${JSON.stringify(result)}`);
     assert(!result.unrelatedTravelEntersTranscript, `another actor's travel should stay in world history instead of polluting personal chat: ${JSON.stringify(result)}`);
-    assert(result.directedFailureEntersTranscript, `a chat failure directed at the player should remain visible in personal chat: ${JSON.stringify(result)}`);
+    assert(!result.directedFailureEntersTranscript, `directed chat failures stay outside personal chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Your growth becomes"), `command status output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("You learn more about"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Search observes"), `Search bookkeeping should not echo into chat: ${JSON.stringify(result)}`);

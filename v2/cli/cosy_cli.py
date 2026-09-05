@@ -957,6 +957,8 @@ class Game:
             self.last_seq = max(self.last_seq, int(event.get("seq") or 0))
 
     def format_event(self, event: dict[str, object]) -> str:
+        if event_is_hidden_context(event):
+            return ""
         seq = event.get("seq")
         type_name = event.get("type")
         actor = event.get("actor_name") or actor_label(event.get("actor_id"))
@@ -1468,10 +1470,17 @@ def location_label(location_id: object) -> str:
 
 
 def event_is_hidden_context(event: dict[str, object]) -> bool:
+    if (event.get("type") == "ability_check.rolled"
+            and event.get("content") in {"think", "dream"}
+            and event.get("success") is not True):
+        return True
     return event.get("type") in {
-        "world.bootstrapped",
-        "actor.presence",
-        "action.receipt",
+        "world.bootstrapped", "actor.presence", "action.receipt", "action.offer_rejected",
+        "chat.queued", "chat.typing", "chat.retrying", "chat.round", "chat.deciding",
+        "chat.spoke", "chat.passed", "chat.completed", "chat.failed",
+        "model_interaction.queued", "model_interaction.generating",
+        "model_interaction.retrying", "model_interaction.completed", "model_interaction.failed",
+        "dialogue.delivered", "dialogue.unavailable", "avatar.refined", "pathway.refined",
     }
 
 
