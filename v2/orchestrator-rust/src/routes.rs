@@ -255,6 +255,10 @@ fn app_router_with_dependencies(
             post(moderation_reject_community_art),
         )
         .route(
+            "/moderation/community-art/actor/{subject_id}/recover",
+            post(community_art::recovery::moderation_recover_portrait),
+        )
+        .route(
             "/moderation/economy/reconciliations/{run_id}/resolve",
             post(moderation_resolve_economy_reconciliation),
         )

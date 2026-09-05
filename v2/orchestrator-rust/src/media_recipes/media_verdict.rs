@@ -564,6 +564,41 @@ pub(crate) fn media_candidate_digest(root: &Path, job_key: &str) -> Result<Optio
     Ok(load_record_by_job(root, job_key)?.active_candidate_digest)
 }
 
+pub(crate) fn with_approved_media_recovery<T>(
+    root: &Path,
+    job_key: &str,
+    bytes: &[u8],
+    content_type: &str,
+    publish: impl FnOnce(Option<&str>) -> Result<T, String>,
+) -> Result<T, String> {
+    let _guard = media_verdict_lock()?;
+    let record = load_record_by_job(root, job_key)?;
+    let digest = sha256_hex(bytes);
+    if record.disabled || record.active_candidate_digest.as_deref() != Some(&digest) {
+        return Err("portrait recovery requires the active approved image".to_string());
+    }
+    let candidate = record
+        .candidates
+        .iter()
+        .find(|candidate| candidate.provenance.digest == digest)
+        .ok_or_else(|| "portrait approval record is incomplete".to_string())?;
+    let visual = candidate
+        .visual
+        .as_ref()
+        .ok_or_else(|| "portrait recovery requires a visual approval".to_string())?;
+    validate_visual_verdict(&record, visual)?;
+    if candidate.disposition != MediaVerdictDisposition::Approved
+        || !visual.approved
+        || visual.candidate_digest != digest
+        || candidate.deterministic.digest != digest
+        || !candidate.deterministic.violations.is_empty()
+        || candidate.provenance.content_type != content_type
+    {
+        return Err("portrait recovery requires matching image checks and approval".to_string());
+    }
+    publish(candidate.provenance.prediction_id.as_deref())
+}
+
 pub(crate) fn media_candidate_approved(
     root: &Path,
     job_key: &str,
