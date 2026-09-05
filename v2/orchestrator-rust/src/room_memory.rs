@@ -425,6 +425,10 @@ pub(super) fn room_memory_log_text_at_location(
     event: &EventView,
     location_id: u64,
 ) -> Option<String> {
+    let event = event_with_actor_names(event, |_, historical| {
+        historical_actor_name(None, historical)
+    });
+    let event = &event;
     let actor_name = event.actor_name.as_deref().unwrap_or("someone");
     let text = match event.type_name.as_str() {
         semantic_receipts::STORY_RECEIPT_EVENT_TYPE => {
@@ -1356,7 +1360,84 @@ pub(super) fn load_room_memory_prior_chapters(
 }
 
 // --- moved from main.rs: recent_room_* RuntimeWorld methods ---
+fn historical_actor_name(current: Option<&str>, historical: Option<&str>) -> String {
+    current
+        .into_iter()
+        .chain(historical)
+        .map(str::trim)
+        .find(|name| !name.is_empty() && !avatar_name_leaks_runtime_id(name))
+        .unwrap_or("Someone")
+        .to_string()
+}
+
+fn replace_actor_reference(text: &str, old: &str, current: &str) -> String {
+    let mut result = String::new();
+    let mut copied = 0;
+    for (start, _) in text.match_indices(old) {
+        let end = start + old.len();
+        let word_edge = |ch: char| ch.is_alphanumeric() || ch == '_';
+        if text[..start].chars().next_back().is_some_and(word_edge)
+            || text[end..].chars().next().is_some_and(word_edge)
+        {
+            continue;
+        }
+        result.push_str(&text[copied..start]);
+        result.push_str(current);
+        copied = end;
+    }
+    result.push_str(&text[copied..]);
+    result
+}
+
+// Resolve names in a presentation copy; saved events retain their original bytes.
+fn event_with_actor_names(
+    event: &EventView,
+    resolve: impl Fn(Option<u64>, Option<&str>) -> String,
+) -> EventView {
+    let mut projected = event.clone();
+    for (id, historical, name) in [
+        (event.actor_id, &event.actor_name, &mut projected.actor_name),
+        (
+            event.target_actor_id,
+            &event.target_actor_name,
+            &mut projected.target_actor_name,
+        ),
+    ] {
+        if id.is_none() && historical.is_none() {
+            continue;
+        }
+        let current = resolve(id, historical.as_deref());
+        // Spoken words remain quotations. Generated event prose can contain
+        // the provisional label as well as the separate actor-name field.
+        if event.type_name != "message.created" {
+            if let Some(old) = historical
+                .as_deref()
+                .filter(|name| avatar_name_leaks_runtime_id(name))
+            {
+                if let Some(content) = projected.content.as_mut() {
+                    *content = replace_actor_reference(content, old, &current);
+                }
+            }
+        }
+        *name = Some(current);
+    }
+    projected
+}
+
 impl crate::RuntimeWorld {
+    pub(crate) fn prompt_actor_name(&self, id: Option<u64>, historical: Option<&str>) -> String {
+        let current = id
+            .and_then(|id| self.actors.get(&id))
+            .map(|meta| meta.name.as_str());
+        historical_actor_name(current, historical)
+    }
+
+    fn prompt_event(&self, event: &EventView) -> EventView {
+        event_with_actor_names(event, |id, historical| {
+            self.prompt_actor_name(id, historical)
+        })
+    }
+
     pub(crate) fn recent_room_lines(&self, location_id: u64, limit: usize) -> Vec<String> {
         let room_lines = self
             .recent_room_lines
@@ -1370,10 +1451,7 @@ impl crate::RuntimeWorld {
             .map(|event| {
                 format!(
                     "{}: {}",
-                    event
-                        .actor_name
-                        .clone()
-                        .unwrap_or_else(|| "Someone".to_string()),
+                    self.prompt_actor_name(event.actor_id, event.actor_name.as_deref()),
                     event.content.clone().unwrap_or_default()
                 )
             })
@@ -1395,7 +1473,9 @@ impl crate::RuntimeWorld {
                     && !event.type_name.starts_with("model_interaction.")
                     && event_visible_in_location(event, location_id)
             })
-            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .filter_map(|event| {
+                room_memory_entry_for_event_at_location(&self.prompt_event(event), location_id)
+            })
             .take(limit)
             .map(|entry| format!("{}: {}", entry.label, entry.text))
             .collect::<Vec<_>>();
@@ -1424,7 +1504,9 @@ impl crate::RuntimeWorld {
                             | "item.transformed"
                     )
             })
-            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .filter_map(|event| {
+                room_memory_entry_for_event_at_location(&self.prompt_event(event), location_id)
+            })
             .take(limit.min(3))
             .map(|entry| entry.text)
             .collect::<Vec<_>>();
@@ -1436,6 +1518,113 @@ impl crate::RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn historical_names_resolve_in_prompt_memory_after_restore() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actor_id = 831_001;
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Moss Lantern",
+        );
+        let event = EventView {
+            seq: runtime.event_log.last().map_or(1, |event| event.seq + 1),
+            type_name: "actor.created".to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            actor_name: Some(format!("Traveler {actor_id}")),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some("The Cosy Cottage".to_string()),
+            ..EventView::default()
+        };
+        runtime.event_log.push(event);
+        let saved_events = serde_json::to_value(&runtime.event_log).unwrap();
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .unwrap();
+        for world in [&runtime, &restored] {
+            let activity = world.recent_room_activity(COSY_COTTAGE_LOCATION_ID, 1);
+            assert_eq!(activity, ["join: Moss Lantern entered The Cosy Cottage"]);
+            let spine = world
+                .avatar_context_spine(actor_id, None, None, "A new arrival.")
+                .unwrap();
+            let rendered = spine
+                .prompt(AvatarContextPromptOptions {
+                    mode: AvatarContextMode::Respond,
+                    speech_mode: SpeechMode::Prose,
+                    max_words: 34,
+                    response_job: "speak".to_string(),
+                })
+                .render_for(Some(32_768), 70);
+            assert!(rendered
+                .user
+                .contains("Moss Lantern entered The Cosy Cottage"));
+            assert!(!rendered.user.contains(&format!("Traveler {actor_id}")));
+            assert_eq!(
+                serde_json::to_value(&world.event_log).unwrap(),
+                saved_events
+            );
+        }
+    }
+
+    #[test]
+    fn unresolved_history_uses_neutral_names_and_preserves_quoted_words() {
+        let mut runtime = RuntimeWorld::seeded();
+        let event = EventView {
+            seq: 1,
+            type_name: "pathway.discovered".to_string(),
+            success: true,
+            actor_id: Some(831_001),
+            actor_name: Some("Traveler 1".to_string()),
+            target_actor_id: Some(831_002),
+            target_actor_name: Some("Traveler 10".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some(
+                "Traveler 1 found a path with Traveler 10; Opus 4.7 followed.".to_string(),
+            ),
+            ..EventView::default()
+        };
+        let expected = "Someone found a path with Someone; Opus 4.7 followed.";
+        assert_eq!(room_memory_log_text(&event).as_deref(), Some(expected));
+        runtime.event_log.push(event.clone());
+        assert_eq!(
+            runtime.recent_room_consequences(COSY_COTTAGE_LOCATION_ID, 3),
+            [expected]
+        );
+        let mut spoken = event;
+        spoken.type_name = "message.created".to_string();
+        runtime
+            .recent_room_lines
+            .insert(COSY_COTTAGE_LOCATION_ID, vec![spoken.clone()]);
+        assert_eq!(runtime.prompt_event(&spoken).content, spoken.content);
+        assert_eq!(
+            runtime.recent_room_lines(COSY_COTTAGE_LOCATION_ID, 1),
+            [format!("Someone: {}", spoken.content.unwrap())]
+        );
+        assert_eq!(
+            runtime.prompt_actor_name(None, Some("Opus 4.7")),
+            "Opus 4.7"
+        );
+        assert_eq!(
+            runtime.prompt_actor_name(None, Some("Actor 123")),
+            "Someone"
+        );
+        create_test_human(
+            &mut runtime,
+            831_003,
+            COSY_COTTAGE_LOCATION_ID,
+            "Moss Lantern",
+        );
+        let spine = runtime
+            .avatar_context_spine(831_003, None, None, "A voice nearby.")
+            .unwrap();
+        assert_eq!(
+            spine.recent_dialogue.last().unwrap().speaker_name,
+            "Someone"
+        );
+    }
 
     /// Regression guard for the wrong-world-state class found beside the Void
     /// 004 pathway narration bug: the public-trace room-memory line hardcoded
