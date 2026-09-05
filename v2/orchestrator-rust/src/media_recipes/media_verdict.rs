@@ -28,6 +28,8 @@ const MEDIA_VERDICT_DIR: &str = "media-verdicts/v1";
 /// must bound each constraint they build to this budget; `validate` rejects the
 /// whole brief otherwise.
 pub(crate) const MEDIA_BRIEF_CONSTRAINT_LIMIT: usize = 240;
+pub(crate) const MEDIA_BRIEF_CONFLICT_ERROR: &str =
+    "generated-image frozen brief changed for an existing job";
 /// Maximum persisted UTF-8 byte length for a visual-review summary. The
 /// provider response parser and durable verdict builder both normalize through
 /// `bounded_visual_verdict_summary`, so multi-byte punctuation cannot pass one
@@ -504,7 +506,7 @@ pub(crate) fn prepare_rejected_media_candidate_replacement(
             MediaVerdictDisposition::Approved | MediaVerdictDisposition::ReviewPending
         )
     }) {
-        return Err("generated-image frozen brief changed for an existing job".to_string());
+        return Err(MEDIA_BRIEF_CONFLICT_ERROR.to_string());
     }
     if !active_rejected && !candidate_free {
         return Ok(MediaBriefRetryPreparation::default());
@@ -1085,7 +1087,7 @@ fn load_or_create_record(
     match load_record(root, &record_id) {
         Ok(record) => {
             if record.brief_digest != brief_digest || record.brief != brief {
-                return Err("generated-image frozen brief changed for an existing job".to_string());
+                return Err(MEDIA_BRIEF_CONFLICT_ERROR.to_string());
             }
             Ok(record)
         }

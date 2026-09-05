@@ -23,7 +23,7 @@ use crate::media_recipes::media_verdict::{
     preflight_media_verdict_storage, prepare_media_candidate,
     prepare_rejected_media_candidate_replacement, record_media_provider_failure,
     record_media_review_unavailable, record_media_visual_verdict, FrozenMediaBrief,
-    MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
+    MediaCandidateInput, MediaVerdictDisposition, MediaViolation, MEDIA_BRIEF_CONFLICT_ERROR,
 };
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
@@ -63,6 +63,9 @@ const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
 /// and this profile's code, so an identical retry reproduces the identical
 /// rejection: the job is terminal until a newer generation profile reopens it.
 pub(super) const COMMUNITY_ART_BRIEF_INVALID_CODE: &str = "community_art_brief_invalid";
+/// A stored candidate belongs to another frozen brief. Recovery requires an
+/// operator reconciliation; a profile upgrade keeps this failure terminal.
+pub(super) const COMMUNITY_ART_BRIEF_CONFLICT_CODE: &str = "community_art_brief_conflict";
 pub(super) const AVATAR_APPEARANCE_REQUIRED_CODE: &str = "avatar_appearance_required";
 pub(super) const COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE: &str =
     "community_art_candidate_quarantine_failed";
@@ -310,6 +313,7 @@ pub(super) enum CommunityArtGenerationError {
     ProviderUnavailable(String),
     Preflight(String),
     BriefInvalid(String),
+    BriefConflict,
     CandidateQuarantine(String),
     PolicyUnavailable,
     PolicyDeferred {
@@ -323,6 +327,14 @@ pub(super) enum CommunityArtGenerationError {
 }
 
 impl CommunityArtGenerationError {
+    fn from_storage(error: String) -> Self {
+        if error == MEDIA_BRIEF_CONFLICT_ERROR {
+            Self::BriefConflict
+        } else {
+            Self::Storage(error)
+        }
+    }
+
     pub(super) fn status(&self) -> &'static str {
         match self {
             Self::PolicyUnavailable | Self::PolicyDeferred { .. } => "review_unavailable",
@@ -332,6 +344,7 @@ impl CommunityArtGenerationError {
             | Self::ProviderUnavailable(_)
             | Self::Preflight(_)
             | Self::BriefInvalid(_)
+            | Self::BriefConflict
             | Self::CandidateQuarantine(_)
             | Self::Storage(_) => "failed",
         }
@@ -343,6 +356,7 @@ impl CommunityArtGenerationError {
             Self::ProviderUnavailable(_) => "community_art_provider_unavailable",
             Self::Preflight(_) => "community_art_preflight_failed",
             Self::BriefInvalid(_) => COMMUNITY_ART_BRIEF_INVALID_CODE,
+            Self::BriefConflict => COMMUNITY_ART_BRIEF_CONFLICT_CODE,
             Self::CandidateQuarantine(_) => COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE,
             Self::PolicyUnavailable => "community_art_reviewer_unavailable",
             Self::PolicyDeferred { .. } => "community_art_policy_review_deferred",
@@ -356,7 +370,7 @@ impl CommunityArtGenerationError {
         match self {
             Self::Provider(_) | Self::ProviderUnavailable(_) => "provider",
             Self::Preflight(_) => "recipe",
-            Self::BriefInvalid(_) => "brief",
+            Self::BriefInvalid(_) | Self::BriefConflict => "brief",
             Self::CandidateQuarantine(_) => "quarantine",
             Self::PolicyUnavailable => "reviewer",
             Self::PolicyDeferred { .. } => "review",
@@ -377,6 +391,9 @@ impl CommunityArtGenerationError {
             }
             Self::BriefInvalid(error) => {
                 format!("frozen media brief was rejected before any provider call: {error}")
+            }
+            Self::BriefConflict => {
+                "stored candidate belongs to another frozen brief; operator reconciliation of the candidate and generation state is required".to_string()
             }
             Self::CandidateQuarantine(error) => {
                 format!("invalid community-art candidate could not be quarantined: {error}")
@@ -436,13 +453,11 @@ pub(super) fn community_art_generation_retryable(
     if generation.funded_orbs < generation.required_orbs {
         return false;
     }
-    // A rejected frozen brief is deterministic in the plan and the profile, so
-    // neither a saved candidate nor an unspent provider attempt can change the
-    // outcome. Retrying only replays the same rejection forever; a newer
-    // generation profile is the documented way back in.
+    // Deterministic brief and quarantine failures require explicit recovery.
     if matches!(
         generation.last_error_code.as_deref(),
         Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
+            | Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE)
             | Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
     ) {
         return false;
@@ -464,8 +479,11 @@ pub(super) fn community_art_generation_retryable_for_profile(
     candidate_exists: bool,
     generation_profile_version: u8,
 ) -> bool {
-    generation.last_error_code.as_deref() != Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
-        && generation.funded_orbs >= generation.required_orbs
+    !matches!(
+        generation.last_error_code.as_deref(),
+        Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
+            | Some(COMMUNITY_ART_BRIEF_CONFLICT_CODE)
+    ) && generation.funded_orbs >= generation.required_orbs
         && (generation_profile_version > generation.generation_profile_version
             || community_art_generation_retryable(generation, candidate_exists))
 }
@@ -1367,7 +1385,7 @@ pub(super) fn preflight_community_art_enqueue(
     preflight_community_art_storage(generated_asset_dir, plan)?;
     prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
     preflight_media_verdict_storage(generated_asset_dir, &media_brief)
-        .map_err(CommunityArtGenerationError::Storage)?;
+        .map_err(CommunityArtGenerationError::from_storage)?;
     Ok(())
 }
 
@@ -1391,7 +1409,7 @@ pub(super) async fn preflight_community_art_funding(
     // probe so an auditable legacy provider-failure record can be retired.
     prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
     preflight_media_verdict_storage(generated_asset_dir, &media_brief)
-        .map_err(CommunityArtGenerationError::Storage)?;
+        .map_err(CommunityArtGenerationError::from_storage)?;
     let review_policy = community_art_review_policy(&media_brief, plan);
     let capability_policy = community_art_reviewer_capability_policy(&review_policy);
     let decision = request_image_policy_decision(
@@ -1460,7 +1478,7 @@ fn preflight_community_art_storage(
         (public_parent, "publication"),
     ] {
         preflight_community_art_directory(directory, label)
-            .map_err(CommunityArtGenerationError::Storage)?;
+            .map_err(CommunityArtGenerationError::from_storage)?;
     }
     Ok(())
 }
@@ -1543,7 +1561,7 @@ pub(super) fn prepare_community_art_generation(
     let job_key = media_brief.job_key.clone();
     let retry_preparation =
         prepare_rejected_media_candidate_replacement(generated_asset_dir, media_brief.clone())
-            .map_err(CommunityArtGenerationError::Storage)?;
+            .map_err(CommunityArtGenerationError::from_storage)?;
     if retry_preparation.migrated {
         warn!(
             event = "community_art_media_brief_migrated",
@@ -1554,7 +1572,7 @@ pub(super) fn prepare_community_art_generation(
     }
     if retry_preparation.discard_staged_candidate {
         remove_community_art_candidate(generated_asset_dir, plan)
-            .map_err(CommunityArtGenerationError::Storage)?;
+            .map_err(CommunityArtGenerationError::from_storage)?;
     }
     // A frozen evolution job always carries an approved prior-level parent.
     // Running the base generator here silently starts over, so evolution is a
@@ -1587,7 +1605,7 @@ pub(super) fn prepare_community_art_generation(
         });
     }
     if !media_provider_route_available(generated_asset_dir, &job_key)
-        .map_err(CommunityArtGenerationError::Storage)?
+        .map_err(CommunityArtGenerationError::from_storage)?
     {
         return Err(CommunityArtGenerationError::ProviderUnavailable(
             "generated-image provider route is cooling down or disabled".to_string(),
@@ -1817,9 +1835,9 @@ async fn generate_and_store_prepared_community_art(
                 prior_public_bytes: prior_public.as_deref(),
             },
         )
-        .map_err(CommunityArtGenerationError::Storage)?;
+        .map_err(CommunityArtGenerationError::from_storage)?;
         let candidate_digest = media_candidate_digest(generated_asset_dir, &job_key)
-            .map_err(CommunityArtGenerationError::Storage)?
+            .map_err(CommunityArtGenerationError::from_storage)?
             .ok_or_else(|| {
                 CommunityArtGenerationError::Storage(
                     "generated-image gate lost its active candidate".to_string(),
@@ -1829,7 +1847,7 @@ async fn generate_and_store_prepared_community_art(
             MediaVerdictDisposition::Rejected => {
                 return Err(CommunityArtGenerationError::PolicyRejected(
                     media_candidate_violations(generated_asset_dir, &job_key, &candidate_digest)
-                        .map_err(CommunityArtGenerationError::Storage)?,
+                        .map_err(CommunityArtGenerationError::from_storage)?,
                 ));
             }
             MediaVerdictDisposition::Disabled | MediaVerdictDisposition::ReplaceRequested => {
@@ -1903,10 +1921,10 @@ async fn generate_and_store_prepared_community_art(
                     decision.latency.as_millis() as u64,
                     0,
                 )
-                .map_err(CommunityArtGenerationError::Storage)?;
+                .map_err(CommunityArtGenerationError::from_storage)?;
                 let disposition =
                     record_media_visual_verdict(generated_asset_dir, &job_key, verdict)
-                        .map_err(CommunityArtGenerationError::Storage)?;
+                        .map_err(CommunityArtGenerationError::from_storage)?;
                 if disposition != MediaVerdictDisposition::Approved {
                     return Err(CommunityArtGenerationError::PolicyRejected(
                         media_candidate_violations(
@@ -1914,13 +1932,13 @@ async fn generate_and_store_prepared_community_art(
                             &job_key,
                             &candidate_digest,
                         )
-                        .map_err(CommunityArtGenerationError::Storage)?,
+                        .map_err(CommunityArtGenerationError::from_storage)?,
                     ));
                 }
             }
         }
         if !media_candidate_approved(generated_asset_dir, &job_key, &candidate_digest)
-            .map_err(CommunityArtGenerationError::Storage)?
+            .map_err(CommunityArtGenerationError::from_storage)?
         {
             return Err(CommunityArtGenerationError::PolicyReview(
                 "generated-image candidate has no durable approving verdict".to_string(),
@@ -1928,7 +1946,7 @@ async fn generate_and_store_prepared_community_art(
         }
         if plan.evolution_job.is_none() {
             store_community_art_image(generated_asset_dir, plan, &image)
-                .map_err(CommunityArtGenerationError::Storage)?;
+                .map_err(CommunityArtGenerationError::from_storage)?;
         }
         let provenance = community_art_asset_provenance(
             config,
@@ -1968,7 +1986,7 @@ async fn generate_and_store_prepared_community_art(
                 provenance,
             )
         }
-        .map_err(CommunityArtGenerationError::Storage)
+        .map_err(CommunityArtGenerationError::from_storage)
     }
     .await;
 

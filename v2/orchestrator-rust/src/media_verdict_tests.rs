@@ -418,6 +418,57 @@ fn approved_verdict_survives_restart_and_is_bound_to_brief_candidate_and_referen
 }
 
 #[test]
+fn pending_and_approved_candidates_preserve_their_frozen_brief_on_conflict() {
+    for approved in [false, true] {
+        let root = root("protected-brief");
+        let original = brief("protected-brief-job");
+        let candidate = image(patterned_png(16, 9, 31), "image/png", "protected");
+        assert_eq!(
+            prepare(&root, original.clone(), &candidate, None, None),
+            MediaVerdictDisposition::ReviewPending
+        );
+        if approved {
+            let verdict = make_visual_verdict(
+                &original,
+                sha256_hex(&candidate.bytes),
+                "fixture-reviewer",
+                "fixture-reviewer/1",
+                true,
+                vec![],
+                "Matches the brief.",
+                1,
+                5,
+                1,
+            )
+            .unwrap();
+            record_media_visual_verdict(&root, &original.job_key, verdict).unwrap();
+        }
+        let record = load_record_by_job(&root, &original.job_key).unwrap();
+        let before = fs::read(record_path(&root, &record.record_id)).unwrap();
+        let mut changed = original.clone();
+        changed.crop = "a different crop".to_string();
+        assert_eq!(
+            prepare_rejected_media_candidate_replacement(&root, changed.clone()).unwrap_err(),
+            MEDIA_BRIEF_CONFLICT_ERROR
+        );
+        assert_eq!(
+            preflight_media_verdict_storage(&root, &changed).unwrap_err(),
+            MEDIA_BRIEF_CONFLICT_ERROR
+        );
+        assert_eq!(
+            fs::read(record_path(&root, &record.record_id)).unwrap(),
+            before
+        );
+        assert!(
+            !prepare_rejected_media_candidate_replacement(&root, original)
+                .unwrap()
+                .migrated
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[test]
 fn rejected_candidate_can_be_replaced_under_a_new_frozen_brief_with_audit_retained() {
     let root = root("rejected-brief-replacement");
     let original = brief("rejected-brief-job");
