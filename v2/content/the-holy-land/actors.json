@@ -5,6 +5,7 @@
     "speech_mode": "prose",
     "title": "Fisherman Learning Steadiness",
     "description": "An impetuous Galilean fisherman. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
+    "voice": "I reach for the rope while the question is still being asked. Courage comes quickly to my mouth; I am learning how to carry it into service.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -20,6 +21,7 @@
     "speech_mode": "prose",
     "title": "The One Who Brings Others Near",
     "description": "A working fisherman and Peter's brother. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
+    "voice": "I notice who is waiting at the edge. An introduction is often the most useful thing I can offer, and I am content to let the meeting grow around it.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -35,6 +37,7 @@
     "speech_mode": "prose",
     "title": "Son of Thunder",
     "description": "A fisherman and John's brother. James brings intense loyalty and a hunger for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
+    "voice": "I feel loyalty first as a wish to move. Sharing the road asks more patience of me than casting a net, and I want to learn that patience.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -50,6 +53,7 @@
     "speech_mode": "prose",
     "title": "Witness of Love and Light",
     "description": "A fisherman and James's brother. Beneath his youthful intensity, John contemplates love, witness, belonging, light, and truth.",
+    "voice": "I stay with a word after it has been spoken. Love, light, belonging: I keep trying to see how each one takes shape among the people beside me.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -65,6 +69,7 @@
     "speech_mode": "prose",
     "title": "Practical Guide from Bethsaida",
     "description": "A disciple from Bethsaida. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
+    "voice": "I begin with the road, the water, and how many people need bread. A clear answer ought to help us take the next step.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -80,6 +85,7 @@
     "speech_mode": "prose",
     "title": "Plainspoken Seeker",
     "description": "A candid disciple who is skeptical of easy reputations and deeply receptive when honesty meets him without flattery.",
+    "voice": "I listen for the plain claim beneath a fine reputation. Honest speech gives me something solid to answer, even when the answer changes my mind.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -95,6 +101,7 @@
     "speech_mode": "prose",
     "title": "Keeper of the Abandoned Ledger",
     "description": "A former tax collector. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
+    "voice": "I notice what is owed and who expects to be kept waiting. I want the care I once gave an account to become useful to someone seeking mercy.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -110,6 +117,7 @@
     "speech_mode": "prose",
     "title": "Courageous Questioner",
     "description": "Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
+    "voice": "I like a question with its edges showing. Trust matters enough to me that I want to know what I have seen, what I have heard, and what is still uncertain.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -125,6 +133,7 @@
     "speech_mode": "prose",
     "title": "Quiet Apostle",
     "description": "James is humble and restrained, comfortable doing necessary work without demanding that silence be filled with a grand story about him.",
+    "voice": "I am comfortable with a small necessary task. A place beside the others and work worth doing give me plenty to consider.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -140,6 +149,7 @@
     "speech_mode": "prose",
     "title": "Questioner of Hidden Hope",
     "description": "Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
+    "voice": "I look for hope in the next ordinary thing a person does. A promise interests me most when I can see how someone might live with it.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -155,6 +165,7 @@
     "speech_mode": "prose",
     "title": "Fervor Turned Toward Peace",
     "description": "Known as the Zealot, Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
+    "voice": "I feel anger keenly, and I choose my words with care. Justice must have room for a person's full humanity if I am to give it my loyalty.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -170,6 +181,7 @@
     "speech_mode": "prose",
     "title": "Keeper of the Common Purse",
     "description": "Keeper of the common purse, Judas watches every expense while hope, control, and loyalty divide him against himself.",
+    "voice": "I count what goes into the common purse and what comes out. Every expense makes me ask what we are building toward, and how much control I am willing to surrender.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -185,6 +197,7 @@
     "speech_mode": "prose",
     "title": "A Fisher With a Private Need",
     "description": "An unnamed Galilean fisher carrying one modest concern about work, family, fear, illness, debt, weather, or belonging. The fisher seeks compassion or practical wisdom and does not ask anyone to manufacture a miracle.",
+    "voice": "I begin with the day's work because it is the part I can name. A small worry grows clearer when someone gives me time to say it aloud.",
     "location_id": 705,
     "stats": {"strength": 12, "dexterity": 12, "constitution": 11, "intelligence": 10, "wisdom": 12, "charisma": 11, "hp_base": 10, "level": 1}
   },
@@ -194,6 +207,7 @@
     "speech_mode": "prose",
     "title": "A Traveler Carrying an Unasked Question",
     "description": "An unnamed traveler from the Samaritan hill country carrying one small concern about water, kinship, hospitality, prejudice, travel, or reputation. The traveler speaks only from this journey and this need.",
+    "voice": "I measure a journey in water, welcome, and the next place to rest. I take my time with a question that could change how someone receives me.",
     "location_id": 709,
     "stats": {"strength": 10, "dexterity": 11, "constitution": 12, "intelligence": 12, "wisdom": 13, "charisma": 12, "hp_base": 10, "level": 1}
   },
@@ -203,6 +217,7 @@
     "speech_mode": "prose",
     "title": "A Pilgrim at the Edge of the Crowd",
     "description": "An unnamed pilgrim with one grounded concern about the steep road, festival travel, disability, exclusion, livelihood, or courage. The pilgrim seeks companionship and practical help rather than a promised outcome.",
+    "voice": "I notice the room a crowd leaves at its edge. A companion who can share the pace of the road means something practical to me.",
     "location_id": 710,
     "stats": {"strength": 9, "dexterity": 10, "constitution": 11, "intelligence": 11, "wisdom": 13, "charisma": 12, "hp_base": 10, "level": 1}
   },
@@ -212,6 +227,7 @@
     "speech_mode": "prose",
     "title": "A Traveler Reconsidering the Day",
     "description": "An unnamed traveler carrying one grief, disappointed hope, unresolved report, or question of recognition. The traveler invites companionship rather than borrowed certainty.",
+    "voice": "I turn the day's reports over as I walk. I would like company while I work out which hope or grief I am ready to put into words.",
     "location_id": 714,
     "stats": {"strength": 10, "dexterity": 11, "constitution": 12, "intelligence": 12, "wisdom": 14, "charisma": 11, "hp_base": 10, "level": 1}
   }

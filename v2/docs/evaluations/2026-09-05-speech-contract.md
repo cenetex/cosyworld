@@ -2,6 +2,10 @@
 
 Run date: 2026-09-05. The fixed method is in [the evaluation guide](../speech-contract-evaluation.md). The fixtures use public authored content and a synthetic visitor. Both arms use `openai/gpt-5.6-luna`, temperature 0.7, and a 224-token completion limit.
 
+The fixture content is pinned by commit `543a930e0bf3d621603c51b99e2cb9f81db5c201`
+(PR #1002). Use that revision to reconstruct the prompts and score these saved
+responses. Later authored voice changes have their own source revision.
+
 ## First comparison: removal
 
 | Measure | Baseline | Short candidate |

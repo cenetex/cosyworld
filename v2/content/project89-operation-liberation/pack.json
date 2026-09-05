@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "project89.operation-liberation",
   "name": "Project 89: Operation Liberation",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "kind": "world",
   "description": "The fully authored Project 89 inner loop: nine locations, a fixed cast, four relay keys, factions, and the Operation Liberation campaign spine.",
   "license": "LicenseRef-Project89-Prototype",

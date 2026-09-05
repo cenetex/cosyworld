@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "project89.open-signal-frontier",
   "name": "Project 89: Open Signal Frontier",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "kind": "world",
   "description": "Four populated Project 89 stations on a long frontier circuit, with persisted generated interiors and an explicit future fork contract.",
   "license": "LicenseRef-Project89-Prototype",
@@ -184,6 +184,12 @@
           "from_policy_id": "project89.open-signal-frontier/generation/1",
           "from_migration_version": 1,
           "from_pack_version": "0.1.0",
+          "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "project89.open-signal-frontier/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "0.1.1",
           "mode": "preserve_descendants"
         }
       ],

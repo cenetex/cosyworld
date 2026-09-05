@@ -842,7 +842,7 @@ mod tests {
             "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa",
         );
         assert!(
-            generation_policy_allows_upgrade(&production_core, "1.3.16").is_ok(),
+            generation_policy_allows_upgrade(&production_core, "1.3.17").is_ok(),
             "the exact production Core pathway tuple must migrate"
         );
         let mut production_core_current_policy = production_core.clone();
@@ -850,13 +850,13 @@ mod tests {
         production_core_current_policy.migration_version = 1;
         production_core_current_policy.owner_pack_version = "1.3.11".to_string();
         assert!(
-            generation_policy_allows_upgrade(&production_core_current_policy, "1.3.16").is_ok(),
+            generation_policy_allows_upgrade(&production_core_current_policy, "1.3.17").is_ok(),
             "the exact production Core 1.3.11 pathway tuple must migrate"
         );
         let mut undeclared_core = production_core;
         undeclared_core.owner_pack_version = "1.3.9".to_string();
         assert!(
-            generation_policy_allows_upgrade(&undeclared_core, "1.3.16").is_err(),
+            generation_policy_allows_upgrade(&undeclared_core, "1.3.17").is_err(),
             "undeclared Core pathway history must remain fail-closed"
         );
     }
@@ -905,7 +905,7 @@ mod tests {
         );
         assert_eq!(
             restored.routes[&source_route_id].owner_pack_version,
-            "1.2.3"
+            "1.2.4"
         );
 
         let replayed = RuntimeSnapshot::from_runtime(&restored)
@@ -1023,7 +1023,7 @@ mod tests {
         );
         assert_eq!(
             restored.routes[&source_route_id].owner_pack_version,
-            "1.3.16"
+            "1.3.17"
         );
 
         let replayed = RuntimeSnapshot::from_runtime(&restored)
@@ -1075,7 +1075,7 @@ mod tests {
         );
         assert_eq!(
             restored.routes[&source_route_id].owner_pack_version,
-            "1.3.16"
+            "1.3.17"
         );
 
         let replayed = RuntimeSnapshot::from_runtime(&restored)
