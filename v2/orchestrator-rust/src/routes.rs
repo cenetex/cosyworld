@@ -200,7 +200,7 @@ fn app_router_with_dependencies(
             post(wallet_claim_challenge),
         )
         .route("/wallet/claim/{claim_id}/finish", post(wallet_claim_finish))
-        .route("/state", get(state_view))
+        .route("/state", get(super::account_avatars::state_for_account))
         .route(
             "/story/world-beat-exposures",
             post(acknowledge_world_beat_exposure),
@@ -275,7 +275,11 @@ fn app_router_with_dependencies(
             post(start_treasure_objective),
         )
         .route("/dev/reset", post(dev_reset))
-        .route("/avatar", post(create_avatar))
+        .route(
+            "/avatar",
+            post(super::account_avatars::create_avatar_for_account),
+        )
+        .route("/auth/avatar", post(super::account_avatars::account_avatar))
         .route(
             "/avatar/session",
             post(super::actor_presence::renew_avatar_session),

@@ -1,5 +1,30 @@
 use super::*;
 
+#[derive(Debug, Serialize)]
+pub(super) struct AvatarResponse {
+    pub(super) ok: bool,
+    pub(super) status: u32,
+    pub(super) actor: Option<ActorView>,
+    pub(super) actor_session: Option<String>,
+    pub(super) actor_session_expires_at_unix: Option<u64>,
+    pub(super) events: Vec<EventView>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct CreateAvatarRequest {
+    #[serde(default)]
+    pub(super) actor_id: Option<u64>,
+    pub(super) name: Option<String>,
+    pub(super) calling: Option<String>,
+    pub(super) wallet_session: Option<String>,
+    #[serde(default)]
+    pub(super) summon_from_actor_id: Option<u64>,
+    pub(super) character_creation_id: Option<String>,
+    pub(super) character_choice_id: Option<String>,
+    pub(super) species_id: Option<String>,
+    pub(super) origin_id: Option<String>,
+}
+
 pub(super) fn linked_actor_for_wallet(state: &AppState, wallet_address: &str) -> Option<u64> {
     let wallet = wallet_address.trim();
     if wallet.is_empty() {
@@ -10,6 +35,7 @@ pub(super) fn linked_actor_for_wallet(state: &AppState, wallet_address: &str) ->
         .lock()
         .ok()
         .and_then(|links| links.get(wallet).copied())
+        .filter(|id| account_avatars::wallet_avatar_is_unclaimed(state, *id))
 }
 
 pub(super) fn link_wallet_actor(state: &AppState, wallet_address: &str, actor_id: u64) {
@@ -62,6 +88,15 @@ pub(super) async fn create_avatar(
     State(state): State<AppState>,
     Json(payload): Json<CreateAvatarRequest>,
 ) -> Json<AvatarResponse> {
+    create_avatar_with_account(client_addr, state, payload, None).await
+}
+
+pub(super) async fn create_avatar_with_account(
+    client_addr: SocketAddr,
+    state: AppState,
+    payload: CreateAvatarRequest,
+    account: Option<String>,
+) -> Json<AvatarResponse> {
     if !state.allow_rate_limit(
         rate_limit_key("avatar-ip", client_ip_key(client_addr)),
         AVATAR_CREATE_LIMIT,
@@ -74,7 +109,7 @@ pub(super) async fn create_avatar(
         .wallet_session
         .as_deref()
         .and_then(|token| wallet_for_session(&state.wallet_sessions, token));
-    if summon_from_actor_id.is_some() && signed_wallet.is_none() {
+    if summon_from_actor_id.is_some() && signed_wallet.is_none() && account.is_none() {
         return Json(AvatarResponse {
             ok: false,
             status: 403,
@@ -85,7 +120,60 @@ pub(super) async fn create_avatar(
         });
     }
     let mut rescue_creation_context = None;
-    if let Some(wallet_address) = signed_wallet.as_deref() {
+    if let Some(account) = account.as_deref() {
+        let rejected = |status| {
+            Json(AvatarResponse {
+                ok: false,
+                status,
+                actor: None,
+                actor_session: None,
+                actor_session_expires_at_unix: None,
+                events: Vec::new(),
+            })
+        };
+        let owned = match account_avatars::account_avatar_store(&state)
+            .and_then(|conn| account_avatars::owned_account_avatars(&conn, account))
+        {
+            Ok(owned) => owned,
+            Err(_) => return rejected(503),
+        };
+        let runtime = state.inner.lock().await;
+        if let Some(downed_id) = summon_from_actor_id {
+            if !owned.contains(&downed_id) || actor_is_suspended(&state, downed_id) {
+                return rejected(403);
+            }
+            rescue_creation_context = runtime.avatar_rescue_creation_context(
+                downed_id,
+                avatar_rescue_account_key(&format!("account:{account}")),
+            );
+            if rescue_creation_context.is_none() {
+                return rejected(409);
+            }
+        } else if let Some(actor) = owned
+            .into_iter()
+            .filter_map(|id| runtime.actor_by_id(id))
+            .find(|actor| runtime.client_actor_can_observe(actor.id))
+        {
+            if actor_is_suspended(&state, actor.id) {
+                return rejected(403);
+            }
+            let view = runtime.actor_view(actor);
+            drop(runtime);
+            let (token, session) = issue_actor_session(&state, actor.id);
+            return Json(AvatarResponse {
+                ok: true,
+                status: CW_OK,
+                actor: Some(view),
+                actor_session: Some(token),
+                actor_session_expires_at_unix: Some(session.expires_at_unix),
+                events: Vec::new(),
+            });
+        }
+    }
+    if let Some(wallet_address) = signed_wallet
+        .as_deref()
+        .filter(|_| rescue_creation_context.is_none())
+    {
         if let Some(actor_id) = linked_actor_for_wallet(&state, wallet_address) {
             if actor_is_suspended(&state, actor_id) {
                 return Json(AvatarResponse {
@@ -325,6 +413,17 @@ pub(super) async fn create_avatar(
     drop(runtime);
     let (actor_session, actor_session_record) = issue_actor_session(&state, actor_id);
     if status == CW_OK {
+        if let Some(account) = account.as_deref() {
+            if !account_avatars::account_avatar_store(&state)
+                .and_then(|conn| account_avatars::claim_account_avatar(&conn, account, actor_id))
+                .unwrap_or(false)
+            {
+                warn!(
+                    actor_id,
+                    "avatar account save needs a retry with its issued actor session"
+                );
+            }
+        }
         if let Some(wallet_address) = signed_wallet.as_deref() {
             link_wallet_actor(&state, wallet_address, actor_id);
         }

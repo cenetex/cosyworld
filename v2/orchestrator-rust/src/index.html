@@ -7649,6 +7649,43 @@
       }
     }
 
+    async function restoreAccountAvatar({ claimCurrent = true } = {}) {
+      if (!identity?.authenticated) return false;
+      const payload = claimCurrent && actorId
+        ? { actor_id: actorId, actor_session: actorSession || null }
+        : {};
+      let avatar = await postResult("/auth/avatar", payload);
+      if (Number(avatar?.status) === 404 && payload.actor_id) {
+        avatar = await postResult("/auth/avatar", {});
+      }
+      if (Number(avatar?.status) === 404) return false;
+      if (!avatar?.ok || !avatar.actor?.id || !avatar.actor_session) {
+        throw new Error(avatar?.error || "Your saved avatar is temporarily unavailable.");
+      }
+      actorId = Number(avatar.actor.id);
+      if (!rememberActorSession(avatar)) throw new Error("Your avatar session could not be saved on this device.");
+      return true;
+    }
+
+    async function reconnectAccountAvatar() {
+      if (!identity?.authenticated) await continueWithPasskey();
+      if (await restoreAccountAvatar()) {
+        await refresh();
+        connectStream();
+        return;
+      }
+      setStatus("Use the device with your avatar's active session to save it to this passkey account.", "notice");
+    }
+
+    async function saveAccountAvatar() {
+      try {
+        return await restoreAccountAvatar();
+      } catch (error) {
+        setStatus(String(error.message || error), "notice");
+        return false;
+      }
+    }
+
     async function registerPasskey(additional = false) {
       if (!window.PublicKeyCredential || !navigator.credentials?.create) {
         throw new Error("Passkeys are not supported by this browser.");
@@ -7671,6 +7708,7 @@
       });
       if (!finished.ok) throw new Error(finished.error || "Passkey registration failed.");
       applyIdentity(finished);
+      await saveAccountAvatar();
       await refresh();
       connectStream();
     }
@@ -7691,6 +7729,7 @@
       });
       if (!finished.ok) throw new Error(finished.error || "Passkey sign-in failed.");
       applyIdentity(finished);
+      await saveAccountAvatar();
       await refresh();
       connectStream();
     }
@@ -7850,6 +7889,11 @@
     }
 
     async function createAvatar(selection = null) {
+      if (!selection?.summonFromActorId && await restoreAccountAvatar({ claimCurrent: false })) {
+        await refresh();
+        connectStream();
+        return;
+      }
       const profile = selection?.profileId
         ? (state?.character_creation || [])
           .find((candidate) => candidate.id === selection.profileId) || null
@@ -7877,6 +7921,7 @@
       }
       actorId = avatar.actor.id;
       if (!rememberActorSession(avatar)) throw new Error("The avatar session could not be stored safely.");
+      await saveAccountAvatar();
       clearDefeatTransition();
       pushEvents(avatar.events || []);
       await pingPresence();
@@ -8414,11 +8459,11 @@
             card: cardForActor(actorId) || cardForLocation(view.location?.id),
             shape: "avatar",
             modalTitle: "reconnect your avatar",
-            modalSummary: "Sign in to restore this avatar. No replacement.",
+            modalSummary: "Sign in with your passkey to return to your avatar.",
             effect: "restores the same identity, belongings, bonds, and journal position",
             busyLabel: "reconnecting",
             busyDetail: "finding the same thread in the world…",
-            run: () => connectWallet(),
+            run: () => reconnectAccountAvatar(),
           }];
         }
         const beginningAgain = Boolean(defeatTransition) && !summoningAvatar;
@@ -20608,6 +20653,7 @@
       try {
         await requestDevResetIfNeeded();
         await loadIdentity();
+        await saveAccountAvatar();
         const completedOpenRouter = await completeOpenRouterConnection();
         if (!completedOpenRouter && openRouterApiKey() && identity?.authenticated) {
           try {

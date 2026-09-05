@@ -40,7 +40,10 @@ fn initialize_avatar_session_handoff_schema(path: &Path) -> io::Result<()> {
     .map_err(sqlite_error)
 }
 
-fn avatar_session_handoff_target(state: &AppState, from_actor_id: u64) -> io::Result<Option<u64>> {
+pub(super) fn avatar_session_handoff_target(
+    state: &AppState,
+    from_actor_id: u64,
+) -> io::Result<Option<u64>> {
     let Some(path) = state.event_store_path.as_deref() else {
         return Ok(None);
     };
