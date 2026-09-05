@@ -20401,7 +20401,7 @@ async fn command(
     State(state): State<AppState>,
     Json(payload): Json<CommandRequest>,
 ) -> Json<CommandResponse> {
-    command_with_forwarding(client_addr, state, payload, true).await
+    command_with_card_receipt(client_addr, state, payload).await
 }
 
 async fn command_with_forwarding(

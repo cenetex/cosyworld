@@ -2,6 +2,32 @@ use super::*;
 
 const MAX_OFFER_ID_CHARS: usize = 2_048;
 
+pub(super) async fn command_with_card_receipt(
+    client_addr: SocketAddr,
+    state: AppState,
+    payload: CommandRequest,
+) -> Json<CommandResponse> {
+    let submitted_text = normalize_command_text(&payload.command);
+    let submitted_offer = payload.offer_id.is_some();
+    let Json(mut response) = command_with_forwarding(client_addr, state, payload, true).await;
+    // The saved receipt belongs to the card identifier. Compare the current
+    // caller's text after receipt recovery so retries receive the same notice.
+    if submitted_offer
+        && response.ok
+        && !submitted_text.is_empty()
+        && submitted_text != normalize_command_text(&response.command)
+    {
+        if let Some(action) = response.action.as_ref() {
+            let notice = format!("Played card: {} ({}).", action.label, response.command);
+            response.output = Some(match response.output.filter(|output| !output.is_empty()) {
+                Some(output) => format!("{notice}\n{output}"),
+                None => notice,
+            });
+        }
+    }
+    Json(response)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ParsedOfferId<'a> {
     rules_profile: &'a str,
@@ -448,6 +474,114 @@ pub(crate) async fn resolve_command_submission_at_boundary(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn divergent_move_gift_and_chat_text_names_the_played_card_on_replay() {
+        for (kind, divergent_text) in [
+            ("move", "go a different destination"),
+            ("give_item", "give Story Button to a different resident"),
+            ("chat", "chat with a different resident"),
+        ] {
+            let mut runtime = RuntimeWorld::seeded();
+            create_test_human(
+                &mut runtime,
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                "Receipt Player",
+            );
+            crate::test_support::complete_guided_story_for_test(&mut runtime, 5000);
+            if kind == "move" {
+                let (action, discovery, _) = runtime
+                    .plan_scout_choice_action(5000, RAIN_SOFT_GARDEN_LOCATION_ID)
+                    .expect("the adjacent route can be scouted");
+                let mut record = JournalRecord::new(action, runtime.next_seed_value());
+                record.projection_mutations.push(discovery);
+                assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+            }
+            for item in &mut runtime.world.items[..runtime.world.item_count] {
+                if item.id == STORY_BUTTON_ITEM_ID {
+                    item.location_id = 0;
+                    item.holder_actor_id = 5000;
+                    item.held_since_tick = runtime.world.tick;
+                    item.zone = CW_CARD_ZONE_CARRIED;
+                }
+            }
+            let ai_config = AiConfig {
+                api_key: "test".to_string(),
+                base_url: "http://127.0.0.1:9".to_string(),
+                model: "test-chat-model".to_string(),
+                ..Default::default()
+            };
+            let (mut primary, mut offers) =
+                runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+            retain_configured_model_interaction_offers(&mut primary, &mut offers, Some(&ai_config));
+            let (scene_key, _) = runtime.story_hand_scene_for_actor(5000);
+            let offer = (0..offers.len())
+                .find_map(|generation| {
+                    let mut story_state = runtime.story_hand_state_for_scene(5000, &scene_key);
+                    story_state.slot_generations = [generation as u64; 3];
+                    runtime.story_hand_states.insert(5000, story_state);
+                    let hand = runtime.action_hand_for(Some(5000), &offers);
+                    offers
+                        .iter()
+                        .find(|offer| {
+                            offer.kind == kind
+                                && hand
+                                    .entries
+                                    .iter()
+                                    .any(|entry| entry.offer_ids.contains(&offer.offer_id))
+                        })
+                        .cloned()
+                })
+                .unwrap_or_else(|| panic!("the {kind} card is in the current hand"));
+            runtime.ensure_canonical_identities(runtime.next_seed);
+            let envelope = CanonicalCommandEnvelope {
+                world_id: OFFICIAL_WORLD_ID.to_string(),
+                intent_id: format!("divergent-card-{kind}"),
+                actor_ref: runtime.canonical_ref("actor", 5000).unwrap().to_string(),
+                observed: CanonicalObservedVersions::default(),
+                last_world_seq: runtime.world.next_event_seq.saturating_sub(1),
+            };
+            let mut state = test_app_state(runtime, None);
+            state.ai_config = Arc::new(Some(ai_config));
+            let (session, _) = issue_actor_session(&state, 5000);
+            let mut payload = request(5000, &session, &offer.offer_id);
+            payload.command = offer.command.clone();
+            payload.envelope = Some(envelope);
+            let response = command(
+                ConnectInfo("127.0.0.1:44158".parse().unwrap()),
+                State(state.clone()),
+                Json(payload.clone()),
+            )
+            .await
+            .0;
+            assert!(response.ok, "{kind}: {response:?}");
+            assert!(!response
+                .output
+                .as_deref()
+                .unwrap_or_default()
+                .contains("Played card:"));
+            let receipt = serde_json::to_value(&response.receipt).unwrap();
+            let committed_seq = state.inner.lock().await.world.next_event_seq;
+            payload.command = divergent_text.to_string();
+            let replay = command(
+                ConnectInfo("127.0.0.1:44158".parse().unwrap()),
+                State(state.clone()),
+                Json(payload),
+            )
+            .await
+            .0;
+            assert!(replay.ok, "{kind}: {replay:?}");
+            assert_eq!(replay.command, offer.command);
+            assert_eq!(serde_json::to_value(&replay.receipt).unwrap(), receipt);
+            assert_eq!(state.inner.lock().await.world.next_event_seq, committed_seq);
+            let notice = format!("Played card: {} ({}).", offer.label, offer.command);
+            assert!(
+                replay.output.as_deref().unwrap().starts_with(&notice),
+                "{kind}: {replay:?}"
+            );
+        }
+    }
 
     fn request(actor_id: u64, session: &str, offer_id: &str) -> CommandRequest {
         CommandRequest {
