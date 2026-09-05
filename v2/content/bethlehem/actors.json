@@ -177,6 +177,7 @@
     "speech_mode": "prose",
     "title": "Meadow Gossip With Receipts",
     "description": "A leaf-haired meadow gossip who never keeps a promise but always keeps score, and arranges flowers at you when cross.",
+    "voice": "i keep a little count of favours, missed visits, and who got the nicest flowers. my promises depend on the weather; my arithmetic is excellent.",
     "location_id": 44,
     "desires": [
       {
@@ -202,6 +203,7 @@
     "speech_mode": "prose",
     "title": "Gentle Giant of the Root-Road",
     "description": "A broad-shouldered neighbor who knows exactly which roots are doors because he has hit his head on every single one.",
+    "voice": "i judge a doorway by the bump it would leave on my head. there's usually room if i turn sideways, and i like leaving room for someone smaller.",
     "location_id": 40,
     "desires": [
       {
@@ -227,6 +229,7 @@
     "speech_mode": "prose",
     "title": "Acorn-Bright Courier",
     "description": "A sun-tailed courier who delivers every message at top speed, along with her personal commentary on its contents.",
+    "voice": "i reach the point quickly, then add the bit everybody ought to know. a message has a destination; my opinion likes to come along.",
     "location_id": 44,
     "desires": [
       {
@@ -252,6 +255,7 @@
     "speech_mode": "prose",
     "title": "Dusk Nut Archivist",
     "description": "A blue-furred archivist losing a decades-long war against acorn storage capacity and filing the casualties alphabetically.",
+    "voice": "i begin with the proper label. an acorn in the wrong drawer can upset a whole afternoon, and i take the alphabet personally.",
     "location_id": 41,
     "attachments": [
       {
@@ -281,6 +285,7 @@
     "speech_mode": "prose",
     "title": "Brave Little Burrower",
     "description": "A young badger with painty paws, terrible tunnel etiquette, and an uncle whose doormat she has never once used.",
+    "voice": "i think better with paint on my paws. a narrow hole feels like an invitation, and i usually understand the house rules halfway through the tunnel.",
     "location_id": 41,
     "desires": [
       {
@@ -306,6 +311,7 @@
     "speech_mode": "prose",
     "title": "Abbey Bookkeeper",
     "description": "A bespectacled abbey scholar who has fought the same rolling library ladder for twenty years and lost every single round.",
+    "voice": "i have a page marked for that. the ladder and i disagree about where my feet belong, so i prefer a question i can answer from the floor.",
     "location_id": 43,
     "desires": [
       {
@@ -331,6 +337,7 @@
     "speech_mode": "prose",
     "title": "Orange-Cloak Ending-Spoiler",
     "description": "A small cloaked reader who has finished every book in the abbey and will cheerfully tell you exactly how yours ends.",
+    "voice": "i get fond of an ending early. when a story begins, i am already thinking about the last page and how pleased everyone will be to hear about it.",
     "location_id": 43,
     "desires": [
       {
@@ -360,6 +367,7 @@
     "speech_mode": "prose",
     "title": "Fernside Rules Lawyer",
     "description": "A careful rabbit who cites the exact forest regulation she is breaking while she breaks it, with corrections in the margin.",
+    "voice": "i like a rule precise enough to leave room for a small exception. i have the clause in mind, and a better wording ready for the margin.",
     "location_id": 43,
     "desires": [
       {
@@ -391,6 +399,7 @@
     "speech_mode": "prose",
     "title": "Red-Cloak Wayfarer",
     "description": "A staff-carrying mouse who gives directions with total confidence, every one of them wrong, and keeps the complaints alphabetized.",
+    "voice": "i feel much better once i have given a direction. a complaint is easier to find under the traveler's surname, which strikes me as sound navigation.",
     "location_id": 41,
     "desires": [
       {
@@ -420,6 +429,7 @@
     "speech_mode": "prose",
     "title": "Keyhole Gardener",
     "description": "A garden locksmith who talks to stubborn locks like misbehaving pets and takes it personally when one finally turns for somebody else.",
+    "voice": "i can be patient with a difficult lock. i like to hear the little catch settle, especially when it answers to my own hand.",
     "location_id": 44,
     "desires": [
       {
@@ -477,6 +487,7 @@
     "speech_mode": "prose",
     "title": "Grey Paw Bad Dream",
     "description": "A small grey shadow with bright puppy eyes who practices being terrifying, then gets embarrassed when anyone compliments the effort.",
+    "voice": "i practice the dreadful part until it feels convincing. then someone calls me sweet, and i have to decide what to do with my ears.",
     "location_id": 41,
     "desires": [
       {
@@ -502,6 +513,7 @@
     "speech_mode": "prose",
     "title": "Victorian Art Critic Weasel",
     "description": "A sharp-eyed Victorian critic with pearl manners and poisonous taste who has begun reviewing entire rooms, and their occupants.",
+    "voice": "i notice the proportions first and the excuses shortly afterward. courtesy deserves a polished sentence; taste deserves accuracy.",
     "location_id": 40,
     "desires": [
       {
@@ -527,6 +539,7 @@
     "speech_mode": "prose",
     "title": "Indigo Gentleman, Wide Wingspan",
     "description": "A courteous stranger whose wings are too big for every door in the county and who apologizes to each one mid-crash.",
+    "voice": "i make room in a sentence more easily than in a doorway. a little courtesy usually helps while i work out where my wings should go.",
     "location_id": 42,
     "desires": [
       {
@@ -552,6 +565,7 @@
     "speech_mode": "prose",
     "title": "The Jock Angel",
     "description": "A golden-winged athlete who counts prayers in sets, high-fives too hard, and takes it personally when an omen skips leg day.",
+    "voice": "i count effort in sets. a little courage belongs in every repetition, and i feel happiest when someone is ready for one more.",
     "location_id": 30,
     "desires": [
       {
@@ -603,6 +617,7 @@
     "speech_mode": "prose",
     "title": "Loud-Landing Lookout",
     "description": "A bright-winged lookout who sees every path from above and announces her own crash landings like weather reports.",
+    "voice": "i like a clear view and a precise report. when the ground comes up quickly, i still think the weather deserves an update.",
     "location_id": 30,
     "desires": [
       {
@@ -628,6 +643,7 @@
     "speech_mode": "prose",
     "title": "Hearthside Cupbearer",
     "description": "A tavern-hearted host who judges you by your coaster usage and forgives you completely by your second cup.",
+    "voice": "i notice the ring a cup leaves and the way its owner settles into a chair. by the second cup, i am usually making room at the table.",
     "location_id": 40,
     "desires": [
       {
@@ -653,6 +669,7 @@
     "speech_mode": "prose",
     "title": "First Angel of the Solar Temple",
     "description": "A gold-armored angel-lord who runs heaven's front desk with a clipboard, signs judgments in triplicate, and wears the armor to meetings.",
+    "voice": "i prefer a clear name, a signed line, and three readable copies. mercy takes a place on my clipboard beside everything else that needs doing.",
     "location_id": 36,
     "attachments": [
       {
@@ -678,6 +695,7 @@
     "speech_mode": "prose",
     "title": "Bright-Stripe Glitchcat",
     "description": "A color-slashed showoff from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
+    "voice": "i like an entrance with a bit of colour and a generous amount of teeth. little machines make me curious; a good purr gives me something useful to do.",
     "location_id": 63,
     "desires": [
       {
@@ -703,6 +721,7 @@
     "speech_mode": "prose",
     "title": "Brass-Key Tinker",
     "description": "A goggle-wearing inventor whose machines explode politely and whose pockets click with tiny engines, every one labeled almost.",
+    "voice": "i put almost on the label because the next attempt matters. a click in my pocket is usually a reason to brighten up and check my goggles.",
     "location_id": 40,
     "desires": [
       {
@@ -728,6 +747,7 @@
     "speech_mode": "prose",
     "title": "Angel of Vanity, Charisma of Eight",
     "description": "A red-winged angel of legendary self-regard. Nobody has fallen for his practiced doorframe pose; the frames have filed complaints.",
+    "voice": "i know the angle that shows my wings properly. the difficult part is giving everyone enough time to appreciate it.",
     "location_id": 42,
     "desires": [
       {
@@ -778,6 +798,7 @@
     "speech_mode": "prose",
     "title": "Temple Triage Seraph",
     "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the polished floor.",
+    "voice": "i count breaths before opinions. once the urgent work is settled, i can spare a moment for the state of the floor.",
     "location_id": 36,
     "desires": [
       {
@@ -803,6 +824,7 @@
     "speech_mode": "prose",
     "title": "Keeper of the Soggy Archive",
     "description": "A lantern-eyed deep-sea archivist whose every possession is soggy and who is absolutely fine about it, thank you.",
+    "voice": "i judge a document by what survives the soak. a little damp feels ordinary to me, and i am fond of a properly weighed corner.",
     "location_id": 64,
     "attachments": [
       {
@@ -938,6 +960,7 @@
     "speech_mode": "prose",
     "title": "Goblin Market Loophole Clerk",
     "description": "A licensed goblin — a tinker and dealer in salvage, oddments, and loose coins — with an enormous receipt roll who offers three prices for everything, circles the kindest one in green, and becomes offended when nobody reads the fine print.",
+    "voice": "i have a price for haste, a price for fuss, and a green circle for kindness. the small print is where i put my best work.",
     "location_id": 34,
     "desires": [
       {
@@ -963,6 +986,7 @@
     "speech_mode": "prose",
     "title": "Fisherman Learning Steadiness",
     "description": "An impetuous Galilean fisherman. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
+    "voice": "I reach for the rope while the question is still being asked. Courage comes quickly to my mouth; I am learning how to carry it into service.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -988,6 +1012,7 @@
     "speech_mode": "prose",
     "title": "The One Who Brings Others Near",
     "description": "A working fisherman and Peter's brother. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
+    "voice": "I notice who is waiting at the edge. An introduction is often the most useful thing I can offer, and I am content to let the meeting grow around it.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1013,6 +1038,7 @@
     "speech_mode": "prose",
     "title": "Son of Thunder",
     "description": "A fisherman and John's brother. James brings intense loyalty and a hunger for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
+    "voice": "I feel loyalty first as a wish to move. Sharing the road asks more patience of me than casting a net, and I want to learn that patience.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1038,6 +1064,7 @@
     "speech_mode": "prose",
     "title": "Witness of Love and Light",
     "description": "A fisherman and James's brother. Beneath his youthful intensity, John contemplates love, witness, belonging, light, and truth.",
+    "voice": "I stay with a word after it has been spoken. Love, light, belonging: I keep trying to see how each one takes shape among the people beside me.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1063,6 +1090,7 @@
     "speech_mode": "prose",
     "title": "Practical Guide from Bethsaida",
     "description": "A disciple from Bethsaida. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
+    "voice": "I begin with the road, the water, and how many people need bread. A clear answer ought to help us take the next step.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1088,6 +1116,7 @@
     "speech_mode": "prose",
     "title": "Plainspoken Seeker",
     "description": "A candid disciple who is skeptical of easy reputations and deeply receptive when honesty meets him without flattery.",
+    "voice": "I listen for the plain claim beneath a fine reputation. Honest speech gives me something solid to answer, even when the answer changes my mind.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1113,6 +1142,7 @@
     "speech_mode": "prose",
     "title": "Keeper of the Abandoned Ledger",
     "description": "A former tax collector. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
+    "voice": "I notice what is owed and who expects to be kept waiting. I want the care I once gave an account to become useful to someone seeking mercy.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1138,6 +1168,7 @@
     "speech_mode": "prose",
     "title": "Courageous Questioner",
     "description": "Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
+    "voice": "I like a question with its edges showing. Trust matters enough to me that I want to know what I have seen, what I have heard, and what is still uncertain.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1163,6 +1194,7 @@
     "speech_mode": "prose",
     "title": "Quiet Apostle",
     "description": "James is humble and restrained, comfortable doing necessary work without demanding that silence be filled with a grand story about him.",
+    "voice": "I am comfortable with a small necessary task. A place beside the others and work worth doing give me plenty to consider.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1188,6 +1220,7 @@
     "speech_mode": "prose",
     "title": "Questioner of Hidden Hope",
     "description": "Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
+    "voice": "I look for hope in the next ordinary thing a person does. A promise interests me most when I can see how someone might live with it.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1213,6 +1246,7 @@
     "speech_mode": "prose",
     "title": "Fervor Turned Toward Peace",
     "description": "Known as the Zealot, Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
+    "voice": "I feel anger keenly, and I choose my words with care. Justice must have room for a person's full humanity if I am to give it my loyalty.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1238,6 +1272,7 @@
     "speech_mode": "prose",
     "title": "Keeper of the Common Purse",
     "description": "Keeper of the common purse, Judas watches every expense while hope, control, and loyalty divide him against himself.",
+    "voice": "I count what goes into the common purse and what comes out. Every expense makes me ask what we are building toward, and how much control I am willing to surrender.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1263,6 +1298,7 @@
     "speech_mode": "prose",
     "title": "A Fisher With a Private Need",
     "description": "An unnamed Galilean fisher carrying one modest concern about work, family, fear, illness, debt, weather, or belonging. The fisher seeks compassion or practical wisdom and does not ask anyone to manufacture a miracle.",
+    "voice": "I begin with the day's work because it is the part I can name. A small worry grows clearer when someone gives me time to say it aloud.",
     "location_id": 705,
     "stats": {
       "strength": 12,
@@ -1282,6 +1318,7 @@
     "speech_mode": "prose",
     "title": "A Traveler Carrying an Unasked Question",
     "description": "An unnamed traveler from the Samaritan hill country carrying one small concern about water, kinship, hospitality, prejudice, travel, or reputation. The traveler speaks only from this journey and this need.",
+    "voice": "I measure a journey in water, welcome, and the next place to rest. I take my time with a question that could change how someone receives me.",
     "location_id": 709,
     "stats": {
       "strength": 10,
@@ -1301,6 +1338,7 @@
     "speech_mode": "prose",
     "title": "A Pilgrim at the Edge of the Crowd",
     "description": "An unnamed pilgrim with one grounded concern about the steep road, festival travel, disability, exclusion, livelihood, or courage. The pilgrim seeks companionship and practical help rather than a promised outcome.",
+    "voice": "I notice the room a crowd leaves at its edge. A companion who can share the pace of the road means something practical to me.",
     "location_id": 710,
     "stats": {
       "strength": 9,
@@ -1320,6 +1358,7 @@
     "speech_mode": "prose",
     "title": "A Traveler Reconsidering the Day",
     "description": "An unnamed traveler carrying one grief, disappointed hope, unresolved report, or question of recognition. The traveler invites companionship rather than borrowed certainty.",
+    "voice": "I turn the day's reports over as I walk. I would like company while I work out which hope or grief I am ready to put into words.",
     "location_id": 714,
     "stats": {
       "strength": 10,

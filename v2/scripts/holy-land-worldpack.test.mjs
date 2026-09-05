@@ -58,7 +58,7 @@ test("Emmaus is the destination while its road belongs to the journey system", (
 
 test("Holy Land generated paths use the current ecology-grounded prose contract", () => {
   const policy = holyLandPack.extensions["x-cosyworld-generation"];
-  assert.equal(holyLandPack.version, "1.2.3");
+  assert.equal(holyLandPack.version, "1.2.4");
   assert.equal(policy.migration_version, 4);
   assert.deepEqual(policy.prose.prompt_versions, ["pathway-content-v2"]);
   assert.ok(
@@ -201,6 +201,7 @@ test("Bethlehem accepts every declared production replay epoch", () => {
     "sha256:d6bb85c9b172307abb4c06faabb6d270e583b539947abb90d2e683832dff806d",
     "sha256:1480f6d16556ba2a61636c106a9aeae87f05cca72c02e043fa22eedad6188fbf",
     "sha256:3015ec6fa4ee3332a54efedac4be96001bd17133d7e704e9eaf99f644619a8c4",
+    "sha256:547ffc8912e30ea091fbb9f0effc127bb37e1c04b2921232012aac62eeb83794",
   ]);
 });
 

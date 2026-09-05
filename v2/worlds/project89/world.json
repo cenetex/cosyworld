@@ -30,7 +30,8 @@
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
       "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51",
-      "sha256:79e034d1e12bd759a1ea72c676aecbf1c2b6946a7d4189fbdf319fec5b83205d"
+      "sha256:79e034d1e12bd759a1ea72c676aecbf1c2b6946a7d4189fbdf319fec5b83205d",
+      "sha256:da7be7fc1c6a72743299ce093ed7c20b4fee51592973e6a3bd3e53e40e218847"
     ]
   },
   "packs": [

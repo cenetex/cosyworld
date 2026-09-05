@@ -1045,7 +1045,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/actor/9010",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "9010",
       "legacy_runtime_id": 9010,
@@ -1054,7 +1054,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/actor/9011",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "9011",
       "legacy_runtime_id": 9011,
@@ -1063,7 +1063,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/actor/9012",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "9012",
       "legacy_runtime_id": 9012,
@@ -1072,7 +1072,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/actor/9013",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "9013",
       "legacy_runtime_id": 9013,
@@ -1081,7 +1081,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/card/project89-archive-meridian",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-archive-meridian",
       "runtime_handle": 3624042695155097
@@ -1089,7 +1089,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/card/project89-chimera-reach",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-chimera-reach",
       "runtime_handle": 7138971258531726
@@ -1097,7 +1097,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/card/project89-green-loom-expanse",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-green-loom-expanse",
       "runtime_handle": 3210529761077870
@@ -1105,7 +1105,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/card/project89-rabbit-signal-freeport",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-rabbit-signal-freeport",
       "runtime_handle": 3272499223723841
@@ -1113,7 +1113,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/clock/project89.frontier-drift",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.frontier-drift",
       "runtime_handle": 3340412436176787
@@ -1121,7 +1121,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/clock/project89.open-circuit-charter",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.open-circuit-charter",
       "runtime_handle": 7856665941769981
@@ -1129,7 +1129,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/faction/project89_longhaul_union",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_longhaul_union",
       "runtime_handle": 5716750984138608
@@ -1137,7 +1137,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/faction/project89_station_covenant",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_station_covenant",
       "runtime_handle": 8160576098612764
@@ -1145,7 +1145,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/front/project89%3Afrontier-drift",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "front",
       "local_id": "project89:frontier-drift",
       "runtime_handle": 6929902562913143
@@ -1153,7 +1153,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/item/9120",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9120",
       "legacy_runtime_id": 9120,
@@ -1162,7 +1162,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/item/9121",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9121",
       "legacy_runtime_id": 9121,
@@ -1171,7 +1171,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/item/9122",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9122",
       "legacy_runtime_id": 9122,
@@ -1180,7 +1180,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/item/9123",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9123",
       "legacy_runtime_id": 9123,
@@ -1189,7 +1189,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/job/project89%3Acharter-the-open-circuit",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "job",
       "local_id": "project89:charter-the-open-circuit",
       "runtime_handle": 2115825795709752
@@ -1197,7 +1197,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/location/8940",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8940",
       "legacy_runtime_id": 8940,
@@ -1206,7 +1206,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/location/8941",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8941",
       "legacy_runtime_id": 8941,
@@ -1215,7 +1215,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/location/8942",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8942",
       "legacy_runtime_id": 8942,
@@ -1224,7 +1224,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/location/8943",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8943",
       "legacy_runtime_id": 8943,
@@ -1233,7 +1233,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/room-sheet/room%3A8940",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8940",
       "runtime_handle": 5567389199332181
@@ -1241,7 +1241,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/room-sheet/room%3A8941",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8941",
       "runtime_handle": 4475344085724846
@@ -1249,7 +1249,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/room-sheet/room%3A8942",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8942",
       "runtime_handle": 2290184686393672
@@ -1257,7 +1257,7 @@
     {
       "canonical_ref": "pack://project89.open-signal-frontier/room-sheet/room%3A8943",
       "pack_id": "project89.open-signal-frontier",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8943",
       "runtime_handle": 8833281492308360
@@ -1265,7 +1265,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8950",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8950",
       "legacy_runtime_id": 8950,
@@ -1274,7 +1274,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8951",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8951",
       "legacy_runtime_id": 8951,
@@ -1283,7 +1283,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8952",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8952",
       "legacy_runtime_id": 8952,
@@ -1292,7 +1292,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8953",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8953",
       "legacy_runtime_id": 8953,
@@ -1301,7 +1301,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8954",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8954",
       "legacy_runtime_id": 8954,
@@ -1310,7 +1310,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8955",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8955",
       "legacy_runtime_id": 8955,
@@ -1319,7 +1319,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8956",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8956",
       "legacy_runtime_id": 8956,
@@ -1328,7 +1328,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8957",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8957",
       "legacy_runtime_id": 8957,
@@ -1337,7 +1337,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8958",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8958",
       "legacy_runtime_id": 8958,
@@ -1346,7 +1346,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8959",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8959",
       "legacy_runtime_id": 8959,
@@ -1355,7 +1355,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8960",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8960",
       "legacy_runtime_id": 8960,
@@ -1364,7 +1364,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/actor/8961",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8961",
       "legacy_runtime_id": 8961,
@@ -1373,7 +1373,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-89-archives",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-89-archives",
       "runtime_handle": 2591576679703884
@@ -1381,7 +1381,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-archive-cipher",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-archive-cipher",
       "runtime_handle": 3869798373709656
@@ -1389,7 +1389,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-callum-agent-memory-seed",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-callum-agent-memory-seed",
       "runtime_handle": 8408409692633185
@@ -1397,7 +1397,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-charged-89-sigil",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-charged-89-sigil",
       "runtime_handle": 7657325592317194
@@ -1405,7 +1405,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-chimera-access-spine",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-chimera-access-spine",
       "runtime_handle": 3292677459051425
@@ -1413,7 +1413,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-chimera-lab",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-chimera-lab",
       "runtime_handle": 5858872030846256
@@ -1421,7 +1421,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-chimera-warden",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-chimera-warden",
       "runtime_handle": 6032187625042408
@@ -1429,7 +1429,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-coherence-nail",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-coherence-nail",
       "runtime_handle": 3392134661362225
@@ -1437,7 +1437,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-consciousness-capsule",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-consciousness-capsule",
       "runtime_handle": 2608616068288679
@@ -1445,7 +1445,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-convergence-engine",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-convergence-engine",
       "runtime_handle": 8530232984683654
@@ -1453,7 +1453,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-convergence-key",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-convergence-key",
       "runtime_handle": 3227108736289741
@@ -1461,7 +1461,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-convergence-voice",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-convergence-voice",
       "runtime_handle": 5148097148183603
@@ -1469,7 +1469,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-custodian",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-custodian",
       "runtime_handle": 8969441094194201
@@ -1477,7 +1477,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-data-spike",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-data-spike",
       "runtime_handle": 6489255177867637
@@ -1485,7 +1485,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-green-loom-assembly",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-green-loom-assembly",
       "runtime_handle": 7540673884678409
@@ -1493,7 +1493,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-green-loom-thread",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-green-loom-thread",
       "runtime_handle": 6735345140740799
@@ -1501,7 +1501,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-interference-market",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-interference-market",
       "runtime_handle": 4869132480015350
@@ -1509,7 +1509,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-iri-vale",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-iri-vale",
       "runtime_handle": 5884909544604081
@@ -1517,7 +1517,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-loom-steward-anja",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-loom-steward-anja",
       "runtime_handle": 44302026641410
@@ -1525,7 +1525,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-loopbreaker-patch",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-loopbreaker-patch",
       "runtime_handle": 4199631482984476
@@ -1533,7 +1533,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-mara-quell",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-mara-quell",
       "runtime_handle": 5867824821972284
@@ -1541,7 +1541,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-meme-farm-17",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-meme-farm-17",
       "runtime_handle": 8979747185040091
@@ -1549,7 +1549,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-memory-lantern",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-memory-lantern",
       "runtime_handle": 4956250573730833
@@ -1557,7 +1557,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-neural-disruptor",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-neural-disruptor",
       "runtime_handle": 1956492094186402
@@ -1565,7 +1565,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-oneirocom-auditor",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-oneirocom-auditor",
       "runtime_handle": 725797457154827
@@ -1573,7 +1573,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-oneirocom-tower",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-oneirocom-tower",
       "runtime_handle": 6942138701644002
@@ -1581,7 +1581,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-parzival",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-parzival",
       "runtime_handle": 4995496350547269
@@ -1589,7 +1589,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-proxim8-callum-synclaire",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-proxim8-callum-synclaire",
       "runtime_handle": 8094799971037698
@@ -1597,7 +1597,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-reality-anchor",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-reality-anchor",
       "runtime_handle": 765111434385492
@@ -1605,7 +1605,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-sector-89-safehouse",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-sector-89-safehouse",
       "runtime_handle": 7661730810943968
@@ -1613,7 +1613,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-seraph",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-seraph",
       "runtime_handle": 8155700579203071
@@ -1621,7 +1621,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-signal-veil",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-signal-veil",
       "runtime_handle": 6932068460530547
@@ -1629,7 +1629,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-threshold-interface",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-threshold-interface",
       "runtime_handle": 2908329044453342
@@ -1637,7 +1637,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-white-rabbit-relay",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-white-rabbit-relay",
       "runtime_handle": 3513091352455337
@@ -1645,7 +1645,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/clock/project89.liberation-signal",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.liberation-signal",
       "runtime_handle": 5249211083909795
@@ -1653,7 +1653,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/clock/project89.oneirocom-suppression",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.oneirocom-suppression",
       "runtime_handle": 5546427423409342
@@ -1661,7 +1661,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_archive_custodians",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_archive_custodians",
       "runtime_handle": 1712248957166510
@@ -1669,7 +1669,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_chimera_remnants",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_chimera_remnants",
       "runtime_handle": 606122280336123
@@ -1677,7 +1677,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_green_loom",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_green_loom",
       "runtime_handle": 7695224420992439
@@ -1685,7 +1685,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_oneirocom_directorate",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_oneirocom_directorate",
       "runtime_handle": 2181529525620804
@@ -1693,7 +1693,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_threshold_independents",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_threshold_independents",
       "runtime_handle": 932309634852526
@@ -1701,7 +1701,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/faction/project89_white_rabbit_relay",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_white_rabbit_relay",
       "runtime_handle": 4426331920664404
@@ -1709,7 +1709,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/front/project89%3Aconvergence-protocol",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "front",
       "local_id": "project89:convergence-protocol",
       "runtime_handle": 5179150241803681
@@ -1717,7 +1717,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8970",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8970",
       "legacy_runtime_id": 8970,
@@ -1726,7 +1726,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8971",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8971",
       "legacy_runtime_id": 8971,
@@ -1735,7 +1735,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8972",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8972",
       "legacy_runtime_id": 8972,
@@ -1744,7 +1744,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8973",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8973",
       "legacy_runtime_id": 8973,
@@ -1753,7 +1753,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8974",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8974",
       "legacy_runtime_id": 8974,
@@ -1762,7 +1762,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8975",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8975",
       "legacy_runtime_id": 8975,
@@ -1771,7 +1771,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8976",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8976",
       "legacy_runtime_id": 8976,
@@ -1780,7 +1780,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8977",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8977",
       "legacy_runtime_id": 8977,
@@ -1789,7 +1789,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8978",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8978",
       "legacy_runtime_id": 8978,
@@ -1798,7 +1798,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8979",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8979",
       "legacy_runtime_id": 8979,
@@ -1807,7 +1807,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8980",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8980",
       "legacy_runtime_id": 8980,
@@ -1816,7 +1816,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8981",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8981",
       "legacy_runtime_id": 8981,
@@ -1825,7 +1825,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8982",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8982",
       "legacy_runtime_id": 8982,
@@ -1834,7 +1834,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8983",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8983",
       "legacy_runtime_id": 8983,
@@ -1843,7 +1843,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/item/8984",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "8984",
       "legacy_runtime_id": 8984,
@@ -1852,7 +1852,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/job/project89%3Aoperation-liberation",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "job",
       "local_id": "project89:operation-liberation",
       "runtime_handle": 6543006997004407
@@ -1860,7 +1860,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8900",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8900",
       "legacy_runtime_id": 8900,
@@ -1869,7 +1869,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8901",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8901",
       "legacy_runtime_id": 8901,
@@ -1878,7 +1878,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8902",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8902",
       "legacy_runtime_id": 8902,
@@ -1887,7 +1887,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8903",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8903",
       "legacy_runtime_id": 8903,
@@ -1896,7 +1896,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8904",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8904",
       "legacy_runtime_id": 8904,
@@ -1905,7 +1905,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8905",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8905",
       "legacy_runtime_id": 8905,
@@ -1914,7 +1914,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8906",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8906",
       "legacy_runtime_id": 8906,
@@ -1923,7 +1923,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8907",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8907",
       "legacy_runtime_id": 8907,
@@ -1932,7 +1932,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/location/8908",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8908",
       "legacy_runtime_id": 8908,
@@ -1941,7 +1941,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8900",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8900",
       "runtime_handle": 7032567096909072
@@ -1949,7 +1949,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8901",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8901",
       "runtime_handle": 2841825068468520
@@ -1957,7 +1957,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8902",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8902",
       "runtime_handle": 2452044558353818
@@ -1965,7 +1965,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8903",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8903",
       "runtime_handle": 1195675507549492
@@ -1973,7 +1973,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8904",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8904",
       "runtime_handle": 819849871437482
@@ -1981,7 +1981,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8905",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8905",
       "runtime_handle": 4546204006684873
@@ -1989,7 +1989,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8906",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8906",
       "runtime_handle": 5650699717245989
@@ -1997,7 +1997,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8907",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8907",
       "runtime_handle": 4834635552122577
@@ -2005,7 +2005,7 @@
     {
       "canonical_ref": "pack://project89.operation-liberation/room-sheet/room%3A8908",
       "pack_id": "project89.operation-liberation",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8908",
       "runtime_handle": 2270459803696041
@@ -2013,7 +2013,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8990",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8990",
       "legacy_runtime_id": 8990,
@@ -2022,7 +2022,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8991",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8991",
       "legacy_runtime_id": 8991,
@@ -2031,7 +2031,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8992",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8992",
       "legacy_runtime_id": 8992,
@@ -2040,7 +2040,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8993",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8993",
       "legacy_runtime_id": 8993,
@@ -2049,7 +2049,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8994",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8994",
       "legacy_runtime_id": 8994,
@@ -2058,7 +2058,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8995",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8995",
       "legacy_runtime_id": 8995,
@@ -2067,7 +2067,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8996",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8996",
       "legacy_runtime_id": 8996,
@@ -2076,7 +2076,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/actor/8997",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "actor",
       "local_id": "8997",
       "legacy_runtime_id": 8997,
@@ -2085,7 +2085,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-chimera-boneyard",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-chimera-boneyard",
       "runtime_handle": 2008160450865347
@@ -2093,7 +2093,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-echo-observatory",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-echo-observatory",
       "runtime_handle": 4073005724108343
@@ -2101,7 +2101,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-glass-static-gardens",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-glass-static-gardens",
       "runtime_handle": 4104122568362214
@@ -2109,7 +2109,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-loomwatch-causeway",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-loomwatch-causeway",
       "runtime_handle": 614310828279548
@@ -2117,7 +2117,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-memory-delta",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-memory-delta",
       "runtime_handle": 3584409687321158
@@ -2125,7 +2125,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-oneirocom-spillway",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-oneirocom-spillway",
       "runtime_handle": 7353173529672277
@@ -2133,7 +2133,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-signal-orchard",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-signal-orchard",
       "runtime_handle": 2313667791263177
@@ -2141,7 +2141,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-white-rabbit-commons",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "card",
       "local_id": "project89-white-rabbit-commons",
       "runtime_handle": 5515000522823930
@@ -2149,7 +2149,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/clock/project89.mesh-cascade",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.mesh-cascade",
       "runtime_handle": 7521286847600952
@@ -2157,7 +2157,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/clock/project89.perimeter-stability",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "clock",
       "local_id": "project89.perimeter-stability",
       "runtime_handle": 8231600321466060
@@ -2165,7 +2165,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/faction/project89_meshkeepers",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_meshkeepers",
       "runtime_handle": 3580743366419337
@@ -2173,7 +2173,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/faction/project89_return_network",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_return_network",
       "runtime_handle": 1967915498490776
@@ -2181,7 +2181,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/faction/project89_spillway_compact",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "faction",
       "local_id": "project89_spillway_compact",
       "runtime_handle": 7473578248669384
@@ -2189,7 +2189,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/front/project89%3Acoupled-mesh-cascade",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "front",
       "local_id": "project89:coupled-mesh-cascade",
       "runtime_handle": 7931581690813865
@@ -2197,7 +2197,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9100",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9100",
       "legacy_runtime_id": 9100,
@@ -2206,7 +2206,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9101",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9101",
       "legacy_runtime_id": 9101,
@@ -2215,7 +2215,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9102",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9102",
       "legacy_runtime_id": 9102,
@@ -2224,7 +2224,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9103",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9103",
       "legacy_runtime_id": 9103,
@@ -2233,7 +2233,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9104",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9104",
       "legacy_runtime_id": 9104,
@@ -2242,7 +2242,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9105",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9105",
       "legacy_runtime_id": 9105,
@@ -2251,7 +2251,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9106",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9106",
       "legacy_runtime_id": 9106,
@@ -2260,7 +2260,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/item/9107",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "item",
       "local_id": "9107",
       "legacy_runtime_id": 9107,
@@ -2269,7 +2269,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/job/project89%3Astabilize-perimeter-relay",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "job",
       "local_id": "project89:stabilize-perimeter-relay",
       "runtime_handle": 7700517694186391
@@ -2277,7 +2277,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8920",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8920",
       "legacy_runtime_id": 8920,
@@ -2286,7 +2286,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8921",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8921",
       "legacy_runtime_id": 8921,
@@ -2295,7 +2295,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8922",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8922",
       "legacy_runtime_id": 8922,
@@ -2304,7 +2304,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8923",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8923",
       "legacy_runtime_id": 8923,
@@ -2313,7 +2313,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8924",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8924",
       "legacy_runtime_id": 8924,
@@ -2322,7 +2322,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8925",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8925",
       "legacy_runtime_id": 8925,
@@ -2331,7 +2331,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8926",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8926",
       "legacy_runtime_id": 8926,
@@ -2340,7 +2340,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8927",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "location",
       "local_id": "8927",
       "legacy_runtime_id": 8927,
@@ -2349,7 +2349,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8920",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8920",
       "runtime_handle": 5272148924224984
@@ -2357,7 +2357,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8921",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8921",
       "runtime_handle": 2148221041829476
@@ -2365,7 +2365,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8922",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8922",
       "runtime_handle": 4456731474108452
@@ -2373,7 +2373,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8923",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8923",
       "runtime_handle": 4801317917413
@@ -2381,7 +2381,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8924",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8924",
       "runtime_handle": 7732318112884397
@@ -2389,7 +2389,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8925",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8925",
       "runtime_handle": 7490223969637343
@@ -2397,7 +2397,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8926",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8926",
       "runtime_handle": 3865127110462306
@@ -2405,7 +2405,7 @@
     {
       "canonical_ref": "pack://project89.perimeter-relay/room-sheet/room%3A8927",
       "pack_id": "project89.perimeter-relay",
-      "pack_version": "0.1.1",
+      "pack_version": "0.1.2",
       "kind": "room-sheet",
       "local_id": "room:8927",
       "runtime_handle": 1655222694511227
