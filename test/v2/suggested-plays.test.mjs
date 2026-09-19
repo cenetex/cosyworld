@@ -19,7 +19,7 @@ function game() {
     actorId: 9, sceneMeldOfferId: '', sceneMeldKeys: ['place'], cards,
     actions: offers.map((offer) => ({ label: offer.kind, offerIds: [offer.offer_id] })),
     state: { location: { id: 1 }, action_offers: offers, action_hand: { entries: cards.map((card, index) => ({ ...card.nounEntry, offer_ids: [[ 'walk' ], [ 'talk' ], [ 'give' ]][index] })) } },
-    storyHandKey: (card) => card.handKey,
+    storyHandKey: (card) => card?.handKey || "",
     sceneMeldEntityKey: (card) => card.nounEntry.card_id,
     actionBarActions: () => cards,
   });
@@ -78,4 +78,63 @@ describe('deliberate approach selection', () => {
     expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('walk');
     expect(vm.runInContext('sceneMeldResolution().candidates.map(offer => offer.offer_id)', context)).not.toContain('give');
   });
+});
+
+
+describe('card action recovery', () => {
+  it('selects a playable action when a higher ranked offer has no client action', () => {
+    const context = game();
+    context.state.action_offers.push({ offer_id: 'missing', kind: 'accept_transfer' });
+    context.state.action_hand.entries[0].offer_ids.push('missing');
+    context.sceneMeldOfferId = 'missing';
+    expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('walk');
+  });
+  it('opens a combination for a card whose action needs another card', () => {
+    const context = game();
+    Object.assign(context, {
+      actionBusy: false, storyHandExpanded: false, storyHandActiveKey: '',
+      usesInlineStoryHand: () => true,
+      actionHandKey: (card) => card.handKey,
+      setStoryHandExpanded: (expanded) => { context.storyHandExpanded = expanded; },
+    });
+    vm.runInContext(html.slice(html.indexOf('    function activateStoryHandAction('), html.indexOf('    function closeStoryHand(')), context);
+    vm.runInContext('activateStoryHandAction(cards[2])', context);
+    expect(context.storyHandExpanded).toBe(true);
+    expect([...context.sceneMeldKeys]).toEqual(['friend', 'gift']);
+    expect(context.sceneMeldOfferId).toBe('give');
+  });
+  it('offers Think directly when the open card has no playable action', () => {
+    const context = game();
+    context.actions = [];
+    const nodes = new Map();
+    Object.assign(context, {
+      storyHandExpanded: true, storyHandActiveKey: 'place', actionBusy: false, handShuffleBusy: false,
+      usesInlineStoryHand: () => true, activeHeldStoryHandActions: () => null,
+      $: (id) => { if (!nodes.has(id)) nodes.set(id, {}); return nodes.get(id); },
+      canDiscardHandCard: () => true, handCardThink: () => ({ free: true }),
+      sceneMeldCardTypeLabel: () => "Location", friendlyActionText: (text) => text,
+      storyHandActionWaitsForTurn: () => false, originalStoryHandAction: (card) => card,
+    });
+    vm.runInContext(html.slice(html.indexOf('    function renderSceneMeld('), html.indexOf('    function playSceneMeld(')), context);
+    vm.runInContext('renderSceneMeld(cards)', context);
+    expect(nodes.get('scene-meld-play')).toMatchObject({ hidden: false, disabled: false, textContent: 'Think · Free' });
+    context.storyHandExpanded = false;
+    vm.runInContext('renderSceneMeld(cards)', context);
+    expect(nodes.get('scene-meld').hidden).toBe(true);
+  });
+});
+
+
+it('keeps the displayed card and submitted action together during keyboard navigation', () => {
+  const context = game();
+  Object.assign(context, {
+    storyHandExpanded: true, storyHandActiveKey: 'place', focusedKey: '', focusIndex: 0,
+    usesInlineStoryHand: () => true, originalStoryHandAction: (card) => card,
+    renderRoomAvatarRail: () => {}, renderCommands: () => {}, $: () => ({ focus() {} }),
+  });
+  vm.runInContext(html.slice(html.indexOf('    function moveVisibleActionFocus('), html.indexOf('    function isDefinitivePassRejection(')), context);
+  vm.runInContext('moveVisibleActionFocus(1)', context);
+  expect(context.storyHandActiveKey).toBe('friend');
+  expect([...context.sceneMeldKeys]).toEqual(['friend']);
+  expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('talk');
 });

@@ -55,3 +55,28 @@ describe('visible adventure receipts', () => {
     expect(receipts({ journalOpen: true })).toEqual(['journal_opened_after_growth']);
   });
 });
+
+
+describe('quest dismissal', () => {
+  it('keeps the quest dismissed after refresh and reload, scoped to one avatar and quest', () => {
+    const storage = new Map();
+    const create = () => {
+      const context = vm.createContext({ actorId: 7, state: { first_tale: { job_id: 'garden' } },
+        localStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+        renderAdventure: () => {}, $: () => ({ focus() {} }),
+      });
+      vm.runInContext(html.slice(html.indexOf('    const dismissedAdventures'), html.indexOf('    function renderAdventure(')), context);
+      return context;
+    };
+    const first = create();
+    vm.runInContext('dismissAdventure()', first);
+    expect(vm.runInContext('adventureIsDismissed()', first)).toBe(true);
+    const reload = create();
+    expect(vm.runInContext('adventureIsDismissed()', reload)).toBe(true);
+    reload.actorId = 8;
+    expect(vm.runInContext('adventureIsDismissed()', reload)).toBe(false);
+    reload.actorId = 7;
+    reload.state.first_tale.job_id = 'another';
+    expect(vm.runInContext('adventureIsDismissed()', reload)).toBe(false);
+  });
+});

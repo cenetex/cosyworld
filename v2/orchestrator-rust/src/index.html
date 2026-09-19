@@ -6940,9 +6940,7 @@
     .scene-play-option:disabled { opacity: .5; cursor: default; }
     .scene-play-option:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
     .scene-play-preview { margin: 5px 0 0; max-width: 80ch; color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
-    .scene-play-preview:empty { display: none; }
-    .prompt .hand-header { display: block; }
-    .prompt .hand-toggle { min-height: 32px; padding-block: 5px; }
+    .scene-play-preview:empty, .scene-meld-status:empty { display: none; }
     .prompt { max-height: 60dvh; overflow-y: auto; }
     .prompt .scene-meld-play { max-width: 260px; text-transform: none; font-size: 13px; letter-spacing: 0; }
     @media (min-width: 901px) {
@@ -6994,6 +6992,28 @@
       .adventure h2 { font-size: 20px; }
       .adventure p { font-size: 12px; }
       .adventure-garden svg { max-height: 120px; }
+    }
+
+    /* Card details open only after a tap; keep the room in view. */
+    .scene-play-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .scene-play-heading strong { font: 600 18px/1.3 Georgia, serif; }
+    .scene-play-heading button, .adventure-dismiss { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--amber); cursor: pointer; }
+    .scene-play-heading button:focus-visible, .adventure-dismiss:focus-visible { outline: 2px solid var(--amber); }
+    .prompt.hand-expanded .hand-rail { display: flex; overflow-x: auto; gap: 8px; padding: 8px 12px; scroll-snap-type: x proximity; }
+    .prompt.hand-expanded .story-card-slot { flex: 1 0 160px; width: auto; height: 124px; min-height: 0; grid-template-rows: 78px 44px; scroll-snap-align: start; }
+    .prompt.hand-expanded .story-card-slot::after { display: none; }
+    .prompt.hand-expanded .cmd { height: 78px; min-height: 0; grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: 78px; }
+    .prompt.hand-expanded .cmd.has-copy .thumb { width: 64px; height: 78px; border-bottom: 0; }
+    .prompt.hand-expanded .cmd-copy { align-content: center; padding: 6px 8px; }
+    .prompt.hand-expanded .cmd-label { font-size: 15px; }
+    .prompt.hand-expanded .cmd-kicker { font-size: 9px; }
+    .prompt.hand-expanded .cmd-kicker::after, .prompt.hand-expanded .detail { display: none; }
+    .prompt .scene-meld-play[hidden] { display: none; }
+    .adventure { position: relative; }
+    .adventure-dismiss { position: absolute; top: 3px; right: 3px; font-size: 24px; }
+    .adventure h2 { padding-right: 28px; }
+    @media (max-width: 560px) {
+      .prompt.hand-expanded .story-card-slot { flex-basis: 180px; }
     }
   </style>
 </head>
@@ -7070,13 +7090,6 @@
       <div class="turn-banner" id="turn-banner" hidden>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
-      <div class="hand-header">
-        <button class="hand-toggle" id="hand-toggle" type="button" aria-expanded="false" aria-controls="hand-rail">
-          <span class="hand-toggle-title">Story Hand</span>
-          <span class="hand-toggle-status" id="hand-toggle-status">3 cards</span>
-          <span class="hand-toggle-chevron" aria-hidden="true">Close</span>
-        </button>
-      </div>
       <div class="hand-rail" id="hand-rail" role="group" aria-label="Cards in your hand">
         <article class="story-card-slot" data-story-card-slot="primary">
           <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
@@ -7101,9 +7114,9 @@
         </article>
       </div>
       <section class="scene-meld" id="scene-meld" aria-label="Build a play" hidden>
+        <div class="scene-play-heading"><strong id="scene-play-title">Card actions</strong><button type="button" id="scene-play-close" aria-label="Close card actions">Close</button></div>
         <div class="scene-play-options" id="scene-play-options" role="group" aria-label="Choose an approach"></div>
         <div class="scene-meld-copy">
-          <strong class="scene-meld-title">Your next move</strong>
           <span class="scene-meld-status" id="scene-meld-status" role="status" aria-live="polite"></span>
           <p class="scene-play-preview" id="scene-play-preview"></p>
         </div>
@@ -7264,7 +7277,6 @@
     let heldStoryHand = null;
     let storyHandTurnActivity = "";
     let storyHandScrollPending = false;
-    let storyHandScrollFrame = null;
     let recoveryPromptPending = false;
     let logEvents = [];
     let roomHistoryHydrated = false;
@@ -14604,17 +14616,38 @@
       return `<figure class="adventure-garden"><svg viewBox="0 0 360 160" role="img" aria-label="${escapeHtml(model.status)}"><rect width="360" height="160" rx="14" fill="#233f3e"/><path d="M0 0h360v44C249 23 149 100 0 88Z" fill="#466b51"/><path d="M0 154C109 122 244 141 360 87v73H0Z" fill="#638165"/><path d="M0 119C125 143 221 40 360 60" fill="none" stroke="#8eb9ad" stroke-width="2" opacity=".5"/>${stones}<path d="M300 44V18m-10 8h25l-6 7h-19z" fill="#ddbf81" stroke="#ddbf81" stroke-width="3"/><g fill="#e6d7a1"><circle cx="26" cy="62" r="3"/><circle cx="40" cy="71" r="2"/><circle cx="328" cy="127" r="3"/><circle cx="311" cy="140" r="2"/></g></svg><figcaption>${escapeHtml(model.status)} <span>${model.progress} / ${model.goal} shared steps</span></figcaption></figure>`;
     }
 
+    const dismissedAdventures = new Set();
+
+    function adventureStorageKey() {
+      return actorId && state?.first_tale ? `cosyworld.adventure-dismissed.${actorId}.${state.first_tale.job_id || "first-tale"}` : "";
+    }
+
+    function adventureIsDismissed() {
+      const key = adventureStorageKey();
+      if (dismissedAdventures.has(key)) return true;
+      try { return localStorage.getItem(key) === "1"; } catch { return false; }
+    }
+
+    function dismissAdventure() {
+      const key = adventureStorageKey();
+      if (!key) return;
+      dismissedAdventures.add(key);
+      try { localStorage.setItem(key, "1"); } catch { /* Keep the choice for this visit. */ }
+      renderAdventure();
+      $("room-log-toggle").focus();
+    }
+
     function renderAdventure() {
       const host = $("adventure");
       const model = adventureModel();
-      host.hidden = !model;
+      host.hidden = !model || adventureIsDismissed();
       if (!model) { host.innerHTML = ""; return; }
-      host.innerHTML = `<div><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
+      host.innerHTML = `<button type="button" class="adventure-dismiss" data-dismiss-adventure aria-label="Dismiss quest">×</button><div><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
     }
 
     function journalAdventureHtml() {
       const adventure = adventureModel();
-      return adventure ? `<section class="journal-adventure"><h3>${escapeHtml(adventure.title)}</h3><p>${escapeHtml(adventure.memory || adventure.premise)}</p><strong>When you return</strong><p>${escapeHtml(adventure.instruction)}</p></section>` : "";
+      return adventure ? `<section class="journal-adventure"><h3>${escapeHtml(adventure.title)}</h3><p>${escapeHtml(adventure.memory || adventure.premise)}</p><strong>Your next step</strong><p>${escapeHtml(adventure.instruction)}</p>${adventure.garden && adventure.atGarden ? gardenPathScene(adventure) : ""}${adventure.recognition ? `<p>${escapeHtml(adventure.recognition)}</p>` : ""}${adventure.invitation ? `<p>${escapeHtml(adventure.invitation)}</p>` : ""}</section>` : "";
     }
 
     function journalBeforeFirstPageHtml() {
@@ -15506,9 +15539,9 @@
         : state?.journey
         ? "The road is quiet for a moment. Chat with the travelling party or choose how to press on."
         : hasAvatar
-          ? "Choose a play from your cards. Read what it offers, then take your turn."
+          ? "Tap a card, choose an action, and take your turn."
         : "Begin a tale, then discover the room through play.";
-      const direction = hasAvatar ? "Suggested plays are below your cards" : "Choose a beginning below";
+      const direction = hasAvatar ? "Tap a card to see its actions" : "Choose a beginning below";
       return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
     }
 
@@ -18242,7 +18275,8 @@
           || Number(left?.rank ?? 500) - Number(right?.rank ?? 500)
           || String(left?.id || "").localeCompare(String(right?.id || ""))
       ));
-      const chosenOffer = candidates.find((offer) => offer.offer_id === preferredOfferId) || candidates[0] || null;
+      const playable = candidates.filter((offer) => exactActionForOffer(offer));
+      const chosenOffer = playable.find((offer) => offer.offer_id === preferredOfferId) || playable[0] || null;
       const chosenVerb = exactActionForOffer(chosenOffer);
       return {
         selected,
@@ -18301,12 +18335,19 @@
 
     function renderSceneMeld(visibleActions) {
       const host = $("scene-meld");
-      host.hidden = !usesInlineStoryHand() || !visibleActions.some((action) => action.nounCard)
+      host.hidden = !storyHandExpanded || !usesInlineStoryHand() || !visibleActions.some((action) => action.nounCard)
         || Boolean(activeHeldStoryHandActions());
       if (host.hidden) return;
       reconcileSceneMeld(visibleActions);
-      const resolution = sceneMeldResolution(visibleActions);
-      const suggestions = suggestedScenePlays(visibleActions);
+      let resolution = sceneMeldResolution(visibleActions);
+      const focused = visibleActions.find((card) => storyHandKey(card) === storyHandActiveKey);
+      const suggestions = suggestedScenePlays(visibleActions).filter((play) => play.keys.includes(storyHandActiveKey));
+      if (!resolution.chosenVerb && suggestions.length) {
+        sceneMeldKeys = [...suggestions[0].keys];
+        sceneMeldOfferId = suggestions[0].chosenOffer.offer_id;
+        resolution = sceneMeldResolution(visibleActions);
+      }
+      $("scene-play-title").textContent = focused?.label || "Card actions";
       $("scene-play-options").innerHTML = suggestions.map((suggestion, index) => {
         const label = sceneMeldVerb(suggestion.chosenVerb, suggestion.chosenOffer);
         const selected = suggestion.chosenOffer.offer_id === resolution.chosenOffer?.offer_id
@@ -18315,23 +18356,28 @@
         const nouns = suggestion.selected.map((card) => card.nounEntry?.label || sceneMeldCardTypeLabel(card)).join(" + ");
         return `<button type="button" class="scene-play-option" data-scene-play="${index}" aria-pressed="${selected}"${actionBusy || storyHandActionWaitsForTurn(suggestion.chosenVerb) ? " disabled" : ""}><strong>${escapeHtml(label)}</strong><span>${escapeHtml(nouns)}</span></button>`;
       }).join("");
-      $("scene-play-options").hidden = !suggestions.length;
-      const nounText = resolution.selected.map((action) => String(action?.nounEntry?.label || sceneMeldCardTypeLabel(action))).join(" + ");
+      $("scene-play-options").hidden = suggestions.length < 2;
       $("scene-meld-status").textContent = resolution.chosenVerb
-        ? `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
-        : "Choose a suggested play, or use Think to find a fresh card.";
+        ? ""
+        : canDiscardHandCard(focused) ? "Think to draw another card." : "Tap another card to explore its actions.";
       const outcome = [resolution.chosenOffer?.effect, resolution.chosenOffer?.risk].filter(Boolean).map(friendlyActionText).join(" · ");
       $("scene-play-preview").textContent = resolution.chosenVerb ? outcome || actionSummary(resolution.chosenVerb) : "";
       const play = $("scene-meld-play");
-      play.disabled = !resolution.chosenVerb || actionBusy
-        || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb));
+      play.hidden = !resolution.chosenVerb && !canDiscardHandCard(focused);
+      play.disabled = actionBusy || handShuffleBusy
+        || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb || focused));
       play.textContent = resolution.chosenVerb
         ? `Play ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
-        : "Choose a play";
+        : `Think · ${handCardThink(focused)?.free ? "Free" : "Turn"}`;
     }
 
     function playSceneMeld() {
       const resolution = sceneMeldResolution(actionBarActions());
+      if (!resolution.chosenVerb) {
+        const focused = actionBarActions().find((card) => storyHandKey(card) === storyHandActiveKey);
+        if (canDiscardHandCard(focused)) void discardActionCard(focused);
+        return;
+      }
       const action = originalStoryHandAction(resolution.chosenVerb);
       if (!action || actionBusy || storyHandActionWaitsForTurn(action)) return;
       action.selectedCardIds = resolution.selected.map(sceneMeldEntityKey);
@@ -18483,15 +18529,12 @@
         storyHandActiveKey = "";
       }
       prompt.classList.toggle("hand-expanded", expanded);
-      $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
-      $("hand-toggle").querySelector(".hand-toggle-chevron").textContent = expanded ? "Close" : "Expand";
-      const count = visibleActions.length;
-      $("hand-toggle-status").textContent = `${count} ${count === 1 ? "card" : "cards"}`;
       const selected = visibleActions.find((action) => storyHandKey(action) === storyHandActiveKey)
         || visibleActions[0]
         || null;
-      if (expanded && selected && !storyHandActiveKey) storyHandActiveKey = storyHandKey(selected);
+      if (expanded && selected) storyHandActiveKey = storyHandKey(selected);
       if (expanded) reconcileSceneMeld(visibleActions, selected);
+      renderSceneMeld(visibleActions);
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
@@ -18512,7 +18555,9 @@
         } else {
           card.removeAttribute("aria-current");
         }
-        const meldSelected = sceneMeldKeys.includes(storyHandKey(action));
+        const meldSelected = expanded && sceneMeldKeys.includes(storyHandKey(action));
+        card.setAttribute("aria-expanded", expanded && storyHandKey(action) === storyHandActiveKey ? "true" : "false");
+        card.setAttribute("aria-controls", "scene-meld");
         const cardKind = sceneMeldCardTypeLabel(action);
         card.setAttribute("aria-pressed", meldSelected ? "true" : "false");
         slot.classList.toggle("meld-selected", meldSelected);
@@ -18549,7 +18594,6 @@
       if (expanded && selected && shouldScroll) {
         window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
       }
-      renderSceneMeld(visibleActions);
       renderStoryHandInspector(null);
       renderTurnRope();
     }
@@ -18583,21 +18627,29 @@
 
     function activateStoryHandAction(action) {
       if (!action) return;
-      if (!usesInlineStoryHand()) {
+      if (!usesInlineStoryHand() || !action.nounCard) {
         if (actionBusy) return;
         openActionModal(action, { handCard: true });
         return;
       }
-      if (storyHandExpanded) {
-        toggleSceneMeldCard(action);
+      if (storyHandExpanded && storyHandActiveKey === storyHandKey(action)) {
+        closeStoryHand();
         return;
       }
       const index = actions.indexOf(action);
       if (index >= 0) focusIndex = index;
       focusedKey = action.focusKey || actionHandKey(action) || "";
       storyHandActiveKey = storyHandKey(action);
-      sceneMeldKeys = [storyHandKey(action)];
+      const suggestion = suggestedScenePlays().find((play) => play.keys.includes(storyHandActiveKey));
+      sceneMeldKeys = suggestion ? [...suggestion.keys] : [storyHandKey(action)];
+      sceneMeldOfferId = suggestion?.chosenOffer.offer_id || "";
       setStoryHandExpanded(true, action);
+    }
+
+    function closeStoryHand() {
+      const focused = [...$("hand-rail").querySelectorAll(".cmd")].find((card) => card.dataset.handKey === storyHandActiveKey);
+      setStoryHandExpanded(false);
+      (focused || $("primary")).focus();
     }
 
     async function discardStoryHandCard(id) {
@@ -18613,42 +18665,6 @@
       const action = actionForButton(id);
       if (!action) return;
       toggleSceneMeldCard(action);
-    }
-
-    function selectStoryHandCardFromScroll() {
-      if (!usesInlineStoryHand() || !storyHandExpanded) return;
-      const rail = $("hand-rail");
-      const cards = [...rail.querySelectorAll(".cmd[data-hand-key]")]
-        .filter((button) => getComputedStyle(button).display !== "none");
-      if (!cards.length) return;
-      const railCenter = rail.scrollLeft + rail.clientWidth / 2;
-      const cardCenter = (button) => {
-        const slot = button.closest(".story-card-slot");
-        return slot
-          ? slot.offsetLeft + slot.offsetWidth / 2
-          : button.offsetLeft + button.offsetWidth / 2;
-      };
-      const card = cards.reduce((nearest, candidate) => {
-        const candidateCenter = cardCenter(candidate);
-        const nearestCenter = cardCenter(nearest);
-        return Math.abs(candidateCenter - railCenter) < Math.abs(nearestCenter - railCenter)
-          ? candidate
-          : nearest;
-      });
-      const action = actionForButton(card.id);
-      const key = String(card.dataset.handKey || "");
-      if (!action || !key || key === storyHandActiveKey) return;
-      storyHandActiveKey = key;
-      if (card.dataset.actionIndex !== undefined) focusIndex = Number(card.dataset.actionIndex);
-      focusedKey = action.focusKey || "";
-      actionConfirmAction = action;
-      for (const button of cards) {
-        if (button === card) button.setAttribute("aria-current", "true");
-        else button.removeAttribute("aria-current");
-      }
-      const index = cards.indexOf(card);
-      $("hand-toggle-status").textContent = `${index + 1} of ${cards.length} · swipe between cards`;
-      renderStoryHandInspector(action);
     }
 
     function openActionModal(action, { handCard = false } = {}) {
@@ -19556,6 +19572,9 @@
       focusedKey = action.focusKey || "";
       storyHandActiveKey = storyHandKey(action);
       if (usesInlineStoryHand() && storyHandExpanded) {
+        const suggestion = suggestedScenePlays(visible).find((play) => play.keys.includes(storyHandActiveKey));
+        sceneMeldKeys = suggestion ? [...suggestion.keys] : [storyHandActiveKey];
+        sceneMeldOfferId = suggestion?.chosenOffer.offer_id || "";
         actionConfirmAction = originalStoryHandAction(action);
         storyHandScrollPending = true;
       }
@@ -19672,7 +19691,6 @@
           $(id).style.display = "none";
         }
         renderStoryHandChrome([]);
-        $("hand-toggle-status").textContent = "action in progress";
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
@@ -20560,6 +20578,10 @@
       return libraryPanelPinned;
     }
 
+    $("adventure").addEventListener("click", (event) => {
+      if (event.target.closest("[data-dismiss-adventure]")) dismissAdventure();
+    });
+
     $("primary").addEventListener("click", () => {
       const action = actionForButton("primary") || (state?.branch ? actions[0] : focusedAction());
       if (action) activateStoryHandAction(action);
@@ -20575,9 +20597,7 @@
       if (action) activateStoryHandAction(action);
     });
 
-    $("hand-toggle").addEventListener("click", () => {
-      setStoryHandExpanded(!storyHandExpanded, actionConfirmAction || visibleFocusedAction());
-    });
+    $("scene-play-close").addEventListener("click", closeStoryHand);
 
     $("hand-rail").addEventListener("click", (event) => {
       const select = event.target.closest("[data-meld-select]");
@@ -20598,7 +20618,7 @@
     $("scene-play-options").addEventListener("click", (event) => {
       const button = event.target.closest("[data-scene-play]");
       if (!button || actionBusy || activeHeldStoryHandActions()) return;
-      const suggestion = suggestedScenePlays()[Number(button.dataset.scenePlay)];
+      const suggestion = suggestedScenePlays().filter((play) => play.keys.includes(storyHandActiveKey))[Number(button.dataset.scenePlay)];
       if (!suggestion || storyHandActionWaitsForTurn(suggestion.chosenVerb)) return;
       sceneMeldKeys = [...suggestion.keys];
       sceneMeldOfferId = suggestion.chosenOffer.offer_id;
@@ -20613,8 +20633,7 @@
 
     $("hand-close").addEventListener("click", (event) => {
       event.preventDefault();
-      setStoryHandExpanded(false);
-      $("hand-toggle").focus();
+      closeStoryHand();
     });
 
     $("hand-choices").addEventListener("change", (event) => {
@@ -20639,14 +20658,6 @@
       setStoryHandExpanded(false);
       if (action) void discardActionCard(action);
     });
-
-    $("hand-rail").addEventListener("scroll", () => {
-      if (storyHandScrollFrame !== null) return;
-      storyHandScrollFrame = window.requestAnimationFrame(() => {
-        storyHandScrollFrame = null;
-        selectStoryHandCardFromScroll();
-      });
-    }, { passive: true });
 
     // Touch already swipes the hand rail natively via CSS scroll-snap. A
     // narrow desktop window (a resized browser, no touch input) has no other
@@ -20739,8 +20750,7 @@
       }
       if (storyHandExpanded && event.key === "Escape") {
         event.preventDefault();
-        setStoryHandExpanded(false);
-        $("hand-toggle").focus();
+        closeStoryHand();
         return;
       }
       if (libraryPanelPinned && event.key === "Escape") {

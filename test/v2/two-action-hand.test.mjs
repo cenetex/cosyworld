@@ -31,7 +31,7 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain("async function discardStoryHandCard(id)");
     expect(browser).toContain('prompt.classList.toggle("hand-expanded", expanded);');
     expect(browser).not.toMatch(/function usesInlineStoryHand\(\) \{\s+return false;\s+\}/);
-    expect(browser).toContain('if (!usesInlineStoryHand()) {');
+    expect(browser).toContain('if (!usesInlineStoryHand() || !action.nounCard) {');
     expect(browser).toContain('openActionModal(action, { handCard: true });');
     expect(browser).toContain('setStoryHandExpanded(true, action);');
     expect(browser).toContain('discardStoryHandCard(discard.getAttribute("data-hand-discard") || "")');
@@ -77,7 +77,7 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain("function exactActionForOffer(offer)");
     expect(browser).toContain("function sceneMeldResolutionRank(kind)");
     expect(browser).toContain("const selectedIds = new Set(selected.map(sceneMeldEntityKey));");
-    expect(browser).toContain("const chosenOffer = candidates.find((offer) => offer.offer_id === preferredOfferId) || candidates[0] || null;");
+    expect(browser).toContain("const chosenOffer = playable.find((offer) => offer.offer_id === preferredOfferId) || playable[0] || null;");
     expect(browser).toContain("const chosenVerb = exactActionForOffer(chosenOffer);");
     expect(browser).toContain("sceneMeldKeys = [...sceneMeldKeys, key];");
     expect(browser).toContain("sceneMeldKeys = sceneMeldKeys.filter");

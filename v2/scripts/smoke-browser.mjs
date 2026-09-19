@@ -763,8 +763,8 @@ async function main() {
               || thumb.querySelector("img")?.getAttribute("src")
           ));
         }),
-        fullWidthArtwork: artRects.every((rect, index) => (
-          rect && commandRects[index] && Math.abs(rect.width - commandRects[index].width) < 2
+        compactArtwork: artRects.every((rect, index) => (
+          rect && commandRects[index] && rect.width >= 44 && rect.width < commandRects[index].width && rect.height <= 80
         )),
         consistentArtwork: artRects.every((rect) => (
           rect
@@ -784,18 +784,18 @@ async function main() {
     assert(
       expanded.controlId
         && expanded.promptExpanded
-        && expanded.handHeaderVisible
+        && !expanded.handHeaderVisible
         && !expanded.inspectorVisible
         && expanded.modalHidden
         && expanded.cardCount === initial.visibleKeys.length
         && expanded.meldControls
         && expanded.composerVisible
         && expanded.imageLed
-        && expanded.fullWidthArtwork
+        && expanded.compactArtwork
         && expanded.consistentArtwork
         && expanded.framed
         && expanded.squareCorners,
-      `the expanded Story Hand should show three sharp illustrated noun cards with Add, Think, and Scene Meld controls: ${JSON.stringify(expanded)}`,
+      `the open card view should show compact illustrated cards with Add, Think, and play controls: ${JSON.stringify(expanded)}`,
     );
     await focusThinkableCard("opening scene");
     const discardControl = await page.evaluate(() => {
@@ -1023,7 +1023,7 @@ async function main() {
           compactHeight: document.querySelector("#hand-rail")?.getBoundingClientRect().height || 0,
           turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
-          handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
+          handHeaderRemoved: document.querySelector("#hand-toggle") === null,
           bannerHidden: document.querySelector("#turn-banner")?.hidden === true,
           statusOutsideBanner: !document.querySelector("#turn-ping-pill")?.closest("#turn-banner"),
           statusPosition: getComputedStyle(document.querySelector("#turn-ping-pill")).position,
@@ -1060,7 +1060,7 @@ async function main() {
           expanded: document.querySelector(".prompt")?.classList.contains("hand-expanded") === true,
           progressText: $("turn-rope-title")?.textContent.trim() || "",
           progressWidth: waitingProgress?.style.getPropertyValue("--turn-progress") || "",
-          handStatus: document.querySelector("#hand-toggle-status")?.textContent.trim() || "",
+          handHeaderRemoved: document.querySelector("#hand-toggle") === null,
           allCardsInspectable: inspectableCards.every((button) => !button.disabled),
           turnLocksHidden: [...document.querySelectorAll(".story-card-slot:not([hidden]) [data-meld-select], .story-card-slot:not([hidden]) [data-hand-discard]")]
             .every((button) => button.getClientRects().length === 0),
@@ -1144,14 +1144,14 @@ async function main() {
         && result.busy.progressWidth === "8%"
         && result.busy.compactHeight <= 100
         && result.busy.turnLocksHidden
-        && result.busy.handStatus === `${result.visibleCount} cards`
+        && result.busy.handHeaderRemoved
         && result.busy.bannerHidden
         && result.busy.statusOutsideBanner
         && result.busy.statusPosition === "absolute"
         && !result.busy.waitingNoticeVisible
         && result.waiting.cards === result.visibleCount
         && result.waiting.expanded
-        && result.waiting.handStatus === `${result.visibleCount} cards`
+        && result.waiting.handHeaderRemoved
         && result.waiting.allCardsInspectable
         && !result.waiting.turnLocksHidden
         && result.waiting.selectedCardCurrent
@@ -14794,7 +14794,7 @@ async function main() {
           day: leaf()?.dataset.journalDay || "",
           images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
           rows: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
-          prose: document.querySelectorAll("#journal-log .journal-page-prose, #journal-log figcaption").length,
+          prose: document.querySelectorAll("#journal-log > .journal-page .journal-page-prose, #journal-log > .journal-page figcaption").length,
           memoryVisible: visible(document.querySelector("#room-memory")),
           activityVisible: visible(document.querySelector("#journal-activity")),
           questionsVisible: visible(document.querySelector("#shared-questions")),
@@ -15777,6 +15777,29 @@ async function main() {
   // Chat, so a sparse authoritative opening Story Hand may contain fewer than three cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
+  await page.evaluate(() => setStoryHandExpanded(false));
+  assert(await page.locator('#hand-toggle').count() === 0, 'the card row should have no Story Hand header');
+  assert(await page.locator('#scene-meld').isHidden(), 'card actions should stay closed until a card is tapped');
+  await page.locator('#primary').click();
+  assert(await page.locator('#scene-meld').isVisible(), 'tapping a card should reveal its actions');
+  assert((await page.locator('#scene-meld').innerText()).includes('Close'), 'the card view should offer a close control');
+  await page.locator('#scene-play-close').click();
+  assert(await page.locator('#scene-meld').isHidden(), 'closing the card view should restore the compact row');
+  assert(await page.locator('#primary').evaluate((node) => node === document.activeElement), 'closing should restore focus to the card');
+  await page.getByRole('button', { name: 'Dismiss quest', exact: true }).click();
+  await page.evaluate(() => renderAdventure());
+  assert(await page.locator('#adventure').isHidden(), 'dismissed quests should stay closed across renders');
+  await page.locator('#room-log-toggle').click();
+  assert(await page.locator('.journal-adventure').isVisible(), 'a dismissed quest should remain readable in the Journal');
+  await page.locator('#room-log-toggle').click();
+  assert(await page.locator('#adventure').isHidden(), 'returning from the Journal should keep the quest dismissed');
+  await page.evaluate(() => {
+    const key = adventureStorageKey();
+    localStorage.removeItem(key);
+    dismissedAdventures.delete(key);
+    renderAdventure();
+  });
+  steps.push({ label: 'tap cards to open actions and dismiss quests into the Journal' });
   await assertStalePassRefreshesAndRotatesReceipt();
   await assertBrowserDrawReachesEveryLegalAction();
   await assertPlayedHandStaysVisibleDuringOtherTurns();
