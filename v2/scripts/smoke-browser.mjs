@@ -564,6 +564,7 @@ async function main() {
     };
   }, signedSmokeWalletAddress);
   page.setDefaultTimeout(10_000);
+  const visualFailures = [];
   const steps = [
     { label: "linked-avatar wallet session", wallet: signedWallet.wallet },
     {
@@ -15188,10 +15189,9 @@ async function main() {
         channelTolerance: visualDiffChannelTolerance,
       });
       assert(diff.sameDimensions, `${label}: visual baseline dimensions changed: ${JSON.stringify(diff)}`);
-      assert(
-        diff.mismatchRatio <= visualDiffMaxRatio,
-        `${label}: visual diff exceeded ${(visualDiffMaxRatio * 100).toFixed(2)}%: ${JSON.stringify(diff)}. Update with COSYWORLD_UPDATE_VISUAL_BASELINES=1 after an intentional UI change.`,
-      );
+      if (diff.mismatchRatio > visualDiffMaxRatio) {
+        visualFailures.push(`${label}: visual diff exceeded ${(visualDiffMaxRatio * 100).toFixed(2)}%: ${JSON.stringify(diff)}. Review the saved screenshot before updating its baseline.`);
+      }
       visualBaseline = {
         mode: "compared",
         baseline: baselinePath,
@@ -17339,6 +17339,7 @@ async function main() {
   }
 
   await browser.close();
+  assert(visualFailures.length === 0, visualFailures.join("\n"));
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));
   // Playwright's Chromium transport can remain referenced after a successful
   // close on some Node/macOS combinations. The journey has completed and the
