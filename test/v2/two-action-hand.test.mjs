@@ -70,14 +70,14 @@ describe("three-slot Story Hand", () => {
     expect(browser).toContain('if (!combat && !progress && !canReviewLatestTurn)');
   });
 
-  it("builds a one-to-three noun meld and infers one exact verb without options", () => {
+  it("builds a one-to-three noun meld and binds the selected exact verb", () => {
     expect(browser).toContain('id="scene-meld"');
     expect(browser).not.toContain("data-meld-approach");
     expect(browser).not.toContain('id="scene-meld-verbs"');
     expect(browser).toContain("function exactActionForOffer(offer)");
     expect(browser).toContain("function sceneMeldResolutionRank(kind)");
     expect(browser).toContain("const selectedIds = new Set(selected.map(sceneMeldEntityKey));");
-    expect(browser).toContain("const chosenOffer = candidates[0] || null;");
+    expect(browser).toContain("const chosenOffer = candidates.find((offer) => offer.offer_id === preferredOfferId) || candidates[0] || null;");
     expect(browser).toContain("const chosenVerb = exactActionForOffer(chosenOffer);");
     expect(browser).toContain("sceneMeldKeys = [...sceneMeldKeys, key];");
     expect(browser).toContain("sceneMeldKeys = sceneMeldKeys.filter");

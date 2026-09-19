@@ -12,8 +12,15 @@
     "complete_instruction": "The first stones are visible. The damp line beyond them points toward the riverside.",
     "target_label": "the washed path in Rain-Soft Garden",
     "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the river.",
-    "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+    "completion_memory": "You checked the garden path and left the next visitor a marked stone.",
     "next_invitation": "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to.",
-    "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
+    "public_trace": "left Rati a record of a marked garden stone, so the next guest can find their footing"
+  },
+  "presentation": {
+    "requester_actor_id": 1001,
+    "title": "A path for Rati’s next guest",
+    "premise": "Rain has swallowed the stepping stones outside Rati’s cottage. Her next guest needs a safe way through the garden. Find the path, choose how to help, and leave a stone marked for the next traveler.",
+    "recognition": "Rati’s cottage record keeps your name beside the marked stone. Your help is part of the path’s story.",
+    "scene": "garden_path"
   }
 }

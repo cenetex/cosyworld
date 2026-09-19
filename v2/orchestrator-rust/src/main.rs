@@ -36664,7 +36664,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("/collection/materialize"));
         assert!(!INDEX_HTML.contains("data-unmaterialize-receipt"));
         assert!(INDEX_HTML.contains("function currentOfferForSubmission"));
-        assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
+        assert!(INDEX_HTML.contains("offer.offer_id === preferredOfferId"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
         assert!(INDEX_HTML.contains("/story/clock-presentations"));

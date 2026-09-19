@@ -6964,6 +6964,37 @@
       .scene-play-preview { max-height: 3.9em; overflow-y: auto; font-size: 12px; }
       .prompt .scene-meld-play { min-width: 94px; max-width: 145px; }
     }
+    .story-stage { grid-row: 2; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .story-stage .log { flex: 1 0 48px; min-height: 48px; }
+    .terminal.journal-open .story-stage { display: none; }
+    .terminal.panel-open .adventure { display: none; }
+    .terminal.panel-open .story-stage { grid-row: 1; }
+    @media (min-width: 901px) {
+      .terminal:not(.journal-open):not(.panel-open) .story-stage { grid-column: 2; grid-row: 1; }
+      .adventure:has(.adventure-garden) > div { display: grid; grid-template-columns: minmax(0, 1fr) 180px; column-gap: 18px; }
+      .adventure:has(.adventure-garden) > div > * { grid-column: 1; }
+      .adventure:has(.adventure-garden) > div > .adventure-garden { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
+    }
+    .adventure { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 8px 18px 18px; padding: 18px; border: 1px solid #7b937060; border-radius: 16px; background: linear-gradient(145deg, #20362e, #172826); color: #efe6d1; }
+    .adventure[hidden] { display: none; }
+    .adventure-kicker { color: #cbb884; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 700; }
+    .adventure h2 { font: 600 23px/1.2 Georgia, serif; margin: 8px 0; }
+    .adventure p { font-size: 13px; line-height: 1.55; margin: 7px 0; }
+    .adventure-next { border-top: 1px solid #cbb88435; padding-top: 12px; margin-top: 12px; }
+    .adventure-next strong, .adventure details { color: #e8cb88; font-size: 12px; }
+    .adventure summary { cursor: pointer; padding-top: 10px; }
+    .adventure-recognition { color: #bbd4bc; }
+    .adventure-garden { margin: 14px 0; }
+    .adventure-garden svg { width: 100%; max-height: 170px; display: block; }
+    .adventure-garden figcaption { font-size: 12px; line-height: 1.5; padding-top: 6px; }
+    .adventure-garden figcaption span { display: block; color: #cbb884; }
+    .journal-adventure { margin: 16px; padding: 16px; border: 1px solid #9a936c60; border-radius: 12px; }
+    @media (max-width: 700px) {
+      .adventure { margin: 8px 10px 12px; padding: 13px; }
+      .adventure h2 { font-size: 20px; }
+      .adventure p { font-size: 12px; }
+      .adventure-garden svg { max-height: 120px; }
+    }
   </style>
 </head>
 <body>
@@ -7028,7 +7059,10 @@
           </aside>
         </div>
       </section>
+      <div class="story-stage">
+        <section class="adventure" id="adventure" aria-label="Your adventure" hidden></section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
+      </div>
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt" aria-label="Story Hand">
@@ -7067,7 +7101,7 @@
         </article>
       </div>
       <section class="scene-meld" id="scene-meld" aria-label="Build a play" hidden>
-        <div class="scene-play-options" id="scene-play-options" role="group" aria-label="Suggested plays"></div>
+        <div class="scene-play-options" id="scene-play-options" role="group" aria-label="Choose an approach"></div>
         <div class="scene-meld-copy">
           <strong class="scene-meld-title">Your next move</strong>
           <span class="scene-meld-status" id="scene-meld-status" role="status" aria-live="polite"></span>
@@ -7217,6 +7251,7 @@
     let focusedKey = "";
     let handKeys = [];
     let sceneMeldKeys = [];
+    let sceneMeldOfferId = "";
     let discardedHandKeys = [];
     let handCompositionSignature = "";
     let handDealNonce = 1;
@@ -12611,21 +12646,22 @@
     function acknowledgeVisibleFirstTalePresentations() {
       if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
       if (libraryPanelPinned || accountPanelPinned) return;
-      const updates = $("updates");
+      if (journalOpen && Number(state?.ledger?.advancement_points || 0) > 0) {
+        void acknowledgeFirstTalePresentation("journal_opened_after_growth");
+      }
+      const updates = $("adventure");
       if (!updates || updates.hidden || updates.getClientRects().length === 0) return;
       const taleRow = updates.querySelector("[data-first-tale-presentation]");
       if (taleRow && worldBeatRowIsActuallyVisible(taleRow, updates)) {
         void acknowledgeFirstTalePresentation("phase_seen");
-        if (taleRow.hasAttribute("data-first-tale-completion-memory")) {
-          void acknowledgeFirstTalePresentation("completion_memory_seen");
-        }
+      }
+      const memoryRow = updates.querySelector("[data-first-tale-completion-memory]");
+      if (memoryRow && worldBeatRowIsActuallyVisible(memoryRow, updates)) {
+        void acknowledgeFirstTalePresentation("completion_memory_seen");
       }
       const growthRow = updates.querySelector(".growth-thread");
       if (growthRow && worldBeatRowIsActuallyVisible(growthRow, updates)) {
         void acknowledgeFirstTalePresentation("growth_feedback_seen");
-      }
-      if (journalOpen && Number(state?.ledger?.advancement_points || 0) > 0) {
-        void acknowledgeFirstTalePresentation("journal_opened_after_growth");
       }
     }
 
@@ -13140,6 +13176,7 @@
       setCardTarget(roomHeroCard, locationCard);
       $("scene-place-name").textContent = location.name || "A new beginning";
       $("scene-place-description").textContent = location.description || "Choose a card to discover this place and the people who share it.";
+      renderAdventure();
       renderRoomAvatarRail();
       const pathwayJourney = activePathwayJourney(state);
       const roomHero = $("room-hero");
@@ -14524,7 +14561,7 @@
       const pageIndex = journalPageIndex < 0
         ? pageCount - 1
         : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
-      panel.innerHTML = journalPageHtml(pages[pageIndex]);
+      panel.innerHTML = journalAdventureHtml() + journalPageHtml(pages[pageIndex]);
       nav.hidden = pageCount <= 1;
       $("journal-page-label").textContent = `${pageIndex + 1} / ${pageCount}`;
       $("journal-page-previous").disabled = pageIndex === 0;
@@ -14538,9 +14575,52 @@
       }
     }
 
+    function adventureModel(tale = state?.first_tale) {
+      if (!tale) return null;
+      const progress = Math.max(0, Math.min(Number(tale.shared_goal || 0), Number(tale.shared_progress || 0)));
+      const goal = Math.max(0, Number(tale.shared_goal || 0));
+      const contributed = Number(tale.trace_event_seq || 0) > 0;
+      return {
+        title: tale.presentation?.title || tale.question,
+        premise: tale.presentation?.premise || tale.consequence,
+        instruction: tale.continuation?.instruction || tale.instruction,
+        memory: contributed ? tale.completion_memory : "",
+        recognition: contributed ? tale.recognition || "" : "",
+        invitation: contributed ? tale.next_invitation : "",
+        progress, goal,
+        garden: tale.presentation?.scene === "garden_path",
+        atGarden: Number(state?.location?.id) === Number(tale.destination_location_id),
+        status: goal && progress >= goal ? "The garden path is open."
+          : progress ? "The first stones are clear. The path is taking shape."
+          : "Rainwater covers the garden path.",
+      };
+    }
+
+    function gardenPathScene(model) {
+      const visible = model.goal ? Math.floor(model.progress / model.goal * 4) : 0;
+      const stones = [[72,118],[140,104],[207,83],[273,66]].map(([x,y], index) => (
+        `<g opacity="${index < visible ? 1 : 0.22}"><ellipse cx="${x}" cy="${y+4}" rx="28" ry="10" fill="#233f3e"/><ellipse cx="${x}" cy="${y}" rx="27" ry="10" fill="${index < visible ? '#f0deb3' : '#658c87'}" stroke="#b6b393" stroke-width="2"/>${index === 0 && model.memory ? `<path d="M${x-5} ${y}l4 3 7-7" fill="none" stroke="#725a3c" stroke-width="2"/>` : ''}</g>`
+      )).join("");
+      return `<figure class="adventure-garden"><svg viewBox="0 0 360 160" role="img" aria-label="${escapeHtml(model.status)}"><rect width="360" height="160" rx="14" fill="#233f3e"/><path d="M0 0h360v44C249 23 149 100 0 88Z" fill="#466b51"/><path d="M0 154C109 122 244 141 360 87v73H0Z" fill="#638165"/><path d="M0 119C125 143 221 40 360 60" fill="none" stroke="#8eb9ad" stroke-width="2" opacity=".5"/>${stones}<path d="M300 44V18m-10 8h25l-6 7h-19z" fill="#ddbf81" stroke="#ddbf81" stroke-width="3"/><g fill="#e6d7a1"><circle cx="26" cy="62" r="3"/><circle cx="40" cy="71" r="2"/><circle cx="328" cy="127" r="3"/><circle cx="311" cy="140" r="2"/></g></svg><figcaption>${escapeHtml(model.status)} <span>${model.progress} / ${model.goal} shared steps</span></figcaption></figure>`;
+    }
+
+    function renderAdventure() {
+      const host = $("adventure");
+      const model = adventureModel();
+      host.hidden = !model;
+      if (!model) { host.innerHTML = ""; return; }
+      host.innerHTML = `<div><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
+    }
+
+    function journalAdventureHtml() {
+      const adventure = adventureModel();
+      return adventure ? `<section class="journal-adventure"><h3>${escapeHtml(adventure.title)}</h3><p>${escapeHtml(adventure.memory || adventure.premise)}</p><strong>When you return</strong><p>${escapeHtml(adventure.instruction)}</p></section>` : "";
+    }
+
     function journalBeforeFirstPageHtml() {
       const seen = new Set();
       const recent = logEvents
+        .filter((event) => Number(actorId) > 0 && (Number(event?.actor_id) === Number(actorId) || Number(event?.target_actor_id) === Number(actorId)))
         .map((event) => ({
           seq: Number(event?.seq || 0),
           text: sceneCardEventTypes.has(String(event?.type || ""))
@@ -14557,7 +14637,8 @@
       const moments = recent.length
         ? recent.map((entry) => `<li>${escapeHtml(finishSentence(cleanStatusText(entry.text)))}</li>`).join("")
         : `<li>Your next Story Hand choice will leave a moment here.</li>`;
-      return `<section class="journal-empty journal-before-first-page"><span>before the first painted page</span><strong>No long-rest Journal page has been painted yet.</strong><p>Your first painted page arrives after a long rest. Until then, the Journal keeps a few recent moments close.</p><ol class="journal-recent-moments" aria-label="Recent moments">${moments}</ol></section>`;
+      const saved = journalAdventureHtml();
+      return `${saved}<section class="journal-empty journal-before-first-page"><span>before the first painted page</span><strong>No long-rest Journal page has been painted yet.</strong><p>Your first painted page arrives after a long rest. Until then, the Journal keeps a few recent moments close.</p><ol class="journal-recent-moments" aria-label="Recent moments">${moments}</ol></section>`;
     }
 
     function roomMemoryModel() {
@@ -18093,10 +18174,10 @@
     }
 
     function sceneMeldVerb(action, offer = null) {
-      return String(offer?.label || action?.accessibleLabel || action?.modalTitle || action?.label || "Act").trim();
+      return String(offer?.project?.strategy_label || offer?.label || action?.accessibleLabel || action?.modalTitle || action?.label || "Act").trim();
     }
 
-    function sceneMeldResolution(visibleActions = actionBarActions(), selectedKeys = sceneMeldKeys) {
+    function sceneMeldResolution(visibleActions = actionBarActions(), selectedKeys = sceneMeldKeys, preferredOfferId = sceneMeldOfferId) {
       const byKey = new Map(visibleActions.map((action) => [storyHandKey(action), action]));
       const selected = selectedKeys.map((key) => byKey.get(key)).filter(Boolean);
       const selectedIds = new Set(selected.map(sceneMeldEntityKey));
@@ -18161,7 +18242,7 @@
           || Number(left?.rank ?? 500) - Number(right?.rank ?? 500)
           || String(left?.id || "").localeCompare(String(right?.id || ""))
       ));
-      const chosenOffer = candidates[0] || null;
+      const chosenOffer = candidates.find((offer) => offer.offer_id === preferredOfferId) || candidates[0] || null;
       const chosenVerb = exactActionForOffer(chosenOffer);
       return {
         selected,
@@ -18183,6 +18264,7 @@
 
     function toggleSceneMeldCard(action) {
       if (!action || actionBusy || action?.heldStoryHandAction) return;
+      sceneMeldOfferId = "";
       const key = storyHandKey(action);
       if (!key) return;
       if (sceneMeldKeys.includes(key)) {
@@ -18201,14 +18283,20 @@
       for (let mask = 1; mask < (1 << cards.length); mask += 1) {
         const keys = cards.filter((_, index) => mask & (1 << index)).map(storyHandKey);
         const resolution = sceneMeldResolution(cards, keys);
-        const offerId = String(resolution.chosenOffer?.offer_id || "");
-        if (!offerId || !resolution.chosenVerb) continue;
-        const previous = plays.get(offerId);
-        if (!previous || keys.length < previous.keys.length) {
-          plays.set(offerId, { keys, ...resolution });
+        for (const chosenOffer of resolution.candidates) {
+          const offerId = String(chosenOffer?.offer_id || "");
+          const chosenVerb = exactActionForOffer(chosenOffer);
+          if (!offerId || !chosenVerb) continue;
+          const previous = plays.get(offerId);
+          if (!previous || keys.length < previous.keys.length) {
+            plays.set(offerId, { keys, ...resolution, chosenOffer, chosenVerb });
+          }
         }
       }
-      return [...plays.values()];
+      return [...plays.values()].sort((left, right) => (
+        Number(right.chosenOffer?.project?.id === state?.first_tale?.job_id)
+          - Number(left.chosenOffer?.project?.id === state?.first_tale?.job_id)
+      ));
     }
 
     function renderSceneMeld(visibleActions) {
@@ -18221,7 +18309,8 @@
       const suggestions = suggestedScenePlays(visibleActions);
       $("scene-play-options").innerHTML = suggestions.map((suggestion, index) => {
         const label = sceneMeldVerb(suggestion.chosenVerb, suggestion.chosenOffer);
-        const selected = suggestion.keys.length === sceneMeldKeys.length
+        const selected = suggestion.chosenOffer.offer_id === resolution.chosenOffer?.offer_id
+          && suggestion.keys.length === sceneMeldKeys.length
           && suggestion.keys.every((key) => sceneMeldKeys.includes(key));
         const nouns = suggestion.selected.map((card) => card.nounEntry?.label || sceneMeldCardTypeLabel(card)).join(" + ");
         return `<button type="button" class="scene-play-option" data-scene-play="${index}" aria-pressed="${selected}"${actionBusy || storyHandActionWaitsForTurn(suggestion.chosenVerb) ? " disabled" : ""}><strong>${escapeHtml(label)}</strong><span>${escapeHtml(nouns)}</span></button>`;
@@ -18231,7 +18320,8 @@
       $("scene-meld-status").textContent = resolution.chosenVerb
         ? `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
         : "Choose a suggested play, or use Think to find a fresh card.";
-      $("scene-play-preview").textContent = resolution.chosenVerb ? actionSummary(resolution.chosenVerb) : "";
+      const outcome = [resolution.chosenOffer?.effect, resolution.chosenOffer?.risk].filter(Boolean).map(friendlyActionText).join(" · ");
+      $("scene-play-preview").textContent = resolution.chosenVerb ? outcome || actionSummary(resolution.chosenVerb) : "";
       const play = $("scene-meld-play");
       play.disabled = !resolution.chosenVerb || actionBusy
         || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb));
@@ -20511,6 +20601,7 @@
       const suggestion = suggestedScenePlays()[Number(button.dataset.scenePlay)];
       if (!suggestion || storyHandActionWaitsForTurn(suggestion.chosenVerb)) return;
       sceneMeldKeys = [...suggestion.keys];
+      sceneMeldOfferId = suggestion.chosenOffer.offer_id;
       renderCommands();
       $("scene-play-options").querySelector(`[data-scene-play="${button.dataset.scenePlay}"]`)?.focus();
     });

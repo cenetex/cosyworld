@@ -6,6 +6,7 @@ const firstTaleFields = [
   "progress_clock_id",
   "copy",
   "continuation",
+  "presentation",
 ];
 
 const firstTaleContinuationFields = [
@@ -79,6 +80,19 @@ export function firstTaleValidationErrors(value, label = "first tale") {
       errors.push(`${label} copy.${field} must be a non-empty string`);
     }
   }
+  if (value.presentation !== undefined) {
+    const presentation = value.presentation;
+    if (!isObject(presentation)) {
+      errors.push(`${label} presentation must contain an object`);
+    } else {
+      if (unknownFields(presentation, ["requester_actor_id", "title", "premise", "recognition", "scene"]).length) errors.push(`${label} presentation has unknown fields`);
+      if (!Number.isSafeInteger(presentation.requester_actor_id) || presentation.requester_actor_id <= 0) errors.push(`${label} presentation.requester_actor_id must be a positive safe integer`);
+      if (presentation.scene !== "garden_path") errors.push(`${label} presentation.scene must be garden_path`);
+      for (const field of ["title", "premise", "recognition"]) {
+        if (typeof presentation[field] !== "string" || !presentation[field].trim() || Buffer.byteLength(presentation[field]) > 1000) errors.push(`${label} presentation.${field} must contain 1 to 1000 bytes of text`);
+      }
+    }
+  }
   if (value.continuation !== undefined) {
     if (!isObject(value.continuation)) {
       errors.push(`${label} continuation must contain an object`);
@@ -142,6 +156,10 @@ export function normalizeFirstTaleConfig(value) {
       arrival_instruction: value.continuation.arrival_instruction.trim(),
       accepted_instruction: value.continuation.accepted_instruction.trim(),
     };
+  }
+  if (value.presentation !== undefined) {
+    normalized.presentation = { ...value.presentation };
+    for (const field of ["title", "premise", "recognition"]) normalized.presentation[field] = normalized.presentation[field].trim();
   }
   return normalized;
 }

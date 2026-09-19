@@ -218,6 +218,17 @@ jobs:
       - name: Run fresh-seed browser gate
         run: npm run v2:browser:check
 
+      - name: Upload browser images
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cosyworld-browser-${{ matrix.mode }}
+          path: |
+            v2/orchestrator-rust/.runtime/visual-smoke/*.png
+            v2/orchestrator-rust/.runtime/visual-smoke/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   publication:
     name: Referee guide publication
     runs-on: ubuntu-latest

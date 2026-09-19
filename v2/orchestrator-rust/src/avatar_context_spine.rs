@@ -777,7 +777,14 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         let relationship = relationship_actor_id
             .and_then(|other_id| {
-                continuity_relationship_text(&self.resident_continuity_for(actor), other_id)
+                let notes = [
+                    continuity_relationship_text(&self.resident_continuity_for(actor), other_id),
+                    self.first_tale_resident_memory(actor_id, other_id),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+                (!notes.is_empty()).then(|| notes.join(" "))
             })
             .map(|line| line.replace(&authored_actor_name, &grounded_actor_name));
         let mut recollection_candidates = self.avatar_context_recollection_candidates(actor_id, 24);

@@ -17,7 +17,8 @@
       "sha256:c8a756ad8e74b9856f20f19ffb0cafa177b483a2d413514f8805ccf9d71a0918",
       "sha256:1d4b358ae9adf58a59fbc259e5bf43e06037f729f084b75c2ad572215b915f14",
       "sha256:751d68c6a253ae995a9fece828d26a425727faecc2b3c8027bc5fba337359964",
-      "sha256:a3164e3379076d23ea1fce4c8569e43d2aefceced84ac7b96775a36c95c21ed6"
+      "sha256:a3164e3379076d23ea1fce4c8569e43d2aefceced84ac7b96775a36c95c21ed6",
+      "sha256:84862581a0ceaecd124d4d29d03b14ddfb26f5c6b4fb9015e3a495a8c106b578"
     ]
   },
   "pack_lifecycle": {
@@ -631,9 +632,16 @@
       "complete_instruction": "The first stones are visible. The damp line beyond them points toward the riverside.",
       "target_label": "the washed path in Rain-Soft Garden",
       "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the river.",
-      "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+      "completion_memory": "You checked the garden path and left the next visitor a marked stone.",
       "next_invitation": "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to.",
-      "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
+      "public_trace": "left Rati a record of a marked garden stone, so the next guest can find their footing"
+    },
+    "presentation": {
+      "requester_actor_id": 1001,
+      "title": "A path for Rati’s next guest",
+      "premise": "Rain has swallowed the stepping stones outside Rati’s cottage. Her next guest needs a safe way through the garden. Find the path, choose how to help, and leave a stone marked for the next traveler.",
+      "recognition": "Rati’s cottage record keeps your name beside the marked stone. Your help is part of the path’s story.",
+      "scene": "garden_path"
     }
   },
   "generation_media_registry": {
@@ -745,7 +753,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:84862581a0ceaecd124d4d29d03b14ddfb26f5c6b4fb9015e3a495a8c106b578",
+  "bundle_hash": "sha256:bc3bc1706c32a1cee6186d1f2f148eeb61da3fd9c99574b8db9cb95ae81334d3",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",

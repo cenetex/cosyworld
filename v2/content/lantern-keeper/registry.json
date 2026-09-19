@@ -30,7 +30,8 @@
         "sha256:c2a01d318332505e6837d211826c67da4be5ce6f98473f4fcaafe5367d29da9d",
         "sha256:9368cac74b82e50f64c0c2e5a486393c4606ee15cd91425c35acdcd473a403bd",
         "sha256:8f58656c6748e4c060a17f932923d2a9bb8864189d32afb4f52aa580ceef1073",
-        "sha256:c70cca4ab97ff442e20cb81c0d6dfe5b35ee7e95a043da7e9cd953d82164812e"
+        "sha256:c70cca4ab97ff442e20cb81c0d6dfe5b35ee7e95a043da7e9cd953d82164812e",
+        "sha256:d1ae5cec6d695c90d3e34686d26323a53003d5c960b8a75f93db5f83fa57f7ae"
       ]
     },
     "pack_lifecycle": {
@@ -644,9 +645,9 @@
         "complete_instruction": "The first stones are visible. A lamp-road marker beyond them points west toward Mossbell and the Wayside Lantern Inn.",
         "target_label": "the washed path in Rain-Soft Garden",
         "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the lantern road.",
-        "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+        "completion_memory": "You checked the garden path and left the next visitor a marked stone.",
         "next_invitation": "Follow the lamp road west to Mara Wick and learn why the Mothwood beacon went dark.",
-        "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
+        "public_trace": "left Rati a record of a marked garden stone, so the next guest can find their footing"
       },
       "continuation": {
         "destination_location_id": 800,
@@ -655,6 +656,13 @@
         "travel_instruction": "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
         "arrival_instruction": "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
         "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon."
+      },
+      "presentation": {
+        "requester_actor_id": 1001,
+        "title": "A path for Rati’s next guest",
+        "premise": "Rain has swallowed the stepping stones outside Rati’s cottage. Her next guest needs a safe way through the garden. Find the path, choose how to help, and leave a stone marked for the next traveler.",
+        "recognition": "Rati’s cottage record keeps your name beside the marked stone. Your help is part of the path’s story.",
+        "scene": "garden_path"
       }
     },
     "generation_media_registry": {
@@ -766,7 +774,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:d1ae5cec6d695c90d3e34686d26323a53003d5c960b8a75f93db5f83fa57f7ae",
+    "bundle_hash": "sha256:fe57a782066cb562c0b080994f25da686ec25075a8826c8e86e1452d32ea442d",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",

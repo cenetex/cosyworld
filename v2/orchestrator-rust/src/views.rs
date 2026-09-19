@@ -505,6 +505,10 @@ pub(super) struct FirstTaleView {
     pub(super) completion_memory: String,
     pub(super) next_invitation: String,
     pub(super) public_trace_created: bool,
+    pub(super) presentation: Option<FirstTalePresentation>,
+    pub(super) recognition: Option<String>,
+    pub(super) shared_progress: u8,
+    pub(super) shared_goal: u8,
     pub(super) trace_event_seq: Option<u64>,
     pub(super) continuation: Option<FirstTaleContinuationView>,
 }
@@ -524,6 +528,12 @@ impl Serialize for FirstTaleView {
         out.serialize_field("progress_clock_id", &self.progress_clock_id)?;
         out.serialize_field("required_location_id", &self.required_location_id)?;
         out.serialize_field("advancing_offer_id", &self.advancing_offer_id)?;
+        out.serialize_field("question", &self.question)?;
+        out.serialize_field("consequence", &self.consequence)?;
+        out.serialize_field("presentation", &self.presentation)?;
+        out.serialize_field("recognition", &self.recognition)?;
+        out.serialize_field("shared_progress", &self.shared_progress)?;
+        out.serialize_field("shared_goal", &self.shared_goal)?;
         out.serialize_field("instruction", &self.instruction)?;
         out.serialize_field("completion_memory", &self.completion_memory)?;
         out.serialize_field("next_invitation", &self.next_invitation)?;
@@ -2937,6 +2947,25 @@ impl RuntimeWorld {
             completion_memory: first_tale.copy.completion_memory.clone(),
             next_invitation: first_tale.copy.next_invitation.clone(),
             public_trace_created: trace_event_seq.is_some(),
+            presentation: first_tale.presentation.clone(),
+            recognition: first_tale
+                .presentation
+                .as_ref()
+                .filter(|presentation| {
+                    self.rpg_claims.contains(&format!(
+                        "first_tale:resident:{}:actor:{}",
+                        presentation.requester_actor_id, actor_id
+                    ))
+                })
+                .map(|presentation| presentation.recognition.clone()),
+            shared_progress: self
+                .clocks
+                .get(&first_tale.progress_clock_id)
+                .map_or(0, |clock| clock.filled.min(clock.segments)),
+            shared_goal: self
+                .clocks
+                .get(&first_tale.progress_clock_id)
+                .map_or(0, |clock| clock.segments),
             trace_event_seq,
             continuation,
         })
@@ -2957,7 +2986,7 @@ impl RuntimeWorld {
                     .and_then(|continuation| {
                         self.active_bond(actor_id, continuation.target_actor_id)
                     })
-                    .and_then(|bond| bond.updated_event_seq.or(bond.source_event_seq))
+                    .and_then(|bond| bond.source_event_seq.or(bond.updated_event_seq))
                     .unwrap_or(trace_event_seq),
                 FirstTaleStage::ContinuationArrived => first_tale
                     .continuation

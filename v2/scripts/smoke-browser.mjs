@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, createPrivateKey, sign as signMessage } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -564,6 +564,7 @@ async function main() {
     };
   }, signedSmokeWalletAddress);
   page.setDefaultTimeout(10_000);
+  const visualFailures = [];
   const steps = [
     { label: "linked-avatar wallet session", wallet: signedWallet.wallet },
     {
@@ -1178,6 +1179,14 @@ async function main() {
   }
 
   async function assertFirstThreadGuide() {
+    const adventure = await page.locator("#adventure").evaluate((node) => ({
+      text: node.textContent,
+      visible: !node.hidden && node.getBoundingClientRect().height > 0,
+      instruction: state.first_tale?.continuation?.instruction || state.first_tale?.instruction,
+      title: state.first_tale?.presentation?.title || state.first_tale?.question,
+    }));
+    assert(adventure.visible && adventure.text.includes(adventure.title) && adventure.text.includes(adventure.instruction),
+      `the visible adventure should explain its need and current next step: ${JSON.stringify(adventure)}`);
     const guide = await page.evaluate(() => {
       const node = document.querySelector("#updates");
       const journal = document.querySelector("#journal-view");
@@ -12584,15 +12593,22 @@ async function main() {
     ), null, { timeout: 35_000 });
     const after = await page.evaluate((starting) => {
       const events = logEvents.filter((event) => Number(event.seq || 0) > starting.eventSeq);
+      const personalGrowth = events.filter((event) => Number(event.actor_id || 0) === starting.actorId
+        && ["ledger.marked", "ledger.banked"].includes(event.type));
+      // An earlier resident action can finish while Notice is in flight.
+      // Its attributed witness mark belongs to that earlier action.
+      const earlierWitnessMarks = personalGrowth.filter((event) => event.type === "ledger.marked"
+        && String(event.content || "").startsWith("witness:")
+        && Number(event.caused_by_event_seq || 0) > 0
+        && Number(event.caused_by_event_seq) <= starting.eventSeq);
       return {
+        earlierWitnessMarks: earlierWitnessMarks.length,
         observations: events.filter((event) => (
           event.type === "notice.actor_observed"
             && Number(event.actor_id || 0) === starting.actorId
         )).length,
         rolled: events.some((event) => event.type === "ability_check.rolled"),
-        touchedGrowth: events.some((event) => (
-          event.type === "ledger.marked" || event.type === "ledger.banked"
-        )),
+        touchedGrowth: personalGrowth.some((event) => !earlierWitnessMarks.includes(event)),
         ledger: {
           banked: Number(state?.ledger?.banked_count || 0),
           unbanked: Number(state?.ledger?.unbanked_count || 0),
@@ -12605,7 +12621,7 @@ async function main() {
         && after.rolled === false
         && after.touchedGrowth === false
         && after.ledger.banked === before.ledger.banked
-        && after.ledger.unbanked === before.ledger.unbanked
+        && after.ledger.unbanked === before.ledger.unbanked + after.earlierWitnessMarks
         && after.tired === false,
       `frontier Notice should remain one truthful, non-tiring observation: ${JSON.stringify({ before, after })}`,
     );
@@ -15073,7 +15089,15 @@ async function main() {
     assert(screenshotSha256.length === 64, `${label}: screenshot hash should be sha256`);
     const screenshotPath = resolve(visualSnapshotDir, `${slug}.png`);
     const metadataPath = resolve(visualSnapshotDir, `${slug}.json`);
-    const baselinePath = resolve(visualBaselineDir, `${slug}.png`);
+    // Linux and macOS use different system fonts. Keep each reviewed rendering
+    // at the same pixel threshold while sharing the structural assertions.
+    let baselinePath = resolve(visualBaselineDir, `${slug}${process.platform === "linux" ? ".linux" : ""}.png`);
+    if (!updateVisualBaselines) {
+      try { await access(baselinePath); } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        baselinePath = resolve(visualBaselineDir, `${slug}.png`);
+      }
+    }
     await writeFile(screenshotPath, screenshot);
     let visualBaseline;
     if (runLivingWorldStress && !updateVisualBaselines) {
@@ -15165,10 +15189,9 @@ async function main() {
         channelTolerance: visualDiffChannelTolerance,
       });
       assert(diff.sameDimensions, `${label}: visual baseline dimensions changed: ${JSON.stringify(diff)}`);
-      assert(
-        diff.mismatchRatio <= visualDiffMaxRatio,
-        `${label}: visual diff exceeded ${(visualDiffMaxRatio * 100).toFixed(2)}%: ${JSON.stringify(diff)}. Update with COSYWORLD_UPDATE_VISUAL_BASELINES=1 after an intentional UI change.`,
-      );
+      if (diff.mismatchRatio > visualDiffMaxRatio) {
+        visualFailures.push(`${label}: visual diff exceeded ${(visualDiffMaxRatio * 100).toFixed(2)}%: ${JSON.stringify(diff)}. Review the saved screenshot before updating its baseline.`);
+      }
       visualBaseline = {
         mode: "compared",
         baseline: baselinePath,
@@ -17316,6 +17339,7 @@ async function main() {
   }
 
   await browser.close();
+  assert(visualFailures.length === 0, visualFailures.join("\n"));
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));
   // Playwright's Chromium transport can remain referenced after a successful
   // close on some Node/macOS combinations. The journey has completed and the
