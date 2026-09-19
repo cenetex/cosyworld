@@ -21,3 +21,7 @@ The garden scene reads the existing shared clock. The personal memory reads the 
 Regression tests cover all three garden approaches, altered card and strategy rejection, shared progress, personal recognition, snapshot restore, and journal replay. Browser tests cover deliberate choice and stale-choice handling. A local playthrough checked Notice, scouting, travel, inspection, the visible result, and the Journal after a server restart.
 
 A five-player session remains the next product check. Measure whether each player can explain Rati's need, choose an approach, identify their contribution, and find the return invitation. Record time and points of confusion before setting a first-visit duration target.
+
+## Visual baseline review
+
+Desktop and mobile baselines cover macOS and Linux. The Linux images came from CI run 35459714339 at commit `a6483b92fa8a0800e266781c2e3abc21e282aaed` and were inspected before acceptance. System fonts change text wrapping and panel height. Both renderings keep the current next step visible. The comparison limit remains 3%, alongside the shared layout and interaction checks. CI retains its screenshots and layout metadata for seven days.
