@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, createPrivateKey, sign as signMessage } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15088,7 +15088,15 @@ async function main() {
     assert(screenshotSha256.length === 64, `${label}: screenshot hash should be sha256`);
     const screenshotPath = resolve(visualSnapshotDir, `${slug}.png`);
     const metadataPath = resolve(visualSnapshotDir, `${slug}.json`);
-    const baselinePath = resolve(visualBaselineDir, `${slug}.png`);
+    // Linux and macOS use different system fonts. Keep each reviewed rendering
+    // at the same pixel threshold while sharing the structural assertions.
+    let baselinePath = resolve(visualBaselineDir, `${slug}${process.platform === "linux" ? ".linux" : ""}.png`);
+    if (!updateVisualBaselines) {
+      try { await access(baselinePath); } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        baselinePath = resolve(visualBaselineDir, `${slug}.png`);
+      }
+    }
     await writeFile(screenshotPath, screenshot);
     let visualBaseline;
     if (runLivingWorldStress && !updateVisualBaselines) {
