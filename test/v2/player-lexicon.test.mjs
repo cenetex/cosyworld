@@ -15,7 +15,7 @@ describe("player-facing action, card, linked-avatar, world-pack, and Journal lex
       {
         task: "make the avatar do something now",
         concept: 'data-player-concept="action"',
-        cue: "Chat with someone here or explore the room.",
+        cue: "Choose a play from your cards. Read what it offers, then take your turn.",
         analytics: 'data-analytics-event="action.select"',
       },
       {

@@ -6925,6 +6925,45 @@
         min-width: 112px;
       }
     }
+
+    /* A place to explore, a shared story, and a readable next move. */
+    .scene-place { padding: 20px 22px 24px; }
+    .scene-place-kicker { color: var(--amber); font: 700 10px/1.4 system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+    .scene-place h1 { margin: 8px 0 10px; color: var(--text); font: 500 clamp(25px, 3vw, 42px)/1.08 Georgia, serif; text-wrap: balance; }
+    .scene-place p { margin: 0; color: var(--dim); font: 14px/1.65 system-ui, sans-serif; white-space: pre-line; }
+    .scene-play-options { grid-column: 1 / -1; display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scroll-snap-type: x proximity; }
+    .scene-play-options[hidden] { display: none; }
+    .scene-play-option { flex: 0 0 clamp(170px, 23vw, 280px); display: grid; gap: 5px; padding: 10px 12px; text-align: left; border: 1px solid var(--line); background: #171d18; scroll-snap-align: start; }
+    .scene-play-option strong { font: 650 13px/1.3 system-ui, sans-serif; }
+    .scene-play-option span { color: var(--dim); font: 11px/1.4 system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scene-play-option[aria-pressed="true"] { border-color: var(--amber); background: #2b2b1e; }
+    .scene-play-option:disabled { opacity: .5; cursor: default; }
+    .scene-play-option:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
+    .scene-play-preview { margin: 5px 0 0; max-width: 80ch; color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+    .scene-play-preview:empty { display: none; }
+    .prompt .hand-header { display: block; }
+    .prompt .hand-toggle { min-height: 32px; padding-block: 5px; }
+    .prompt { max-height: 60dvh; overflow-y: auto; }
+    .prompt .scene-meld-play { max-width: 260px; text-transform: none; font-size: 13px; letter-spacing: 0; }
+    @media (min-width: 901px) {
+      .terminal:not(.journal-open):not(.panel-open) { grid-template-columns: minmax(260px, .8fr) minmax(0, 1.4fr); grid-template-rows: minmax(0, 1fr); max-width: 1440px; width: calc(100% - 32px); margin: 16px auto 12px; }
+      .terminal:not(.journal-open):not(.panel-open) .room { grid-column: 1; grid-row: 1; overflow-y: auto; border-right: 1px solid var(--line-strong); border-bottom: 0; padding: 0; background: linear-gradient(160deg, #202c23, #111812); }
+      .terminal:not(.journal-open):not(.panel-open) .room-hero { height: clamp(180px, 28vh, 340px); margin: 0; }
+      .terminal:not(.journal-open):not(.panel-open) .log { grid-column: 2; grid-row: 1; }
+      .terminal:not(.journal-open):not(.panel-open) .room-copy { margin-inline: 20px; }
+      .prompt:not(.hand-expanded) .cmd { min-height: 78px; grid-template-columns: 74px minmax(0, 1fr); }
+      .prompt:not(.hand-expanded) .cmd.has-copy .thumb { width: 74px; height: 78px; }
+    }
+    @media (max-width: 900px) {
+      .scene-place { padding: 8px 12px 10px; }
+      .scene-place-kicker, .scene-place p { display: none; }
+      .scene-place h1 { margin: 0; font-size: 23px; }
+      .room-hero { height: 100px; }
+      .scene-play-options { gap: 6px; }
+      .scene-play-option { flex-basis: 190px; padding: 8px 10px; }
+      .scene-play-preview { max-height: 3.9em; overflow-y: auto; font-size: 12px; }
+      .prompt .scene-meld-play { min-width: 94px; max-width: 145px; }
+    }
   </style>
 </head>
 <body>
@@ -6955,6 +6994,11 @@
           </div>
         </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
+        <div class="scene-place" id="scene-place">
+          <span class="scene-place-kicker">Your surroundings</span>
+          <h1 id="scene-place-name"></h1>
+          <p id="scene-place-description"></p>
+        </div>
         <div class="room-copy" id="location-copy"></div>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
@@ -7023,9 +7067,11 @@
         </article>
       </div>
       <section class="scene-meld" id="scene-meld" aria-label="Build a play" hidden>
+        <div class="scene-play-options" id="scene-play-options" role="group" aria-label="Suggested plays"></div>
         <div class="scene-meld-copy">
-          <strong class="scene-meld-title">Build a play</strong>
+          <strong class="scene-meld-title">Your next move</strong>
           <span class="scene-meld-status" id="scene-meld-status" role="status" aria-live="polite"></span>
+          <p class="scene-play-preview" id="scene-play-preview"></p>
         </div>
         <button class="scene-meld-play" id="scene-meld-play" type="button" disabled>Play meld</button>
       </section>
@@ -13092,6 +13138,8 @@
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
       setCardTarget(roomHeroCard, locationCard);
+      $("scene-place-name").textContent = location.name || "A new beginning";
+      $("scene-place-description").textContent = location.description || "Choose a card to discover this place and the people who share it.";
       renderRoomAvatarRail();
       const pathwayJourney = activePathwayJourney(state);
       const roomHero = $("room-hero");
@@ -15377,9 +15425,9 @@
         : state?.journey
         ? "The road is quiet for a moment. Chat with the travelling party or choose how to press on."
         : hasAvatar
-          ? "Chat with someone here or explore the room."
+          ? "Choose a play from your cards. Read what it offers, then take your turn."
         : "Begin a tale, then discover the room through play.";
-      const direction = hasAvatar ? "Choose a Story Hand card below" : "Choose a beginning below";
+      const direction = hasAvatar ? "Suggested plays are below your cards" : "Choose a beginning below";
       return `<section class="chat-empty play-cue" role="note"><span class="play-cue-kicker">${escapeHtml(kicker)}</span><strong>${escapeHtml(title)}</strong><span class="play-cue-copy">${escapeHtml(cue)}</span><span class="play-cue-direction">${escapeHtml(direction)} <span aria-hidden="true">↓</span></span></section>`;
     }
 
@@ -18048,9 +18096,9 @@
       return String(offer?.label || action?.accessibleLabel || action?.modalTitle || action?.label || "Act").trim();
     }
 
-    function sceneMeldResolution(visibleActions = actionBarActions()) {
+    function sceneMeldResolution(visibleActions = actionBarActions(), selectedKeys = sceneMeldKeys) {
       const byKey = new Map(visibleActions.map((action) => [storyHandKey(action), action]));
-      const selected = sceneMeldKeys.map((key) => byKey.get(key)).filter(Boolean);
+      const selected = selectedKeys.map((key) => byKey.get(key)).filter(Boolean);
       const selectedIds = new Set(selected.map(sceneMeldEntityKey));
       const handEntries = state?.action_hand?.entries || [];
       const currentLocationId = Number(state?.location?.id || 0);
@@ -18145,28 +18193,51 @@
       renderCommands();
     }
 
-    function renderSceneMeld(visibleActions, expanded) {
+    // At most seven combinations from the three cards already in the hand.
+    // Resolve each through the same rules used when the player presses Play.
+    function suggestedScenePlays(visibleActions = actionBarActions()) {
+      const cards = visibleActions.filter((action) => action.nounCard).slice(0, 3);
+      const plays = new Map();
+      for (let mask = 1; mask < (1 << cards.length); mask += 1) {
+        const keys = cards.filter((_, index) => mask & (1 << index)).map(storyHandKey);
+        const resolution = sceneMeldResolution(cards, keys);
+        const offerId = String(resolution.chosenOffer?.offer_id || "");
+        if (!offerId || !resolution.chosenVerb) continue;
+        const previous = plays.get(offerId);
+        if (!previous || keys.length < previous.keys.length) {
+          plays.set(offerId, { keys, ...resolution });
+        }
+      }
+      return [...plays.values()];
+    }
+
+    function renderSceneMeld(visibleActions) {
       const host = $("scene-meld");
-      host.hidden = !expanded || !usesInlineStoryHand() || Boolean(activeHeldStoryHandActions());
+      host.hidden = !usesInlineStoryHand() || !visibleActions.some((action) => action.nounCard)
+        || Boolean(activeHeldStoryHandActions());
       if (host.hidden) return;
       reconcileSceneMeld(visibleActions);
       const resolution = sceneMeldResolution(visibleActions);
-      const nounLabels = resolution.selected.map((action) => String(action?.nounEntry?.label || sceneMeldCardTypeLabel(action)));
-      const nounText = nounLabels.join(" + ");
-      let status = "Choose one to three noun cards.";
-      if (resolution.selected.length && (!resolution.chosenOffer || !resolution.chosenVerb)) {
-        status = `${nounText} does not make a play yet. Remove a card or Think for another card.`;
-      } else if (resolution.chosenVerb) {
-        status = `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`;
-      }
-      $("scene-meld-status").textContent = status;
+      const suggestions = suggestedScenePlays(visibleActions);
+      $("scene-play-options").innerHTML = suggestions.map((suggestion, index) => {
+        const label = sceneMeldVerb(suggestion.chosenVerb, suggestion.chosenOffer);
+        const selected = suggestion.keys.length === sceneMeldKeys.length
+          && suggestion.keys.every((key) => sceneMeldKeys.includes(key));
+        const nouns = suggestion.selected.map((card) => card.nounEntry?.label || sceneMeldCardTypeLabel(card)).join(" + ");
+        return `<button type="button" class="scene-play-option" data-scene-play="${index}" aria-pressed="${selected}"${actionBusy || storyHandActionWaitsForTurn(suggestion.chosenVerb) ? " disabled" : ""}><strong>${escapeHtml(label)}</strong><span>${escapeHtml(nouns)}</span></button>`;
+      }).join("");
+      $("scene-play-options").hidden = !suggestions.length;
+      const nounText = resolution.selected.map((action) => String(action?.nounEntry?.label || sceneMeldCardTypeLabel(action))).join(" + ");
+      $("scene-meld-status").textContent = resolution.chosenVerb
+        ? `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
+        : "Choose a suggested play, or use Think to find a fresh card.";
+      $("scene-play-preview").textContent = resolution.chosenVerb ? actionSummary(resolution.chosenVerb) : "";
       const play = $("scene-meld-play");
-      play.disabled = !resolution.chosenVerb
-        || actionBusy
+      play.disabled = !resolution.chosenVerb || actionBusy
         || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb));
       play.textContent = resolution.chosenVerb
         ? `Play ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
-        : "Play meld";
+        : "Choose a play";
     }
 
     function playSceneMeld() {
@@ -18387,7 +18458,7 @@
       if (expanded && selected && shouldScroll) {
         window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
       }
-      renderSceneMeld(visibleActions, expanded);
+      renderSceneMeld(visibleActions);
       renderStoryHandInspector(null);
       renderTurnRope();
     }
@@ -20431,6 +20502,16 @@
         event.stopPropagation();
         void discardStoryHandCard(discard.getAttribute("data-hand-discard") || "");
       }
+    });
+
+    $("scene-play-options").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-scene-play]");
+      if (!button || actionBusy || activeHeldStoryHandActions()) return;
+      const suggestion = suggestedScenePlays()[Number(button.dataset.scenePlay)];
+      if (!suggestion || storyHandActionWaitsForTurn(suggestion.chosenVerb)) return;
+      sceneMeldKeys = [...suggestion.keys];
+      renderCommands();
+      $("scene-play-options").querySelector(`[data-scene-play="${button.dataset.scenePlay}"]`)?.focus();
     });
 
     $("scene-meld-play").addEventListener("click", (event) => {
