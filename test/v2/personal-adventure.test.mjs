@@ -30,3 +30,28 @@ describe('a saved personal adventure in a shared garden', () => {
     expect(model(null)).toBeNull();
   });
 });
+
+
+describe('visible adventure receipts', () => {
+  function receipts({ memoryVisible = false, journalOpen = false } = {}) {
+    const recorded = [];
+    const context = vm.createContext({
+      actorId: 1, actorSession: 'test', journalOpen, libraryPanelPinned: false, accountPanelPinned: false,
+      document: { visibilityState: 'visible' }, activeModal: () => false,
+      state: { ledger: { advancement_points: 1 } },
+      $: () => ({ hidden: journalOpen, getClientRects: () => [1], querySelector: (selector) => ({ selector }) }),
+      worldBeatRowIsActuallyVisible: (row) => row.selector === '[data-first-tale-presentation]' || (memoryVisible && row.selector === '[data-first-tale-completion-memory]'),
+      acknowledgeFirstTalePresentation: (kind) => recorded.push(kind),
+    });
+    vm.runInContext(html.slice(html.indexOf('    function acknowledgeVisibleFirstTalePresentations()'), html.indexOf('    async function acknowledgeFirstTalePresentation(')), context);
+    vm.runInContext('acknowledgeVisibleFirstTalePresentations()', context);
+    return recorded;
+  }
+  it('acknowledges the completion memory only when its own paragraph is visible', () => {
+    expect(receipts()).toEqual(['phase_seen']);
+    expect(receipts({ memoryVisible: true })).toEqual(['phase_seen', 'completion_memory_seen']);
+  });
+  it('records a Journal return while the scene panel is hidden', () => {
+    expect(receipts({ journalOpen: true })).toEqual(['journal_opened_after_growth']);
+  });
+});

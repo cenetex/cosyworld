@@ -12646,21 +12646,22 @@
     function acknowledgeVisibleFirstTalePresentations() {
       if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
       if (libraryPanelPinned || accountPanelPinned) return;
+      if (journalOpen && Number(state?.ledger?.advancement_points || 0) > 0) {
+        void acknowledgeFirstTalePresentation("journal_opened_after_growth");
+      }
       const updates = $("adventure");
       if (!updates || updates.hidden || updates.getClientRects().length === 0) return;
       const taleRow = updates.querySelector("[data-first-tale-presentation]");
       if (taleRow && worldBeatRowIsActuallyVisible(taleRow, updates)) {
         void acknowledgeFirstTalePresentation("phase_seen");
-        if (taleRow.hasAttribute("data-first-tale-completion-memory")) {
-          void acknowledgeFirstTalePresentation("completion_memory_seen");
-        }
+      }
+      const memoryRow = updates.querySelector("[data-first-tale-completion-memory]");
+      if (memoryRow && worldBeatRowIsActuallyVisible(memoryRow, updates)) {
+        void acknowledgeFirstTalePresentation("completion_memory_seen");
       }
       const growthRow = updates.querySelector(".growth-thread");
       if (growthRow && worldBeatRowIsActuallyVisible(growthRow, updates)) {
         void acknowledgeFirstTalePresentation("growth_feedback_seen");
-      }
-      if (journalOpen && Number(state?.ledger?.advancement_points || 0) > 0) {
-        void acknowledgeFirstTalePresentation("journal_opened_after_growth");
       }
     }
 
@@ -14608,7 +14609,7 @@
       const model = adventureModel();
       host.hidden = !model;
       if (!model) { host.innerHTML = ""; return; }
-      host.innerHTML = `<div data-first-tale-presentation${model.memory ? ' data-first-tale-completion-memory' : ''}><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next"><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
+      host.innerHTML = `<div><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
     }
 
     function journalAdventureHtml() {
