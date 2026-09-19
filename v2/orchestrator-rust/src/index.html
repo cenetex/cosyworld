@@ -19572,6 +19572,9 @@
       focusedKey = action.focusKey || "";
       storyHandActiveKey = storyHandKey(action);
       if (usesInlineStoryHand() && storyHandExpanded) {
+        const suggestion = suggestedScenePlays(visible).find((play) => play.keys.includes(storyHandActiveKey));
+        sceneMeldKeys = suggestion ? [...suggestion.keys] : [storyHandActiveKey];
+        sceneMeldOfferId = suggestion?.chosenOffer.offer_id || "";
         actionConfirmAction = originalStoryHandAction(action);
         storyHandScrollPending = true;
       }

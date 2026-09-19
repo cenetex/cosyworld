@@ -123,3 +123,18 @@ describe('card action recovery', () => {
     expect(nodes.get('scene-meld').hidden).toBe(true);
   });
 });
+
+
+it('keeps the displayed card and submitted action together during keyboard navigation', () => {
+  const context = game();
+  Object.assign(context, {
+    storyHandExpanded: true, storyHandActiveKey: 'place', focusedKey: '', focusIndex: 0,
+    usesInlineStoryHand: () => true, originalStoryHandAction: (card) => card,
+    renderRoomAvatarRail: () => {}, renderCommands: () => {}, $: () => ({ focus() {} }),
+  });
+  vm.runInContext(html.slice(html.indexOf('    function moveVisibleActionFocus('), html.indexOf('    function isDefinitivePassRejection(')), context);
+  vm.runInContext('moveVisibleActionFocus(1)', context);
+  expect(context.storyHandActiveKey).toBe('friend');
+  expect([...context.sceneMeldKeys]).toEqual(['friend']);
+  expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('talk');
+});
