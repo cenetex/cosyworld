@@ -1178,6 +1178,14 @@ async function main() {
   }
 
   async function assertFirstThreadGuide() {
+    const adventure = await page.locator("#adventure").evaluate((node) => ({
+      text: node.textContent,
+      visible: !node.hidden && node.getBoundingClientRect().height > 0,
+      instruction: state.first_tale?.continuation?.instruction || state.first_tale?.instruction,
+      title: state.first_tale?.presentation?.title || state.first_tale?.question,
+    }));
+    assert(adventure.visible && adventure.text.includes(adventure.title) && adventure.text.includes(adventure.instruction),
+      `the visible adventure should explain its need and current next step: ${JSON.stringify(adventure)}`);
     const guide = await page.evaluate(() => {
       const node = document.querySelector("#updates");
       const journal = document.querySelector("#journal-view");
@@ -12584,15 +12592,22 @@ async function main() {
     ), null, { timeout: 35_000 });
     const after = await page.evaluate((starting) => {
       const events = logEvents.filter((event) => Number(event.seq || 0) > starting.eventSeq);
+      const personalGrowth = events.filter((event) => Number(event.actor_id || 0) === starting.actorId
+        && ["ledger.marked", "ledger.banked"].includes(event.type));
+      // An earlier resident action can finish while Notice is in flight.
+      // Its attributed witness mark belongs to that earlier action.
+      const earlierWitnessMarks = personalGrowth.filter((event) => event.type === "ledger.marked"
+        && String(event.content || "").startsWith("witness:")
+        && Number(event.caused_by_event_seq || 0) > 0
+        && Number(event.caused_by_event_seq) <= starting.eventSeq);
       return {
+        earlierWitnessMarks: earlierWitnessMarks.length,
         observations: events.filter((event) => (
           event.type === "notice.actor_observed"
             && Number(event.actor_id || 0) === starting.actorId
         )).length,
         rolled: events.some((event) => event.type === "ability_check.rolled"),
-        touchedGrowth: events.some((event) => (
-          event.type === "ledger.marked" || event.type === "ledger.banked"
-        )),
+        touchedGrowth: personalGrowth.some((event) => !earlierWitnessMarks.includes(event)),
         ledger: {
           banked: Number(state?.ledger?.banked_count || 0),
           unbanked: Number(state?.ledger?.unbanked_count || 0),
@@ -12605,7 +12620,7 @@ async function main() {
         && after.rolled === false
         && after.touchedGrowth === false
         && after.ledger.banked === before.ledger.banked
-        && after.ledger.unbanked === before.ledger.unbanked
+        && after.ledger.unbanked === before.ledger.unbanked + after.earlierWitnessMarks
         && after.tired === false,
       `frontier Notice should remain one truthful, non-tiring observation: ${JSON.stringify({ before, after })}`,
     );

@@ -6964,8 +6964,8 @@
       .scene-play-preview { max-height: 3.9em; overflow-y: auto; font-size: 12px; }
       .prompt .scene-meld-play { min-width: 94px; max-width: 145px; }
     }
-    .story-stage { grid-row: 2; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
-    .story-stage .log { flex: 1 0 120px; }
+    .story-stage { grid-row: 2; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .story-stage .log { flex: 1 0 48px; min-height: 48px; }
     .terminal.journal-open .story-stage { display: none; }
     .terminal.panel-open .adventure { display: none; }
     .terminal.panel-open .story-stage { grid-row: 1; }
@@ -6975,7 +6975,7 @@
       .adventure:has(.adventure-garden) > div > * { grid-column: 1; }
       .adventure:has(.adventure-garden) > div > .adventure-garden { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
     }
-    .adventure { flex: 0 0 auto; margin: 8px 18px 18px; padding: 18px; border: 1px solid #7b937060; border-radius: 16px; background: linear-gradient(145deg, #20362e, #172826); color: #efe6d1; }
+    .adventure { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 8px 18px 18px; padding: 18px; border: 1px solid #7b937060; border-radius: 16px; background: linear-gradient(145deg, #20362e, #172826); color: #efe6d1; }
     .adventure[hidden] { display: none; }
     .adventure-kicker { color: #cbb884; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 700; }
     .adventure h2 { font: 600 23px/1.2 Georgia, serif; margin: 8px 0; }
@@ -14608,7 +14608,7 @@
       const model = adventureModel();
       host.hidden = !model;
       if (!model) { host.innerHTML = ""; return; }
-      host.innerHTML = `<div data-first-tale-presentation${model.memory ? ' data-first-tale-completion-memory' : ''}><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><p>${escapeHtml(model.memory || model.premise)}</p><div class="adventure-next"><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
+      host.innerHTML = `<div data-first-tale-presentation${model.memory ? ' data-first-tale-completion-memory' : ''}><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next"><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
     }
 
     function journalAdventureHtml() {

@@ -110,6 +110,27 @@ impl FirstTaleStage {
 }
 
 impl RuntimeWorld {
+    pub(super) fn first_tale_resident_memory(
+        &self,
+        resident_id: u64,
+        actor_id: u64,
+    ) -> Option<String> {
+        let tale = active_first_tale()?;
+        let presentation = tale.presentation.as_ref()?;
+        if presentation.requester_actor_id != resident_id
+            || !self.rpg_claims.contains(&format!(
+                "first_tale:resident:{resident_id}:actor:{actor_id}"
+            ))
+        {
+            return None;
+        }
+        Some(format!(
+            "{} {}.",
+            self.actor_name(actor_id)?,
+            tale.copy.public_trace
+        ))
+    }
+
     pub(super) fn first_tale_trace_event_seq(&self, actor_id: u64) -> Option<u64> {
         let prefix = first_tale_trace_claim_prefix(actor_id)?;
         self.rpg_claims
@@ -653,6 +674,16 @@ mod tests {
             assert_eq!(view.recognition, after.recognition);
             assert_eq!(view.shared_progress, after.shared_progress);
             assert_eq!(view.trace_event_seq, after.trace_event_seq);
+            let context = world
+                .avatar_context_spine(1001, Some(5000), None, "The traveler returns.")
+                .unwrap();
+            assert!(context
+                .relationship
+                .as_deref()
+                .unwrap()
+                .contains("Path Maker left Rati a record"));
+            assert!(world.first_tale_resident_memory(1001, 5001).is_none());
+            assert!(world.first_tale_resident_memory(1002, 5000).is_none());
         }
     }
 
@@ -794,6 +825,16 @@ mod tests {
             .expect("accepted continuation");
         assert_eq!(accepted.continuation.as_ref().unwrap().phase, "accepted");
         assert!(accepted.advancing_offer_id.is_none());
+        runtime
+            .bonds
+            .get_mut(&bond_id(actor_id, 8301))
+            .unwrap()
+            .updated_event_seq = Some(90_010);
+        let after_reply = runtime.first_tale_view(actor_id).unwrap();
+        assert_eq!(
+            after_reply.phase_exposure_id, accepted.phase_exposure_id,
+            "a later resident reply keeps the accepted invitation's stable identity"
+        );
     }
 
     #[test]

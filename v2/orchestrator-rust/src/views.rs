@@ -2986,7 +2986,7 @@ impl RuntimeWorld {
                     .and_then(|continuation| {
                         self.active_bond(actor_id, continuation.target_actor_id)
                     })
-                    .and_then(|bond| bond.updated_event_seq.or(bond.source_event_seq))
+                    .and_then(|bond| bond.source_event_seq.or(bond.updated_event_seq))
                     .unwrap_or(trace_event_seq),
                 FirstTaleStage::ContinuationArrived => first_tale
                     .continuation

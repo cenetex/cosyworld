@@ -14,7 +14,7 @@ Each choice submits its exact current offer. The server checks the selected card
 
 ## Saved progress
 
-The garden scene reads the existing shared clock. The personal memory reads the first-tale trace. Rati's recognition reads a separate durable claim created with her attributed trace event. Existing players retain their earlier story progress. The added presentation fields are optional, and the four affected compositions accept their previous bundle hashes for replay.
+The garden scene reads the existing shared clock. The personal memory reads the first-tale trace. Rati's recognition reads a separate durable claim created with her attributed trace event. Her reply context includes that record when she speaks with the contributing traveler, including after reload. Existing players retain their earlier story progress. The added presentation fields are optional, and the four affected compositions accept their previous bundle hashes for replay.
 
 ## Evidence
 
