@@ -36784,7 +36784,8 @@ mod tests {
         assert!(INDEX_HTML.contains("if (result?.ok === false) {"));
         assert!(INDEX_HTML.contains("state?.first_tale?.phase"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
-        assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
+        assert!(INDEX_HTML
+            .contains("Choose a play from your cards. Read what it offers, then take your turn."));
         assert!(INDEX_HTML.contains("discover the room through play"));
         assert!(INDEX_HTML.contains("exactOfferVariants(\"notice_actor\")"));
         assert!(INDEX_HTML.contains("/actions/notice"));
