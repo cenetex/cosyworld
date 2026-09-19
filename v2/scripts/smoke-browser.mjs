@@ -14794,7 +14794,7 @@ async function main() {
           day: leaf()?.dataset.journalDay || "",
           images: document.querySelectorAll("#journal-log .journal-page-illustration.generated img").length,
           rows: document.querySelectorAll("#journal-log .journal-row, #journal-log .journal-prose-row").length,
-          prose: document.querySelectorAll("#journal-log .journal-page-prose, #journal-log figcaption").length,
+          prose: document.querySelectorAll("#journal-log > .journal-page .journal-page-prose, #journal-log > .journal-page figcaption").length,
           memoryVisible: visible(document.querySelector("#room-memory")),
           activityVisible: visible(document.querySelector("#journal-activity")),
           questionsVisible: visible(document.querySelector("#shared-questions")),
