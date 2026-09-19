@@ -6940,7 +6940,7 @@
     .scene-play-option:disabled { opacity: .5; cursor: default; }
     .scene-play-option:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
     .scene-play-preview { margin: 5px 0 0; max-width: 80ch; color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
-    .scene-play-preview:empty { display: none; }
+    .scene-play-preview:empty, .scene-meld-status:empty { display: none; }
     .prompt { max-height: 60dvh; overflow-y: auto; }
     .prompt .scene-meld-play { max-width: 260px; text-transform: none; font-size: 13px; letter-spacing: 0; }
     @media (min-width: 901px) {
@@ -18356,10 +18356,9 @@
         const nouns = suggestion.selected.map((card) => card.nounEntry?.label || sceneMeldCardTypeLabel(card)).join(" + ");
         return `<button type="button" class="scene-play-option" data-scene-play="${index}" aria-pressed="${selected}"${actionBusy || storyHandActionWaitsForTurn(suggestion.chosenVerb) ? " disabled" : ""}><strong>${escapeHtml(label)}</strong><span>${escapeHtml(nouns)}</span></button>`;
       }).join("");
-      $("scene-play-options").hidden = !suggestions.length;
-      const nounText = resolution.selected.map((action) => String(action?.nounEntry?.label || sceneMeldCardTypeLabel(action))).join(" + ");
+      $("scene-play-options").hidden = suggestions.length < 2;
       $("scene-meld-status").textContent = resolution.chosenVerb
-        ? `${nounText} → ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
+        ? ""
         : canDiscardHandCard(focused) ? "Think to draw another card." : "Tap another card to explore its actions.";
       const outcome = [resolution.chosenOffer?.effect, resolution.chosenOffer?.risk].filter(Boolean).map(friendlyActionText).join(" · ");
       $("scene-play-preview").textContent = resolution.chosenVerb ? outcome || actionSummary(resolution.chosenVerb) : "";
@@ -18535,6 +18534,7 @@
         || null;
       if (expanded && selected) storyHandActiveKey = storyHandKey(selected);
       if (expanded) reconcileSceneMeld(visibleActions, selected);
+      renderSceneMeld(visibleActions);
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
@@ -18594,7 +18594,6 @@
       if (expanded && selected && shouldScroll) {
         window.requestAnimationFrame(() => scrollStoryHandCardIntoView(selected, "auto"));
       }
-      renderSceneMeld(visibleActions);
       renderStoryHandInspector(null);
       renderTurnRope();
     }
