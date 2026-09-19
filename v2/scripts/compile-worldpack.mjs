@@ -221,6 +221,11 @@ function validateCompiledFirstTale(firstTale, resources) {
     job.location_ids?.includes(firstTale.destination_location_id),
     `world first_tale job ${firstTale.job_id} is not active at destination ${firstTale.destination_location_id}`,
   );
+  if (firstTale.presentation) {
+    const requester = actorById.get(firstTale.presentation.requester_actor_id);
+    assert(requester && requester.location_id === firstTale.lead_location_id,
+      "world first_tale presentation requester must be at the lead location");
+  }
   if (!firstTale.continuation) return;
   const continuation = firstTale.continuation;
   assert(

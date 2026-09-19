@@ -12,6 +12,8 @@ pub(super) struct SeedFirstTaleContent {
     pub(super) progress_clock_id: String,
     pub(super) copy: SeedFirstTaleCopy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) presentation: Option<FirstTalePresentation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) continuation: Option<SeedFirstTaleContinuation>,
 }
 
@@ -39,6 +41,16 @@ pub(super) struct SeedFirstTaleCopy {
     pub(super) completion_memory: String,
     pub(super) next_invitation: String,
     pub(super) public_trace: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct FirstTalePresentation {
+    pub(super) requester_actor_id: u64,
+    pub(super) title: String,
+    pub(super) premise: String,
+    pub(super) recognition: String,
+    pub(super) scene: String,
 }
 
 pub(super) fn active_first_tale() -> Option<&'static SeedFirstTaleContent> {
@@ -162,13 +174,22 @@ impl RuntimeWorld {
         let mut trace = self.append_async_job_event(
             "first_tale.public_trace",
             action.actor_id,
-            None,
+            first_tale
+                .presentation
+                .as_ref()
+                .map(|presentation| presentation.requester_actor_id),
             Some(first_tale.copy.public_trace.clone()),
         );
         trace.caused_by_event_seq = Some(cause_event_seq);
         self.replace_projected_event(&trace);
         if let Some(claim_key) = first_tale_trace_claim_key(action.actor_id, trace.seq) {
             self.rpg_claims.insert(claim_key);
+        }
+        if let Some(presentation) = &first_tale.presentation {
+            self.rpg_claims.insert(format!(
+                "first_tale:resident:{}:actor:{}",
+                presentation.requester_actor_id, action.actor_id
+            ));
         }
         let mut projected = vec![trace];
         // Truthful actor Notice does not touch growth; completing the tale is
@@ -379,6 +400,20 @@ pub(super) fn validate_first_tale(first_tale: &SeedFirstTaleContent) -> Result<(
     if first_tale.schema_version != FIRST_TALE_CONTENT_SCHEMA_VERSION
         || first_tale.lead_location_id == 0
         || first_tale.destination_location_id == 0
+        || first_tale
+            .presentation
+            .as_ref()
+            .is_some_and(|presentation| {
+                presentation.requester_actor_id == 0
+                    || presentation.scene != "garden_path"
+                    || [
+                        &presentation.title,
+                        &presentation.premise,
+                        &presentation.recognition,
+                    ]
+                    .iter()
+                    .any(|text| text.trim().is_empty() || text.len() > 1000)
+            })
         || first_tale.job_id.trim().is_empty()
         || first_tale.progress_clock_id.trim().is_empty()
         || [
@@ -558,6 +593,67 @@ mod tests {
         );
         assert!(ruby_only.get("first_tale").is_none());
         assert!(services_only.get("first_tale").is_none());
+    }
+
+    #[test]
+    fn garden_contribution_records_personal_recognition_and_survives_reload() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Path Maker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Next Guest",
+        );
+        let before = runtime.first_tale_view(5000).unwrap();
+        assert!(before.recognition.is_none());
+        let intent = runtime
+            .job_contribution_intent(5000, "work", None, None, None)
+            .unwrap();
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            82051,
+        )
+        .into_player_card();
+        record.bind_offer_kind("work");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution { intent });
+        let base = RuntimeSnapshot::from_runtime(&runtime);
+        let (_, events) = runtime.apply_journal_record(&record);
+        let trace = events
+            .iter()
+            .find(|event| event.type_name == "first_tale.public_trace")
+            .unwrap();
+        assert_eq!(trace.target_actor_id, Some(1001));
+        let after = runtime.first_tale_view(5000).unwrap();
+        assert!(after.recognition.is_some());
+        assert!(after.shared_progress > before.shared_progress);
+        assert!(after.shared_progress < after.shared_goal);
+        let other = runtime.first_tale_view(5001).unwrap();
+        assert_eq!(other.shared_progress, after.shared_progress);
+        assert!(other.recognition.is_none());
+        assert!(other.trace_event_seq.is_none());
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .unwrap();
+        let mut replayed = base.into_runtime().unwrap();
+        replayed.apply_journal_record(&record);
+        for world in [&restored, &replayed] {
+            let view = world.first_tale_view(5000).unwrap();
+            assert_eq!(view.recognition, after.recognition);
+            assert_eq!(view.shared_progress, after.shared_progress);
+            assert_eq!(view.trace_event_seq, after.trace_event_seq);
+        }
     }
 
     #[test]

@@ -320,25 +320,37 @@ impl RuntimeWorld {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn resolved_story_hand_offer<'a>(
         &self,
         actor_id: u64,
         offers: &'a [RankedActionOffer],
         selected_card_ids: &[String],
     ) -> Option<&'a RankedActionOffer> {
+        self.matching_story_hand_offers(actor_id, offers, selected_card_ids)
+            .into_iter()
+            .next()
+    }
+
+    pub(super) fn matching_story_hand_offers<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+        selected_card_ids: &[String],
+    ) -> Vec<&'a RankedActionOffer> {
         if selected_card_ids.is_empty() || selected_card_ids.len() > STORY_HAND_SLOTS.len() {
-            return None;
+            return Vec::new();
         }
         let selected = selected_card_ids.iter().collect::<BTreeSet<_>>();
         if selected.len() != selected_card_ids.len() {
-            return None;
+            return Vec::new();
         }
         let hand = self.action_hand_for(Some(actor_id), offers);
         if selected
             .iter()
             .any(|card_id| !hand.entries.iter().any(|entry| &entry.card_id == *card_id))
         {
-            return None;
+            return Vec::new();
         }
         let current_location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let pinned_offer_id = if selected.len() == 1 {
@@ -359,7 +371,7 @@ impl RuntimeWorld {
             None
         };
 
-        offers
+        let mut matching: Vec<_> = offers
             .iter()
             .filter(|offer| {
                 let Some(owner) = hand.entries.iter().find(|entry| {
@@ -439,17 +451,19 @@ impl RuntimeWorld {
                             && current_location_id == Some(entry.entity_id))
                 })
             })
-            .min_by(|left, right| {
-                (pinned_offer_id.as_deref() == Some(right.offer_id.as_str()))
-                    .cmp(&(pinned_offer_id.as_deref() == Some(left.offer_id.as_str())))
-                    .then_with(|| {
-                        story_hand_resolution_rank(&left.kind)
-                            .cmp(&story_hand_resolution_rank(&right.kind))
-                    })
-                    .then_with(|| left.provider.priority.cmp(&right.provider.priority))
-                    .then_with(|| left.rank.cmp(&right.rank))
-                    .then_with(|| left.id.cmp(&right.id))
-            })
+            .collect();
+        matching.sort_by(|left, right| {
+            (pinned_offer_id.as_deref() == Some(right.offer_id.as_str()))
+                .cmp(&(pinned_offer_id.as_deref() == Some(left.offer_id.as_str())))
+                .then_with(|| {
+                    story_hand_resolution_rank(&left.kind)
+                        .cmp(&story_hand_resolution_rank(&right.kind))
+                })
+                .then_with(|| left.provider.priority.cmp(&right.provider.priority))
+                .then_with(|| left.rank.cmp(&right.rank))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        matching
     }
 
     #[cfg(test)]
@@ -500,8 +514,9 @@ impl RuntimeWorld {
                 return Err("that offer is not in the current Story Hand");
             }
         } else if self
-            .resolved_story_hand_offer(actor_id, &offers, &submission.selected_card_ids)
-            .is_none_or(|resolved| resolved.offer_id != offer.offer_id)
+            .matching_story_hand_offers(actor_id, &offers, &submission.selected_card_ids)
+            .iter()
+            .all(|candidate| candidate.offer_id != offer.offer_id)
         {
             return Err("those noun cards do not resolve to that action");
         }
@@ -2939,6 +2954,12 @@ fn compose_story_hand_with_pin(
                 && !matches!(offer.kind.as_str(), "create_avatar" | "wait")
                 && (matches!(offer.kind.as_str(), "move" | "explore_path" | "flee")
                     || Some(offer.offer_id.as_str()) == pinned_offer_id
+                    || progression_pin.is_some_and(|(pin, _)| {
+                        pin.project
+                            .as_ref()
+                            .zip(offer.project.as_ref())
+                            .is_some_and(|(left, right)| left.id == right.id)
+                    })
                     || excluded_offer_ids
                         .is_none_or(|excluded| !excluded.contains(&offer.offer_id)))
         })

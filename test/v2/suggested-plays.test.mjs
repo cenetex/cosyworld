@@ -16,7 +16,7 @@ function game() {
     { offer_id: 'give', kind: 'give_item', source_collectible: { kind: 'item', instance_id: 3 }, target: { kind: 'actor', id: 2 } },
   ];
   const context = vm.createContext({
-    actorId: 9, sceneMeldKeys: ['place'], cards,
+    actorId: 9, sceneMeldOfferId: '', sceneMeldKeys: ['place'], cards,
     actions: offers.map((offer) => ({ label: offer.kind, offerIds: [offer.offer_id] })),
     state: { location: { id: 1 }, action_offers: offers, action_hand: { entries: cards.map((card, index) => ({ ...card.nounEntry, offer_ids: [[ 'walk' ], [ 'talk' ], [ 'give' ]][index] })) } },
     storyHandKey: (card) => card.handKey,
@@ -53,5 +53,29 @@ describe('suggested plays from the current hand', () => {
   });
   it('handles an empty hand', () => {
     expect(vm.runInContext('suggestedScenePlays([])', game())).toHaveLength(0);
+  });
+});
+
+
+describe('deliberate approach selection', () => {
+  it('offers each legal approach from one place card and honors the chosen one', () => {
+    const context = game();
+    const offer = { offer_id: 'inspect', kind: 'check' };
+    context.state.action_offers.push(offer);
+    context.state.action_hand.entries[0].offer_ids.push('inspect');
+    context.actions.push({ label: 'Inspect', offerIds: ['inspect'] });
+    const plays = vm.runInContext('suggestedScenePlays()', context);
+    expect(plays.map((play) => play.chosenOffer.offer_id)).toContain('walk');
+    expect(plays.map((play) => play.chosenOffer.offer_id)).toContain('inspect');
+    context.sceneMeldOfferId = 'inspect';
+    expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('inspect');
+    context.sceneMeldOfferId = 'walk';
+    expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('walk');
+  });
+  it('reconciles a stale choice against the current card authority', () => {
+    const context = game();
+    context.sceneMeldOfferId = 'give';
+    expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('walk');
+    expect(vm.runInContext('sceneMeldResolution().candidates.map(offer => offer.offer_id)', context)).not.toContain('give');
   });
 });

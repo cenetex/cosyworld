@@ -3462,3 +3462,81 @@ async fn direct_loadout_configuration_is_rejected_without_hand_or_world_change_i
         Some(CW_CARD_ZONE_CARRIED)
     );
 }
+
+#[test]
+fn garden_hand_supports_deliberate_approaches_with_exact_certificates() {
+    let mut runtime = RuntimeWorld::seeded();
+    let actor_id = 5000;
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        RAIN_SOFT_GARDEN_LOCATION_ID,
+        "Garden Helper",
+    );
+    create_test_human(
+        &mut runtime,
+        5001,
+        RAIN_SOFT_GARDEN_LOCATION_ID,
+        "Stone Lifter",
+    );
+    runtime
+        .listen_attempt_claims
+        .insert(listen_attempt_claim_key(actor_id, COSY_COTTAGE_LOCATION_ID));
+    let (_, offers) = runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    let hand = runtime.action_hand_for(Some(actor_id), &offers);
+    let mut supported = BTreeSet::new();
+    for mask in 1usize..(1usize << hand.entries.len()) {
+        let selected = hand
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| mask & (1 << index) != 0)
+            .map(|(_, entry)| entry.card_id.clone())
+            .collect::<Vec<_>>();
+        for offer in runtime.matching_story_hand_offers(actor_id, &offers, &selected) {
+            let Some(project) = offer
+                .project
+                .as_ref()
+                .filter(|project| project.id == FIRST_TALE_JOB_ID)
+            else {
+                continue;
+            };
+            if !matches!(offer.kind.as_str(), "check" | "work" | "help") {
+                continue;
+            }
+            supported.insert(offer.kind.clone());
+            let mut submission = submission_for_offer(
+                offer,
+                "/actions/contribute",
+                serde_json::json!({
+                    "actor_id": actor_id, "job_id": project.id, "strategy_id": project.strategy_id,
+                    "target_actor_id": offer.target.as_ref().and_then(|target| target.id),
+                }),
+            );
+            submission.selected_card_ids = selected.clone();
+            assert_eq!(
+                runtime.validate_action_offer_submission(
+                    actor_id,
+                    &AccessContext::default(),
+                    &submission
+                ),
+                Ok(()),
+                "{}",
+                offer.kind
+            );
+            submission.selected_card_ids = vec!["foreign-card".to_string()];
+            assert!(runtime
+                .validate_action_offer_submission(actor_id, &AccessContext::default(), &submission)
+                .is_err());
+            submission.selected_card_ids = selected.clone();
+            submission.payload["strategy_id"] = serde_json::json!("invented-strategy");
+            assert!(runtime
+                .validate_action_offer_submission(actor_id, &AccessContext::default(), &submission)
+                .is_err());
+        }
+    }
+    assert_eq!(
+        supported,
+        BTreeSet::from(["check".to_string(), "work".to_string(), "help".to_string()])
+    );
+}

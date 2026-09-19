@@ -140,3 +140,15 @@ test("compositions without the Lantern pack mount the continuation-free core tal
   assert.deepEqual(firstTaleValidationErrors(coreTale, "core first tale"), []);
   assert.equal(coreTale.continuation, undefined);
 });
+
+test("adventure presentation validates its resident, scene, and bounded copy", () => {
+  const source = JSON.parse(fs.readFileSync(path.join(worldsRoot, "official/first-tale.json"), "utf8"));
+  assert.deepEqual(firstTaleValidationErrors(source), []);
+  assert.equal(normalizeFirstTaleConfig(source).presentation.requester_actor_id, 1001);
+  for (const change of [{ requester_actor_id: 0 }, { scene: "unknown" }, { title: " " }, { premise: "a".repeat(1001) }, { extra: true }]) {
+    assert.ok(firstTaleValidationErrors({ ...source, presentation: { ...source.presentation, ...change } }).length > 0);
+  }
+  const legacy = { ...source };
+  delete legacy.presentation;
+  assert.deepEqual(firstTaleValidationErrors(legacy), []);
+});
