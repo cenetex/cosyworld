@@ -18394,6 +18394,7 @@
       }
       prompt.classList.toggle("hand-expanded", expanded);
       $("hand-toggle").setAttribute("aria-expanded", expanded ? "true" : "false");
+      $("hand-toggle").querySelector(".hand-toggle-chevron").textContent = expanded ? "Close" : "Expand";
       const count = visibleActions.length;
       $("hand-toggle-status").textContent = `${count} ${count === 1 ? "card" : "cards"}`;
       const selected = visibleActions.find((action) => storyHandKey(action) === storyHandActiveKey)
