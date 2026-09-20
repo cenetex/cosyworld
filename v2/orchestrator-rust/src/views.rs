@@ -2889,6 +2889,15 @@ impl RuntimeWorld {
                     }),
                 first_tale.copy.contribute_instruction
             ),
+            FirstTaleStage::Contribute
+                if self.first_tale_latecomer_needs_listen_fallback(actor_id) =>
+            {
+                format!(
+                    "Notice {} to leave your own mark. The shared work is already complete.",
+                    self.location_name(actor.location_id)
+                        .unwrap_or_else(|| "this place".to_string())
+                )
+            }
             FirstTaleStage::Contribute => first_tale.copy.contribute_instruction.clone(),
             _ => first_tale.copy.complete_instruction.clone(),
         };

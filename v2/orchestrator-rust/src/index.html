@@ -9041,6 +9041,30 @@
       // They render in the turn banner so the card row stays reserved for
       // legal current-activation choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
+      // A completed shared quest can still offer a room check for a new
+      // player's personal contribution after its Search discoveries are spent.
+      for (const offer of offersForCurrentHand("check").filter((candidate) => (
+        !candidate.project && candidate.offer_id && candidate.command
+      ))) {
+        const targetLabel = String(offer.target?.label || view.location?.name || "this room").trim();
+        const verb = offerVerb(offer, "Notice");
+        const label = `${verb} ${targetLabel}`;
+        built.push({
+          ...semanticAction(offer, "notice", label),
+          label: verb.toLowerCase(),
+          detail: targetLabel,
+          command: offer.command,
+          focusKey: `room-check:${offer.offer_id}`,
+          card: cardForLocation(offer.target?.id || view.location?.id),
+          shape: "location",
+          priority: Number(offer.rank || 60),
+          modalTitle: label.toLowerCase(),
+          modalSummary: "Listen closely and find your place in the story.",
+          effect: offer.effect,
+          risk: offer.risk,
+          run: () => runCommandText(offer.command, offer),
+        });
+      }
       const discoveryKinds = new Set([
         "focused_notice",
         "search_discovery",
