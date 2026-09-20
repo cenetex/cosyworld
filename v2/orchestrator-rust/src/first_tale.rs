@@ -1017,4 +1017,72 @@ mod tests {
             .expect("Search is selectable as the advancing card");
         assert_eq!(advancing_ids, search_offer.offer_id);
     }
+
+    #[tokio::test]
+    async fn latecomer_plays_room_check_after_all_shared_discoveries_are_spent() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Late Garden Guest",
+        );
+        let clock = runtime
+            .clocks
+            .get_mut(FIRST_TALE_PROGRESS_CLOCK_ID)
+            .expect("garden clock");
+        clock.filled = clock.segments;
+        // Other visitors have already revealed everything in this shared room.
+        for seed in 1..=2000 {
+            let Some(target) = runtime.default_search_target(actor_id) else {
+                break;
+            };
+            let record = runtime.search_record_for_target(actor_id, &target, seed);
+            assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        }
+        assert!(runtime.default_search_target(actor_id).is_none());
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(actor_id, COSY_COTTAGE_LOCATION_ID));
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == actor_id)
+            .expect("late guest")
+            .stats
+            .wisdom = 32;
+        assert!(runtime.first_tale_latecomer_needs_listen_fallback(actor_id));
+        let (offers, hand, view) = first_tale_action_state(&runtime, actor_id);
+        assert_eq!(
+            view.instruction,
+            "Notice Rain-Soft Garden to leave your own mark. The shared work is already complete."
+        );
+        let offer = advancing_offer(&offers, &hand, &view);
+        assert_eq!(offer.kind, "check");
+        assert!(offer.project.is_none());
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, actor_id);
+        let mut request = command_request(actor_id, &offer.command);
+        request.actor_session = Some(actor_session);
+        request.offer_id = Some(offer.offer_id.clone());
+        let response = command(
+            ConnectInfo("127.0.0.1:0".parse().expect("client address")),
+            State(state.clone()),
+            Json(request),
+        )
+        .await
+        .0;
+        assert!(response.ok, "{response:?}");
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "first_tale.public_trace" && event.actor_id == Some(actor_id)
+        }));
+        let runtime = state.inner.lock().await;
+        assert!(runtime.first_tale_trace_event_seq(actor_id).is_some());
+        assert!(!runtime.first_tale_latecomer_needs_listen_fallback(actor_id));
+        let (_, _, next) = first_tale_action_state(&runtime, actor_id);
+        assert_eq!(next.phase, "complete");
+    }
 }

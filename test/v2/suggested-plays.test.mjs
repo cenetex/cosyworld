@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const html = fs.readFileSync(new URL('../../v2/orchestrator-rust/src/index.html', import.meta.url), 'utf8');
 const functions = html.slice(html.indexOf('    function sceneMeldResolutionRank('), html.indexOf('    function renderSceneMeld('));
+const buildActionsSource = html.slice(html.indexOf('    function buildActions('), html.indexOf('    function mergeDuplicateUseCards('));
 function game() {
   const cards = [
     { nounCard: true, handKey: 'place', nounEntry: { card_id: 'place', entity_kind: 'location', entity_id: 1 } },
@@ -28,6 +29,35 @@ function game() {
 }
 
 describe('suggested plays from the current hand', () => {
+  it('builds and plays the late arrival room check after shared discoveries are spent', async () => {
+    const context = game();
+    const offer = {
+      offer_id: 'late-arrival-check', kind: 'check', intention: 'notice',
+      verb: 'Notice', command: 'listen',
+      target: { kind: 'location', id: 1, label: 'Rain-Soft Garden' },
+      effect: 'Leave your own mark on the open garden path.',
+    };
+    context.state.action_offers = [offer];
+    context.state.action_hand.entries[0].offer_ids = [offer.offer_id];
+    context.state.first_tale = { phase: 'contribute', advancing_offer_id: offer.offer_id };
+    context.state.clocks = [{ id: 'garden', filled: 4, segments: 4 }];
+    const submissions = [];
+    Object.assign(context, {
+      cardForLocation: (id) => ({ id }),
+      activePathwayJourney: () => null,
+      projectProgressDetail: () => '',
+      compareActions: () => 0,
+      runCommandText: (command, certificate) => submissions.push({ command, certificate }),
+    });
+    vm.runInContext(buildActionsSource, context);
+    context.actions = vm.runInContext('buildActions(state)', context);
+    const resolution = vm.runInContext('sceneMeldResolution()', context);
+    expect(resolution.chosenOffer?.offer_id).toBe(offer.offer_id);
+    const playable = context.actions.find((action) => action.offerIds.includes(offer.offer_id));
+    expect(playable.accessibleLabel).toBe('Notice Rain-Soft Garden');
+    await playable.run();
+    expect(submissions).toEqual([{ command: 'listen', certificate: offer }]);
+  });
   it('finds a gift that needs both the item and its recipient', () => {
     const context = game();
     const plays = vm.runInContext('suggestedScenePlays()', context);
