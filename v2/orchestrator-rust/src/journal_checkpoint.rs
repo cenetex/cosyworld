@@ -337,7 +337,6 @@ const PRUNE_COMPACTED_COMMIT_RANGES_SQL: &str = "DELETE FROM canonical_compacted
                      canonical_compacted_commit_ranges.world_id
              AND world_events.world_epoch =
                      canonical_compacted_commit_ranges.world_epoch
-             AND world_events.event_type = 'natural_feature.revealed'
              AND world_events.seq BETWEEN
                      canonical_compacted_commit_ranges.first_world_seq
                  AND canonical_compacted_commit_ranges.last_world_seq
@@ -497,13 +496,15 @@ fn compact_event_store_after_snapshot_now(
         .map_err(|_| snapshot_error("world-event compaction floor is negative"))?
         .unwrap_or_default();
     let deleted_world_event_rows = if world_event_floor_seq > 0 {
-        // Natural-feature reveals remain canonical evidence during hydration.
-        // Their count is bounded by the location cap, so retaining them does
-        // not reintroduce unbounded event-store growth.
+        // Room conversations and public story beats remain readable after
+        // temporary replay activity has passed the checkpoint.
         tx.execute(
-            "DELETE FROM world_events
+            &format!(
+                "DELETE FROM world_events
              WHERE seq < ?1
-               AND event_type <> 'natural_feature.revealed'",
+               AND event_type NOT IN ({})",
+                room_history::EVENT_TYPES
+            ),
             params![world_event_floor_seq as i64],
         )
         .map_err(sqlite_error)?
@@ -1198,7 +1199,7 @@ mod tests {
                 type_name: if seq == 1 {
                     "natural_feature.revealed".to_string()
                 } else {
-                    "message.created".to_string()
+                    "hand.shuffled".to_string()
                 },
                 success: true,
                 location_id: Some(1),

@@ -212,6 +212,7 @@ fn app_router_with_dependencies(
         .route("/inspect", get(inspect_view))
         .route("/world", get(world_view))
         .route("/events", get(events_view))
+        .route("/room-history", get(room_history::room_history_view))
         .route("/profiles", get(canonical_profile))
         .route("/invites", post(create_canonical_invite))
         .route("/invites/{invite_id}", get(canonical_invite))

@@ -1315,6 +1315,28 @@
         radial-gradient(circle at 50% 46%, rgba(239, 201, 107, 0.055), transparent 36%),
         linear-gradient(180deg, rgba(5, 12, 7, 0.32), rgba(5, 12, 7, 0.62));
     }
+    .room-history-control {
+      width: 100%;
+      flex: 0 0 auto;
+      text-align: center;
+      padding: 8px;
+      color: var(--dim);
+      font-size: 0.85rem;
+    }
+    .room-history-control button {
+      min-height: 44px;
+      padding: 8px 18px;
+      border: 1px solid currentColor;
+      border-radius: 6px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .room-history-control button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 3px;
+    }
     .room-scene {
       position: relative;
       width: min(760px, 100%);
@@ -7473,6 +7495,7 @@
     let recoveryPromptPending = false;
     let logEvents = [];
     let roomHistoryHydrated = false;
+    let roomConversation = { locationId: 0, events: [], nextBefore: null, hasMore: false, loaded: false, loading: false, error: false };
     const seenSeq = new Set();
     const worldBeatPresentationContractVersion = 1;
     const worldBeatReceiptState = new Map();
@@ -8284,6 +8307,7 @@
       await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
+      syncRoomConversation();
       const nextHandCompositionSignature = authoritativeHandSignature(state);
       if (nextHandCompositionSignature !== handCompositionSignature) {
         handKeys = [];
@@ -8318,6 +8342,7 @@
       restoreFocusedAction();
       render();
       syncOpenCardModal();
+      const conversationRequest = !roomConversation.loaded && !roomConversation.error ? loadRoomConversation() : null;
       if (historyWasNeeded || locationChanged || timelineRewound
           || pendingModelInteractionRehydrationRequired) {
         try {
@@ -8332,6 +8357,7 @@
         }
       }
       if (locationChanged) connectStream();
+      if (conversationRequest) await conversationRequest;
       if (recoveryRefreshAttemptId && attemptId >= recoveryRefreshAttemptId) {
         recoveryRefreshAttemptId = 0;
         clearTransientStatus("refresh");
@@ -8393,6 +8419,68 @@
         streamReplayFloorSeq = Math.max(streamReplayFloorSeq, replay.next_after);
       }
       return replay;
+    }
+
+    function syncRoomConversation(force = false) {
+      const locationId = Number(state?.location?.id || 0);
+      if (!force && roomConversation.locationId === locationId) return;
+      roomConversation = { locationId, events: [], nextBefore: null, hasMore: false, loaded: false, loading: false, error: false };
+      renderedChatTailKey = "";
+    }
+
+    function mergeRoomConversation(events) {
+      const bySeq = new Map(roomConversation.events.map((event) => [Number(event.seq), event]));
+      for (const event of events || []) {
+        if (Number(event?.location_id) !== roomConversation.locationId
+            || !eventIsChatTranscriptEvent(event) || eventIsMuted(event)) continue;
+        const seq = Number(event.seq || 0);
+        if (seq > 0) bySeq.set(seq, event);
+      }
+      roomConversation.events = [...bySeq.values()].sort((left, right) => Number(left.seq) - Number(right.seq));
+    }
+
+    async function loadRoomConversation(older = false) {
+      const room = roomConversation;
+      if (!room.locationId || room.loading || (older && (!room.hasMore || !room.nextBefore))) return;
+      room.loading = true;
+      room.error = false;
+      renderLog();
+      try {
+        const params = new URLSearchParams({ location_id: String(room.locationId), limit: "80" });
+        if (older) params.set("before", String(room.nextBefore));
+        const page = await api(`/room-history?${params}`);
+        if (room !== roomConversation) return;
+        if (Number(page?.location_id) !== room.locationId || !Array.isArray(page.events)
+            || typeof page.has_more !== "boolean"
+            || (page.has_more && (!Number.isSafeInteger(page.next_before)
+              || page.next_before <= 0 || (older && page.next_before >= room.nextBefore)))) {
+          throw new Error("Room conversation received an invalid page.");
+        }
+        const log = $("log");
+        const previousHeight = log.scrollHeight;
+        const previousTop = log.scrollTop;
+        mergeRoomConversation(page.events);
+        room.nextBefore = page.next_before;
+        room.hasMore = page.has_more;
+        room.loaded = true;
+        room.loading = false;
+        renderLog();
+        if (older) log.scrollTop = previousTop + log.scrollHeight - previousHeight;
+      } catch {
+        if (room === roomConversation) room.error = true;
+      } finally {
+        if (room === roomConversation) {
+          room.loading = false;
+          renderLog();
+        }
+      }
+    }
+
+    function roomConversationControlHtml() {
+      if (roomConversation.loading) return '<div class="room-history-control" role="status">Loading conversation…</div>';
+      if (roomConversation.error) return '<div class="room-history-control"><button type="button" data-room-history>Retry conversation</button></div>';
+      if (roomConversation.hasMore) return '<div class="room-history-control"><button type="button" data-room-history>Earlier conversation</button></div>';
+      return "";
     }
 
     async function exportJournal() {
@@ -11652,12 +11740,20 @@
 
     function sharedRoomTranscriptEvents(events) {
       const currentLocationId = Number(state?.location?.id || 0);
-      const visible = narratedTranscriptEvents((events || []).filter((event) => {
+      const combined = new Map();
+      for (const event of [...roomConversation.events, ...(events || [])]) {
+        combined.set(event.seq || event, event);
+      }
+      const ordered = [...combined.values()].sort((left, right) => Number(left.seq || 0) - Number(right.seq || 0));
+      const collapsed = [];
+      for (const event of ordered) appendLogEvent(event, collapsed);
+      const visible = narratedTranscriptEvents(collapsed.filter((event) => {
         const eventLocationId = Number(event?.location_id || 0);
         return eventIsChatTranscriptEvent(event)
+          && !eventIsMuted(event)
           && !(currentLocationId && eventLocationId && eventLocationId !== currentLocationId);
       }));
-      return visible.slice(-40);
+      return visible;
     }
 
     function narratedTranscriptEvents(events) {
@@ -11737,6 +11833,7 @@
     }
 
     function resetTranscriptAtWorldBoundary(event) {
+      syncRoomConversation(true);
       logEvents = [];
       pendingChats = [];
       pendingReflection = null;
@@ -11748,22 +11845,22 @@
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
     }
 
-    function appendLogEvent(event) {
+    function appendLogEvent(event, target = logEvents) {
       if (eventIsHiddenContext(event)) return;
       if (event?.type === "study.resolved") {
-        const rollIndex = logEvents.findLastIndex((prior) => (
+        const rollIndex = target.findLastIndex((prior) => (
           prior?.type === "ability_check.rolled"
           && Number(prior.actor_id || 0) === Number(event.actor_id || 0)
           && Number(prior.seq || 0) < Number(event.seq || 0)
           && Number(event.seq || 0) - Number(prior.seq || 0) <= 2
         ));
-        if (rollIndex >= 0) logEvents.splice(rollIndex, 1);
+        if (rollIndex >= 0) target.splice(rollIndex, 1);
       }
       const messageKey = inferredMessageCollapseKey(event);
       if (messageKey) {
         let inferredMessagesSeen = 0;
-        for (let index = logEvents.length - 1; index >= 0; index -= 1) {
-          const prior = logEvents[index];
+        for (let index = target.length - 1; index >= 0; index -= 1) {
+          const prior = target[index];
           if (prior?.type !== "message.created") continue;
           if (!inferredMessageCollapseKey(prior)) break;
           inferredMessagesSeen += 1;
@@ -11773,8 +11870,8 @@
               first_seq: prior.first_seq ?? prior.seq,
               repeat_count: Math.max(1, Number(prior.repeat_count || 1)) + 1,
             };
-            logEvents.splice(index, 1);
-            logEvents.push(collapsed);
+            target.splice(index, 1);
+            target.push(collapsed);
             return;
           }
           if (inferredMessagesSeen >= 4) break;
@@ -11782,10 +11879,10 @@
       }
       const key = logEventCollapseKey(event);
       if (key) {
-        for (let index = logEvents.length - 1; index >= 0; index -= 1) {
-          const prior = logEvents[index];
+        for (let index = target.length - 1; index >= 0; index -= 1) {
+          const prior = target[index];
           if (logEventCollapseKey(prior) === key) {
-            logEvents[index] = {
+            target[index] = {
               ...event,
               first_seq: prior.first_seq ?? prior.seq,
               repeat_count: Math.max(1, Number(prior.repeat_count || 1)) + 1,
@@ -11795,7 +11892,7 @@
           if (!collapsibleTurnStatusTypes.has(prior?.type)) break;
         }
       }
-      logEvents.push(event);
+      target.push(event);
     }
 
     function applyActionReceipt(event) {
@@ -11813,6 +11910,7 @@
         }
         const previousLocationId = state?.location?.id || null;
         state = receipt.state;
+        syncRoomConversation();
         state.world_tick = Number(receipt.world_tick || 0);
         state.state_revision = Number(receipt.state_revision || 0);
         const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
@@ -12054,6 +12152,7 @@
         enqueueImportantNotification(event);
         enqueueJournalNotification(event);
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
+        mergeRoomConversation([event]);
         changed = true;
       }
       logEvents = logEvents.slice(-90);
@@ -13181,6 +13280,7 @@
       pendingModelInteractions = [];
       logEvents = [];
       roomHistoryHydrated = false;
+      syncRoomConversation(true);
       seenSeq.clear();
       pendingModelInteractionRehydrationRequired = true;
     }
@@ -15431,6 +15531,7 @@
       const libraryPanel = libraryPanelHtml();
       const accountPanel = accountPanelHtml();
       const visibleEvents = sharedRoomTranscriptEvents(logEvents);
+      const historyControl = roomConversationControlHtml();
       const pendingConversation = pendingConversationHtml();
       const pendingChatReplies = pendingChatsHtml();
       const pendingModelOutputs = pendingModelInteractionsHtml();
@@ -15484,7 +15585,7 @@
       }
       if (!hasTranscript) {
         renderedChatTailKey = "";
-        log.innerHTML = quietRoomSceneHtml();
+        log.innerHTML = `${historyControl}${quietRoomSceneHtml()}`;
         log.scrollTop = 0;
         return;
       }
@@ -15498,7 +15599,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${historyControl}${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -20427,6 +20528,11 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
+      if (event.target.closest("[data-room-history]")) {
+        event.preventDefault();
+        void loadRoomConversation(roomConversation.loaded);
+        return;
+      }
       if (event.target.closest("[data-menu-close]")) {
         event.preventDefault();
         toggleAccountPanel(false);

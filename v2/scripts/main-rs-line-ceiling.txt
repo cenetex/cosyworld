@@ -462,4 +462,6 @@
 #
 # 59474 -> 59473: item defaults move to util as the asset budget
 # module joins the existing media storage seam.
-59465
+# 59465 -> 59466: room-history module and schema index wiring. The endpoint,
+# storage queries and regression tests live in room_history.rs.
+59466
