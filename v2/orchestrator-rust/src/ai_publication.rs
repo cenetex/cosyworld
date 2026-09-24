@@ -1455,7 +1455,7 @@ fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
         .collect::<Vec<_>>()
         .join("\n");
     let mut own_label_lines = BTreeSet::new();
-    for label in dialogue_boundary_labels(&label_scan) {
+    for label in dialogue_boundary_labels(&label_scan, context) {
         if label.canonical == speaker {
             if !label.at_line_start || !own_label_lines.insert(label.line_index) {
                 return true;
@@ -1502,10 +1502,46 @@ struct DialogueBoundaryLabel {
     at_line_start: bool,
 }
 
-fn dialogue_boundary_labels(value: &str) -> Vec<DialogueBoundaryLabel> {
+fn punctuation_is_inside_known_name(
+    value: &str,
+    index: usize,
+    punctuation: char,
+    context: &SpeechGateContext,
+) -> bool {
+    std::iter::once(&context.speaker_name)
+        .chain(context.other_speaker_names.iter())
+        .any(|name| {
+            name.match_indices(punctuation).any(|(offset, _)| {
+                let Some(start) = index.checked_sub(offset) else {
+                    return false;
+                };
+                let end = start + name.len();
+                let Some(candidate) = value.get(start..end) else {
+                    return false;
+                };
+                let is_name_character = |character: char| {
+                    character.is_alphanumeric() || matches!(character, '_' | '-' | '\'' | '’')
+                };
+                candidate.eq_ignore_ascii_case(name)
+                    && !value[..start]
+                        .chars()
+                        .next_back()
+                        .is_some_and(is_name_character)
+                    && !value[end..].chars().next().is_some_and(is_name_character)
+            })
+        })
+}
+
+fn dialogue_boundary_labels(
+    value: &str,
+    context: &SpeechGateContext,
+) -> Vec<DialogueBoundaryLabel> {
     let mut labels = Vec::new();
     for (colon, character) in value.char_indices() {
-        if character != ':' {
+        // A colon within an exact cast name belongs to the name. A later
+        // delimiter, as in `Anthropic: Claude Fable Latest: Hello`, still
+        // marks a speaker turn and goes through the usual checks.
+        if character != ':' || punctuation_is_inside_known_name(value, colon, character, context) {
             continue;
         }
         let before = &value[..colon];
@@ -1513,10 +1549,10 @@ fn dialogue_boundary_labels(value: &str) -> Vec<DialogueBoundaryLabel> {
             .char_indices()
             .rev()
             .find_map(|(index, character)| {
-                matches!(
+                (matches!(
                     character,
                     '\n' | '\r' | '.' | '!' | '?' | ';' | '/' | '|' | '—' | '–'
-                )
+                ) && !punctuation_is_inside_known_name(value, index, character, context))
                 .then_some(index + character.len_utf8())
             })
             .unwrap_or(0);
@@ -2569,6 +2605,69 @@ mod tests {
             )
             .expect("ordinary punctuation and wrapping certify");
             assert_eq!(speech.text(), published);
+        }
+    }
+
+    #[test]
+    fn addressing_a_colon_qualified_avatar_preserves_the_opening_line() {
+        for raw in [
+            "Anthropic: Claude Fable Latest, teapot or biscuits?",
+            "Hello Anthropic: Claude Fable Latest, teapot today?",
+            "Teapot first. Anthropic: Claude Fable Latest, biscuits?",
+            "anthropic: claude fable latest, teapot or biscuits?",
+            "Rati: Anthropic: Claude Fable Latest, teapot today?",
+        ] {
+            let mut gate = context(&["teapot".to_string()], &[]);
+            gate.other_speaker_names = vec!["Anthropic: Claude Fable Latest".to_string()];
+            gate.max_words = 16;
+            let speech = certify_speech(None, completion(raw), raw, gate)
+                .expect("addressing a known avatar stays one speaker's line");
+            assert_eq!(speech.text(), raw.strip_prefix("Rati: ").unwrap_or(raw));
+        }
+    }
+
+    #[test]
+    fn colon_qualified_avatar_turn_labels_still_require_their_own_speaker() {
+        for raw in [
+            "Anthropic: Claude Fable Latest: Teapot ready.",
+            "Anthropic: Claude Fable Latest (smiling): Teapot ready.",
+            "Rati: Teapot ready.\nAnthropic: Claude Fable Latest: Biscuits too.",
+            "Anthropic: Claude Fable Latest, teapot? Gust: Biscuits.",
+            "Anthropic: Claude Fable Latestly, teapot ready.",
+            "NeoAnthropic: Claude Fable Latest, teapot ready.",
+        ] {
+            let mut gate = context(&["teapot".to_string()], &[]);
+            gate.other_speaker_names = vec!["Anthropic: Claude Fable Latest".to_string()];
+            gate.max_words = 20;
+            assert_check_failed(
+                raw,
+                completion(raw),
+                gate,
+                PublicationCheckCode::VoiceMultipleSpeakers,
+            );
+        }
+    }
+
+    #[test]
+    fn model_version_punctuation_keeps_greetings_and_turn_labels_distinct() {
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.other_speaker_names = vec!["OpenAI: GPT-5.6 Sol".to_string()];
+        gate.max_words = 20;
+        let greeting = "OpenAI: GPT-5.6 Sol, teapot or biscuits?";
+        let speech = certify_speech(None, completion(greeting), greeting, gate.clone())
+            .expect("model version punctuation is part of the addressed name");
+        assert_eq!(speech.text(), greeting);
+        for raw in [
+            "OpenAI: GPT-5.6 Sol: Teapot ready.",
+            "OpenAI: GPT-5.6 Sol (smiling): Teapot ready.",
+            "Teapot ready. OpenAI: GPT-5.6 Sol: Biscuits too.",
+        ] {
+            assert_check_failed(
+                raw,
+                completion(raw),
+                gate.clone(),
+                PublicationCheckCode::VoiceMultipleSpeakers,
+            );
         }
     }
 
