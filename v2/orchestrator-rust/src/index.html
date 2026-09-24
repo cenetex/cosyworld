@@ -7015,9 +7015,201 @@
     @media (max-width: 560px) {
       .prompt.hand-expanded .story-card-slot { flex-basis: 180px; }
     }
+    /* Illustrated table: scene above, avatar conversation, three physical cards.
+       Scope this layout so account, combat, and full card dialogs keep their roles. */
+    body.card-table {
+      --bg: #101913;
+      --terminal: #18231b;
+      --text: #f1eddf;
+      --dim: #b7bdad;
+      --line: rgba(195, 208, 177, .19);
+      --line-strong: rgba(220, 193, 137, .48);
+      --amber: #e3c88f;
+      background: var(--bg);
+    }
+    .card-table .topbar { background: #101913; }
+    .card-table .terminal:not(.journal-open):not(.panel-open) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      width: min(100% - 24px, 960px);
+      margin: 8px auto 0;
+      border: 0;
+      background: #142018;
+      overflow: hidden;
+    }
+    .card-table .terminal:not(.journal-open):not(.panel-open) .room {
+      grid-column: 1; grid-row: 1; padding: 0; border: 0; overflow: hidden;
+      background: #18231b;
+    }
+    .card-table .terminal:not(.journal-open):not(.panel-open) .story-stage {
+      grid-column: 1; grid-row: 2; min-height: 0;
+    }
+    .card-table .terminal:not(.journal-open):not(.panel-open) .room-hero {
+      height: clamp(110px, 18dvh, 180px); margin: 0;
+    }
+    .card-table .room-hero::after {
+      background: linear-gradient(180deg, transparent 38%, rgba(20,32,24,.8));
+    }
+    .card-table .scene-place { padding: 9px 16px 12px; }
+    .card-table .scene-place-kicker, .card-table .scene-place p { display: none; }
+    .card-table .scene-place h1 { margin: 0; font: 500 23px/1.15 Georgia, serif; }
+    .card-table .story-stage .log {
+      flex: 1 1 0; min-height: 80px; padding: 18px 20px 22px; gap: 16px;
+      background: #142018; border: 0;
+    }
+    .card-table .log.chat-mode::before { content: none; }
+    .card-table .line.chat, .card-table .line.model-output {
+      display: grid; grid-template-columns: 38px minmax(0, 1fr);
+      grid-template-areas: "pfp speaker" "pfp text";
+      column-gap: 11px; row-gap: 4px; align-items: start;
+      padding: 0; border: 0;
+    }
+    .card-table .line.chat .chat-pfp, .card-table .line.model-output .chat-pfp {
+      grid-area: pfp; width: 38px; height: 38px; margin: 0;
+      border: 1px solid var(--line-strong); border-radius: 50%;
+    }
+    .card-table .line.chat .speaker, .card-table .line.model-output .speaker {
+      grid-area: speaker; text-align: left; white-space: normal; overflow: visible;
+      color: #dfcfa8; font: 600 13px/1.35 system-ui, sans-serif;
+    }
+    .card-table .speaker::before, .card-table .speaker::after { content: none; }
+    .card-table .line.chat .text, .card-table .line.model-output .text {
+      grid-area: text; min-width: 0; color: var(--text);
+      font: 400 16px/1.55 system-ui, sans-serif; overflow-wrap: anywhere;
+    }
+    .card-table .line.chat.reflection .text { font-family: Georgia, serif; }
+    .card-table .line.event.scene-card {
+      flex: 0 0 auto; height: auto; min-height: 0; max-height: none;
+      margin: 0 0 0 49px; padding: 7px 10px;
+      border: 0; border-left: 2px solid var(--line-strong);
+      background: rgba(223, 207, 168, .045); align-items: start;
+    }
+    .card-table .line.event.scene-card .text {
+      display: block; height: auto; max-height: none; overflow: visible;
+      -webkit-line-clamp: unset; color: var(--dim); font: 400 12px/1.5 system-ui, sans-serif;
+    }
+    .card-table .adventure {
+      flex: 0 0 auto; margin: 0; padding: 8px 48px 8px 14px;
+      border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+      background: #1d2c21;
+    }
+    .card-table .adventure .adventure-kicker,
+    .card-table .adventure > div > p,
+    .card-table .adventure .adventure-garden,
+    .card-table .adventure details,
+    .card-table .adventure-next > strong { display: none; }
+    .card-table .adventure h2 { margin: 0; padding: 0; font: 500 14px/1.35 Georgia, serif; }
+    .card-table .adventure-next { border: 0; padding: 0; margin: 2px 0 0; }
+    .card-table .adventure-next p { margin: 0; font: 12px/1.4 system-ui, sans-serif; }
+    .card-table .adventure-dismiss { top: 0; right: 2px; }
+    .card-table .prompt {
+      display: grid; grid-template-columns: minmax(0, 1fr);
+      background: linear-gradient(180deg, #1d2a20, #111a14);
+      border-top: 1px solid var(--line-strong);
+      max-height: 55dvh; padding-bottom: var(--safe-bot);
+    }
+    .card-table .prompt[hidden] { display: none; }
+    .card-table .prompt .hand-rail,
+    .card-table .prompt.hand-expanded .hand-rail {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: min(100%, 600px); margin: 0 auto; gap: 10px;
+      padding: 14px 14px 10px; height: auto; overflow: visible;
+      scroll-snap-type: none;
+    }
+    .card-table .prompt .story-card-slot,
+    .card-table .prompt.hand-expanded .story-card-slot {
+      width: auto; height: auto; min-width: 0; min-height: 0;
+      display: grid; grid-template-rows: minmax(0, 1fr) auto;
+      border: 1px solid #7c8262; border-radius: 5px; outline: 0;
+      background: #263025; overflow: visible;
+      box-shadow: 0 3px 0 #0c140f, 0 5px 10px rgba(0,0,0,.18);
+      transform: translate(var(--meld-shift, 0px), 0);
+      transition: transform 150ms ease, border-color 150ms ease;
+    }
+    .card-table .prompt .story-card-slot::after { content: none; }
+    .card-table .prompt .story-card-slot.meld-selected {
+      transform: translate(var(--meld-shift, 0px), -5px);
+      border-color: var(--amber);
+      box-shadow: 0 0 0 1px var(--amber), 0 4px 0 #0c140f, 0 7px 14px rgba(0,0,0,.25);
+    }
+    .card-table .prompt .story-card-slot.combo-partner { border-color: #bdce9f; }
+    .card-table .prompt .cmd,
+    .card-table .prompt.hand-expanded .cmd {
+      display: grid !important; grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 78px minmax(52px, auto); height: auto; min-height: 0;
+      padding: 3px; gap: 0; border: 0; border-radius: 4px !important;
+      background: #263025; opacity: 1; overflow: hidden;
+    }
+    .card-table .prompt:is(.hand-expanded, :not(.hand-expanded)) .cmd.has-copy .thumb:is(.avatar, .item, .location, .action-mini-card) {
+      width: 100%; height: 78px; min-height: 0; border: 0; border-radius: 2px !important;
+      background-position: center 42%; box-shadow: inset 0 0 0 1px rgba(241,237,223,.12) !important;
+    }
+    .card-table .prompt:is(.hand-expanded, :not(.hand-expanded)) .cmd.has-copy .thumb.avatar { background-position: center 24%; }
+    .card-table .prompt .cmd-copy,
+    .card-table .prompt.hand-expanded .cmd-copy { padding: 5px 4px 3px; gap: 2px; align-content: start; }
+    .card-table .prompt .noun-card .cmd-kicker { display: none; }
+    .card-table .prompt .cmd-kicker { color: #e3c88f; font: 700 11px/1.3 system-ui, sans-serif; }
+    .card-table .prompt .cmd-label,
+    .card-table .prompt.hand-expanded .cmd-label { display: block; font: 500 14px/1.12 Georgia, serif; color: #f4eddc; white-space: normal; }
+    .card-table .prompt:is(.hand-expanded, :not(.hand-expanded)) .cmd-label-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; }
+    .card-table .cmd-noun-state { color: #c0c8ae; font: 11px/1.25 system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-table .prompt .story-card-actions { grid-template-columns: minmax(0, 1fr); border-color: var(--line); background: #202c21; }
+    .card-table .prompt .story-card-select { display: none; }
+    .card-table .prompt .story-card-actions button { min-height: 36px; padding: 6px 2px; font: 11px/1.2 system-ui, sans-serif; text-transform: none; color: #d8d9c5; }
+    .card-table .scene-meld { width: min(100%, 600px); margin: 0 auto; padding: 0 14px 12px; gap: 6px; grid-template-columns: minmax(0, 1fr); border: 0; background: transparent; }
+    .card-table .scene-play-heading { gap: 8px; }
+    .card-table .scene-play-heading strong { min-width: 0; overflow-wrap: anywhere; font: 500 16px/1.2 Georgia, serif; }
+    .card-table .scene-play-heading button { min-height: 36px; font: 12px system-ui, sans-serif; }
+    .card-table .scene-play-options { flex-wrap: wrap; overflow: visible; padding: 0; gap: 6px; }
+    .card-table .scene-play-option { flex: 0 1 auto; padding: 8px 12px; min-height: 40px; background: #263427; border-radius: 3px; }
+    .card-table .scene-play-option span { display: none; }
+    .card-table .scene-play-option[aria-pressed="true"] { background: #3c4931; }
+    .card-table .scene-play-preview { margin: 0; max-height: 4.2em; color: #d3d9c5; font: 12px/1.4 system-ui, sans-serif; }
+    .card-table .scene-meld-status { margin: 0; font: 12px/1.4 system-ui, sans-serif; color: #d3d9c5; }
+    .card-table .prompt .scene-meld-play { width: 100%; max-width: none; min-height: 44px; padding: 9px 12px; border: 1px solid #e3c88f; border-radius: 3px !important; background: #dfc48b; color: #25301e; font: 600 14px/1.3 system-ui, sans-serif; }
+    .card-table .scene-meld-play:disabled { opacity: .55; }
+    .card-table .journal-before-first-page,
+    .card-table .journal-adventure {
+      min-height: 0; padding: 24px; margin: 0 0 14px; border: 1px solid #b4a582;
+      border-radius: 3px; background: #e3d7b9; color: #443f32;
+      box-shadow: 0 3px 0 #aa9975;
+    }
+    .card-table .journal-before-first-page > strong { color: #2c3e2d; }
+    .card-table .journal-before-first-page > p { color: #554d3b; }
+    .card-table .journal-before-first-page > span { color: #73562d; }
+    .card-table .journal-recent-moments li { color: #443f32; background: #d9cdaf; border-color: #887b59; }
+    .card-table .journal-adventure h3 { color: #2c3e2d; }
+    .card-table .journal-adventure strong { color: #73562d; }
+    .card-table.large-text .line.chat .text { font-size: 19px; }
+    .card-table.large-text .prompt .cmd-label { font-size: 16px; }
+    .card-table.large-text .scene-play-preview { font-size: 15px; }
+    @media (max-width: 560px) {
+      .card-table .terminal:not(.journal-open):not(.panel-open) { width: 100%; margin: 0; }
+      .card-table .terminal:not(.journal-open):not(.panel-open) .room-hero { height: 100px; }
+      .card-table .scene-place { padding: 7px 13px; }
+      .card-table .scene-place h1 { font-size: 19px; }
+      .card-table .story-stage .log { padding: 14px 12px; gap: 14px; }
+      .card-table .prompt .hand-rail { gap: 8px; padding: 12px 10px 8px; }
+      .card-table .prompt .story-card-actions button, .card-table .scene-play-heading button { min-height: 44px; }
+      .card-table .scene-play-option { min-height: 44px; }
+      .card-table .scene-meld { padding: 0 10px 10px; }
+      .card-table .topbar .location-pill img { display: none; }
+      .card-table .topbar .location-pill { font: 500 15px/1.2 Georgia, serif; }
+    }
+    @media (max-height: 720px) and (max-width: 560px) {
+      .card-table .terminal:not(.journal-open):not(.panel-open) .room-hero { height: 72px; }
+      .card-table .prompt .cmd, .card-table .prompt.hand-expanded .cmd { grid-template-rows: 56px minmax(47px, auto); }
+      .card-table .prompt:is(.hand-expanded, :not(.hand-expanded)) .cmd.has-copy .thumb:is(.avatar, .item, .location, .action-mini-card) { height: 56px; }
+      .card-table .adventure-next { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .card-table .story-card-slot { transition: none !important; }
+    }
+    .card-table.reduce-motion .story-card-slot { transition: none !important; }
   </style>
 </head>
-<body>
+<body class="card-table">
   <div class="shell">
     <header class="topbar">
       <button class="brand" id="brand" type="button" aria-label="Open Menu" aria-expanded="false" aria-controls="log">menu</button>
@@ -11767,6 +11959,39 @@
       syncJournalRegions();
     }
 
+    function animateGiftTransfer(event) {
+      if (event?.type !== "item.given" || event.success !== true || Number(event.actor_id) !== Number(actorId)
+          || document.hidden || document.body.classList.contains("reduce-motion")
+          || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const cards = activeHeldStoryHandActions() || actionBarActions();
+      const source = cards.find((card) => card.nounEntry?.entity_kind === "item" && Number(card.nounEntry.entity_id) === Number(event.item_id));
+      const target = cards.find((card) => card.nounEntry?.entity_kind === "actor" && Number(card.nounEntry.entity_id) === Number(event.target_actor_id));
+      const buttons = [...$("hand-rail").querySelectorAll(".cmd")];
+      const from = buttons.find((button) => button.dataset.handKey === storyHandKey(source))?.querySelector(".thumb");
+      const to = buttons.find((button) => button.dataset.handKey === storyHandKey(target))?.querySelector(".thumb");
+      if (!from || !to || typeof from.animate !== "function") return;
+      const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      const token = document.createElement("span");
+      token.className = "gift-transfer-art";
+      token.setAttribute("aria-hidden", "true");
+      Object.assign(token.style, {
+        position: "fixed", pointerEvents: "none", zIndex: "90", border: "1px solid #e3c88f",
+        borderRadius: "4px", backgroundImage: getComputedStyle(from).backgroundImage,
+        backgroundSize: "cover", backgroundPosition: "center", width: "44px", height: "52px",
+        left: `${a.left + a.width / 2 - 22}px`, top: `${a.top + a.height / 2 - 26}px`,
+      });
+      document.body.append(token);
+      const dx = b.left + b.width / 2 - a.left - a.width / 2;
+      const dy = b.top + b.height / 2 - a.top - a.height / 2;
+      const motion = token.animate([
+        { transform: "translate(0, 0) rotate(-5deg)", opacity: 1 },
+        { transform: `translate(${dx / 2}px, ${dy / 2 - 35}px) rotate(3deg)`, opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.6)`, opacity: 0 },
+      ], { duration: 600, easing: "ease-in-out" });
+      motion.finished.then(() => token.remove(), () => token.remove());
+    }
+
     function pushEvents(events) {
       let changed = false;
       const pendingChatCountBefore = pendingChats.length;
@@ -11788,6 +12013,7 @@
         const authoritativeSeq = Number(event?.seq || 0);
         if (!event || eventIsMuted(event) || (authoritativeSeq > 0 && seenSeq.has(authoritativeSeq))) continue;
         if (authoritativeSeq > 0) seenSeq.add(authoritativeSeq);
+        if (event.type === "item.given") animateGiftTransfer(event);
         if (presentStoryHandTurnActivity(event)) storyHandActivityChanged = true;
         if (resolvePendingChat(event)) {
           changed = true;
@@ -18357,21 +18583,44 @@
       ));
     }
 
+    function selectedScenePlays(visibleActions = actionBarActions()) {
+      const resolution = sceneMeldResolution(visibleActions);
+      return resolution.candidates.filter((offer) => exactActionForOffer(offer)).map((offer) => ({
+        ...resolution, keys: [...sceneMeldKeys], chosenOffer: offer, chosenVerb: exactActionForOffer(offer),
+      }));
+    }
+
+    function storyHandNounState(action, view = state) {
+      const entry = action?.nounEntry;
+      if (!entry) return "";
+      const id = Number(entry.entity_id);
+      if (entry.entity_kind === "location") return id === Number(view?.location?.id) ? "You are here" : "Place";
+      if (entry.entity_kind === "actor") return id === Number(actorId) ? "Your avatar" : "Avatar";
+      if (entry.entity_kind !== "item") return "";
+      const item = (view?.items || []).find((candidate) => Number(candidate.id) === id);
+      if (!item) return "Item";
+      if (Number(item.holder_actor_id) === Number(actorId)) return "In your pack";
+      if (Number(item.holder_actor_id) > 0) {
+        const holder = (view?.actors || []).find((actor) => Number(actor.id) === Number(item.holder_actor_id));
+        return holder ? `With ${holder.name || holder.display_name || "another avatar"}` : "Held by an avatar";
+      }
+      if (Number(item.container_item_id) > 0) return "In a container";
+      return Number(item.location_id) === Number(view?.location?.id) ? "On the ground" : "Item";
+    }
+
     function renderSceneMeld(visibleActions) {
       const host = $("scene-meld");
       host.hidden = !storyHandExpanded || !usesInlineStoryHand() || !visibleActions.some((action) => action.nounCard)
         || Boolean(activeHeldStoryHandActions());
       if (host.hidden) return;
       reconcileSceneMeld(visibleActions);
-      let resolution = sceneMeldResolution(visibleActions);
+      const resolution = sceneMeldResolution(visibleActions);
       const focused = visibleActions.find((card) => storyHandKey(card) === storyHandActiveKey);
-      const suggestions = suggestedScenePlays(visibleActions).filter((play) => play.keys.includes(storyHandActiveKey));
-      if (!resolution.chosenVerb && suggestions.length) {
-        sceneMeldKeys = [...suggestions[0].keys];
-        sceneMeldOfferId = suggestions[0].chosenOffer.offer_id;
-        resolution = sceneMeldResolution(visibleActions);
-      }
-      $("scene-play-title").textContent = focused?.label || "Card actions";
+      const suggestions = selectedScenePlays(visibleActions);
+      const partner = suggestedScenePlays(visibleActions).find((play) => (
+        sceneMeldKeys.length === 1 && play.keys.includes(sceneMeldKeys[0]) && play.keys.length === 2
+      ))?.selected.find((card) => !sceneMeldKeys.includes(storyHandKey(card)));
+      $("scene-play-title").textContent = resolution.selected.map((card) => card.nounEntry?.label || card.label).join(" + ") || "Choose a card";
       $("scene-play-options").innerHTML = suggestions.map((suggestion, index) => {
         const label = sceneMeldVerb(suggestion.chosenVerb, suggestion.chosenOffer);
         const selected = suggestion.chosenOffer.offer_id === resolution.chosenOffer?.offer_id
@@ -18383,15 +18632,17 @@
       $("scene-play-options").hidden = suggestions.length < 2;
       $("scene-meld-status").textContent = resolution.chosenVerb
         ? ""
-        : canDiscardHandCard(focused) ? "Think to draw another card." : "Tap another card to explore its actions.";
+        : partner ? `Tap ${partner.nounEntry?.label || partner.label} to make a pair.`
+          : sceneMeldKeys.length > 1 ? "Try another pair. Tap a selected card to remove it."
+            : canDiscardHandCard(focused) ? "Think to draw another card." : "Tap another card to explore its actions.";
       const outcome = [resolution.chosenOffer?.effect, resolution.chosenOffer?.risk].filter(Boolean).map(friendlyActionText).join(" · ");
       $("scene-play-preview").textContent = resolution.chosenVerb ? outcome || actionSummary(resolution.chosenVerb) : "";
       const play = $("scene-meld-play");
-      play.hidden = !resolution.chosenVerb && !canDiscardHandCard(focused);
+      play.hidden = !resolution.chosenVerb && (sceneMeldKeys.length > 1 || !canDiscardHandCard(focused));
       play.disabled = actionBusy || handShuffleBusy
         || storyHandActionWaitsForTurn(originalStoryHandAction(resolution.chosenVerb || focused));
       play.textContent = resolution.chosenVerb
-        ? `Play ${sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)}`
+        ? sceneMeldVerb(resolution.chosenVerb, resolution.chosenOffer)
         : `Think · ${handCardThink(focused)?.free ? "Free" : "Turn"}`;
     }
 
@@ -18399,7 +18650,7 @@
       const resolution = sceneMeldResolution(actionBarActions());
       if (!resolution.chosenVerb) {
         const focused = actionBarActions().find((card) => storyHandKey(card) === storyHandActiveKey);
-        if (canDiscardHandCard(focused)) void discardActionCard(focused);
+        if (sceneMeldKeys.length === 1 && canDiscardHandCard(focused)) void discardActionCard(focused);
         return;
       }
       const action = originalStoryHandAction(resolution.chosenVerb);
@@ -18559,6 +18810,10 @@
       if (expanded && selected) storyHandActiveKey = storyHandKey(selected);
       if (expanded) reconcileSceneMeld(visibleActions, selected);
       renderSceneMeld(visibleActions);
+      const partnerKeys = new Set(expanded && sceneMeldKeys.length === 1
+        ? suggestedScenePlays(visibleActions).filter((play) => play.keys.length === 2 && play.keys.includes(sceneMeldKeys[0])).flatMap((play) => play.keys.filter((key) => key !== sceneMeldKeys[0]))
+        : []);
+      const selectedKeys = visibleActions.map(storyHandKey).filter((key) => sceneMeldKeys.includes(key));
       ["primary", "secondary", "tertiary"].forEach((id, index) => {
         const action = visibleActions[index] || null;
         const slot = document.querySelector(`[data-story-card-slot="${id}"]`);
@@ -18567,6 +18822,9 @@
         const select = document.querySelector(`[data-meld-select="${id}"]`);
         const discard = document.querySelector(`[data-hand-discard="${id}"]`);
         slot.hidden = !action;
+        slot.classList.toggle("combo-partner", Boolean(action && partnerKeys.has(storyHandKey(action))));
+        const pairIndex = action ? selectedKeys.indexOf(storyHandKey(action)) : -1;
+        slot.style.setProperty("--meld-shift", expanded && selectedKeys.length === 2 && pairIndex >= 0 ? `${pairIndex === 0 ? 2 : -2}px` : "0px");
         if (!action) {
           card.removeAttribute("aria-current");
           card.removeAttribute("aria-pressed");
@@ -18656,17 +18914,26 @@
         openActionModal(action, { handCard: true });
         return;
       }
-      if (storyHandExpanded && storyHandActiveKey === storyHandKey(action)) {
-        closeStoryHand();
+      if (action.heldStoryHandAction) {
+        setStoryHandExpanded(true, action);
+        return;
+      }
+      if (actionBusy) return;
+      const key = storyHandKey(action);
+      if (storyHandExpanded && sceneMeldKeys.includes(key)) {
+        if (sceneMeldKeys.length === 1) { closeStoryHand(); return; }
+        sceneMeldKeys = sceneMeldKeys.filter((selected) => selected !== key);
+        storyHandActiveKey = sceneMeldKeys[sceneMeldKeys.length - 1];
+        sceneMeldOfferId = "";
+        renderCommands();
         return;
       }
       const index = actions.indexOf(action);
       if (index >= 0) focusIndex = index;
       focusedKey = action.focusKey || actionHandKey(action) || "";
       storyHandActiveKey = storyHandKey(action);
-      const suggestion = suggestedScenePlays().find((play) => play.keys.includes(storyHandActiveKey));
-      sceneMeldKeys = suggestion ? [...suggestion.keys] : [storyHandKey(action)];
-      sceneMeldOfferId = suggestion?.chosenOffer.offer_id || "";
+      sceneMeldKeys = storyHandExpanded ? [...sceneMeldKeys, key].slice(0, 3) : [key];
+      sceneMeldOfferId = "";
       setStoryHandExpanded(true, action);
     }
 
@@ -19328,6 +19595,7 @@
 
     function renderButton(id, action) {
       const button = $(id);
+      button.classList.toggle("noun-card", Boolean(action?.nounCard));
       if (!action) {
         button.disabled = true;
         button.removeAttribute("aria-busy");
@@ -19369,7 +19637,7 @@
         button.title = `${sceneCardLabel}: ${label}`;
         button.setAttribute("aria-label", `${sceneCardLabel} card, ${label}`);
         const thumb = thumbnailHtml(action, false, "action-mini-card");
-        button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(sceneCardLabel)}</span><span class="cmd-label"><span class="cmd-label-text">${escapeHtml(label)}</span></span></span>`;
+        button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-kicker">${escapeHtml(sceneCardLabel)}</span><span class="cmd-label"><span class="cmd-label-text">${escapeHtml(label)}</span></span><span class="cmd-noun-state">${escapeHtml(storyHandNounState(action))}</span></span>`;
         return;
       }
       if (action.kind === "model-interaction" && pendingModelInteractions.length) {
@@ -20642,7 +20910,7 @@
     $("scene-play-options").addEventListener("click", (event) => {
       const button = event.target.closest("[data-scene-play]");
       if (!button || actionBusy || activeHeldStoryHandActions()) return;
-      const suggestion = suggestedScenePlays().filter((play) => play.keys.includes(storyHandActiveKey))[Number(button.dataset.scenePlay)];
+      const suggestion = selectedScenePlays()[Number(button.dataset.scenePlay)];
       if (!suggestion || storyHandActionWaitsForTurn(suggestion.chosenVerb)) return;
       sceneMeldKeys = [...suggestion.keys];
       sceneMeldOfferId = suggestion.chosenOffer.offer_id;
