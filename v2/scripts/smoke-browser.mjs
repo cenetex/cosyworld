@@ -750,7 +750,7 @@ async function main() {
         modalHidden: document.querySelector("#action-modal")?.hidden === true,
         cardCount: visibleSlots.length,
         meldControls: visibleSlots.every((slot) => (
-          slot.querySelector("[data-meld-select]")?.getClientRects().length > 0
+          slot.querySelector(".cmd")?.hasAttribute("aria-pressed")
             && slot.querySelector("[data-hand-discard]")?.getClientRects().length > 0
         )),
         composerVisible: document.querySelector("#scene-meld")?.getClientRects().length > 0
@@ -773,11 +773,10 @@ async function main() {
         )),
         framed: visibleSlots.every((slot) => (
           getComputedStyle(slot).borderTopStyle === "solid"
-            && getComputedStyle(slot).outlineStyle === "solid"
         )),
-        squareCorners: visibleSlots.every((slot) => (
-          Number.parseFloat(getComputedStyle(slot).borderTopLeftRadius) === 0
-            && Number.parseFloat(getComputedStyle(slot.querySelector(".cmd")).borderTopLeftRadius) === 0
+        cardCorners: visibleSlots.every((slot) => (
+          Number.parseFloat(getComputedStyle(slot).borderTopLeftRadius) <= 6
+            && Number.parseFloat(getComputedStyle(slot.querySelector(".cmd")).borderTopLeftRadius) <= 6
         )),
       };
     });
@@ -794,8 +793,8 @@ async function main() {
         && expanded.compactArtwork
         && expanded.consistentArtwork
         && expanded.framed
-        && expanded.squareCorners,
-      `the open card view should show compact illustrated cards with Add, Think, and play controls: ${JSON.stringify(expanded)}`,
+        && expanded.cardCorners,
+      `the open card view should show illustrated cards with tap selection, Think, and play controls: ${JSON.stringify(expanded)}`,
     );
     await focusThinkableCard("opening scene");
     const discardControl = await page.evaluate(() => {
@@ -898,35 +897,14 @@ async function main() {
       const cardNodes = [...handRail.querySelectorAll(".cmd")]
         .filter((button) => getComputedStyle(button).display !== "none");
       const cards = cardNodes.map((button) => button.getBoundingClientRect());
-      const initialRailScroll = handRail.scrollLeft;
-      const maximumRailScroll = Math.max(0, handRail.scrollWidth - handRail.clientWidth);
-      handRail.scrollLeft = 0;
-      const firstAtStart = cardNodes[0]?.getBoundingClientRect();
-      const startReachable = !firstAtStart || (
-        firstAtStart.left >= railRect.left - 1
-          && firstAtStart.right <= railRect.right + 1
-      );
-      handRail.scrollLeft = handRail.scrollWidth;
-      const lastAtEnd = cardNodes.at(-1)?.getBoundingClientRect();
-      const endRailScroll = handRail.scrollLeft;
-      const endReachable = !lastAtEnd || (
-        lastAtEnd.left >= railRect.left - 1
-          && lastAtEnd.right <= railRect.right + 1
-      );
-      handRail.scrollLeft = initialRailScroll;
       return {
         promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
         promptDisplay: getComputedStyle(prompt).display,
         compactHandHeight: handRail.getBoundingClientRect().height,
         railDisplay: railStyle.display,
-        railScrollable: cards.length <= 1 || (
-          ["auto", "scroll"].includes(railStyle.overflowX)
-            && maximumRailScroll > 0
-            && endRailScroll >= maximumRailScroll - 1
-            && startReachable
-            && endReachable
-        ),
-        cardsReadable: cards.every((rect) => rect.width >= 220 && rect.height <= 72),
+        allCardsVisible: handRail.scrollWidth <= handRail.clientWidth + 1
+          && cards.every((rect) => rect.left >= railRect.left && rect.right <= railRect.right),
+        cardsReadable: cards.every((rect) => rect.width >= 80 && rect.height <= 170),
         detailsHidden: [...handRail.querySelectorAll(".detail, .cmd-meta, .provider-call, .story-call")]
           .every((node) => getComputedStyle(node).display === "none"),
         collapsed: !prompt.classList.contains("hand-expanded"),
@@ -944,10 +922,10 @@ async function main() {
         && current.visibleKeys.length <= 3
         && current.eventSeq > initial.eventSeq
         && layout.promptFits
-        && layout.promptDisplay === "block"
-        && layout.compactHandHeight <= 100
-        && layout.railDisplay === "flex"
-        && layout.railScrollable
+        && layout.promptDisplay === "grid"
+        && layout.compactHandHeight <= 190
+        && layout.railDisplay === "grid"
+        && layout.allCardsVisible
         && layout.cardsReadable
         && layout.detailsHidden
         && layout.collapsed
@@ -1142,7 +1120,7 @@ async function main() {
         && result.busy.progressText.startsWith("Play ·")
         && result.busy.progressVisible
         && result.busy.progressWidth === "8%"
-        && result.busy.compactHeight <= 100
+        && result.busy.compactHeight <= 190
         && result.busy.turnLocksHidden
         && result.busy.handHeaderRemoved
         && result.busy.bannerHidden
@@ -2800,96 +2778,150 @@ async function main() {
   }
 
   async function assertNounCardsInferExactActions() {
-    const result = await page.evaluate(() => {
-      const previousState = state;
-      const previousActorId = actorId;
-      const previousActions = actions;
-      const previousSceneMeldKeys = [...sceneMeldKeys];
-      try {
-        actorId = 5000;
-        state = {
-          location: { id: 1, name: "The Cosy Cottage" },
-          primary_action: { kind: "chat", options: [] },
-          economy: { orbs: 0, can_chat_with_orbs: false, listen_attempted_here: true },
-          ledger: { advancement_points: 0 },
-          actors: [
-            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
-            { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
-            { id: 1002, name: "Gust", kind: "npc", status: "active", stats: { level: 1 } },
-          ],
-          items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", holder_actor_id: 5000 }],
-          exits: [],
-          room_features: [],
-          cards: { actors: {}, items: {}, locations: {} },
-          access: {},
-          action_offers: [
-            { offer_id: "chat-rati", kind: "chat", label: "Chat with Rati", command: "chat Rati", target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "actor", id: "actor:1001" } },
-            { offer_id: "chat-gust", kind: "chat", label: "Chat with Gust", command: "chat Gust", target: { kind: "actor", id: 1002, label: "Gust" }, provider: { kind: "actor", id: "actor:1002" } },
-            { id: "give_item:2001:1001", offer_id: "give-rati", kind: "give_item", label: "Give Hearth Tonic to Rati", command: "give Hearth Tonic to Rati", source_collectible: { kind: "item", instance_id: 2001 }, target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "item", id: "item:2001" } },
-          ],
-          action_hand: { entries: [
-            { card_id: "actor:1001", card_type: "Avatar", entity_kind: "actor", entity_id: 1001, label: "Rati", offer_ids: ["chat-rati", "give-rati"] },
-            { card_id: "actor:1002", card_type: "Avatar", entity_kind: "actor", entity_id: 1002, label: "Gust", offer_ids: ["chat-gust"] },
-            { card_id: "item:2001", card_type: "Item", entity_kind: "item", entity_id: 2001, label: "Hearth Tonic", offer_ids: ["give-rati"] },
-          ] },
-        };
-        actions = buildActions(state);
-        const nounCards = actionBarActions();
-        const byLabel = (label) => nounCards.find((card) => card.nounEntry?.label === label);
-        const resolutionFor = (...labels) => {
-          sceneMeldKeys = labels.map(byLabel).filter(Boolean).map(storyHandKey);
-          return sceneMeldResolution(nounCards);
-        };
-        const rati = resolutionFor("Rati");
-        const gust = resolutionFor("Gust");
-        const gift = resolutionFor("Rati", "Hearth Tonic");
-        return {
-          cards: nounCards.map((card) => ({
-            type: sceneMeldCardTypeLabel(card),
-            label: card.nounEntry?.label,
-            detail: card.detail,
-            command: card.command,
-            choices: card.choices || [],
-          })),
-          chats: actions.filter((action) => action.label === "chat").map((action) => ({
-            title: actionTitle(action),
-            choices: action.choices || [],
-          })),
-          rati: { offerId: rati.chosenOffer?.offer_id, title: sceneMeldVerb(rati.chosenVerb, rati.chosenOffer) },
-          gust: { offerId: gust.chosenOffer?.offer_id, title: sceneMeldVerb(gust.chosenVerb, gust.chosenOffer) },
-          gift: {
-            offerId: gift.chosenOffer?.offer_id,
-            title: sceneMeldVerb(gift.chosenVerb, gift.chosenOffer),
-            selectedCardIds: gift.selected.map(sceneMeldEntityKey),
-          },
-        };
-      } finally {
-        state = previousState;
-        actorId = previousActorId;
-        actions = previousActions;
-        sceneMeldKeys = previousSceneMeldKeys;
-      }
-    });
-    assert(
-      result.cards.map((card) => `${card.type}:${card.label}`).join(",") === "Avatar:Rati,Avatar:Gust,Item:Hearth Tonic"
-        && result.cards.every((card) => !card.detail && !card.command && card.choices.length === 0),
-      `the hand should contain plain Avatar and Item nouns without verbs or options: ${JSON.stringify(result)}`,
-    );
-    assert(
-      result.chats.length === 2
-        && result.chats.every((chat) => chat.choices.length === 0)
-        && result.rati.offerId === "chat-rati"
-        && result.rati.title === "Chat with Rati"
-        && result.gust.offerId === "chat-gust"
-        && result.gust.title === "Chat with Gust",
-      `one Avatar card should infer its own exact Chat target without a target picker: ${JSON.stringify(result)}`,
-    );
-    assert(
-      result.gift.offerId === "give-rati"
-        && result.gift.title === "Give Hearth Tonic to Rati"
-        && result.gift.selectedCardIds.join(",") === "actor:1001,item:2001",
-      `Avatar plus Item should infer the exact Give action: ${JSON.stringify(result)}`,
-    );
+    const previousViewport = page.viewportSize();
+    for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(viewport);
+      const result = await page.evaluate(() => {
+        const previousState = state;
+        const previousActorId = actorId;
+        const previousActions = actions;
+        const previousSceneMeldKeys = [...sceneMeldKeys];
+        const previousExpanded = storyHandExpanded;
+        const previousActiveKey = storyHandActiveKey;
+        const previousOfferId = sceneMeldOfferId;
+        try {
+          actorId = 5000;
+          state = {
+            location: { id: 1, name: "The Cosy Cottage" },
+            primary_action: { kind: "chat", options: [] },
+            economy: { orbs: 0, can_chat_with_orbs: false, listen_attempted_here: true },
+            ledger: { advancement_points: 0 },
+            actors: [
+              { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+              { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+              { id: 1002, name: "Gust", kind: "npc", status: "active", stats: { level: 1 } },
+            ],
+            items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", holder_actor_id: 5000 }],
+            exits: [],
+            room_features: [],
+            cards: { actors: {}, items: {}, locations: {} },
+            access: {},
+            action_offers: [
+              { offer_id: "chat-rati", kind: "chat", label: "Chat with Rati", command: "chat Rati", target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "actor", id: "actor:1001" } },
+              { offer_id: "chat-gust", kind: "chat", label: "Chat with Gust", command: "chat Gust", target: { kind: "actor", id: 1002, label: "Gust" }, provider: { kind: "actor", id: "actor:1002" } },
+              { id: "give_item:2001:1001", offer_id: "give-rati", kind: "give_item", label: "Give Hearth Tonic to Rati", command: "give Hearth Tonic to Rati", source_collectible: { kind: "item", instance_id: 2001 }, target: { kind: "actor", id: 1001, label: "Rati" }, provider: { kind: "item", id: "item:2001" } },
+            ],
+            action_hand: { entries: [
+              { card_id: "actor:1001", card_type: "Avatar", entity_kind: "actor", entity_id: 1001, label: "Rati", offer_ids: ["chat-rati", "give-rati"] },
+              { card_id: "actor:1002", card_type: "Avatar", entity_kind: "actor", entity_id: 1002, label: "Gust", offer_ids: ["chat-gust"] },
+              { card_id: "item:2001", card_type: "Item", entity_kind: "item", entity_id: 2001, label: "Hearth Tonic", offer_ids: ["give-rati"] },
+            ] },
+          };
+          actions = buildActions(state);
+          const nounCards = actionBarActions();
+          const byLabel = (label) => nounCards.find((card) => card.nounEntry?.label === label);
+          const resolutionFor = (...labels) => {
+            sceneMeldKeys = labels.map(byLabel).filter(Boolean).map(storyHandKey);
+            return sceneMeldResolution(nounCards);
+          };
+          const rati = resolutionFor("Rati");
+          const gust = resolutionFor("Gust");
+          const gift = resolutionFor("Rati", "Hearth Tonic");
+          setStoryHandExpanded(false);
+          renderCommands();
+          activateStoryHandAction(byLabel("Hearth Tonic"));
+          const itemAlone = [...sceneMeldKeys];
+          activateStoryHandAction(byLabel("Rati"));
+          const pair = [...sceneMeldKeys];
+          const visibleCards = [...document.querySelectorAll(".story-card-slot:not([hidden])")];
+          const play = document.querySelector("#scene-meld-play");
+          const bounds = (node) => {
+            const rect = node.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+          };
+          const layout = {
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            itemAlone, pair,
+            title: document.querySelector("#scene-play-title").textContent,
+            play: play.textContent,
+            playBounds: bounds(play),
+            cards: visibleCards.map(bounds),
+            transcriptHeight: document.querySelector("#log").getBoundingClientRect().height,
+            fits: document.documentElement.scrollWidth <= window.innerWidth,
+          };
+          animateGiftTransfer({ type: "item.given", success: true, actor_id: 5000, item_id: 2001, target_actor_id: 1001 });
+          layout.giftAnimation = document.querySelectorAll(".gift-transfer-art").length;
+          document.querySelectorAll(".gift-transfer-art").forEach((token) => {
+            token.getAnimations().forEach((animation) => animation.cancel());
+            token.remove();
+          });
+          document.body.classList.add("reduce-motion");
+          animateGiftTransfer({ type: "item.given", success: true, actor_id: 5000, item_id: 2001, target_actor_id: 1001 });
+          layout.reducedMotion = document.querySelectorAll(".gift-transfer-art").length === 0;
+          document.body.classList.remove("reduce-motion");
+          return {
+            layout,
+            cards: nounCards.map((card) => ({
+              type: sceneMeldCardTypeLabel(card),
+              label: card.nounEntry?.label,
+              detail: card.detail,
+              command: card.command,
+              choices: card.choices || [],
+            })),
+            chats: actions.filter((action) => action.label === "chat").map((action) => ({
+              title: actionTitle(action),
+              choices: action.choices || [],
+            })),
+            rati: { offerId: rati.chosenOffer?.offer_id, title: sceneMeldVerb(rati.chosenVerb, rati.chosenOffer) },
+            gust: { offerId: gust.chosenOffer?.offer_id, title: sceneMeldVerb(gust.chosenVerb, gust.chosenOffer) },
+            gift: {
+              offerId: gift.chosenOffer?.offer_id,
+              title: sceneMeldVerb(gift.chosenVerb, gift.chosenOffer),
+              selectedCardIds: gift.selected.map(sceneMeldEntityKey),
+            },
+          };
+        } finally {
+          state = previousState;
+          actorId = previousActorId;
+          actions = previousActions;
+          sceneMeldKeys = previousSceneMeldKeys;
+          storyHandExpanded = previousExpanded;
+          storyHandActiveKey = previousActiveKey;
+          sceneMeldOfferId = previousOfferId;
+          renderCommands();
+        }
+      });
+      assert(
+        result.cards.map((card) => `${card.type}:${card.label}`).join(",") === "Avatar:Rati,Avatar:Gust,Item:Hearth Tonic"
+          && result.cards.every((card) => !card.detail && !card.command && card.choices.length === 0),
+        `the hand should contain plain Avatar and Item nouns without verbs or options: ${JSON.stringify(result)}`,
+      );
+      assert(
+        result.chats.length === 2
+          && result.chats.every((chat) => chat.choices.length === 0)
+          && result.rati.offerId === "chat-rati"
+          && result.rati.title === "Chat with Rati"
+          && result.gust.offerId === "chat-gust"
+          && result.gust.title === "Chat with Gust",
+        `one Avatar card should infer its own exact Chat target without a target picker: ${JSON.stringify(result)}`,
+      );
+      assert(
+        result.gift.offerId === "give-rati"
+          && result.gift.title === "Give Hearth Tonic to Rati"
+          && result.gift.selectedCardIds.join(",") === "actor:1001,item:2001",
+        `Avatar plus Item should infer the exact Give action: ${JSON.stringify(result)}`,
+      );
+      const layout = result.layout;
+      assert(layout.itemAlone.join(",") === "item:2001" && layout.pair.join(",") === "item:2001,actor:1001",
+        `card taps should keep the selected item and add its recipient: ${JSON.stringify(layout)}`);
+      assert(layout.fits && layout.cards.length === 3 && layout.cards.every((card) => card.left >= 0 && card.right <= viewport.width)
+        && layout.playBounds.top >= 0 && layout.playBounds.bottom <= viewport.height && layout.transcriptHeight >= 80,
+        `all cards, the chosen play, and the conversation should fit at ${layout.viewport}: ${JSON.stringify(layout)}`);
+      assert(layout.title === "Hearth Tonic + Rati" && layout.play === "Give Hearth Tonic to Rati"
+        && layout.giftAnimation === 1 && layout.reducedMotion,
+        `a pair should name its exact gift and honor reduced motion: ${JSON.stringify(layout)}`);
+    }
+    await page.setViewportSize(previousViewport);
   }
 
   async function assertExactTwoCardHandKeepsOfferAndPayloadBindings() {
@@ -10065,10 +10097,8 @@ async function main() {
             && button.right <= evidence.mobile.rail.right + 1
             && button.top >= 0
             && button.bottom <= evidence.mobile.viewport.height)
-        && ["auto", "scroll"].includes(evidence.mobile.rail.overflowX)
-        && evidence.mobile.rail.maximumScroll > 0
-        && evidence.mobile.rail.endScroll >= evidence.mobile.rail.maximumScroll - 1,
-      `Lantern's two truthful suggestions must remain reachable swipe targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
+        && evidence.mobile.rail.maximumScroll === 0,
+      `Lantern's two suggestions must fit together as mobile tap targets: ${JSON.stringify(evidence.mobile)}`,
     );
     await page.setViewportSize({ width: 1100, height: 900 });
     evidence.frontOutcomes = await page.evaluate(() => {
@@ -14956,7 +14986,7 @@ async function main() {
         const rect = node.getBoundingClientRect();
         return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height };
       };
-      const locationImage = document.querySelector("#location-image");
+      const locationImage = document.querySelector("#room-hero-image");
       const avatarSubtitle = document.querySelector("#avatar");
       const roomCopy = document.querySelector("#location-copy");
       const roomLogToggle = document.querySelector("#room-log-toggle");

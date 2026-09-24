@@ -110,6 +110,25 @@ describe('deliberate approach selection', () => {
   });
 });
 
+describe('card ownership labels', () => {
+  it('uses the exact item instance when two cards share a name', () => {
+    const context = game();
+    context.state.items = [
+      { id: 4, name: 'Tonic', holder_actor_id: 9, location_id: 1 },
+      { id: 3, name: 'Tonic', holder_actor_id: 2, location_id: 1 },
+    ];
+    context.state.actors = [{ id: 2, name: 'Rati' }];
+    expect(vm.runInContext('storyHandNounState(cards[2])', context)).toBe('With Rati');
+    context.state.items[1].holder_actor_id = 9;
+    expect(vm.runInContext('storyHandNounState(cards[2])', context)).toBe('In your pack');
+    context.state.items[1].holder_actor_id = 0;
+    expect(vm.runInContext('storyHandNounState(cards[2])', context)).toBe('On the ground');
+  });
+  it('keeps missing item ownership unknown', () => {
+    expect(vm.runInContext('storyHandNounState(cards[2])', game())).toBe('Item');
+  });
+});
+
 
 describe('card action recovery', () => {
   it('selects a playable action when a higher ranked offer has no client action', () => {
@@ -119,19 +138,26 @@ describe('card action recovery', () => {
     context.sceneMeldOfferId = 'missing';
     expect(vm.runInContext('sceneMeldResolution().chosenOffer.offer_id', context)).toBe('walk');
   });
-  it('opens a combination for a card whose action needs another card', () => {
+  it('keeps a tapped item selected until the player adds its recipient', () => {
     const context = game();
     Object.assign(context, {
       actionBusy: false, storyHandExpanded: false, storyHandActiveKey: '',
       usesInlineStoryHand: () => true,
       actionHandKey: (card) => card.handKey,
       setStoryHandExpanded: (expanded) => { context.storyHandExpanded = expanded; },
+      renderCommands: () => {},
     });
     vm.runInContext(html.slice(html.indexOf('    function activateStoryHandAction('), html.indexOf('    function closeStoryHand(')), context);
     vm.runInContext('activateStoryHandAction(cards[2])', context);
     expect(context.storyHandExpanded).toBe(true);
-    expect([...context.sceneMeldKeys]).toEqual(['friend', 'gift']);
-    expect(context.sceneMeldOfferId).toBe('give');
+    expect([...context.sceneMeldKeys]).toEqual(['gift']);
+    expect(vm.runInContext('selectedScenePlays()', context)).toHaveLength(0);
+    vm.runInContext('activateStoryHandAction(cards[1])', context);
+    expect([...context.sceneMeldKeys]).toEqual(['gift', 'friend']);
+    expect(vm.runInContext('selectedScenePlays().map(play => play.chosenOffer.offer_id)', context)).toEqual(['give']);
+    vm.runInContext('activateStoryHandAction(cards[1])', context);
+    expect([...context.sceneMeldKeys]).toEqual(['gift']);
+    expect(vm.runInContext('selectedScenePlays()', context)).toHaveLength(0);
   });
   it('offers Think directly when the open card has no playable action', () => {
     const context = game();
