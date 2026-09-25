@@ -949,6 +949,7 @@ async function main() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
+        roomConversation,
         actions,
         actorId,
         actorSession,
@@ -988,6 +989,7 @@ async function main() {
             handoff_key: "room:1:round:2:activation:10:actor:5000",
           },
         };
+        syncRoomConversation(true);
         storyHandExpanded = true;
         holdStoryHandForAction(played);
         actionBusy = true;
@@ -1094,6 +1096,7 @@ async function main() {
         return { skipped: false, visibleCount: visible.length, busy, waiting, activity };
       } finally {
         state = previous.state;
+        roomConversation = previous.roomConversation;
         actions = previous.actions;
         actorId = previous.actorId;
         actorSession = previous.actorSession;
@@ -3989,6 +3992,8 @@ async function main() {
       const previousActorId = actorId;
       const previousPending = pendingModelInteractions;
       const previousLogEvents = logEvents;
+      const previousRoomConversation = roomConversation;
+      syncRoomConversation(true);
       const previousSeenSeq = [...seenSeq];
       const previousRehydrationRequired = pendingModelInteractionRehydrationRequired;
       const previousNextPendingId = nextPendingModelInteractionId;
@@ -4103,6 +4108,7 @@ async function main() {
         actorId = previousActorId;
         pendingModelInteractions = previousPending;
         logEvents = previousLogEvents;
+        roomConversation = previousRoomConversation;
         seenSeq.clear();
         previousSeenSeq.forEach((seq) => seenSeq.add(seq));
         pendingModelInteractionRehydrationRequired = previousRehydrationRequired;
@@ -8900,6 +8906,7 @@ async function main() {
     const result = await page.evaluate(() => {
       const previous = {
         logEvents: logEvents.slice(),
+        roomConversation,
         seenSeq: [...seenSeq],
         actorId,
         state,
@@ -8967,6 +8974,7 @@ async function main() {
         outcome: event.combat_outcome?.type || "",
       }));
       try {
+        syncRoomConversation(true);
         actorId = 5000;
         state = {
           ...state,
@@ -9037,6 +9045,7 @@ async function main() {
         };
       } finally {
         logEvents = previous.logEvents;
+        roomConversation = previous.roomConversation;
         seenSeq.clear();
         for (const seq of previous.seenSeq) seenSeq.add(seq);
         actorId = previous.actorId;
@@ -9073,6 +9082,8 @@ async function main() {
   async function assertWorldResetClearsTranscriptAndResidentRepeatsCollapse() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
+      const previousRoomConversation = roomConversation;
+      syncRoomConversation(true);
       const previousSeen = new Set(seenSeq);
       const previousActorId = actorId;
       const previousAccountPanelPinned = accountPanelPinned;
@@ -9229,6 +9240,7 @@ async function main() {
         };
       } finally {
         logEvents = previousLogEvents;
+        roomConversation = previousRoomConversation;
         seenSeq.clear();
         for (const seq of previousSeen) seenSeq.add(seq);
         actorId = previousActorId;
@@ -9260,6 +9272,8 @@ async function main() {
   async function assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
+      const previousRoomConversation = roomConversation;
+      syncRoomConversation(true);
       const previousSeen = new Set(seenSeq);
       const previousState = state;
       try {
@@ -9503,6 +9517,7 @@ async function main() {
       } finally {
         state = previousState;
         logEvents = previousLogEvents;
+        roomConversation = previousRoomConversation;
         seenSeq.clear();
         for (const seq of previousSeen) seenSeq.add(seq);
         renderTimelines();
@@ -9560,6 +9575,8 @@ async function main() {
   async function assertLanternKeeperSemanticStoryReceipt() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
+      const previousRoomConversation = roomConversation;
+      syncRoomConversation(true);
       const previousSeen = new Set(seenSeq);
       try {
         logEvents = [];
@@ -9662,6 +9679,7 @@ async function main() {
         };
       } finally {
         logEvents = previousLogEvents;
+        roomConversation = previousRoomConversation;
         seenSeq.clear();
         for (const seq of previousSeen) seenSeq.add(seq);
       }

@@ -73,6 +73,7 @@ export async function assertAvatarWorldControls(page, screenshotDir = '') {
     await page.getByLabel('Reply allowance', { exact: true }).fill('1');
     await page.getByLabel('Item to seek', { exact: true }).selectOption('99010');
     await page.evaluate(() => renderLog());
+    assert.equal(await page.locator('.avatar-autonomy').evaluate((panel) => panel.open), true);
     assert.equal(await page.getByLabel('Action allowance', { exact: true }).inputValue(), '3');
     if (screenshotDir) await page.screenshot({ path: `${screenshotDir}/mobile-avatar-allowance.png` });
     await page.getByRole('button', { name: 'Start this allowance', exact: true }).click();
@@ -87,6 +88,17 @@ export async function assertAvatarWorldControls(page, screenshotDir = '') {
     assert.equal(requests[1].enabled, false);
     assert.equal(requests[1].expected_generation, 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= 391), true);
+  } catch (error) {
+    if (screenshotDir) await page.screenshot({ path: `${screenshotDir}/mobile-avatar-world-failure.png` });
+    const controls = await page.evaluate(() => ({
+      open: document.querySelector(".avatar-autonomy")?.open,
+      menu: accountPanelPinned,
+      fields: [...document.querySelectorAll("[data-autonomy-field]")].map((field) => ({
+        name: field.dataset.autonomyField, visible: Boolean(field.getClientRects().length),
+        label: field.closest("label")?.textContent,
+      })),
+    }));
+    throw new Error(`${error.message} Avatar controls: ${JSON.stringify(controls)}`);
   } finally {
     await page.unroute(stateRoute);
     await page.unroute(autonomyRoute);
