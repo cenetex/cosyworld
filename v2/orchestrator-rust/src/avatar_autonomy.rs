@@ -894,4 +894,81 @@ mod tests {
         assert_eq!(runtime.avatar_autonomy_view(5000).goal_status, "seeking");
         let _ = std::fs::remove_file(path);
     }
+
+    #[tokio::test]
+    async fn solo_talk_start_plans_an_owner_reply_without_an_action() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-owner-first-reply-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Owner");
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let started = set_avatar_autonomy(
+            State(state.clone()),
+            Json(SetAvatarAutonomyRequest {
+                actor_id: 5000,
+                actor_session: actor_session.clone(),
+                enabled: true,
+                scope: DelegationScope::Speech,
+                action_limit: Some(0),
+                speech_limit: Some(1),
+                goal_item_id: None,
+                expected_generation: 0,
+            }),
+        )
+        .await
+        .0;
+        assert!(started.ok);
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .unwrap()
+            .expect("Start queues a room response");
+        let ActorJobPayload::PlayerTick(observation) = job.payload else {
+            panic!("Start queues a room observation");
+        };
+        let (reply, _, _) = complete_player_tick_observation(&state, observation)
+            .await
+            .unwrap();
+        assert_eq!(
+            reply.expect("Talk Start plans a reply").speaker_actor_id,
+            5000
+        );
+        assert_eq!(
+            reserve_delegated_speech(&state, 5000).await.unwrap(),
+            Some(1)
+        );
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(runtime.avatar_autonomy_view(5000).remaining_actions, 0);
+            assert_eq!(runtime.avatar_autonomy_view(5000).remaining_speech, 0);
+        }
+        assert!(
+            set_avatar_autonomy(
+                State(state.clone()),
+                Json(SetAvatarAutonomyRequest {
+                    actor_id: 5000,
+                    actor_session,
+                    enabled: false,
+                    scope: DelegationScope::Speech,
+                    action_limit: Some(0),
+                    speech_limit: Some(1),
+                    goal_item_id: None,
+                    expected_generation: 1,
+                }),
+            )
+            .await
+            .0
+            .ok
+        );
+        assert_eq!(
+            state.inner.lock().await.owner_delegation_generation(5000),
+            None
+        );
+        assert!(reserve_delegated_speech(&state, 5000).await.is_err());
+        let _ = std::fs::remove_file(path);
+    }
 }
