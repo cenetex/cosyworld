@@ -21464,7 +21464,7 @@
         $("room-log-toggle").focus();
         return;
       }
-      if (journalOpen) return;
+      if (journalOpen || state?.avatar_autonomy?.enabled) return;
       const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
         && Boolean(event.target?.closest?.(".hand-rail .cmd"));
       if (
