@@ -74,6 +74,55 @@ pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
+/// Durable counts derived from the action journal. Pass causes stay distinct
+/// so turn churn can be measured beside resident actions.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct ResidentAutonomyProgress {
+    pub(crate) useful_actions: u64,
+    pub(crate) pass_causes: BTreeMap<String, u64>,
+}
+
+#[allow(dead_code)]
+pub(crate) fn resident_autonomy_progress(
+    conn: &Connection,
+    actor_id: u64,
+) -> io::Result<ResidentAutonomyProgress> {
+    let mut statement = conn
+        .prepare("SELECT record_json FROM action_journal ORDER BY journal_seq")
+        .map_err(sqlite_error)?;
+    let records = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(sqlite_error)?;
+    let mut progress = ResidentAutonomyProgress::default();
+    for record in records {
+        let record: JournalRecord =
+            serde_json::from_str(&record.map_err(sqlite_error)?).map_err(io::Error::other)?;
+        if record.action.actor_id != actor_id {
+            continue;
+        }
+        let pass_cause = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ShuffleHand { reason }
+                    if reason.starts_with("resident_") || reason == "room_initiative_rope" =>
+                {
+                    Some(reason.clone())
+                }
+                _ => None,
+            });
+        if let Some(cause) = pass_cause {
+            *progress.pass_causes.entry(cause).or_default() += 1;
+        } else if record.origin == JournalOrigin::ActorConsequence
+            && record.action.kind != CW_ACTION_NONE
+        {
+            progress.useful_actions = progress.useful_actions.saturating_add(1);
+        }
+    }
+    Ok(progress)
+}
+
 pub(super) fn card_reaction_heartbeat_delay_ms() -> u64 {
     std::env::var("COSYWORLD_CARD_REACTION_HEARTBEAT_DELAY_MS")
         .ok()
@@ -216,7 +265,7 @@ pub(super) fn schedule_resumed_room_rope(
             initiative.activation,
         )?;
         if scheduled {
-            state.actor_job_notify.notify_waiters();
+            state.actor_job_notify.notify_one();
         }
         return Ok(scheduled);
     }
@@ -525,10 +574,14 @@ pub(super) async fn complete_player_tick_observation(
                 };
                 record
                     .filter(|record| {
-                        (initiative_actor_id.is_some()
-                            || runtime
-                                .autonomy_allows_action(record.action.actor_id, record.action.kind)
-                            || record.offer_kind.as_deref() == Some("pass"))
+                        let allowed_by_delegation = initiative_actor_id.is_none()
+                            || !runtime.actor_uses_inference(record.action.actor_id)
+                            || runtime.delegated_action_available(record.action.actor_id);
+                        let allowed_by_autonomy = runtime
+                            .autonomy_allows_action(record.action.actor_id, record.action.kind)
+                            || record.offer_kind.as_deref() == Some("pass");
+                        allowed_by_delegation
+                            && allowed_by_autonomy
                             && runtime.kernel_offer_allows_action(&record.action)
                     })
                     .map(|mut record| {
@@ -621,7 +674,7 @@ pub(super) fn schedule_player_tick_observation(
         // The observation was inserted in the same SQLite transaction as the
         // card journal and events. This call only wakes the durable worker;
         // its available_at timestamp supplies the room-chat heartbeat delay.
-        state.actor_job_notify.notify_waiters();
+        state.actor_job_notify.notify_one();
         return;
     }
     let Some(location_id) = observation.source_location_id else {
@@ -1242,6 +1295,34 @@ mod rope_tests {
             .await
             .expect("the rope commits or no-ops without erroring");
 
+        let conn = open_event_store(&path).expect("open durable autonomy journal");
+        let mut useful = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SEARCH,
+                actor_id: rope.actor_id,
+                location_id: rope.location_id,
+                ..CwAction::default()
+            },
+            90_001,
+        )
+        .into_actor_consequence(1, None);
+        useful.bind_offer_kind("search");
+        conn.execute(
+            "INSERT INTO action_journal (action_kind, seed, record_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                useful.action.kind as i64,
+                useful.seed as i64,
+                serde_json::to_string(&useful).expect("serialize useful action"),
+                now_millis() as i64,
+            ],
+        )
+        .expect("record a durable useful action sample");
+        let progress = resident_autonomy_progress(&conn, rope.actor_id)
+            .expect("measure committed resident progress");
+        assert_eq!(progress.useful_actions, 1);
+        assert_eq!(progress.pass_causes.get("room_initiative_rope"), Some(&1));
+
         let runtime = state.inner.lock().await;
         assert!(runtime
             .room_initiatives
@@ -1499,7 +1580,7 @@ pub(super) async fn run_actor_job_worker(state: AppState, claimed_kind: &'static
                                     relationship_reply,
                                 )
                                 .map(|()| {
-                                    state.actor_job_notify.notify_waiters();
+                                    state.actor_job_notify.notify_one();
                                     false
                                 })
                                 .map_err(|error| error.to_string())

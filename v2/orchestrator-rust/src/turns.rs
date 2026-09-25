@@ -491,7 +491,8 @@ fn room_initiative_actor_is_eligible(
 ) -> bool {
     RuntimeWorld::actor_can_act(actor)
         && actor.location_id == location_id
-        && (runtime.actor_uses_inference(actor.id) || active_direct_actor_ids.contains(&actor.id))
+        && (runtime.actor_uses_inference(actor.id) && runtime.delegated_action_available(actor.id)
+            || active_direct_actor_ids.contains(&actor.id))
 }
 
 fn rolled_room_initiative_order(
