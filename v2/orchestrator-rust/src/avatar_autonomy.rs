@@ -117,11 +117,35 @@ impl RuntimeWorld {
             .unwrap_or(true)
     }
 
+    pub(super) fn delegated_goal_pickup_action(&self, actor_id: u64) -> Option<CwAction> {
+        let delegation = self
+            .actor_autonomy
+            .get(&actor_id)?
+            .owner_delegation
+            .as_ref()?;
+        if !delegation.enabled
+            || delegation.goal_status == "acquired"
+            || delegation.scope != DelegationScope::SpeechAndActions
+            || delegation.actions_used >= delegation.action_limit
+        {
+            return None;
+        }
+        let item = self.item_by_id(delegation.goal_item_id?)?;
+        let actor = self.actor_by_id(actor_id)?;
+        (item.holder_actor_id == 0 && item.location_id == actor.location_id).then_some(CwAction {
+            kind: CW_ACTION_PICK_UP_ITEM,
+            actor_id,
+            item_id: item.id,
+            ..CwAction::default()
+        })
+    }
+
     pub(super) fn delegated_action_allowed(&self, actor_id: u64, action_kind: u8) -> bool {
-        self.delegated_action_available(actor_id)
-            || action_kind == CW_ACTION_NONE
-            || action_kind == CW_ACTION_COMBAT_PASS
-            || action_kind == CW_ACTION_SAY && self.delegated_speech_available(actor_id)
+        match action_kind {
+            CW_ACTION_NONE | CW_ACTION_COMBAT_PASS => true,
+            CW_ACTION_SAY => self.delegated_speech_available(actor_id),
+            _ => self.delegated_action_available(actor_id),
+        }
     }
 
     pub(super) fn delegated_speech_available(&self, actor_id: u64) -> bool {
@@ -595,6 +619,8 @@ mod tests {
         runtime.record_delegated_action(5000, CW_ACTION_REST);
         assert!(!runtime.delegated_action_available(5000));
         assert!(runtime.delegated_action_allowed(5000, CW_ACTION_SAY));
+        runtime.apply_delegated_speech_reservation(5000, 1);
+        assert!(!runtime.delegated_action_allowed(5000, CW_ACTION_SAY));
         assert!(!runtime.delegated_action_allowed(5000, CW_ACTION_REST));
         assert!(runtime.delegated_action_allowed(5000, CW_ACTION_COMBAT_PASS));
     }
@@ -770,7 +796,71 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Owner");
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let started = set_avatar_autonomy(
+            State(state.clone()),
+            Json(SetAvatarAutonomyRequest {
+                actor_id: 5000,
+                actor_session,
+                enabled: true,
+                scope: DelegationScope::SpeechAndActions,
+                action_limit: Some(1),
+                speech_limit: Some(0),
+                goal_item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
+                expected_generation: 0,
+            }),
+        )
+        .await
+        .0;
+        assert!(started.ok);
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
+        let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .unwrap()
+            .expect("Start queues a bounded owner room response");
+        let ActorJobPayload::PlayerTick(observation) = job.payload else {
+            panic!("Start queues a room observation");
+        };
+        complete_player_tick_observation(&state, observation)
+            .await
+            .unwrap();
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .item_by_id(DEWBRIGHT_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5000
+        );
+        assert_eq!(runtime.avatar_autonomy_view(5000).remaining_actions, 0);
+        assert_eq!(runtime.avatar_autonomy_view(5000).goal_status, "acquired");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn owner_goal_outside_the_story_hand_waits_for_a_legal_offer() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-owner-outside-hand-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Owner");
         runtime.ensure_item(900003, CW_ITEM_KEEPSAKE, RAIN_SOFT_GARDEN_LOCATION_ID, 0);
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+        let hand = runtime.action_hand_for(Some(5000), &offers);
+        assert!(offers
+            .iter()
+            .any(|offer| { offer.target.as_ref().and_then(|target| target.id) == Some(900003) }));
+        assert!(!hand.entries.iter().any(|entry| {
+            entry.offer_ids.iter().any(|offer_id| {
+                offers.iter().any(|offer| {
+                    offer.offer_id == *offer_id
+                        && offer.target.as_ref().and_then(|target| target.id) == Some(900003)
+                })
+            })
+        }));
         let state = test_app_state(runtime, Some(path.clone()));
         let (actor_session, _) = issue_actor_session(&state, 5000);
         let started = set_avatar_autonomy(
@@ -789,9 +879,10 @@ mod tests {
         .await
         .0;
         assert!(started.ok);
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK).unwrap();
         let job = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .unwrap()
-            .expect("Start queues a bounded owner room response");
+            .expect("Start queues a room response");
         let ActorJobPayload::PlayerTick(observation) = job.payload else {
             panic!("Start queues a room observation");
         };
@@ -799,9 +890,8 @@ mod tests {
             .await
             .unwrap();
         let runtime = state.inner.lock().await;
-        assert_eq!(runtime.item_by_id(900003).unwrap().holder_actor_id, 5000);
-        assert_eq!(runtime.avatar_autonomy_view(5000).remaining_actions, 0);
-        assert_eq!(runtime.avatar_autonomy_view(5000).goal_status, "acquired");
+        assert_eq!(runtime.item_by_id(900003).unwrap().holder_actor_id, 0);
+        assert_eq!(runtime.avatar_autonomy_view(5000).goal_status, "seeking");
         let _ = std::fs::remove_file(path);
     }
 }
