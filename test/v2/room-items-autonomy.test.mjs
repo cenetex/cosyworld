@@ -30,7 +30,7 @@ function game() {
     itemForId: (id) => state.items.find((item) => item.id === id),
     itemNameForId: (id) => state.items.find((item) => item.id === id)?.name || 'an unknown item',
     actorNameForId: (id) => state.actors.find((actor) => actor.id === id)?.name,
-    renderLog: () => {}, refresh: async () => {},
+    renderLog: () => {}, renderCommands: () => {}, setError: () => {}, refresh: async () => {},
   });
   vm.runInContext(itemSource + autonomySource, context);
   return { context, hand, state };

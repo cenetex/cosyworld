@@ -7593,6 +7593,7 @@
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
+    let renderedAccountPanel = "";
     let avatarAutonomyDraft = null;
     let avatarAutonomyOpen = false;
     let avatarAutonomyBusy = false;
@@ -15641,7 +15642,10 @@
         log.scrollTop = 0;
         return;
       }
+      if (!accountPanel) renderedAccountPanel = "";
       if (accountPanel) {
+        if (accountWasOpen && renderedAccountPanel === accountPanel) return;
+        renderedAccountPanel = accountPanel;
         log.innerHTML = accountPanel;
         if (focusedAutonomyField) {
           log.querySelector(`[data-autonomy-field="${focusedAutonomyField}"]`)?.focus({ preventScroll: true });
@@ -16087,6 +16091,7 @@
       avatarAutonomyBusy = true;
       avatarAutonomyNotice = enabled ? "Starting your avatar’s allowance…" : "Pausing your avatar…";
       renderLog();
+      renderCommands();
       try {
         const result = await postResult("/avatar/autonomy", {
           actor_id: ownerId, actor_session: actorSession, enabled,
@@ -16098,15 +16103,18 @@
         avatarAutonomyNotice = result.ok
           ? enabled ? "Your avatar is choosing its next step." : "Paused. You guide each play again."
           : result.status === 409 ? "The allowance changed. Review its current state and try again." : (result.error || "Try saving your avatar’s choices again.");
+        if (!result.ok) setError(avatarAutonomyNotice);
         await refresh();
       } catch (_) {
         if (Number(actorId) === ownerId) {
           avatarAutonomyNotice = "Check your connection, then review the allowance before trying again.";
+          setError(avatarAutonomyNotice);
           await refresh().catch(() => {});
         }
       } finally {
         avatarAutonomyBusy = false;
         renderLog();
+        renderCommands();
       }
     }
 
