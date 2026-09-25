@@ -74,6 +74,64 @@ pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
+pub(super) fn actor_job_error_is_parked_autonomy(error: &str) -> bool {
+    [
+        "avatar autonomy was paused",
+        "avatar speech allowance is spent",
+    ]
+    .iter()
+    .any(|reason| error.contains(reason))
+}
+
+/// Durable counts derived from the action journal. Pass causes stay distinct
+/// so turn churn can be measured beside resident actions.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg(test)]
+pub(crate) struct ResidentAutonomyProgress {
+    pub(crate) useful_actions: u64,
+    pub(crate) pass_causes: BTreeMap<String, u64>,
+}
+
+#[cfg(test)]
+pub(crate) fn resident_autonomy_progress(
+    conn: &Connection,
+    actor_id: u64,
+) -> io::Result<ResidentAutonomyProgress> {
+    let mut statement = conn
+        .prepare("SELECT record_json FROM action_journal ORDER BY journal_seq")
+        .map_err(sqlite_error)?;
+    let records = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(sqlite_error)?;
+    let mut progress = ResidentAutonomyProgress::default();
+    for record in records {
+        let record: JournalRecord =
+            serde_json::from_str(&record.map_err(sqlite_error)?).map_err(io::Error::other)?;
+        if record.action.actor_id != actor_id {
+            continue;
+        }
+        let pass_cause = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ShuffleHand { reason }
+                    if reason.starts_with("resident_") || reason == "room_initiative_rope" =>
+                {
+                    Some(reason.clone())
+                }
+                _ => None,
+            });
+        if let Some(cause) = pass_cause {
+            *progress.pass_causes.entry(cause).or_default() += 1;
+        } else if record.origin == JournalOrigin::ActorConsequence
+            && record.action.kind != CW_ACTION_NONE
+        {
+            progress.useful_actions = progress.useful_actions.saturating_add(1);
+        }
+    }
+    Ok(progress)
+}
+
 pub(super) fn card_reaction_heartbeat_delay_ms() -> u64 {
     std::env::var("COSYWORLD_CARD_REACTION_HEARTBEAT_DELAY_MS")
         .ok()
@@ -109,17 +167,64 @@ pub(super) fn room_initiative_needs_actor_job(
     location_id: u64,
     active_direct_actor_ids: &BTreeSet<u64>,
 ) -> bool {
-    let has_active_direct_actor = active_direct_actor_ids.iter().any(|actor_id| {
+    if room_initiative_auto_pass_round_complete(runtime, location_id, active_direct_actor_ids) {
+        return false;
+    }
+    let has_active_room_controller = active_direct_actor_ids.iter().any(|actor_id| {
         runtime.actor_by_id(*actor_id).is_some_and(|actor| {
             RuntimeWorld::actor_can_act(actor)
                 && actor.location_id == location_id
-                && !runtime.actor_uses_inference(actor.id)
+                && (!runtime.actor_uses_inference(actor.id)
+                    || runtime.actor_is_delegated_owner(actor.id)
+                        && (runtime.delegated_action_available(actor.id)
+                            || runtime.delegated_speech_available(actor.id)))
         })
     });
-    has_active_direct_actor
+    has_active_room_controller
         && current_room_initiative_actor(runtime, location_id, active_direct_actor_ids)
             .and_then(|actor_id| runtime.actor_by_id(actor_id))
             .is_some_and(|actor| runtime.actor_uses_inference(actor.id))
+}
+
+/// Start one bounded room-autonomy chain from the owner's committed start
+/// event. The owner's active session supplies the played-time presence needed
+/// for the room scheduler to keep advancing.
+pub(super) async fn schedule_delegated_owner_start(
+    state: &AppState,
+    actor_id: u64,
+    location_id: u64,
+    events: &[EventView],
+) -> io::Result<bool> {
+    let observation = {
+        let runtime = state.inner.lock().await;
+        let active_actor_ids = active_actor_ids_for_state(state);
+        if !runtime.actor_is_delegated_owner(actor_id)
+            || !active_actor_ids.contains(&actor_id)
+            || runtime
+                .actor_by_id(actor_id)
+                .is_none_or(|actor| actor.location_id != location_id)
+        {
+            return Ok(false);
+        }
+        player_tick_observation(&runtime, Some(location_id), actor_id, CW_OK, events)
+    };
+    let Some(mut observation) = observation else {
+        return Ok(false);
+    };
+    let Some(ripple_source) = observation.ripple_source.as_mut() else {
+        return Ok(false);
+    };
+    ripple_source.resident_action_budget = 1;
+    if let Some(path) = state.event_store_path.as_deref() {
+        let conn = open_event_store(path)?;
+        let inserted = insert_actor_job(&conn, &observation)?;
+        if inserted {
+            state.actor_job_notify.notify_one();
+        }
+        return Ok(inserted);
+    }
+    schedule_player_tick_observation(state, observation);
+    Ok(true)
 }
 
 pub(super) fn insert_room_rope_job(
@@ -216,7 +321,7 @@ pub(super) fn schedule_resumed_room_rope(
             initiative.activation,
         )?;
         if scheduled {
-            state.actor_job_notify.notify_waiters();
+            state.actor_job_notify.notify_one();
         }
         return Ok(scheduled);
     }
@@ -241,6 +346,7 @@ pub(super) fn schedule_resumed_room_rope(
 pub(super) fn room_rope_target_from_events(
     runtime: &RuntimeWorld,
     events: &[EventView],
+    active_direct_actor_ids: &BTreeSet<u64>,
 ) -> Option<(u64, u64, u64)> {
     let event = events
         .iter()
@@ -253,6 +359,8 @@ pub(super) fn room_rope_target_from_events(
     if !RuntimeWorld::actor_can_act(actor)
         || actor.location_id != location_id
         || runtime.actor_uses_inference(actor.id)
+        || !active_direct_actor_ids.contains(&actor_id)
+        || room_initiative_auto_pass_round_complete(runtime, location_id, active_direct_actor_ids)
     {
         return None;
     }
@@ -270,6 +378,10 @@ pub(super) async fn complete_room_rope_job(
 ) -> Result<(), String> {
     let mut runtime = state.inner.lock().await;
     let active_direct_actor_ids = active_actor_ids_for_state(state);
+    if room_initiative_auto_pass_round_complete(&runtime, job.location_id, &active_direct_actor_ids)
+    {
+        return Ok(());
+    }
     let seat_still_held =
         reconciled_room_initiative(&runtime, job.location_id, &active_direct_actor_ids)
             .is_some_and(|initiative| {
@@ -525,10 +637,15 @@ pub(super) async fn complete_player_tick_observation(
                 };
                 record
                     .filter(|record| {
-                        (initiative_actor_id.is_some()
-                            || runtime
-                                .autonomy_allows_action(record.action.actor_id, record.action.kind)
-                            || record.offer_kind.as_deref() == Some("pass"))
+                        let allowed_by_delegation = initiative_actor_id.is_none()
+                            || !runtime.actor_uses_inference(record.action.actor_id)
+                            || runtime.delegated_action_available(record.action.actor_id)
+                            || record.offer_kind.as_deref() == Some("pass");
+                        let allowed_by_autonomy = runtime
+                            .autonomy_allows_action(record.action.actor_id, record.action.kind)
+                            || record.offer_kind.as_deref() == Some("pass");
+                        allowed_by_delegation
+                            && allowed_by_autonomy
                             && runtime.kernel_offer_allows_action(&record.action)
                     })
                     .map(|mut record| {
@@ -621,7 +738,7 @@ pub(super) fn schedule_player_tick_observation(
         // The observation was inserted in the same SQLite transaction as the
         // card journal and events. This call only wakes the durable worker;
         // its available_at timestamp supplies the room-chat heartbeat delay.
-        state.actor_job_notify.notify_waiters();
+        state.actor_job_notify.notify_one();
         return;
     }
     let Some(location_id) = observation.source_location_id else {
@@ -1069,6 +1186,17 @@ mod readiness_retry_tests {
     use super::*;
 
     #[test]
+    fn spent_or_paused_autonomy_jobs_are_parked_without_retry() {
+        assert!(actor_job_error_is_parked_autonomy(
+            "avatar autonomy was paused after queued speech"
+        ));
+        assert!(actor_job_error_is_parked_autonomy(
+            "avatar speech allowance is spent"
+        ));
+        assert!(!actor_job_error_is_parked_autonomy("provider timed out"));
+    }
+
+    #[test]
     fn readiness_deferral_does_not_consume_an_actor_attempt() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-readiness-deferral-{}-{}.sqlite",
@@ -1241,6 +1369,34 @@ mod rope_tests {
         complete_room_rope_job(&state, &rope)
             .await
             .expect("the rope commits or no-ops without erroring");
+
+        let conn = open_event_store(&path).expect("open durable autonomy journal");
+        let mut useful = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SEARCH,
+                actor_id: rope.actor_id,
+                location_id: rope.location_id,
+                ..CwAction::default()
+            },
+            90_001,
+        )
+        .into_actor_consequence(1, None);
+        useful.bind_offer_kind("search");
+        conn.execute(
+            "INSERT INTO action_journal (action_kind, seed, record_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                useful.action.kind as i64,
+                useful.seed as i64,
+                serde_json::to_string(&useful).expect("serialize useful action"),
+                now_millis() as i64,
+            ],
+        )
+        .expect("record a durable useful action sample");
+        let progress = resident_autonomy_progress(&conn, rope.actor_id)
+            .expect("measure committed resident progress");
+        assert_eq!(progress.useful_actions, 1);
+        assert_eq!(progress.pass_causes.get("room_initiative_rope"), Some(&1));
 
         let runtime = state.inner.lock().await;
         assert!(runtime
@@ -1499,7 +1655,7 @@ pub(super) async fn run_actor_job_worker(state: AppState, claimed_kind: &'static
                                     relationship_reply,
                                 )
                                 .map(|()| {
-                                    state.actor_job_notify.notify_waiters();
+                                    state.actor_job_notify.notify_one();
                                     false
                                 })
                                 .map_err(|error| error.to_string())
@@ -1582,6 +1738,14 @@ pub(super) async fn run_actor_job_worker(state: AppState, claimed_kind: &'static
                         }
                     }
                     Ok(false) => {}
+                    Err(error) if actor_job_error_is_parked_autonomy(&error) => {
+                        if let Err(store_error) = complete_actor_job(path, job.id) {
+                            warn!(
+                                "failed to park exhausted autonomy job {}: {}",
+                                job.id, store_error
+                            );
+                        }
+                    }
                     Err(error) => {
                         warn!("actor job {} failed: {}", job.id, error);
                         let retry_floor_ms = actor_job_retry_floor_ms(&state, &job, &error);

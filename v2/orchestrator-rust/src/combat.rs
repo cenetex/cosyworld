@@ -650,6 +650,21 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor_id) {
             return None;
         }
+        if !self.delegated_action_available(actor_id) {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_COMBAT_PASS,
+                    actor_id,
+                    content_id: encounter_id,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+            .into_actor_consequence(self.world.tick, caused_by_event_seq);
+            record.bind_offer_kind("pass");
+            record.source_location_id = Some(actor.location_id);
+            return Some(record);
+        }
         let offers = self
             .legal_action_candidates(Some(actor_id), &AccessContext::default())
             .1

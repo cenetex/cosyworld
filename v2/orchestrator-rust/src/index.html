@@ -690,6 +690,41 @@
     .pathway-directions span:first-child::before { content: "← "; color: var(--type-travel); }
     .pathway-directions span:last-child { text-align: right; }
     .pathway-directions span:last-child::after { content: " →"; color: var(--type-travel); }
+    .room-items-toggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 4;
+      min-height: 44px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--terminal);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .room-items-list { display: grid; gap: 8px; margin: 12px 0; }
+    .room-item-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 56px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--terminal-2);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+    .room-item-row img { width: 42px; height: 42px; object-fit: cover; border-radius: 4px; }
+    .room-item-row strong, .room-item-row small { display: block; overflow-wrap: anywhere; }
+    .room-item-row small { margin-top: 4px; color: var(--dim); }
+    .room-items-note { color: var(--dim); font-size: 13px; line-height: 1.5; }
     .room-avatar-rail {
       position: absolute;
       left: 14px;
@@ -6688,6 +6723,30 @@
       padding: 4px 0;
       cursor: pointer;
     }
+    .autonomy-play-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+    .autonomy-play-status[hidden] { display: none; }
+    .autonomy-play-status span { color: var(--dim); font-size: 13px; }
+    .autonomy-play-status button { min-height: 44px; flex-shrink: 0; }
+    .prompt.autonomy-running > :not(.autonomy-play-status) { display: none !important; }
+    .avatar-autonomy { margin: 14px; border: 1px solid var(--line); border-radius: 8px; }
+    .avatar-autonomy summary { padding: 14px; min-height: 44px; cursor: pointer; color: var(--text); }
+    .avatar-autonomy-body { display: grid; gap: 12px; padding: 0 14px 14px; }
+    .avatar-autonomy-body p { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.5; }
+    .avatar-autonomy-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .avatar-autonomy label { display: grid; gap: 6px; min-width: 0; color: var(--dim); font-size: 12px; }
+    .avatar-autonomy label.wide { grid-column: 1 / -1; }
+    .avatar-autonomy input, .avatar-autonomy select {
+      min-width: 0;
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px;
+      color: var(--text);
+      background: var(--terminal);
+      font: inherit;
+    }
+    .avatar-autonomy button { min-height: 44px; }
     .minimal-menu-settings {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7252,6 +7311,7 @@
             <img id="room-hero-image" alt="" />
           </button>
           <div class="pathway-stage" id="pathway-stage" role="img" hidden></div>
+          <button class="room-items-toggle" id="room-items-toggle" type="button" aria-haspopup="dialog" hidden>Items</button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
           <div class="room-rescue-row" id="room-rescue-row" aria-label="Knocked-out avatars needing rescue" hidden></div>
           <div class="spatial-stage" id="spatial-stage" role="img" hidden>
@@ -7301,6 +7361,7 @@
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt" aria-label="Story Hand">
+      <div class="autonomy-play-status" id="autonomy-play-status" hidden><span id="autonomy-play-copy"></span><button class="account-button" id="autonomy-take-control" type="button">Take control</button></div>
       <div class="turn-ping-pill turn-status" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="turn-banner" id="turn-banner" hidden>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
@@ -7532,6 +7593,11 @@
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
+    let renderedAccountPanel = "";
+    let avatarAutonomyDraft = null;
+    let avatarAutonomyOpen = false;
+    let avatarAutonomyBusy = false;
+    let avatarAutonomyNotice = "";
     let libraryPanelPinned = false;
     let openCardModalKey = "";
     const communityArtClientStates = new Map();
@@ -13540,6 +13606,7 @@
       $("scene-place-name").textContent = location.name || "A new beginning";
       $("scene-place-description").textContent = location.description || "Choose a card to discover this place and the people who share it.";
       renderAdventure();
+      renderRoomItems();
       renderRoomAvatarRail();
       const pathwayJourney = activePathwayJourney(state);
       const roomHero = $("room-hero");
@@ -15526,6 +15593,10 @@
     function renderLog() {
       const log = $("log");
       const previousScrollTop = log.scrollTop;
+      const accountWasOpen = log.classList.contains("account-mode");
+      const openAutonomyPanel = accountPanelPinned && accountWasOpen ? log.querySelector(".avatar-autonomy") : null;
+      if (openAutonomyPanel) avatarAutonomyOpen = openAutonomyPanel.open;
+      const focusedAutonomyField = document.activeElement?.getAttribute("data-autonomy-field");
       const wasAtBottom = log.scrollHeight <= log.clientHeight + 1
         || log.scrollHeight - log.scrollTop - log.clientHeight < 28;
       const libraryPanel = libraryPanelHtml();
@@ -15573,9 +15644,15 @@
         log.scrollTop = 0;
         return;
       }
+      if (!accountPanel) renderedAccountPanel = "";
       if (accountPanel) {
+        if (accountWasOpen && renderedAccountPanel === accountPanel) return;
+        renderedAccountPanel = accountPanel;
         log.innerHTML = accountPanel;
-        log.scrollTop = 0;
+        if (focusedAutonomyField) {
+          log.querySelector(`[data-autonomy-field="${focusedAutonomyField}"]`)?.focus({ preventScroll: true });
+        }
+        log.scrollTop = accountWasOpen ? previousScrollTop : 0;
         return;
       }
       if (pendingArrival) {
@@ -15960,6 +16037,89 @@
       return `<button class="minimal-menu-slot${image ? " filled" : ""}" type="button"${cardDataAttr(card)} aria-label="${escapeAttr(image ? `Open ${title}` : `${label} slot empty`)}"${image ? "" : " disabled"}>${content}</button>`;
     }
 
+    function autonomyDraft() {
+      const current = state?.avatar_autonomy || {};
+      if (avatarAutonomyDraft?.actorId !== Number(actorId)
+          || avatarAutonomyDraft?.generation !== Number(current.generation || 0)) {
+        if (avatarAutonomyDraft?.actorId !== Number(actorId)) avatarAutonomyNotice = "";
+        avatarAutonomyDraft = {
+          actorId: Number(actorId),
+          generation: Number(current.generation || 0),
+          scope: current.scope || "speech_and_actions",
+          action_limit: current.action_limit ?? 8,
+          speech_limit: current.speech_limit ?? 2,
+          goal_item_id: current.goal_item_id || "",
+        };
+      }
+      return avatarAutonomyDraft;
+    }
+
+    function avatarAutonomyPanelHtml() {
+      const current = state?.avatar_autonomy;
+      if (!actorId || !actorSession || !current) return "";
+      const draft = autonomyDraft();
+      const enabled = current.enabled === true;
+      const replyCount = Number(current.remaining_speech || 0);
+      const remaining = `${Number(current.remaining_actions || 0)} actions · ${replyCount} ${replyCount === 1 ? "reply" : "replies"} left`;
+      const status = enabled ? remaining : "You guide each play";
+      const goalId = Number(current.goal_item_id || 0);
+      const goalLabel = goalId ? itemNameForId(goalId) : "";
+      const goalStatus = ({ seeking: "Seeking", acquired: "Found", waiting: "Waiting for a chance", paused: "Paused", complete: "Found" })[current.goal_status] || "Seeking";
+      const goals = (state?.items || []).filter((item) => Number(item.holder_actor_id || 0) !== Number(actorId));
+      const options = goals.map((item) => `<option value="${Number(item.id)}"${Number(draft.goal_item_id) === Number(item.id) ? " selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
+      const goalStillListed = goals.some((item) => Number(item.id) === Number(draft.goal_item_id));
+      const oldGoal = draft.goal_item_id && !goalStillListed
+        ? `<option value="${Number(draft.goal_item_id)}" selected>${escapeHtml(itemNameForId(draft.goal_item_id))}</option>` : "";
+      const controls = enabled
+        ? `<p>${escapeHtml(remaining)}. ${goalLabel ? `${escapeHtml(goalStatus)}: ${escapeHtml(goalLabel)}.` : "Your avatar chooses from the room’s current cards."}</p><button class="account-button" type="button" data-autonomy-set="pause"${avatarAutonomyBusy ? " disabled" : ""}>Pause and take control</button>`
+        : `<div class="avatar-autonomy-fields"><label class="wide">Let my avatar<select aria-label="Let my avatar" data-autonomy-field="scope"><option value="speech"${draft.scope === "speech" ? " selected" : ""}>Talk</option><option value="speech_and_actions"${draft.scope === "speech_and_actions" ? " selected" : ""}>Talk and act</option></select></label><label>Action allowance<input type="number" min="0" max="16" step="1" data-autonomy-field="action_limit" value="${Number(draft.action_limit)}" /></label><label>Reply allowance<input type="number" min="0" max="4" step="1" data-autonomy-field="speech_limit" value="${Number(draft.speech_limit)}" /></label><label class="wide">Item to seek<select aria-label="Item to seek" data-autonomy-field="goal_item_id"><option value="">Follow the room</option>${oldGoal}${options}</select></label></div><p>Your avatar joins in when players are active in the room, including while you are away. Each start gives one allowance. You can pause at any time.</p><button class="account-button" type="button" data-autonomy-set="start"${avatarAutonomyBusy ? " disabled" : ""}>Start this allowance</button>`;
+      const estimated = enabled ? Number(current.estimated_spend_limit_microdollars || 0) / 1000000 : Number(draft.speech_limit || 0) * 0.002;
+      return `<details class="avatar-autonomy"${avatarAutonomyOpen ? " open" : ""}><summary>AI avatar · ${escapeHtml(status)}</summary><div class="avatar-autonomy-body">${controls}<p>Estimated voice budget: <span data-autonomy-estimate>$${estimated.toFixed(3)}</span>. Each reply request uses one slot, including its retries.</p><p role="status" aria-live="polite">${escapeHtml(avatarAutonomyNotice)}</p></div></details>`;
+    }
+
+    async function setAvatarAutonomy(enabled) {
+      if (avatarAutonomyBusy || !actorId || !actorSession || !state?.avatar_autonomy) return;
+      const ownerId = Number(actorId);
+      const draft = { ...autonomyDraft() };
+      const actionLimit = draft.scope === "speech" ? 0 : Number(draft.action_limit);
+      const speechLimit = Number(draft.speech_limit);
+      if (enabled && (!Number.isInteger(actionLimit) || actionLimit < 0 || actionLimit > 16
+          || !Number.isInteger(speechLimit) || speechLimit < 0 || speechLimit > 4
+          || actionLimit + speechLimit === 0)) {
+        avatarAutonomyNotice = "Choose up to 16 actions and 4 replies, with at least one in this allowance.";
+        renderLog();
+        return;
+      }
+      avatarAutonomyBusy = true;
+      avatarAutonomyNotice = enabled ? "Starting your avatar’s allowance…" : "Pausing your avatar…";
+      renderLog();
+      renderCommands();
+      try {
+        const result = await postResult("/avatar/autonomy", {
+          actor_id: ownerId, actor_session: actorSession, enabled,
+          scope: draft.scope, action_limit: actionLimit, speech_limit: speechLimit,
+          goal_item_id: draft.scope === "speech" ? null : (Number(draft.goal_item_id) || null),
+          expected_generation: draft.generation,
+        });
+        if (Number(actorId) !== ownerId) return;
+        avatarAutonomyNotice = result.ok
+          ? enabled ? "Your avatar is choosing its next step." : "Paused. You guide each play again."
+          : result.status === 409 ? "The allowance changed. Review its current state and try again." : (result.error || "Try saving your avatar’s choices again.");
+        if (!result.ok) setError(avatarAutonomyNotice);
+        await refresh();
+      } catch (_) {
+        if (Number(actorId) === ownerId) {
+          avatarAutonomyNotice = "Check your connection, then review the allowance before trying again.";
+          setError(avatarAutonomyNotice);
+          await refresh().catch(() => {});
+        }
+      } finally {
+        avatarAutonomyBusy = false;
+        renderLog();
+        renderCommands();
+      }
+    }
+
     function minimalMenuPanelHtml() {
       const deck = state?.deck || {};
       const avatar = actorForId(actorId);
@@ -15986,7 +16146,7 @@
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
       const level = Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1);
-      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
+      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}${avatarAutonomyPanelHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
     }
 
     function accountPanelHtml() {
@@ -17783,6 +17943,71 @@
       return `${current}${actorSafetyPanelHtml(actor)}${details}`;
     }
 
+    function disclosedRoomItems(view = state) {
+      const locationId = Number(view?.location?.id || 0);
+      const nearbyActorIds = new Set((view?.actors || []).map((actor) => Number(actor.id)));
+      return (view?.items || []).filter((item) => {
+        const holder = Number(item.holder_actor_id || 0);
+        return holder
+          ? holder === Number(actorId) || nearbyActorIds.has(holder)
+          : Number(item.location_id || 0) === locationId;
+      });
+    }
+
+    function itemWhereabouts(item) {
+      const holder = Number(item?.holder_actor_id || 0);
+      if (holder === Number(actorId) && holder) return "In your pack";
+      if (holder) return `Carried by ${actorNameForId(holder)}`;
+      return `On the ground · ${state?.location?.name || "here"}`;
+    }
+
+    function renderRoomItems() {
+      const button = $("room-items-toggle");
+      if (!button) return;
+      button.hidden = !cardForLocation(state?.location?.id);
+      const items = disclosedRoomItems();
+      button.textContent = `Items · ${items.length}`;
+      button.setAttribute("aria-label", `Browse ${items.length} known items here`);
+    }
+
+    function roomItemsPanelHtml(card) {
+      const subject = communityArtSubject(card);
+      if (subject?.kind !== "location" || Number(subject.id) !== Number(state?.location?.id)) return "";
+      const items = disclosedRoomItems();
+      const rows = items.map((item) => {
+        const itemCard = cardForItem(item.id);
+        const image = cardImage(itemCard);
+        return `<button class="room-item-row" type="button"${cardDataAttr(itemCard)}${itemCard ? "" : " disabled"}>${image ? `<img src="${escapeAttr(image)}" alt="" />` : ""}<span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(itemWhereabouts(item))}</small></span></button>`;
+      }).join("");
+      const hasFloorItems = items.some((item) => !Number(item.holder_actor_id || 0));
+      const note = hasFloorItems
+        ? "Choose an item to see where it is and how it fits your hand."
+        : "The ground is clear. Notice an avatar to learn about what they carry.";
+      return `<section class="room-items-list" id="room-items-list" tabindex="-1" aria-label="Known items here"><div class="card-section-label">Items here</div><p class="room-items-note">${note}</p>${rows}</section>`;
+    }
+
+    function itemHandAction(itemId) {
+      return actionBarActions().find((action) => action.nounEntry?.entity_kind === "item"
+        && Number(action.nounEntry?.entity_id) === Number(itemId)) || null;
+    }
+
+    function itemCardPanelHtml(card) {
+      const subject = communityArtSubject(card);
+      if (subject?.kind !== "item") return "";
+      const item = itemForId(subject.id);
+      if (!item) return "";
+      const inHand = itemHandAction(subject.id);
+      const itemSlot = actionBarActions().find((action) => action.sceneCardType === "item");
+      const think = projectedHandEntryForAction(itemSlot)?.think;
+      const draw = !inHand && think?.available && think?.offer_id;
+      const handCopy = state?.avatar_autonomy?.enabled
+        ? `<p class="room-items-note">Your avatar is choosing its plays.</p><button class="account-button" type="button" data-autonomy-reclaim>Take control</button>`
+        : inHand
+        ? `<button class="account-button" type="button" data-room-item-hand="${Number(item.id)}">View in hand</button>`
+        : `<p class="room-items-note">Your hand holds one item card at a time. Think on that card to draw another item.</p>${draw ? `<button class="account-button" type="button" data-room-item-think>Think · ${think.free ? "Free" : "Turn"}</button>` : ""}`;
+      return `<section class="card-current" aria-label="Item location and hand"><div class="card-section-label">${escapeHtml(itemWhereabouts(item))}</div>${handCopy}<button class="account-button secondary" type="button" data-room-items-back>All items here</button></section>`;
+    }
+
     function nearbyLocationPanelHtml(card) {
       const subject = communityArtSubject(card);
       if (subject?.kind !== "location" || Number(subject.id) !== Number(state?.location?.id || 0)) {
@@ -17831,7 +18056,7 @@
       ].filter(Boolean);
       $("card-modal-meta").innerHTML = meta.map((value) => `<span>${escapeHtml(value)}</span>`).join("");
       $("card-modal-art-workshop").innerHTML = communityArtPanelHtml(card);
-      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}`;
+      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${roomItemsPanelHtml(card)}${itemCardPanelHtml(card)}${nearbyLocationPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"), !preservePosition);
       if (scroller) scroller.scrollTop = dialogScrollTop;
       if (copy) copy.scrollTop = copyScrollTop;
@@ -20042,6 +20267,18 @@
 
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
+      const delegated = state?.avatar_autonomy?.enabled === true;
+      prompt.classList.toggle("autonomy-running", delegated);
+      $("autonomy-play-status").hidden = !delegated;
+      if (delegated) {
+        const remaining = state.avatar_autonomy;
+        const active = Number(remaining.remaining_actions) + Number(remaining.remaining_speech) > 0;
+        $("autonomy-play-copy").textContent = active
+          ? `AI avatar · ${remaining.remaining_actions} actions · ${remaining.remaining_speech} replies left`
+          : "Allowance used. Take control to choose the next step.";
+        $("autonomy-take-control").disabled = avatarAutonomyBusy;
+        return;
+      }
       const buttonIds = ["primary", "secondary", "tertiary"];
       renderTurnPingPill();
       prompt.classList.toggle("onboarding-mode", state?.primary_action?.kind === "create_avatar");
@@ -20527,7 +20764,27 @@
       openCardModal(card);
     }, true);
 
+    $("log").addEventListener("toggle", (event) => {
+      if (event.target.matches(".avatar-autonomy")) avatarAutonomyOpen = event.target.open;
+    }, true);
+
+    $("log").addEventListener("input", (event) => {
+      const field = event.target.getAttribute("data-autonomy-field");
+      if (["scope", "action_limit", "speech_limit", "goal_item_id"].includes(field)) {
+        const draft = autonomyDraft();
+        draft[field] = event.target.value;
+        const estimate = event.target.closest(".avatar-autonomy")?.querySelector("[data-autonomy-estimate]");
+        if (estimate) estimate.textContent = `$${(Math.max(0, Math.min(4, Number(draft.speech_limit) || 0)) * 0.002).toFixed(3)}`;
+      }
+    });
+
     $("log").addEventListener("click", (event) => {
+      const autonomyControl = event.target.closest("[data-autonomy-set]");
+      if (autonomyControl) {
+        event.preventDefault();
+        void setAvatarAutonomy(autonomyControl.getAttribute("data-autonomy-set") === "start");
+        return;
+      }
       if (event.target.closest("[data-room-history]")) {
         event.preventDefault();
         void loadRoomConversation(roomConversation.loaded);
@@ -20703,7 +20960,44 @@
       renderTurnRope();
     });
 
+    function openRoomItems() {
+      openCardModal(cardForLocation(state?.location?.id));
+      const list = $("room-items-list");
+      list?.scrollIntoView({ block: "start" });
+      list?.focus({ preventScroll: true });
+    }
+
+    $("room-items-toggle").addEventListener("click", openRoomItems);
+    $("autonomy-take-control").addEventListener("click", () => { void setAvatarAutonomy(false); });
+
     $("card-modal").addEventListener("click", (event) => {
+      if (event.target.closest("[data-autonomy-reclaim]")) {
+        closeCardModal();
+        void setAvatarAutonomy(false);
+        return;
+      }
+      if (event.target.closest("[data-room-items-back]")) {
+        openRoomItems();
+        return;
+      }
+      const itemHand = event.target.closest("[data-room-item-hand]");
+      if (itemHand) {
+        const hand = itemHandAction(Number(itemHand.getAttribute("data-room-item-hand")));
+        if (!hand) { void refresh(); return; }
+        closeCardModal();
+        sceneMeldKeys = [storyHandKey(hand)];
+        sceneMeldOfferId = "";
+        setStoryHandExpanded(true, hand);
+        return;
+      }
+      if (event.target.closest("[data-room-item-think]")) {
+        const itemSlot = actionBarActions().find((action) => action.sceneCardType === "item");
+        if (!itemSlot || actionBusy || turnBlocksStoryHand()) return;
+        closeCardModal();
+        void discardActionCard(itemSlot).catch((error) => setError(actionExceptionMessage(error)));
+        return;
+      }
+
       const care = event.target.closest("[data-avatar-care]");
       if (care) {
         event.preventDefault();
@@ -21172,7 +21466,7 @@
         $("room-log-toggle").focus();
         return;
       }
-      if (journalOpen) return;
+      if (journalOpen || state?.avatar_autonomy?.enabled) return;
       const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
         && Boolean(event.target?.closest?.(".hand-rail .cmd"));
       if (

@@ -286,6 +286,10 @@ fn app_router_with_dependencies(
             post(super::actor_presence::renew_avatar_session),
         )
         .route("/avatar/class", post(choose_avatar_class))
+        .route(
+            "/avatar/autonomy",
+            post(super::avatar_autonomy::set_avatar_autonomy),
+        )
         .route("/presence/ping", post(ping_presence))
         .route("/presence/leave", post(leave_presence))
         .route("/actions/submit", post(submit_action_offer))

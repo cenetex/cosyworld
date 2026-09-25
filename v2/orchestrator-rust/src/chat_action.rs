@@ -18,6 +18,7 @@ pub(super) enum ChatContinuationRejection {
     InitiatorMissing,
     TargetMissing,
     InitiatorUnavailable,
+    InitiatorControlChanged,
     TargetUnavailable,
     InitiatorMoved,
     TargetMoved,
@@ -34,6 +35,7 @@ impl ChatContinuationRejection {
             Self::InitiatorMissing => "initiator_missing",
             Self::TargetMissing => "target_missing",
             Self::InitiatorUnavailable => "initiator_unavailable",
+            Self::InitiatorControlChanged => "initiator_control_changed",
             Self::TargetUnavailable => "target_unavailable",
             Self::InitiatorMoved => "initiator_moved",
             Self::TargetMoved => "target_moved",
@@ -52,7 +54,9 @@ impl ChatContinuationRejection {
             Self::InitiatorMissing | Self::TargetMissing => {
                 "the conversation ended because a participant is no longer present"
             }
-            Self::InitiatorUnavailable | Self::TargetUnavailable => {
+            Self::InitiatorUnavailable
+            | Self::InitiatorControlChanged
+            | Self::TargetUnavailable => {
                 "the conversation ended because a participant became unavailable"
             }
             Self::InitiatorMoved => "the conversation ended because you moved away",
@@ -72,6 +76,7 @@ impl ChatContinuationRejection {
             "initiator_missing" => Self::InitiatorMissing,
             "target_missing" => Self::TargetMissing,
             "initiator_unavailable" => Self::InitiatorUnavailable,
+            "initiator_control_changed" => Self::InitiatorControlChanged,
             "target_unavailable" => Self::TargetUnavailable,
             "initiator_moved" => Self::InitiatorMoved,
             "target_moved" => Self::TargetMoved,
@@ -305,6 +310,9 @@ fn chat_continuation_rejection_with(
     if !RuntimeWorld::actor_can_act(actor) {
         return Some(ChatContinuationRejection::InitiatorUnavailable);
     }
+    if !runtime.actor_control_mode(actor_id).is_direct_input() {
+        return Some(ChatContinuationRejection::InitiatorControlChanged);
+    }
     if !RuntimeWorld::actor_can_act(target) {
         return Some(ChatContinuationRejection::TargetUnavailable);
     }
@@ -367,6 +375,22 @@ pub(super) fn durable_chat_source_rejection(
             && event.location_id == Some(location_id)
     });
     Ok((!source_is_current).then_some(ChatContinuationRejection::StaleSourceSequence))
+}
+
+fn owner_chat_job_was_retired(state: &AppState, actor_job: Option<&ActorJob>) -> bool {
+    let (Some(path), Some(job)) = (state.event_store_path.as_deref(), actor_job) else {
+        return false;
+    };
+    let Ok(conn) = open_event_store(path) else {
+        return true;
+    };
+    conn.query_row(
+        "SELECT status FROM actor_jobs WHERE id = ?1",
+        params![job.id],
+        |row| row.get::<_, String>(0),
+    )
+    .map(|status| status != "running")
+    .unwrap_or(true)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -845,10 +869,30 @@ pub(super) async fn complete_queued_orb_chat_attempt(
                 return Err(error.to_string());
             }
         };
+        if owner_chat_job_was_retired(state, actor_job) {
+            return complete_chat_after_context_rejection(
+                state,
+                actor_job,
+                attempt,
+                actor_id,
+                target_actor_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                plan.location_id,
+                "post_inference",
+                ChatContinuationRejection::InitiatorControlChanged,
+            )
+            .await;
+        }
         let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
         let publication = {
             let mut runtime = state.inner.lock().await;
-            if let Some(rejection) =
+            if owner_chat_job_was_retired(state, actor_job) {
+                AvatarOpeningPublication::ContextRejected(
+                    ChatContinuationRejection::InitiatorControlChanged,
+                )
+            } else if let Some(rejection) =
                 chat_continuation_rejection(&runtime, actor_id, target_actor_id, plan.location_id)
             {
                 AvatarOpeningPublication::ContextRejected(rejection)

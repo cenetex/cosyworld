@@ -25,6 +25,7 @@ pub(super) enum GeneratedSpeechError {
     Gateway(AiGatewayError),
     Rejected(Vec<PublicationRejection>),
     Unavailable(VoiceRoutingError),
+    Allowance(String),
 }
 
 impl GeneratedSpeechError {
@@ -36,6 +37,7 @@ impl GeneratedSpeechError {
                 .map(|error| error.failure_code.as_str())
                 .unwrap_or("voice_publication_exhausted"),
             Self::Unavailable(error) => error.code(),
+            Self::Allowance(_) => "avatar_autonomy_allowance",
         }
     }
 
@@ -44,6 +46,7 @@ impl GeneratedSpeechError {
             Self::Gateway(_) => &[],
             Self::Rejected(errors) => errors,
             Self::Unavailable(error) => error.rejections(),
+            Self::Allowance(_) => &[],
         }
     }
 }
@@ -57,6 +60,7 @@ impl std::fmt::Display for GeneratedSpeechError {
                 .map(|error| error.fmt(formatter))
                 .unwrap_or_else(|| formatter.write_str("voice_publication_exhausted")),
             Self::Unavailable(error) => error.fmt(formatter),
+            Self::Allowance(reason) => formatter.write_str(reason),
         }
     }
 }
@@ -84,6 +88,7 @@ pub(super) struct CertifiedAvatarIntent {
     pub(super) proposal: AvatarIntentProposal,
     pub(super) speech: CertifiedSpeech,
     pub(super) planning: ResidentPlanningTrace,
+    pub(super) delegation_generation: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -365,19 +370,40 @@ pub(super) async fn avatar_reply_intent(
         .as_ref()
         .as_ref()
         .ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    let delegation_generation =
+        avatar_autonomy::reserve_delegated_speech(state, plan.speaker_actor_id)
+            .await
+            .map_err(GeneratedSpeechError::Allowance)?;
     let mut prompt_plan = plan.clone();
+    if delegation_generation.is_some() {
+        // Owned delegation spends its bounded voice allowance on one certified
+        // line. Mechanical choices stay in the replayable resident action loop.
+        prompt_plan.planner_requested = false;
+        prompt_plan.planner_candidates.clear();
+    }
     prompt_plan
         .public_room_memory
         .extend(public_room_memory_for_state(state, plan.location_id));
-    request_ai_avatar_intent(
-        config,
+    let mut bounded_config = config.clone();
+    if delegation_generation.is_some() {
+        bounded_config.voice_routing.max_attempts =
+            bounded_config.voice_routing.max_attempts.min(2);
+        bounded_config.voice_routing.spend_ceiling_microdollars = bounded_config
+            .voice_routing
+            .spend_ceiling_microdollars
+            .min(2_000);
+    }
+    let mut intent = request_ai_avatar_intent(
+        &bounded_config,
         state
             .event_store_path
             .as_deref()
             .map(std::path::PathBuf::as_path),
         &prompt_plan,
     )
-    .await
+    .await?;
+    intent.delegation_generation = delegation_generation;
+    Ok(intent)
 }
 
 pub(super) async fn avatar_chat_text(
@@ -653,6 +679,7 @@ pub(super) async fn request_ai_avatar_intent(
             proposal,
             speech,
             planning: planning.trace,
+            delegation_generation: None,
         });
     }
     let (planning, voice_action) = if !plan.planner_requested {
@@ -698,6 +725,7 @@ pub(super) async fn request_ai_avatar_intent(
         proposal,
         speech,
         planning: planning.trace,
+        delegation_generation: None,
     })
 }
 

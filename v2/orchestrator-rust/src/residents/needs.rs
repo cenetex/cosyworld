@@ -103,6 +103,17 @@ impl RuntimeWorld {
                 item_ids.push(desire.item_id);
             }
         }
+        if let Some(goal_item_id) = self
+            .actor_autonomy
+            .get(&resident.id)
+            .and_then(|state| state.owner_delegation.as_ref())
+            .filter(|delegation| delegation.enabled && delegation.goal_status != "acquired")
+            .and_then(|delegation| delegation.goal_item_id)
+        {
+            if !item_ids.contains(&goal_item_id) {
+                item_ids.push(goal_item_id);
+            }
+        }
         item_ids
     }
 
@@ -260,6 +271,17 @@ impl RuntimeWorld {
         for desire in self.resident_personal_desires(resident.id) {
             if !desired_seekable_item_ids.contains(&desire.item_id) {
                 desired_seekable_item_ids.push(desire.item_id);
+            }
+        }
+        if let Some(goal_item_id) = self
+            .actor_autonomy
+            .get(&resident.id)
+            .and_then(|state| state.owner_delegation.as_ref())
+            .filter(|delegation| delegation.enabled && delegation.goal_status != "acquired")
+            .and_then(|delegation| delegation.goal_item_id)
+        {
+            if !desired_seekable_item_ids.contains(&goal_item_id) {
+                desired_seekable_item_ids.push(goal_item_id);
             }
         }
         for item_id in desired_seekable_item_ids

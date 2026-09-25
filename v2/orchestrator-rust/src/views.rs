@@ -707,6 +707,7 @@ pub(super) struct CommandContextView {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(super) struct StateResponse {
+    pub(super) avatar_autonomy: Option<avatar_autonomy::AvatarAutonomyView>,
     pub(super) world_id: String,
     pub(super) world_epoch: u64,
     pub(super) world_seq: u64,
@@ -779,6 +780,9 @@ impl Serialize for StateResponse {
         S: serde::Serializer,
     {
         let mut out = serializer.serialize_struct("StateResponse", 36)?;
+        if let Some(value) = &self.avatar_autonomy {
+            out.serialize_field("avatar_autonomy", value)?;
+        }
         out.serialize_field("world_id", &self.world_id)?;
         out.serialize_field("world_epoch", &self.world_epoch)?;
         out.serialize_field("world_seq", &self.world_seq)?;
@@ -3986,7 +3990,11 @@ impl RuntimeWorld {
     ) -> StateResponse {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_observe(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
-        let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
+        let location_id = actor.map(|actor| actor.location_id).unwrap_or_else(|| {
+            content_registry()
+                .entry_location_id()
+                .unwrap_or(COSY_COTTAGE_LOCATION_ID)
+        });
         let location = self.location_view(location_id);
 
         let projection_viewer_id = Some(client_actor_id.unwrap_or_default());
@@ -4134,6 +4142,7 @@ impl RuntimeWorld {
             access,
         );
         StateResponse {
+            avatar_autonomy: client_actor_id.map(|id| self.avatar_autonomy_view(id)),
             world_id: OFFICIAL_WORLD_ID.to_string(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
             world_seq: self.world.next_event_seq.saturating_sub(1),
@@ -5714,6 +5723,23 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guest_state_uses_authored_entry_location() {
+        let runtime = RuntimeWorld::seeded();
+        let state = runtime.state_response(None, &AccessContext::default());
+        let entry_location_id = content_registry()
+            .entry_location_id()
+            .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+        assert_eq!(state.location.id, entry_location_id);
+        if let Some(entry_item) = active_content()
+            .items
+            .iter()
+            .find(|item| item.location_id == entry_location_id)
+        {
+            assert!(state.items.iter().any(|item| item.id == entry_item.id));
+        }
+    }
 
     #[test]
     fn inference_actor_speech_availability_tracks_the_attention_budget() {

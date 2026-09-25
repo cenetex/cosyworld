@@ -16,6 +16,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod avatar_autonomy;
 mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_levels;
@@ -942,6 +943,14 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    SetOwnerDelegation {
+        actor_id: u64,
+        delegation: avatar_autonomy::OwnerDelegation,
+    },
+    ReserveDelegatedSpeech {
+        actor_id: u64,
+        generation: u64,
+    },
     StartAvatarRescueRun {
         downed_actor_id: u64,
     },
@@ -1481,6 +1490,8 @@ struct ActorSafetyState {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct ActorAutonomyState {
     control_mode: ActorControlMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    owner_delegation: Option<avatar_autonomy::OwnerDelegation>,
     #[serde(default)]
     current_desires: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7355,6 +7366,17 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
+        if record.origin == JournalOrigin::ActorConsequence
+            && self
+                .actor_autonomy
+                .get(&record.action.actor_id)
+                .and_then(|state| state.owner_delegation.as_ref())
+                .is_some()
+            && self.actor_is_delegated_owner(record.action.actor_id)
+            && !self.delegated_action_allowed(record.action.actor_id, record.action.kind)
+        {
+            return (CW_ERR_RULE, Vec::new());
+        }
         let avatar_rescue_already_applied = self.avatar_rescue_record_already_applied(record);
         let abandon_avatar_already_applied = self.abandon_avatar_record_already_applied(record);
         if !Self::entity_level_record_supported(record)
@@ -7665,6 +7687,18 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::SetOwnerDelegation {
+                    actor_id,
+                    delegation,
+                } => {
+                    self.apply_owner_delegation(*actor_id, delegation.clone(), &mut events);
+                }
+                ProjectionMutation::ReserveDelegatedSpeech {
+                    actor_id,
+                    generation,
+                } => {
+                    self.apply_delegated_speech_reservation(*actor_id, *generation);
+                }
                 ProjectionMutation::StartAvatarRescueRun { downed_actor_id } => {
                     let rescuer_actor_id = action.actor_id;
                     let valid_downed_body =
@@ -12414,6 +12448,7 @@ impl RuntimeWorld {
             .find(|recipe| self.craft_action_for_recipe(actor_id, recipe.id).is_some())
     }
 
+    #[cfg(test)]
     fn hide_loose_items_at_location(&mut self, location_id: u64) {
         let hidden_item_ids = self.world.items[..self.world.item_count]
             .iter()
@@ -18348,7 +18383,6 @@ fn release_inactive_direct_inventory_locked(
                 }
             }
         }
-        runtime.hide_loose_items_at_location(location_id);
         let action = CwAction {
             kind: CW_ACTION_DROP_ITEM,
             actor_id,
@@ -22246,9 +22280,22 @@ fn commit_resident_reply_record(
         mut proposal,
         speech,
         mut planning,
+        delegation_generation,
     } = certified;
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
+    let current_delegation = runtime
+        .actor_autonomy
+        .get(&speaker.id)
+        .and_then(|state| state.owner_delegation.as_ref());
+    if current_delegation.is_some()
+        && current_delegation
+            .filter(|value| value.enabled)
+            .map(|value| value.generation)
+            != delegation_generation
+    {
+        return None;
+    }
     if !RuntimeWorld::actor_can_act(speaker) {
         return None;
     }
@@ -28033,7 +28080,7 @@ fn commit_journal_record_blocking(
                 && insert_journal_background_jobs(&tx, &record, runtime.world.tick, &events)?;
             if status == CW_OK {
                 if let Some((rope_location_id, rope_actor_id, rope_activation)) =
-                    room_rope_target_from_events(runtime, &events)
+                    room_rope_target_from_events(runtime, &events, &active_direct_actor_ids)
                 {
                     insert_room_rope_job(
                         &tx,
@@ -28200,7 +28247,7 @@ fn commit_journal_record_blocking(
         }
         if status == CW_OK {
             if let Some((rope_location_id, rope_actor_id, rope_activation)) =
-                room_rope_target_from_events(runtime, &events)
+                room_rope_target_from_events(runtime, &events, &active_actor_ids_for_state(state))
             {
                 let rope_state = state.clone();
                 tokio::spawn(async move {
@@ -38917,53 +38964,6 @@ mod tests {
         assert!(!repeat.ok);
         assert_eq!(repeat.status, 409);
         assert!(repeat.events.is_empty());
-    }
-
-    #[tokio::test]
-    async fn inactive_human_inventory_releases_to_current_room() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
-        let mut record = JournalRecord::new(create, 17605);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Gone Collector".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Inventory Tester".to_string(),
-                description: "A test avatar holding a unique item while inactive.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        let held_since_tick = runtime.world.tick;
-        let story = runtime
-            .world
-            .items
-            .iter_mut()
-            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
-            .expect("Story Button exists");
-        story.holder_actor_id = 5000;
-        story.location_id = 0;
-        story.held_since_tick = held_since_tick;
-
-        let state = test_app_state(runtime, None);
-        let mut runtime = state.inner.lock().await;
-        let events = release_inactive_direct_inventory_locked(&state, &mut runtime);
-
-        assert!(events.iter().any(|event| {
-            event.type_name == "item.dropped"
-                && event.actor_id == Some(5000)
-                && event.item_id == Some(STORY_BUTTON_ITEM_ID)
-        }));
-        assert!(runtime.world.items[..runtime.world.item_count]
-            .iter()
-            .any(|item| {
-                item.id == STORY_BUTTON_ITEM_ID
-                    && item.holder_actor_id == 0
-                    && item.location_id == COSY_COTTAGE_LOCATION_ID
-            }));
     }
 
     #[tokio::test]

@@ -559,8 +559,33 @@ impl RuntimeWorld {
         context: &RippleContext,
         seed: u64,
     ) -> Option<ResidentAutonomyCandidate> {
-        let actor_ids = self.resident_ripple_candidate_ids(context);
-        let candidates = self.resident_autonomy_candidates_for_ids(&actor_ids, seed);
+        let owner_start = self.actor_is_delegated_owner(context.source_actor_id)
+            && self.event_log.iter().any(|event| {
+                context.source_event_seqs.contains(&event.seq)
+                    && event.type_name == "avatar.autonomy.changed"
+                    && event.actor_id == Some(context.source_actor_id)
+            });
+        let actor_ids = if owner_start {
+            vec![context.source_actor_id]
+        } else {
+            self.resident_ripple_candidate_ids(context)
+        };
+        let mut candidates = self.resident_autonomy_candidates_for_ids(&actor_ids, seed);
+        if owner_start {
+            let goal_item_id = self
+                .actor_autonomy
+                .get(&context.source_actor_id)
+                .and_then(|state| state.owner_delegation.as_ref())
+                .and_then(|delegation| delegation.goal_item_id);
+            candidates.sort_by_key(|candidate| {
+                let action = &candidate.record.action;
+                if action.kind == CW_ACTION_PICK_UP_ITEM && Some(action.item_id) == goal_item_id {
+                    0
+                } else {
+                    1
+                }
+            });
+        }
         candidates
             .into_iter()
             .next()
@@ -609,16 +634,28 @@ impl RuntimeWorld {
         if !self.actor_uses_inference(actor_id) {
             return None;
         }
-        let selected = self
-            .resident_autonomy_candidates_for_ids(&[actor_id], seed)
-            .into_iter()
-            .find(|candidate| {
-                let action = &candidate.record.action;
-                (context.budget.allow_movement || action.kind != CW_ACTION_MOVE)
-                    && self.ripple_move_keeps_player_company(context, action)
-                    && !self.resident_campaign_pickup_is_reserved(action)
-                    && self.kernel_offer_allows_action(action)
-            });
+        let goal_item_id = self
+            .actor_autonomy
+            .get(&actor_id)
+            .and_then(|state| state.owner_delegation.as_ref())
+            .filter(|delegation| delegation.enabled && delegation.goal_status != "acquired")
+            .and_then(|delegation| delegation.goal_item_id);
+        let mut candidates = self.resident_autonomy_candidates_for_ids(&[actor_id], seed);
+        candidates.sort_by_key(|candidate| {
+            let action = &candidate.record.action;
+            if action.kind == CW_ACTION_PICK_UP_ITEM && Some(action.item_id) == goal_item_id {
+                0
+            } else {
+                1
+            }
+        });
+        let selected = candidates.into_iter().find(|candidate| {
+            let action = &candidate.record.action;
+            (context.budget.allow_movement || action.kind != CW_ACTION_MOVE)
+                && self.ripple_move_keeps_player_company(context, action)
+                && !self.resident_campaign_pickup_is_reserved(action)
+                && self.kernel_offer_allows_action(action)
+        });
         let candidate = match selected {
             Some(candidate) => candidate,
             None => {
@@ -730,6 +767,11 @@ impl RuntimeWorld {
         }
         let waiting_for_player_gift = self.resident_waits_for_player_gift(actor);
         let staying_with_active_job = self.resident_stays_with_active_job(actor);
+        if let Some(goal_action) = self.delegated_goal_pickup_action(actor.id) {
+            if let Some(action) = self.fresh_resident_autonomy_action(actor, goal_action) {
+                return Some(action);
+            }
+        }
         let pending_proposal = self
             .resident_continuities
             .get(&actor.id)

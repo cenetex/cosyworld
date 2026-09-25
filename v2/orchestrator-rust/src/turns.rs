@@ -489,9 +489,26 @@ fn room_initiative_actor_is_eligible(
     location_id: u64,
     active_direct_actor_ids: &BTreeSet<u64>,
 ) -> bool {
+    let delegated_owner = runtime.actor_is_delegated_owner(actor.id);
+    let active_room_controller_present = active_direct_actor_ids.iter().any(|actor_id| {
+        runtime.actor_by_id(*actor_id).is_some_and(|candidate| {
+            RuntimeWorld::actor_can_act(candidate)
+                && candidate.location_id == location_id
+                && (!runtime.actor_uses_inference(candidate.id)
+                    || runtime.actor_is_delegated_owner(candidate.id)
+                        && (runtime.delegated_action_available(candidate.id)
+                            || runtime.delegated_speech_available(candidate.id)))
+        })
+    });
     RuntimeWorld::actor_can_act(actor)
         && actor.location_id == location_id
-        && (runtime.actor_uses_inference(actor.id) || active_direct_actor_ids.contains(&actor.id))
+        && if runtime.actor_uses_inference(actor.id) {
+            (runtime.delegated_action_available(actor.id)
+                || runtime.delegated_speech_available(actor.id))
+                && (!delegated_owner || active_room_controller_present)
+        } else {
+            active_direct_actor_ids.contains(&actor.id)
+        }
 }
 
 fn rolled_room_initiative_order(
@@ -600,6 +617,66 @@ pub(super) fn current_room_initiative_actor(
 ) -> Option<u64> {
     reconciled_room_initiative(runtime, location_id, active_direct_actor_ids)
         .and_then(|initiative| initiative.current_actor_id())
+}
+
+pub(super) fn room_initiative_auto_pass_round_complete(
+    runtime: &RuntimeWorld,
+    location_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> bool {
+    let Some(initiative) =
+        reconciled_room_initiative(runtime, location_id, active_direct_actor_ids)
+    else {
+        return false;
+    };
+    let current_actor_id = initiative.current_actor_id();
+    let current_seat_is_available = current_actor_id.is_some_and(|actor_id| {
+        runtime.actor_by_id(actor_id).is_some()
+            && (!runtime.actor_uses_inference(actor_id)
+                || runtime.actor_is_delegated_owner(actor_id))
+            && active_direct_actor_ids.contains(&actor_id)
+    });
+    if !current_seat_is_available {
+        return false;
+    }
+    let participants = initiative
+        .participant_order
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if participants.len() < 2 {
+        return false;
+    }
+    let mut passed = BTreeSet::new();
+    for event in runtime
+        .event_log
+        .iter()
+        .filter(|event| event.success && event.location_id == Some(location_id))
+    {
+        if event.type_name == "hand.shuffled" {
+            let automatic_pass = event.content.as_deref().is_some_and(|reason| {
+                reason.starts_with("resident_") || reason == "room_initiative_rope"
+            });
+            if automatic_pass {
+                if let Some(actor_id) = event.actor_id.filter(|id| participants.contains(id)) {
+                    passed.insert(actor_id);
+                }
+            } else if event.actor_id.is_some_and(|id| participants.contains(&id)) {
+                passed.clear();
+            }
+            continue;
+        }
+        if event.type_name != "room.turn.advanced"
+            && (event.actor_id.is_some_and(|id| participants.contains(&id))
+                || event
+                    .target_actor_id
+                    .is_some_and(|id| participants.contains(&id)))
+        {
+            passed.clear();
+        }
+    }
+    participants
+        .iter()
+        .all(|actor_id| passed.contains(actor_id))
 }
 
 #[cfg(test)]
@@ -2649,6 +2726,111 @@ async fn apply_focused_control(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parked_room_fixture(npc_first: bool) -> (RuntimeWorld, BTreeSet<u64>) {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Willow");
+        create_test_human(&mut runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, "Player");
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::ReactiveAi;
+        runtime.actor_autonomy.entry(5001).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        let participant_order = if npc_first {
+            vec![5000, 5001]
+        } else {
+            vec![5001, 5000]
+        };
+        runtime.room_initiatives.insert(
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            RoomInitiativeState {
+                schema_version: ROOM_INITIATIVE_SCHEMA_VERSION,
+                participant_order,
+                current_index: 0,
+                round: 1,
+                activation: 1,
+            },
+        );
+        let active = BTreeSet::from([5001]);
+        (runtime, active)
+    }
+
+    #[test]
+    fn an_all_pass_round_parks_on_a_direct_seat_and_a_new_action_reopens_it() {
+        for npc_first in [false, true] {
+            let (mut runtime, active) = parked_room_fixture(npc_first);
+            let order = runtime
+                .room_initiatives
+                .get(&RAIN_SOFT_GARDEN_LOCATION_ID)
+                .unwrap()
+                .participant_order
+                .clone();
+            for actor_id in &order {
+                runtime.append_hand_shuffled_event(
+                    *actor_id,
+                    if *actor_id == 5001 {
+                        "room_initiative_rope"
+                    } else {
+                        "resident_pass"
+                    },
+                );
+            }
+            let initiative = runtime
+                .room_initiatives
+                .get_mut(&RAIN_SOFT_GARDEN_LOCATION_ID)
+                .unwrap();
+            initiative.current_index = 0;
+
+            if npc_first {
+                assert!(
+                    !room_initiative_auto_pass_round_complete(
+                        &runtime,
+                        RAIN_SOFT_GARDEN_LOCATION_ID,
+                        &active,
+                    ),
+                    "the worker finishes the round on the active player's seat"
+                );
+                runtime.append_hand_shuffled_event(5000, "resident_pass");
+                runtime
+                    .room_initiatives
+                    .get_mut(&RAIN_SOFT_GARDEN_LOCATION_ID)
+                    .unwrap()
+                    .current_index = 1;
+            }
+
+            assert!(room_initiative_auto_pass_round_complete(
+                &runtime,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                &active,
+            ));
+            let player_turn =
+                ordinary_room_turn_view(&runtime, 5001, RAIN_SOFT_GARDEN_LOCATION_ID, &active)
+                    .expect("the player still has a room seat");
+            assert_eq!(player_turn.current_actor_id, Some(5001));
+            assert!(!room_initiative_needs_actor_job(
+                &runtime,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                &active,
+            ));
+
+            runtime.push_projected_event(EventView {
+                type_name: "item.picked_up".to_string(),
+                success: true,
+                actor_id: Some(5001),
+                location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+                ..EventView::default()
+            });
+            assert!(
+                !room_initiative_auto_pass_round_complete(
+                    &runtime,
+                    RAIN_SOFT_GARDEN_LOCATION_ID,
+                    &active,
+                ),
+                "a new player action starts another bounded room cycle"
+            );
+            let state = test_app_state(runtime, None);
+            let runtime = state.inner.blocking_lock();
+            assert!(actor_turn_rejection(&state, &runtime, 5001).is_none());
+        }
+    }
 
     fn focused_work_record(runtime: &RuntimeWorld, actor_id: u64, seed: u64) -> JournalRecord {
         let intent = runtime
