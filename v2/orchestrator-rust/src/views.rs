@@ -3986,7 +3986,11 @@ impl RuntimeWorld {
     ) -> StateResponse {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_observe(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
-        let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
+        let location_id = actor.map(|actor| actor.location_id).unwrap_or_else(|| {
+            content_registry()
+                .entry_location_id()
+                .unwrap_or(COSY_COTTAGE_LOCATION_ID)
+        });
         let location = self.location_view(location_id);
 
         let projection_viewer_id = Some(client_actor_id.unwrap_or_default());
