@@ -5720,6 +5720,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn guest_state_uses_authored_entry_location() {
+        let runtime = RuntimeWorld::seeded();
+        let state = runtime.state_response(None, &AccessContext::default());
+        let entry_location_id = content_registry()
+            .entry_location_id()
+            .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+        assert_eq!(state.location.id, entry_location_id);
+        if let Some(entry_item) = active_content()
+            .items
+            .iter()
+            .find(|item| item.location_id == entry_location_id)
+        {
+            assert!(state.items.iter().any(|item| item.id == entry_item.id));
+        }
+    }
+
+    #[test]
     fn inference_actor_speech_availability_tracks_the_attention_budget() {
         let mut runtime = RuntimeWorld::seeded();
         let actor_id = RATI_ACTOR_ID;

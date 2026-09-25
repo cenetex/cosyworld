@@ -697,6 +697,85 @@ impl crate::RuntimeWorld {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn inactive_human_inventory_preserves_existing_floor_and_releases_all_items() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut record = JournalRecord::new(create, 17605);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Gone Collector".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Inventory Tester".to_string(),
+                description: "A test avatar holding a unique item while inactive.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let held_since_tick = runtime.world.tick;
+        for item_id in [HEARTH_TONIC_ITEM_ID, STORY_BUTTON_ITEM_ID] {
+            let item = runtime.world.items[..runtime.world.item_count]
+                .iter_mut()
+                .find(|item| item.id == item_id)
+                .expect("held fixture item exists");
+            item.holder_actor_id = 5000;
+            item.location_id = 0;
+            item.zone = CW_CARD_ZONE_CARRIED;
+            item.held_since_tick = held_since_tick;
+        }
+        let floor_item = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == 2002)
+            .expect("Dewbright Button exists");
+        floor_item.holder_actor_id = 0;
+        floor_item.location_id = COSY_COTTAGE_LOCATION_ID;
+        floor_item.zone = CW_CARD_ZONE_WORLD;
+
+        let state = test_app_state(runtime, None);
+        let mut runtime = state.inner.lock().await;
+        let events = release_inactive_direct_inventory_locked(&state, &mut runtime);
+
+        for item_id in [HEARTH_TONIC_ITEM_ID, STORY_BUTTON_ITEM_ID] {
+            assert!(events.iter().any(|event| {
+                event.type_name == "item.dropped"
+                    && event.actor_id == Some(5000)
+                    && event.item_id == Some(item_id)
+            }));
+            assert!(runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .any(|item| {
+                    item.id == item_id
+                        && item.holder_actor_id == 0
+                        && item.location_id == COSY_COTTAGE_LOCATION_ID
+                        && item.zone == CW_CARD_ZONE_WORLD
+                }));
+        }
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| {
+                item.id == 2002
+                    && item.holder_actor_id == 0
+                    && item.location_id == COSY_COTTAGE_LOCATION_ID
+                    && item.zone == CW_CARD_ZONE_WORLD
+            }));
+
+        assert!(release_inactive_direct_inventory_locked(&state, &mut runtime).is_empty());
+        assert!(
+            runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .filter(|item| {
+                    [HEARTH_TONIC_ITEM_ID, STORY_BUTTON_ITEM_ID].contains(&item.id)
+                        && item.holder_actor_id == 0
+                        && item.location_id == COSY_COTTAGE_LOCATION_ID
+                })
+                .count()
+                == 2
+        );
+    }
+
     async fn player_route(
         state: &AppState,
         method: &str,

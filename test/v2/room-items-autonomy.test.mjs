@@ -81,6 +81,16 @@ describe('owner autonomy controls', () => {
     expect(context.avatarAutonomyBusy).toBe(false);
   });
 
+  it('refreshes a draft after another session changes the allowance', () => {
+    const { context, state } = game();
+    context.autonomyDraft().action_limit = 12;
+    Object.assign(state.avatar_autonomy, { generation: 5, action_limit: 2, speech_limit: 1 });
+    const draft = context.autonomyDraft();
+    expect(draft.generation).toBe(5);
+    expect(draft.action_limit).toBe(2);
+    expect(draft.speech_limit).toBe(1);
+  });
+
   it('limits talk mode to speech and requires a positive allowance', async () => {
     const { context } = game();
     const calls = [];
@@ -97,7 +107,7 @@ describe('owner autonomy controls', () => {
   it('shows current remaining budget, offers pause, and refreshes after a stale setting', async () => {
     const { context, state } = game();
     Object.assign(state.avatar_autonomy, { enabled: true, remaining_actions: 3, remaining_speech: 1, estimated_spend_limit_microdollars: 4000 });
-    expect(context.avatarAutonomyPanelHtml()).toContain('3 actions · 1 replies left');
+    expect(context.avatarAutonomyPanelHtml()).toContain('3 actions · 1 reply left');
     expect(context.avatarAutonomyPanelHtml()).toContain('Pause and take control');
     expect(context.avatarAutonomyPanelHtml()).not.toContain('Start this allowance');
     let refreshed = 0;

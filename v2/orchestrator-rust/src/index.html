@@ -6724,6 +6724,7 @@
       cursor: pointer;
     }
     .autonomy-play-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+    .autonomy-play-status[hidden] { display: none; }
     .autonomy-play-status span { color: var(--dim); font-size: 13px; }
     .autonomy-play-status button { min-height: 44px; flex-shrink: 0; }
     .prompt.autonomy-running > :not(.autonomy-play-status) { display: none !important; }
@@ -16052,7 +16053,8 @@
       if (!actorId || !actorSession || !current) return "";
       const draft = autonomyDraft();
       const enabled = current.enabled === true;
-      const remaining = `${Number(current.remaining_actions || 0)} actions · ${Number(current.remaining_speech || 0)} replies left`;
+      const replyCount = Number(current.remaining_speech || 0);
+      const remaining = `${Number(current.remaining_actions || 0)} actions · ${replyCount} ${replyCount === 1 ? "reply" : "replies"} left`;
       const status = enabled ? remaining : "You guide each play";
       const goalId = Number(current.goal_item_id || 0);
       const goalLabel = goalId ? itemNameForId(goalId) : "";
@@ -16066,7 +16068,7 @@
         ? `<p>${escapeHtml(remaining)}. ${goalLabel ? `${escapeHtml(goalStatus)}: ${escapeHtml(goalLabel)}.` : "Your avatar chooses from the room’s current cards."}</p><button class="account-button" type="button" data-autonomy-set="pause"${avatarAutonomyBusy ? " disabled" : ""}>Pause and take control</button>`
         : `<div class="avatar-autonomy-fields"><label class="wide">Let my avatar<select data-autonomy-field="scope"><option value="speech"${draft.scope === "speech" ? " selected" : ""}>Talk</option><option value="speech_and_actions"${draft.scope === "speech_and_actions" ? " selected" : ""}>Talk and act</option></select></label><label>Action allowance<input type="number" min="0" max="16" step="1" data-autonomy-field="action_limit" value="${Number(draft.action_limit)}" /></label><label>Reply allowance<input type="number" min="0" max="4" step="1" data-autonomy-field="speech_limit" value="${Number(draft.speech_limit)}" /></label><label class="wide">Item to seek<select data-autonomy-field="goal_item_id"><option value="">Follow the room</option>${oldGoal}${options}</select></label></div><p>Your avatar joins in when players are active in the room, including while you are away. Each start gives one allowance. You can pause at any time.</p><button class="account-button" type="button" data-autonomy-set="start"${avatarAutonomyBusy ? " disabled" : ""}>Start this allowance</button>`;
       const estimated = enabled ? Number(current.estimated_spend_limit_microdollars || 0) / 1000000 : Number(draft.speech_limit || 0) * 0.002;
-      return `<details class="avatar-autonomy"${avatarAutonomyOpen ? " open" : ""}><summary>AI avatar · ${escapeHtml(status)}</summary><div class="avatar-autonomy-body">${controls}<p>Estimated voice budget: $${estimated.toFixed(3)}. Each reply request uses one slot, including its retries.</p><p role="status" aria-live="polite">${escapeHtml(avatarAutonomyNotice)}</p></div></details>`;
+      return `<details class="avatar-autonomy"${avatarAutonomyOpen ? " open" : ""}><summary>AI avatar · ${escapeHtml(status)}</summary><div class="avatar-autonomy-body">${controls}<p>Estimated voice budget: <span data-autonomy-estimate>$${estimated.toFixed(3)}</span>. Each reply request uses one slot, including its retries.</p><p role="status" aria-live="polite">${escapeHtml(avatarAutonomyNotice)}</p></div></details>`;
     }
 
     async function setAvatarAutonomy(enabled) {
@@ -17988,7 +17990,9 @@
       const itemSlot = actionBarActions().find((action) => action.sceneCardType === "item");
       const think = projectedHandEntryForAction(itemSlot)?.think;
       const draw = !inHand && think?.available && think?.offer_id;
-      const handCopy = inHand
+      const handCopy = state?.avatar_autonomy?.enabled
+        ? `<p class="room-items-note">Your avatar is choosing its plays.</p><button class="account-button" type="button" data-autonomy-reclaim>Take control</button>`
+        : inHand
         ? `<button class="account-button" type="button" data-room-item-hand="${Number(item.id)}">View in hand</button>`
         : `<p class="room-items-note">Your hand holds one item card at a time. Think on that card to draw another item.</p>${draw ? `<button class="account-button" type="button" data-room-item-think>Think · ${think.free ? "Free" : "Turn"}</button>` : ""}`;
       return `<section class="card-current" aria-label="Item location and hand"><div class="card-section-label">${escapeHtml(itemWhereabouts(item))}</div>${handCopy}<button class="account-button secondary" type="button" data-room-items-back>All items here</button></section>`;
@@ -20258,7 +20262,10 @@
       $("autonomy-play-status").hidden = !delegated;
       if (delegated) {
         const remaining = state.avatar_autonomy;
-        $("autonomy-play-copy").textContent = `Your avatar is choosing · ${remaining.remaining_actions} actions · ${remaining.remaining_speech} replies left`;
+        const active = Number(remaining.remaining_actions) + Number(remaining.remaining_speech) > 0;
+        $("autonomy-play-copy").textContent = active
+          ? `AI avatar · ${remaining.remaining_actions} actions · ${remaining.remaining_speech} replies left`
+          : "Allowance used. Take control to choose the next step.";
         $("autonomy-take-control").disabled = avatarAutonomyBusy;
         return;
       }
@@ -20754,7 +20761,10 @@
     $("log").addEventListener("input", (event) => {
       const field = event.target.getAttribute("data-autonomy-field");
       if (["scope", "action_limit", "speech_limit", "goal_item_id"].includes(field)) {
-        autonomyDraft()[field] = event.target.value;
+        const draft = autonomyDraft();
+        draft[field] = event.target.value;
+        const estimate = event.target.closest(".avatar-autonomy")?.querySelector("[data-autonomy-estimate]");
+        if (estimate) estimate.textContent = `$${(Math.max(0, Math.min(4, Number(draft.speech_limit) || 0)) * 0.002).toFixed(3)}`;
       }
     });
 
@@ -20951,6 +20961,11 @@
     $("autonomy-take-control").addEventListener("click", () => { void setAvatarAutonomy(false); });
 
     $("card-modal").addEventListener("click", (event) => {
+      if (event.target.closest("[data-autonomy-reclaim]")) {
+        closeCardModal();
+        void setAvatarAutonomy(false);
+        return;
+      }
       if (event.target.closest("[data-room-items-back]")) {
         openRoomItems();
         return;
