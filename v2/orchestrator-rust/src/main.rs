@@ -16,6 +16,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod avatar_autonomy;
 mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_levels;
@@ -942,6 +943,14 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    SetOwnerDelegation {
+        actor_id: u64,
+        delegation: avatar_autonomy::OwnerDelegation,
+    },
+    ReserveDelegatedSpeech {
+        actor_id: u64,
+        generation: u64,
+    },
     StartAvatarRescueRun {
         downed_actor_id: u64,
     },
@@ -1481,6 +1490,8 @@ struct ActorSafetyState {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct ActorAutonomyState {
     control_mode: ActorControlMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    owner_delegation: Option<avatar_autonomy::OwnerDelegation>,
     #[serde(default)]
     current_desires: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7355,6 +7366,17 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
+        if record.origin == JournalOrigin::ActorConsequence
+            && self
+                .actor_autonomy
+                .get(&record.action.actor_id)
+                .and_then(|state| state.owner_delegation.as_ref())
+                .is_some()
+            && self.actor_is_delegated_owner(record.action.actor_id)
+            && !self.delegated_action_allowed(record.action.actor_id, record.action.kind)
+        {
+            return (CW_ERR_RULE, Vec::new());
+        }
         let avatar_rescue_already_applied = self.avatar_rescue_record_already_applied(record);
         let abandon_avatar_already_applied = self.abandon_avatar_record_already_applied(record);
         if !Self::entity_level_record_supported(record)
@@ -7665,6 +7687,18 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::SetOwnerDelegation {
+                    actor_id,
+                    delegation,
+                } => {
+                    self.apply_owner_delegation(*actor_id, delegation.clone(), &mut events);
+                }
+                ProjectionMutation::ReserveDelegatedSpeech {
+                    actor_id,
+                    generation,
+                } => {
+                    self.apply_delegated_speech_reservation(*actor_id, *generation);
+                }
                 ProjectionMutation::StartAvatarRescueRun { downed_actor_id } => {
                     let rescuer_actor_id = action.actor_id;
                     let valid_downed_body =
@@ -22246,9 +22280,22 @@ fn commit_resident_reply_record(
         mut proposal,
         speech,
         mut planning,
+        delegation_generation,
     } = certified;
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
+    let current_delegation = runtime
+        .actor_autonomy
+        .get(&speaker.id)
+        .and_then(|state| state.owner_delegation.as_ref());
+    if current_delegation.is_some()
+        && current_delegation
+            .filter(|value| value.enabled)
+            .map(|value| value.generation)
+            != delegation_generation
+    {
+        return None;
+    }
     if !RuntimeWorld::actor_can_act(speaker) {
         return None;
     }

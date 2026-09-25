@@ -74,7 +74,7 @@ pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
-fn actor_job_error_is_parked_autonomy(error: &str) -> bool {
+pub(super) fn actor_job_error_is_parked_autonomy(error: &str) -> bool {
     [
         "avatar autonomy was paused",
         "avatar speech allowance is spent",

@@ -965,6 +965,7 @@ mod tests {
                         &plan.speaker_name,
                     ),
                     planning: ResidentPlanningTrace::absent(&plan),
+                    delegation_generation: None,
                 },
                 None,
                 None,

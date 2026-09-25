@@ -379,7 +379,12 @@ impl RuntimeWorld {
     pub(super) fn client_actor_can_observe(&self, actor_id: u64) -> bool {
         self.actor_by_id(actor_id)
             .is_some_and(Self::actor_is_present)
-            && self.actor_control_mode(actor_id).is_direct_input()
+            && (self.actor_control_mode(actor_id).is_direct_input()
+                || self
+                    .actor_autonomy
+                    .get(&actor_id)
+                    .and_then(|state| state.owner_delegation.as_ref())
+                    .is_some_and(|delegation| delegation.enabled))
     }
 
     pub(super) fn can_summon_avatar_for_rescue(&self, actor_id: u64) -> bool {
@@ -646,6 +651,9 @@ impl crate::RuntimeWorld {
     }
 
     pub(crate) fn autonomy_allows_action(&self, actor_id: u64, action_kind: u8) -> bool {
+        if !self.delegated_action_allowed(actor_id, action_kind) {
+            return false;
+        }
         let Some(autonomy) = self.actor_autonomy.get(&actor_id) else {
             return false;
         };
@@ -670,6 +678,10 @@ impl crate::RuntimeWorld {
         if autonomy.control_mode.is_direct_input() {
             return;
         }
+        self.record_delegated_action(record.action.actor_id, record.action.kind);
+        let Some(autonomy) = self.actor_autonomy.get_mut(&record.action.actor_id) else {
+            return;
+        };
         autonomy.last_acted_tick = record.source_world_tick.unwrap_or(self.world.tick);
         autonomy.last_acted_event_seq = self.world.next_event_seq.saturating_sub(1);
         autonomy.attention_credits = autonomy.attention_credits.saturating_sub(1);

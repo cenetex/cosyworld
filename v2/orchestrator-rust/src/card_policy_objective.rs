@@ -552,6 +552,12 @@ fn commit_resident_card_policy_turn(
     base_plan: &AvatarReplyPlan,
     rollout: &CardPolicyRollout,
 ) -> Result<Option<CommittedResidentPolicyTurn>, String> {
+    if runtime
+        .owner_delegation_generation(base_plan.speaker_actor_id)
+        .is_some()
+    {
+        return Ok(None);
+    }
     if rollout.mode != CardPolicyRolloutMode::Live || !base_plan.planner_requested {
         return Ok(None);
     }

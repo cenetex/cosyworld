@@ -707,6 +707,7 @@ pub(super) struct CommandContextView {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(super) struct StateResponse {
+    pub(super) avatar_autonomy: Option<avatar_autonomy::AvatarAutonomyView>,
     pub(super) world_id: String,
     pub(super) world_epoch: u64,
     pub(super) world_seq: u64,
@@ -779,6 +780,9 @@ impl Serialize for StateResponse {
         S: serde::Serializer,
     {
         let mut out = serializer.serialize_struct("StateResponse", 36)?;
+        if let Some(value) = &self.avatar_autonomy {
+            out.serialize_field("avatar_autonomy", value)?;
+        }
         out.serialize_field("world_id", &self.world_id)?;
         out.serialize_field("world_epoch", &self.world_epoch)?;
         out.serialize_field("world_seq", &self.world_seq)?;
@@ -4138,6 +4142,7 @@ impl RuntimeWorld {
             access,
         );
         StateResponse {
+            avatar_autonomy: client_actor_id.map(|id| self.avatar_autonomy_view(id)),
             world_id: OFFICIAL_WORLD_ID.to_string(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
             world_seq: self.world.next_event_seq.saturating_sub(1),
