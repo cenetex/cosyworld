@@ -74,16 +74,25 @@ pub(super) const ROOM_SEAT_GRACE_MS: u64 = ORDERED_SCENE_BASE_GRACE_MS;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_RETRY_DELAY_MS: i64 = 30_000;
 pub(super) const ACTOR_JOB_MALFORMED_PAYLOAD_ERROR: &str = "actor_job_payload_invalid";
 
+fn actor_job_error_is_parked_autonomy(error: &str) -> bool {
+    [
+        "avatar autonomy was paused",
+        "avatar speech allowance is spent",
+    ]
+    .iter()
+    .any(|reason| error.contains(reason))
+}
+
 /// Durable counts derived from the action journal. Pass causes stay distinct
 /// so turn churn can be measured beside resident actions.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) struct ResidentAutonomyProgress {
     pub(crate) useful_actions: u64,
     pub(crate) pass_causes: BTreeMap<String, u64>,
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) fn resident_autonomy_progress(
     conn: &Connection,
     actor_id: u64,
@@ -158,17 +167,64 @@ pub(super) fn room_initiative_needs_actor_job(
     location_id: u64,
     active_direct_actor_ids: &BTreeSet<u64>,
 ) -> bool {
-    let has_active_direct_actor = active_direct_actor_ids.iter().any(|actor_id| {
+    if room_initiative_auto_pass_round_complete(runtime, location_id, active_direct_actor_ids) {
+        return false;
+    }
+    let has_active_room_controller = active_direct_actor_ids.iter().any(|actor_id| {
         runtime.actor_by_id(*actor_id).is_some_and(|actor| {
             RuntimeWorld::actor_can_act(actor)
                 && actor.location_id == location_id
-                && !runtime.actor_uses_inference(actor.id)
+                && (!runtime.actor_uses_inference(actor.id)
+                    || runtime.actor_is_delegated_owner(actor.id)
+                        && (runtime.delegated_action_available(actor.id)
+                            || runtime.delegated_speech_available(actor.id)))
         })
     });
-    has_active_direct_actor
+    has_active_room_controller
         && current_room_initiative_actor(runtime, location_id, active_direct_actor_ids)
             .and_then(|actor_id| runtime.actor_by_id(actor_id))
             .is_some_and(|actor| runtime.actor_uses_inference(actor.id))
+}
+
+/// Start one bounded room-autonomy chain from the owner's committed start
+/// event. The owner's active session supplies the played-time presence needed
+/// for the room scheduler to keep advancing.
+pub(super) async fn schedule_delegated_owner_start(
+    state: &AppState,
+    actor_id: u64,
+    location_id: u64,
+    events: &[EventView],
+) -> io::Result<bool> {
+    let observation = {
+        let runtime = state.inner.lock().await;
+        let active_actor_ids = active_actor_ids_for_state(state);
+        if !runtime.actor_is_delegated_owner(actor_id)
+            || !active_actor_ids.contains(&actor_id)
+            || runtime
+                .actor_by_id(actor_id)
+                .is_none_or(|actor| actor.location_id != location_id)
+        {
+            return Ok(false);
+        }
+        player_tick_observation(&runtime, Some(location_id), actor_id, CW_OK, events)
+    };
+    let Some(mut observation) = observation else {
+        return Ok(false);
+    };
+    let Some(ripple_source) = observation.ripple_source.as_mut() else {
+        return Ok(false);
+    };
+    ripple_source.resident_action_budget = 1;
+    if let Some(path) = state.event_store_path.as_deref() {
+        let conn = open_event_store(path)?;
+        let inserted = insert_actor_job(&conn, &observation)?;
+        if inserted {
+            state.actor_job_notify.notify_one();
+        }
+        return Ok(inserted);
+    }
+    schedule_player_tick_observation(state, observation);
+    Ok(true)
 }
 
 pub(super) fn insert_room_rope_job(
@@ -290,6 +346,7 @@ pub(super) fn schedule_resumed_room_rope(
 pub(super) fn room_rope_target_from_events(
     runtime: &RuntimeWorld,
     events: &[EventView],
+    active_direct_actor_ids: &BTreeSet<u64>,
 ) -> Option<(u64, u64, u64)> {
     let event = events
         .iter()
@@ -302,6 +359,8 @@ pub(super) fn room_rope_target_from_events(
     if !RuntimeWorld::actor_can_act(actor)
         || actor.location_id != location_id
         || runtime.actor_uses_inference(actor.id)
+        || !active_direct_actor_ids.contains(&actor_id)
+        || room_initiative_auto_pass_round_complete(runtime, location_id, active_direct_actor_ids)
     {
         return None;
     }
@@ -319,6 +378,10 @@ pub(super) async fn complete_room_rope_job(
 ) -> Result<(), String> {
     let mut runtime = state.inner.lock().await;
     let active_direct_actor_ids = active_actor_ids_for_state(state);
+    if room_initiative_auto_pass_round_complete(&runtime, job.location_id, &active_direct_actor_ids)
+    {
+        return Ok(());
+    }
     let seat_still_held =
         reconciled_room_initiative(&runtime, job.location_id, &active_direct_actor_ids)
             .is_some_and(|initiative| {
@@ -576,7 +639,8 @@ pub(super) async fn complete_player_tick_observation(
                     .filter(|record| {
                         let allowed_by_delegation = initiative_actor_id.is_none()
                             || !runtime.actor_uses_inference(record.action.actor_id)
-                            || runtime.delegated_action_available(record.action.actor_id);
+                            || runtime.delegated_action_available(record.action.actor_id)
+                            || record.offer_kind.as_deref() == Some("pass");
                         let allowed_by_autonomy = runtime
                             .autonomy_allows_action(record.action.actor_id, record.action.kind)
                             || record.offer_kind.as_deref() == Some("pass");
@@ -1122,6 +1186,17 @@ mod readiness_retry_tests {
     use super::*;
 
     #[test]
+    fn spent_or_paused_autonomy_jobs_are_parked_without_retry() {
+        assert!(actor_job_error_is_parked_autonomy(
+            "avatar autonomy was paused after queued speech"
+        ));
+        assert!(actor_job_error_is_parked_autonomy(
+            "avatar speech allowance is spent"
+        ));
+        assert!(!actor_job_error_is_parked_autonomy("provider timed out"));
+    }
+
+    #[test]
     fn readiness_deferral_does_not_consume_an_actor_attempt() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-readiness-deferral-{}-{}.sqlite",
@@ -1663,6 +1738,14 @@ pub(super) async fn run_actor_job_worker(state: AppState, claimed_kind: &'static
                         }
                     }
                     Ok(false) => {}
+                    Err(error) if actor_job_error_is_parked_autonomy(&error) => {
+                        if let Err(store_error) = complete_actor_job(path, job.id) {
+                            warn!(
+                                "failed to park exhausted autonomy job {}: {}",
+                                job.id, store_error
+                            );
+                        }
+                    }
                     Err(error) => {
                         warn!("actor job {} failed: {}", job.id, error);
                         let retry_floor_ms = actor_job_retry_floor_ms(&state, &job, &error);

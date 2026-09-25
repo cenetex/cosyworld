@@ -28033,7 +28033,7 @@ fn commit_journal_record_blocking(
                 && insert_journal_background_jobs(&tx, &record, runtime.world.tick, &events)?;
             if status == CW_OK {
                 if let Some((rope_location_id, rope_actor_id, rope_activation)) =
-                    room_rope_target_from_events(runtime, &events)
+                    room_rope_target_from_events(runtime, &events, &active_direct_actor_ids)
                 {
                     insert_room_rope_job(
                         &tx,
@@ -28200,7 +28200,7 @@ fn commit_journal_record_blocking(
         }
         if status == CW_OK {
             if let Some((rope_location_id, rope_actor_id, rope_activation)) =
-                room_rope_target_from_events(runtime, &events)
+                room_rope_target_from_events(runtime, &events, &active_actor_ids_for_state(state))
             {
                 let rope_state = state.clone();
                 tokio::spawn(async move {
