@@ -72,6 +72,7 @@ mod lantern_keeper_tests;
 mod legacy_import;
 mod local_leads;
 mod materialization_retirement;
+mod room_history;
 // The legacy canary evaluator remains readable for frozen-job compatibility
 // and audit tests, while live evolution now always preserves its parent image.
 mod autonomy;
@@ -28447,7 +28448,7 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
 
 /// Schema version stamped after DDL runs. Bump it when a table is added so
 /// existing stores self-heal once on their next initialization.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 6;
+const EVENT_STORE_SCHEMA_VERSION: i64 = 7;
 
 /// Ensures the schema exists without taking its write lock on steady-state
 /// commits. Missing, replaced, and older stores rerun the idempotent DDL.
@@ -28736,6 +28737,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
             ON world_events(world_id, world_epoch, destination_location_id, seq);",
     )
     .map_err(sqlite_error)?;
+    room_history::initialize_index(&conn)?;
     init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
     init_hosted_access_store(&conn)?;
     init_story_metrics_store(&conn)?;
@@ -36746,11 +36748,10 @@ mod tests {
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
+            "log.innerHTML = `${historyControl}${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
-        assert!(INDEX_HTML.contains(
-            "const visible = narratedTranscriptEvents((events || []).filter((event) => {"
-        ));
+        assert!(INDEX_HTML
+            .contains("for (const event of [...roomConversation.events, ...(events || [])]) {"));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));

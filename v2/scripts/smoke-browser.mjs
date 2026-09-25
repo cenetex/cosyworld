@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spentPreparationTagBelongsToJob } from "./smoke-project-tags.mjs";
 import { assertBrowserReachability } from "./player-reachability.mjs";
+import { assertRoomHistoryPaging } from "./smoke-room-history.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const contentEngineVersion = (await readFile(
@@ -15911,6 +15912,7 @@ async function main() {
   await assertVisibleRoomWorldBeatsCountOnceAndHiddenViewsDoNot();
   await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
+  await assertRoomHistoryPaging(page);
   await assertCombatUsesSharedTurnLogOutsideChat();
   await assertSharedStoryBeatsReachTranscriptAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
