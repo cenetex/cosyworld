@@ -1221,7 +1221,17 @@ pub(super) async fn wallet_link_finish(
     ) {
         return auth_error(StatusCode::CONFLICT, error);
     }
+    discover_linked_avatars(&state, &wallet_address);
     identity_response(&state, &current.user_id, None, Some(&wallet_address))
+}
+
+/// Bring the worldpack's linked avatars that `wallet` holds into the world,
+/// in the background so linking never waits on the ownership lookup.
+fn discover_linked_avatars(state: &AppState, wallet: &str) {
+    let (state, wallet) = (state.clone(), wallet.to_string());
+    tokio::spawn(async move {
+        crate::proxim8::linked_avatars::materialize_wallet_linked_avatars(&state, &wallet).await;
+    });
 }
 
 fn cleanup_wallet_claims(auth: &AccountAuth) {
@@ -1646,13 +1656,16 @@ pub(super) async fn wallet_claim_finish(
     claim.wallet_address = Some(wallet_address.clone());
     claim.moved = moved || challenge.claimed_elsewhere;
     claim.completed_at = Some(Instant::now());
+    let moved = claim.moved;
+    drop(claims);
+    discover_linked_avatars(&state, &wallet_address);
     no_store_json(
         StatusCode::OK,
         &WalletClaimFinishResponse {
             ok: true,
             state: "complete".to_string(),
             wallet_address: Some(wallet_address),
-            moved: claim.moved,
+            moved,
             error: None,
         },
         None,

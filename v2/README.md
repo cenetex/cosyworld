@@ -717,6 +717,15 @@ The same protected adapter snapshot can be loaded from a file:
 COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH=.runtime/avatar-ownership.json cargo run
 ```
 
+Worlds that declare `linked_avatars` (see `v2/docs/worldpacks.md`) read wallet
+assets straight from Helius DAS when a key is set:
+
+```sh
+fly secrets set HELIUS_API_KEY=...          # or COSYWORLD_HELIUS_RPC_URL=https://...
+```
+
+Without Helius, linked-avatar discovery falls back to the ownership feed below.
+
 Production-style deployments can point at a trusted server-owned JSON feed:
 
 ```sh
