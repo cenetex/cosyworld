@@ -430,6 +430,17 @@ mod tests {
             source.arrival_location_id(),
             content_registry().entry_location_id()
         );
+        let rati = config
+            .sources
+            .iter()
+            .find(|source| source.id == "rati-avatars")
+            .expect("RATi Avatar source");
+        assert!(
+            rati.assets
+                .iter()
+                .any(|asset| asset == "EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA"),
+            "Santa Pooz is admitted"
+        );
     }
 
     fn config(arrival: u64) -> LinkedAvatarsConfig {
