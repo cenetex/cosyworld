@@ -15451,6 +15451,47 @@ async function main() {
       localStorage.removeItem("cosyworld.wallet");
       localStorage.removeItem("cosyworld.walletSession");
     });
+
+    // A signed-in passkey account reaches its account controls from the Menu:
+    // add passkey, link avatar wallet, sign out and OpenRouter.
+    await closeAccountInventory();
+    const linkedWallet = "2Q7CEgPw9eDDcmcsZXx8R9ZuGuUapzKAQfzb5CnYeQyn";
+    await page.evaluate((wallet) => {
+      window.__smokeIdentityBefore = identity;
+      identity = {
+        authenticated: true,
+        passkeys: [{ id: "smoke-passkey" }],
+        wallets: [{ wallet_address: wallet }],
+        active_wallet: wallet,
+      };
+    }, linkedWallet);
+    await focusIdentityPanel();
+    const signedIn = await page.evaluate(() => {
+      const menu = document.querySelector(".minimal-menu");
+      const visible = (selector) => {
+        const node = menu?.querySelector(selector);
+        return Boolean(node && node.getClientRects().length > 0);
+      };
+      return {
+        addPasskey: visible("[data-passkey-add]"),
+        linkWallet: visible("[data-wallet-link]"),
+        signOut: visible("[data-account-logout]"),
+        openRouter: Boolean(menu?.querySelector('[aria-label="OpenRouter connection"]')),
+        walletRows: menu?.querySelectorAll(".account-wallet-entry").length || 0,
+        text: menu?.innerText || "",
+      };
+    });
+    assert(
+      signedIn.addPasskey && signedIn.linkWallet && signedIn.signOut && signedIn.openRouter,
+      `a signed-in account should reach add passkey, link avatar wallet, sign out and OpenRouter from Menu: ${JSON.stringify(signedIn)}`,
+    );
+    assert(signedIn.walletRows === 1, `Menu should list the linked avatar wallet: ${JSON.stringify(signedIn)}`);
+    assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(signedIn.text), `account controls must not expose retired ownership surfaces: ${signedIn.text}`);
+    await closeAccountInventory();
+    await page.evaluate(() => {
+      identity = window.__smokeIdentityBefore;
+      delete window.__smokeIdentityBefore;
+    });
   }
 
   async function eventSummary() {
