@@ -1,5 +1,8 @@
 use super::*;
 
+mod rati_link;
+use rati_link::rati_link_message;
+
 use axum::http::{header::CACHE_CONTROL, HeaderValue};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use sha2::{Digest, Sha256};
@@ -64,7 +67,6 @@ pub(super) struct AccountAuth {
     wallet_link_challenges: StdMutex<BTreeMap<String, WalletLinkChallenge>>,
     wallet_claims: StdMutex<BTreeMap<String, WalletClaimIntent>>,
     wallet_claim_challenges: StdMutex<BTreeMap<String, WalletClaimChallenge>>,
-    rp_origin: String,
     cookie_name: String,
     secure_cookie: bool,
 }
@@ -402,7 +404,6 @@ impl AccountAuth {
             wallet_link_challenges: StdMutex::new(BTreeMap::new()),
             wallet_claims: StdMutex::new(BTreeMap::new()),
             wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
-            rp_origin,
             cookie_name: if secure_cookie {
                 "__Host-cosyworld_session".to_string()
             } else {
@@ -430,7 +431,6 @@ impl AccountAuth {
             wallet_link_challenges: StdMutex::new(BTreeMap::new()),
             wallet_claims: StdMutex::new(BTreeMap::new()),
             wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
-            rp_origin: "http://localhost:3102".to_string(),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
         })
@@ -1148,10 +1148,12 @@ pub(super) async fn wallet_link_start(
         return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
     };
     let nonce = random_hex(24);
-    let message = format!(
-        "CosyWorld wallet link\nOrigin: {}\nAccount: {}\nWallet: {}\nNonce: {}\nThis proves wallet ownership. It does not authorize a transaction.",
-        state.account_auth.rp_origin, current.user_id, wallet_address, nonce
-    );
+    // The shared RATi link (atimics/forge docs/rati-link.md). The nonce keys
+    // the pending challenge; the sequence is the issue time.
+    let Some(message) = rati_link_message(&current.user_id, &wallet_address, now_unix_secs())
+    else {
+        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
+    };
     let expires_at_unix = now_unix_secs() + WALLET_LINK_TTL.as_secs();
     let challenge = WalletLinkChallenge {
         user_id: current.user_id,
@@ -1467,15 +1469,11 @@ pub(super) async fn wallet_claim_challenge(
     };
     let nonce = random_hex(24);
     let expires_at_unix = now_unix_secs() + WALLET_LINK_TTL.as_secs();
-    let action = if claimed_elsewhere {
-        "Move this wallet's NFT claim to the waiting CosyWorld account."
-    } else {
-        "Claim this wallet's NFTs for the waiting CosyWorld account."
+    // The same RATi link as in-browser linking, naming the waiting account.
+    // The claim page asks for a separate confirmation before a move.
+    let Some(message) = rati_link_message(&claim.user_id, &wallet_address, now_unix_secs()) else {
+        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
     };
-    let message = format!(
-        "CosyWorld NFT wallet claim\nOrigin: {}\nClaim: {}\nWallet: {}\nNonce: {}\n{}\nThis proves wallet ownership. It does not authorize a transaction.",
-        state.account_auth.rp_origin, claim_id, wallet_address, nonce, action
-    );
     let challenge = WalletClaimChallenge {
         claim_id,
         user_id: claim.user_id,
