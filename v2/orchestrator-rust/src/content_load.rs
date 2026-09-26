@@ -106,6 +106,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
     #[serde(default)]
+    pub(super) linked_avatars: Option<crate::proxim8::linked_avatars::LinkedAvatarsConfig>,
+    #[serde(default)]
     pub(super) first_tale: Option<SeedFirstTaleContent>,
     #[serde(default)]
     pub(super) generation_media_registry: serde_json::Value,
@@ -1847,6 +1849,12 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
 }
 
 pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
+    if let Some(linked_avatars) = content.manifest.linked_avatars.as_ref() {
+        crate::proxim8::linked_avatars::validate_linked_avatars(linked_avatars, |id| {
+            content.locations.iter().any(|location| location.id == id)
+        })
+        .map_err(|error| format!("invalid worldpack linked_avatars: {error}"))?;
+    }
     validate_seed_building_archetypes(content)?;
     validate_seed_spatial_scenes(content)?;
     discovery_authority::validate_seed_discovery_authority(content)?;

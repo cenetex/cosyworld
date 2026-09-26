@@ -281,6 +281,55 @@ different file to establish their own cultural naming texture without changing
 Rust code. Component pools should be original setting material; published name
 tables are useful as structural inspiration, not as text to copy.
 
+## World-defined linked avatars
+
+A world composition may set `linked_avatars` to say which NFTs may join it as
+avatars. A source admits whole collections, specific assets, or both, and names
+where its avatars arrive:
+
+```json
+"linked_avatars": {
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "proxim8",
+      "name": "Proxim8",
+      "collections": ["5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf"],
+      "arrival_location": "cosyworld.core:location/1"
+    },
+    {
+      "id": "founders",
+      "name": "Founder",
+      "assets": ["<asset address>", "<asset address>"],
+      "arrival_location": "cosyworld.core:location/1",
+      "goal": "Welcome newcomers to the cottage."
+    }
+  ]
+}
+```
+
+- Addresses are Solana base58. There is no `standard` field: Metaplex Core,
+  Token Metadata, programmable and compressed NFTs are all admitted by their
+  verified collection or asset id, whatever Helius DAS reports as the
+  interface.
+- When a wallet is linked to an account, or signs in, the server reads its
+  assets from Helius (`HELIUS_API_KEY` or `COSYWORLD_HELIUS_RPC_URL`), or from
+  the trusted ownership feed when Helius is not configured. Each admitted asset
+  gets exactly one durable actor at its source's arrival location; later links,
+  restarts and custody transfers recover the same actor.
+- Metadata supplies only the display name, when it is short plain text.
+  Otherwise the actor is named from the source and asset id.
+- Linked-avatar journal records name the asset in their receipt
+  (`linked-avatar:<asset>`) and are validated from the record alone, so editing
+  `linked_avatars` never changes how an existing journal replays. An asset that
+  joined through the Project 89 pilot never joins twice.
+- Linked avatars are autonomous residents for now. Choosing one to play is a
+  separate change (ADR 0006 requires its own decision).
+
+The compiler, `check-worldpack.mjs` and the runtime all reject an invalid
+address, a source that admits nothing, a repeated id, or an unknown arrival
+location.
+
 ## Commands
 
 ```sh

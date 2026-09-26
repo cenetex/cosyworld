@@ -1147,6 +1147,9 @@ pub(super) async fn wallet_session(
         }
     }
     let _ = materialize_wallet_proxim8s(&state, &wallet_address).await;
+    let _ =
+        crate::proxim8::linked_avatars::materialize_wallet_linked_avatars(&state, &wallet_address)
+            .await;
 
     Json(WalletSessionResponse {
         ok: true,

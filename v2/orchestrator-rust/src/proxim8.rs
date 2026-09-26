@@ -1,5 +1,8 @@
 use super::*;
 
+pub(crate) mod helius;
+pub(crate) mod linked_avatars;
+
 const PROXIM8_EXTENSION_ID: &str = "x-cosyworld-actor-materialization";
 const PROXIM8_RECEIPT_PREFIX: &str = "project89:proxim8:";
 const PROXIM8_COLLECTION_ADDRESS: &str = "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf";
@@ -10,6 +13,12 @@ pub(super) fn is_materialized_actor_receipt(
     runtime: &RuntimeWorld,
     receipt: &MaterializationReceiptState,
 ) -> bool {
+    if receipt
+        .id
+        .starts_with(linked_avatars::LINKED_AVATAR_RECEIPT_PREFIX)
+    {
+        return linked_avatars::is_linked_avatar_receipt(runtime, receipt);
+    }
     let expected_receipt_id = proxim8_receipt_id(&receipt.card_id);
     let expected_item_id = materialized_item_id(&format!("{expected_receipt_id}:memory"));
     let expected_actor_name = proxim8_name(&receipt.card_id);
@@ -283,6 +292,17 @@ impl RuntimeWorld {
             return false;
         }
         let (receipt, memory_item, collection_address) = mutations[0];
+        if receipt
+            .id
+            .starts_with(linked_avatars::LINKED_AVATAR_RECEIPT_PREFIX)
+        {
+            return linked_avatars::linked_avatar_record_preconditions_hold(
+                self,
+                record,
+                receipt,
+                memory_item,
+            );
+        }
         receipt.id == proxim8_receipt_id(&receipt.card_id)
             && receipt.actor_id == record.action.actor_id
             && receipt.item_id == memory_item.id
@@ -337,14 +357,30 @@ impl RuntimeWorld {
         if events.is_empty() {
             return events;
         }
+        let summary = if receipt
+            .id
+            .starts_with(linked_avatars::LINKED_AVATAR_RECEIPT_PREFIX)
+        {
+            format!(
+                "Linked avatar asset {} joined{} as an autonomous actor.",
+                receipt.card_id,
+                if collection_address.is_empty() {
+                    String::new()
+                } else {
+                    format!(" from verified collection {collection_address}")
+                }
+            )
+        } else {
+            format!(
+                "PROXIM8 asset {} joined from verified collection {} as an independent local-AI actor; custody grants no direct control.",
+                receipt.card_id, collection_address
+            )
+        };
         events.push(self.append_async_job_event(
             "actor.materialized",
             receipt.actor_id,
             None,
-            Some(format!(
-                "PROXIM8 asset {} joined from verified collection {} as an independent local-AI actor; custody grants no direct control.",
-                receipt.card_id, collection_address
-            )),
+            Some(summary),
         ));
         events
     }

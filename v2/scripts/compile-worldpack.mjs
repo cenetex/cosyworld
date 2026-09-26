@@ -18,6 +18,7 @@ import {
   collectContentReferenceCandidates,
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
+import { assertLinkedAvatarsConfig } from "./linked-avatars-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
 import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
@@ -1239,13 +1240,22 @@ const packLifecycle = compilePackLifecycle(packLifecycleSource, resources);
 const {
   persistence_compatibility: _persistenceCompatibility,
   avatar_naming: _avatarNamingSource,
+  linked_avatars: linkedAvatars,
   first_tale: _firstTaleSource,
   pack_lifecycle: _packLifecycleSource,
   ...worldIdentity
 } = world;
+if (linkedAvatars !== undefined) {
+  assertLinkedAvatarsConfig(
+    linkedAvatars,
+    "world linked_avatars",
+    new Set(resources.locations.map((location) => location.id)),
+  );
+}
 const bundleHash = sha256([
   json(worldIdentity),
   ...(avatarNaming ? [json(avatarNaming)] : []),
+  ...(linkedAvatars ? [json(linkedAvatars)] : []),
   ...(firstTale ? [json(firstTale)] : []),
   ...(packLifecycle ? [json(packLifecycle)] : []),
   json(packSummary),
@@ -1283,6 +1293,7 @@ const manifest = {
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
   ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
+  ...(linkedAvatars ? { linked_avatars: linkedAvatars } : {}),
   ...(firstTale ? { first_tale: firstTale } : {}),
   ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,

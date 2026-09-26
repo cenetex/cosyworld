@@ -19,6 +19,7 @@ import {
 import { itemLevelPolicyErrors } from "./item-level-policy.mjs";
 import { writingRegisterErrors } from "./writing-register.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
+import { linkedAvatarsValidationErrors } from "./linked-avatars-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
 import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
@@ -1297,6 +1298,11 @@ const actorById = new Map(actors.map((actor) => [actor.id, actor]));
 const itemIds = idSet("items", items, (item) => item.id);
 const locationIds = idSet("locations", locations, (location) => location.id);
 const locationPackById = new Map(locations.map((location) => [location.id, location.pack_id]));
+if (manifest.linked_avatars !== undefined) {
+  for (const error of linkedAvatarsValidationErrors(manifest.linked_avatars, "worldpack linked_avatars", locationIds)) {
+    fail(error);
+  }
+}
 const packById = new Map(packs.map((pack) => [pack.id, pack]));
 function dependentUnmountClosure(packId) {
   return new Set(
