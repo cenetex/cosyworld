@@ -303,6 +303,14 @@ where its avatars arrive:
       "assets": ["<asset address>", "<asset address>"],
       "arrival_location": "cosyworld.core:location/1",
       "goal": "Welcome newcomers to the cottage."
+    },
+    {
+      "id": "rati-avatars",
+      "name": "RATi Avatar",
+      "characters": [
+        { "id": "santa-pooz", "name": "Santa Pooz", "assets": ["<copy>", "<copy>"] }
+      ],
+      "arrival_location": "cosyworld.core:location/1"
     }
   ]
 }
@@ -317,6 +325,13 @@ where its avatars arrive:
   the trusted ownership feed when Helius is not configured. Each admitted asset
   gets exactly one durable actor at its source's arrival location; later links,
   restarts and custody transfers recover the same actor.
+- `characters` groups copies of one character: every listed asset recovers
+  the same shared actor (named by the world, not the NFT), and several copies
+  in one wallet join once. Use it when the same avatar was minted more than
+  once. An asset may appear only once per source.
+- Token Metadata 1-of-1s minted without a master edition report the
+  `FungibleAsset` standard; they count when the wallet holds a balance of at
+  least one.
 - Metadata supplies only the display name, when it is short plain text.
   Otherwise the actor is named from the source and asset id.
 - Linked-avatar journal records name the asset in their receipt

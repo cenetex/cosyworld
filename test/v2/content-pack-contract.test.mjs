@@ -699,6 +699,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:5fab6867e057582f210ef7cc15812e3a4647aa9d34d5493d287dd0eae58267d4",
       "sha256:6237fac9831c8c98b77e56acaa3a97533407247e94346f013c9a557dbfb4db7a",
       "sha256:b01d951f8dfdacb8e22cdf5dc92b94c05521850a74280e57e93f4fdfed6fc6c4",
+      "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae",
     ]);
   });
 

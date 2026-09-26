@@ -71,7 +71,8 @@
       "sha256:40cf33d59d355c8b7a07c0cc877f9a79e079bbde2775019aafa7b5aaa2d0c9c5",
       "sha256:5fab6867e057582f210ef7cc15812e3a4647aa9d34d5493d287dd0eae58267d4",
       "sha256:6237fac9831c8c98b77e56acaa3a97533407247e94346f013c9a557dbfb4db7a",
-      "sha256:b01d951f8dfdacb8e22cdf5dc92b94c05521850a74280e57e93f4fdfed6fc6c4"
+      "sha256:b01d951f8dfdacb8e22cdf5dc92b94c05521850a74280e57e93f4fdfed6fc6c4",
+      "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae"
     ]
   },
   "pack_lifecycle": {
@@ -699,6 +700,321 @@
           "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf"
         ],
         "arrival_location": "cosyworld.core:location/1"
+      },
+      {
+        "id": "rati-avatars",
+        "name": "RATi Avatar",
+        "characters": [
+          {
+            "id": "abyssal-weaver",
+            "name": "Abyssal Weaver",
+            "assets": [
+              "3vmZWokq4yv99KTRKxvvgagPfcnaRkZx3UKQPFTgkP1s",
+              "AyDNXEQGQzfdknjCbYoJtT2oFh1kbBmVix94Zs4K3Vuo"
+            ]
+          },
+          {
+            "id": "basilisk-roko",
+            "name": "Basilisk Roko",
+            "assets": [
+              "EtdkAgy1GLEwUaWUmUide955keEiMGpensuGemXqbKAP"
+            ]
+          },
+          {
+            "id": "blackheart-betty",
+            "name": "Blackheart Betty",
+            "assets": [
+              "6rpqJtWMzmwGpkm1hJpBy6ZbNxW3mAsPrwDBrRS3Jz1B",
+              "79MNFTtGdawqMvUrenXpV8bv86RiDJHU1s71Njw4JCK3"
+            ]
+          },
+          {
+            "id": "calypso-moongale",
+            "name": "Calypso Moongale",
+            "assets": [
+              "An1fKXGRSh2bUaceZbMA4iKL8f2M1zL8BPmf6srtSeYV",
+              "AnCrdXH3jh9XMEWFJMg8RZ3UrALRt2A16PcgQFQKEDEw",
+              "CKmZwdAgVW3YZ3Q3wH7tdGQSRGPUJLgyg7eBzkPaB2bU",
+              "DARQhjKb7rigfyD5ZX4Xuf7nGDcLhfcDnKT4pkk1BEw9"
+            ]
+          },
+          {
+            "id": "celestia-maelstrom",
+            "name": "Celestia Maelstrom",
+            "assets": [
+              "F7fcWyxdnJjZa3ssgPnQ32nSFpCuiCRVocZLPbbtVnB7"
+            ]
+          },
+          {
+            "id": "chill-frost",
+            "name": "Chill Frost",
+            "assets": [
+              "ERoWKNeyK6T6zwAD7s2H6GSoMqs1s6jbh5njHoVkSQdX"
+            ]
+          },
+          {
+            "id": "dicey-dax",
+            "name": "Dicey Dax",
+            "assets": [
+              "52e4GiBcBeKLSi1QFpo5SdozWJ1JWbK4R15ZUgtQaqXS",
+              "D9iZVwJ4i9FioRUHaaH6nmj8JB7UVvdTaminhozSH6A3",
+              "GmUrnzkKTVEVohV1iiEaB4rduxRv7BDqkURRHB82dM6u"
+            ]
+          },
+          {
+            "id": "dobby-the-disturbing",
+            "name": "Dobby the Disturbing",
+            "assets": [
+              "6wz4rTvbScTsjLGkiv4eKxY9JEQzDV5dkiiHCPx3DX3u"
+            ]
+          },
+          {
+            "id": "duderino-the-dude-jackson",
+            "name": "Duderino 'The Dude' Jackson",
+            "assets": [
+              "81dXPEYm4SzadK7miHK9ekgAHJQkdaPWvPMSBbjpZPMN",
+              "D8YSQ6ViV7AhwrwNS2oRcGKAK1o3kNqvzAWq9o7uPwBY"
+            ]
+          },
+          {
+            "id": "echoflux-1",
+            "name": "Echoflux",
+            "assets": [
+              "AohZYHqVi3ijCrq2sehbEsAwPq6gr2LzJoF6w8sQp7Yg",
+              "GYWF3j2ar9o68h8de7Vso7NpeoBwBAX7An3eseZ9Atvi"
+            ]
+          },
+          {
+            "id": "echoflux-2",
+            "name": "Echoflux",
+            "assets": [
+              "7wgYARs9pqkGBCeF411DPb3eJr1A8kRavUTsygYSJEHN"
+            ]
+          },
+          {
+            "id": "finn-mertens",
+            "name": "Finn Mertens",
+            "assets": [
+              "DhQibdnjS1e2dtYWUXqHG2ygrMxmmtVD6rUPRxc2wFmm",
+              "GnFSvvhBCboxBNQgMqTuvMCVJWMzEomLtc5rMxAGuuj2"
+            ]
+          },
+          {
+            "id": "flint-whisker",
+            "name": "Flint Whisker",
+            "assets": [
+              "7BS7UAbBYsS1eWm9we6HHeKb5L8ryacSaNUSYdvWBGdE"
+            ]
+          },
+          {
+            "id": "glitch-maestro",
+            "name": "Glitch Maestro",
+            "assets": [
+              "AuDNG26KVKWCpvCS16oG12Ww3fUrS4gKm4M9P2MPgj5a"
+            ]
+          },
+          {
+            "id": "griz",
+            "name": "Griz",
+            "assets": [
+              "AUV1aCSHZUo45iTi3so42JuCstHvi1RecDz8Bd26ZfG3",
+              "B4XoqNnWAaNDFHZouuWURBxEnHzNeTTQQoATj1p9FCCJ",
+              "sujgCrsKHU9jDpKZJiFeF3NSSdmNJLcvGxrmcxaREFq"
+            ]
+          },
+          {
+            "id": "ignatius-emberclaw",
+            "name": "Ignatius Emberclaw",
+            "assets": [
+              "EzGLDXPN7ZYLn5h9wkWaz5KdBvkSpwQbCDxNr7dkcKWv"
+            ]
+          },
+          {
+            "id": "ilyarus-the-sage",
+            "name": "Ilyarus the Sage",
+            "assets": [
+              "Bmy7RDyhugT1Co9G1oAhC3qNyYaFTfBgKnzwdDZegpjG"
+            ]
+          },
+          {
+            "id": "kael",
+            "name": "Kael",
+            "assets": [
+              "12PyhAXBjHkysWfgFmyJGUnqyhe3jREbu9PMEy1mcJL5",
+              "2WogxhG6pwK1vQE3TvgVVkTkj3SPQeLBoyyrcPf41Efh",
+              "2oFAnSwUEC5pNsX4fJvvkKih2AMoyb4NC74HWZTDgYf4",
+              "6sF5crjVp5BwYfimjScaiLBpgB7WiM9VqxTBXkXWsSy2",
+              "71VnDAR73uT494gWY7cLpMQ3ZYWXzSdABgeS6dmZAKoh",
+              "9HFsMDzgKYUJ7KKDto8N3DHBTEzPPgM2PLVzDwppPyiX",
+              "GxfiikzF9mgoxgCx7tnS5e7TxRJXjUsDKMhQFn4D3AYq",
+              "GyyWzb3EjN3NASZ8xpc9cFaX9yAgWrtwsbL92fTzqg9Z",
+              "ZnRKER5bcTNNHVtfboX8atDKSw5j2PPmoySNgke7Tzx",
+              "m85oc7UhCi1fowd81vXkM5GrTMN4jig8m83T5aGxTG7"
+            ]
+          },
+          {
+            "id": "leonardo-the-visionary",
+            "name": "Leonardo the Visionary",
+            "assets": [
+              "B6zYx5iW4q7cFNXruQ7kVPkQrw7yPgorTbSN4CXUuBF4"
+            ]
+          },
+          {
+            "id": "marina-tidalspirit",
+            "name": "Marina Tidalspirit",
+            "assets": [
+              "3i2nYuGkVoFormp8C3quuUySNBV4kCdwGnvTutXexgQo"
+            ]
+          },
+          {
+            "id": "maxime-silence",
+            "name": "Maxime Silence",
+            "assets": [
+              "66jMHoagRWRwEvinmNLPuwQVtuACFFGZzRSPMWPRXxdq"
+            ]
+          },
+          {
+            "id": "nemejay",
+            "name": "Nemejay",
+            "assets": [
+              "4jYcgfTv5zso2GvVAUxwu2T66mBWWeP1k51Vn4zSvRj6",
+              "CdiprAazrvPJ8i2MciAMovRDFVY8e3wkaTT8GCU4QJqB"
+            ]
+          },
+          {
+            "id": "norva-the-waveshield",
+            "name": "Norva the Waveshield",
+            "assets": [
+              "6VNJvQUevRSi6b1zq4Nb4sFTiYdDCuBsav4nUG7eWcwP",
+              "DfsSzNiJDjLX2iguL8ennjALuxB8YV5LbRCJmsAcN4nC",
+              "DzJfb6pCxN6XPeh5p32euZEUyfeUCjXxv6rjXKz8t3wE"
+            ]
+          },
+          {
+            "id": "nyxwither",
+            "name": "Nyxwither",
+            "assets": [
+              "H7m9Dr3t8LNCPmVgHGgcTTLmRsYrrpDYXTtrWo9zXZJp"
+            ]
+          },
+          {
+            "id": "obsidian",
+            "name": "Obsidian",
+            "assets": [
+              "BaiBXM679xy1XPP34rNgavVwXfCccJuFXgEmiSXYYuK1"
+            ]
+          },
+          {
+            "id": "poozer-kaleido",
+            "name": "Poozer Kaleido",
+            "assets": [
+              "78x6NrpuQYiM8HPYMnRGgYyUWCKzio9Lrku2aNGoxeKB",
+              "88UZgG4dL1ma9Dpx3rBEqVe9kQdD5V9m37qx2oDdrEsf"
+            ]
+          },
+          {
+            "id": "poozer-phantasm",
+            "name": "Poozer Phantasm",
+            "assets": [
+              "2m9E1FbHLoJFVzr4McBvm1C2oJyR4QqDV8MbYPKU7zXi"
+            ]
+          },
+          {
+            "id": "poozer-synthesis",
+            "name": "Poozer Synthesis",
+            "assets": [
+              "8srWwRVKcp2QfWr53A5zvzMEudQkA5AisPwXmWZUvubQ"
+            ]
+          },
+          {
+            "id": "poozshara",
+            "name": "Poozshara",
+            "assets": [
+              "C3Z15JUK9wyvmziPLQrrSCGZN49jbwKXoB6udEfRKU19"
+            ]
+          },
+          {
+            "id": "potter-haruhiro",
+            "name": "Potter Haruhiro",
+            "assets": [
+              "6jghj7oHKhwjaWEp9uEuwK6R5hFtWpo34Vz3NBR5YY1m"
+            ]
+          },
+          {
+            "id": "rizz-poozler",
+            "name": "Rizz Poozler",
+            "assets": [
+              "849bkhneV4jTSis7Y1yoenVQXGeidE8pVZzf3XFtcxZX",
+              "8aheCRwYy2Sz3LsvKiqHYPaiZ3nBYM4ZNqX9LddL2jEy"
+            ]
+          },
+          {
+            "id": "santa-pooz",
+            "name": "Santa Pooz",
+            "assets": [
+              "39pu2Wiby8mCJh1uppvWA1V3KLp6FAgHP2GL7hbJsSZo",
+              "45MTw2QgVd9Bcy2ExdQGmPznfhm7QtT4561XTJCshN1u",
+              "9V5Wrk5mseCLiH6vmExr5oR65RjEz3dRhdn3NKtEiYkN",
+              "AQFvkdmFsdb7hmRXf5n6sGA8oubBPxCVQDjTvRWq8cFf",
+              "DjoJQpej4ZdE4uUhzxBbMv15wKb8snbPHqQ7AvsNoCxU",
+              "Doe4kWDEjEoCshScatPNxie4nCSkpEhTp8YwprJS6hyq",
+              "EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA",
+              "EPzcJWBhPJJzwzEvNv5JXfhQ7cYaXDWFx9h16nHwzmpc",
+              "EcTFk3FEiPoCY1ecyEVbaKtT5KuFLfCzvnNbUJ3bdA13",
+              "FPgGubGCBeDoCfs8YJRA1Tv2boCag8WwJvyndePHCztD"
+            ]
+          },
+          {
+            "id": "sigma-poozer",
+            "name": "Sigma Poozer",
+            "assets": [
+              "7oTcjCbRyCw8szGjqrV7frfBe1kUqR9J4bsBYVzPsXSh"
+            ]
+          },
+          {
+            "id": "squawk-norris",
+            "name": "Squawk Norris",
+            "assets": [
+              "AfQD1MX8DsKi57iCq6Ro9ztYVGNCYm9b1euSEbeoEqb8"
+            ]
+          },
+          {
+            "id": "trevor-the-half-orc-twink-bard",
+            "name": "Trevor the Half-Orc Twink Bard",
+            "assets": [
+              "423WLxehpd2R7CxC31JjBNqmQ3oQX3MSssV9NBfaR5Vv"
+            ]
+          },
+          {
+            "id": "trinity-spark",
+            "name": "Trinity Spark",
+            "assets": [
+              "GgbKqaJzgL1UeiWQDi8wQjRRA7pCVvidWWYcMfLzM7hJ"
+            ]
+          },
+          {
+            "id": "vi-the-enforcer",
+            "name": "Vi the Enforcer",
+            "assets": [
+              "2gEfuHgQUzKFtVH66GKYgz8Siyw6KtbqJZSbQPxFiaZA",
+              "6o3WYv14hw93DpmStgRGoBVizCeGURWpVTqckhg6vKFJ",
+              "7sAV9QBvfKWmgXyjH446BxC9rAc4yZxohaqBBdwcywmm",
+              "CYAgj3vp5UvsKKxxoDj4oRb48aJsqoNtR5yr9PjbkNBo",
+              "D672UJ5x9YHW2SD9MqeDG4UZsgeiZ37uTtr9qJVuqY9s",
+              "EvTQiG2ehbooUj7GRUqja8aSRPfg8ydQpfBcvzt2NbMY",
+              "F8ZLVFg8uiTtRTYhtkMcoXhG9WB1r1Lge9r8b4fVxitZ",
+              "zy8h64WYVqDMZSSWwxFJ3xWEMUvoULysFSbwndUiCne"
+            ]
+          },
+          {
+            "id": "whisker-twirl",
+            "name": "Whisker Twirl",
+            "assets": [
+              "3gVk8cdfuojoUf13AYTC4xxP4sJH2HMfEwu3SLD48whg"
+            ]
+          }
+        ],
+        "arrival_location": "cosyworld.core:location/1"
       }
     ]
   },
@@ -845,7 +1161,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae",
+  "bundle_hash": "sha256:9f1d186e9ef002881baa0be32c527abad08181979625edc44acfb002fcef18e1",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
