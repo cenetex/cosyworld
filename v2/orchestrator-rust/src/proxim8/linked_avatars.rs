@@ -57,6 +57,38 @@ pub(crate) struct LinkedAvatarCharacter {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) assets: Vec<String>,
+    /// Lives in the world from boot, whether or not a holder has linked.
+    #[serde(default)]
+    pub(crate) permanent: bool,
+    /// Where this character lives; defaults to the source's arrival.
+    #[serde(default)]
+    pub(crate) home_location: Option<String>,
+    /// Authored bio; NFT metadata never authors the actor's description.
+    #[serde(default)]
+    pub(crate) description: Option<String>,
+    #[serde(default)]
+    pub(crate) personality: Option<String>,
+}
+
+const MAX_BIO_CHARS: usize = 400;
+
+impl LinkedAvatarCharacter {
+    fn home_location_id(&self, source: &LinkedAvatarSource) -> Option<u64> {
+        match self.home_location.as_deref() {
+            Some(reference) => reference.rsplit('/').next()?.parse().ok(),
+            None => source.arrival_location_id(),
+        }
+    }
+
+    fn actor_description(&self) -> Option<String> {
+        let parts: Vec<&str> = [self.description.as_deref(), self.personality.as_deref()]
+            .into_iter()
+            .flatten()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .collect();
+        (!parts.is_empty()).then(|| parts.join(" "))
+    }
 }
 
 /// What an admitted asset joins as: its own actor, or a shared character.
@@ -65,7 +97,11 @@ pub(crate) struct Admission {
     /// Exactly one actor exists per key: the asset id, or
     /// `character:<source>/<character>`.
     pub(crate) key: String,
-    pub(crate) character_name: Option<String>,
+    pub(crate) character: Option<LinkedAvatarCharacter>,
+}
+
+fn character_key(source: &LinkedAvatarSource, character: &LinkedAvatarCharacter) -> String {
+    format!("character:{}/{}", source.id, character.id)
 }
 
 fn valid_slug(id: &str) -> bool {
@@ -83,8 +119,8 @@ impl LinkedAvatarSource {
             .find(|character| character.assets.iter().any(|id| id == &asset.id))
         {
             return Some(Admission {
-                key: format!("character:{}/{}", self.id, character.id),
-                character_name: Some(character.name.clone()),
+                key: character_key(self, character),
+                character: Some(character.clone()),
             });
         }
         let direct = self.assets.iter().any(|id| id == &asset.id)
@@ -94,7 +130,7 @@ impl LinkedAvatarSource {
                 .is_some_and(|collection| self.collections.iter().any(|c| c == collection));
         direct.then(|| Admission {
             key: asset.id.clone(),
-            character_name: None,
+            character: None,
         })
     }
 
@@ -149,6 +185,17 @@ pub(crate) fn validate_linked_avatars(
                 || character.name.trim().is_empty()
                 || character.name.chars().count() > MAX_NAME_CHARS
                 || character.assets.is_empty()
+                || !character
+                    .home_location_id(source)
+                    .is_some_and(&location_exists)
+                || [&character.description, &character.personality]
+                    .into_iter()
+                    .flatten()
+                    .any(|text| {
+                        text.trim().is_empty()
+                            || text.chars().count() > MAX_BIO_CHARS
+                            || text.chars().any(char::is_control)
+                    })
             {
                 return Err(format!(
                     "linked_avatars source {} has an invalid character {:?}",
@@ -228,47 +275,44 @@ fn already_joined(runtime: &RuntimeWorld, asset_id: &str) -> bool {
                 .is_some_and(|meta| meta.name == PILOT_ACTOR_NAME))
 }
 
-/// The journal record that brings `asset` into the world, or None when it
-/// already joined, the world is full, or the arrival place is missing.
-pub(crate) fn linked_avatar_record(
-    runtime: &RuntimeWorld,
-    wallet_address: &str,
-    asset: &helius::OwnedAsset,
-    source: &LinkedAvatarSource,
-    admission: &Admission,
-) -> Option<JournalRecord> {
-    let location_id = source.arrival_location_id()?;
-    if already_joined(runtime, &admission.key)
-        || already_joined(runtime, &asset.id)
-        || wallet_address.trim().is_empty()
+/// Everything that decides one linked actor's journal record.
+struct JoinSpec {
+    key: String,
+    name: String,
+    title: String,
+    location_id: u64,
+    description: String,
+    goal: String,
+    /// The wallet whose link brought it, or None for a permanent resident.
+    wallet: Option<String>,
+    origin: String,
+    collection_address: String,
+}
+
+fn actor_record(runtime: &RuntimeWorld, spec: JoinSpec) -> Option<JournalRecord> {
+    if already_joined(runtime, &spec.key)
         || runtime.world.actor_count >= CW_MAX_ACTORS
         || runtime.world.item_count >= CW_MAX_ITEMS
         || !runtime.world.locations[..runtime.world.location_count]
             .iter()
-            .any(|location| location.id == location_id)
+            .any(|location| location.id == spec.location_id)
     {
         return None;
     }
-    let receipt_id = linked_avatar_receipt_id(&admission.key);
+    let receipt_id = linked_avatar_receipt_id(&spec.key);
     let actor_id = runtime.next_actor_id;
     let item_id = materialized_item_id(&format!("{receipt_id}:memory"));
     if runtime.actor_by_id(actor_id).is_some() || runtime.item_by_id(item_id).is_some() {
         return None;
     }
-    let name = admission.character_name.clone().unwrap_or_else(|| {
-        cosmetic_name(asset.name.as_deref()).unwrap_or_else(|| fallback_name(source, &asset.id))
-    });
-    let goal = source
-        .goal
-        .clone()
-        .unwrap_or_else(|| DEFAULT_GOAL.to_string());
+    let name = spec.name;
     let receipt = MaterializationReceiptState {
         id: receipt_id,
         actor_id,
-        card_id: admission.key.clone(),
+        card_id: spec.key,
         item_id,
         status: "materialized".to_string(),
-        source_wallet: Some(wallet_address.to_string()),
+        source_wallet: spec.wallet,
         source_event_seq: runtime.world.next_event_seq,
     };
     let memory_item = CwItem {
@@ -286,10 +330,7 @@ pub(crate) fn linked_avatar_record(
     };
     let memory_meta = ItemMeta {
         name: format!("Continuity seed · {name}"),
-        description: format!(
-            "Records that {name} arrived from {} asset {} ({}).",
-            source.name, asset.id, asset.interface
-        ),
+        description: format!("Records that {name} {}.", spec.origin),
         skill_id: None,
         skill_bonus: 0,
         mechanics: None,
@@ -298,22 +339,20 @@ pub(crate) fn linked_avatar_record(
         CwAction {
             kind: CW_ACTION_CREATE_ACTOR,
             actor_id,
-            location_id,
+            location_id: spec.location_id,
             ..CwAction::default()
         },
         runtime.next_seed_value(),
     );
     record.origin = JournalOrigin::System;
-    record.initial_calling = Some(goal.clone());
+    record.initial_calling = Some(spec.goal.clone());
     record.actor_meta_upserts.insert(
         actor_id,
         ActorMeta {
-            name: name.clone(),
+            name,
             speech_mode: "prose".to_string(),
-            title: format!("Linked {}", source.name),
-            description: format!(
-                "{name} arrived after its holder linked a verified wallet. The same NFT, or any copy of this character, always returns as this same actor."
-            ),
+            title: spec.title,
+            description: spec.description,
         },
     );
     record
@@ -322,10 +361,132 @@ pub(crate) fn linked_avatar_record(
             receipt,
             memory_item,
             memory_meta,
-            collection_address: asset.collection.clone().unwrap_or_default(),
-            goal,
+            collection_address: spec.collection_address,
+            goal: spec.goal,
         });
     Some(record)
+}
+
+fn source_goal(source: &LinkedAvatarSource) -> String {
+    source
+        .goal
+        .clone()
+        .unwrap_or_else(|| DEFAULT_GOAL.to_string())
+}
+
+/// The journal record that brings `asset` into the world, or None when it
+/// already joined, the world is full, or the arrival place is missing.
+pub(crate) fn linked_avatar_record(
+    runtime: &RuntimeWorld,
+    wallet_address: &str,
+    asset: &helius::OwnedAsset,
+    source: &LinkedAvatarSource,
+    admission: &Admission,
+) -> Option<JournalRecord> {
+    if wallet_address.trim().is_empty() || already_joined(runtime, &asset.id) {
+        return None;
+    }
+    let character = admission.character.as_ref();
+    let name = match character {
+        Some(character) => character.name.clone(),
+        None => {
+            cosmetic_name(asset.name.as_deref()).unwrap_or_else(|| fallback_name(source, &asset.id))
+        }
+    };
+    let description = character
+        .and_then(LinkedAvatarCharacter::actor_description)
+        .unwrap_or_else(|| {
+            format!(
+                "{name} arrived after its holder linked a verified wallet. The same NFT, or any copy of this character, always returns as this same actor."
+            )
+        });
+    actor_record(
+        runtime,
+        JoinSpec {
+            key: admission.key.clone(),
+            location_id: match character {
+                Some(character) => character.home_location_id(source)?,
+                None => source.arrival_location_id()?,
+            },
+            title: format!("Linked {}", source.name),
+            description,
+            goal: source_goal(source),
+            wallet: Some(wallet_address.to_string()),
+            origin: format!(
+                "arrived from {} asset {} ({})",
+                source.name, asset.id, asset.interface
+            ),
+            collection_address: asset.collection.clone().unwrap_or_default(),
+            name,
+        },
+    )
+}
+
+/// The record that seeds a permanent character with no wallet, or None when
+/// it already lives in the world.
+pub(crate) fn permanent_character_record(
+    runtime: &RuntimeWorld,
+    source: &LinkedAvatarSource,
+    character: &LinkedAvatarCharacter,
+) -> Option<JournalRecord> {
+    if !character.permanent {
+        return None;
+    }
+    actor_record(
+        runtime,
+        JoinSpec {
+            key: character_key(source, character),
+            name: character.name.clone(),
+            title: source.name.clone(),
+            location_id: character.home_location_id(source)?,
+            description: character.actor_description().unwrap_or_else(|| {
+                format!(
+                    "{} lives here as one of the {} characters.",
+                    character.name, source.name
+                )
+            }),
+            goal: source_goal(source),
+            wallet: None,
+            origin: format!("is a permanent {} resident", source.name),
+            collection_address: String::new(),
+        },
+    )
+}
+
+/// Seed every permanent character the active world declares and does not yet
+/// hold. Runs at boot, before background services; each character joins
+/// exactly once, through the journal.
+pub(crate) async fn seed_permanent_characters(state: &AppState) {
+    let Some(config) = active_content().manifest.linked_avatars.clone() else {
+        return;
+    };
+    let mut runtime = state.inner.lock().await;
+    let mut committed_events = Vec::new();
+    for source in &config.sources {
+        for character in &source.characters {
+            let Some(record) = permanent_character_record(&runtime, source, character) else {
+                continue;
+            };
+            match commit_journal_record(state, &mut runtime, record) {
+                Ok((CW_OK, events)) => {
+                    info!(
+                        "permanent linked avatar seeded: source={} character={}",
+                        source.id, character.id
+                    );
+                    committed_events.extend(events);
+                }
+                Ok(_) => warn!("permanent character {} was rejected", character.id),
+                Err(error) => {
+                    warn!("permanent character {} failed: {error}", character.id);
+                    break;
+                }
+            }
+        }
+    }
+    drop(runtime);
+    if !committed_events.is_empty() {
+        broadcast_events(state, &committed_events);
+    }
 }
 
 /// Replay-safe preconditions for a linked-avatar record: facts in the record
@@ -344,7 +505,7 @@ pub(crate) fn linked_avatar_record_preconditions_hold(
         && receipt
             .source_wallet
             .as_deref()
-            .is_some_and(|wallet| !wallet.trim().is_empty())
+            .is_none_or(|wallet| !wallet.trim().is_empty())
         && record.action.location_id != 0
         && memory_item.holder_actor_id == receipt.actor_id
         && memory_item.kind == CW_ITEM_KEEPSAKE
@@ -368,7 +529,7 @@ pub(crate) fn is_linked_avatar_receipt(
         && receipt
             .source_wallet
             .as_deref()
-            .is_some_and(|wallet| !wallet.trim().is_empty())
+            .is_none_or(|wallet| !wallet.trim().is_empty())
         && runtime.actor_by_id(receipt.actor_id).is_some()
         && runtime
             .item_by_id(receipt.item_id)
@@ -524,6 +685,24 @@ mod tests {
             "the launch wallet's Santa Pooz is one of the copies"
         );
         assert_eq!(rati.characters.len(), 38);
+        let link_only: Vec<_> = rati
+            .characters
+            .iter()
+            .filter(|character| !character.permanent)
+            .map(|character| character.id.as_str())
+            .collect();
+        assert_eq!(
+            link_only,
+            [
+                "dobby-the-disturbing",
+                "duderino-the-dude-jackson",
+                "finn-mertens",
+                "norva-the-waveshield",
+                "potter-haruhiro",
+                "vi-the-enforcer"
+            ],
+            "franchise characters join only when a holder links"
+        );
     }
 
     fn config(arrival: u64) -> LinkedAvatarsConfig {
@@ -762,5 +941,151 @@ mod tests {
             validate_linked_avatars(&bad, |_| true).is_err(),
             "character ids are slugs"
         );
+    }
+
+    #[test]
+    fn a_permanent_character_lives_in_the_world_once_without_a_wallet() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.ensure_location(8901, 0);
+        runtime.ensure_location(8902, 0);
+        let mut config = config(8901);
+        let source = &mut config.sources[2];
+        source.characters[0].permanent = true;
+        source.characters[0].home_location = Some("cosyworld.core:location/8902".to_string());
+        source.characters[0].description = Some("A round figure in a red suit.".to_string());
+        source.characters[0].personality = Some("Generous and easily distracted.".to_string());
+        let source = &config.sources[2];
+        let character = &source.characters[0];
+
+        let record = permanent_character_record(&runtime, source, character).expect("seeded");
+        let actor_id = record.action.actor_id;
+        assert_eq!(
+            record.action.location_id, 8902,
+            "a character lives at its home"
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let meta = runtime.actors.get(&actor_id).unwrap();
+        assert_eq!(meta.name, "Santa Pooz");
+        assert_eq!(
+            meta.description,
+            "A round figure in a red suit. Generous and easily distracted."
+        );
+        assert!(permanent_character_record(&runtime, source, character).is_none());
+
+        // A holder linking any copy later recovers this same actor.
+        assert!(record_for(&runtime, WALLET, &asset(POOZ_B, None, None), source).is_none());
+        // The receipt has no wallet and still escapes the item retirement.
+        let inventory = materialization_retirement::receipt_inventory(&runtime);
+        assert_eq!(inventory.total, 0);
+        assert_eq!(inventory.retained_actor_materialization, 1);
+        materialization_retirement::migrate_legacy_receipts(&mut runtime).expect("migration");
+        assert!(runtime.actor_by_id(actor_id).is_some());
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores");
+        assert!(permanent_character_record(&restored, source, character).is_none());
+    }
+
+    #[test]
+    fn only_permanent_characters_are_seeded() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.ensure_location(8901, 0);
+        let config = config(8901);
+        let source = &config.sources[2];
+        assert!(permanent_character_record(&runtime, source, &source.characters[0]).is_none());
+    }
+
+    #[test]
+    fn permanent_character_fields_are_validated() {
+        let mut far = config(1);
+        far.sources[2].characters[0].home_location = Some("cosyworld.core:location/77".to_string());
+        assert!(
+            validate_linked_avatars(&far, |id| id == 1).is_err(),
+            "unknown home"
+        );
+        let mut long = config(1);
+        long.sources[2].characters[0].description = Some("x".repeat(401));
+        assert!(
+            validate_linked_avatars(&long, |_| true).is_err(),
+            "bio too long"
+        );
+        let mut blank = config(1);
+        blank.sources[2].characters[0].personality = Some("  ".to_string());
+        assert!(
+            validate_linked_avatars(&blank, |_| true).is_err(),
+            "blank bio"
+        );
+    }
+
+    #[test]
+    fn all_permanent_rati_avatars_seed_into_the_official_world() {
+        let config = active_content()
+            .manifest
+            .linked_avatars
+            .clone()
+            .expect("official linked avatars");
+        let source = config
+            .sources
+            .iter()
+            .find(|source| source.id == "rati-avatars")
+            .expect("RATi source");
+        let mut runtime = RuntimeWorld::seeded();
+        let mut seeded = 0;
+        for character in source.characters.iter().filter(|c| c.permanent) {
+            let record = permanent_character_record(&runtime, source, character)
+                .unwrap_or_else(|| panic!("{} has a home in the official world", character.id));
+            let home = character.home_location_id(source).unwrap();
+            assert_eq!(record.action.location_id, home);
+            assert_eq!(
+                runtime.apply_journal_record(&record).0,
+                CW_OK,
+                "{}",
+                character.id
+            );
+            seeded += 1;
+        }
+        assert_eq!(seeded, 32);
+        for character in &source.characters {
+            assert!(permanent_character_record(&runtime, source, character).is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn boot_seeding_journals_each_permanent_character_once() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-permanent-avatars-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        let journal_rows = || -> i64 {
+            open_event_store(&path)
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM action_journal", [], |row| row.get(0))
+                .unwrap()
+        };
+        let before = journal_rows();
+        let actors_before = state.inner.lock().await.world.actor_count;
+
+        seed_permanent_characters(&state).await;
+        assert_eq!(
+            journal_rows() - before,
+            32,
+            "one journal record per resident"
+        );
+        assert_eq!(
+            state.inner.lock().await.world.actor_count - actors_before,
+            32
+        );
+
+        // A restart runs the seeding again and adds nobody.
+        seed_permanent_characters(&state).await;
+        assert_eq!(journal_rows() - before, 32);
+        assert_eq!(
+            state.inner.lock().await.world.actor_count - actors_before,
+            32
+        );
+        let _ = fs::remove_file(&path);
     }
 }

@@ -78,7 +78,9 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
         return;
       }
       for (const field of Object.keys(character)) {
-        if (!["id", "name", "assets"].includes(field)) errors.push(`${cat} contains unknown field ${field}`);
+        if (!["id", "name", "assets", "permanent", "home_location", "description", "personality"].includes(field)) {
+          errors.push(`${cat} contains unknown field ${field}`);
+        }
       }
       if (!sourceIdPattern.test(character.id ?? "") || characterIds.has(character.id)) {
         errors.push(`${cat} id must be a unique lowercase slug`);
@@ -86,6 +88,23 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
       characterIds.add(character.id);
       if (typeof character.name !== "string" || !character.name.trim() || [...character.name].length > 40) {
         errors.push(`${cat} name must be 1-40 characters`);
+      }
+      if (character.permanent !== undefined && typeof character.permanent !== "boolean") {
+        errors.push(`${cat} permanent must be true or false`);
+      }
+      if (character.home_location !== undefined) {
+        const homeId = arrivalLocationId(character.home_location);
+        if (homeId === null) errors.push(`${cat} home_location must look like pack:location/<id>`);
+        else if (locationIds && !locationIds.has(homeId)) {
+          errors.push(`${cat} lives at unknown location ${character.home_location}`);
+        }
+      }
+      for (const field of ["description", "personality"]) {
+        const text = character[field];
+        if (text === undefined) continue;
+        if (typeof text !== "string" || !text.trim() || [...text].length > 400 || /[\u0000-\u001f\u007f]/.test(text)) {
+          errors.push(`${cat} ${field} must be 1-400 characters of plain text`);
+        }
       }
       if (!Array.isArray(character.assets) || character.assets.length === 0) {
         errors.push(`${cat} must list at least one asset`);

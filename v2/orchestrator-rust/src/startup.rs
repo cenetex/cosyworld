@@ -9,6 +9,7 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     configured_content_registry().map_err(io::Error::other)?;
     let drain_budget = configured_shutdown_drain_budget()?;
     let state = AppState::bootstrap().await?;
+    crate::proxim8::linked_avatars::seed_permanent_characters(&state).await;
     let shutdown_state = state.clone();
     let _background_services = BackgroundServices::start(&state);
 

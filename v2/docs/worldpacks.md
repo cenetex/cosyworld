@@ -308,7 +308,12 @@ where its avatars arrive:
       "id": "rati-avatars",
       "name": "RATi Avatar",
       "characters": [
-        { "id": "santa-pooz", "name": "Santa Pooz", "assets": ["<copy>", "<copy>"] }
+        {
+          "id": "santa-pooz", "name": "Santa Pooz", "assets": ["<copy>", "<copy>"],
+          "permanent": true, "home_location": "cosyworld.core:location/1",
+          "description": "A round figure in a faded red velveteen suit.",
+          "personality": "Chaotic, generous, and easily distracted."
+        }
       ],
       "arrival_location": "cosyworld.core:location/1"
     }
@@ -329,6 +334,12 @@ where its avatars arrive:
   the same shared actor (named by the world, not the NFT), and several copies
   in one wallet join once. Use it when the same avatar was minted more than
   once. An asset may appear only once per source.
+- A `permanent` character lives in the world from boot, whether or not a
+  holder has linked: the server seeds it once through the journal (no wallet on
+  its receipt) at its `home_location`, and a holder who links a copy later
+  recovers the same actor. `description` and `personality` (each at most 400
+  characters) are the authored bio; NFT metadata never writes it. Keep bios
+  to the character-voice register in `writing-style.md`.
 - Token Metadata 1-of-1s minted without a master edition report the
   `FungibleAsset` standard; they count when the wallet holds a balance of at
   least one.
