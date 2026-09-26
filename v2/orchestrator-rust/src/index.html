@@ -16143,10 +16143,15 @@
       const identityAction = identity?.authenticated
         ? `<span class="minimal-menu-value">Passkey</span>`
         : `<button class="minimal-menu-inline-action" type="button" data-passkey-continue>Sign in</button>`;
+      // Signed-in accounts keep their passkey, avatar-wallet, sign-out and
+      // OpenRouter controls here; guests use the inline Sign in above.
+      const accountControls = identity?.authenticated || passkeyRecoveryAvailable
+        ? identitySectionHtml()
+        : "";
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
       const level = Number(state?.character_identity?.level ?? avatar?.stats?.level ?? 1);
-      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}${avatarAutonomyPanelHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div><div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
+      return `<section class="account-panel minimal-menu" aria-labelledby="account-panel-title"><header class="minimal-menu-heading"><span id="account-panel-title">Player</span><button type="button" data-menu-close>Return to chat</button></header><div class="minimal-menu-player">${avatarMark}<div><strong>${escapeHtml(avatarName)}</strong>${avatarTitle ? `<small>${escapeHtml(avatarTitle)}</small>` : ""}</div><span class="minimal-menu-level" aria-label="Level ${level}">${level}</span></div>${minimalMenuOrbHtml()}${avatarAutonomyPanelHtml()}<div class="minimal-menu-slots" aria-label="Equipped cards">${slots}</div><div class="minimal-menu-rows"><div class="minimal-menu-row"><span>World</span><strong>${escapeHtml(worldName)}</strong></div><div class="minimal-menu-row"><span>Identity</span>${identityAction}</div></div>${accountControls}<div class="minimal-menu-settings"><label><span>Larger text</span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label><span>Reduce motion</span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div></section>`;
     }
 
     function accountPanelHtml() {
