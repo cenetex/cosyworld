@@ -50,7 +50,7 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
       return;
     }
     for (const field of Object.keys(source)) {
-      if (!["id", "name", "collections", "assets", "arrival_location", "goal"].includes(field)) {
+      if (!["id", "name", "collections", "assets", "characters", "arrival_location", "goal"].includes(field)) {
         errors.push(`${at} contains unknown field ${field}`);
       }
     }
@@ -63,12 +63,40 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
     }
     const collections = source.collections ?? [];
     const assets = source.assets ?? [];
-    if (!Array.isArray(collections) || !Array.isArray(assets)) {
-      errors.push(`${at} collections and assets must be arrays`);
+    const characters = source.characters ?? [];
+    if (!Array.isArray(collections) || !Array.isArray(assets) || !Array.isArray(characters)) {
+      errors.push(`${at} collections, assets and characters must be arrays`);
       return;
     }
-    if (collections.length + assets.length === 0) errors.push(`${at} admits nothing`);
-    for (const address of [...collections, ...assets]) {
+    if (collections.length + assets.length + characters.length === 0) errors.push(`${at} admits nothing`);
+    const characterIds = new Set();
+    const characterAssets = [];
+    characters.forEach((character, characterIndex) => {
+      const cat = `${at} characters[${characterIndex}]`;
+      if (!isObject(character)) {
+        errors.push(`${cat} must be an object`);
+        return;
+      }
+      for (const field of Object.keys(character)) {
+        if (!["id", "name", "assets"].includes(field)) errors.push(`${cat} contains unknown field ${field}`);
+      }
+      if (!sourceIdPattern.test(character.id ?? "") || characterIds.has(character.id)) {
+        errors.push(`${cat} id must be a unique lowercase slug`);
+      }
+      characterIds.add(character.id);
+      if (typeof character.name !== "string" || !character.name.trim() || [...character.name].length > 40) {
+        errors.push(`${cat} name must be 1-40 characters`);
+      }
+      if (!Array.isArray(character.assets) || character.assets.length === 0) {
+        errors.push(`${cat} must list at least one asset`);
+      } else {
+        characterAssets.push(...character.assets);
+      }
+    });
+    const listed = [...assets, ...characterAssets];
+    const repeated = listed.filter((address, index) => listed.indexOf(address) !== index);
+    if (repeated.length) errors.push(`${at} lists ${repeated[0]} more than once`);
+    for (const address of [...collections, ...listed]) {
       if (!isSolanaAddress(address)) errors.push(`${at} has an invalid Solana address ${address}`);
     }
     const locationId = arrivalLocationId(source.arrival_location);

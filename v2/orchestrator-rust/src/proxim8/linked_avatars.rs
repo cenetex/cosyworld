@@ -44,18 +44,58 @@ pub(crate) struct LinkedAvatarSource {
     pub(crate) collections: Vec<String>,
     #[serde(default)]
     pub(crate) assets: Vec<String>,
+    /// Copies of one character: any listed asset recovers the same actor.
+    #[serde(default)]
+    pub(crate) characters: Vec<LinkedAvatarCharacter>,
     pub(crate) arrival_location: String,
     #[serde(default)]
     pub(crate) goal: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub(crate) struct LinkedAvatarCharacter {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) assets: Vec<String>,
+}
+
+/// What an admitted asset joins as: its own actor, or a shared character.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Admission {
+    /// Exactly one actor exists per key: the asset id, or
+    /// `character:<source>/<character>`.
+    pub(crate) key: String,
+    pub(crate) character_name: Option<String>,
+}
+
+fn valid_slug(id: &str) -> bool {
+    (1..=32).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 impl LinkedAvatarSource {
-    fn admits(&self, asset: &helius::OwnedAsset) -> bool {
-        self.assets.iter().any(|id| id == &asset.id)
+    fn admits(&self, asset: &helius::OwnedAsset) -> Option<Admission> {
+        if let Some(character) = self
+            .characters
+            .iter()
+            .find(|character| character.assets.iter().any(|id| id == &asset.id))
+        {
+            return Some(Admission {
+                key: format!("character:{}/{}", self.id, character.id),
+                character_name: Some(character.name.clone()),
+            });
+        }
+        let direct = self.assets.iter().any(|id| id == &asset.id)
             || asset
                 .collection
                 .as_deref()
-                .is_some_and(|collection| self.collections.iter().any(|c| c == collection))
+                .is_some_and(|collection| self.collections.iter().any(|c| c == collection));
+        direct.then(|| Admission {
+            key: asset.id.clone(),
+            character_name: None,
+        })
     }
 
     pub(crate) fn arrival_location_id(&self) -> Option<u64> {
@@ -82,12 +122,7 @@ pub(crate) fn validate_linked_avatars(
     }
     let mut ids = BTreeSet::new();
     for source in &config.sources {
-        let id_ok = (1..=32).contains(&source.id.len())
-            && source
-                .id
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
-        if !id_ok || !ids.insert(source.id.as_str()) {
+        if !valid_slug(&source.id) || !ids.insert(source.id.as_str()) {
             return Err(format!(
                 "linked_avatars source id {:?} is invalid or repeated",
                 source.id
@@ -99,16 +134,45 @@ pub(crate) fn validate_linked_avatars(
                 source.id
             ));
         }
-        if source.collections.is_empty() && source.assets.is_empty() {
+        if source.collections.is_empty() && source.assets.is_empty() && source.characters.is_empty()
+        {
             return Err(format!(
                 "linked_avatars source {} admits nothing",
                 source.id
             ));
         }
+        let mut character_ids = BTreeSet::new();
+        let mut listed = BTreeSet::new();
+        for character in &source.characters {
+            if !valid_slug(&character.id)
+                || !character_ids.insert(character.id.as_str())
+                || character.name.trim().is_empty()
+                || character.name.chars().count() > MAX_NAME_CHARS
+                || character.assets.is_empty()
+            {
+                return Err(format!(
+                    "linked_avatars source {} has an invalid character {:?}",
+                    source.id, character.id
+                ));
+            }
+        }
+        for asset in source
+            .assets
+            .iter()
+            .chain(source.characters.iter().flat_map(|c| &c.assets))
+        {
+            if !listed.insert(asset.as_str()) {
+                return Err(format!(
+                    "linked_avatars source {} lists asset {asset} twice",
+                    source.id
+                ));
+            }
+        }
         if let Some(bad) = source
             .collections
             .iter()
             .chain(&source.assets)
+            .chain(source.characters.iter().flat_map(|c| &c.assets))
             .find(|address| !is_solana_address(address))
         {
             return Err(format!(
@@ -171,9 +235,11 @@ pub(crate) fn linked_avatar_record(
     wallet_address: &str,
     asset: &helius::OwnedAsset,
     source: &LinkedAvatarSource,
+    admission: &Admission,
 ) -> Option<JournalRecord> {
     let location_id = source.arrival_location_id()?;
-    if already_joined(runtime, &asset.id)
+    if already_joined(runtime, &admission.key)
+        || already_joined(runtime, &asset.id)
         || wallet_address.trim().is_empty()
         || runtime.world.actor_count >= CW_MAX_ACTORS
         || runtime.world.item_count >= CW_MAX_ITEMS
@@ -183,14 +249,15 @@ pub(crate) fn linked_avatar_record(
     {
         return None;
     }
-    let receipt_id = linked_avatar_receipt_id(&asset.id);
+    let receipt_id = linked_avatar_receipt_id(&admission.key);
     let actor_id = runtime.next_actor_id;
     let item_id = materialized_item_id(&format!("{receipt_id}:memory"));
     if runtime.actor_by_id(actor_id).is_some() || runtime.item_by_id(item_id).is_some() {
         return None;
     }
-    let name =
-        cosmetic_name(asset.name.as_deref()).unwrap_or_else(|| fallback_name(source, &asset.id));
+    let name = admission.character_name.clone().unwrap_or_else(|| {
+        cosmetic_name(asset.name.as_deref()).unwrap_or_else(|| fallback_name(source, &asset.id))
+    });
     let goal = source
         .goal
         .clone()
@@ -198,7 +265,7 @@ pub(crate) fn linked_avatar_record(
     let receipt = MaterializationReceiptState {
         id: receipt_id,
         actor_id,
-        card_id: asset.id.clone(),
+        card_id: admission.key.clone(),
         item_id,
         status: "materialized".to_string(),
         source_wallet: Some(wallet_address.to_string()),
@@ -245,7 +312,7 @@ pub(crate) fn linked_avatar_record(
             speech_mode: "prose".to_string(),
             title: format!("Linked {}", source.name),
             description: format!(
-                "{name} arrived after its holder linked a verified wallet. The same asset always returns as this same character."
+                "{name} arrived after its holder linked a verified wallet. The same NFT, or any copy of this character, always returns as this same actor."
             ),
         },
     );
@@ -333,17 +400,22 @@ fn feed_assets(ownership: &OwnershipIndex, wallet: &str) -> Vec<helius::OwnedAss
         .collect()
 }
 
-/// Pair each held asset with the first source that admits it.
+/// Pair each held asset with the first source that admits it, once per
+/// actor: several copies of one character in a wallet join once.
 pub(crate) fn admitted_assets(
     config: &LinkedAvatarsConfig,
     assets: Vec<helius::OwnedAsset>,
-) -> Vec<(helius::OwnedAsset, &LinkedAvatarSource)> {
+) -> Vec<(helius::OwnedAsset, &LinkedAvatarSource, Admission)> {
     let mut seen = BTreeSet::new();
     assets
         .into_iter()
         .filter_map(|asset| {
-            let source = config.sources.iter().find(|source| source.admits(&asset))?;
-            seen.insert(asset.id.clone()).then_some((asset, source))
+            let (source, admission) = config
+                .sources
+                .iter()
+                .find_map(|source| source.admits(&asset).map(|admission| (source, admission)))?;
+            seen.insert(admission.key.clone())
+                .then_some((asset, source, admission))
         })
         .collect()
 }
@@ -373,8 +445,10 @@ pub(crate) async fn materialize_wallet_linked_avatars(
     }
     let mut runtime = state.inner.lock().await;
     let mut committed_events = Vec::new();
-    for (asset, source) in admitted {
-        let Some(record) = linked_avatar_record(&runtime, wallet_address, &asset, source) else {
+    for (asset, source, admission) in admitted {
+        let Some(record) =
+            linked_avatar_record(&runtime, wallet_address, &asset, source, &admission)
+        else {
             continue;
         };
         match commit_journal_record(state, &mut runtime, record) {
@@ -411,6 +485,8 @@ mod tests {
 
     const WALLET: &str = "DcXxMstZHwnEMjLTF1Aa2kHB95NBif77nPUEZqD4ZTue";
     const PROXIM8: &str = "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf";
+    const POOZ_A: &str = "EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA";
+    const POOZ_B: &str = "EPzcJWBhPJJzwzEvNv5JXfhQ7cYaXDWFx9h16nHwzmpc";
     const LISTED: &str = "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo";
 
     #[test]
@@ -435,12 +511,19 @@ mod tests {
             .iter()
             .find(|source| source.id == "rati-avatars")
             .expect("RATi Avatar source");
+        let pooz = rati
+            .characters
+            .iter()
+            .find(|character| character.id == "santa-pooz")
+            .expect("Santa Pooz");
+        assert_eq!(pooz.name, "Santa Pooz");
         assert!(
-            rati.assets
+            pooz.assets
                 .iter()
                 .any(|asset| asset == "EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA"),
-            "Santa Pooz is admitted"
+            "the launch wallet's Santa Pooz is one of the copies"
         );
+        assert_eq!(rati.characters.len(), 38);
     }
 
     fn config(arrival: u64) -> LinkedAvatarsConfig {
@@ -450,10 +533,24 @@ mod tests {
                 {"id": "proxim8", "name": "Proxim8", "collections": [PROXIM8],
                  "arrival_location": format!("cosyworld.core:location/{arrival}")},
                 {"id": "chosen", "name": "Chosen", "assets": ["8GwrpeSH4TpAGEJsmoF35J8DY6RNCdyjCBZsEnTySEKd"],
+                 "arrival_location": format!("cosyworld.core:location/{arrival}")},
+                {"id": "rati-avatars", "name": "RATi Avatar",
+                 "characters": [{"id": "santa-pooz", "name": "Santa Pooz",
+                                 "assets": [POOZ_A, POOZ_B]}],
                  "arrival_location": format!("cosyworld.core:location/{arrival}")}
             ]
         }))
         .unwrap()
+    }
+
+    fn record_for(
+        runtime: &RuntimeWorld,
+        wallet: &str,
+        asset: &helius::OwnedAsset,
+        source: &LinkedAvatarSource,
+    ) -> Option<JournalRecord> {
+        let admission = source.admits(asset)?;
+        linked_avatar_record(runtime, wallet, asset, source, &admission)
     }
 
     fn asset(id: &str, collection: Option<&str>, name: Option<&str>) -> helius::OwnedAsset {
@@ -486,7 +583,7 @@ mod tests {
         );
         let pairs: Vec<_> = admitted
             .iter()
-            .map(|(a, s)| (a.id.as_str(), s.id.as_str()))
+            .map(|(a, s, _)| (a.id.as_str(), s.id.as_str()))
             .collect();
         assert_eq!(
             pairs,
@@ -528,8 +625,7 @@ mod tests {
             Some(PROXIM8),
             Some("  Agent\tNova  "),
         );
-        let record =
-            linked_avatar_record(&runtime, WALLET, &held, &config.sources[0]).expect("first link");
+        let record = record_for(&runtime, WALLET, &held, &config.sources[0]).expect("first link");
         let actor_id = record.action.actor_id;
         assert_eq!(record.action.location_id, 8901);
         let (status, events) = runtime.apply_journal_record(&record);
@@ -544,7 +640,7 @@ mod tests {
         );
 
         // The same asset never joins twice, even from another wallet.
-        assert!(linked_avatar_record(&runtime, "OtherWallet", &held, &config.sources[0]).is_none());
+        assert!(record_for(&runtime, "OtherWallet", &held, &config.sources[0]).is_none());
         let (again, _) = runtime.apply_journal_record(&record);
         assert_ne!(
             again, CW_OK,
@@ -563,7 +659,7 @@ mod tests {
             .into_runtime()
             .expect("snapshot restores");
         assert!(restored.actor_by_id(actor_id).is_some());
-        assert!(linked_avatar_record(&restored, WALLET, &held, &config.sources[0]).is_none());
+        assert!(record_for(&restored, WALLET, &held, &config.sources[0]).is_none());
     }
 
     #[test]
@@ -573,7 +669,7 @@ mod tests {
         let config = config(8901);
         let pilot = asset(PROXIM8_PILOT_ASSET_ID, Some(PROXIM8), None);
         assert!(
-            linked_avatar_record(&runtime, WALLET, &pilot, &config.sources[0]).is_some(),
+            record_for(&runtime, WALLET, &pilot, &config.sources[0]).is_some(),
             "a world without Callum lets his holder join"
         );
         runtime.actors.insert(
@@ -586,7 +682,7 @@ mod tests {
             },
         );
         assert!(
-            linked_avatar_record(&runtime, WALLET, &pilot, &config.sources[0]).is_none(),
+            record_for(&runtime, WALLET, &pilot, &config.sources[0]).is_none(),
             "where Callum is seeded, his asset already has its actor"
         );
     }
@@ -602,5 +698,69 @@ mod tests {
         assert_eq!(cosmetic_name(Some("bad\u{7}bell")), None);
         let source = &config(1).sources[0];
         assert_eq!(fallback_name(source, "CoreAsset111"), "Proxim8 CoreAs");
+    }
+
+    #[test]
+    fn copies_of_a_character_share_one_actor() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.ensure_location(8901, 0);
+        let config = config(8901);
+        // Two copies in one wallet join once.
+        let admitted = admitted_assets(
+            &config,
+            vec![
+                asset(POOZ_A, None, Some("Santa Pooz")),
+                asset(POOZ_B, None, Some("Santa Pooz")),
+            ],
+        );
+        assert_eq!(admitted.len(), 1);
+        assert_eq!(admitted[0].2.key, "character:rati-avatars/santa-pooz");
+        let source = &config.sources[2];
+        let record = record_for(
+            &runtime,
+            WALLET,
+            &asset(POOZ_A, None, Some("Pooz!!")),
+            source,
+        )
+        .expect("first copy joins");
+        let actor_id = record.action.actor_id;
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            runtime.actors.get(&actor_id).unwrap().name,
+            "Santa Pooz",
+            "the character name comes from the world, not the NFT"
+        );
+        // Another copy, from another wallet, is the same character.
+        assert!(record_for(&runtime, "OtherWallet", &asset(POOZ_B, None, None), source).is_none());
+        assert!(
+            materialization_retirement::receipt_inventory(&runtime).retained_actor_materialization
+                == 1
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores");
+        assert!(record_for(&restored, WALLET, &asset(POOZ_B, None, None), source).is_none());
+    }
+
+    #[test]
+    fn character_lists_are_validated() {
+        let mut twice = config(1);
+        twice.sources[2].assets = vec![POOZ_A.to_string()];
+        assert!(
+            validate_linked_avatars(&twice, |_| true).is_err(),
+            "an asset in two places"
+        );
+        let mut empty = config(1);
+        empty.sources[2].characters[0].assets.clear();
+        assert!(
+            validate_linked_avatars(&empty, |_| true).is_err(),
+            "a character with no assets"
+        );
+        let mut bad = config(1);
+        bad.sources[2].characters[0].id = "Santa Pooz".to_string();
+        assert!(
+            validate_linked_avatars(&bad, |_| true).is_err(),
+            "character ids are slugs"
+        );
     }
 }

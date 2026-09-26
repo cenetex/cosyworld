@@ -48,7 +48,9 @@ fn request_body(wallet: &str, page: usize) -> serde_json::Value {
             "ownerAddress": wallet,
             "page": page,
             "limit": PAGE_LIMIT,
-            "options": { "showUnverifiedCollections": false }
+            // Token Metadata 1-of-1s without a master edition (for example
+            // some RATi Avatars) have the FungibleAsset standard.
+            "options": { "showUnverifiedCollections": false, "showFungible": true }
         }
     })
 }
@@ -76,7 +78,17 @@ pub(crate) fn parse_assets_page(
         let owner = item
             .pointer("/ownership/owner")
             .and_then(serde_json::Value::as_str);
-        if burnt || owner != Some(wallet) {
+        // Token-standard assets report the holder only through a balance.
+        let balance = item
+            .pointer("/token_info/balance")
+            .and_then(serde_json::Value::as_u64);
+        let held = match balance {
+            Some(balance) => {
+                balance >= 1 && matches!(owner, Some(o) if o == wallet || o.is_empty())
+            }
+            None => owner == Some(wallet),
+        };
+        if burnt || !held {
             continue;
         }
         let collection = item
@@ -210,6 +222,23 @@ mod tests {
             assets[3].collection, None,
             "an unverified grouping is no collection"
         );
+    }
+
+    #[test]
+    fn fungible_standard_one_of_ones_count_only_with_a_balance() {
+        let page = serde_json::json!({"result": {"items": [
+            {"id": "HeldFungible1111111111111111111111111111111", "interface": "FungibleAsset",
+             "content": {"metadata": {"name": "Kael"}}, "grouping": [],
+             "ownership": {"owner": WALLET}, "token_info": {"balance": 1, "supply": 1, "decimals": 0}},
+            {"id": "SoldFungible1111111111111111111111111111111", "interface": "FungibleAsset",
+             "grouping": [], "ownership": {"owner": WALLET}, "token_info": {"balance": 0, "supply": 1}},
+            {"id": "OtherFungible111111111111111111111111111111", "interface": "FungibleAsset",
+             "grouping": [], "ownership": {"owner": "Elsewhere"}, "token_info": {"balance": 1}}
+        ]}});
+        let (assets, count) = parse_assets_page(WALLET, &page).unwrap();
+        assert_eq!(count, 3);
+        let ids: Vec<_> = assets.iter().map(|asset| asset.id.as_str()).collect();
+        assert_eq!(ids, ["HeldFungible1111111111111111111111111111111"]);
     }
 
     #[test]

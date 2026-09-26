@@ -22,6 +22,22 @@ test("addresses must be 32-byte base58", () => {
   assert.equal(isSolanaAddress(PROXIM8.slice(0, 20)), false);
 });
 
+test("characters group copies of one avatar", () => {
+  const config = valid();
+  config.sources.push({
+    id: "rati-avatars", name: "RATi Avatar", arrival_location: "cosyworld.core:location/1",
+    characters: [{ id: "santa-pooz", name: "Santa Pooz",
+      assets: ["EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA", "EPzcJWBhPJJzwzEvNv5JXfhQ7cYaXDWFx9h16nHwzmpc"] }],
+  });
+  assert.deepEqual(linkedAvatarsValidationErrors(config), []);
+  const twice = structuredClone(config);
+  twice.sources[2].characters.push({ id: "again", name: "Again", assets: ["EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA"] });
+  assert.notDeepEqual(linkedAvatarsValidationErrors(twice), []);
+  const empty = structuredClone(config);
+  empty.sources[2].characters[0].assets = [];
+  assert.notDeepEqual(linkedAvatarsValidationErrors(empty), []);
+});
+
 test("bad sources are refused", () => {
   const cases = [
     (c) => { c.sources[0].collections = ["not-an-address"]; },
