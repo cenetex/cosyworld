@@ -219,6 +219,101 @@ static void test_movement_and_check(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
 
+/* Accompany v1 (ADR 0009): both actors cross one exit or neither moves. */
+static void test_accompany_move_moves_both_or_neither(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.location_id = 1;
+  create.actor_id = 5101;
+  assert(cw_world_apply(&world, &create, 601, &events) == CW_OK);
+  create.actor_id = 5102;
+  create.location_id = 2;
+  assert(cw_world_apply(&world, &create, 602, &events) == CW_OK);
+  cw_actor *player = test_find_actor(&world, 1001);
+  cw_actor *companion = test_find_actor(&world, 5101);
+  cw_actor *elsewhere = test_find_actor(&world, 5102);
+  assert(player && companion && elsewhere);
+  assert(player->location_id == 1 && companion->location_id == 1);
+
+  cw_action accompany = {0};
+  accompany.kind = CW_ACTION_ACCOMPANY_MOVE;
+  accompany.actor_id = 1001;
+  accompany.target_actor_id = 5101;
+  accompany.location_id = 1;
+  accompany.destination_location_id = 2;
+
+  /* Refusals leave both actors where they were. */
+  cw_action refused = accompany;
+  refused.target_actor_id = 5102;
+  assert(cw_world_apply(&world, &refused, 603, &events) == CW_ERR_RULE);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(events.events[0].reason == CW_REASON_NOT_SAME_LOCATION);
+  refused = accompany;
+  refused.target_actor_id = 1001;
+  assert(cw_world_apply(&world, &refused, 604, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_SELF_TARGET);
+  refused = accompany;
+  refused.target_actor_id = 9999;
+  assert(cw_world_apply(&world, &refused, 605, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_TARGET_NOT_FOUND);
+  refused = accompany;
+  refused.destination_location_id = 3;
+  assert(cw_world_apply(&world, &refused, 606, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_NO_EXIT);
+
+  companion->status = CW_ACTOR_KNOCKED_OUT;
+  assert(cw_world_apply(&world, &accompany, 607, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_TARGET_UNAVAILABLE);
+  companion->status = CW_ACTOR_ACTIVE;
+
+  cw_exit *exit = test_find_exit(&world, 1, 2);
+  assert(exit);
+  exit->flags |= CW_EXIT_LOCKED;
+  assert(cw_world_apply(&world, &accompany, 608, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_EXIT_LOCKED);
+  exit->flags &= ~CW_EXIT_LOCKED;
+
+  cw_gate gate = {0};
+  gate.id = 7201;
+  gate.version = 1;
+  gate.descriptor_version = 1;
+  gate.target_kind = CW_GATE_TARGET_EXIT;
+  gate.scope = CW_GATE_SCOPE_HOLDER;
+  gate.state = CW_GATE_STATE_OPEN;
+  gate.from_location_id = 1;
+  gate.to_location_id = 2;
+  cw_gate_method_definition methods[1] = {0};
+  methods[0].id = 7202;
+  methods[0].predicate_count = 1;
+  methods[0].predicates[0].kind = CW_GATE_PREDICATE_HELD_ITEM;
+  methods[0].predicates[0].subject_id = 2001;
+  assert(cw_world_set_gate(&world, &gate, methods, 1) == CW_OK);
+  assert(cw_world_apply(&world, &accompany, 609, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_GATE_CLOSED);
+  assert(player->location_id == 1 && companion->location_id == 1);
+
+  /* Once the exit is ungated both arrive, and only the companion's move is
+     marked accompanied. */
+  world.gate_count = 0;
+  assert(cw_world_apply(&world, &accompany, 610, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ACTOR_MOVED);
+  assert(events.events[0].actor_id == 1001);
+  assert(events.events[0].reason == CW_REASON_NONE);
+  assert(events.events[0].location_id == 1);
+  assert(events.events[0].destination_location_id == 2);
+  assert(events.events[1].type == CW_EVENT_ACTOR_MOVED);
+  assert(events.events[1].actor_id == 5101);
+  assert(events.events[1].target_actor_id == 1001);
+  assert(events.events[1].reason == CW_REASON_ACCOMPANIED);
+  assert(player->location_id == 2 && companion->location_id == 2);
+}
+
 static void test_explicit_tick_control_and_rejected_action_rollback(void) {
   cw_world world;
   cw_event_buffer events;
@@ -2471,6 +2566,7 @@ int main(void) {
   test_seed_and_chat();
   test_linked_avatar_rescue_and_double_knockout_cascade();
   test_movement_and_check();
+  test_accompany_move_moves_both_or_neither();
   test_explicit_tick_control_and_rejected_action_rollback();
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();

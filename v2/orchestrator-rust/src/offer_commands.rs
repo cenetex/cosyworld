@@ -172,6 +172,12 @@ fn dispatch_for_offer(
         "move" => Ok(CommandDispatch::Move {
             destination_location_id: required_target_id(offer, "location")?,
         }),
+        ACCOMPANY_OFFER_KIND => runtime
+            .plan_accompany_action(actor_id, offer)
+            .map(|action| CommandDispatch::Accompany {
+                action: Box::new(action),
+            })
+            .ok_or_else(invalid),
         "explore_path" => Ok(CommandDispatch::Scout {
             destination_location_id: required_target_id(offer, "location")?,
         }),

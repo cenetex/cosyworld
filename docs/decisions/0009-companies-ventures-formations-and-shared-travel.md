@@ -280,7 +280,7 @@ nothing here claims Company membership, a durable party, or a shared channel.
   destination Location card and targets the resident Avatar card, so both
   selected nouns are used (Story Hand rules 2 and 3). A plain move never claims
   that pair, and Accompany never claims a single Location card.
-- One new append-only kernel action, `CW_ACTION_ACCOMPANY_MOVE` (41), carries
+- One new append-only kernel action, `CW_ACTION_ACCOMPANY_MOVE` (42), carries
   the proposer (`actor_id`), the companion (`target_actor_id`), the origin
   (`location_id`), and the destination (`destination_location_id`). The kernel
   requires both actors active and co-located, a direct exit, and no gate or
@@ -328,7 +328,9 @@ the consent handshake of step 3.
 - Pathway traffic counts one traversal per leg: `accompanied` moves are
   excluded from traffic evidence, so a shared leg develops a way exactly as much
   as a solo one.
-- Historical journals contain no action 41, so their replay is unchanged.
+- Historical journals contain no action 42, so their replay is unchanged. Code
+  41 stays reserved: the first Abandon Avatar release journalled it, and replay
+  keeps those rejected rows as settled no-ops.
   Historical Follow and rendezvous-party records keep their original meaning.
 - Every Accompany record names its participants, origin, and destination, so a
   later Company can adopt shared legs without reinterpreting history.

@@ -426,7 +426,7 @@ impl RuntimeWorld {
                         }
                     }
                 }
-                if offer.kind == "trade_item" {
+                if matches!(offer.kind.as_str(), "trade_item" | ACCOMPANY_OFFER_KIND) {
                     let Some(target_actor_id) = offer
                         .id
                         .split(':')
@@ -989,6 +989,7 @@ impl RuntimeWorld {
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers.extend(self.pending_transfer_acceptance_offers(actor_id));
         offers = self.expand_route_action_offers(actor_id, access, offers);
+        offers = self.expand_accompany_action_offers(actor_id, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
         offers.extend(self.discovery_action_offers(actor_id));
         let keep_projectless_listen_check =
@@ -2709,7 +2710,7 @@ fn story_hand_noun_binding(offer: &RankedActionOffer) -> StoryHandNounBinding {
             // belong to the current scene that made them possible.
             if matches!(
                 offer.kind.as_str(),
-                "move" | "flee" | "explore_path" | "open"
+                "move" | ACCOMPANY_OFFER_KIND | "flee" | "explore_path" | "open"
             ) {
                 if let Some(binding) = target_noun_binding(offer, "location") {
                     return binding;
@@ -2874,7 +2875,8 @@ fn story_hand_noun_bindings(offer: &RankedActionOffer) -> Vec<(usize, StoryHandN
             bindings.push((2, actor));
         }
     }
-    if offer.kind == "trade_item" {
+    // Trade and Accompany name a second actor in their stable id.
+    if matches!(offer.kind.as_str(), "trade_item" | ACCOMPANY_OFFER_KIND) {
         if let Some(actor_id) = offer
             .id
             .split(':')
@@ -3607,7 +3609,7 @@ pub(super) fn action_offer_rank(kind: &str) -> u16 {
         "train_skill" => 76,
         "create_bond" => 77,
         "resolve_bond" => 79,
-        "move" => 80,
+        "move" | ACCOMPANY_OFFER_KIND => 80,
         _ => 500,
     }
 }
@@ -3657,7 +3659,7 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
         DISCOVERY_SEARCH_OFFER_KIND => "inspect",
         DISCOVERY_STUDY_OFFER_KIND => "study",
         DISCOVERY_SCOUT_OFFER_KIND => "scout",
-        "move" => "travel",
+        "move" | ACCOMPANY_OFFER_KIND => "travel",
         "model_interaction" => "illustrate",
         ACCEPT_TRANSFER_OFFER_KIND => "accept",
         "open" => "open",
@@ -3747,7 +3749,7 @@ pub(super) fn action_card_suit(offer: &RankedActionOffer) -> Result<&'static str
             | DISCOVERY_SEARCH_OFFER_KIND
             | DISCOVERY_STUDY_OFFER_KIND
             | DISCOVERY_SCOUT_OFFER_KIND => "head",
-            "move" => "hustle",
+            "move" | ACCOMPANY_OFFER_KIND => "hustle",
             "chat"
             | "influence"
             | "give_item"
@@ -3852,6 +3854,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         DISCOVERY_STUDY_OFFER_KIND => "Study",
         DISCOVERY_SCOUT_OFFER_KIND => "Scout",
         "move" => "Travel",
+        ACCOMPANY_OFFER_KIND => "Travel with",
         "chat" => "Chat",
         "influence" => "Influence",
         "give_item" => "Give",
@@ -3924,7 +3927,7 @@ pub(super) fn fallback_job_action_label(job_id: &str) -> String {
 pub(super) fn action_offer_category(kind: &str) -> &'static str {
     match kind {
         "create_avatar" => "system",
-        "move" | "flee" | "explore_path" => "travel",
+        "move" | ACCOMPANY_OFFER_KIND | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
         "pick_up"
         | "drop_item"

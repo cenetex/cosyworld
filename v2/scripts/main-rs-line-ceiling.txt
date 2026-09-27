@@ -464,4 +464,8 @@
 # module joins the existing media storage seam.
 # 59465 -> 59466: room-history module and schema index wiring. The endpoint,
 # storage queries and regression tests live in room_history.rs.
-59466
+#
+# 59466 -> 59468: ADR 0009 Accompany v1 adds one journal binding row and one
+# replay consent gate line. The offer, planner, and certified consent rule
+# live in movement/accompany.rs with their tests. Existing seams, no new system.
+59468

@@ -78,6 +78,9 @@ typedef enum {
   CW_REASON_GATE_CLOSED = 23,
   CW_REASON_STALE_GATE_OFFER = 24,
   CW_REASON_GATE_CLAIM_CONFLICT = 25,
+  /* Not a rejection: marks the companion's successful move in an
+     accompanied leg, so it is not counted as a second traversal. */
+  CW_REASON_ACCOMPANIED = 26,
   CW_REASON_COUNT
 } cw_rejection_reason;
 
@@ -318,7 +321,13 @@ typedef enum {
   CW_ACTION_COMPLETE_AVATAR_RESCUE = 39,
   /* A second knockout during a rescue window kills the oldest body and
      creates the next rescuer in one replayable transition. */
-  CW_ACTION_REPLACE_AVATAR_RESCUER = 40
+  CW_ACTION_REPLACE_AVATAR_RESCUER = 40,
+  /* 41 is reserved: the first Abandon Avatar release journalled it before the
+     kernel knew it, and replay treats those rejected rows as settled no-ops.
+     Never assign 41 to a kernel action. */
+  /* One player and one companion travel one ungated, unlocked exit together
+     (ADR 0009, Accompany v1). Both move or neither does. */
+  CW_ACTION_ACCOMPANY_MOVE = 42
 } cw_action_kind;
 
 typedef enum {

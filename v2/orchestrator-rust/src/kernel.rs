@@ -207,6 +207,7 @@ pub const CW_ACTION_REPLACE_AVATAR_RESCUER: u8 = 40;
 // real kernel action; abandon records are projection-only (kind
 // CW_ACTION_NONE) and the effect lives in ProjectionMutation::AbandonAvatar.
 pub const CW_ACTION_ABANDON_AVATAR: u8 = 41;
+pub const CW_ACTION_ACCOMPANY_MOVE: u8 = 42;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ABILITY_CHECK_ROLLED: u8 = 6;
@@ -285,7 +286,9 @@ pub const CW_REASON_REST_GRADE_OVERCLAIMED: u16 = 22;
 pub const CW_REASON_GATE_CLOSED: u16 = 23;
 pub const CW_REASON_STALE_GATE_OFFER: u16 = 24;
 pub const CW_REASON_GATE_CLAIM_CONFLICT: u16 = 25;
-pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_GATE_CLAIM_CONFLICT;
+/// Marks the companion's successful move in an accompanied leg.
+pub const CW_REASON_ACCOMPANIED: u16 = 26;
+pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_ACCOMPANIED;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
