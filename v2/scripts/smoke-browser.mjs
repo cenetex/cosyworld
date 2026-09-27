@@ -15453,19 +15453,27 @@ async function main() {
     });
 
     // A signed-in passkey account reaches its account controls from the Menu:
-    // add passkey, link avatar wallet, sign out and OpenRouter.
+    // add passkey, link avatar wallet, sign out and OpenRouter. Opening the
+    // Menu reloads /auth/account, so the signed-in identity is served there
+    // rather than assigned in the page, where the reload would overwrite it.
     await closeAccountInventory();
     const linkedWallet = "2Q7CEgPw9eDDcmcsZXx8R9ZuGuUapzKAQfzb5CnYeQyn";
-    await page.evaluate((wallet) => {
-      window.__smokeIdentityBefore = identity;
-      identity = {
+    const signedInAccount = /\/auth\/account(?:\?.*)?$/;
+    await page.route(signedInAccount, (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
         authenticated: true,
         passkeys: [{ id: "smoke-passkey" }],
-        wallets: [{ wallet_address: wallet }],
-        active_wallet: wallet,
-      };
-    }, linkedWallet);
+        wallets: [{ wallet_address: linkedWallet }],
+        active_wallet: linkedWallet,
+      }),
+    }));
     await focusIdentityPanel();
+    await page.waitForFunction(() => (
+      Boolean(identity?.authenticated)
+        && Boolean(document.querySelector(".minimal-menu [data-wallet-link]"))
+    ));
     const signedIn = await page.evaluate(() => {
       const menu = document.querySelector(".minimal-menu");
       const visible = (selector) => {
@@ -15488,10 +15496,8 @@ async function main() {
     assert(signedIn.walletRows === 1, `Menu should list the linked avatar wallet: ${JSON.stringify(signedIn)}`);
     assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(signedIn.text), `account controls must not expose retired ownership surfaces: ${signedIn.text}`);
     await closeAccountInventory();
-    await page.evaluate(() => {
-      identity = window.__smokeIdentityBefore;
-      delete window.__smokeIdentityBefore;
-    });
+    await page.unroute(signedInAccount);
+    await page.evaluate(() => loadIdentity());
   }
 
   async function eventSummary() {
