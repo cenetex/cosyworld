@@ -263,6 +263,88 @@ Existing rendezvous-party records retain their social-only meaning. They may
 seed an explicit invitation to form or join a Company, but replay never upgrades
 them automatically and no historical Follow action gains shared movement.
 
+## Amendment (2026-09-27): Accompany v1 before Company identity
+
+Status: Accepted. This section narrows, and does not replace, the design above.
+
+The first shared-movement slice ships ahead of step 1 of the delivery sequence
+as a deliberately transient case: **one player travels one leg together with
+one bonded resident**. No Company, Venture, or Formation record is created, so
+nothing here claims Company membership, a durable party, or a shared channel.
+
+### The move
+
+- The Story Hand combination is **Avatar + Location**: selecting a resident's
+  Avatar card and an adjacent destination's Location card resolves to the exact
+  sentence "Travel with ⟨resident⟩ to ⟨place⟩". The offer belongs to the
+  destination Location card and targets the resident Avatar card, so both
+  selected nouns are used (Story Hand rules 2 and 3). A plain move never claims
+  that pair, and Accompany never claims a single Location card.
+- One new append-only kernel action, `CW_ACTION_ACCOMPANY_MOVE` (41), carries
+  the proposer (`actor_id`), the companion (`target_actor_id`), the origin
+  (`location_id`), and the destination (`destination_location_id`). The kernel
+  requires both actors active and co-located, a direct exit, and no gate or
+  lock on it; then it moves both and emits one `actor.moved` event for each.
+  The companion's event carries reason `accompanied` and the proposer as its
+  target. Either both move or neither does, as the atomic-transition rule
+  above requires; like `CW_ACTION_COMPLETE_AVATAR_RESCUE`, it is one replayable
+  transition over several actors.
+- It is a committed card: it consumes the proposer's room turn under the fixed
+  turn taxonomy. The companion's move is part of the same action and spends
+  none of the companion's resident budget.
+
+### Consent
+
+The companion is an inference-controlled resident, so consent is a certified
+decision from authored state, evaluated when the offer is built and again at
+commit, never from generated dialogue. A resident accepts only when all hold:
+
+- its control mode is `local_ai`, `roaming_ai`, or `delegated_ai`;
+- it is not in an encounter, resting, knocked out, suspended, or mid-rescue;
+- the proposer holds a Bond to it whose status is `forming` or `active`; and
+- it has no active journey of its own.
+
+When the rule fails, no offer exists; the combination resolves to nothing
+rather than to a refused sentence. Direct-input actors (other players, and any
+linked avatar a holder is controlling) are never companions in v1; they need
+the consent handshake of step 3.
+
+### Deliberate limits
+
+- **Ungated, unlocked exits only.** Gates evaluate one actor's access, and one
+  action carries one threshold proof. Crossing a Gate together needs a proof per
+  participant and waits for the Formation work.
+- **One adjacent leg.** Multi-leg journeys stay actor-scoped
+  (`MovementPlan::Journey`); no Accompany offer appears while either actor has
+  an active journey.
+- **No encounters.** No offer while either actor is in an initiative scene.
+- **No staying together.** After arrival the companion is an ordinary resident
+  again and may roam away on a later ripple. Keeping company is Company state.
+- **Honest presentation.** The client shows the public accompanied event. It
+  does not label the companion "your party" or change the journey strip.
+
+### Replay, traffic, and compatibility
+
+- Pathway traffic counts one traversal per leg: `accompanied` moves are
+  excluded from traffic evidence, so a shared leg develops a way exactly as much
+  as a solo one.
+- Historical journals contain no action 41, so their replay is unchanged.
+  Historical Follow and rendezvous-party records keep their original meaning.
+- Every Accompany record names its participants, origin, and destination, so a
+  later Company can adopt shared legs without reinterpreting history.
+
+### Tests required before merge
+
+- Kernel: both move; each refusal (not co-located, no exit, gate, lock,
+  inactive companion) leaves both in place; events carry the accompanied
+  reason.
+- Server: the offer exists only for bonded, free, co-located residents across
+  ungated adjacent exits; it resolves from exactly Avatar + Location; a stale
+  or re-targeted submission fails without mutation; replay and snapshot
+  restore reproduce positions; one leg adds one unit of traffic.
+- Browser smoke: the combination shows the partner highlight and the exact
+  sentence, and the transcript shows the accompanied event.
+
 ## Delivery sequence
 
 1. **Company identity and consent.** Persist Company membership, invitations,
