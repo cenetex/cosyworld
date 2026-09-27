@@ -38,6 +38,26 @@ test("characters group copies of one avatar", () => {
   assert.notDeepEqual(linkedAvatarsValidationErrors(empty), []);
 });
 
+test("permanent characters need a known home and short bios", () => {
+  const config = valid();
+  config.sources.push({
+    id: "rati-avatars", name: "RATi Avatar", arrival_location: "cosyworld.core:location/1",
+    characters: [{ id: "santa-pooz", name: "Santa Pooz", permanent: true,
+      home_location: "cosyworld.core:location/1", description: "A round figure.", personality: "Generous.",
+      assets: ["EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA"] }],
+  });
+  assert.deepEqual(linkedAvatarsValidationErrors(config, "linked_avatars", new Set([1])), []);
+  const far = structuredClone(config);
+  far.sources[2].characters[0].home_location = "cosyworld.core:location/77";
+  assert.notDeepEqual(linkedAvatarsValidationErrors(far, "linked_avatars", new Set([1])), []);
+  const long = structuredClone(config);
+  long.sources[2].characters[0].description = "x".repeat(401);
+  assert.notDeepEqual(linkedAvatarsValidationErrors(long), []);
+  const flag = structuredClone(config);
+  flag.sources[2].characters[0].permanent = "yes";
+  assert.notDeepEqual(linkedAvatarsValidationErrors(flag), []);
+});
+
 test("bad sources are refused", () => {
   const cases = [
     (c) => { c.sources[0].collections = ["not-an-address"]; },

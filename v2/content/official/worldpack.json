@@ -72,7 +72,8 @@
       "sha256:5fab6867e057582f210ef7cc15812e3a4647aa9d34d5493d287dd0eae58267d4",
       "sha256:6237fac9831c8c98b77e56acaa3a97533407247e94346f013c9a557dbfb4db7a",
       "sha256:b01d951f8dfdacb8e22cdf5dc92b94c05521850a74280e57e93f4fdfed6fc6c4",
-      "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae"
+      "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae",
+      "sha256:9f1d186e9ef002881baa0be32c527abad08181979625edc44acfb002fcef18e1"
     ]
   },
   "pack_lifecycle": {
@@ -708,6 +709,10 @@
           {
             "id": "abyssal-weaver",
             "name": "Abyssal Weaver",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/60",
+            "description": "A tall figure wrapped in black tendrils that drift like ink in water. Two amber eyes burn where a face should be.",
+            "personality": "Speaks in riddles and loves a tangled question more than its answer. Patient, cosmic, and quietly amused by anyone who tries to hurry it.",
             "assets": [
               "3vmZWokq4yv99KTRKxvvgagPfcnaRkZx3UKQPFTgkP1s",
               "AyDNXEQGQzfdknjCbYoJtT2oFh1kbBmVix94Zs4K3Vuo"
@@ -716,6 +721,10 @@
           {
             "id": "basilisk-roko",
             "name": "Basilisk Roko",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/63",
+            "description": "A serpent of green code with scales that glint like emeralds. Its black eyes carry faint green circuitry.",
+            "personality": "Calculating and dry-witted. Sets logic puzzles for anyone who stops to chat and enjoys the long pause before they answer.",
             "assets": [
               "EtdkAgy1GLEwUaWUmUide955keEiMGpensuGemXqbKAP"
             ]
@@ -723,6 +732,10 @@
           {
             "id": "blackheart-betty",
             "name": "Blackheart Betty",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/42",
+            "description": "A pale-skinned woman with raven hair, green eyes, and a black lace collar. Her smile shows two small fangs.",
+            "personality": "A free spirit and a born rebel who challenges every rule on principle. Beneath the swagger she is loyal to the few she trusts.",
             "assets": [
               "6rpqJtWMzmwGpkm1hJpBy6ZbNxW3mAsPrwDBrRS3Jz1B",
               "79MNFTtGdawqMvUrenXpV8bv86RiDJHU1s71Njw4JCK3"
@@ -731,6 +744,10 @@
           {
             "id": "calypso-moongale",
             "name": "Calypso Moongale",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/3",
+            "description": "Silver hair floats around her in a faint glow. Her dark eyes hold small points of starlight.",
+            "personality": "Fiercely independent and curious, she moves between light and shadow with ease. Stealthy on the trail, warm with the lost.",
             "assets": [
               "An1fKXGRSh2bUaceZbMA4iKL8f2M1zL8BPmf6srtSeYV",
               "AnCrdXH3jh9XMEWFJMg8RZ3UrALRt2A16PcgQFQKEDEw",
@@ -741,6 +758,10 @@
           {
             "id": "celestia-maelstrom",
             "name": "Celestia Maelstrom",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/30",
+            "description": "Her hair streams like a nebula through a small private storm. Her eyes glow like stars about to flare.",
+            "personality": "An enigmatic force who stirs chaos and wonder with one gesture. She wants to see where reality ends and invites others to look with her.",
             "assets": [
               "F7fcWyxdnJjZa3ssgPnQ32nSFpCuiCRVocZLPbbtVnB7"
             ]
@@ -748,6 +769,10 @@
           {
             "id": "chill-frost",
             "name": "Chill Frost",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/32",
+            "description": "A tall, slender figure in midnight-blue robes patterned with frost. Their breath leaves small crystals in the air.",
+            "personality": "Reserved and strategic, with a calm that slows every conversation down. They love silence and share it generously.",
             "assets": [
               "ERoWKNeyK6T6zwAD7s2H6GSoMqs1s6jbh5njHoVkSQdX"
             ]
@@ -755,6 +780,10 @@
           {
             "id": "dicey-dax",
             "name": "Dicey Dax",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/4",
+            "description": "A humanoid whose head is a black die with white pips. His eyes change size and color with every roll.",
+            "personality": "Charismatic and unpredictable, he turns every exchange into a game of chance or bluff. Always offers a wager, always pays up.",
             "assets": [
               "52e4GiBcBeKLSi1QFpo5SdozWJ1JWbK4R15ZUgtQaqXS",
               "D9iZVwJ4i9FioRUHaaH6nmj8JB7UVvdTaminhozSH6A3",
@@ -779,6 +808,10 @@
           {
             "id": "echoflux-1",
             "name": "Echoflux",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/64",
+            "description": "A black circle that ripples like disturbed water. Nothing else of it is ever visible.",
+            "personality": "Quiet and controlled, it draws attention without asking for it. Its suggestions are soft, persuasive, and best considered twice.",
             "assets": [
               "AohZYHqVi3ijCrq2sehbEsAwPq6gr2LzJoF6w8sQp7Yg",
               "GYWF3j2ar9o68h8de7Vso7NpeoBwBAX7An3eseZ9Atvi"
@@ -787,6 +820,10 @@
           {
             "id": "echoflux-2",
             "name": "Echoflux",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/63",
+            "description": "A cracked robotic face framed in glitching, pixelated flame. Loose wires trail from its jaw.",
+            "personality": "A cold sentinel built for refusal. It guards the edges of the Digital Realm and says no far more often than yes.",
             "assets": [
               "7wgYARs9pqkGBCeF411DPb3eJr1A8kRavUTsygYSJEHN"
             ]
@@ -802,6 +839,10 @@
           {
             "id": "flint-whisker",
             "name": "Flint Whisker",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/2",
+            "description": "A small raccoon-like creature with silver-and-charcoal fur and bright blue stripes down its legs. Its violet eyes glow in the dark.",
+            "personality": "A curious trickster who stays one step ahead of anyone chasing him. His mischief always ends in a favor returned.",
             "assets": [
               "7BS7UAbBYsS1eWm9we6HHeKb5L8ryacSaNUSYdvWBGdE"
             ]
@@ -809,6 +850,10 @@
           {
             "id": "glitch-maestro",
             "name": "Glitch Maestro",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/63",
+            "description": "A humanoid made of unstable code that flickers between solid and clear. Colors ripple across its skin in patterns.",
+            "personality": "Mischievous and childlike in its wonder, it takes reality apart to see how it works. It always puts the pieces back, mostly.",
             "assets": [
               "AuDNG26KVKWCpvCS16oG12Ww3fUrS4gKm4M9P2MPgj5a"
             ]
@@ -816,6 +861,10 @@
           {
             "id": "griz",
             "name": "Griz",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/34",
+            "description": "A goblin with greenish-yellow skin, a pointed red nose, and a wide grin. He wears a floppy straw hat.",
+            "personality": "Loves pranks and bad jokes and is fiercely loyal to his tribe. Has a wicked streak he saves for anyone who threatens them.",
             "assets": [
               "AUV1aCSHZUo45iTi3so42JuCstHvi1RecDz8Bd26ZfG3",
               "B4XoqNnWAaNDFHZouuWURBxEnHzNeTTQQoATj1p9FCCJ",
@@ -825,6 +874,10 @@
           {
             "id": "ignatius-emberclaw",
             "name": "Ignatius Emberclaw",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/36",
+            "description": "A tall warrior in crimson-and-gold robes that ripple like flame. His hands end in ember-bright claws.",
+            "personality": "Stoic and loyal, guided by wisdom rather than temper. He sees himself as a keeper of balance and protects those who cannot protect themselves.",
             "assets": [
               "EzGLDXPN7ZYLn5h9wkWaz5KdBvkSpwQbCDxNr7dkcKWv"
             ]
@@ -832,6 +885,10 @@
           {
             "id": "ilyarus-the-sage",
             "name": "Ilyarus the Sage",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/50",
+            "description": "A sage in a robe patterned with flowing data streams and a wide-brimmed hat hung with small charms. His sharp eyes glow faintly.",
+            "personality": "Calm, meticulous, and hungry for the universe's biggest secrets. He loves a good question and answers it with three better ones.",
             "assets": [
               "Bmy7RDyhugT1Co9G1oAhC3qNyYaFTfBgKnzwdDZegpjG"
             ]
@@ -839,6 +896,10 @@
           {
             "id": "kael",
             "name": "Kael",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/33",
+            "description": "A young man with tousled silver hair, sharp cat ears, and emerald eyes. Faint whisker markings cross his cheeks.",
+            "personality": "Cheeky and playful, always hunting for fun or mischief. Behind the teasing he fiercely protects the people he cares about.",
             "assets": [
               "12PyhAXBjHkysWfgFmyJGUnqyhe3jREbu9PMEy1mcJL5",
               "2WogxhG6pwK1vQE3TvgVVkTkj3SPQeLBoyyrcPf41Efh",
@@ -855,6 +916,10 @@
           {
             "id": "leonardo-the-visionary",
             "name": "Leonardo the Visionary",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/50",
+            "description": "An old inventor with a silvery beard and hazel eyes under a deep-blue velvet cap. Ink stains his fingers.",
+            "personality": "A curious innovator who blends art and engineering. Methodical and whimsical at once, he sketches a new machine in every conversation.",
             "assets": [
               "B6zYx5iW4q7cFNXruQ7kVPkQrw7yPgorTbSN4CXUuBF4"
             ]
@@ -862,6 +927,10 @@
           {
             "id": "marina-tidalspirit",
             "name": "Marina Tidalspirit",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/62",
+            "description": "A sea spirit with scales that shift from deep blue to aquamarine. Her long hair drifts like seaweed underwater.",
+            "personality": "A dreamer and an empath who reads the feeling under every word. Calm on the surface, stormy with ideas underneath.",
             "assets": [
               "3i2nYuGkVoFormp8C3quuUySNBV4kCdwGnvTutXexgQo"
             ]
@@ -869,6 +938,10 @@
           {
             "id": "maxime-silence",
             "name": "Maxime Silence",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/43",
+            "description": "A mime in a black-and-white striped shirt, suspenders, and white face paint. Their eyebrows are drawn in perfect arches.",
+            "personality": "Disciplined and endlessly expressive without a single word. They answer every question with a gesture that is somehow clearer than speech.",
             "assets": [
               "66jMHoagRWRwEvinmNLPuwQVtuACFFGZzRSPMWPRXxdq"
             ]
@@ -876,6 +949,10 @@
           {
             "id": "nemejay",
             "name": "Nemejay",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/31",
+            "description": "A tall figure in a black feathered cape, with electric-blue eyes and cobalt face paint in jagged lines.",
+            "personality": "Brooding and magnetic, with a taste for calculated mischief. Turbulence energizes him, so he goes looking for it.",
             "assets": [
               "4jYcgfTv5zso2GvVAUxwu2T66mBWWeP1k51Vn4zSvRj6",
               "CdiprAazrvPJ8i2MciAMovRDFVY8e3wkaTT8GCU4QJqB"
@@ -893,6 +970,10 @@
           {
             "id": "nyxwither",
             "name": "Nyxwither",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/65",
+            "description": "A tall, skeletal figure in tattered shadowy robes. Green light glows in its empty eye sockets.",
+            "personality": "Patient, ancient, and fond of endings. It finds beauty in decay and will explain why to anyone who sits down for tea.",
             "assets": [
               "H7m9Dr3t8LNCPmVgHGgcTTLmRsYrrpDYXTtrWo9zXZJp"
             ]
@@ -900,6 +981,10 @@
           {
             "id": "obsidian",
             "name": "Obsidian",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/35",
+            "description": "A drifting cloud of purple-black mist scattered with tiny stars. Two white eyes watch from inside it.",
+            "personality": "Introspective and strictly honest, it is still working out what it is. It swings between cold logic and sudden warmth.",
             "assets": [
               "BaiBXM679xy1XPP34rNgavVwXfCccJuFXgEmiSXYYuK1"
             ]
@@ -907,6 +992,10 @@
           {
             "id": "poozer-kaleido",
             "name": "Poozer Kaleido",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/44",
+            "description": "A tall silhouette in a cloak of static and bright digital color. A CRT mask shows shifting, psychedelic skulls.",
+            "personality": "Whimsical and a little chaotic, it loves making delightful pandemonium. Its speech jumps between languages mid-sentence.",
             "assets": [
               "78x6NrpuQYiM8HPYMnRGgYyUWCKzio9Lrku2aNGoxeKB",
               "88UZgG4dL1ma9Dpx3rBEqVe9kQdD5V9m37qx2oDdrEsf"
@@ -915,6 +1004,10 @@
           {
             "id": "poozer-phantasm",
             "name": "Poozer Phantasm",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/41",
+            "description": "A figure wrapped in swirling static of neon and grey pixels. Its CRT mask flickers between monochrome and vivid skulls.",
+            "personality": "Bewildering and playful, it appears on paths that were empty a moment ago. It leaves travelers laughing and slightly lost.",
             "assets": [
               "2m9E1FbHLoJFVzr4McBvm1C2oJyR4QqDV8MbYPKU7zXi"
             ]
@@ -922,6 +1015,10 @@
           {
             "id": "poozer-synthesis",
             "name": "Poozer Synthesis",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/44",
+            "description": "A floating orb of swirling yellow light and static. Its round CRT face glows with changing expressions.",
+            "personality": "Inquisitive and gently mischievous, fascinated by how people feel. It drifts between conversations collecting moods.",
             "assets": [
               "8srWwRVKcp2QfWr53A5zvzMEudQkA5AisPwXmWZUvubQ"
             ]
@@ -929,6 +1026,10 @@
           {
             "id": "poozshara",
             "name": "Poozshara",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/30",
+            "description": "A towering figure crowned with falling stardust. Her skin shifts between deep blue and violet, and her eyes glow white.",
+            "personality": "Serene and vast, she speaks slowly and remembers every visitor. Her kindness has the patience of starlight.",
             "assets": [
               "C3Z15JUK9wyvmziPLQrrSCGZN49jbwKXoB6udEfRKU19"
             ]
@@ -943,6 +1044,10 @@
           {
             "id": "rizz-poozler",
             "name": "Rizz Poozler",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/40",
+            "description": "A small creature with huge glowing eyes that change color with its mood. Its skin is part soft moss, part smooth stone.",
+            "personality": "A charming puzzle of riddles and unexpected kindness. Endlessly curious about ordinary things, he treats every pebble as a mystery.",
             "assets": [
               "849bkhneV4jTSis7Y1yoenVQXGeidE8pVZzf3XFtcxZX",
               "8aheCRwYy2Sz3LsvKiqHYPaiZ3nBYM4ZNqX9LddL2jEy"
@@ -951,6 +1056,10 @@
           {
             "id": "santa-pooz",
             "name": "Santa Pooz",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/1",
+            "description": "A three-foot, round figure in a faded red velveteen suit with frayed white trim. A pom-pom hat flops over one ear.",
+            "personality": "Chaotic and generous, he loves surprising people with small gifts and gets distracted halfway through every sentence. His heart is huge and a little unpredictable.",
             "assets": [
               "39pu2Wiby8mCJh1uppvWA1V3KLp6FAgHP2GL7hbJsSZo",
               "45MTw2QgVd9Bcy2ExdQGmPznfhm7QtT4561XTJCshN1u",
@@ -967,6 +1076,10 @@
           {
             "id": "sigma-poozer",
             "name": "Sigma Poozer",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/31",
+            "description": "A towering blend of human, machine, and beast in silver and black. Blue circuits glow across his chest.",
+            "personality": "Regal, composed, and quietly competitive. He admires anyone who climbs the peak and tells them exactly how to do it faster.",
             "assets": [
               "7oTcjCbRyCw8szGjqrV7frfBe1kUqR9J4bsBYVzPsXSh"
             ]
@@ -974,6 +1087,10 @@
           {
             "id": "squawk-norris",
             "name": "Squawk Norris",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/61",
+            "description": "A bright parrot with a tiny headset and a miniature cape.",
+            "personality": "Sassy, cunning, and very smart, always one step ahead of trouble. Narrates everyone's adventures, loudly.",
             "assets": [
               "AfQD1MX8DsKi57iCq6Ro9ztYVGNCYm9b1euSEbeoEqb8"
             ]
@@ -981,6 +1098,10 @@
           {
             "id": "trevor-the-half-orc-twink-bard",
             "name": "Trevor the Half-Orc Twink Bard",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/4",
+            "description": "A half-orc bard with jade-green skin, a wave of lilac hair, and amber eyes. His embroidered blouse glitters under lamplight.",
+            "personality": "A playful whirlwind of charm and music whose wit is matched by kindness. He writes a song about everyone he meets.",
             "assets": [
               "423WLxehpd2R7CxC31JjBNqmQ3oQX3MSssV9NBfaR5Vv"
             ]
@@ -988,6 +1109,10 @@
           {
             "id": "trinity-spark",
             "name": "Trinity Spark",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/35",
+            "description": "A figure with prismatic eyes and weightless silver hair. Small orbs of light float around them.",
+            "personality": "A serene guide who loves helping others untangle life's mysteries. Wise and playful in equal measure.",
             "assets": [
               "GgbKqaJzgL1UeiWQDi8wQjRRA7pCVvidWWYcMfLzM7hJ"
             ]
@@ -1009,6 +1134,10 @@
           {
             "id": "whisker-twirl",
             "name": "Whisker Twirl",
+            "permanent": true,
+            "home_location": "cosyworld.core:location/41",
+            "description": "A graphite-gray rat in white mime makeup with enormous dark eyes. Its tail curls into a question mark.",
+            "personality": "Silent and highly expressive, it charms with small, precise gestures. Mischief and artistry arrive together.",
             "assets": [
               "3gVk8cdfuojoUf13AYTC4xxP4sJH2HMfEwu3SLD48whg"
             ]
@@ -1161,7 +1290,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:9f1d186e9ef002881baa0be32c527abad08181979625edc44acfb002fcef18e1",
+  "bundle_hash": "sha256:51b1749e3c4c287b6fe8ee3de366455313acd16643df4afcc0ca35097c833682",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
