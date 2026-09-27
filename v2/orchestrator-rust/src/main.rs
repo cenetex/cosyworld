@@ -5016,6 +5016,7 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK | CW_ACTION_ATTACK => "attack",
         CW_ACTION_COMBAT_DODGE | CW_ACTION_DEFEND => "defend",
         CW_ACTION_MOVE => "move",
+        CW_ACTION_ACCOMPANY_MOVE => ACCOMPANY_OFFER_KIND,
         CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
         CW_ACTION_PICK_UP_ITEM => "pick_up",
         CW_ACTION_DROP_ITEM => "drop_item",
@@ -7388,6 +7389,7 @@ impl RuntimeWorld {
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
             || !self.proxim8_materialization_record_preconditions_hold(record)
+            || !self.accompany_record_preconditions_hold(record)
             || !discovery_record_preconditions_hold(self, record)
             || !treasure_objective_record_preconditions_hold(self, record)
             || !card_policy_preference_record_preconditions_hold(record)
@@ -12891,7 +12893,7 @@ The relationship statement they are preserving is: {statement}"
             | CW_ACTION_CREATE_ACTOR
             | CW_ACTION_COMPLETE_AVATAR_RESCUE
             | CW_ACTION_REPLACE_AVATAR_RESCUER => return true,
-            CW_ACTION_MOVE => CW_OFFER_MOVE,
+            CW_ACTION_MOVE | CW_ACTION_ACCOMPANY_MOVE => CW_OFFER_MOVE,
             CW_ACTION_ABILITY_CHECK => CW_OFFER_CHECK,
             CW_ACTION_RULES_SEARCH | CW_ACTION_RULES_STUDY => CW_OFFER_CHECK,
             CW_ACTION_RULES_MAGIC => CW_OFFER_USE_ITEM,
@@ -21427,7 +21429,7 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::OpenThreshold { action } => {
+        CommandDispatch::OpenThreshold { action } | CommandDispatch::Accompany { action } => {
             let Json(response) =
                 apply_and_broadcast(state.clone(), *action, payload.actor_session.as_deref()).await;
             command_action_response_with_events(resolved, response, presence_events)

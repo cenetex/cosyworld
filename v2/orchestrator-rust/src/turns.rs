@@ -934,7 +934,8 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         | CW_ACTION_TRADE_ITEM
         | CW_ACTION_CRAFT
         | CW_ACTION_THEFT
-        | CW_ACTION_GATE_TRANSITION => ConcurrencyPolicy::TargetSerialized,
+        | CW_ACTION_GATE_TRANSITION
+        | CW_ACTION_ACCOMPANY_MOVE => ConcurrencyPolicy::TargetSerialized,
         _ => ConcurrencyPolicy::Concurrent,
     }
 }
@@ -952,6 +953,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         CommandDispatch::PickUp { .. }
         | CommandDispatch::NoticeActor { .. }
         | CommandDispatch::OpenThreshold { .. }
+        | CommandDispatch::Accompany { .. }
         | CommandDispatch::Drop { .. }
         | CommandDispatch::UseItem { .. }
         | CommandDispatch::UseFeature { .. }

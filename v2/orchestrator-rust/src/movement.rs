@@ -1,5 +1,8 @@
 use super::*;
 
+pub(crate) mod accompany;
+pub(crate) use accompany::ACCOMPANY_OFFER_KIND;
+
 #[derive(Debug, Deserialize)]
 pub(super) struct ScoutRequest {
     pub(super) actor_id: u64,
@@ -374,7 +377,13 @@ pub(super) fn durable_pathway_traffic_evidence(
 ) -> u64 {
     committed_events
         .iter()
-        .filter(|event| event.success && event.type_name == "actor.moved")
+        // A companion's accompanied move shares its leader's traversal: one
+        // leg adds one unit of traffic however many travel it together.
+        .filter(|event| {
+            event.success
+                && event.type_name == "actor.moved"
+                && event.reason != CW_REASON_ACCOMPANIED
+        })
         .filter_map(|event| Some((event.location_id?, event.destination_location_id?)))
         .filter(|(from_location_id, to_location_id)| {
             generated_pathway_edge_direction(pathway, *from_location_id, *to_location_id).is_some()
@@ -1124,9 +1133,15 @@ mod tests {
         let unrelated = runtime.append_actor_moved_event(RATI_ACTOR_ID, 1, 2);
         let mut rejected = forward.clone();
         rejected.success = false;
+        // A companion who went along shares the leader's traversal.
+        let mut accompanied = forward.clone();
+        accompanied.reason = CW_REASON_ACCOMPANIED;
 
         assert_eq!(
-            durable_pathway_traffic_evidence(&pathway, &[forward, reverse, unrelated, rejected],),
+            durable_pathway_traffic_evidence(
+                &pathway,
+                &[forward, reverse, unrelated, rejected, accompanied],
+            ),
             2
         );
     }

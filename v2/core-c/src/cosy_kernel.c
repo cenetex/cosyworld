@@ -1461,6 +1461,64 @@ static cw_status apply_move(cw_world *world, const cw_action *action, cw_event_b
   return CW_OK;
 }
 
+/* Accompany v1: the proposer (actor_id) and a co-located companion
+   (target_actor_id) cross one direct exit together. Everything is checked
+   before either actor moves, so a refusal changes nothing. Gated and locked
+   exits are refused: a Gate evaluates one actor's access and this action
+   carries no per-participant proof. */
+static cw_status apply_accompany_move(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  if (!action->target_actor_id) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  if (action->target_actor_id == actor->id) return reject(world, out_events, action, CW_REASON_SELF_TARGET);
+  cw_actor *companion = find_actor(world, action->target_actor_id);
+  if (!companion) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  if (!actor_is_active(companion)) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  if (companion->location_id != actor->location_id
+      || (action->location_id && action->location_id != actor->location_id)) {
+    return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+  }
+  if (find_active_combat_encounter_for_actor(world, companion->id)) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_ACTIVE);
+  }
+  cw_id from_location_id = actor->location_id;
+  cw_id destination_id = action->destination_location_id;
+  if (!destination_id || !find_location(world, destination_id)) {
+    return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
+  }
+  if (destination_id == from_location_id) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  const cw_exit *exit = find_exit_const(world, from_location_id, destination_id);
+  if (!exit) return reject(world, out_events, action, CW_REASON_NO_EXIT);
+  if (find_exit_gate_const(world, from_location_id, destination_id) || action->threshold.gate_id) {
+    return reject(world, out_events, action, CW_REASON_GATE_CLOSED);
+  }
+  if (exit->flags & CW_EXIT_LOCKED) return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+
+  actor->location_id = destination_id;
+  companion->location_id = destination_id;
+
+  append_event(world, out_events, CW_EVENT_ACTOR_MOVED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = from_location_id;
+    event->destination_location_id = destination_id;
+  }
+  append_event(world, out_events, CW_EVENT_ACTOR_MOVED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->reason = CW_REASON_ACCOMPANIED;
+    event->actor_id = companion->id;
+    event->target_actor_id = actor->id;
+    event->location_id = from_location_id;
+    event->destination_location_id = destination_id;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_ability_check(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -3426,6 +3484,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       break;
     case CW_ACTION_MOVE:
       status = apply_move(world, action, out_events);
+      break;
+    case CW_ACTION_ACCOMPANY_MOVE:
+      status = apply_accompany_move(world, action, out_events);
       break;
     case CW_ACTION_ABILITY_CHECK:
       status = apply_ability_check(world, action, seed, out_events);

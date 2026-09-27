@@ -15435,6 +15435,10 @@
       }
       if (event.type === "actor.moved") {
         const actor = event.actor_name || "someone";
+        // Reason 26 marks a companion who went along on an accompanied leg.
+        if (Number(event.reason) === 26) {
+          return { kind: "move", label: "together", text: `${actor} went with ${event.target_actor_name || "a traveler"} to ${event.destination_location_name || "somewhere"}` };
+        }
         return { kind: "move", label: "move", text: `${actor}: ${event.location_name || "somewhere"} -> ${event.destination_location_name || "somewhere"}` };
       }
       if (event.type === "actor.created") {
@@ -18776,6 +18780,7 @@
         study: 161,
         create_bond: 177,
         resolve_bond: 179,
+        accompany: 179,
         move: 180,
       };
       return Number(ranks[String(kind || "")] ?? 600);
@@ -18830,7 +18835,8 @@
           if (targetCardExists && ["item", "recipe"].includes(String(target.kind || ""))
               && !requireEntity(used, String(target.kind), targetId)) return false;
         }
-        if (String(offer?.kind || "") === "trade_item") {
+        // Trade and Accompany name their second actor in the stable id.
+        if (["trade_item", "accompany"].includes(String(offer?.kind || ""))) {
           const targetActorId = Number(String(offer?.id || "").split(":")[2] || 0);
           if (!targetActorId || !requireEntity(used, "actor", targetActorId)) return false;
         }

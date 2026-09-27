@@ -88,6 +88,10 @@ pub(crate) enum CommandDispatch {
     OpenThreshold {
         action: Box<CwAction>,
     },
+    /// Travel one leg with a bonded resident (ADR 0009, Accompany v1).
+    Accompany {
+        action: Box<CwAction>,
+    },
     NoticeActor {
         target_actor_id: u64,
     },
@@ -508,6 +512,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
     match &resolved.dispatch {
         CommandDispatch::Pass { .. } => "That Think is no longer current. Refresh the scene.",
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
+        CommandDispatch::Accompany { .. } => {
+            "Your companion cannot travel that way with you right now. Look again."
+        }
         CommandDispatch::Scout { .. } => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
         CommandDispatch::OpenThreshold { .. } => {
