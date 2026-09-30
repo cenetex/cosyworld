@@ -684,61 +684,62 @@ impl AvatarContextSpine {
             self.location.location_id,
         );
         let mut prompt = PromptEnvelope::default().system_context(self.free_context_summoning());
-        let mut add = |text: String, priority: u8, pinned: bool| {
-            if !text.trim().is_empty() {
-                prompt = std::mem::take(&mut prompt).user(
-                    text,
-                    PromptSegmentKind::UniqueEvidence,
-                    priority,
-                    pinned,
-                );
-            }
-        };
-        add(
-            format!(
-                "{} — {}\n{} {}",
-                self.location.name,
-                self.location.title,
-                self.location.description,
-                self.location.persona
-            ),
-            90,
-            true,
-        );
-        if let Some(concern) = self.current_concern.as_deref() {
-            add(concern.to_string(), 88, true);
-        }
-        if !self.cast.is_empty() {
+        {
+            let mut add = |text: String, priority: u8, pinned: bool| {
+                if !text.trim().is_empty() {
+                    prompt = std::mem::take(&mut prompt).user(
+                        text,
+                        PromptSegmentKind::UniqueEvidence,
+                        priority,
+                        pinned,
+                    );
+                }
+            };
             add(
-                format!("here with me: {}.", self.cast.join(", ")),
-                80,
-                false,
-            );
-        }
-        if let Some(counterpart) = self.counterpart.as_ref() {
-            add(
-                format!("{}, {}, is here.", counterpart.name, counterpart.title),
-                86,
+                format!(
+                    "{} — {}\n{} {}",
+                    self.location.name,
+                    self.location.title,
+                    self.location.description,
+                    self.location.persona
+                ),
+                90,
                 true,
             );
+            if let Some(concern) = self.current_concern.as_deref() {
+                add(concern.to_string(), 88, true);
+            }
+            if !self.cast.is_empty() {
+                add(
+                    format!("here with me: {}.", self.cast.join(", ")),
+                    80,
+                    false,
+                );
+            }
+            if let Some(counterpart) = self.counterpart.as_ref() {
+                add(
+                    format!("{}, {}, is here.", counterpart.name, counterpart.title),
+                    86,
+                    true,
+                );
+            }
+            if let Some(relationship) = self.relationship.as_deref() {
+                add(relationship.to_string(), 85, true);
+            }
+            for goal in self.goals.iter().take(4) {
+                add(format!("i want this: {goal}"), 70, false);
+            }
+            for line in self.continuity.iter().take(16) {
+                add(line.clone(), 76, false);
+            }
+            for recollection in self
+                .selected_recollections
+                .iter()
+                .take(FREE_CONTEXT_RECOLLECTIONS)
+            {
+                add(recollection.text.clone(), 74, false);
+            }
         }
-        if let Some(relationship) = self.relationship.as_deref() {
-            add(relationship.to_string(), 85, true);
-        }
-        for goal in self.goals.iter().take(4) {
-            add(format!("i want this: {goal}"), 70, false);
-        }
-        for line in self.continuity.iter().take(16) {
-            add(line.clone(), 76, false);
-        }
-        for recollection in self
-            .selected_recollections
-            .iter()
-            .take(FREE_CONTEXT_RECOLLECTIONS)
-        {
-            add(recollection.text.clone(), 74, false);
-        }
-        drop(add);
         prompt = prompt.evidence(
             "",
             self.location_evidence.iter().take(8).cloned(),
@@ -753,43 +754,44 @@ impl AvatarContextSpine {
             EvidenceModality::Conversation,
             false,
         );
-        let mut add = |text: String, priority: u8, pinned: bool| {
-            if !text.trim().is_empty() {
-                prompt = std::mem::take(&mut prompt).user(
-                    text,
-                    PromptSegmentKind::UniqueEvidence,
-                    priority,
-                    pinned,
+        {
+            let mut add = |text: String, priority: u8, pinned: bool| {
+                if !text.trim().is_empty() {
+                    prompt = std::mem::take(&mut prompt).user(
+                        text,
+                        PromptSegmentKind::UniqueEvidence,
+                        priority,
+                        pinned,
+                    );
+                }
+            };
+            let activity = self
+                .recent_activity
+                .iter()
+                .rev()
+                .take(8)
+                .collect::<Vec<_>>();
+            for line in activity.into_iter().rev() {
+                add(line.clone(), 62, false);
+            }
+            let dialogue = self
+                .recent_dialogue
+                .iter()
+                .rev()
+                .take(12)
+                .collect::<Vec<_>>();
+            for turn in dialogue.into_iter().rev() {
+                add(turn.render(), 74, false);
+            }
+            add(self.current_beat.clone(), 100, true);
+            if let Some(turn) = self.incoming_turn.as_ref() {
+                add(
+                    AvatarContextDialogueTurn::from_directed(turn).render(),
+                    100,
+                    true,
                 );
             }
-        };
-        let activity = self
-            .recent_activity
-            .iter()
-            .rev()
-            .take(8)
-            .collect::<Vec<_>>();
-        for line in activity.into_iter().rev() {
-            add(line.clone(), 62, false);
         }
-        let dialogue = self
-            .recent_dialogue
-            .iter()
-            .rev()
-            .take(12)
-            .collect::<Vec<_>>();
-        for turn in dialogue.into_iter().rev() {
-            add(turn.render(), 74, false);
-        }
-        add(self.current_beat.clone(), 100, true);
-        if let Some(turn) = self.incoming_turn.as_ref() {
-            add(
-                AvatarContextDialogueTurn::from_directed(turn).render(),
-                100,
-                true,
-            );
-        }
-        drop(add);
         prompt
     }
 

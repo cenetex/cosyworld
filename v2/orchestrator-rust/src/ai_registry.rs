@@ -2085,8 +2085,8 @@ mod tests {
             (ModelRarity::Rare, 2),
             (ModelRarity::Legendary, 1),
         ]);
-        let first = order(&registry, "w\0s\0771000", &weights);
-        assert_eq!(first, order(&registry, "w\0s\0771000", &weights));
+        let first = order(&registry, "w\u{0}s\u{0}771000", &weights);
+        assert_eq!(first, order(&registry, "w\u{0}s\u{0}771000", &weights));
         assert_eq!(first.len(), 6);
         let mut sorted = first.clone();
         sorted.sort();
@@ -2094,7 +2094,7 @@ mod tests {
         assert_eq!(sorted.len(), 6, "every pool model appears exactly once");
 
         let primaries = (771000..771200)
-            .map(|id| order(&registry, &format!("w\0s\0{id}"), &weights)[0].clone())
+            .map(|id| order(&registry, &format!("w\u{0}s\u{0}{id}"), &weights)[0].clone())
             .collect::<Vec<_>>();
         let distinct = primaries.iter().collect::<BTreeSet<_>>();
         assert!(
