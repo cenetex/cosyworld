@@ -436,6 +436,7 @@ async fn request_ai_avatar_chat(
     followup: bool,
 ) -> Result<CertifiedSpeech, VoiceRoutingError> {
     let gate = avatar_chat_gate_context(plan, followup);
+    let free_context = crate::free_context::enabled_for_actor(plan.actor_id);
     route_certified_voice(
         config,
         store_path,
@@ -451,8 +452,16 @@ async fn request_ai_avatar_chat(
                 "dialogue-avatar-awakening-v1"
             },
             prompt: avatar_chat_prompt(plan, followup, &gate.requirements),
-            temperature: 0.8,
-            max_tokens: 70,
+            temperature: if free_context {
+                crate::free_context::FREE_CONTEXT_DEFAULT_TEMPERATURE
+            } else {
+                0.8
+            },
+            max_tokens: if free_context {
+                crate::free_context::FREE_CONTEXT_MAX_TOKENS
+            } else {
+                70
+            },
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(plan.location_id),
@@ -703,8 +712,16 @@ pub(super) async fn request_ai_avatar_intent(
             feature: "dialogue_resident",
             prompt_version: "dialogue-resident-voice-awakening-v1",
             prompt,
-            temperature: 0.75,
-            max_tokens: 120,
+            temperature: if crate::free_context::enabled_for_actor(plan.speaker_actor_id) {
+                crate::free_context::FREE_CONTEXT_DEFAULT_TEMPERATURE
+            } else {
+                0.75
+            },
+            max_tokens: if crate::free_context::enabled_for_actor(plan.speaker_actor_id) {
+                crate::free_context::FREE_CONTEXT_MAX_TOKENS
+            } else {
+                120
+            },
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(plan.location_id),
@@ -1027,18 +1044,23 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         .as_ref()
         .map(|continuity| continuity.voice_beat_count)
         .unwrap_or_default();
-    let requirements = voice_beat_requirements(
-        SpeechMode::Prose,
-        completed_beats,
-        &recent_lines,
-        &plan.actor_name,
-        plan_observation_anomalies(
-            &avatar_chat_context_spine(plan, followup),
-            plan.location_id,
-            None,
-            None,
-        ),
-    );
+    let free_context = crate::free_context::enabled_for_actor(plan.actor_id);
+    let requirements = if free_context {
+        VoiceBeatRequirements::default()
+    } else {
+        voice_beat_requirements(
+            SpeechMode::Prose,
+            completed_beats,
+            &recent_lines,
+            &plan.actor_name,
+            plan_observation_anomalies(
+                &avatar_chat_context_spine(plan, followup),
+                plan.location_id,
+                None,
+                None,
+            ),
+        )
+    };
     SpeechGateContext {
         feature: if followup {
             "dialogue_avatar_followup"
@@ -1053,10 +1075,20 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         speaker_actor_id: plan.actor_id,
         speaker_name: plan.actor_name.clone(),
         other_speaker_names,
-        mode: SpeechMode::Prose,
-        max_words: if followup { 28 } else { 34 },
+        mode: if free_context {
+            SpeechMode::Raw
+        } else {
+            SpeechMode::Prose
+        },
+        max_words: if free_context {
+            crate::free_context::FREE_CONTEXT_MAX_WORDS
+        } else if followup {
+            28
+        } else {
+            34
+        },
         anchors,
-        signpost_openers: if followup {
+        signpost_openers: if followup || free_context {
             Vec::new()
         } else {
             opening_place_names(&plan.location_name, &plan.context_spine)
@@ -1110,19 +1142,28 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         )
         .filter(|name| !name.eq_ignore_ascii_case(&plan.speaker_name))
         .collect();
-    let mode = SpeechMode::from_name(&plan.speech_mode);
-    let requirements = voice_beat_requirements(
-        mode,
-        plan.resident_continuity.voice_beat_count,
-        &plan.recent_lines,
-        &plan.speaker_name,
-        plan_observation_anomalies(
-            &plan.context_spine,
-            plan.location_id,
-            plan.source_world_tick,
-            plan.observed_through_seq,
-        ),
-    );
+    let free_context = crate::free_context::enabled_for_actor(plan.speaker_actor_id);
+    let mode = if free_context {
+        SpeechMode::Raw
+    } else {
+        SpeechMode::from_name(&plan.speech_mode)
+    };
+    let requirements = if free_context {
+        VoiceBeatRequirements::default()
+    } else {
+        voice_beat_requirements(
+            mode,
+            plan.resident_continuity.voice_beat_count,
+            &plan.recent_lines,
+            &plan.speaker_name,
+            plan_observation_anomalies(
+                &plan.context_spine,
+                plan.location_id,
+                plan.source_world_tick,
+                plan.observed_through_seq,
+            ),
+        )
+    };
     SpeechGateContext {
         feature: if plan.speech_mode == "raw" {
             "dialogue_resident_raw"
@@ -1138,9 +1179,13 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         speaker_name: plan.speaker_name.clone(),
         other_speaker_names,
         mode,
-        max_words: resident_word_budget(plan),
+        max_words: if free_context {
+            crate::free_context::FREE_CONTEXT_MAX_WORDS
+        } else {
+            resident_word_budget(plan)
+        },
         anchors,
-        signpost_openers: if plan.incoming_turn.is_some() {
+        signpost_openers: if free_context || plan.incoming_turn.is_some() {
             Vec::new()
         } else {
             opening_place_names(&plan.location_name, &plan.context_spine)

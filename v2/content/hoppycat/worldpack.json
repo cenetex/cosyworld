@@ -4,7 +4,7 @@
   "canonical_id_mapping_version": 1,
   "id": "hoppycat.february-third",
   "name": "Hoppycat: February Third",
-  "version": 5,
+  "version": 6,
   "description": "A cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
   "entry_location": "hoppycat.archive:location/770000",
   "persistence_compatibility": {
@@ -17,7 +17,8 @@
       "sha256:51a21c2587473007ba2b16571a1c75a910738792e36cb96de3cbdf3f843aa3c5",
       "sha256:95263c868c4120f18ca927ead1186b2254edcd5b8ffb1b7e150f66ba257644b5",
       "sha256:8d132b1900df06a6e7e5afd375ecf6d943f1133de0b70bcfb4bb6571e2038ae0",
-      "sha256:91872e1576cbc5d1a356c20e23520c13c6e85aa2ddea8a573f3633fc95cfcf93"
+      "sha256:91872e1576cbc5d1a356c20e23520c13c6e85aa2ddea8a573f3633fc95cfcf93",
+      "sha256:8d5add021a8877567f18fedb9a3786ce3f9baee70bccb9111cf9fd4ddef15460"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -188,7 +189,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:8d5add021a8877567f18fedb9a3786ce3f9baee70bccb9111cf9fd4ddef15460",
+  "bundle_hash": "sha256:d604c4825899dae181f54a7cab25ad095462304ced78d2f1fef7754cd8dab93c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -354,7 +355,7 @@
       "id": "hoppycat.archive",
       "name": "Hoppycat: February Third",
       "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
-      "version": "0.4.3",
+      "version": "0.4.4",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit/",
@@ -440,6 +441,22 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-free-context": {
+          "schema_version": 1,
+          "mode": "free_context"
+        },
+        "x-cosyworld-voice-pool": {
+          "schema_version": 1,
+          "strategy": "keyed",
+          "salt": "hoppycat-2026-10",
+          "tier_weights": {
+            "common": 6,
+            "uncommon": 3,
+            "rare": 2,
+            "legendary": 1
+          },
+          "temperature": 1
+        },
         "x-cosyworld-ai-cast": {
           "schema_version": 1,
           "provider": "openrouter",
@@ -553,7 +570,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:e2155c6d5acb773b81c53a5990d438a1ba1c70700c4b9429837bb74b9dbc682d"
+      "integrity": "sha256:fe9b7d2ea5bbc8af44ec63f5c5e57cebf7a760e2420482e796be67c49ac14b07"
     }
   ],
   "files": {

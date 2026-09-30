@@ -20,7 +20,11 @@ import { itemLevelPolicyErrors } from "./item-level-policy.mjs";
 import { writingRegisterErrors } from "./writing-register.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { linkedAvatarsValidationErrors } from "./linked-avatars-schema.mjs";
-import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
+import {
+  actorModelBindingValidationErrors,
+  voicePoolValidationErrors,
+  freeContextValidationErrors,
+} from "./actor-model-binding-schema.mjs";
 import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
@@ -1243,6 +1247,8 @@ for (const pack of packs.filter((candidate) => candidate.kind === "campaign")) {
 const actors = content.actors;
 const actorModelBindings = content.actor_model_bindings ?? [];
 for (const pack of packs) {
+  for (const error of voicePoolValidationErrors(pack)) fail(error);
+  for (const error of freeContextValidationErrors(pack)) fail(error);
   for (const error of actorModelBindingValidationErrors(
     pack,
     actors,

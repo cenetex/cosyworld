@@ -67,6 +67,12 @@ run_world() {
   shutdown_grace_secs="${12}"
   shutdown_marker_dir="${13}"
   worldpack="$(basename "$(dirname "$registry")")"
+  # Hoppycat speaks through a keyed model pool, so it runs without the shared
+  # voice pin. This function runs in its own background subshell, so the export
+  # never reaches another world.
+  if [ "$slug" = "hoppycat" ] && [ -n "${COSYWORLD_AI_CAPABILITY_MODELS_JSON_HOPPYCAT:-}" ]; then
+    export COSYWORLD_AI_CAPABILITY_MODELS_JSON="$COSYWORLD_AI_CAPABILITY_MODELS_JSON_HOPPYCAT"
+  fi
   active_child=""
 
   # Invoked indirectly by the signal trap below.

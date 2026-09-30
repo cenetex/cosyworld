@@ -468,4 +468,8 @@
 # 59466 -> 59468: ADR 0009 Accompany v1 adds one journal binding row and one
 # replay consent gate line. The offer, planner, and certified consent rule
 # live in movement/accompany.rs with their tests. Existing seams, no new system.
-59468
+#
+# 59468 -> 59470: two `mod` lines for the pack opt-ins free_context.rs and
+# voice_pool.rs. Their parsing, policy, and tests live in those modules; main.rs
+# gains only the declarations.
+59470

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -242,6 +243,39 @@ pub(crate) struct ConcreteModelIdentity {
     pub(crate) revision: Option<String>,
 }
 
+/// Operator-declared draw tier for keyed model pools. It only shapes how often
+/// a pack that opts into a pool draws the model; it never widens eligibility.
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ModelRarity {
+    #[default]
+    Common,
+    Uncommon,
+    Rare,
+    Legendary,
+}
+
+impl ModelRarity {
+    pub(crate) const ALL: [ModelRarity; 4] = [
+        ModelRarity::Common,
+        ModelRarity::Uncommon,
+        ModelRarity::Rare,
+        ModelRarity::Legendary,
+    ];
+
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        match value {
+            "common" => Some(Self::Common),
+            "uncommon" => Some(Self::Uncommon),
+            "rare" => Some(Self::Rare),
+            "legendary" => Some(Self::Legendary),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct DeclaredModelCandidate {
@@ -275,6 +309,8 @@ pub(crate) struct DeclaredModelCandidate {
     pub(crate) capabilities: BTreeSet<ModelCapability>,
     #[serde(default)]
     pub(crate) observations: CandidateObservations,
+    #[serde(default)]
+    pub(crate) rarity: ModelRarity,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -455,6 +491,7 @@ pub(crate) struct CapabilityRegistrySnapshot {
     snapshot_version: String,
     candidates: BTreeMap<String, Arc<ModelCandidate>>,
     pools: BTreeMap<ModelCapability, Vec<String>>,
+    rarities: BTreeMap<String, ModelRarity>,
 }
 
 impl Default for CapabilityRegistrySnapshot {
@@ -463,6 +500,7 @@ impl Default for CapabilityRegistrySnapshot {
             snapshot_version: "unconfigured".to_string(),
             candidates: BTreeMap::new(),
             pools: BTreeMap::new(),
+            rarities: BTreeMap::new(),
         }
     }
 }
@@ -492,9 +530,12 @@ impl CapabilityRegistrySnapshot {
             }
         }
 
+        let mut rarities = BTreeMap::<String, ModelRarity>::new();
         for declared in document.declared {
+            let rarity = declared.rarity;
             let normalized = normalize_declared(declared)?;
             let key = normalized.requested_model_id.clone();
+            rarities.insert(key.clone(), rarity);
             if let Some(discovered) = candidates.remove(&key) {
                 if discovered.declared {
                     return Err(RegistryError::DuplicateCandidate(key));
@@ -543,6 +584,7 @@ impl CapabilityRegistrySnapshot {
             snapshot_version,
             candidates,
             pools,
+            rarities,
         })
     }
 
@@ -588,6 +630,7 @@ impl CapabilityRegistrySnapshot {
                 sampling: SamplingDefaults::default(),
                 capabilities,
                 observations: CandidateObservations::default(),
+                rarity: ModelRarity::default(),
             };
         let declared = if voice_model == metacognitive_model {
             vec![candidate(
@@ -674,6 +717,77 @@ impl CapabilityRegistrySnapshot {
             capability,
             candidate,
         })
+    }
+
+    /// Deterministic keyed draw over a capability pool, in the spirit of the old
+    /// rarity-tier `getRandomModel`: choose a tier by weight, then a model in that
+    /// tier, both from a stable hash of `routing_key`. The remainder of the pool
+    /// follows as fallbacks: the rest of the drawn tier first, then the other
+    /// tiers by weight. The same key always yields the same order for the same
+    /// snapshot, so replay and snapshot reload agree on who speaks as whom.
+    pub(crate) fn pin_all_keyed(
+        &self,
+        capability: ModelCapability,
+        routing_key: &str,
+        tier_weights: &BTreeMap<ModelRarity, u32>,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
+        let pool = self
+            .pools
+            .get(&capability)
+            .filter(|pool| !pool.is_empty())
+            .ok_or(RegistryError::EmptyCapabilityPool(capability))?;
+        let tier_of = |model: &str| self.rarities.get(model).copied().unwrap_or_default();
+        let mut weights = ModelRarity::ALL
+            .into_iter()
+            .map(|tier| (tier, tier_weights.get(&tier).copied().unwrap_or(0)))
+            .filter(|(tier, weight)| {
+                *weight > 0 && pool.iter().any(|model| tier_of(model) == *tier)
+            })
+            .collect::<Vec<_>>();
+        if weights.is_empty() {
+            weights = ModelRarity::ALL
+                .into_iter()
+                .filter(|tier| pool.iter().any(|model| tier_of(model) == *tier))
+                .map(|tier| (tier, 1))
+                .collect();
+        }
+        let total = weights
+            .iter()
+            .map(|(_, weight)| u64::from(*weight))
+            .sum::<u64>();
+        let mut point = keyed_hash(&format!("{routing_key}\0tier")) % total;
+        let mut drawn = weights[0].0;
+        for (tier, weight) in &weights {
+            if point < u64::from(*weight) {
+                drawn = *tier;
+                break;
+            }
+            point -= u64::from(*weight);
+        }
+        let weight_of = |tier: ModelRarity| {
+            weights
+                .iter()
+                .find(|(candidate, _)| *candidate == tier)
+                .map(|(_, weight)| *weight)
+                .unwrap_or(0)
+        };
+        let mut ordered = pool.iter().collect::<Vec<_>>();
+        ordered.sort_by(|left, right| {
+            let (left_tier, right_tier) = (tier_of(left), tier_of(right));
+            (right_tier == drawn)
+                .cmp(&(left_tier == drawn))
+                .then_with(|| weight_of(right_tier).cmp(&weight_of(left_tier)))
+                .then_with(|| {
+                    keyed_hash(&format!("{routing_key}\0model\0{left}"))
+                        .cmp(&keyed_hash(&format!("{routing_key}\0model\0{right}")))
+                })
+                .then_with(|| left.cmp(right))
+        });
+        ordered
+            .into_iter()
+            .map(|model| self.pin(capability, Some(model), policy_mode))
+            .collect()
     }
 
     pub(crate) fn pin_all(
@@ -1552,6 +1666,11 @@ impl fmt::Display for RegistryError {
 
 impl std::error::Error for RegistryError {}
 
+fn keyed_hash(value: &str) -> u64 {
+    let digest = Sha256::digest(value.as_bytes());
+    u64::from_be_bytes(digest[..8].try_into().expect("SHA-256 prefix"))
+}
+
 fn normalize_declared(value: DeclaredModelCandidate) -> Result<ModelCandidate, RegistryError> {
     let requested_model_id = normalize_model_id(&value.requested_model_id, "requested model id")?;
     let provider = normalize_provider(&value.provider)?;
@@ -1903,6 +2022,7 @@ mod tests {
             },
             capabilities: capabilities.into_iter().collect(),
             observations: CandidateObservations::default(),
+            rarity: ModelRarity::default(),
         }
     }
 
@@ -1918,6 +2038,106 @@ mod tests {
             discovered,
         })
         .expect("valid registry snapshot")
+    }
+
+    fn rarity_candidate(model: &str, rarity: ModelRarity) -> DeclaredModelCandidate {
+        let mut candidate = declared_candidate(model, [ModelCapability::Voice]);
+        candidate.rarity = rarity;
+        candidate
+    }
+
+    fn keyed_registry() -> CapabilityRegistrySnapshot {
+        let mut declared = Vec::new();
+        for index in 0..4 {
+            declared.push(rarity_candidate(
+                &format!("p/common-{index}"),
+                ModelRarity::Common,
+            ));
+        }
+        declared.push(rarity_candidate("p/rare-0", ModelRarity::Rare));
+        declared.push(rarity_candidate("p/legend-0", ModelRarity::Legendary));
+        snapshot("keyed-1", declared, Vec::new())
+    }
+
+    fn order(
+        registry: &CapabilityRegistrySnapshot,
+        key: &str,
+        weights: &BTreeMap<ModelRarity, u32>,
+    ) -> Vec<String> {
+        registry
+            .pin_all_keyed(
+                ModelCapability::Voice,
+                key,
+                weights,
+                DataPolicyMode::Production,
+            )
+            .expect("keyed order")
+            .iter()
+            .map(|pinned| pinned.requested_model_id().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn keyed_pool_is_deterministic_spreads_actors_and_keeps_every_model_as_fallback() {
+        let registry = keyed_registry();
+        let weights = BTreeMap::from([
+            (ModelRarity::Common, 6),
+            (ModelRarity::Rare, 2),
+            (ModelRarity::Legendary, 1),
+        ]);
+        let first = order(&registry, "w\u{0}s\u{0}771000", &weights);
+        assert_eq!(first, order(&registry, "w\u{0}s\u{0}771000", &weights));
+        assert_eq!(first.len(), 6);
+        let mut sorted = first.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), 6, "every pool model appears exactly once");
+
+        let primaries = (771000..771200)
+            .map(|id| order(&registry, &format!("w\u{0}s\u{0}{id}"), &weights)[0].clone())
+            .collect::<Vec<_>>();
+        let distinct = primaries.iter().collect::<BTreeSet<_>>();
+        assert!(
+            distinct.len() >= 5,
+            "200 actors reach most of the pool: {distinct:?}"
+        );
+        let legendary = primaries.iter().filter(|m| m.contains("legend")).count();
+        let common = primaries.iter().filter(|m| m.contains("common")).count();
+        assert!(
+            legendary > 0 && legendary < common,
+            "weights shape the draw"
+        );
+    }
+
+    #[test]
+    fn keyed_pool_falls_back_through_the_drawn_tier_first() {
+        let registry = keyed_registry();
+        let weights = BTreeMap::from([(ModelRarity::Common, 1)]);
+        let ordered = order(&registry, "any-key", &weights);
+        assert!(ordered[..4].iter().all(|m| m.contains("common")));
+        assert!(ordered[4..].iter().all(|m| !m.contains("common")));
+    }
+
+    #[test]
+    fn keyed_pool_ignores_weights_for_empty_tiers_and_defaults_to_uniform() {
+        let registry = keyed_registry();
+        let unknown = BTreeMap::from([(ModelRarity::Uncommon, 5)]);
+        assert_eq!(order(&registry, "k", &unknown).len(), 6);
+        assert_eq!(order(&registry, "k", &BTreeMap::new()).len(), 6);
+    }
+
+    #[test]
+    fn registry_without_rarity_declares_common_and_parses_the_new_field() {
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{"schema_version":1,"snapshot_version":"r","declared":[
+              {"requested_model_id":"p/a","provider":"x","capabilities":["voice"],"rarity":"legendary",
+               "input_modalities":["text"],"output_modalities":["text"]},
+              {"requested_model_id":"p/b","provider":"x","capabilities":["voice"],
+               "input_modalities":["text"],"output_modalities":["text"]}]}"#,
+        )
+        .expect("registry parses");
+        assert_eq!(registry.rarities["p/a"], ModelRarity::Legendary);
+        assert_eq!(registry.rarities["p/b"], ModelRarity::Common);
     }
 
     #[test]

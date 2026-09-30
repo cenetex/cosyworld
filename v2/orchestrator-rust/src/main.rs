@@ -77,6 +77,7 @@ mod room_history;
 // The legacy canary evaluator remains readable for frozen-job compatibility
 // and audit tests, while live evolution now always preserves its parent image.
 mod autonomy;
+mod free_context;
 #[allow(dead_code)]
 mod media_evolution;
 mod media_jobs;
@@ -130,6 +131,7 @@ mod turns;
 mod uses;
 mod util;
 mod views;
+mod voice_pool;
 mod world_causality;
 mod world_events;
 mod world_simulation;

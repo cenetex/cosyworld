@@ -2404,6 +2404,8 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         );
     }
     for pack in &content.manifest.packs {
+        crate::voice_pool::parse_voice_pool(pack)?;
+        crate::free_context::parse_free_context(pack)?;
         let bound_actor_count = bound_actor_counts_by_pack
             .get(pack.id.as_str())
             .copied()
