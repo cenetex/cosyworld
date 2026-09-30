@@ -132,6 +132,17 @@ test("free-context declarations accept only the documented shape", () => {
     freeContextValidationErrors(pack({ schema_version: 1, mode: "free_context" })),
     [],
   );
+  assert.deepEqual(
+    freeContextValidationErrors(
+      pack({ schema_version: 1, mode: "free_context", traveler_personas: ["i am a traveler."] }),
+    ),
+    [],
+  );
+  assert.ok(
+    freeContextValidationErrors(
+      pack({ schema_version: 1, mode: "free_context", traveler_personas: [""] }),
+    ).length > 0,
+  );
   assert.ok(freeContextValidationErrors(pack({ schema_version: 1, mode: "task" })).length > 0);
   assert.ok(
     freeContextValidationErrors(pack({ schema_version: 1, mode: "free_context", budget: 9 }))

@@ -206,11 +206,23 @@ export function freeContextValidationErrors(manifest) {
   }
   const errors = [];
   for (const field of Object.keys(config)) {
-    if (field !== "schema_version" && field !== "mode") {
+    if (field !== "schema_version" && field !== "mode" && field !== "traveler_personas") {
       errors.push(`${label} has unknown field ${field}`);
     }
   }
   if (config.schema_version !== 1) errors.push(`${label} schema_version must be 1`);
   if (config.mode !== "free_context") errors.push(`${label} mode must be free_context`);
+  if (config.traveler_personas !== undefined) {
+    const list = config.traveler_personas;
+    if (!Array.isArray(list) || list.length > 16) {
+      errors.push(`${label} traveler_personas must be an array of at most 16 lines`);
+    } else {
+      for (const line of list) {
+        if (typeof line !== "string" || !line.trim() || [...line.trim()].length > 200) {
+          errors.push(`${label} each traveler persona must be 1-200 characters`);
+        }
+      }
+    }
+  }
   return errors;
 }
