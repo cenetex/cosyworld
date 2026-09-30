@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.201 — 2026-09-30
+
+- Bring player-controlled avatars into free-context worlds. A pack may declare
+  `traveler_personas`, short system-owned first-person lines chosen by stable
+  hash, so player avatars no longer share one plain fallback persona. Player
+  text stays in the user role.
+- Clean free-context prompts of engine bookkeeping: internal planner labels,
+  raw tags, turn-order notices, embedded instructions, and duplicate memories.
+- Hoppycat declares eight jagged traveler personas. Pack 0.4.5, world 7; the
+  live 1.0.200 bundle is declared replay-compatible.
+
 ## 1.0.200 — 2026-09-30
 
 - Recast the Hoppycat cast: sixteen residents with distinct comic voices, one

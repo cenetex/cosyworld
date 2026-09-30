@@ -180,3 +180,20 @@ text. The AI still only proposes speech; it never changes authoritative state.
 Player-controlled avatars and packs without the extension keep the task prompt.
 Sampling defaults to temperature 1.0 and a 320-token ceiling, and a pack
 `x-cosyworld-voice-pool` temperature replaces that default.
+
+### Player avatars in a free-context world
+
+Player-controlled avatars follow the world's free-context pack. Their system
+message is the same ritual with one line chosen by a stable hash of the avatar
+id from the pack's optional `traveler_personas` (up to 16 short first-person
+lines, system-owned), so player text never reaches the system role. The
+avatar's own name and every player-influenced fact stay in the user message.
+Without `traveler_personas` the fallback idiolect is used. The fixed fallback
+makes every player avatar a plain, detail-noticing listener, which is the
+source of the "I notice…" echo in a shared room; a pack that wants jagged
+voices should declare its own.
+
+The user message drops engine bookkeeping: internal labels such as
+"Planner-only goal:", raw tags such as `:chosen_calling`, turn-order notices,
+instructions embedded in goal text, and duplicate memories.
+

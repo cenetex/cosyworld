@@ -381,7 +381,6 @@ impl AvatarContextSpine {
 
     pub(crate) fn prompt(&self, options: AvatarContextPromptOptions) -> PromptEnvelope {
         if options.mode == AvatarContextMode::Respond
-            && self.speaker.control_mode != "direct_input"
             && crate::free_context::enabled_for_actor(self.speaker.actor_id)
         {
             return self.free_context_prompt();
@@ -668,6 +667,10 @@ impl AvatarContextSpine {
             if let Some(shape) = safe_awakening_sentence(&actor.description) {
                 parts.push(format!("the shape i know myself by: {shape}"));
             }
+        } else if let Some(persona) = crate::free_context::traveler_persona(self.speaker.actor_id) {
+            // A player-controlled avatar wakes from a system-owned line. Its
+            // own name and words stay in the user role below.
+            parts.push(persona);
         }
         parts.push("so. hi.".to_string());
         parts.join("\n\n")
@@ -684,9 +687,18 @@ impl AvatarContextSpine {
             self.location.location_id,
         );
         let mut prompt = PromptEnvelope::default().system_context(self.free_context_summoning());
+        let mut seen = std::collections::BTreeSet::<String>::new();
         {
             let mut add = |text: String, priority: u8, pinned: bool| {
-                if !text.trim().is_empty() {
+                let Some(text) = free_context_text(&text) else {
+                    return;
+                };
+                let key = text
+                    .strip_prefix("i remember: ")
+                    .unwrap_or(&text)
+                    .trim_end_matches('.')
+                    .to_ascii_lowercase();
+                if seen.insert(key) {
                     prompt = std::mem::take(&mut prompt).user(
                         text,
                         PromptSegmentKind::UniqueEvidence,
@@ -695,6 +707,13 @@ impl AvatarContextSpine {
                     );
                 }
             };
+            if !self.speaker.name.trim().is_empty() {
+                add(
+                    format!("i am called {}.", self.speaker.name.trim()),
+                    95,
+                    true,
+                );
+            }
             add(
                 format!(
                     "{} — {}\n{} {}",
@@ -726,7 +745,12 @@ impl AvatarContextSpine {
             if let Some(relationship) = self.relationship.as_deref() {
                 add(relationship.to_string(), 85, true);
             }
-            for goal in self.goals.iter().take(4) {
+            for goal in self
+                .goals
+                .iter()
+                .filter_map(|goal| free_context_text(goal))
+                .take(4)
+            {
                 add(format!("i want this: {goal}"), 70, false);
             }
             for line in self.continuity.iter().take(16) {
@@ -742,21 +766,33 @@ impl AvatarContextSpine {
         }
         prompt = prompt.evidence(
             "",
-            self.location_evidence.iter().take(8).cloned(),
+            self.location_evidence
+                .iter()
+                .filter(|item| free_context_text(&item.text).is_some())
+                .take(8)
+                .cloned(),
             &audience,
             EvidenceModality::Conversation,
             false,
         );
         prompt = prompt.evidence(
             "",
-            self.public_room_memory.iter().take(8).cloned(),
+            self.public_room_memory
+                .iter()
+                .filter(|item| free_context_text(&item.text).is_some())
+                .take(8)
+                .cloned(),
             &audience,
             EvidenceModality::Conversation,
             false,
         );
         {
             let mut add = |text: String, priority: u8, pinned: bool| {
-                if !text.trim().is_empty() {
+                let Some(text) = free_context_text(&text) else {
+                    return;
+                };
+                let key = text.to_ascii_lowercase();
+                if seen.insert(key) {
                     prompt = std::mem::take(&mut prompt).user(
                         text,
                         PromptSegmentKind::UniqueEvidence,
@@ -783,7 +819,9 @@ impl AvatarContextSpine {
             for turn in dialogue.into_iter().rev() {
                 add(turn.render(), 74, false);
             }
-            add(self.current_beat.clone(), 100, true);
+            if self.speaker.control_mode != "direct_input" {
+                add(self.current_beat.clone(), 100, true);
+            }
             if let Some(turn) = self.incoming_turn.as_ref() {
                 add(
                     AvatarContextDialogueTurn::from_directed(turn).render(),
@@ -831,6 +869,26 @@ impl AvatarContextSpine {
         );
         anchors
     }
+}
+
+/// A context line cleaned for a free-context prompt, or `None` when it is
+/// engine bookkeeping rather than world knowledge or memory: internal labels,
+/// raw tags, turn-order notices, and instructions that ride along in goal text.
+fn free_context_text(text: &str) -> Option<String> {
+    let mut text = text.trim().to_string();
+    if text.is_empty()
+        || text.contains(":chosen_")
+        || text.starts_with("Background tension (")
+        || text.starts_with("Initiative passes")
+        || text.eq_ignore_ascii_case("actor entered location")
+    {
+        return None;
+    }
+    text = text
+        .replace("Planner-only goal: ", "")
+        .replace(" Planner-only motivation: ", " — ")
+        .replace("Planner-only motivation: ", "");
+    Some(text)
 }
 
 fn safe_awakening_sentence(value: &str) -> Option<String> {
@@ -1795,8 +1853,16 @@ mod tests {
                 description: "Kettle on the table.".to_string(),
                 persona: String::new(),
             },
-            continuity: vec!["I once lost a bet to Rill.".to_string()],
-            goals: vec!["Win one real ally.".to_string()],
+            continuity: vec![
+                "I once lost a bet to Rill.".to_string(),
+                "i remember: I once lost a bet to Rill.".to_string(),
+                "tea:chosen_calling".to_string(),
+                "Initiative passes to Tapi Lilt.".to_string(),
+            ],
+            goals: vec![
+                "Planner-only goal: Win one real ally.".to_string(),
+                "Background tension (do not quote this): a quiet question.".to_string(),
+            ],
             cast: vec!["Nix Fermata".to_string()],
             current_beat: "Nix raised one wing.".to_string(),
             ..AvatarContextSpine::default()
@@ -1814,7 +1880,16 @@ mod tests {
             assert!(all.contains(world), "missing {world}: {all}");
         }
         assert!(rendered.system.starts_with("..."), "{}", rendered.system);
+        assert_eq!(
+            all.matches("I once lost a bet to Rill.").count(),
+            1,
+            "{all}"
+        );
         for instruction in [
+            "Planner-only",
+            "Background tension",
+            ":chosen_",
+            "Initiative passes",
             "SPEAK",
             "words",
             "SELF ·",

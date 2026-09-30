@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "hoppycat.archive",
   "name": "Hoppycat: February Third",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "kind": "world",
   "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
   "license": "MIT",
@@ -87,7 +87,17 @@
   "extensions": {
     "x-cosyworld-free-context": {
       "schema_version": 1,
-      "mode": "free_context"
+      "mode": "free_context",
+      "traveler_personas": [
+        "i am a traveler who says the obvious thing at the wrong volume.",
+        "i am a traveler with far too many opinions about tea.",
+        "i am a traveler who reads every sign out loud and argues with it.",
+        "i am a traveler with a deadline nobody gave me.",
+        "i am a traveler who compliments people like an auditor.",
+        "i am a traveler who keeps score in a notebook and loses.",
+        "i am a traveler, loudly quiet.",
+        "i am a traveler who brought snacks to an argument."
+      ]
     },
     "x-cosyworld-voice-pool": {
       "schema_version": 1,
