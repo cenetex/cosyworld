@@ -85,6 +85,17 @@
     }
   ],
   "extensions": {
+    "x-cosyworld-free-context": {
+      "schema_version": 1,
+      "mode": "free_context"
+    },
+    "x-cosyworld-voice-pool": {
+      "schema_version": 1,
+      "strategy": "keyed",
+      "salt": "hoppycat-2026-10",
+      "tier_weights": { "common": 6, "uncommon": 3, "rare": 2, "legendary": 1 },
+      "temperature": 1.0
+    },
     "x-cosyworld-ai-cast": {
       "schema_version": 1,
       "provider": "openrouter",

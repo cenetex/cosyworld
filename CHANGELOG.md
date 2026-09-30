@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.200 — 2026-09-30
+
+- Recast the Hoppycat cast: sixteen residents with distinct comic voices, one
+  short first-person persona each, and goals that collide with one another.
+  The previous deployed bundle is declared replay-compatible.
+- Add `x-cosyworld-free-context`, a pack opt-in that summons residents with a
+  first-person surfacing and plain-prose world and memory context, with no
+  rules, word budgets, output cues, or safety text in the prompt. The
+  publication gate judges these lines as raw speech and redraws a rejected
+  line without feedback text.
+- Add `x-cosyworld-voice-pool`, a pack opt-in that gives each unbound actor one
+  stable model drawn by hash from the operator's rarity-tiered voice pool, with
+  an optional pack sampling temperature. Hoppycat opts in and runs without the
+  shared voice pin; every other world is unchanged.
+
 ## 1.0.26 — 2026-08-13
 
 - Declare the live official-world bundle replay-compatible with the additive

@@ -189,7 +189,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:6892a9fad2364fd30ca43bacc62d3fba1936ca4e9ebd684d00cc14fe4562061a",
+  "bundle_hash": "sha256:d604c4825899dae181f54a7cab25ad095462304ced78d2f1fef7754cd8dab93c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -441,6 +441,22 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-free-context": {
+          "schema_version": 1,
+          "mode": "free_context"
+        },
+        "x-cosyworld-voice-pool": {
+          "schema_version": 1,
+          "strategy": "keyed",
+          "salt": "hoppycat-2026-10",
+          "tier_weights": {
+            "common": 6,
+            "uncommon": 3,
+            "rare": 2,
+            "legendary": 1
+          },
+          "temperature": 1
+        },
         "x-cosyworld-ai-cast": {
           "schema_version": 1,
           "provider": "openrouter",
@@ -554,7 +570,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:34c1edcbca951daca4fbc3c8d57b386a4adf39ae65559f40dd847f32cdda9766"
+      "integrity": "sha256:fe9b7d2ea5bbc8af44ec63f5c5e57cebf7a760e2420482e796be67c49ac14b07"
     }
   ],
   "files": {

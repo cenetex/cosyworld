@@ -17,7 +17,7 @@ use cosyworld_orchestrator::card_policy::{
     CardPolicyModel, CARD_POLICY_DEFAULT_TOP_K, CARD_POLICY_MAX_TOP_K,
 };
 pub(crate) use registry::{
-    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
+    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability, ModelRarity,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
 };
 use serde::{Deserialize, Serialize};
@@ -485,6 +485,29 @@ impl AiConfig {
             as usize
             % candidates.len();
         Ok(candidates[index].clone())
+    }
+
+    /// Pool draw for one resident: the operator pin still wins, otherwise the
+    /// registry's pool is ordered by a stable keyed draw (see
+    /// `CapabilityRegistrySnapshot::pin_all_keyed`).
+    pub(crate) fn pin_models_keyed(
+        &self,
+        capability: ModelCapability,
+        routing_key: &str,
+        tier_weights: &BTreeMap<ModelRarity, u32>,
+    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
+        if self.capability_models.contains_key(&capability) {
+            return Ok(vec![self.pin_model(capability)?]);
+        }
+        if let Some(registry) = self.registry.as_deref() {
+            return registry.pin_all_keyed(
+                capability,
+                routing_key,
+                tier_weights,
+                self.data_policy_mode,
+            );
+        }
+        self.pin_models(capability)
     }
 
     pub(crate) fn pin_models(

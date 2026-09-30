@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
+import {
+  actorModelBindingValidationErrors,
+  voicePoolValidationErrors,
+  freeContextValidationErrors,
+} from "./actor-model-binding-schema.mjs";
 
 const manifest = {
   id: "cosyworld.elysium",
@@ -98,4 +102,39 @@ test("requires non-text models to be explicitly unavailable", () => {
     [unavailable],
   );
   assert(errors.some((error) => error.includes("speech_mode does not match its modalities")));
+});
+
+test("voice pool extension is optional and validates its shape", () => {
+  const pack = (config) => ({ id: "p", extensions: { "x-cosyworld-voice-pool": config } });
+  assert.deepEqual(voicePoolValidationErrors({ id: "p" }), []);
+  assert.deepEqual(
+    voicePoolValidationErrors(
+      pack({
+        schema_version: 1,
+        strategy: "keyed",
+        salt: "s1",
+        tier_weights: { common: 4, rare: 1 },
+        temperature: 1,
+      }),
+    ),
+    [],
+  );
+  const errors = voicePoolValidationErrors(
+    pack({ schema_version: 2, strategy: "random", model: "x/y", tier_weights: { mythic: -1 }, temperature: 3 }),
+  );
+  assert.ok(errors.length >= 6, errors.join("\n"));
+});
+
+test("free-context declarations accept only the documented shape", () => {
+  const pack = (config) => ({ id: "p", extensions: { "x-cosyworld-free-context": config } });
+  assert.deepEqual(freeContextValidationErrors({ id: "p" }), []);
+  assert.deepEqual(
+    freeContextValidationErrors(pack({ schema_version: 1, mode: "free_context" })),
+    [],
+  );
+  assert.ok(freeContextValidationErrors(pack({ schema_version: 1, mode: "task" })).length > 0);
+  assert.ok(
+    freeContextValidationErrors(pack({ schema_version: 1, mode: "free_context", budget: 9 }))
+      .length > 0,
+  );
 });

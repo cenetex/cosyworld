@@ -218,6 +218,47 @@ into projected action state or promoted to world truth. Matching execution
 durably records committed or rejected disposition; a newer accepted generation
 supersedes the prior one, while a rejected new attempt does not mutate it.
 
+## Keyed voice pools (per-actor random models)
+
+By default an unbound resident's voice is drawn per utterance from the whole
+voice pool by the scored sampler above. A pack can instead give each actor one
+stable model, in the spirit of the old rarity-tier `getRandomModel`, by adding
+a pack extension:
+
+```json
+"extensions": {
+  "x-cosyworld-voice-pool": {
+    "schema_version": 1,
+    "strategy": "keyed",
+    "salt": "hoppycat-2026-10",
+    "tier_weights": { "common": 6, "uncommon": 3, "rare": 2, "legendary": 1 },
+    "temperature": 1.0
+  }
+}
+```
+
+- The operator registry decides what can be drawn. Each declared model may add
+  `"rarity": "common" | "uncommon" | "rare" | "legendary"` (default `common`).
+  The pack names no models, so data policy and eligibility stay operator-owned.
+- The draw is a stable SHA-256 hash of `world id, salt, actor id`: first a tier
+  by `tier_weights` (tiers with no voice model, or weight 0, are skipped; if no
+  weighted tier has a model every tier counts equally), then a model inside the
+  tier. The same actor gets the same model on replay, snapshot reload and
+  restart; changing `salt` reshuffles the cast. Content edits do not.
+- The rest of the pool follows as ordered fallbacks: the drawn tier first, then
+  other tiers by weight. A cooled-down or unaffordable primary falls through;
+  when every candidate fails the resident stays silent (fail-closed, no invented
+  speech). An operator `COSYWORLD_AI_CAPABILITY_MODELS_JSON` voice pin still
+  overrides the pool.
+- An explicit `actor_model_bindings` row always wins; pooled drawing only
+  applies to actors without one.
+- `temperature` (0 to 2) replaces the prose voice request temperature for
+  pooled actors. A model's own registry `sampling.temperature` still wins, and
+  raw-adapter models omit request temperature (reasoning models reject it), so
+  set `sampling.temperature` in the registry entry to heat a specific raw model.
+- Packs without the extension, and registries without `rarity`, behave exactly
+  as before and their bundle hashes do not change.
+
 ## Pack-bound exact models and interaction profiles
 
 An exact model is execution configuration, not automatically a resident.

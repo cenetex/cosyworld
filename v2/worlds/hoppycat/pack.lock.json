@@ -83,7 +83,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:34c1edcbca951daca4fbc3c8d57b386a4adf39ae65559f40dd847f32cdda9766",
+      "integrity": "sha256:fe9b7d2ea5bbc8af44ec63f5c5e57cebf7a760e2420482e796be67c49ac14b07",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",

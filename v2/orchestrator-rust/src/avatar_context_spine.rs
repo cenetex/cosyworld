@@ -232,7 +232,7 @@ impl AvatarContextSpine {
         self.selected_recollections = semantic_top_recollections(
             &query,
             &self.recollection_candidates,
-            AVATAR_CONTEXT_TOP_RECOLLECTIONS,
+            AVATAR_CONTEXT_TOP_RECOLLECTIONS.max(crate::free_context::FREE_CONTEXT_RECOLLECTIONS),
         );
     }
 
@@ -380,6 +380,12 @@ impl AvatarContextSpine {
     }
 
     pub(crate) fn prompt(&self, options: AvatarContextPromptOptions) -> PromptEnvelope {
+        if options.mode == AvatarContextMode::Respond
+            && self.speaker.control_mode != "direct_input"
+            && crate::free_context::enabled_for_actor(self.speaker.actor_id)
+        {
+            return self.free_context_prompt();
+        }
         let audience = EvidenceAudience::conversation(
             self.speaker.actor_id,
             self.counterpart.as_ref().map(|actor| actor.actor_id),
@@ -644,6 +650,147 @@ impl AvatarContextSpine {
             100,
             true,
         )
+    }
+
+    /// The summoning for a free-context actor: a short first-person surfacing,
+    /// the authored persona, and nothing else. Rules, budgets, and safety text
+    /// are the deterministic gate's job, not the persona's.
+    fn free_context_summoning(&self) -> String {
+        let authored = active_content()
+            .actors
+            .iter()
+            .find(|actor| actor.id == self.speaker.actor_id);
+        let mut parts = vec!["...\n\nhuh. i am here again.".to_string()];
+        if let Some(actor) = authored {
+            if let Some(voice) = safe_awakening_sentence(&actor.voice) {
+                parts.push(voice);
+            }
+            if let Some(shape) = safe_awakening_sentence(&actor.description) {
+                parts.push(format!("the shape i know myself by: {shape}"));
+            }
+        }
+        parts.push("so. hi.".to_string());
+        parts.join("\n\n")
+    }
+
+    /// World knowledge and memory as plain prose, in the order a mind would
+    /// meet it: where I am, who is here, what I remember, what just happened,
+    /// and what was said to me last.
+    fn free_context_prompt(&self) -> PromptEnvelope {
+        use crate::free_context::FREE_CONTEXT_RECOLLECTIONS;
+        let audience = EvidenceAudience::conversation(
+            self.speaker.actor_id,
+            self.counterpart.as_ref().map(|actor| actor.actor_id),
+            self.location.location_id,
+        );
+        let mut prompt = PromptEnvelope::default().system_context(self.free_context_summoning());
+        let mut add = |text: String, priority: u8, pinned: bool| {
+            if !text.trim().is_empty() {
+                prompt = std::mem::take(&mut prompt).user(
+                    text,
+                    PromptSegmentKind::UniqueEvidence,
+                    priority,
+                    pinned,
+                );
+            }
+        };
+        add(
+            format!(
+                "{} — {}\n{} {}",
+                self.location.name,
+                self.location.title,
+                self.location.description,
+                self.location.persona
+            ),
+            90,
+            true,
+        );
+        if let Some(concern) = self.current_concern.as_deref() {
+            add(concern.to_string(), 88, true);
+        }
+        if !self.cast.is_empty() {
+            add(
+                format!("here with me: {}.", self.cast.join(", ")),
+                80,
+                false,
+            );
+        }
+        if let Some(counterpart) = self.counterpart.as_ref() {
+            add(
+                format!("{}, {}, is here.", counterpart.name, counterpart.title),
+                86,
+                true,
+            );
+        }
+        if let Some(relationship) = self.relationship.as_deref() {
+            add(relationship.to_string(), 85, true);
+        }
+        for goal in self.goals.iter().take(4) {
+            add(format!("i want this: {goal}"), 70, false);
+        }
+        for line in self.continuity.iter().take(16) {
+            add(line.clone(), 76, false);
+        }
+        for recollection in self
+            .selected_recollections
+            .iter()
+            .take(FREE_CONTEXT_RECOLLECTIONS)
+        {
+            add(recollection.text.clone(), 74, false);
+        }
+        drop(add);
+        prompt = prompt.evidence(
+            "",
+            self.location_evidence.iter().take(8).cloned(),
+            &audience,
+            EvidenceModality::Conversation,
+            false,
+        );
+        prompt = prompt.evidence(
+            "",
+            self.public_room_memory.iter().take(8).cloned(),
+            &audience,
+            EvidenceModality::Conversation,
+            false,
+        );
+        let mut add = |text: String, priority: u8, pinned: bool| {
+            if !text.trim().is_empty() {
+                prompt = std::mem::take(&mut prompt).user(
+                    text,
+                    PromptSegmentKind::UniqueEvidence,
+                    priority,
+                    pinned,
+                );
+            }
+        };
+        let activity = self
+            .recent_activity
+            .iter()
+            .rev()
+            .take(8)
+            .collect::<Vec<_>>();
+        for line in activity.into_iter().rev() {
+            add(line.clone(), 62, false);
+        }
+        let dialogue = self
+            .recent_dialogue
+            .iter()
+            .rev()
+            .take(12)
+            .collect::<Vec<_>>();
+        for turn in dialogue.into_iter().rev() {
+            add(turn.render(), 74, false);
+        }
+        add(self.current_beat.clone(), 100, true);
+        if let Some(turn) = self.incoming_turn.as_ref() {
+            add(
+                AvatarContextDialogueTurn::from_directed(turn).render(),
+                100,
+                true,
+            );
+        }
+        drop(add);
+        prompt
     }
 
     pub(crate) fn anchors(&self, mode: AvatarContextMode) -> Vec<String> {
@@ -1623,5 +1770,64 @@ mod tests {
             .expect("Gust index");
         runtime.world.actors[actor_index].stats.level = level.saturating_add(1);
         assert!(runtime.avatar_self_description_due(actor.id, level.saturating_add(1)));
+    }
+
+    #[test]
+    fn free_context_prompt_carries_world_and_memory_but_no_rules() {
+        let spine = AvatarContextSpine {
+            schema_version: AVATAR_CONTEXT_SPINE_VERSION,
+            speaker: AvatarContextActor {
+                actor_id: 771000,
+                name: "Tapi Lilt".to_string(),
+                title: "Keeper".to_string(),
+                description: "A calico tea-cat.".to_string(),
+                calling: "Calling sentinel.".to_string(),
+                control_mode: "autonomous".to_string(),
+                level: 1,
+                ..AvatarContextActor::default()
+            },
+            location: AvatarContextLocation {
+                location_id: 770000,
+                name: "Halfway Tea Garden".to_string(),
+                title: "A garden".to_string(),
+                description: "Kettle on the table.".to_string(),
+                persona: String::new(),
+            },
+            continuity: vec!["I once lost a bet to Rill.".to_string()],
+            goals: vec!["Win one real ally.".to_string()],
+            cast: vec!["Nix Fermata".to_string()],
+            current_beat: "Nix raised one wing.".to_string(),
+            ..AvatarContextSpine::default()
+        };
+        let rendered = spine.free_context_prompt().render_for(Some(32_768), 300);
+        let all = format!("{}\n{}", rendered.system, rendered.user);
+        for world in [
+            "Halfway Tea Garden",
+            "Kettle on the table.",
+            "I once lost a bet to Rill.",
+            "Win one real ally.",
+            "Nix Fermata",
+            "Nix raised one wing.",
+        ] {
+            assert!(all.contains(world), "missing {world}: {all}");
+        }
+        assert!(rendered.system.starts_with("..."), "{}", rendered.system);
+        for instruction in [
+            "SPEAK",
+            "words",
+            "SELF ·",
+            "PERSONA ·",
+            "CALLING",
+            "Calling sentinel",
+            "OBSERVATION_JSON",
+            "commands",
+            "help desk",
+            "no echo",
+        ] {
+            assert!(
+                !all.contains(instruction),
+                "free context must not carry {instruction}: {all}"
+            );
+        }
     }
 }

@@ -154,3 +154,29 @@ SPEAK · Rati · ≤40 words · to Gust · one concrete present thing
 The exact persona, memories, and scene facts vary by avatar and committed world
 state, but they never cross from player-influenced user evidence into the
 system role. The small cue and hard gates do not vary.
+
+## Free-context summoning (pack opt-in)
+
+A pack may declare `extensions["x-cosyworld-free-context"]` with
+`{"schema_version": 1, "mode": "free_context"}`. Its authored residents are then
+summoned, not tasked:
+
+- **System:** a short first-person surfacing ("...huh. i am here again."), the
+  authored persona line, the authored shape, and "so. hi." Nothing else. The
+  persona is one or two short lines such as "i am bob the obsequious snake."
+  Personality grows from history, not from a longer description.
+- **User:** world knowledge and memory as plain prose with no field labels:
+  the place, who is here, what the resident wants, what it remembers, what just
+  happened, what was said, and the turn it answers. The limits are wide
+  (up to 16 memories, 8 recollections, 8 scene facts, 12 dialogue turns).
+- **Absent by design:** word budgets, output cues, rules, the safety paragraph,
+  the Calling line, and the observation JSON.
+
+Safety and form are code, not prose. The publication gate judges these lines as
+raw speech: length (120 words), public-safe tone, repetition against the
+resident's own recent lines, grounding in the scene, and the existing ban on
+scenery acting with intent. A rejected line is drawn again with no feedback
+text. The AI still only proposes speech; it never changes authoritative state.
+Player-controlled avatars and packs without the extension keep the task prompt.
+Sampling defaults to temperature 1.0 and a 320-token ceiling, and a pack
+`x-cosyworld-voice-pool` temperature replaces that default.

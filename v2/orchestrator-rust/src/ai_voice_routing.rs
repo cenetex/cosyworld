@@ -323,7 +323,7 @@ pub(crate) async fn route_certified_voice(
 async fn route_certified_voice_with(
     config: &AiConfig,
     store_path: Option<&Path>,
-    request: VoiceAttemptRequest,
+    mut request: VoiceAttemptRequest,
     gate: SpeechGateContext,
     backend: Arc<dyn VoiceAttemptBackend>,
 ) -> Result<CertifiedSpeech, VoiceRoutingError> {
@@ -353,15 +353,31 @@ async fn route_certified_voice_with(
         }
     }
 
-    let candidates = match request.model_binding.as_ref() {
-        Some(binding) => vec![config
+    // An explicit binding always decides the model. Otherwise a pack that opted
+    // into a keyed voice pool gives each actor one stable model from the
+    // operator's pool; everyone else keeps the scored pool race.
+    let pool_policy = request
+        .model_binding
+        .is_none()
+        .then(|| crate::voice_pool::policy_for_actor(gate.speaker_actor_id))
+        .flatten();
+    let candidates = match (request.model_binding.as_ref(), pool_policy.as_ref()) {
+        (Some(binding), _) => vec![config
             .pin_actor_model(binding)
             .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?],
-        None => config
+        (None, Some((policy, key))) => {
+            if let Some(temperature) = policy.temperature {
+                request.temperature = temperature;
+            }
+            config
+                .pin_models_keyed(ModelCapability::Voice, key, &policy.tier_weights)
+                .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?
+        }
+        (None, None) => config
             .pin_models(ModelCapability::Voice)
             .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?,
     };
-    let (planned, decisions) = build_voice_plan(
+    let (planned, decisions) = build_voice_plan_ordered(
         store_path,
         &generation_id,
         gate.speaker_actor_id,
@@ -369,6 +385,7 @@ async fn route_certified_voice_with(
         &request,
         &routing_config,
         candidates,
+        pool_policy.is_some(),
     )
     .map_err(|_| routing_error("voice_job_store_unavailable", Vec::new()))?;
     if let Some(path) = store_path {
@@ -681,6 +698,11 @@ fn retry_instruction(
     gate: &SpeechGateContext,
     max_tokens: u32,
 ) -> Option<String> {
+    // A free-context persona is never given rules to follow. A rejected line is
+    // simply drawn again.
+    if crate::free_context::enabled_for_actor(gate.speaker_actor_id) {
+        return None;
+    }
     let failed = rejections
         .iter()
         .flat_map(|rejection| rejection.receipt.checks.iter())
@@ -792,6 +814,7 @@ fn stable_terminal_code(value: String) -> &'static str {
     }
 }
 
+#[cfg(test)]
 fn build_voice_plan(
     store_path: Option<&Path>,
     generation_id: &str,
@@ -800,6 +823,32 @@ fn build_voice_plan(
     request: &VoiceAttemptRequest,
     config: &VoiceRoutingConfig,
     candidates: Vec<PinnedModelSelection>,
+) -> io::Result<(Vec<PlannedCandidate>, Vec<VoiceSelectionDecision>)> {
+    build_voice_plan_ordered(
+        store_path,
+        generation_id,
+        actor_id,
+        speech_mode,
+        request,
+        config,
+        candidates,
+        false,
+    )
+}
+
+/// `keep_order` keeps the caller's candidate order (a keyed pool draw) instead
+/// of the scored random order. Exclusions and the spend ceiling still apply, so
+/// a cooled-down or unaffordable primary falls through to the next fallback.
+#[allow(clippy::too_many_arguments)]
+fn build_voice_plan_ordered(
+    store_path: Option<&Path>,
+    generation_id: &str,
+    actor_id: u64,
+    speech_mode: &str,
+    request: &VoiceAttemptRequest,
+    config: &VoiceRoutingConfig,
+    candidates: Vec<PinnedModelSelection>,
+    keep_order: bool,
 ) -> io::Result<(Vec<PlannedCandidate>, Vec<VoiceSelectionDecision>)> {
     let now = crate::now_millis();
     let mut decisions = candidates
@@ -907,12 +956,14 @@ fn build_voice_plan(
             ))
         })
         .collect::<io::Result<Vec<_>>>()?;
-    decisions.sort_by(|left, right| {
-        left.1
-            .weighted_key
-            .total_cmp(&right.1.weighted_key)
-            .then_with(|| left.1.requested_model_id.cmp(&right.1.requested_model_id))
-    });
+    if !keep_order {
+        decisions.sort_by(|left, right| {
+            left.1
+                .weighted_key
+                .total_cmp(&right.1.weighted_key)
+                .then_with(|| left.1.requested_model_id.cmp(&right.1.requested_model_id))
+        });
+    }
 
     let mut planned = Vec::new();
     let mut all = Vec::with_capacity(decisions.len());
@@ -2100,6 +2151,38 @@ mod tests {
             )],
             routing,
         )
+    }
+
+    #[test]
+    fn a_keyed_pool_keeps_the_callers_order_and_the_default_does_not() {
+        let config = config(
+            vec![
+                candidate("provider/zed", "provider-a", "z", "z", "r1", true),
+                candidate("provider/alpha", "provider-a", "a", "a", "r1", true),
+            ],
+            VoiceRoutingConfig {
+                max_attempts: 2,
+                ..VoiceRoutingConfig::default()
+            },
+        );
+        let mut pinned = config.pin_models(ModelCapability::Voice).unwrap();
+        pinned.sort_by(|l, r| r.requested_model_id().cmp(l.requested_model_id()));
+        let kept = build_voice_plan_ordered(
+            None,
+            "generation-keyed",
+            771_000,
+            "prose",
+            &request("dialogue_avatar"),
+            &config.voice_routing,
+            pinned,
+            true,
+        )
+        .unwrap()
+        .0
+        .iter()
+        .map(|entry| entry.decision.requested_model_id.clone())
+        .collect::<Vec<_>>();
+        assert_eq!(kept, vec!["provider/zed", "provider/alpha"]);
     }
 
     #[test]

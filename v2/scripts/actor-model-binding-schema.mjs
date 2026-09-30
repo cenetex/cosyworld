@@ -149,3 +149,68 @@ export function actorModelBindingValidationErrors(manifest, actors, bindings) {
   }
   return errors;
 }
+
+const VOICE_POOL_TIERS = new Set(["common", "uncommon", "rare", "legendary"]);
+
+// `x-cosyworld-voice-pool` lets a pack opt its unbound actors into a stable,
+// hash-drawn model from the operator's reviewed voice pool. The pack shapes the
+// draw only; it never names a model.
+export function voicePoolValidationErrors(manifest) {
+  const config = manifest.extensions?.["x-cosyworld-voice-pool"];
+  if (config === undefined) return [];
+  const label = `pack ${manifest.id} x-cosyworld-voice-pool`;
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return [`${label} must be an object`];
+  }
+  const errors = [];
+  const allowed = new Set(["schema_version", "strategy", "salt", "tier_weights", "temperature"]);
+  for (const field of Object.keys(config)) {
+    if (!allowed.has(field)) errors.push(`${label} has unknown field ${field}`);
+  }
+  if (config.schema_version !== 1) errors.push(`${label} schema_version must be 1`);
+  if (config.strategy !== "keyed") errors.push(`${label} strategy must be keyed`);
+  if (typeof config.salt !== "string" || !/^[^\0]{1,64}$/.test(config.salt.trim())) {
+    errors.push(`${label} salt must be 1-64 characters`);
+  }
+  if (config.tier_weights !== undefined) {
+    const weights = config.tier_weights;
+    if (!weights || typeof weights !== "object" || Array.isArray(weights)) {
+      errors.push(`${label} tier_weights must be an object`);
+    } else {
+      for (const [tier, weight] of Object.entries(weights)) {
+        if (!VOICE_POOL_TIERS.has(tier)) errors.push(`${label} has unknown tier ${tier}`);
+        if (!Number.isInteger(weight) || weight < 0 || weight > 1000) {
+          errors.push(`${label} tier ${tier} weight must be an integer from 0 to 1000`);
+        }
+      }
+    }
+  }
+  if (
+    config.temperature !== undefined
+    && !(Number.isFinite(config.temperature) && config.temperature >= 0 && config.temperature <= 2)
+  ) {
+    errors.push(`${label} temperature must be between 0 and 2`);
+  }
+  return errors;
+}
+
+// `x-cosyworld-free-context` opts a pack's residents into a prompt that carries
+// only a first-person summoning and plain-prose world context. Length, safety,
+// and repetition stay with the deterministic publication gate.
+export function freeContextValidationErrors(manifest) {
+  const config = manifest.extensions?.["x-cosyworld-free-context"];
+  if (config === undefined) return [];
+  const label = `pack ${manifest.id} x-cosyworld-free-context`;
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return [`${label} must be an object`];
+  }
+  const errors = [];
+  for (const field of Object.keys(config)) {
+    if (field !== "schema_version" && field !== "mode") {
+      errors.push(`${label} has unknown field ${field}`);
+    }
+  }
+  if (config.schema_version !== 1) errors.push(`${label} schema_version must be 1`);
+  if (config.mode !== "free_context") errors.push(`${label} mode must be free_context`);
+  return errors;
+}
