@@ -12,7 +12,8 @@ use crate::content_load::{SeedContent, SeedWorldpackPack};
 pub(crate) const FREE_CONTEXT_EXTENSION: &str = "x-cosyworld-free-context";
 
 /// Words a free-context line may run to before the publication gate rejects it.
-pub(crate) const FREE_CONTEXT_MAX_WORDS: usize = 120;
+/// The gate also requires spoken shape: one paragraph that is not narration.
+pub(crate) const FREE_CONTEXT_MAX_WORDS: usize = 70;
 /// Completion ceiling for a free-context line. The gate, not the prompt, bounds length.
 pub(crate) const FREE_CONTEXT_MAX_TOKENS: u32 = 320;
 /// Sampling temperature when neither the pool nor the model's registry entry sets one.

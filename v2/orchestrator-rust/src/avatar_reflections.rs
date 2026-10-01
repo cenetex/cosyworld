@@ -501,6 +501,7 @@ fn reflection_gate(job: &AvatarReflectionJob) -> SpeechGateContext {
         requirements: VoiceBeatRequirements::default(),
         envelope_valid: true,
         candidate_round: 1,
+        spoken_shape: false,
     }
 }
 
@@ -873,6 +874,7 @@ async fn complete_world_entity_self_description(
             requirements: VoiceBeatRequirements::default(),
             envelope_valid: spine.is_current(),
             candidate_round: 1,
+            spoken_shape: false,
         },
     )
     .await
@@ -1020,6 +1022,7 @@ fn avatar_self_description_gate(
         requirements: VoiceBeatRequirements::default(),
         envelope_valid: true,
         candidate_round: 1,
+        spoken_shape: false,
     }
 }
 

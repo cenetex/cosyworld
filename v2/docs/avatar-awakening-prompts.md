@@ -162,7 +162,8 @@ A pack may declare `extensions["x-cosyworld-free-context"]` with
 summoned, not tasked:
 
 - **System:** a short first-person surfacing ("...huh. i am here again."), the
-  authored persona line, the authored shape, and "so. hi." Nothing else. The
+  authored persona line, the authored shape, "i talk out loud, a line at a
+  time." and "so. hi." Nothing else. The
   persona is one or two short lines such as "i am bob the obsequious snake."
   Personality grows from history, not from a longer description.
 - **User:** world knowledge and memory as plain prose with no field labels:
@@ -173,7 +174,7 @@ summoned, not tasked:
   the Calling line, and the observation JSON.
 
 Safety and form are code, not prose. The publication gate judges these lines as
-raw speech: length (120 words), public-safe tone, repetition against the
+raw speech: length (70 words), spoken shape (one paragraph that is not scene prose or narration about the speaker, with no markdown label), public-safe tone, repetition against the
 resident's own recent lines, grounding in the scene, and the existing ban on
 scenery acting with intent. A rejected line is drawn again with no feedback
 text. The AI still only proposes speech; it never changes authoritative state.
