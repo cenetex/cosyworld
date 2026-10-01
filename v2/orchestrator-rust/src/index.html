@@ -16353,7 +16353,9 @@
       if (event.type === "image.created") return residentImageHtml(event);
       if (event.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event.type)) return avatarReflectionHtml(event);
-      if (isRollEvent(event)) return rollHtml(event);
+      // Dice rolls stay out of the room chat. The roll renderer, room memory and
+      // the combat dock still use them; the chat only reads as conversation.
+      if (isRollEvent(event)) return "";
       return sceneCardEventHtml(event);
     }
 

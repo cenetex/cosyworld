@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.210 — 2026-10-01
+
+- Keep dice rolls out of the room chat. The chat timeline no longer renders
+  ability-check or attack roll events. The roll renderer, room memory, and the
+  combat dock still use them.
+
 ## 1.0.209 — 2026-10-01
 
 - Show the pending class choice in the card-pairing Story Hand. After an
