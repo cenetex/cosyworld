@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.207 — 2026-10-01
+
+- Reject a free-context reply that still carries `*` markup after extraction:
+  it has no spoken words, and one leaked a persona goal in italics.
+- Hoppycat goal motivations are now the residents' own first-person thoughts.
+  Models quote the goal lines back, and a third-person motivation turns into a
+  narrator voice. Pack 0.4.7, world 9; the live bundle is declared
+  replay-compatible.
+
 ## 1.0.206 — 2026-10-01
 
 - Give free-context prompts the shape a model continues as speech. A prompt

@@ -23,6 +23,7 @@ const deployedBundleHashes = [
   "sha256:8d5add021a8877567f18fedb9a3786ce3f9baee70bccb9111cf9fd4ddef15460",
   "sha256:d604c4825899dae181f54a7cab25ad095462304ced78d2f1fef7754cd8dab93c",
   "sha256:73c8826408bd66cbd5f596a9cbc8e29308e1e2bb8ebb3f70081e732b8f92e83a",
+  "sha256:3f094fb9b45e443fdfc3bb930088663e2f26e95398bae741276e176284f1a8bd",
 ];
 
 function readJson(fileName) {
