@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.209 — 2026-10-01
+
+- Show the pending class choice in the card-pairing Story Hand. After an
+  avatar's first qualifying action (for example Inspect) makes its class choice
+  ready, the page replaced the action list with one standalone "campaign class"
+  card, but the pairing hand is built only from dealt noun cards and never
+  rendered it. Every card then offered only Think and the choice could not be
+  reached, so an avatar stayed at level 0 with a Think-only hand indefinitely.
+  The hand now shows the class card; its modal offers the three paths and Play
+  applies the class and restores the dealt hand.
+
 ## 1.0.208 — 2026-10-01
 
 - Ask the level-up self-description job for its three lines in plain words.
