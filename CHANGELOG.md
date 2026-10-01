@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.202 — 2026-09-30
+
+- Add `COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ`, an operator history floor for
+  free-context prompts. Dialogue, scene evidence, and recollections recorded
+  before it stay in the journal but leave the prompt, so a world can start
+  fresh from an earlier echo habit. Hoppycat's floor is set at this release.
+
 ## 1.0.201 — 2026-09-30
 
 - Bring player-controlled avatars into free-context worlds. A pack may declare
