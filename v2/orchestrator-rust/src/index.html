@@ -20136,6 +20136,15 @@
       if (state?.branch) {
         return actions.slice(0, 2).map((action, actionIndex) => ({ ...action, actionIndex }));
       }
+      // A pending class choice replaces the hand with one standalone
+      // progression card. The pairing hand below is built from dealt noun
+      // cards and has no place for it, which left every card with only Think
+      // and no way to reach the choice.
+      const standaloneIndex = actions.findIndex((action) => action?.standaloneHandProjection === true);
+      if (standaloneIndex >= 0) {
+        const standalone = actions[standaloneIndex];
+        return [{ ...standalone, actionIndex: standaloneIndex, handKey: actionHandKey(standalone) }];
+      }
       const nounEntries = state?.action_hand?.entries || [];
       if (!nounEntries.some((entry) => entry?.card_id)) {
         return actions.slice(0, handCapacity()).map((action, actionIndex) => ({
