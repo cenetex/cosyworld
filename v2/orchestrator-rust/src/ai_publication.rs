@@ -1767,7 +1767,9 @@ fn trim_to_spoken_budget(value: &str, max_words: usize) -> String {
 /// third person ("Glim Twice sits in the bowl and watches the thread").
 fn has_spoken_shape(value: &str, speaker_name: &str) -> bool {
     let value = value.trim();
-    if value.is_empty() || value.contains("\n\n") || value.starts_with("**") {
+    // Extraction removes every action beat and bold marker, so a `*` that is
+    // still here marks a reply with no spoken words in it.
+    if value.is_empty() || value.contains("\n\n") || value.contains('*') {
         return false;
     }
     let opening = value.trim_start_matches(['*', '_', '"', '“', '\'']);
@@ -2352,6 +2354,23 @@ mod tests {
         }
         // Nothing but a stage direction: returned whole so the gate rejects it.
         assert_eq!(extract_spoken_text("*sighs*", name), "*sighs*");
+        let mut strict = context(&["cup".to_string()], &[]);
+        strict.mode = SpeechMode::Raw;
+        strict.spoken_shape = true;
+        strict.max_words = 70;
+        strict.speaker_name = name.to_string();
+        for leaked in [
+            "*sighs*",
+            "Nix Fermata: *A plan matters after someone tries to break it.*",
+        ] {
+            let rejection = certify_speech(None, completion(leaked), leaked, strict.clone())
+                .expect_err("a reply with no spoken words is rejected");
+            assert_eq!(
+                rejection.failure_code,
+                PublicationCheckCode::VoiceModeMismatch,
+                "{leaked}"
+            );
+        }
         // Another speaker's label is not ours to strip.
         assert_eq!(
             extract_spoken_text("Tapi Lilt: no.", name),
