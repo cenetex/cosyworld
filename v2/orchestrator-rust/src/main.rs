@@ -76,6 +76,7 @@ mod materialization_retirement;
 mod room_history;
 // The legacy canary evaluator remains readable for frozen-job compatibility
 // and audit tests, while live evolution now always preserves its parent image.
+mod ai_decisions;
 mod autonomy;
 mod free_context;
 #[allow(dead_code)]

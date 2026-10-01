@@ -2163,6 +2163,29 @@ mod tests {
     }
 
     #[test]
+    fn a_line_a_judge_files_under_the_speakers_recent_record_is_a_duplicate() {
+        // The decision-model repeat judge marks a reworded repeat by adding the
+        // candidate to the speaker's own recent lines. The gate then rejects it.
+        for mode in [SpeechMode::Prose, SpeechMode::Raw] {
+            let line = "The marker is cold again.";
+            let mut gate = context(&["marker".to_string()], &[]);
+            gate.mode = mode;
+            gate.max_words = 20;
+            certify_speech(None, completion(line), line, gate.clone())
+                .expect("the line is fresh before the judge speaks");
+            gate.recent_lines
+                .push(format!("{}: {}", gate.speaker_name, line.trim()));
+            let rejection = certify_speech(None, completion(line), line, gate)
+                .expect_err("a judged repeat is rejected");
+            assert_eq!(
+                rejection.failure_code,
+                PublicationCheckCode::VoiceRecentDuplicate,
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
     fn repeated_terms_and_closing_clauses_rank_lower_without_blocking_speech() {
         let mut gate = context(&["marker".to_string(), "gate".to_string()], &[]);
         gate.recent_speaker_shingle_hashes = vec![

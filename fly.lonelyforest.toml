@@ -43,6 +43,10 @@ primary_region = "sjc"
   # Free-context worlds (Hoppycat) leave dialogue, scene evidence, and
   # recollections recorded before this journal sequence out of their prompts, so
   # the cast starts fresh from its earlier echo habits. The journal is untouched.
+  # The decision model answers typed yes/no questions with probabilities (the
+  # OpenRouter Decisions API). Only worlds whose pack opts in use it, and every
+  # call fails open to the previous behaviour.
+  COSYWORLD_AI_DECISION_MODEL = "typesafe/jev-1.13"
   COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ = "22455"
   COSYWORLD_AI_CAPABILITY_MODELS_JSON = '{"voice":"openai/gpt-5.4-nano","intent_json":"openai/gpt-5.6-sol","world_content":"openai/gpt-5.6-sol"}'
   # Hoppycat draws each resident's voice model from the registry pool, so its

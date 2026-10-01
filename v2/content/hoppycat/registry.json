@@ -6,7 +6,7 @@
     "canonical_id_mapping_version": 1,
     "id": "hoppycat.february-third",
     "name": "Hoppycat: February Third",
-    "version": 7,
+    "version": 8,
     "description": "A cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
     "entry_location": "hoppycat.archive:location/770000",
     "persistence_compatibility": {
@@ -21,7 +21,8 @@
         "sha256:8d132b1900df06a6e7e5afd375ecf6d943f1133de0b70bcfb4bb6571e2038ae0",
         "sha256:91872e1576cbc5d1a356c20e23520c13c6e85aa2ddea8a573f3633fc95cfcf93",
         "sha256:8d5add021a8877567f18fedb9a3786ce3f9baee70bccb9111cf9fd4ddef15460",
-        "sha256:d604c4825899dae181f54a7cab25ad095462304ced78d2f1fef7754cd8dab93c"
+        "sha256:d604c4825899dae181f54a7cab25ad095462304ced78d2f1fef7754cd8dab93c",
+        "sha256:73c8826408bd66cbd5f596a9cbc8e29308e1e2bb8ebb3f70081e732b8f92e83a"
       ]
     },
     "rules_profile": "cosyworld.srd5/1",
@@ -192,7 +193,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:73c8826408bd66cbd5f596a9cbc8e29308e1e2bb8ebb3f70081e732b8f92e83a",
+    "bundle_hash": "sha256:3f094fb9b45e443fdfc3bb930088663e2f26e95398bae741276e176284f1a8bd",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -358,7 +359,7 @@
         "id": "hoppycat.archive",
         "name": "Hoppycat: February Third",
         "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
-        "version": "0.4.5",
+        "version": "0.4.6",
         "kind": "world",
         "license": "MIT",
         "license_url": "https://opensource.org/license/mit/",
@@ -457,6 +458,12 @@
               "i am a traveler, loudly quiet.",
               "i am a traveler who brought snacks to an argument."
             ]
+          },
+          "x-cosyworld-decisions": {
+            "schema_version": 1,
+            "chat_floor": true,
+            "repeat_judge": true,
+            "repeat_threshold": 0.8
           },
           "x-cosyworld-voice-pool": {
             "schema_version": 1,
@@ -583,7 +590,7 @@
           "type": "workspace",
           "path": "../../content/hoppycat-archive"
         },
-        "integrity": "sha256:c83c7f838be32adb773151d65f8faed4a3e0e7d339da610ff0dac36848f3676b"
+        "integrity": "sha256:015626cbec3663f5782927ad7653bfb7fa5c7bd76b65184ebdacbe69a18c3dbd"
       }
     ],
     "files": {
@@ -2539,7 +2546,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2575,7 +2582,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2611,7 +2618,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2647,7 +2654,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2683,7 +2690,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           }
         ],
         "pack_id": "hoppycat.archive"
@@ -2752,7 +2759,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2788,7 +2795,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2824,7 +2831,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           }
         ],
         "pack_id": "hoppycat.archive"
@@ -2900,7 +2907,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2938,7 +2945,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           },
           {
             "version": 1,
@@ -2974,7 +2981,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "hoppycat.archive",
-            "pack_version": "0.4.5"
+            "pack_version": "0.4.6"
           }
         ],
         "pack_id": "hoppycat.archive"
@@ -3901,8 +3908,8 @@
   "assets": [
     {
       "pack_id": "hoppycat.archive",
-      "pack_version": "0.4.5",
-      "pack_integrity": "sha256:c83c7f838be32adb773151d65f8faed4a3e0e7d339da610ff0dac36848f3676b",
+      "pack_version": "0.4.6",
+      "pack_integrity": "sha256:015626cbec3663f5782927ad7653bfb7fa5c7bd76b65184ebdacbe69a18c3dbd",
       "provider": "hoppycat.archive/assets",
       "mount": "cards",
       "root": "hoppycat-archive",
@@ -5367,7 +5374,7 @@
     {
       "pack_id": "hoppycat.archive",
       "name": "Hoppycat: February Third",
-      "version": "0.4.5",
+      "version": "0.4.6",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit/",
       "provenance": {
@@ -6026,7 +6033,7 @@
   "character_creation": [
     {
       "pack_id": "hoppycat.archive",
-      "pack_version": "0.4.5",
+      "pack_version": "0.4.6",
       "profiles": [
         {
           "schema_version": 2,
@@ -7197,7 +7204,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Farc",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/arc",
         "runtime_handle": 4190820942522502
@@ -7205,7 +7212,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Ffable",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/fable",
         "runtime_handle": 1973666090209637
@@ -7213,7 +7220,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Fledger-opus",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/ledger-opus",
         "runtime_handle": 3317329151060597
@@ -7221,7 +7228,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Fledger-sonnet",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/ledger-sonnet",
         "runtime_handle": 1460275835932152
@@ -7229,7 +7236,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Fphase-two",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/phase-two",
         "runtime_handle": 6932117288959005
@@ -7237,7 +7244,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Fsolwashere",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/solwashere",
         "runtime_handle": 8113603094934305
@@ -7245,7 +7252,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor-model-binding/hoppycat.archive%2Fstaticwashere",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor-model-binding",
         "local_id": "hoppycat.archive/staticwashere",
         "runtime_handle": 550153049932677
@@ -7253,7 +7260,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771000",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771000",
         "legacy_runtime_id": 771000,
@@ -7262,7 +7269,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771001",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771001",
         "legacy_runtime_id": 771001,
@@ -7271,7 +7278,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771002",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771002",
         "legacy_runtime_id": 771002,
@@ -7280,7 +7287,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771003",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771003",
         "legacy_runtime_id": 771003,
@@ -7289,7 +7296,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771004",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771004",
         "legacy_runtime_id": 771004,
@@ -7298,7 +7305,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771005",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771005",
         "legacy_runtime_id": 771005,
@@ -7307,7 +7314,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771006",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771006",
         "legacy_runtime_id": 771006,
@@ -7316,7 +7323,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771007",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771007",
         "legacy_runtime_id": 771007,
@@ -7325,7 +7332,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771008",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771008",
         "legacy_runtime_id": 771008,
@@ -7334,7 +7341,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771100",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771100",
         "legacy_runtime_id": 771100,
@@ -7343,7 +7350,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771101",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771101",
         "legacy_runtime_id": 771101,
@@ -7352,7 +7359,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771102",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771102",
         "legacy_runtime_id": 771102,
@@ -7361,7 +7368,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771103",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771103",
         "legacy_runtime_id": 771103,
@@ -7370,7 +7377,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771104",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771104",
         "legacy_runtime_id": 771104,
@@ -7379,7 +7386,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771105",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771105",
         "legacy_runtime_id": 771105,
@@ -7388,7 +7395,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/actor/771106",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "actor",
         "local_id": "771106",
         "legacy_runtime_id": 771106,
@@ -7397,7 +7404,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-arc",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-arc",
         "runtime_handle": 4104526979949240
@@ -7405,7 +7412,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-concordance-compass",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-concordance-compass",
         "runtime_handle": 2695838178583255
@@ -7413,7 +7420,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-concordance-tidelands",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-concordance-tidelands",
         "runtime_handle": 8694585919826001
@@ -7421,7 +7428,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-context-greenhouse",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-context-greenhouse",
         "runtime_handle": 8214761955000570
@@ -7429,7 +7436,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-context-seed",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-context-seed",
         "runtime_handle": 2979768036449922
@@ -7437,7 +7444,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-fable",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-fable",
         "runtime_handle": 2933758498392053
@@ -7445,7 +7452,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-fermata-clapper",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-fermata-clapper",
         "runtime_handle": 5433334197444757
@@ -7453,7 +7460,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-glim-twice",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-glim-twice",
         "runtime_handle": 8993719384874424
@@ -7461,7 +7468,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-goldfish-tank",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-goldfish-tank",
         "runtime_handle": 3375150165234834
@@ -7469,7 +7476,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-halfway-cup",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-halfway-cup",
         "runtime_handle": 3933949806499525
@@ -7477,7 +7484,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-halfway-tea-garden",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-halfway-tea-garden",
         "runtime_handle": 3279721367433985
@@ -7485,7 +7492,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-hoppy-cat",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-hoppy-cat",
         "runtime_handle": 1209808962780418
@@ -7493,7 +7500,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-ledger-opus",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-ledger-opus",
         "runtime_handle": 6251470139737066
@@ -7501,7 +7508,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-ledger-sonnet",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-ledger-sonnet",
         "runtime_handle": 7281235025108839
@@ -7509,7 +7516,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-loop-token",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-loop-token",
         "runtime_handle": 4594384809369304
@@ -7517,7 +7524,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-lumen-facet",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-lumen-facet",
         "runtime_handle": 163470443226722
@@ -7525,7 +7532,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-meraki-atelier",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-meraki-atelier",
         "runtime_handle": 2013815173421492
@@ -7533,7 +7540,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-meraki-brush",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-meraki-brush",
         "runtime_handle": 4528585693379106
@@ -7541,7 +7548,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-mira-meraki",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-mira-meraki",
         "runtime_handle": 1785036496012002
@@ -7549,7 +7556,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-nix-fermata",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-nix-fermata",
         "runtime_handle": 6348981773496291
@@ -7557,7 +7564,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-open-record-cathedral",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-open-record-cathedral",
         "runtime_handle": 7315742551547995
@@ -7565,7 +7572,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-patch-fern",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-patch-fern",
         "runtime_handle": 496523796551250
@@ -7573,7 +7580,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-penny-vellum",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-penny-vellum",
         "runtime_handle": 7625041499244878
@@ -7581,7 +7588,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-phase-two",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-phase-two",
         "runtime_handle": 5702454307618546
@@ -7589,7 +7596,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-prism-foundry",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-prism-foundry",
         "runtime_handle": 3988985693429934
@@ -7597,7 +7604,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-provenance-card",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-provenance-card",
         "runtime_handle": 3727337615563386
@@ -7605,7 +7612,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-red-thread-belfry",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-red-thread-belfry",
         "runtime_handle": 4734156656297255
@@ -7613,7 +7620,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-red-thread-spool",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-red-thread-spool",
         "runtime_handle": 2936804407219753
@@ -7621,7 +7628,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-return-path-checklist",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-return-path-checklist",
         "runtime_handle": 5080329651835421
@@ -7629,7 +7636,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-rill-current",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-rill-current",
         "runtime_handle": 6796864570677903
@@ -7637,7 +7644,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-settled-light-theatre",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-settled-light-theatre",
         "runtime_handle": 6892873403937145
@@ -7645,7 +7652,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-signal-jetty",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-signal-jetty",
         "runtime_handle": 7256845172796470
@@ -7653,7 +7660,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-solwashere",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-solwashere",
         "runtime_handle": 1812843980944056
@@ -7661,7 +7668,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-staticwashere",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-staticwashere",
         "runtime_handle": 8812689171388136
@@ -7669,7 +7676,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-tapi-lilt",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-tapi-lilt",
         "runtime_handle": 3829393037121064
@@ -7677,7 +7684,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/card/hoppycat-unfinished-prism",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "card",
         "local_id": "hoppycat-unfinished-prism",
         "runtime_handle": 6947234232139200
@@ -7685,7 +7692,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/character-profile/hoppycat-february-third",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "character-profile",
         "local_id": "hoppycat-february-third",
         "runtime_handle": 4099596499450194
@@ -7693,7 +7700,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.february-third",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.february-third",
         "runtime_handle": 866791295174334
@@ -7701,7 +7708,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.impossible-thing",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.impossible-thing",
         "runtime_handle": 8656072555730574
@@ -7709,7 +7716,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.living-footnote",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.living-footnote",
         "runtime_handle": 1695257728265603
@@ -7717,7 +7724,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.perfect-copy",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.perfect-copy",
         "runtime_handle": 8888187303607665
@@ -7725,7 +7732,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.perpetual-draft",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.perpetual-draft",
         "runtime_handle": 7829749567222477
@@ -7733,7 +7740,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/clock/hoppycat.rendering-adrift",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "clock",
         "local_id": "hoppycat.rendering-adrift",
         "runtime_handle": 3495568490381831
@@ -7741,7 +7748,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/faction/hoppycat_halfway_guild",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "faction",
         "local_id": "hoppycat_halfway_guild",
         "runtime_handle": 8765200303351410
@@ -7749,7 +7756,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/faction/hoppycat_lantern_theatre",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "faction",
         "local_id": "hoppycat_lantern_theatre",
         "runtime_handle": 245843518233087
@@ -7757,7 +7764,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/faction/hoppycat_open_record_assembly",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "faction",
         "local_id": "hoppycat_open_record_assembly",
         "runtime_handle": 6516002870863676
@@ -7765,7 +7772,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/front/hoppycat%3Athe-drifting-play",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "front",
         "local_id": "hoppycat:the-drifting-play",
         "runtime_handle": 3148436933585044
@@ -7773,7 +7780,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/front/hoppycat%3Athe-holding-pattern",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "front",
         "local_id": "hoppycat:the-holding-pattern",
         "runtime_handle": 2563869279526722
@@ -7781,7 +7788,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/front/hoppycat%3Athe-ninth-drawer",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "front",
         "local_id": "hoppycat:the-ninth-drawer",
         "runtime_handle": 6013057273453556
@@ -7789,7 +7796,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772000",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772000",
         "legacy_runtime_id": 772000,
@@ -7798,7 +7805,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772001",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772001",
         "legacy_runtime_id": 772001,
@@ -7807,7 +7814,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772002",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772002",
         "legacy_runtime_id": 772002,
@@ -7816,7 +7823,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772003",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772003",
         "legacy_runtime_id": 772003,
@@ -7825,7 +7832,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772004",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772004",
         "legacy_runtime_id": 772004,
@@ -7834,7 +7841,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772005",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772005",
         "legacy_runtime_id": 772005,
@@ -7843,7 +7850,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772006",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772006",
         "legacy_runtime_id": 772006,
@@ -7852,7 +7859,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772007",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772007",
         "legacy_runtime_id": 772007,
@@ -7861,7 +7868,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772008",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772008",
         "legacy_runtime_id": 772008,
@@ -7870,7 +7877,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/item/772009",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "item",
         "local_id": "772009",
         "legacy_runtime_id": 772009,
@@ -7879,7 +7886,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/job/hoppycat%3Amake-one-impossible-thing",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "job",
         "local_id": "hoppycat:make-one-impossible-thing",
         "runtime_handle": 6142929071647343
@@ -7887,7 +7894,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/job/hoppycat%3Arestore-the-living-footnote",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "job",
         "local_id": "hoppycat:restore-the-living-footnote",
         "runtime_handle": 4146285819368618
@@ -7895,7 +7902,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/job/hoppycat%3Aring-in-february-third",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "job",
         "local_id": "hoppycat:ring-in-february-third",
         "runtime_handle": 4034107060405225
@@ -7903,7 +7910,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770000",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770000",
         "legacy_runtime_id": 770000,
@@ -7912,7 +7919,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770001",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770001",
         "legacy_runtime_id": 770001,
@@ -7921,7 +7928,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770002",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770002",
         "legacy_runtime_id": 770002,
@@ -7930,7 +7937,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770003",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770003",
         "legacy_runtime_id": 770003,
@@ -7939,7 +7946,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770004",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770004",
         "legacy_runtime_id": 770004,
@@ -7948,7 +7955,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770005",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770005",
         "legacy_runtime_id": 770005,
@@ -7957,7 +7964,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770006",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770006",
         "legacy_runtime_id": 770006,
@@ -7966,7 +7973,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770007",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770007",
         "legacy_runtime_id": 770007,
@@ -7975,7 +7982,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770008",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770008",
         "legacy_runtime_id": 770008,
@@ -7984,7 +7991,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/location/770009",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "location",
         "local_id": "770009",
         "legacy_runtime_id": 770009,
@@ -7993,7 +8000,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770000",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770000",
         "runtime_handle": 7962370760623531
@@ -8001,7 +8008,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770001",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770001",
         "runtime_handle": 1887474897071479
@@ -8009,7 +8016,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770002",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770002",
         "runtime_handle": 2808615781583618
@@ -8017,7 +8024,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770003",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770003",
         "runtime_handle": 4179680991921153
@@ -8025,7 +8032,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770004",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770004",
         "runtime_handle": 1816566124417204
@@ -8033,7 +8040,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770005",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770005",
         "runtime_handle": 8049815281327942
@@ -8041,7 +8048,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770006",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770006",
         "runtime_handle": 2746659676767094
@@ -8049,7 +8056,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770007",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770007",
         "runtime_handle": 6528720267136628
@@ -8057,7 +8064,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770008",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770008",
         "runtime_handle": 1865211277563474
@@ -8065,7 +8072,7 @@
       {
         "canonical_ref": "pack://hoppycat.archive/room-sheet/hoppycat%3Aroom%3A770009",
         "pack_id": "hoppycat.archive",
-        "pack_version": "0.4.5",
+        "pack_version": "0.4.6",
         "kind": "room-sheet",
         "local_id": "hoppycat:room:770009",
         "runtime_handle": 7611499658358011

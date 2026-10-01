@@ -472,4 +472,7 @@
 # 59468 -> 59470: two `mod` lines for the pack opt-ins free_context.rs and
 # voice_pool.rs. Their parsing, policy, and tests live in those modules; main.rs
 # gains only the declarations.
-59470
+#
+# 59470 -> 59471: one `mod` line for ai_decisions.rs, the decision-model client
+# and its pack policy. The client, draws, policy, and tests live in the module.
+59471
