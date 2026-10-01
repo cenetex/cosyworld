@@ -162,19 +162,22 @@ A pack may declare `extensions["x-cosyworld-free-context"]` with
 summoned, not tasked:
 
 - **System:** a short first-person surfacing ("...huh. i am here again."), the
-  authored persona line, the authored shape, "i talk out loud, a line at a
-  time." and "so. hi." Nothing else. The
-  persona is one or two short lines such as "i am bob the obsequious snake."
-  Personality grows from history, not from a longer description.
+  authored persona line, and one positive speaking habit ("when i speak it is my
+  own words, one or two lines, said out loud."). Nothing else: no physical
+  description, which invites the model to narrate a body, and no greeting cue,
+  which makes it introduce itself.
 - **User:** world knowledge and memory as plain prose with no field labels:
-  the place, who is here, what the resident wants, what it remembers, what just
-  happened, what was said, and the turn it answers. The limits are wide
-  (up to 16 memories, 8 recollections, 8 scene facts, 12 dialogue turns).
+  the place, who is here, what the resident wants, what it remembers, and what
+  just happened. It ends with the conversation as a transcript, `Name: line` for
+  each recent turn, and then `Name:` for the speaker's own turn. A model
+  continues a transcript as speech; it continues scene text as scene. The limits
+  are wide (up to 16 memories, 8 recollections, 8 scene facts, 12 dialogue
+  turns).
 - **Absent by design:** word budgets, output cues, rules, the safety paragraph,
   the Calling line, and the observation JSON.
 
 Safety and form are code, not prose. The publication gate judges these lines as
-raw speech: length (70 words), spoken shape (one paragraph that is not scene prose or narration about the speaker, with no markdown label), public-safe tone, repetition against the
+raw speech: length (70 words), spoken shape (one paragraph that is not scene prose or narration about the speaker), public-safe tone, repetition against the
 resident's own recent lines, grounding in the scene, and the existing ban on
 scenery acting with intent. A rejected line is drawn again with no feedback
 text. The AI still only proposes speech; it never changes authoritative state.
@@ -207,4 +210,14 @@ sequence. Free-context prompts then leave out dialogue, scene evidence, and
 recollections recorded before it. The journal, replay, and the publication
 gate's repeat check are unchanged; only what the characters read is shorter.
 Raise the floor again if a new habit sets in.
+
+### Speech extraction
+
+A model asked to speak as a character often wraps its words in roleplay. Before
+the gate judges a free-context reply, the normalizer keeps the spoken words and
+drops the scaffolding: lines that are wholly an action beat (`*wing lifts*`,
+`_nods_`, `(sighs)`), inline `*action*` spans, the markers of `**bold**` (the
+words stay), the speaker's own `Name:` label, and blank lines between
+paragraphs. It then keeps whole sentences within the word budget. A reply with
+no words left is returned whole, and the gate rejects it.
 

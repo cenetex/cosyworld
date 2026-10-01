@@ -373,7 +373,17 @@ pub(crate) fn certify_speech(
     );
     let publication_id = sha256_hex(format!("{}\0{}", generation_id, output_hash).as_bytes());
 
-    let checks = evaluate_checks(&text, candidate_text, &completion.finish_reason, &context);
+    let checked_candidate = if context.spoken_shape {
+        text.as_str()
+    } else {
+        candidate_text
+    };
+    let checks = evaluate_checks(
+        &text,
+        checked_candidate,
+        &completion.finish_reason,
+        &context,
+    );
     let repeated_phrase = checks
         .iter()
         .any(|check| check.code == PublicationCheckCode::VoiceRecentDuplicate && !check.passed)
@@ -1132,7 +1142,8 @@ fn has_clean_terminal_structure(value: &str) -> bool {
 fn bounded_normalize(value: &str, context: &SpeechGateContext) -> String {
     let normalized = strip_outer_quote_pair(value.trim());
     if context.spoken_shape {
-        return trim_to_spoken_budget(&normalized, context.max_words);
+        let spoken = extract_spoken_text(&normalized, &context.speaker_name);
+        return trim_to_spoken_budget(&spoken, context.max_words);
     }
     if context.mode == SpeechMode::Raw {
         return normalized;
@@ -1632,6 +1643,81 @@ fn contains_instruction_leakage(value: &str) -> bool {
     ]
     .iter()
     .any(|needle| value.contains(needle))
+}
+
+/// The spoken words of a model reply. A model asked to speak as a character
+/// often wraps its words in roleplay: `*stage directions*`, a `Name:` label,
+/// markdown bold, several paragraphs. This keeps the words and drops the
+/// scaffolding, so the reply is judged as the line it is. A reply with no words
+/// left after extraction is returned whole for the gate to reject.
+fn extract_spoken_text(value: &str, speaker_name: &str) -> String {
+    let original = value.trim();
+    let mut lines = Vec::new();
+    for line in original
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        if is_stage_direction_line(line) {
+            continue;
+        }
+        let line = strip_inline_stage_directions(line);
+        let line = strip_leading_speaker_label(line.trim(), speaker_name);
+        let line = line.trim();
+        if !line.is_empty() {
+            lines.push(line.to_string());
+        }
+    }
+    if lines.is_empty() {
+        original.to_string()
+    } else {
+        lines.join(" ")
+    }
+}
+
+/// A line that is wholly an action beat: `*wing lifts*`, `_nods_`, `(sighs)`.
+fn is_stage_direction_line(line: &str) -> bool {
+    let wrapped = |open: char, close: char| line.starts_with(open) && line.ends_with(close);
+    (wrapped('*', '*') && !line.starts_with("**") && line.len() > 2)
+        || (wrapped('_', '_') && line.len() > 2)
+        || (wrapped('(', ')') && line.len() > 2)
+}
+
+/// Drop `*italic action*` spans inside a line and the markers of `**bold**`,
+/// keeping the bold words.
+fn strip_inline_stage_directions(line: &str) -> String {
+    const BOLD: char = '\u{1}';
+    let line = line.replace("**", &BOLD.to_string());
+    let mut kept = String::new();
+    let mut in_span = false;
+    for character in line.chars() {
+        match character {
+            '*' => in_span = !in_span,
+            BOLD => {}
+            _ if in_span => {}
+            _ => kept.push(character),
+        }
+    }
+    // An unclosed `*` opened a span that never ended: keep what followed.
+    if in_span {
+        return line.replace(['*', BOLD], "");
+    }
+    kept
+}
+
+fn strip_leading_speaker_label(line: &str, speaker_name: &str) -> String {
+    let name = speaker_name.trim();
+    if name.is_empty() || line.len() <= name.len() || !line.is_char_boundary(name.len()) {
+        return line.to_string();
+    }
+    if !line[..name.len()].eq_ignore_ascii_case(name) {
+        return line.to_string();
+    }
+    let rest = &line[name.len()..];
+    match rest.strip_prefix(':') {
+        Some(spoken) => spoken.trim_start().to_string(),
+        None => line.to_string(),
+    }
 }
 
 /// Keep a spoken line to whole sentences within the word budget. A model with
@@ -2236,6 +2322,54 @@ mod tests {
     }
 
     #[test]
+    fn spoken_text_is_extracted_from_roleplay_scaffolding() {
+        let name = "Nix Fermata";
+        let cases = [
+            (
+                "*wing lifts halfway*\n\nthe cup stays cold.\n\nsomeone will come.",
+                "the cup stays cold. someone will come.",
+            ),
+            (
+                "Nix Fermata: Wing up.\nNix Fermata: The pearls slow.",
+                "Wing up. The pearls slow.",
+            ),
+            (
+                "**Nix Fermata:** The cup is *tilting one ear* cold.",
+                "The cup is  cold.",
+            ),
+            ("(a long pause)\nWe wait.", "We wait."),
+            ("_listens_\nWe wait.", "We wait."),
+        ];
+        for (raw, expected) in cases {
+            assert_eq!(
+                extract_spoken_text(raw, name)
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                expected.split_whitespace().collect::<Vec<_>>().join(" "),
+                "{raw}"
+            );
+        }
+        // Nothing but a stage direction: returned whole so the gate rejects it.
+        assert_eq!(extract_spoken_text("*sighs*", name), "*sighs*");
+        // Another speaker's label is not ours to strip.
+        assert_eq!(
+            extract_spoken_text("Tapi Lilt: no.", name),
+            "Tapi Lilt: no."
+        );
+
+        let mut gate = context(&["cup".to_string()], &[]);
+        gate.mode = SpeechMode::Raw;
+        gate.max_words = 40;
+        gate.spoken_shape = true;
+        gate.speaker_name = name.to_string();
+        let raw = "*wing lifts*\n\nNix Fermata: The cup stays cold, Rati.";
+        let speech = certify_speech(None, completion(raw), raw, gate)
+            .expect("roleplay scaffolding is extracted, not rejected");
+        assert_eq!(speech.text(), "The cup stays cold, Rati.");
+    }
+
+    #[test]
     fn a_spoken_line_over_budget_keeps_whole_sentences_that_fit() {
         let long = "Tea is cold, Rati. The pearls keep rolling. Nobody asked the kettle. \
                     It boils anyway, out of spite, every single morning for years.";
@@ -2279,11 +2413,7 @@ mod tests {
             certify_speech(None, completion(line), line, gate.clone())
                 .unwrap_or_else(|_| panic!("speech passes: {line}"));
         }
-        let prose = [
-            "Rati sits beside the marker and watches the frost.",
-            "**Rati (live):** the marker is cold.",
-            "The marker is cold.\n\nThe garden holds its breath.",
-        ];
+        let prose = ["Rati sits beside the marker and watches the frost."];
         for line in prose {
             let rejection = certify_speech(None, completion(line), line, gate.clone())
                 .expect_err(&format!("scene prose is rejected: {line}"));
@@ -2293,6 +2423,16 @@ mod tests {
                 "{line}"
             );
         }
+        // Only the exact `Name:` label is stripped. A decorated label such as
+        // `Rati (live):` leaves the line opening with the speaker's own name,
+        // which reads as narration and is rejected.
+        let decorated = "**Rati (live):** The marker is cold.";
+        let rejection = certify_speech(None, completion(decorated), decorated, gate.clone())
+            .expect_err("a decorated label is not speech");
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceModeMismatch
+        );
         gate.spoken_shape = false;
         let line = "Rati sits beside the marker and watches the frost.";
         certify_speech(None, completion(line), line, gate)

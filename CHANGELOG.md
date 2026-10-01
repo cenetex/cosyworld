@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.206 — 2026-10-01
+
+- Give free-context prompts the shape a model continues as speech. A prompt
+  lab run against the pool models showed that the physical description invites
+  body narration and the "so. hi." cue makes a model introduce itself. The
+  summoning is now the surfacing, the persona, and one positive speaking habit.
+  The user message ends with the conversation as a `Name: line` transcript and
+  then `Name:` for the speaker's turn.
+- Extract the spoken words from a reply before the gate judges it: action beats,
+  inline `*action*` spans, bold markers, the speaker's own label, and paragraph
+  breaks. Models that roleplay are kept instead of rejected and redrawn.
+- Move `x-ai/grok-4.3` to the common voice tier: in the lab it gave the
+  shortest in-voice lines.
+
 ## 1.0.205 — 2026-10-01
 
 - Trim an over-long free-context line to whole sentences within the word
