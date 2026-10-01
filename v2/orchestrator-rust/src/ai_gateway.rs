@@ -2375,8 +2375,22 @@ fn exact_endpoint_optional_model_attribution(
     }
 }
 
+/// The URL of an exact endpoint. OpenRouter serves alpha endpoints beside, not
+/// under, the versioned API root: `https://openrouter.ai/api/v1` pairs with
+/// `https://openrouter.ai/api/alpha/decisions`.
+pub(crate) fn exact_endpoint_url(base_url: &str, endpoint: &str) -> String {
+    match endpoint.strip_prefix("alpha/") {
+        Some(rest) => {
+            let root = base_url.trim_end_matches('/');
+            let root = root.strip_suffix("/v1").unwrap_or(root);
+            format!("{root}/alpha/{rest}")
+        }
+        None => format!("{base_url}/{endpoint}"),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-async fn post_bounded_exact_json(
+pub(crate) async fn post_bounded_exact_json(
     config: &AiConfig,
     feature: &str,
     endpoint: &str,
@@ -2414,7 +2428,7 @@ async fn post_bounded_exact_json(
             attempts: 0,
             latency: started_at.elapsed(),
         })?;
-    let url = format!("{}/{endpoint}", config.base_url);
+    let url = exact_endpoint_url(&config.base_url, endpoint);
     let max_attempts = max_attempts.max(1);
     for attempt in 1..=max_attempts {
         let response = client

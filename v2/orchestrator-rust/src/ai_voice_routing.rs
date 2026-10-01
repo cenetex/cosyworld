@@ -524,6 +524,25 @@ async fn route_certified_voice_with(
                     let mut candidate_gate = gate.clone();
                     candidate_gate.candidate_round = candidate.decision.ordinal;
                     let text = completion.text.clone();
+                    // A decision model may judge that this line repeats an idea
+                    // the room already heard, even reworded. The line then joins
+                    // the recent record, which the deterministic gate rejects as
+                    // a duplicate. A missing or failed judge changes nothing.
+                    if crate::ai_decisions::candidate_repeats_room(
+                        config,
+                        &gate.speaker_name,
+                        &text,
+                        &gate.recent_lines,
+                    )
+                    .await
+                        == Some(true)
+                    {
+                        candidate_gate.recent_lines.push(format!(
+                            "{}: {}",
+                            gate.speaker_name,
+                            text.trim()
+                        ));
+                    }
                     match certify_speech(Some(config), completion, &text, candidate_gate) {
                         Err(rejection) => {
                             if let Some(path) = store_path {

@@ -5,6 +5,7 @@ import {
   actorModelBindingValidationErrors,
   voicePoolValidationErrors,
   freeContextValidationErrors,
+  decisionsValidationErrors,
 } from "./actor-model-binding-schema.mjs";
 
 const manifest = {
@@ -148,4 +149,23 @@ test("free-context declarations accept only the documented shape", () => {
     freeContextValidationErrors(pack({ schema_version: 1, mode: "free_context", budget: 9 }))
       .length > 0,
   );
+});
+
+test("decisions declarations accept only the documented shape", () => {
+  const pack = (config) => ({ id: "p", extensions: { "x-cosyworld-decisions": config } });
+  assert.deepEqual(decisionsValidationErrors({ id: "p" }), []);
+  assert.deepEqual(
+    decisionsValidationErrors(
+      pack({ schema_version: 1, chat_floor: true, repeat_judge: true, repeat_threshold: 0.8 }),
+    ),
+    [],
+  );
+  for (const bad of [
+    { schema_version: 2 },
+    { schema_version: 1, chat_floor: "yes" },
+    { schema_version: 1, repeat_threshold: 0.1 },
+    { schema_version: 1, model: "x/y" },
+  ]) {
+    assert.ok(decisionsValidationErrors(pack(bad)).length > 0, JSON.stringify(bad));
+  }
 });

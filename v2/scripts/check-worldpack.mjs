@@ -24,6 +24,7 @@ import {
   actorModelBindingValidationErrors,
   voicePoolValidationErrors,
   freeContextValidationErrors,
+  decisionsValidationErrors,
 } from "./actor-model-binding-schema.mjs";
 import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
@@ -1249,6 +1250,7 @@ const actorModelBindings = content.actor_model_bindings ?? [];
 for (const pack of packs) {
   for (const error of voicePoolValidationErrors(pack)) fail(error);
   for (const error of freeContextValidationErrors(pack)) fail(error);
+  for (const error of decisionsValidationErrors(pack)) fail(error);
   for (const error of actorModelBindingValidationErrors(
     pack,
     actors,

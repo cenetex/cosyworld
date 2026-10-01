@@ -290,6 +290,62 @@ pub(super) async fn request_chat_floor_choice(
     available_targets: &[(u64, String)],
     recent_lines: &[CommittedOrbChatLine],
 ) -> Result<ChatFloorChoice, AiGatewayError> {
+    // A world that opts in lets a decision model judge whether this resident
+    // speaks. When it is off or unavailable the language model decides, as before.
+    let name_of = |actor_id: u64| {
+        if actor_id == speaker_actor_id {
+            speaker_name.to_string()
+        } else {
+            available_targets
+                .iter()
+                .find(|(candidate_id, _)| *candidate_id == actor_id)
+                .map(|(_, name)| name.clone())
+                .unwrap_or_else(|| "someone".to_string())
+        }
+    };
+    let persona = crate::content_registry::active_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == speaker_actor_id)
+        .map(|actor| actor.voice.clone())
+        .or_else(|| crate::free_context::traveler_persona(speaker_actor_id))
+        .unwrap_or_default();
+    let decision_lines = recent_lines
+        .iter()
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|line| {
+            (
+                line.seq,
+                format!("{}: {}", name_of(line.speaker_actor_id), line.content),
+            )
+        })
+        .collect::<Vec<_>>();
+    let others = available_targets
+        .iter()
+        .map(|(_, name)| name.clone())
+        .collect::<Vec<_>>();
+    if let Some(speaks) = crate::ai_decisions::chat_floor_decision(
+        config,
+        speaker_actor_id,
+        speaker_name,
+        &persona,
+        round,
+        &others,
+        &decision_lines,
+        recent_lines.last().map(|line| line.seq).unwrap_or_default(),
+    )
+    .await
+    {
+        return Ok(if speaks {
+            ChatFloorChoice::Chat
+        } else {
+            ChatFloorChoice::Pass
+        });
+    }
     let targets = available_targets
         .iter()
         .map(|(actor_id, name)| format!("{actor_id}: {name}"))

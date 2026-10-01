@@ -226,3 +226,35 @@ export function freeContextValidationErrors(manifest) {
   }
   return errors;
 }
+
+// `x-cosyworld-decisions` opts a world into decision-model judgments (the chat
+// floor and the repeat judge). The operator names the model in the environment;
+// the pack only chooses which judgments to use.
+export function decisionsValidationErrors(manifest) {
+  const config = manifest.extensions?.["x-cosyworld-decisions"];
+  if (config === undefined) return [];
+  const label = `pack ${manifest.id} x-cosyworld-decisions`;
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return [`${label} must be an object`];
+  }
+  const errors = [];
+  const allowed = new Set(["schema_version", "chat_floor", "repeat_judge", "repeat_threshold"]);
+  for (const field of Object.keys(config)) {
+    if (!allowed.has(field)) errors.push(`${label} has unknown field ${field}`);
+  }
+  if (config.schema_version !== 1) errors.push(`${label} schema_version must be 1`);
+  for (const flag of ["chat_floor", "repeat_judge"]) {
+    if (config[flag] !== undefined && typeof config[flag] !== "boolean") {
+      errors.push(`${label} ${flag} must be a boolean`);
+    }
+  }
+  if (
+    config.repeat_threshold !== undefined
+    && !(Number.isFinite(config.repeat_threshold)
+      && config.repeat_threshold >= 0.5
+      && config.repeat_threshold <= 0.99)
+  ) {
+    errors.push(`${label} repeat_threshold must be between 0.5 and 0.99`);
+  }
+  return errors;
+}

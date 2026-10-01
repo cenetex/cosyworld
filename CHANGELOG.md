@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.203 — 2026-09-30
+
+- Add a decision-model client for the OpenRouter Decisions API and a pack
+  opt-in, `x-cosyworld-decisions`. The operator names the model with
+  `COSYWORLD_AI_DECISION_MODEL`; every call fails open to the previous behaviour.
+- Decide the chat floor with a seeded draw over a yes/no probability instead of
+  a language-model call, so residents speak in proportion to what they have to
+  say.
+- Add a repeat judge: a decision model flags a candidate that repeats an idea
+  the room already heard, even reworded, and the publication gate rejects it.
+- With an operator model set, decisions are on for every world; a pack can
+  tune them or declare `{"schema_version": 1}` to turn both off for itself.
+  Hoppycat declares its policy explicitly. Pack 0.4.6, world 8; the live bundle
+  is declared replay-compatible.
+
 ## 1.0.202 — 2026-09-30
 
 - Add `COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ`, an operator history floor for
