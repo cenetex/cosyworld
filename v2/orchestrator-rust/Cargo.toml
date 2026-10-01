@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.0.209"
+version = "1.0.210"
 edition = "2021"
 publish = false
 

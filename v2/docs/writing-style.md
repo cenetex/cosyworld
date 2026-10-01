@@ -146,8 +146,12 @@ in `v2/content/core/sentences.json`.
 
 ### 8. Chance feedback (every d20 the kernel resolves)
 
-**One disclosure rule for every roll.** Where the kernel resolves a d20, the
-result is shown as a story beat *and* the arithmetic that produced it. Chance
+**The room chat does not show rolls.** It reads as conversation only; a roll
+never becomes a chat row. Rolls still reach room memory and the combat dock.
+
+**One disclosure rule for every roll.** Where the kernel resolves a d20 and
+shows it anywhere, the result is a story beat *and* the arithmetic that
+produced it. Chance
 is legible because the referee is deterministic and has nothing to hide; a
 player who missed is owed the reason.
 
