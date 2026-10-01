@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.205 — 2026-10-01
+
+- Trim an over-long free-context line to whole sentences within the word
+  budget, so a model with no length rule in its prompt is kept instead of
+  rejected and redrawn. A line whose first sentence alone is over budget, or
+  that has several paragraphs, is still left whole for the gate.
+- Take `google/gemini-3.5-flash` out of the Lonely Forest voice pool: the
+  provider rejects it with "Reasoning is mandatory for this endpoint".
+- Raise Hoppycat's history floor past the narrated lines that 1.0.202 to 1.0.203
+  produced.
+
 ## 1.0.204 — 2026-10-01
 
 - Judge free-context lines for spoken shape: one paragraph that neither opens

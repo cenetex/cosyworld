@@ -1131,6 +1131,9 @@ fn has_clean_terminal_structure(value: &str) -> bool {
 
 fn bounded_normalize(value: &str, context: &SpeechGateContext) -> String {
     let normalized = strip_outer_quote_pair(value.trim());
+    if context.spoken_shape {
+        return trim_to_spoken_budget(&normalized, context.max_words);
+    }
     if context.mode == SpeechMode::Raw {
         return normalized;
     }
@@ -1629,6 +1632,48 @@ fn contains_instruction_leakage(value: &str) -> bool {
     ]
     .iter()
     .any(|needle| value.contains(needle))
+}
+
+/// Keep a spoken line to whole sentences within the word budget. A model with
+/// no length rule in its prompt often runs past it; the first sentences carry
+/// the line, so the gate keeps them instead of rejecting the draw. A line whose
+/// first sentence alone is over budget, or that has several paragraphs, is left
+/// whole for the gate to judge.
+fn trim_to_spoken_budget(value: &str, max_words: usize) -> String {
+    let value = value.trim();
+    if value.contains("\n\n") || value.split_whitespace().count() <= max_words {
+        return value.to_string();
+    }
+    let mut kept = String::new();
+    let mut words = 0usize;
+    let mut sentence_start = 0usize;
+    let characters = value.char_indices().collect::<Vec<_>>();
+    for (position, (index, character)) in characters.iter().enumerate() {
+        let ends_sentence = matches!(character, '.' | '!' | '?' | '…')
+            && characters
+                .get(position + 1)
+                .is_none_or(|(_, next)| next.is_whitespace() || matches!(next, '"' | '”' | '*'));
+        if !ends_sentence {
+            continue;
+        }
+        let end = index + character.len_utf8();
+        let sentence = value[sentence_start..end].trim();
+        let sentence_words = sentence.split_whitespace().count();
+        if words + sentence_words > max_words {
+            break;
+        }
+        if !kept.is_empty() {
+            kept.push(' ');
+        }
+        kept.push_str(sentence);
+        words += sentence_words;
+        sentence_start = end;
+    }
+    if kept.is_empty() {
+        value.to_string()
+    } else {
+        kept
+    }
 }
 
 /// Whether a line is speech rather than scene prose. Speech is one paragraph
@@ -2188,6 +2233,35 @@ mod tests {
         assert!(PublicationCheckCode::VoiceUnsafeTone.blocks_publication());
         assert!(PublicationCheckCode::VoiceAnchorMissing.blocks_publication());
         assert!(PublicationCheckCode::VoiceUnbackedActionIntent.blocks_publication());
+    }
+
+    #[test]
+    fn a_spoken_line_over_budget_keeps_whole_sentences_that_fit() {
+        let long = "Tea is cold, Rati. The pearls keep rolling. Nobody asked the kettle. \
+                    It boils anyway, out of spite, every single morning for years.";
+        assert_eq!(trim_to_spoken_budget(long, 100), long);
+        assert_eq!(
+            trim_to_spoken_budget(long, 11),
+            "Tea is cold, Rati. The pearls keep rolling."
+        );
+        // The first sentence alone is over budget: left whole for the gate.
+        assert_eq!(trim_to_spoken_budget(long, 2), long);
+        // Several paragraphs are left whole so the shape check still sees them.
+        let paragraphs = "One long sentence runs on here.\n\nAnother paragraph follows.";
+        assert_eq!(trim_to_spoken_budget(paragraphs, 4), paragraphs);
+
+        let mut gate = context(&["tea".to_string()], &[]);
+        gate.mode = SpeechMode::Raw;
+        gate.max_words = 11;
+        gate.spoken_shape = true;
+        let speech = certify_speech(None, completion(long), long, gate.clone())
+            .expect("a long line is trimmed, not rejected");
+        assert_eq!(speech.text(), "Tea is cold, Rati. The pearls keep rolling.");
+        gate.spoken_shape = false;
+        assert!(
+            certify_speech(None, completion(long), long, gate).is_err(),
+            "other worlds keep the strict budget"
+        );
     }
 
     #[test]
