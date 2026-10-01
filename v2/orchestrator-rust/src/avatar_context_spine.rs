@@ -664,16 +664,12 @@ impl AvatarContextSpine {
             if let Some(voice) = safe_awakening_sentence(&actor.voice) {
                 parts.push(voice);
             }
-            if let Some(shape) = safe_awakening_sentence(&actor.description) {
-                parts.push(format!("the shape i know myself by: {shape}"));
-            }
         } else if let Some(persona) = crate::free_context::traveler_persona(self.speaker.actor_id) {
             // A player-controlled avatar wakes from a system-owned line. Its
             // own name and words stay in the user role below.
             parts.push(persona);
         }
-        parts.push("i talk out loud, a line at a time.".to_string());
-        parts.push("so. hi.".to_string());
+        parts.push("when i speak it is my own words, one or two lines, said out loud.".to_string());
         parts.join("\n\n")
     }
 
@@ -829,19 +825,25 @@ impl AvatarContextSpine {
                 .rev()
                 .take(12)
                 .collect::<Vec<_>>();
-            for turn in dialogue.into_iter().rev() {
-                add(turn.render(), 74, false);
-            }
             if self.speaker.control_mode != "direct_input" {
                 add(self.current_beat.clone(), 100, true);
             }
+            // The conversation reads as a transcript that ends where this
+            // speaker begins: `Name: line` for each turn, then `Name:`. A model
+            // continues a transcript as speech; it continues scene text as scene.
+            let mut transcript = dialogue
+                .into_iter()
+                .rev()
+                .map(|turn| format!("{}: {}", turn.speaker_name, turn.content))
+                .collect::<Vec<_>>();
             if let Some(turn) = self.incoming_turn.as_ref() {
-                add(
-                    AvatarContextDialogueTurn::from_directed(turn).render(),
-                    100,
-                    true,
-                );
+                let line = format!("{}: {}", turn.speaker_name, turn.content);
+                if transcript.last() != Some(&line) {
+                    transcript.push(line);
+                }
             }
+            transcript.push(format!("{}:", self.speaker.name.trim()));
+            add(transcript.join("\n"), 100, true);
         }
         prompt
     }
@@ -1936,13 +1938,20 @@ mod tests {
             1,
             "{all}"
         );
+        assert!(
+            rendered.user.trim_end().ends_with("Tapi Lilt:"),
+            "the prompt ends at the speaker's turn: {}",
+            rendered.user
+        );
+        assert!(!all.contains("said to"), "{all}");
         for instruction in [
             "Planner-only",
             "Background tension",
             ":chosen_",
             "Initiative passes",
             "SPEAK",
-            "words",
+            "word budget",
+            "so. hi.",
             "SELF ·",
             "PERSONA ·",
             "CALLING",
