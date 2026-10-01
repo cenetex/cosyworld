@@ -40,6 +40,10 @@ primary_region = "sjc"
   # The most expensive raw binding is $150/M input and $600/M output. This
   # covers four 160-token responses, a 1,200-character input, and retry feedback.
   COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS = "650000"
+  # Free-context worlds (Hoppycat) leave dialogue, scene evidence, and
+  # recollections recorded before this journal sequence out of their prompts, so
+  # the cast starts fresh from its earlier echo habits. The journal is untouched.
+  COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ = "22455"
   COSYWORLD_AI_CAPABILITY_MODELS_JSON = '{"voice":"openai/gpt-5.4-nano","intent_json":"openai/gpt-5.6-sol","world_content":"openai/gpt-5.6-sol"}'
   # Hoppycat draws each resident's voice model from the registry pool, so its
   # process runs without the shared voice pin. Every other world keeps the pin.

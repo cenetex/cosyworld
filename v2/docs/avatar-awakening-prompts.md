@@ -197,3 +197,13 @@ The user message drops engine bookkeeping: internal labels such as
 "Planner-only goal:", raw tags such as `:chosen_calling`, turn-order notices,
 instructions embedded in goal text, and duplicate memories.
 
+### Starting fresh without touching the journal
+
+A free-context prompt reads recent dialogue, scene evidence, and recollections,
+so a room that has already settled into a habit keeps priming its own residents.
+The operator can set `COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ` to a journal
+sequence. Free-context prompts then leave out dialogue, scene evidence, and
+recollections recorded before it. The journal, replay, and the publication
+gate's repeat check are unchanged; only what the characters read is shorter.
+Raise the floor again if a new habit sets in.
+

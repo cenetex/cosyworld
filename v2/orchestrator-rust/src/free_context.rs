@@ -20,6 +20,28 @@ pub(crate) const FREE_CONTEXT_DEFAULT_TEMPERATURE: f64 = 1.0;
 /// How many remembered moments a free-context prompt carries.
 pub(crate) const FREE_CONTEXT_RECOLLECTIONS: usize = 8;
 
+/// Operator-set history floor. A free-context prompt leaves out dialogue,
+/// scene evidence, and recollections recorded before this journal sequence, so
+/// a world can start fresh from its own earlier habits without touching the
+/// journal. Unset or invalid means no floor.
+pub(crate) const FREE_CONTEXT_HISTORY_FLOOR_ENV: &str = "COSYWORLD_FREE_CONTEXT_HISTORY_FLOOR_SEQ";
+
+pub(crate) fn history_floor_seq() -> u64 {
+    static FLOOR: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *FLOOR.get_or_init(|| {
+        std::env::var(FREE_CONTEXT_HISTORY_FLOOR_ENV)
+            .ok()
+            .and_then(|value| value.trim().parse().ok())
+            .unwrap_or(0)
+    })
+}
+
+/// Whether an item recorded at `seq` is recent enough for the prompt. Items
+/// with no recorded sequence are kept.
+pub(crate) fn at_or_after_floor(seq: Option<u64>, floor: u64) -> bool {
+    seq.is_none_or(|seq| seq >= floor)
+}
+
 pub(crate) fn parse_free_context(pack: &SeedWorldpackPack) -> Result<bool, String> {
     parse_free_context_config(pack).map(|config| config.is_some())
 }
@@ -124,6 +146,14 @@ mod tests {
         .expect("test pack parses");
         pack.extensions = json!({ FREE_CONTEXT_EXTENSION: extension });
         pack
+    }
+
+    #[test]
+    fn the_history_floor_drops_only_older_recorded_items() {
+        assert!(at_or_after_floor(None, 100));
+        assert!(at_or_after_floor(Some(100), 100));
+        assert!(!at_or_after_floor(Some(99), 100));
+        assert!(at_or_after_floor(Some(1), 0));
     }
 
     #[test]

@@ -680,7 +680,11 @@ impl AvatarContextSpine {
     /// meet it: where I am, who is here, what I remember, what just happened,
     /// and what was said to me last.
     fn free_context_prompt(&self) -> PromptEnvelope {
-        use crate::free_context::FREE_CONTEXT_RECOLLECTIONS;
+        self.free_context_prompt_from(crate::free_context::history_floor_seq())
+    }
+
+    fn free_context_prompt_from(&self, floor: u64) -> PromptEnvelope {
+        use crate::free_context::{at_or_after_floor, FREE_CONTEXT_RECOLLECTIONS};
         let audience = EvidenceAudience::conversation(
             self.speaker.actor_id,
             self.counterpart.as_ref().map(|actor| actor.actor_id),
@@ -759,6 +763,7 @@ impl AvatarContextSpine {
             for recollection in self
                 .selected_recollections
                 .iter()
+                .filter(|item| at_or_after_floor(item.source_event_seq, floor))
                 .take(FREE_CONTEXT_RECOLLECTIONS)
             {
                 add(recollection.text.clone(), 74, false);
@@ -768,7 +773,10 @@ impl AvatarContextSpine {
             "",
             self.location_evidence
                 .iter()
-                .filter(|item| free_context_text(&item.text).is_some())
+                .filter(|item| {
+                    free_context_text(&item.text).is_some()
+                        && at_or_after_floor(item.source_event_seq, floor)
+                })
                 .take(8)
                 .cloned(),
             &audience,
@@ -779,7 +787,10 @@ impl AvatarContextSpine {
             "",
             self.public_room_memory
                 .iter()
-                .filter(|item| free_context_text(&item.text).is_some())
+                .filter(|item| {
+                    free_context_text(&item.text).is_some()
+                        && at_or_after_floor(item.source_event_seq, floor)
+                })
                 .take(8)
                 .cloned(),
             &audience,
@@ -813,6 +824,7 @@ impl AvatarContextSpine {
             let dialogue = self
                 .recent_dialogue
                 .iter()
+                .filter(|turn| at_or_after_floor(turn.source_event_seq, floor))
                 .rev()
                 .take(12)
                 .collect::<Vec<_>>();
@@ -1830,6 +1842,44 @@ mod tests {
             .expect("Gust index");
         runtime.world.actors[actor_index].stats.level = level.saturating_add(1);
         assert!(runtime.avatar_self_description_due(actor.id, level.saturating_add(1)));
+    }
+
+    #[test]
+    fn free_context_history_floor_leaves_out_older_dialogue_but_keeps_the_new() {
+        let turn = |seq: u64, text: &str| AvatarContextDialogueTurn {
+            source_event_seq: Some(seq),
+            speaker_actor_id: 9,
+            speaker_name: "Doro".to_string(),
+            recipient_actor_id: None,
+            recipient_name: None,
+            content: text.to_string(),
+        };
+        let spine = AvatarContextSpine {
+            schema_version: AVATAR_CONTEXT_SPINE_VERSION,
+            speaker: AvatarContextActor {
+                actor_id: 771000,
+                name: "Tapi Lilt".to_string(),
+                control_mode: "autonomous".to_string(),
+                level: 1,
+                ..AvatarContextActor::default()
+            },
+            recent_dialogue: vec![
+                turn(10, "the rim sheen is old news"),
+                turn(200, "the new line is fresh"),
+            ],
+            ..AvatarContextSpine::default()
+        };
+        let all = |floor| {
+            let rendered = spine
+                .free_context_prompt_from(floor)
+                .render_for(Some(32_768), 300);
+            format!("{}\n{}", rendered.system, rendered.user)
+        };
+        let without = all(0);
+        assert!(without.contains("rim sheen") && without.contains("fresh"));
+        let with = all(100);
+        assert!(!with.contains("rim sheen"), "{with}");
+        assert!(with.contains("fresh"), "{with}");
     }
 
     #[test]
