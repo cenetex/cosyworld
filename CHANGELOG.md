@@ -10,8 +10,10 @@
   say.
 - Add a repeat judge: a decision model flags a candidate that repeats an idea
   the room already heard, even reworded, and the publication gate rejects it.
-- Hoppycat opts in. Pack 0.4.6, world 8; the live bundle is declared
-  replay-compatible.
+- With an operator model set, decisions are on for every world; a pack can
+  tune them or declare `{"schema_version": 1}` to turn both off for itself.
+  Hoppycat declares its policy explicitly. Pack 0.4.6, world 8; the live bundle
+  is declared replay-compatible.
 
 ## 1.0.202 — 2026-09-30
 

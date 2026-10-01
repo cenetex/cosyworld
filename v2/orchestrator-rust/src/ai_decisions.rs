@@ -6,6 +6,9 @@
 //! already heard. Probabilities steer a seeded draw, so a world stays lively
 //! without a language model deciding every beat.
 //!
+//! With an operator model set, every world uses decisions unless one of its
+//! packs declares a policy that turns them off.
+//!
 //! Authority is unchanged. A decision proposes; the publication gate, the
 //! kernel, and the journal still decide what happens. Every call fails open to
 //! the existing path: a missing model, a transport error, or an unreadable
@@ -46,6 +49,14 @@ pub(crate) struct DecisionPolicy {
     /// Probability above which a candidate line counts as a repeat, when the
     /// repeat judge is on.
     pub(crate) repeat_threshold: Option<f64>,
+}
+
+impl DecisionPolicy {
+    /// What a world gets when its packs say nothing and the operator set a model.
+    pub(crate) const DEFAULT: Self = Self {
+        chat_floor: true,
+        repeat_threshold: Some(DEFAULT_REPEAT_THRESHOLD),
+    };
 }
 
 pub(crate) fn parse_decision_policy(
@@ -91,18 +102,24 @@ pub(crate) fn parse_decision_policy(
     }))
 }
 
-fn policy_in(content: &SeedContent) -> Option<DecisionPolicy> {
-    content
-        .manifest
-        .packs
-        .iter()
+/// A world's policy: the first pack that declares one, otherwise the default.
+/// With an operator model set, decisions are on for every world; a pack that
+/// declares `{"schema_version": 1}` and no judgments turns them off for itself.
+fn policy_from_packs<'a>(packs: impl IntoIterator<Item = &'a SeedWorldpackPack>) -> DecisionPolicy {
+    packs
+        .into_iter()
         .find_map(|pack| parse_decision_policy(pack).ok().flatten())
+        .unwrap_or(DecisionPolicy::DEFAULT)
+}
+
+fn policy_in(content: &SeedContent) -> DecisionPolicy {
+    policy_from_packs(&content.manifest.packs)
 }
 
 /// The decision policy of the active world, only when an operator model is set.
 pub(crate) fn active_policy() -> Option<(DecisionPolicy, String)> {
     let model = configured_model()?;
-    let policy = policy_in(crate::content_registry::active_content())?;
+    let policy = policy_in(crate::content_registry::active_content());
     Some((policy, model))
 }
 
@@ -469,6 +486,20 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    fn decisions_default_on_and_a_pack_can_turn_them_off() {
+        let default = policy_from_packs([]);
+        assert_eq!(default, DecisionPolicy::DEFAULT);
+        assert!(default.chat_floor);
+        assert_eq!(default.repeat_threshold, Some(0.8));
+        let silent = pack_with(json!({"schema_version": 1}));
+        let off = policy_from_packs([&silent]);
+        assert!(!off.chat_floor && off.repeat_threshold.is_none());
+        let tuned =
+            pack_with(json!({"schema_version": 1, "repeat_judge": true, "repeat_threshold": 0.9}));
+        assert_eq!(policy_from_packs([&tuned]).repeat_threshold, Some(0.9));
     }
 
     #[test]

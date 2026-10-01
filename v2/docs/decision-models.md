@@ -18,8 +18,11 @@ changes even though the provider's probabilities may vary slightly.
 ## Configuration
 
 - The operator names the model with `COSYWORLD_AI_DECISION_MODEL`. Unset means
-  decisions are off everywhere.
-- A pack opts in with `extensions["x-cosyworld-decisions"]`:
+  decisions are off everywhere. Set, decisions are on for every world with the
+  default policy (chat floor on, repeat judge on at 0.8).
+- A pack tunes or turns off its judgments with `extensions["x-cosyworld-decisions"]`.
+  Declaring `{"schema_version": 1}` with no judgments turns both off for that
+  world:
 
 ```json
 "x-cosyworld-decisions": {
