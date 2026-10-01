@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.204 — 2026-10-01
+
+- Judge free-context lines for spoken shape: one paragraph that neither opens
+  with a markdown label nor narrates its own speaker in the third person. A
+  rule-free prompt let some models drift into scene prose. The line budget
+  drops from 120 to 70 words, and the summoning gains one first-person habit,
+  "i talk out loud, a line at a time."
+
 ## 1.0.203 — 2026-09-30
 
 - Add a decision-model client for the OpenRouter Decisions API and a pack

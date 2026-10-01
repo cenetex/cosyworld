@@ -1155,6 +1155,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         requirements,
         envelope_valid: true,
         candidate_round: 1,
+        spoken_shape: free_context,
     }
 }
 
@@ -1252,6 +1253,7 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         requirements,
         envelope_valid: true,
         candidate_round: 1,
+        spoken_shape: free_context,
     }
 }
 

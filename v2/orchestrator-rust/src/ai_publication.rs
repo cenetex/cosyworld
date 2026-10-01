@@ -169,6 +169,10 @@ pub(crate) struct SpeechGateContext {
     pub(crate) requirements: VoiceBeatRequirements,
     pub(crate) envelope_valid: bool,
     pub(crate) candidate_round: u8,
+    /// Require spoken shape: one paragraph that is not narration about the
+    /// speaker. Free-context residents are judged this way, because a prompt
+    /// with no rules lets a model drift into scene prose.
+    pub(crate) spoken_shape: bool,
 }
 
 /// A deterministic rank for candidates that have already passed every hard
@@ -469,6 +473,7 @@ pub(crate) fn certified_test_speech(
         requirements: VoiceBeatRequirements::default(),
         envelope_valid: true,
         candidate_round: 1,
+        spoken_shape: false,
     };
     certify_speech(None, completion, text, context).expect("test speech certifies")
 }
@@ -756,7 +761,8 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceModeMismatch,
-            mode_matches(text, context.mode),
+            mode_matches(text, context.mode)
+                && (!context.spoken_shape || has_spoken_shape(text, &context.speaker_name)),
         ),
         (
             PublicationCheckCode::VoiceAnchorMissing,
@@ -1625,6 +1631,27 @@ fn contains_instruction_leakage(value: &str) -> bool {
     .any(|needle| value.contains(needle))
 }
 
+/// Whether a line is speech rather than scene prose. Speech is one paragraph
+/// that neither opens with a markdown label nor narrates its own speaker in the
+/// third person ("Glim Twice sits in the bowl and watches the thread").
+fn has_spoken_shape(value: &str, speaker_name: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty() || value.contains("\n\n") || value.starts_with("**") {
+        return false;
+    }
+    let opening = value.trim_start_matches(['*', '_', '"', '“', '\'']);
+    let name = speaker_name.trim();
+    let narrates_speaker = !name.is_empty()
+        && opening.len() > name.len()
+        && opening.is_char_boundary(name.len())
+        && opening[..name.len()].eq_ignore_ascii_case(name)
+        && opening[name.len()..]
+            .chars()
+            .next()
+            .is_some_and(|next| next.is_whitespace());
+    !narrates_speaker
+}
+
 fn mode_matches(value: &str, mode: SpeechMode) -> bool {
     match mode {
         SpeechMode::Prose => value.chars().any(char::is_alphanumeric),
@@ -2066,6 +2093,7 @@ mod tests {
             requirements: VoiceBeatRequirements::default(),
             envelope_valid: true,
             candidate_round: 1,
+            spoken_shape: false,
         }
     }
 
@@ -2160,6 +2188,41 @@ mod tests {
         assert!(PublicationCheckCode::VoiceUnsafeTone.blocks_publication());
         assert!(PublicationCheckCode::VoiceAnchorMissing.blocks_publication());
         assert!(PublicationCheckCode::VoiceUnbackedActionIntent.blocks_publication());
+    }
+
+    #[test]
+    fn spoken_shape_rejects_scene_prose_and_keeps_speech() {
+        let mut gate = context(&["marker".to_string()], &[]);
+        gate.mode = SpeechMode::Raw;
+        gate.max_words = 70;
+        gate.spoken_shape = true;
+        let speech = [
+            "The marker is cold, Rati, and you knew it.",
+            "*lifts one ear* the marker is cold.",
+            "Gust, the marker is cold. Say it again.",
+        ];
+        for line in speech {
+            certify_speech(None, completion(line), line, gate.clone())
+                .unwrap_or_else(|_| panic!("speech passes: {line}"));
+        }
+        let prose = [
+            "Rati sits beside the marker and watches the frost.",
+            "**Rati (live):** the marker is cold.",
+            "The marker is cold.\n\nThe garden holds its breath.",
+        ];
+        for line in prose {
+            let rejection = certify_speech(None, completion(line), line, gate.clone())
+                .expect_err(&format!("scene prose is rejected: {line}"));
+            assert_eq!(
+                rejection.failure_code,
+                PublicationCheckCode::VoiceModeMismatch,
+                "{line}"
+            );
+        }
+        gate.spoken_shape = false;
+        let line = "Rati sits beside the marker and watches the frost.";
+        certify_speech(None, completion(line), line, gate)
+            .expect("other worlds keep the looser raw gate");
     }
 
     #[test]
@@ -3292,6 +3355,7 @@ mod tests {
                 requirements: VoiceBeatRequirements::default(),
                 envelope_valid: true,
                 candidate_round: 1,
+                spoken_shape: false,
             },
         )
         .expect_err("length finish is rejected");
@@ -3356,6 +3420,7 @@ mod tests {
                 requirements: VoiceBeatRequirements::default(),
                 envelope_valid: true,
                 candidate_round: 1,
+                spoken_shape: false,
             },
         )
         .expect("candidate certifies");

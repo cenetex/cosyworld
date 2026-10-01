@@ -2057,6 +2057,7 @@ mod tests {
             requirements: crate::ai_publication::VoiceBeatRequirements::default(),
             envelope_valid: true,
             candidate_round: 1,
+            spoken_shape: false,
         }
     }
 

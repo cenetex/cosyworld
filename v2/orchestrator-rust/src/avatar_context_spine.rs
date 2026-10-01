@@ -672,6 +672,7 @@ impl AvatarContextSpine {
             // own name and words stay in the user role below.
             parts.push(persona);
         }
+        parts.push("i talk out loud, a line at a time.".to_string());
         parts.push("so. hi.".to_string());
         parts.join("\n\n")
     }
