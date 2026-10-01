@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.208 — 2026-10-01
+
+- Ask the level-up self-description job for its three lines in plain words.
+  Production logs showed these jobs dying after three attempts with "must
+  contain PERSONA, APPEARANCE, and CONTINUITY lines": the voice model
+  (gpt-5.4-nano) answered the terse `AWAKEN · PERSONA: / APPEARANCE: /
+  CONTINUITY:` cue in character, and in a lab run returned the three lines in 0
+  of 10 attempts. With a plain format request it returned them in 12 of 12.
+
 ## 1.0.207 — 2026-10-01
 
 - Reject a free-context reply that still carries `*` markup after extraction:

@@ -11,6 +11,11 @@ const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-descriptio
 // and continuity without being rejected by the shorter public-prose budget.
 const AVATAR_SELF_DESCRIPTION_MAX_WORDS: usize = 80;
 const AVATAR_SELF_DESCRIPTION_MAX_TOKENS: u32 = 160;
+/// The level-up self-description is structured output, so it asks for its
+/// format in plain words. The terse `AWAKEN · PERSONA: / APPEARANCE: /
+/// CONTINUITY:` cue alone made gpt-5.4-nano answer in character: 0 of 10 runs
+/// returned the three lines, against 12 of 12 with this request.
+const AVATAR_SELF_DESCRIPTION_RESPONSE_JOB: &str = "write my private self-portrait as exactly three lines, each starting with its label: PERSONA: one first-person sentence about my temperament and wants. APPEARANCE: one first-person sentence about how I look. CONTINUITY: one first-person sentence about what stays the same. · lived evidence only · preserve identity · interpretation, never invented history";
 // Item and location descriptions still use the compact public-prose shape.
 const WORLD_ENTITY_SELF_DESCRIPTION_MAX_WORDS: usize = 48;
 const WORLD_ENTITY_SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
@@ -634,9 +639,7 @@ pub(super) async fn complete_avatar_self_description(
         mode: AvatarContextMode::SelfDescription,
         speech_mode,
         max_words: AVATAR_SELF_DESCRIPTION_MAX_WORDS,
-        response_job:
-            "lived evidence only · preserve identity · interpretation, never invented history"
-                .to_string(),
+        response_job: AVATAR_SELF_DESCRIPTION_RESPONSE_JOB.to_string(),
     });
     let config = state
         .ai_config
@@ -1222,6 +1225,23 @@ mod tests {
         let speech = certify_speech(None, completion, content, gate)
             .expect("a private structured portrait is not held to the public prose budget");
         parse_avatar_level_identity(speech.text()).expect("the certified identity remains typed");
+    }
+
+    #[test]
+    fn the_self_description_job_asks_for_its_three_lines_in_plain_words() {
+        for label in [
+            "PERSONA:",
+            "APPEARANCE:",
+            "CONTINUITY:",
+            "exactly three lines",
+        ] {
+            assert!(
+                AVATAR_SELF_DESCRIPTION_RESPONSE_JOB.contains(label),
+                "{label}"
+            );
+        }
+        let reply = "PERSONA: I am gentle and want to help.\nAPPEARANCE: I look plain and warm.\nCONTINUITY: I stay the same.";
+        assert!(parse_avatar_level_identity(reply).is_ok());
     }
 
     #[test]
