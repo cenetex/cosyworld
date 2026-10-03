@@ -1,0 +1,108 @@
+name: Fly health
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Fly application to check
+        type: choice
+        default: all
+        options:
+          - all
+          - cosyworld
+          - cosyworld-lonelyforest
+
+concurrency:
+  # Manual checks must not cancel the scheduled coverage or another app's check.
+  group: fly-health-${{ github.repository }}-${{ github.event_name }}-${{ inputs.app || 'all' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  primary:
+    name: Primary OOM, volume, and storage health
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.app == 'all' || inputs.app == 'cosyworld' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        id: node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Explicit status guards let independent checks run after a failure.
+      # Do not use continue-on-error: every failed check must fail this job.
+      - name: Check primary OOM metric
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
+        timeout-minutes: 1
+        run: node v2/scripts/check-fly-oom.mjs personal cosyworld 30m
+        env:
+          FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}
+
+      - name: Check primary storage budgets
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
+        timeout-minutes: 3
+        run: node v2/scripts/check-storage-budget.mjs primary
+
+      - name: Setup flyctl
+        id: flyctl
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        timeout-minutes: 2
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Check primary volume headroom
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.flyctl.outcome == 'success' }}
+        timeout-minutes: 3
+        run: scripts/check-fly-volume-space.sh cosyworld /data 70
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  lonely-forest:
+    name: Lonely Forest OOM, volume, and storage health
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.app == 'all' || inputs.app == 'cosyworld-lonelyforest' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        id: node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check Lonely Forest OOM metric
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
+        timeout-minutes: 1
+        run: node v2/scripts/check-fly-oom.mjs personal cosyworld-lonelyforest 30m
+        env:
+          FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}
+
+      - name: Check Lonely Forest storage budgets
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
+        timeout-minutes: 3
+        run: node v2/scripts/check-storage-budget.mjs lonelyforest
+
+      - name: Setup flyctl
+        id: flyctl
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        timeout-minutes: 2
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Check Lonely Forest volume headroom
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.flyctl.outcome == 'success' }}
+        timeout-minutes: 3
+        run: scripts/check-fly-volume-space.sh cosyworld-lonelyforest /data 70
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
