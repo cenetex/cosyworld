@@ -669,6 +669,9 @@ impl RuntimeWorld {
         subject_id: u64,
         viewer_actor_id: Option<u64>,
     ) -> CardView {
+        if subject_kind == "actor" {
+            card = self.decorate_linked_avatar_card(card, subject_id);
+        }
         if subject_kind == "location" {
             card = self.decorate_generated_location_card(card, subject_id);
         }

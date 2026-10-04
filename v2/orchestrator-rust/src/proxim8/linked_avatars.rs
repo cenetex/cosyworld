@@ -68,6 +68,9 @@ pub(crate) struct LinkedAvatarCharacter {
     pub(crate) description: Option<String>,
     #[serde(default)]
     pub(crate) personality: Option<String>,
+    /// Reviewed artwork for this shared character.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) image_url: Option<String>,
 }
 
 const MAX_BIO_CHARS: usize = 400;
@@ -188,6 +191,10 @@ pub(crate) fn validate_linked_avatars(
                 || !character
                     .home_location_id(source)
                     .is_some_and(&location_exists)
+                || character
+                    .image_url
+                    .as_deref()
+                    .is_some_and(|url| !valid_character_image_url(url))
                 || [&character.description, &character.personality]
                     .into_iter()
                     .flatten()
@@ -235,6 +242,47 @@ pub(crate) fn validate_linked_avatars(
         }
     }
     Ok(())
+}
+
+fn valid_character_image_url(value: &str) -> bool {
+    value.len() <= 2048
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+        && reqwest::Url::parse(value).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.fragment().is_none()
+        })
+}
+
+impl RuntimeWorld {
+    pub(crate) fn decorate_linked_avatar_card(
+        &self,
+        mut card: CardView,
+        actor_id: u64,
+    ) -> CardView {
+        let Some(config) = active_content().manifest.linked_avatars.as_ref() else {
+            return card;
+        };
+        let character = self.materialization_receipts.values().find_map(|receipt| {
+            if receipt.actor_id != actor_id || !is_linked_avatar_receipt(self, receipt) {
+                return None;
+            }
+            config.sources.iter().find_map(|source| {
+                source
+                    .characters
+                    .iter()
+                    .find(|character| receipt.card_id == character_key(source, character))
+            })
+        });
+        if let Some(image_url) = character.and_then(|character| character.image_url.as_ref()) {
+            card.image_url = Some(image_url.clone());
+            card.asset_status = "seed_art".to_string();
+        }
+        card
+    }
 }
 
 pub(crate) fn linked_avatar_receipt_id(asset_id: &str) -> String {
@@ -1014,6 +1062,66 @@ mod tests {
         assert!(
             validate_linked_avatars(&blank, |_| true).is_err(),
             "blank bio"
+        );
+    }
+
+    #[test]
+    fn character_artwork_uses_a_plain_https_url() {
+        let mut config = config(1);
+        config.sources[2].characters[0].image_url =
+            Some("https://arweave.net/portrait".to_string());
+        assert!(validate_linked_avatars(&config, |_| true).is_ok());
+        for url in [
+            "http://arweave.net/portrait",
+            "javascript:alert(1)",
+            "https://user:secret@arweave.net/portrait",
+            "https://arweave.net/portrait#fragment",
+            " https://arweave.net/portrait",
+            "https://arweave.net/por\ntrait",
+        ] {
+            config.sources[2].characters[0].image_url = Some(url.to_string());
+            assert!(validate_linked_avatars(&config, |_| true).is_err(), "{url}");
+        }
+    }
+
+    #[test]
+    fn santa_pooz_card_uses_character_art_after_replay_and_snapshot_restore() {
+        let config = active_content().manifest.linked_avatars.as_ref().unwrap();
+        let source = config
+            .sources
+            .iter()
+            .find(|source| source.id == "rati-avatars")
+            .unwrap();
+        let character = source
+            .characters
+            .iter()
+            .find(|character| character.id == "santa-pooz")
+            .unwrap();
+        let expected = "https://arweave.net/dQ_Zh5Ifl7eCIiHKc7qhFI3sranmDZ4PY5F3YlzuEB8";
+        assert_eq!(character.image_url.as_deref(), Some(expected));
+        let mut runtime = RuntimeWorld::seeded();
+        // Actor ids vary with the saved world's history.
+        runtime.next_actor_id += 100;
+        let record = permanent_character_record(&runtime, source, character).unwrap();
+        let actor_id = record.action.actor_id;
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert!(record_for(&runtime, WALLET, &asset(POOZ_B, None, None), source).is_none());
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .unwrap();
+        for world in [&runtime, &restored] {
+            let response = world.state_response(None, &AccessContext::default());
+            let card = &response.cards.actors[&actor_id];
+            assert_eq!(card.image_url.as_deref(), Some(expected));
+            assert_eq!(card.display_name, "Santa Pooz");
+            assert!(response.cards.actors[&RATI_ACTOR_ID].image_url.as_deref() != Some(expected));
+        }
+        // Artwork follows the saved receipt identity.
+        let unrelated = card_for_actor(999_999, "Santa Pooz", "RATi Avatar", "", 1);
+        let unrelated = runtime.decorate_community_art_card(unrelated, "actor", 999_999, None);
+        assert_eq!(
+            unrelated.image_url,
+            Some(generated_avatar_image_url(999_999))
         );
     }
 

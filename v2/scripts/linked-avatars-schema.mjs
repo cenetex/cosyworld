@@ -78,7 +78,7 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
         return;
       }
       for (const field of Object.keys(character)) {
-        if (!["id", "name", "assets", "permanent", "home_location", "description", "personality"].includes(field)) {
+        if (!["id", "name", "assets", "permanent", "home_location", "description", "personality", "image_url"].includes(field)) {
           errors.push(`${cat} contains unknown field ${field}`);
         }
       }
@@ -105,6 +105,19 @@ export function linkedAvatarsValidationErrors(config, label = "linked_avatars", 
         if (typeof text !== "string" || !text.trim() || [...text].length > 400 || /[\u0000-\u001f\u007f]/.test(text)) {
           errors.push(`${cat} ${field} must be 1-400 characters of plain text`);
         }
+      }
+      if (character.image_url !== undefined) {
+        const value = character.image_url;
+        let valid = typeof value === "string" && value.length <= 2048
+          && value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
+        try {
+          const url = new URL(value);
+          valid &&= url.protocol === "https:" && Boolean(url.hostname)
+            && !url.username && !url.password && !url.hash;
+        } catch {
+          valid = false;
+        }
+        if (!valid) errors.push(`${cat} image_url must be a plain HTTPS URL`);
       }
       if (!Array.isArray(character.assets) || character.assets.length === 0) {
         errors.push(`${cat} must list at least one asset`);

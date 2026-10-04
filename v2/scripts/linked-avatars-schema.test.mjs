@@ -76,3 +76,19 @@ test("bad sources are refused", () => {
   assert.notDeepEqual(linkedAvatarsValidationErrors(valid(), "linked_avatars", new Set([2])), []);
   assert.equal(arrivalLocationId("cosyworld.core:location/8900"), 8900);
 });
+
+
+test("character artwork uses a plain HTTPS URL", () => {
+  const config = valid();
+  const character = { id: "santa-pooz", name: "Santa Pooz",
+    assets: ["EM3tciRcUa8VeupDDdKBfZVH484LDRhqRpCZ8YsAGVGA"],
+    image_url: "https://arweave.net/portrait" };
+  config.sources[0].characters = [character];
+  assert.deepEqual(linkedAvatarsValidationErrors(config), []);
+  for (const url of ["http://arweave.net/portrait", "javascript:alert(1)",
+    "https://user:secret@arweave.net/portrait", "https://arweave.net/portrait#fragment",
+    " https://arweave.net/portrait", "https://arweave.net/por\ntrait", null, 42]) {
+    character.image_url = url;
+    assert.notDeepEqual(linkedAvatarsValidationErrors(config), [], String(url));
+  }
+});
