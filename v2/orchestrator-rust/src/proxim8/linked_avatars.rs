@@ -1106,6 +1106,26 @@ mod tests {
         let actor_id = record.action.actor_id;
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
         assert!(record_for(&runtime, WALLET, &asset(POOZ_B, None, None), source).is_none());
+        let initial = runtime.state_response(None, &AccessContext::default());
+        assert_eq!(
+            initial.cards.actors[&actor_id].image_url.as_deref(),
+            Some(expected)
+        );
+        // Lonely Forest already has published level-one community art.
+        runtime.community_art_generations.insert(
+            crate::community_art::community_art_generation_key("actor", actor_id, 1),
+            serde_json::from_value(serde_json::json!({
+                "subject_kind": "actor",
+                "subject_id": actor_id,
+                "level": 1,
+                "required_orbs": 1,
+                "funded_orbs": 1,
+                "status": "ready",
+                "history_through_seq": 0,
+                "revision": 3
+            }))
+            .unwrap(),
+        );
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .unwrap();
@@ -1114,7 +1134,12 @@ mod tests {
             let card = &response.cards.actors[&actor_id];
             assert_eq!(card.image_url.as_deref(), Some(expected));
             assert_eq!(card.display_name, "Santa Pooz");
-            assert!(response.cards.actors[&RATI_ACTOR_ID].image_url.as_deref() != Some(expected));
+            assert_eq!(card.asset_status, "seed_art");
+            assert_eq!(card.community_art.as_ref().unwrap().funded_orbs, 1);
+            assert_eq!(
+                response.cards.actors[&RATI_ACTOR_ID].image_url,
+                initial.cards.actors[&RATI_ACTOR_ID].image_url
+            );
         }
         // Artwork follows the saved receipt identity.
         let unrelated = card_for_actor(999_999, "Santa Pooz", "RATi Avatar", "", 1);

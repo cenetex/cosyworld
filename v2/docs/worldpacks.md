@@ -337,8 +337,9 @@ where its avatars arrive:
   once. An asset may appear only once per source.
 - A character may set `image_url` to reviewed artwork at a plain HTTPS URL.
   Its saved linked-avatar receipt selects that artwork for the room and card,
-  including characters already present in a saved world. Published community
-  art can later update the portrait.
+  including characters already present in a saved world. This artwork takes
+  priority over published community art. The card keeps its level and community
+  art funding details.
 - A `permanent` character lives in the world from boot, whether or not a
   holder has linked: the server seeds it once through the journal (no wallet on
   its receipt) at its `home_location`, and a holder who links a copy later
