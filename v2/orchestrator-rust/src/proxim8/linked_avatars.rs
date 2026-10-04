@@ -1112,22 +1112,20 @@ mod tests {
             Some(expected)
         );
         // Lonely Forest already has published level-one community art.
-        for subject_id in [actor_id, RATI_ACTOR_ID] {
-            runtime.community_art_generations.insert(
-                crate::community_art::community_art_generation_key("actor", subject_id, 1),
-                serde_json::from_value(serde_json::json!({
-                    "subject_kind": "actor",
-                    "subject_id": subject_id,
-                    "level": 1,
-                    "required_orbs": 1,
-                    "funded_orbs": 1,
-                    "status": "ready",
-                    "history_through_seq": 0,
-                    "revision": 3
-                }))
-                .unwrap(),
-            );
-        }
+        runtime.community_art_generations.insert(
+            crate::community_art::community_art_generation_key("actor", actor_id, 1),
+            serde_json::from_value(serde_json::json!({
+                "subject_kind": "actor",
+                "subject_id": actor_id,
+                "level": 1,
+                "required_orbs": 1,
+                "funded_orbs": 1,
+                "status": "ready",
+                "history_through_seq": 0,
+                "revision": 3
+            }))
+            .unwrap(),
+        );
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .unwrap();
@@ -1140,12 +1138,7 @@ mod tests {
             assert_eq!(card.community_art.as_ref().unwrap().funded_orbs, 1);
             assert_eq!(
                 response.cards.actors[&RATI_ACTOR_ID].image_url,
-                Some(crate::community_art::community_art_image_url(
-                    "actor",
-                    RATI_ACTOR_ID,
-                    1,
-                    3
-                ))
+                initial.cards.actors[&RATI_ACTOR_ID].image_url
             );
         }
         // Artwork follows the saved receipt identity.
