@@ -564,12 +564,15 @@ impl RuntimeWorld {
                     .combat_encounter(combat_encounter_id(job_id))
                     .map(|encounter| encounter.location_id)
                     .or_else(|| {
-                        encounter_participant_ids_for_job(job_id)
-                            .iter()
-                            .find_map(|target_id| {
+                        let job = self.jobs.get(job_id)?;
+                        job.location_ids.iter().copied().find(|location_id| {
+                            active_content().locations.iter().any(|location| {
+                                location.id == *location_id && location.allow_combat
+                            }) && job.participant_ids.iter().any(|target_id| {
                                 self.actor_by_id(*target_id)
-                                    .map(|target| target.location_id)
+                                    .is_some_and(|target| target.location_id == *location_id)
                             })
+                        })
                     }),
                 _ => self
                     .journey_job()?
