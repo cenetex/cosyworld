@@ -311,6 +311,7 @@ where its avatars arrive:
         {
           "id": "santa-pooz", "name": "Santa Pooz", "assets": ["<copy>", "<copy>"],
           "permanent": true, "home_location": "cosyworld.core:location/1",
+          "image_url": "https://arweave.net/<reviewed image transaction>",
           "description": "A round figure in a faded red velveteen suit.",
           "personality": "Chaotic, generous, and easily distracted."
         }
@@ -334,6 +335,11 @@ where its avatars arrive:
   the same shared actor (named by the world, not the NFT), and several copies
   in one wallet join once. Use it when the same avatar was minted more than
   once. An asset may appear only once per source.
+- A character may set `image_url` to reviewed artwork at a plain HTTPS URL.
+  Its saved linked-avatar receipt selects that artwork for the room and card,
+  including characters already present in a saved world. This artwork takes
+  priority over published community art. The card keeps its level and community
+  art funding details.
 - A `permanent` character lives in the world from boot, whether or not a
   holder has linked: the server seeds it once through the journal (no wallet on
   its receipt) at its `home_location`, and a holder who links a copy later

@@ -59,8 +59,21 @@ The fields are:
 - `visuality`: `visible`, `subtext_only`, or `never_render`;
 - `salience`: `0`–`100`, used only after authorization.
 
-Actors may add a short first-person `voice` field. It carries the character's authored
-rhythm and preoccupations. It is context, not a backend branch keyed to an actor ID.
+Actors may add a first-person awakening in `voice`. It is the moment the avatar
+comes to itself: a first feeling, a desire, a hesitation, an urge to speak. Its
+personality comes through that experience. Physical features belong in
+`identity.appearance`. Scene and journal evidence supply current surroundings,
+carried items, and completed actions.
+
+Rati begins: “I am Rati. Ah. That sharp little feeling is back. I want things put
+right. I want people cared for.” Doc begins: “I am Doc. Ah. My mind is reaching
+for the next idea already. I almost have it. Almost.”
+
+Linked NFT characters carry their awakening in `personality`. The saved asset
+receipt selects their reviewed character. Their actor id can vary between worlds.
+The frozen spine keeps that character key. Rendering reads the awakening from
+reviewed worldpack content. The same opening reaches structured and free-context
+replies. Saved self-descriptions remain available as lived history.
 
 ## Avatar context spine
 
@@ -173,23 +186,23 @@ never reach a prompt segment, a media brief, a gate anchor, or provider telemetr
 
 ## Conversation assembly
 
-The spine renders one first-person system awakening from system-owned identity. Authored
-autonomous avatars may use identity re-read from their reviewed active worldpack. Directly
-controlled and non-worldpack avatars use a deterministic fallback persona, because their
-identity or voice may be player-shaped. Place names also stay out of system. The spine then renders player-controlled identity, continuity,
-recollections, and structured world evidence in causal order: `SELF`, `PERSONA`,
-`CALLING`, current concern, skills where useful, `INNER CONTINUITY`, `STORY PRESSURE`,
-`OTHER`, `RELATIONSHIP`, `SCENE`, authorized facts, present cast, relevant
-`RECOLLECTION`s, recent events/dialogue, `NOW`, the pinned `DIRECTED TURN`, the
-authoritative observation, and finally one compact `SPEAK`, `THINK`, `DREAM`, or
-`AWAKEN` cue.
+The spine opens with the avatar's authored first-person awakening. Core avatars
+use reviewed `voice` text. Linked NFT avatars use reviewed `personality` text,
+selected by the saved asset identity. Directly controlled avatars and legacy jobs
+with an unresolved character key receive a neutral awakening. Player-shaped
+identity and voice enter the user context.
 
-For an autonomous avatar with an authored identity, a populated `identity.persona`
-supplies the `PERSONA` traits. The authored description remains its observable
-background, and committed level descriptions retain their own place in the
-spine. An empty persona uses the authored description as before. These traits
-enter as character context in the user evidence message. Direct control keeps
-the grounded player-description rule.
+An authored awakening appears once. Matching `identity.persona` and voice text
+share that opening. The self-description projection refers to the awakening above
+when it gives canonical identity authority. Physical appearance keeps its own
+context segment.
+
+The spine then renders character evidence, continuity, recollections, and world
+evidence in causal order: `SELF`, additional `PERSONA` or `VOICE` evidence,
+`CALLING`, current concern, skills, `INNER CONTINUITY`, `STORY PRESSURE`, `OTHER`,
+`RELATIONSHIP`, `SCENE`, authorized facts, present cast, relevant `RECOLLECTION`s,
+recent events/dialogue, `NOW`, the pinned `DIRECTED TURN`, the authoritative
+observation, and one compact `SPEAK`, `THINK`, `DREAM`, or `AWAKEN` cue.
 
 “Stream of consciousness” means immediate character attention, desire, preference, and
 hesitation. It does not request hidden model reasoning. A compact output cue says exactly

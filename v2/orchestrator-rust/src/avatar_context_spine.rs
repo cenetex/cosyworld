@@ -74,6 +74,8 @@ pub(crate) struct AvatarContextActor {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) mutable_traits: Vec<String>,
     pub(crate) voice: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) linked_character_key: Option<String>,
     pub(crate) calling: String,
     pub(crate) control_mode: String,
     pub(crate) level: u8,
@@ -260,44 +262,46 @@ impl AvatarContextSpine {
         parts.join(" ")
     }
 
-    fn awakening_monologue(&self, options: &AvatarContextPromptOptions) -> String {
-        let mut thoughts = Vec::new();
-        let directly_controlled = self.speaker.control_mode == "direct_input";
-        // System identity is re-read from reviewed worldpack content. Frozen
-        // job fields can contain generated or player-shaped text and must not
-        // become trusted merely because an avatar's control mode later changes.
-        let authored = (!directly_controlled)
-            .then(|| {
-                active_content()
-                    .actors
-                    .iter()
-                    .find(|actor| actor.id == self.speaker.actor_id)
-            })
-            .flatten();
-        if let Some(actor) = authored {
-            let title = actor.title.trim();
-            thoughts.push(if title.is_empty() {
-                format!("I am {}.", actor.name)
-            } else {
-                format!("I am {}, {}.", actor.name, title)
+    /// Awakening text is re-read from reviewed content. Frozen player text
+    /// remains character evidence, even after a control-mode change.
+    fn reviewed_awakening(&self) -> Option<String> {
+        if self.speaker.control_mode == "direct_input" {
+            return None;
+        }
+        if let Some(actor) = active_content()
+            .actors
+            .iter()
+            .find(|actor| actor.id == self.speaker.actor_id)
+        {
+            return safe_awakening_sentence(&actor.voice).or_else(|| {
+                Some(format!(
+                    "I am {}. I come back to myself. A thought begins to stir.",
+                    actor.name
+                ))
             });
-        } else {
-            thoughts.push("I surface into myself again.".to_string());
         }
-        thoughts.push("I wake here.".to_string());
-        let stable_self = authored
-            .map(|actor| actor.description.clone())
-            .unwrap_or_else(|| fallback_avatar_identity(self.speaker.actor_id).description);
-        if let Some(stable_self) = safe_awakening_sentence(&stable_self) {
-            thoughts.push(format!("The shape I know myself by: {stable_self}"));
-        }
-        let voice = authored
-            .map(|actor| actor.voice.trim().to_string())
-            .filter(|voice| !voice.is_empty())
-            .unwrap_or_else(|| fallback_actor_voice(self.speaker.actor_id));
-        if let Some(voice) = safe_awakening_sentence(&voice) {
-            thoughts.push(voice);
-        }
+        let character = self
+            .speaker
+            .linked_character_key
+            .as_deref()
+            .and_then(crate::proxim8::linked_avatars::authored_linked_avatar_character)?;
+        character
+            .personality
+            .as_deref()
+            .and_then(safe_awakening_sentence)
+            .or_else(|| {
+                Some(format!(
+                    "I am {}. I come back to myself. A thought begins to stir.",
+                    character.name
+                ))
+            })
+    }
+
+    fn awakening_monologue(&self, options: &AvatarContextPromptOptions) -> String {
+        let directly_controlled = self.speaker.control_mode == "direct_input";
+        let mut thoughts = vec![self.reviewed_awakening().unwrap_or_else(|| {
+            "I come back to myself. A thought begins to stir. I am here.".to_string()
+        })];
         if self
             .selected_recollections
             .iter()
@@ -404,26 +408,38 @@ impl AvatarContextSpine {
                 PromptSegmentKind::UniqueEvidence,
                 100,
                 true,
-            )
-            .user(
-                format!(
-                    "PERSONA · {}",
-                    if self.speaker.stable_traits.trim().is_empty() {
-                        self.speaker.description.as_str()
-                    } else {
-                        self.speaker.stable_traits.as_str()
-                    }
-                ),
+            );
+        let system_awakening = self.reviewed_awakening().unwrap_or_default();
+        let persona = if self.speaker.stable_traits.trim().is_empty() {
+            self.speaker.description.as_str()
+        } else {
+            self.speaker.stable_traits.as_str()
+        };
+        if !persona.trim().is_empty() && persona.trim() != system_awakening.trim() {
+            prompt = prompt.user(
+                format!("PERSONA · {persona}"),
                 PromptSegmentKind::UniqueEvidence,
                 98,
                 true,
-            )
-            .user(
-                format!("CALLING · {}", self.speaker.calling),
+            );
+        }
+        prompt = prompt.user(
+            format!("CALLING · {}", self.speaker.calling),
+            PromptSegmentKind::UniqueEvidence,
+            96,
+            true,
+        );
+        if !self.speaker.voice.trim().is_empty()
+            && self.speaker.voice.trim() != system_awakening.trim()
+            && self.speaker.voice.trim() != persona.trim()
+        {
+            prompt = prompt.user(
+                format!("VOICE · {}", self.speaker.voice),
                 PromptSegmentKind::UniqueEvidence,
-                96,
+                97,
                 true,
             );
+        }
 
         if mode == AvatarContextMode::SelfDescription {
             let mutable = if self.speaker.mutable_traits.is_empty() {
@@ -431,10 +447,17 @@ impl AvatarContextSpine {
             } else {
                 self.speaker.mutable_traits.join(", ")
             };
+            let canonical = if system_awakening.is_empty() {
+                self.speaker.canonical_description.clone()
+            } else {
+                self.speaker
+                    .canonical_description
+                    .replace(&system_awakening, "my awakening above")
+            };
             prompt = prompt.user(
                 format!(
                     "IDENTITY AUTHORITY · mode {} · canonical {} · mutable traits {}",
-                    self.speaker.identity_mode, self.speaker.canonical_description, mutable
+                    self.speaker.identity_mode, canonical, mutable
                 ),
                 PromptSegmentKind::UniqueEvidence,
                 100,
@@ -655,18 +678,11 @@ impl AvatarContextSpine {
     /// the authored persona, and nothing else. Rules, budgets, and safety text
     /// are the deterministic gate's job, not the persona's.
     fn free_context_summoning(&self) -> String {
-        let authored = active_content()
-            .actors
-            .iter()
-            .find(|actor| actor.id == self.speaker.actor_id);
+        if let Some(awakening) = self.reviewed_awakening() {
+            return awakening;
+        }
         let mut parts = vec!["...\n\nhuh. i am here again.".to_string()];
-        if let Some(actor) = authored {
-            if let Some(voice) = safe_awakening_sentence(&actor.voice) {
-                parts.push(voice);
-            }
-        } else if let Some(persona) = crate::free_context::traveler_persona(self.speaker.actor_id) {
-            // A player-controlled avatar wakes from a system-owned line. Its
-            // own name and words stay in the user role below.
+        if let Some(persona) = crate::free_context::traveler_persona(self.speaker.actor_id) {
             parts.push(persona);
         }
         parts.push("when i speak it is my own words, one or two lines, said out loud.".to_string());
@@ -712,6 +728,32 @@ impl AvatarContextSpine {
                 add(
                     format!("i am called {}.", self.speaker.name.trim()),
                     95,
+                    true,
+                );
+            }
+            let persona = if self.speaker.stable_traits.trim().is_empty() {
+                &self.speaker.description
+            } else {
+                &self.speaker.stable_traits
+            };
+            let system_awakening = self.reviewed_awakening().unwrap_or_default();
+            if !persona.trim().is_empty() && persona.trim() != system_awakening.trim() {
+                add(format!("my character: {}", persona.trim()), 98, true);
+            }
+            if !self.speaker.voice.trim().is_empty()
+                && self.speaker.voice.trim() != persona.trim()
+                && self.speaker.voice.trim() != system_awakening.trim()
+            {
+                add(
+                    format!("my way of speaking: {}", self.speaker.voice.trim()),
+                    97,
+                    true,
+                );
+            }
+            if !self.speaker.appearance.trim().is_empty() {
+                add(
+                    format!("my appearance: {}", self.speaker.appearance.trim()),
+                    94,
                     true,
                 );
             }
@@ -1244,6 +1286,7 @@ impl RuntimeWorld {
             },
             mutable_traits: identity_policy.mutable_traits,
             voice: self.authored_actor_voice(actor.id),
+            linked_character_key: self.linked_avatar_character_key(actor.id),
             calling: self
                 .calling_view(actor.id)
                 .map(|calling| calling.statement)
@@ -1584,6 +1627,134 @@ mod tests {
     }
 
     #[test]
+    fn core_characters_keep_personality_separate_from_scene_and_saved_description() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actors: Vec<SeedActorContent> =
+            serde_json::from_str(include_str!("../../content/core/actors.json")).unwrap();
+        for seed in actors {
+            let identity = seed.identity.as_ref().unwrap();
+            runtime.actors.get_mut(&seed.id).unwrap().description =
+                "I stand beside a Scene Description Sentinel.".to_string();
+            let actor = runtime.world.actors[..runtime.world.actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == seed.id)
+                .unwrap();
+            actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            let spine = runtime
+                .avatar_context_spine(seed.id, None, None, "A Scene Beat Sentinel happens.")
+                .unwrap();
+            assert_eq!(spine.speaker.stable_traits, identity.persona);
+            assert_eq!(spine.speaker.appearance, identity.appearance);
+            for mode in [
+                AvatarContextMode::Respond,
+                AvatarContextMode::Think,
+                AvatarContextMode::Dream,
+                AvatarContextMode::SelfDescription,
+            ] {
+                let rendered = spine
+                    .prompt(AvatarContextPromptOptions {
+                        mode,
+                        speech_mode: SpeechMode::Prose,
+                        max_words: 40,
+                        response_job: "reply".to_string(),
+                    })
+                    .render_for_test();
+                assert!(rendered.system.starts_with(&seed.voice));
+                assert_eq!(rendered.system.matches(&seed.voice).count(), 1);
+                assert!(!rendered.user.contains(&seed.voice));
+                assert!(rendered.user.contains("Scene Beat Sentinel"));
+                assert!(!rendered.system.contains("Scene Description Sentinel"));
+                assert!(!rendered.system.contains("Scene Beat Sentinel"));
+                assert!(!rendered.system.contains(&seed.description));
+                assert!(!rendered.user.contains(&seed.description));
+            }
+        }
+    }
+
+    #[test]
+    fn linked_awakening_is_frozen_by_reference_and_re_read_from_reviewed_content() {
+        use crate::proxim8::linked_avatars::permanent_character_record;
+        let config = active_content().manifest.linked_avatars.as_ref().unwrap();
+        let source = config
+            .sources
+            .iter()
+            .find(|source| source.id == "rati-avatars")
+            .unwrap();
+        let character = source
+            .characters
+            .iter()
+            .find(|character| character.id == "santa-pooz")
+            .unwrap();
+        let awakening = character.personality.as_deref().unwrap();
+        let mut runtime = RuntimeWorld::seeded();
+        let record = permanent_character_record(&runtime, source, character).unwrap();
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let mut spine = runtime
+            .avatar_context_spine(record.action.actor_id, None, None, "A new beat.")
+            .unwrap();
+        assert!(spine.speaker.linked_character_key.is_some());
+        let frozen = serde_json::to_string(&spine).unwrap();
+        spine = serde_json::from_str(&frozen).unwrap();
+        spine.speaker.voice = "Player Voice Sentinel".to_string();
+        spine.speaker.stable_traits = "Player Persona Sentinel".to_string();
+        for rendered in [
+            spine
+                .prompt(AvatarContextPromptOptions {
+                    mode: AvatarContextMode::Respond,
+                    speech_mode: SpeechMode::Prose,
+                    max_words: 40,
+                    response_job: "reply".to_string(),
+                })
+                .render_for_test(),
+            spine.free_context_prompt_from(0).render_for_test(),
+        ] {
+            assert!(rendered.system.starts_with(awakening));
+            assert!(!rendered.system.contains("Player Voice Sentinel"));
+            assert!(!rendered.system.contains("Player Persona Sentinel"));
+            assert!(rendered.user.contains("Player Persona Sentinel"));
+        }
+        spine.speaker.linked_character_key = Some("Player Key Sentinel".to_string());
+        assert!(spine.reviewed_awakening().is_none());
+        spine.speaker.linked_character_key =
+            runtime.linked_avatar_character_key(record.action.actor_id);
+        spine.speaker.control_mode = "direct_input".to_string();
+        assert!(spine.reviewed_awakening().is_none());
+        let mut legacy: serde_json::Value = serde_json::from_str(&frozen).unwrap();
+        legacy["speaker"]
+            .as_object_mut()
+            .unwrap()
+            .remove("linked_character_key");
+        let legacy: AvatarContextSpine = serde_json::from_value(legacy).unwrap();
+        assert!(legacy.speaker.linked_character_key.is_none());
+        assert!(legacy.reviewed_awakening().is_none());
+    }
+
+    #[test]
+    fn free_context_keeps_character_and_voice_in_the_user_context() {
+        let spine = AvatarContextSpine {
+            speaker: AvatarContextActor {
+                actor_id: 999_999,
+                name: "Character Sentinel".to_string(),
+                stable_traits: "Character Trait Sentinel is generous and impulsive.".to_string(),
+                voice: "Character Voice Sentinel speaks in cheerful bursts.".to_string(),
+                appearance: "Character Appearance Sentinel has red fur.".to_string(),
+                control_mode: "direct_input".to_string(),
+                ..AvatarContextActor::default()
+            },
+            ..AvatarContextSpine::default()
+        };
+        let rendered = spine.free_context_prompt_from(0).render_for_test();
+        for text in [
+            "Character Trait Sentinel",
+            "Character Voice Sentinel",
+            "Character Appearance Sentinel",
+        ] {
+            assert!(rendered.user.contains(text));
+            assert!(!rendered.system.contains(text));
+        }
+    }
+
+    #[test]
     fn authored_npc_description_replaces_the_generic_persona_fallback() {
         // Issue #932: authored third-person NPC descriptions failed the
         // first-person grounding check and every inference-controlled actor
@@ -1786,7 +1957,7 @@ mod tests {
         }
         assert!(unproven_autonomous_rendered
             .system
-            .starts_with("I surface into myself again"));
+            .starts_with("I come back to myself."));
         for rendered in [&respond_rendered, &think_rendered, &dream_rendered] {
             assert!(rendered
                 .system

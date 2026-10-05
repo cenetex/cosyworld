@@ -84,7 +84,8 @@ fn speech_contract_variants_preserve_the_same_character_and_fresh_turn() {
         assert_eq!(before.user, after.user);
         assert!(after.user.contains(&plan.user_text));
         assert!(after.user.contains(&plan.speaker_name));
-        assert!(after.user.contains("PERSONA"));
+        assert!(before.system.starts_with(&plan.speaker_voice));
+        assert!(after.system.starts_with(&plan.speaker_voice));
         assert!(after.user.contains("DIRECTED TURN"));
         assert!(after.system.len() < before.system.len());
         assert!(!before.telemetry.overflowed && !after.telemetry.overflowed);

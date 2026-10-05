@@ -682,7 +682,11 @@ impl RuntimeWorld {
             card.evolved = level >= 2;
         }
         let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
-            return card;
+            return if subject_kind == "actor" {
+                self.decorate_linked_avatar_card(card, subject_id)
+            } else {
+                card
+            };
         };
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self.community_art_generations.get(&key);
@@ -722,6 +726,9 @@ impl RuntimeWorld {
                 })
             }),
         });
+        if subject_kind == "actor" {
+            card = self.decorate_linked_avatar_card(card, subject_id);
+        }
         card
     }
 
