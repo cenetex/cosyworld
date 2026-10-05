@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -27,12 +28,8 @@ const deployScripts = readFileSync(
 const packageScripts = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
 ).scripts;
-const volumeHeadroomWorkflow = readFileSync(
-  new URL('../../.github/workflows/volume-headroom.yml', import.meta.url),
-  'utf8'
-);
-const oomAlertWorkflow = readFileSync(
-  new URL('../../.github/workflows/oom-alert.yml', import.meta.url),
+const flyHealthWorkflow = readFileSync(
+  new URL('../../.github/workflows/fly-health.yml', import.meta.url),
   'utf8'
 );
 const primaryFlyConfig = readFileSync(
@@ -535,30 +532,82 @@ describe('deploy workflow', () => {
   });
 
   it('checks production volume headroom every fifteen minutes', () => {
-    expect(volumeHeadroomWorkflow).toContain('cron: "*/15 * * * *"');
-    expect(volumeHeadroomWorkflow).toContain(
+    expect(flyHealthWorkflow).toContain('cron: "*/15 * * * *"');
+    expect(flyHealthWorkflow).toContain(
       'check-fly-volume-space.sh cosyworld /data 70'
     );
-    expect(volumeHeadroomWorkflow).toContain(
+    expect(flyHealthWorkflow).toContain(
       'check-fly-volume-space.sh cosyworld-lonelyforest /data 70'
     );
-    expect(volumeHeadroomWorkflow).toContain(
+    expect(flyHealthWorkflow).toContain(
       'FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}'
     );
-    expect(volumeHeadroomWorkflow).toContain(
+    expect(flyHealthWorkflow).toContain(
       'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
     );
   });
 
   it('alerts on OOM exits for both Fly apps every fifteen minutes', () => {
-    expect(oomAlertWorkflow).toContain('cron: "*/15 * * * *"');
-    expect(oomAlertWorkflow).toContain('- cosyworld');
-    expect(oomAlertWorkflow).toContain('- cosyworld-lonelyforest');
-    expect(oomAlertWorkflow).toContain(
-      'node v2/scripts/check-fly-oom.mjs personal "${{ matrix.app }}" 30m'
-    );
-    expect(oomAlertWorkflow).toContain(
+    expect(flyHealthWorkflow).toContain('cron: "*/15 * * * *"');
+    for (const app of ['cosyworld', 'cosyworld-lonelyforest']) {
+      expect(flyHealthWorkflow).toContain(
+        `node v2/scripts/check-fly-oom.mjs personal ${app} 30m`
+      );
+    }
+    expect(flyHealthWorkflow).toContain(
       'FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}'
+    );
+  });
+
+  it('uses one scheduled workflow and one runner per Fly app', () => {
+    for (const retired of ['oom-alert', 'volume-headroom']) {
+      expect(existsSync(new URL(`../../.github/workflows/${retired}.yml`, import.meta.url))).toBe(false);
+    }
+    expect(flyHealthWorkflow.match(/cron:/g)).toHaveLength(1);
+    expect(flyHealthWorkflow.match(/runs-on: ubuntu-latest/g)).toHaveLength(2);
+    expect(flyHealthWorkflow.match(/uses: actions\/checkout@v7/g)).toHaveLength(2);
+    expect(flyHealthWorkflow).toContain('contents: read');
+  });
+
+  it.each([
+    ['primary', 'lonely-forest', 'primary', 'cosyworld', 'FLY_API_TOKEN'],
+    ['lonely-forest', undefined, 'lonelyforest', 'cosyworld-lonelyforest', 'FLY_LONELYFOREST_API_TOKEN'],
+  ])('keeps %s checks independent and failures visible', (name, next, budget, app, secret) => {
+    const healthJob = workflowJob(flyHealthWorkflow, name, next);
+    const steps = healthJob.split(/\n      - name: /).slice(1);
+    const checks = steps.filter((step) => step.startsWith('Check '));
+    expect(checks).toHaveLength(3);
+    expect(healthJob).not.toMatch(/\n\s+continue-on-error:/);
+    expect(healthJob).not.toMatch(/\n\s+needs:/);
+    expect(healthJob).not.toContain('|| true');
+    expect(healthJob).toContain(`node v2/scripts/check-fly-oom.mjs personal ${app} 30m`);
+    expect(healthJob).toContain(`node v2/scripts/check-storage-budget.mjs ${budget}`);
+    expect(healthJob).toContain(`scripts/check-fly-volume-space.sh ${app} /data 70`);
+    expect(healthJob).toContain(`FLY_API_TOKEN: \${{ secrets.${secret} }}`);
+    expect(healthJob).toContain('FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}');
+    for (const check of checks) {
+      const dependency = check.includes('volume headroom') ? 'flyctl' : 'node';
+      expect(check).toContain(
+        `if: \${{ !cancelled() && steps.checkout.outcome == 'success' && steps.${dependency}.outcome == 'success' }}`
+      );
+      expect(check).toMatch(/timeout-minutes: [1-3]/);
+    }
+    const flyctl = steps.find((step) => step.startsWith('Setup flyctl'));
+    expect(flyctl).toContain("if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}");
+    expect(flyctl).not.toContain('steps.node');
+  });
+
+  it('allows manual checks for either app without interrupting scheduled coverage', () => {
+    expect(flyHealthWorkflow).toContain('workflow_dispatch:');
+    expect(flyHealthWorkflow).toContain('default: all');
+    for (const app of ['cosyworld', 'cosyworld-lonelyforest']) {
+      expect(flyHealthWorkflow).toContain(`- ${app}`);
+      expect(flyHealthWorkflow).toContain(
+        `if: \${{ github.event_name != 'workflow_dispatch' || inputs.app == 'all' || inputs.app == '${app}' }}`
+      );
+    }
+    expect(flyHealthWorkflow).toContain(
+      "group: fly-health-${{ github.repository }}-${{ github.event_name }}-${{ inputs.app || 'all' }}"
     );
   });
 

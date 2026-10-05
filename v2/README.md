@@ -1107,10 +1107,21 @@ retention policy of its own and grows for as long as a world is played.
 
 `node v2/scripts/check-storage-budget.mjs <target>` compares both figures
 against the committed ceilings in `v2/scripts/storage-budgets.json` and fails
-when a store passes its budget. The scheduled volume-headroom workflow runs it
-for each deployment beside the disk check, so growth is caught while there is
-still room to choose a response rather than at the point a full volume
-crash-loops the release.
+when a store passes its budget. The [Fly health workflow](../.github/workflows/fly-health.yml)
+runs every fifteen minutes with one job per Fly app. Each job checks OOM exits
+over the last thirty minutes, storage budgets (including all Lonely Forest
+targets), and `/data` volume usage against the existing 70% threshold. These
+checks run independently: a failed OOM or storage check does not skip the disk
+check, and any failed check still fails the app's job. The named steps retain
+their diagnostic output and error annotations. This catches growth while there
+is still room to respond rather than when a full volume crash-loops the release.
+
+Use **Run workflow** on Fly health to check both apps or select `cosyworld` or
+`cosyworld-lonelyforest`. Manual checks do not cancel scheduled coverage. This
+workflow replaces the separate Fly OOM alert and Volume headroom workflows;
+the metrics and per-app Fly API secrets, budgets, and alert thresholds are
+unchanged. Live production checks run on the schedule or manual dispatch,
+not on pull requests.
 
 On boot, the orchestrator removes the exact stale `*.json.tmp` file left by an
 interrupted snapshot without touching the committed snapshot.
