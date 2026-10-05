@@ -60,7 +60,11 @@ impl RuntimeWorld {
     fn journey_job(&self) -> Option<&JobState> {
         let tale = active_first_tale()?;
         tale.presentation.as_ref()?;
-        self.jobs.get(&tale.continuation.as_ref()?.job_id)
+        let continuation = tale.continuation.as_ref()?;
+        continuation
+            .return_to_requester
+            .then(|| self.jobs.get(&continuation.job_id))
+            .flatten()
     }
 
     fn journey_record(&self, actor_id: u64) -> JourneyRecord {
@@ -556,11 +560,17 @@ impl RuntimeWorld {
                     | ContributionRequirement::FeatureUsed { location_id, .. }
                     | ContributionRequirement::RoomFeature { location_id, .. },
                 ) => Some(*location_id),
-                Some(ContributionRequirement::EncounterResolved { .. }) => self
-                    .journey_job()?
-                    .focused_encounter
-                    .as_ref()
-                    .map(|encounter| encounter.location_id),
+                Some(ContributionRequirement::EncounterResolved { job_id, .. }) => self
+                    .combat_encounter(combat_encounter_id(job_id))
+                    .map(|encounter| encounter.location_id)
+                    .or_else(|| {
+                        encounter_participant_ids_for_job(job_id)
+                            .iter()
+                            .find_map(|target_id| {
+                                self.actor_by_id(*target_id)
+                                    .map(|target| target.location_id)
+                            })
+                    }),
                 _ => self
                     .journey_job()?
                     .contribution_strategies
@@ -641,8 +651,6 @@ impl RuntimeWorld {
                                     .item_by_id(*item_id)
                                     .is_none_or(|item| item.holder_actor_id != actor_id))
                             || (offer.kind == "pick_up" && target_id == Some(*item_id))
-                            || (offer.kind == "give_item"
-                                && offer.provider.id == format!("item:{item_id}"))
                     }
                     Some(ContributionRequirement::EncounterResolved { .. }) => {
                         matches!(offer.kind.as_str(), "attack" | "defend" | "dodge")
@@ -663,6 +671,11 @@ impl RuntimeWorld {
         stage.continuation_phase()?;
         let job = self.journey_job()?;
         let tale = active_first_tale()?;
+        if stage == FirstTaleStage::ContinuationTravel
+            && self.actor_by_id(actor_id)?.location_id == tale.destination_location_id
+        {
+            return None;
+        }
         let record = self.journey_record(actor_id);
         let next_request = (record.return_event_seq.is_some()
             && record.next_started_event_seq.is_none())
@@ -725,7 +738,18 @@ impl RuntimeWorld {
         let clock = self.clocks.get(&job.progress_clock_id)?;
         Some(FirstTaleJourneyView {
             title: if let Some(next) = &next_request {
-                next.question.clone()
+                self.jobs
+                    .get(&next.job_id)
+                    .map(|job| job.action_copy.label.clone())
+                    .filter(|label| !label.is_empty())
+                    .unwrap_or_else(|| next.question.clone())
+            } else if matches!(
+                stage,
+                FirstTaleStage::ContinuationTravel
+                    | FirstTaleStage::ContinuationArrived
+                    | FirstTaleStage::ContinuationAccepted
+            ) {
+                job.action_copy.label.clone()
             } else {
                 format!(
                     "The road back to {}",

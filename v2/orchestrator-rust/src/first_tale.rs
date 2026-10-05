@@ -30,6 +30,12 @@ pub(super) struct SeedFirstTaleContinuation {
     pub(super) travel_instruction: String,
     pub(super) arrival_instruction: String,
     pub(super) accepted_instruction: String,
+    #[serde(default, skip_serializing_if = "first_tale_return_is_off")]
+    pub(super) return_to_requester: bool,
+}
+
+fn first_tale_return_is_off(value: &bool) -> bool {
+    !value
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -492,7 +498,8 @@ pub(super) fn validate_first_tale(first_tale: &SeedFirstTaleContent) -> Result<(
             .continuation
             .as_ref()
             .is_some_and(|continuation| {
-                continuation.destination_location_id == 0
+                (continuation.return_to_requester && first_tale.presentation.is_none())
+                    || continuation.destination_location_id == 0
                     || continuation.target_actor_id == 0
                     || continuation.job_id.trim().is_empty()
                     || continuation.travel_instruction.trim().is_empty()

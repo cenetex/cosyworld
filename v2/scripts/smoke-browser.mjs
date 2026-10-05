@@ -16283,7 +16283,7 @@ async function main() {
   });
   assert(
     acceptedLanternPayoff.phase === "accepted"
-      && /Mara entrusts you with the dark-road lead/i.test(acceptedLanternPayoff.text),
+      && /Failing Lantern/i.test(acceptedLanternPayoff.text),
     `accepting Mara's invitation should leave the authored Lantern payoff visible: ${JSON.stringify(acceptedLanternPayoff)}`,
   );
   steps.push({ label: "durable Lantern continuation accepted", destination: "Wayside Lantern Inn" });

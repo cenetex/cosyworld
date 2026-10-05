@@ -150,5 +150,13 @@ test("adventure presentation validates its resident, scene, and bounded copy", (
   }
   const legacy = { ...source };
   delete legacy.presentation;
+  delete legacy.continuation.return_to_requester;
   assert.deepEqual(firstTaleValidationErrors(legacy), []);
+});
+
+test("return journeys require an explicit setting and a requester", () => {
+  const source = JSON.parse(fs.readFileSync(new URL("../worlds/official/first-tale.json", import.meta.url), "utf8"));
+  assert.equal(normalizeFirstTaleConfig(source).continuation.return_to_requester, true);
+  assert.ok(firstTaleValidationErrors({ ...source, presentation: undefined }).some((error) => error.includes("requires a presentation requester")));
+  assert.ok(firstTaleValidationErrors({ ...source, continuation: { ...source.continuation, return_to_requester: "yes" } }).some((error) => error.includes("must be a boolean")));
 });

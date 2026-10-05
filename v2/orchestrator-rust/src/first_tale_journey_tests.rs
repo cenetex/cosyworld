@@ -387,3 +387,101 @@ fn accepted_journey_pins_the_first_missing_world_step() {
         Some("Failing Lantern")
     );
 }
+
+#[test]
+fn v214_snapshot_keeps_its_beacon_result_and_gains_the_return_steps() {
+    let (mut runtime, _) = crate::lantern_keeper_tests::runtime_ready_for_lantern_finale();
+    mark_garden(&mut runtime, PLAYER);
+    finish(&mut runtime);
+    let before_orbs = runtime.orb_balance(PLAYER);
+    let mut saved = RuntimeSnapshot::from_runtime(&runtime);
+    saved.worldpack_bundle_hash =
+        "sha256:2b7ff2061dda0fa732a289999e6ea7924f52dd10a7c077babd63e5aa29b059cc".to_string();
+    saved
+        .rpg_claims
+        .retain(|claim| !claim.starts_with("first_tale:journey"));
+    let mut restored = saved
+        .into_runtime()
+        .expect("the earlier official save has a declared content migration");
+    assert_eq!(
+        restored.first_tale_stage(PLAYER),
+        Some(FirstTaleStage::ContinuationReportTravel)
+    );
+    assert_eq!(restored.job_status(&restored.jobs[JOB]), "completed");
+    assert_eq!(restored.orb_balance(PLAYER), before_orbs);
+    put_at(&mut restored, PLAYER, 800);
+    let report = notice_record(&restored, PLAYER, 8301);
+    let (status, events) = restored.apply_journal_record(&report);
+    assert_eq!(status, CW_OK);
+    assert!(events
+        .iter()
+        .any(|event| event.type_name == "first_tale.journey_reported"));
+    assert!(restored
+        .first_tale_resident_memory(8301, PLAYER)
+        .unwrap()
+        .contains("Great Lantern Lens"));
+}
+
+#[test]
+fn held_road_tool_pins_its_use_with_a_nearby_recipient() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, OTHER, 800, "Lens Tender");
+    mark_garden(&mut runtime, OTHER);
+    runtime.bonds.insert(
+        bond_id(OTHER, 8301),
+        BondState {
+            id: bond_id(OTHER, 8301),
+            actor_id: OTHER,
+            target_actor_id: 8301,
+            statement: "Mara's road request".to_string(),
+            strength: 1,
+            status: "active".to_string(),
+            source_event_seq: Some(90003),
+            updated_event_seq: Some(90003),
+            dialogue_status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+            dialogue_event_seq: Some(90003),
+        },
+    );
+    let mut search = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: OTHER,
+            ..CwAction::default()
+        },
+        863004,
+    )
+    .into_player_card();
+    search
+        .projection_mutations
+        .push(ProjectionMutation::SearchFeature {
+            location_id: 800,
+            feature_key: "failing_lantern".to_string(),
+            feature_name: "Failing Lantern".to_string(),
+            content: "The keeper went north.".to_string(),
+            reason: "journey_test".to_string(),
+        });
+    assert_eq!(runtime.apply_journal_record(&search).0, CW_OK);
+    put_at(&mut runtime, OTHER, 801);
+    let item = runtime
+        .world
+        .items
+        .iter_mut()
+        .find(|item| item.id == 8402)
+        .unwrap();
+    item.holder_actor_id = OTHER;
+    item.location_id = 0;
+    item.zone = CW_CARD_ZONE_CARRIED;
+    let (_, offer) = advancing(&runtime, OTHER);
+    assert_eq!(offer.id, "use_feature:8402:801:cold_lamp_post");
+}
+
+#[test]
+fn guard_step_has_a_place_before_the_encounter_starts() {
+    let (mut runtime, _) = crate::lantern_keeper_tests::runtime_ready_for_lantern_finale();
+    mark_garden(&mut runtime, PLAYER);
+    runtime.tags.remove(&combat_resolution_tag_id(JOB, 1));
+    assert_eq!(
+        runtime.first_tale_journey_destination(PLAYER, FirstTaleStage::ContinuationAccepted),
+        Some(803)
+    );
+}
