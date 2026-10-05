@@ -1,5 +1,9 @@
 use super::*;
 
+#[path = "first_tale_journey.rs"]
+mod journey;
+pub(super) use journey::FirstTaleJourneyView;
+
 pub(super) const FIRST_TALE_CONTENT_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -26,6 +30,12 @@ pub(super) struct SeedFirstTaleContinuation {
     pub(super) travel_instruction: String,
     pub(super) arrival_instruction: String,
     pub(super) accepted_instruction: String,
+    #[serde(default, skip_serializing_if = "first_tale_return_is_off")]
+    pub(super) return_to_requester: bool,
+}
+
+fn first_tale_return_is_off(value: &bool) -> bool {
+    !value
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -82,6 +92,12 @@ pub(super) enum FirstTaleStage {
     ContinuationTravel,
     ContinuationArrived,
     ContinuationAccepted,
+    ContinuationReportTravel,
+    ContinuationReport,
+    ReturnTravel,
+    ReturnArrived,
+    NextRequest,
+    JourneyComplete,
 }
 
 impl FirstTaleStage {
@@ -95,7 +111,13 @@ impl FirstTaleStage {
             Self::Complete
             | Self::ContinuationTravel
             | Self::ContinuationArrived
-            | Self::ContinuationAccepted => "complete",
+            | Self::ContinuationAccepted
+            | Self::ContinuationReportTravel
+            | Self::ContinuationReport
+            | Self::ReturnTravel
+            | Self::ReturnArrived
+            | Self::NextRequest
+            | Self::JourneyComplete => "complete",
         }
     }
 
@@ -104,6 +126,12 @@ impl FirstTaleStage {
             Self::ContinuationTravel => Some("travel"),
             Self::ContinuationArrived => Some("arrived"),
             Self::ContinuationAccepted => Some("accepted"),
+            Self::ContinuationReportTravel => Some("report_travel"),
+            Self::ContinuationReport => Some("report"),
+            Self::ReturnTravel => Some("return"),
+            Self::ReturnArrived => Some("return_arrived"),
+            Self::NextRequest => Some("next_request"),
+            Self::JourneyComplete => Some("settled"),
             _ => None,
         }
     }
@@ -115,6 +143,9 @@ impl RuntimeWorld {
         resident_id: u64,
         actor_id: u64,
     ) -> Option<String> {
+        if let Some(memory) = self.first_tale_journey_resident_memory(resident_id, actor_id) {
+            return Some(memory);
+        }
         let tale = active_first_tale()?;
         let presentation = tale.presentation.as_ref()?;
         if presentation.requester_actor_id != resident_id
@@ -148,7 +179,7 @@ impl RuntimeWorld {
             return Vec::new();
         };
         if self.first_tale_trace_event_seq(action.actor_id).is_some() {
-            return Vec::new();
+            return self.apply_first_tale_journey_projection(action, events);
         }
         let contribution = events.iter().find(|event| {
             event.type_name == "job.contribution.resolved"
@@ -189,7 +220,7 @@ impl RuntimeWorld {
             .map(|event| event.seq)
             .or_else(|| latecomer_check.map(|event| event.seq))
         else {
-            return Vec::new();
+            return self.apply_first_tale_journey_projection(action, events);
         };
 
         let mut trace = self.append_async_job_event(
@@ -218,6 +249,7 @@ impl RuntimeWorld {
         if let Some(settlement) = self.bank_visit_ledger(action.actor_id, "first_tale") {
             projected.push(settlement);
         }
+        projected.extend(self.apply_first_tale_journey_projection(action, events));
         projected
     }
 
@@ -231,6 +263,9 @@ impl RuntimeWorld {
             let Some(continuation) = first_tale.continuation.as_ref() else {
                 return Some(FirstTaleStage::Complete);
             };
+            if let Some(stage) = self.first_tale_journey_stage(actor_id) {
+                return Some(stage);
+            }
             if self
                 .active_bond(actor_id, continuation.target_actor_id)
                 .is_some()
@@ -367,7 +402,15 @@ impl RuntimeWorld {
                                 == Some(continuation.target_actor_id)
                     })
             }
-            FirstTaleStage::Complete | FirstTaleStage::ContinuationAccepted => false,
+            FirstTaleStage::ContinuationAccepted
+            | FirstTaleStage::ContinuationReportTravel
+            | FirstTaleStage::ContinuationReport
+            | FirstTaleStage::ReturnTravel
+            | FirstTaleStage::ReturnArrived
+            | FirstTaleStage::NextRequest => {
+                self.first_tale_journey_offer_advances(actor_id, stage, offer)
+            }
+            FirstTaleStage::Complete | FirstTaleStage::JourneyComplete => false,
         }
     }
 
@@ -455,7 +498,8 @@ pub(super) fn validate_first_tale(first_tale: &SeedFirstTaleContent) -> Result<(
             .continuation
             .as_ref()
             .is_some_and(|continuation| {
-                continuation.destination_location_id == 0
+                (continuation.return_to_requester && first_tale.presentation.is_none())
+                    || continuation.destination_location_id == 0
                     || continuation.target_actor_id == 0
                     || continuation.job_id.trim().is_empty()
                     || continuation.travel_instruction.trim().is_empty()
@@ -820,11 +864,9 @@ mod tests {
                 dialogue_event_seq: Some(90_003),
             },
         );
-        let accepted = runtime
-            .first_tale_view(actor_id)
-            .expect("accepted continuation");
+        let (_, _, accepted) = first_tale_action_state(&runtime, actor_id);
         assert_eq!(accepted.continuation.as_ref().unwrap().phase, "accepted");
-        assert!(accepted.advancing_offer_id.is_none());
+        assert!(accepted.advancing_offer_id.is_some());
         runtime
             .bonds
             .get_mut(&bond_id(actor_id, 8301))

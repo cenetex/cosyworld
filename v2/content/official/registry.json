@@ -77,7 +77,8 @@
         "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae",
         "sha256:9f1d186e9ef002881baa0be32c527abad08181979625edc44acfb002fcef18e1",
         "sha256:51b1749e3c4c287b6fe8ee3de366455313acd16643df4afcc0ca35097c833682",
-        "sha256:2fc541a71af2f9c386af60f00674dc0977d3509e9cf85eeca9d747a9575c7295"
+        "sha256:2fc541a71af2f9c386af60f00674dc0977d3509e9cf85eeca9d747a9575c7295",
+        "sha256:2b7ff2061dda0fa732a289999e6ea7924f52dd10a7c077babd63e5aa29b059cc"
       ]
     },
     "pack_lifecycle": {
@@ -1182,7 +1183,8 @@
         "job_id": "lantern-keeper:rekindle-the-beacon",
         "travel_instruction": "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
         "arrival_instruction": "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
-        "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon."
+        "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon.",
+        "return_to_requester": true
       },
       "presentation": {
         "requester_actor_id": 1001,
@@ -1301,7 +1303,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:2b7ff2061dda0fa732a289999e6ea7924f52dd10a7c077babd63e5aa29b059cc",
+    "bundle_hash": "sha256:ae3be80d16bca0cf8e35f0bd63a895a056b1dc504e21ee6bba221e4e852ab09d",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",

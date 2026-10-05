@@ -1122,9 +1122,10 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   assert(
     acceptedMara.first_tale?.continuation?.phase === "accepted"
       && acceptedMara.first_tale?.continuation?.target_actor_id === 8301
-      && acceptedMara.first_tale?.continuation?.instruction?.includes("dark-road lead")
-      && acceptedMara.first_tale?.advancing_offer_id == null,
-    `Lantern continuation did not settle after Mara's active bond: ${JSON.stringify(acceptedMara.first_tale)}`,
+      && /Failing Lantern|Rest at Wayside Lantern Inn/.test(acceptedMara.first_tale?.continuation?.instruction || "")
+      && acceptedMara.first_tale?.journey?.shared_goal === 6
+      && acceptedMara.action_hand?.entries?.some((entry) => entry.offer_ids?.includes(acceptedMara.first_tale?.advancing_offer_id)),
+    `Lantern continuation did not deal the next beacon step after Mara's active bond: ${JSON.stringify(acceptedMara.first_tale)}`,
   );
 
   const searchedFailingLantern = await command(baseUrl, actorId, actorSession, "search");

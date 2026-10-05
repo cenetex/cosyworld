@@ -22,7 +22,8 @@
     "job_id": "lantern-keeper:rekindle-the-beacon",
     "travel_instruction": "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
     "arrival_instruction": "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
-    "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon."
+    "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon.",
+    "return_to_requester": true
   },
   "presentation": {
     "requester_actor_id": 1001,
