@@ -485,3 +485,57 @@ fn guard_step_has_a_place_before_the_encounter_starts() {
         Some(803)
     );
 }
+
+#[test]
+fn tired_keeper_traveler_rests_then_receives_the_final_beacon_card() {
+    let (mut runtime, _) = crate::lantern_keeper_tests::runtime_ready_for_lantern_finale();
+    mark_garden(&mut runtime, PLAYER);
+    runtime.bonds.insert(
+        bond_id(PLAYER, 8301),
+        BondState {
+            id: bond_id(PLAYER, 8301),
+            actor_id: PLAYER,
+            target_actor_id: 8301,
+            statement: "Mara's road request".to_string(),
+            strength: 1,
+            status: "active".to_string(),
+            source_event_seq: Some(90003),
+            updated_event_seq: Some(90003),
+            dialogue_status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+            dialogue_event_seq: Some(90003),
+        },
+    );
+    runtime.tags.insert(
+        tired_tag_id(PLAYER),
+        RpgTagState {
+            id: tired_tag_id(PLAYER),
+            scope: "actor".to_string(),
+            scope_id: PLAYER,
+            label: "tired".to_string(),
+            kind: "condition".to_string(),
+            active: true,
+            source_event_seq: None,
+            expires: Some("after_rest".to_string()),
+        },
+    );
+    let (tale, route) = advancing(&runtime, PLAYER);
+    assert_eq!(tale.required_location_id, Some(800));
+    assert!(tale
+        .journey
+        .unwrap()
+        .instruction
+        .contains("Rest at Wayside Lantern Inn"));
+    assert!(matches!(route.kind.as_str(), "move" | "explore_path"));
+    put_at(&mut runtime, PLAYER, 800);
+    assert_eq!(advancing(&runtime, PLAYER).1.kind, "rest");
+    let (action, mutations) = runtime.plan_rest_action(PLAYER).unwrap();
+    let mut record = JournalRecord::new(action, 863005).into_player_card();
+    record.bind_offer_kind("rest");
+    record.projection_mutations = mutations;
+    assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    assert!(!runtime.tired_tag_active(PLAYER));
+    put_at(&mut runtime, PLAYER, 804);
+    let (_, work) = advancing(&runtime, PLAYER);
+    assert_eq!(work.kind, "work");
+    assert_eq!(work.project.unwrap().id, JOB);
+}

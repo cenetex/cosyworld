@@ -538,12 +538,44 @@ impl RuntimeWorld {
             })
     }
 
+    fn journey_rest_destination(&self, actor_id: u64, stage: FirstTaleStage) -> Option<u64> {
+        if !matches!(
+            stage,
+            FirstTaleStage::ContinuationAccepted | FirstTaleStage::NextRequest
+        ) || !self.tired_tag_active(actor_id)
+        {
+            return None;
+        }
+        let location_id = self.actor_by_id(actor_id)?.location_id;
+        let mut visited = BTreeSet::from([location_id]);
+        let mut queue = VecDeque::from([location_id]);
+        while let Some(location_id) = queue.pop_front() {
+            if self.rest_entitlement_at(actor_id, location_id).grade != CW_REST_GRADE_NONE {
+                return Some(location_id);
+            }
+            for exit in self.world.exits[..self.world.exit_count]
+                .iter()
+                .filter(|exit| {
+                    exit.from_location_id == location_id && exit.flags & CW_EXIT_LOCKED == 0
+                })
+            {
+                if visited.insert(exit.to_location_id) {
+                    queue.push_back(exit.to_location_id);
+                }
+            }
+        }
+        None
+    }
+
     pub(crate) fn first_tale_journey_destination(
         &self,
         actor_id: u64,
         stage: FirstTaleStage,
     ) -> Option<u64> {
         let tale = active_first_tale()?;
+        if let Some(destination) = self.journey_rest_destination(actor_id, stage) {
+            return Some(destination);
+        }
         match stage {
             FirstTaleStage::ContinuationReportTravel | FirstTaleStage::ContinuationReport => self
                 .actor_by_id(tale.continuation.as_ref()?.target_actor_id)
@@ -604,6 +636,9 @@ impl RuntimeWorld {
         if actor.location_id != destination {
             let next = self.next_unlocked_step_toward(actor.location_id, destination);
             return (offer.kind == "move" || offer.kind == "explore_path") && target_id == next;
+        }
+        if self.journey_rest_destination(actor_id, stage).is_some() {
+            return offer.kind == "rest";
         }
         let tale = active_first_tale().unwrap();
         match stage {
@@ -688,52 +723,61 @@ impl RuntimeWorld {
             self.actor_name(id)
                 .unwrap_or_else(|| "your host".to_string())
         };
-        let instruction = match stage {
-            FirstTaleStage::ContinuationTravel => {
-                tale.continuation.as_ref()?.travel_instruction.clone()
-            }
-            FirstTaleStage::ContinuationArrived => {
-                tale.continuation.as_ref()?.arrival_instruction.clone()
-            }
-            FirstTaleStage::ContinuationReportTravel | FirstTaleStage::ContinuationReport => {
-                format!(
-                    "Bring your road news to {}.",
-                    target_name(tale.continuation.as_ref()?.target_actor_id)
-                )
-            }
-            FirstTaleStage::ReturnTravel | FirstTaleStage::ReturnArrived => format!(
-                "Return to {} with the road's news.",
-                target_name(tale.presentation.as_ref()?.requester_actor_id)
-            ),
-            FirstTaleStage::NextRequest => format!(
-                "Visit {}. {}",
-                self.location_name(next_request.as_ref()?.destination_location_id)
-                    .unwrap_or_else(|| "the next place".to_string()),
-                next_request.as_ref()?.question
-            ),
-            FirstTaleStage::JourneyComplete if record.next_started_event_seq.is_some() => {
-                "Your next adventure has begun. Rati keeps your road story.".to_string()
-            }
-            FirstTaleStage::JourneyComplete => format!(
-                "Rest at the cottage. {} keeps your road story.",
-                target_name(tale.presentation.as_ref()?.requester_actor_id)
-            ),
-            _ => self
-                .first_tale_journey_destination(actor_id, stage)
-                .map(|location_id| {
+        let instruction = if let Some(location_id) = self.journey_rest_destination(actor_id, stage)
+        {
+            format!(
+                "Rest at {}. Then resume your next step.",
+                self.location_name(location_id)
+                    .unwrap_or_else(|| "the nearest shelter".to_string())
+            )
+        } else {
+            match stage {
+                FirstTaleStage::ContinuationTravel => {
+                    tale.continuation.as_ref()?.travel_instruction.clone()
+                }
+                FirstTaleStage::ContinuationArrived => {
+                    tale.continuation.as_ref()?.arrival_instruction.clone()
+                }
+                FirstTaleStage::ContinuationReportTravel | FirstTaleStage::ContinuationReport => {
                     format!(
-                        "Follow the keeper's trail to {}.",
-                        self.location_name(location_id)
-                            .unwrap_or_else(|| "the next lamp".to_string())
+                        "Bring your road news to {}.",
+                        target_name(tale.continuation.as_ref()?.target_actor_id)
                     )
-                })
-                .unwrap_or_else(|| {
-                    tale.continuation
-                        .as_ref()
-                        .unwrap()
-                        .accepted_instruction
-                        .clone()
-                }),
+                }
+                FirstTaleStage::ReturnTravel | FirstTaleStage::ReturnArrived => format!(
+                    "Return to {} with the road's news.",
+                    target_name(tale.presentation.as_ref()?.requester_actor_id)
+                ),
+                FirstTaleStage::NextRequest => format!(
+                    "Visit {}. {}",
+                    self.location_name(next_request.as_ref()?.destination_location_id)
+                        .unwrap_or_else(|| "the next place".to_string()),
+                    next_request.as_ref()?.question
+                ),
+                FirstTaleStage::JourneyComplete if record.next_started_event_seq.is_some() => {
+                    "Your next adventure has begun. Rati keeps your road story.".to_string()
+                }
+                FirstTaleStage::JourneyComplete => format!(
+                    "Rest at the cottage. {} keeps your road story.",
+                    target_name(tale.presentation.as_ref()?.requester_actor_id)
+                ),
+                _ => self
+                    .first_tale_journey_destination(actor_id, stage)
+                    .map(|location_id| {
+                        format!(
+                            "Follow the keeper's trail to {}.",
+                            self.location_name(location_id)
+                                .unwrap_or_else(|| "the next lamp".to_string())
+                        )
+                    })
+                    .unwrap_or_else(|| {
+                        tale.continuation
+                            .as_ref()
+                            .unwrap()
+                            .accepted_instruction
+                            .clone()
+                    }),
+            }
         };
         let instruction = advancing
             .map(|offer| format!("{instruction} Next: {}.", offer.label.trim_end_matches('.')))
