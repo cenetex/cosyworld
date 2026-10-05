@@ -561,6 +561,9 @@ fn next_request_follows_the_generated_waypoints_to_its_task() {
     record.bind_offer_kind("explore_path");
     record.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    // Earlier story shuffles survive old snapshots. The new journey deals
+    // its current physical step before the traveler chooses Think here.
+    runtime.hand_generations.insert(PLAYER, 8);
     runtime = RuntimeSnapshot::from_runtime(&runtime)
         .into_runtime()
         .unwrap();
@@ -574,6 +577,33 @@ fn next_request_follows_the_generated_waypoints_to_its_task() {
     assert_eq!(
         travel.target.as_ref().and_then(|target| target.id),
         Some(next_waypoint)
+    );
+    let mut thinking = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .unwrap();
+    let (_, offers) = thinking.legal_action_candidates(Some(PLAYER), &AccessContext::default());
+    let expected = thinking.action_hand_after_think_for(PLAYER, &offers, 0);
+    let (scene, _) = thinking.story_hand_scene_for_actor(PLAYER);
+    thinking.append_story_hand_thought_event(PLAYER, (0, &scene, "location", true, "player_think"));
+    thinking = RuntimeSnapshot::from_runtime(&thinking)
+        .into_runtime()
+        .unwrap();
+    let current = thinking.action_hand_for(Some(PLAYER), &offers);
+    assert_eq!(
+        current
+            .entries
+            .iter()
+            .map(|entry| &entry.card_id)
+            .collect::<Vec<_>>(),
+        expected
+            .entries
+            .iter()
+            .map(|entry| &entry.card_id)
+            .collect::<Vec<_>>()
+    );
+    assert_ne!(
+        current.entries[0].card_id,
+        format!("location:{next_waypoint}")
     );
     let action = match runtime
         .plan_move_choice_action(PLAYER, next_waypoint, &AccessContext::default())

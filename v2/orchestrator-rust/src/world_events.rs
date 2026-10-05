@@ -735,27 +735,10 @@ impl crate::RuntimeWorld {
         thought: (u8, &str, &str, bool, &str),
     ) -> EventView {
         let (slot, scene_key, replaces_offer_id, free, reason) = thought;
-        let legacy_generation = self
-            .hand_generations
-            .get(&actor_id)
-            .copied()
-            .unwrap_or_default();
+        let scene_state = self.story_hand_state_for_scene(actor_id, scene_key);
         let state = self.story_hand_states.entry(actor_id).or_default();
         if state.scene_key != scene_key {
-            let slot_generations = if state.scene_key.is_empty() {
-                if state.slot_generations == [0; 3] && legacy_generation > 0 {
-                    [legacy_generation; 3]
-                } else {
-                    state.slot_generations
-                }
-            } else {
-                [0; 3]
-            };
-            *state = StoryHandActorState {
-                scene_key: scene_key.to_string(),
-                slot_generations,
-                ..StoryHandActorState::default()
-            };
+            *state = scene_state;
         }
         let slot_index = usize::from(slot).min(state.slot_generations.len() - 1);
         if slot_index == 0 {
