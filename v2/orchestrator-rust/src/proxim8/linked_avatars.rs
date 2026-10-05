@@ -83,7 +83,7 @@ impl LinkedAvatarCharacter {
         }
     }
 
-    fn actor_description(&self) -> Option<String> {
+    pub(crate) fn actor_description(&self) -> Option<String> {
         let parts: Vec<&str> = [self.description.as_deref(), self.personality.as_deref()]
             .into_iter()
             .flatten()
@@ -258,31 +258,59 @@ fn valid_character_image_url(value: &str) -> bool {
 }
 
 impl RuntimeWorld {
+    /// Reviewed character content follows the saved asset receipt, including
+    /// actors whose ids differ between worlds or whose descriptions evolved.
+    pub(crate) fn linked_avatar_character(
+        &self,
+        actor_id: u64,
+    ) -> Option<&'static LinkedAvatarCharacter> {
+        self.linked_avatar_character_key(actor_id)
+            .as_deref()
+            .and_then(authored_linked_avatar_character)
+    }
+
+    pub(crate) fn linked_avatar_character_key(&self, actor_id: u64) -> Option<String> {
+        self.materialization_receipts.values().find_map(|receipt| {
+            (receipt.actor_id == actor_id
+                && is_linked_avatar_receipt(self, receipt)
+                && authored_linked_avatar_character(&receipt.card_id).is_some())
+            .then(|| receipt.card_id.clone())
+        })
+    }
+
     pub(crate) fn decorate_linked_avatar_card(
         &self,
         mut card: CardView,
         actor_id: u64,
     ) -> CardView {
-        let Some(config) = active_content().manifest.linked_avatars.as_ref() else {
-            return card;
-        };
-        let character = self.materialization_receipts.values().find_map(|receipt| {
-            if receipt.actor_id != actor_id || !is_linked_avatar_receipt(self, receipt) {
-                return None;
-            }
-            config.sources.iter().find_map(|source| {
-                source
-                    .characters
-                    .iter()
-                    .find(|character| receipt.card_id == character_key(source, character))
-            })
-        });
-        if let Some(image_url) = character.and_then(|character| character.image_url.as_ref()) {
+        if let Some(image_url) = self
+            .linked_avatar_character(actor_id)
+            .and_then(|character| character.image_url.as_ref())
+        {
             card.image_url = Some(image_url.clone());
             card.asset_status = "seed_art".to_string();
         }
         card
     }
+}
+
+/// Resolve a frozen identity reference against reviewed worldpack content.
+/// The reference selects authored text; asset metadata supplies no prompt text.
+pub(crate) fn authored_linked_avatar_character(
+    key: &str,
+) -> Option<&'static LinkedAvatarCharacter> {
+    active_content()
+        .manifest
+        .linked_avatars
+        .as_ref()?
+        .sources
+        .iter()
+        .find_map(|source| {
+            source
+                .characters
+                .iter()
+                .find(|character| key == character_key(source, character))
+        })
 }
 
 pub(crate) fn linked_avatar_receipt_id(asset_id: &str) -> String {
@@ -1148,6 +1176,94 @@ mod tests {
             unrelated.image_url,
             Some(generated_avatar_image_url(999_999))
         );
+    }
+
+    #[test]
+    fn linked_character_personality_survives_saved_description_and_restore() {
+        use crate::avatar_context_spine::{AvatarContextMode, AvatarContextPromptOptions};
+
+        let config = active_content().manifest.linked_avatars.as_ref().unwrap();
+        let source = config
+            .sources
+            .iter()
+            .find(|source| source.id == "rati-avatars")
+            .unwrap();
+        let character = source
+            .characters
+            .iter()
+            .find(|character| character.id == "santa-pooz")
+            .unwrap();
+        let personality = character.personality.as_deref().unwrap();
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.next_actor_id += 100;
+        let record = permanent_character_record(&runtime, source, character).unwrap();
+        let actor_id = record.action.actor_id;
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        runtime.actors.get_mut(&actor_id).unwrap().description =
+            "Santa Pooz keeps one hand near the hearth and one eye on the low door.".to_string();
+        runtime.append_avatar_self_description_event(
+            actor_id,
+            990_002,
+            COSY_COTTAGE_LOCATION_ID,
+            1,
+            "I keep one eye on the low door.".to_string(),
+            None,
+            None,
+            None,
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .unwrap();
+        for world in [&runtime, &restored] {
+            let spine = world
+                .avatar_context_spine(
+                    actor_id,
+                    None,
+                    None,
+                    "Someone asks how Santa feels.".to_string(),
+                )
+                .unwrap();
+            assert_eq!(spine.speaker.stable_traits, personality);
+            assert_eq!(spine.speaker.voice, personality);
+            assert_eq!(
+                spine.speaker.appearance,
+                character.description.as_deref().unwrap()
+            );
+            assert_eq!(spine.speaker.description, "I keep one eye on the low door.");
+            for mode in [
+                AvatarContextMode::Respond,
+                AvatarContextMode::Think,
+                AvatarContextMode::Dream,
+                AvatarContextMode::SelfDescription,
+            ] {
+                let rendered = spine
+                    .prompt(AvatarContextPromptOptions {
+                        mode,
+                        speech_mode: SpeechMode::Prose,
+                        max_words: 40,
+                        response_job: "answer warmly".to_string(),
+                    })
+                    .render_for_test();
+                assert!(rendered.system.starts_with(personality));
+                assert_eq!(rendered.system.matches(personality).count(), 1);
+                assert!(!rendered.user.contains(personality));
+                assert!(!rendered.system.contains("hearth"));
+                assert!(!rendered.system.contains("door"));
+            }
+        }
+        // A display name alone cannot inherit reviewed asset identity.
+        assert!(runtime.linked_avatar_character(999_999).is_none());
+        assert!(runtime.avatar_identity_policy(999_999).is_none());
+        // Direct control retains the player's grounded persona boundary.
+        runtime
+            .actor_autonomy
+            .get_mut(&actor_id)
+            .unwrap()
+            .control_mode = ActorControlMode::DirectInput;
+        let spine = runtime
+            .avatar_context_spine(actor_id, None, None, "A player speaks.")
+            .unwrap();
+        assert_ne!(spine.speaker.stable_traits, personality);
     }
 
     #[test]

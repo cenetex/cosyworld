@@ -137,10 +137,20 @@ impl RuntimeWorld {
     }
 
     pub(super) fn avatar_identity_policy(&self, actor_id: u64) -> Option<SeedActorIdentityContent> {
-        let actor = active_content()
+        let Some(actor) = active_content()
             .actors
             .iter()
-            .find(|actor| actor.id == actor_id)?;
+            .find(|actor| actor.id == actor_id)
+        else {
+            return self.linked_avatar_character(actor_id).map(|character| {
+                SeedActorIdentityContent {
+                    canonical_description: character.actor_description().unwrap_or_default(),
+                    appearance: character.description.clone().unwrap_or_default(),
+                    persona: character.personality.clone().unwrap_or_default(),
+                    ..SeedActorIdentityContent::default()
+                }
+            });
+        };
         actor
             .identity
             .clone()

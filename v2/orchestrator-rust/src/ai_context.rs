@@ -467,6 +467,13 @@ impl crate::RuntimeWorld {
         if !authored.is_empty() {
             return authored;
         }
+        if let Some(personality) = self
+            .linked_avatar_character(actor_id)
+            .and_then(|character| character.personality.as_deref())
+            .filter(|personality| !personality.trim().is_empty())
+        {
+            return personality.trim().to_string();
+        }
         fallback_actor_voice(actor_id)
     }
 
@@ -544,10 +551,10 @@ impl crate::RuntimeWorld {
 
 pub(crate) fn fallback_actor_voice(actor_id: u64) -> String {
     const FALLBACK_IDIOLECTS: &[&str] = &[
-        "my thoughts come in short steps. solid things catch my eye before moods do, and i trust a plain ending more than a maxim.",
-        "people arrive as gestures before explanations. i take a little time with a sentence, use metaphor sparingly, and leave disagreement plain.",
-        "sound reaches me first. my thoughts stay brief and practical, and a question matters only when its answer will change something.",
-        "one exact detail steadies me before any feeling does. verbs carry more weight than adjectives; objects remain objects in my eyes.",
+        "Ah. I am here. I take a moment. A thought settles into place. I want to understand it before I speak.",
+        "There I am. Something in me brightens. I want to know who I might meet. A question is already forming.",
+        "I am here again. Good. My thoughts find their feet quickly. I want to know what matters now.",
+        "I come to myself slowly. A thought catches my attention. I turn it over. I want to be sure of what I mean.",
     ];
     FALLBACK_IDIOLECTS[actor_id as usize % FALLBACK_IDIOLECTS.len()].to_string()
 }
