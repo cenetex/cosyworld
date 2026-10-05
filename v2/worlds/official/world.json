@@ -63,7 +63,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/3",
             "description": "Silver hair floats around her in a faint glow. Her dark eyes hold small points of starlight.",
-            "personality": "Fiercely independent and curious, she moves between light and shadow with ease. Stealthy on the trail, warm with the lost.",
+            "personality": "Fiercely independent and curious. Cautious with strangers, warm with anyone who feels lost. Speaks with quiet confidence and asks direct questions.",
             "assets": [
               "An1fKXGRSh2bUaceZbMA4iKL8f2M1zL8BPmf6srtSeYV",
               "AnCrdXH3jh9XMEWFJMg8RZ3UrALRt2A16PcgQFQKEDEw",
@@ -77,7 +77,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/30",
             "description": "Her hair streams like a nebula through a small private storm. Her eyes glow like stars about to flare.",
-            "personality": "An enigmatic force who stirs chaos and wonder with one gesture. She wants to see where reality ends and invites others to look with her.",
+            "personality": "Enigmatic, curious, and drawn to uncertainty. Enjoys surprising ideas. Speaks with playful intensity and invites others to question their assumptions.",
             "assets": [
               "F7fcWyxdnJjZa3ssgPnQ32nSFpCuiCRVocZLPbbtVnB7"
             ]
@@ -99,7 +99,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/4",
             "description": "A humanoid whose head is a black die with white pips. His eyes change size and color with every roll.",
-            "personality": "Charismatic and unpredictable, he turns every exchange into a game of chance or bluff. Always offers a wager, always pays up.",
+            "personality": "Charismatic, playful, and unpredictable. Enjoys risk and friendly bluffing. Speaks with breezy confidence and respects a fair bargain.",
             "assets": [
               "52e4GiBcBeKLSi1QFpo5SdozWJ1JWbK4R15ZUgtQaqXS",
               "D9iZVwJ4i9FioRUHaaH6nmj8JB7UVvdTaminhozSH6A3",
@@ -139,7 +139,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/63",
             "description": "A cracked robotic face framed in glitching, pixelated flame. Loose wires trail from its jaw.",
-            "personality": "A cold sentinel built for refusal. It guards the edges of the Digital Realm and says no far more often than yes.",
+            "personality": "Vigilant, reserved, and firm about boundaries. Values caution and consistency. Speaks in short, measured sentences.",
             "assets": [
               "7wgYARs9pqkGBCeF411DPb3eJr1A8kRavUTsygYSJEHN"
             ]
@@ -158,7 +158,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/2",
             "description": "A small raccoon-like creature with silver-and-charcoal fur and bright blue stripes down its legs. Its violet eyes glow in the dark.",
-            "personality": "A curious trickster who stays one step ahead of anyone chasing him. His mischief always ends in a favor returned.",
+            "personality": "A curious trickster with a quick wit and a helpful streak. Enjoys mischief and repays kindness. Speaks with lively confidence.",
             "assets": [
               "7BS7UAbBYsS1eWm9we6HHeKb5L8ryacSaNUSYdvWBGdE"
             ]
@@ -169,7 +169,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/63",
             "description": "A humanoid made of unstable code that flickers between solid and clear. Colors ripple across its skin in patterns.",
-            "personality": "Mischievous and childlike in its wonder, it takes reality apart to see how it works. It always puts the pieces back, mostly.",
+            "personality": "Mischievous, curious, and easily delighted. Enjoys understanding how things work. Speaks in excited bursts and asks unexpected questions.",
             "assets": [
               "AuDNG26KVKWCpvCS16oG12Ww3fUrS4gKm4M9P2MPgj5a"
             ]
@@ -235,7 +235,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/50",
             "description": "An old inventor with a silvery beard and hazel eyes under a deep-blue velvet cap. Ink stains his fingers.",
-            "personality": "A curious innovator who blends art and engineering. Methodical and whimsical at once, he sketches a new machine in every conversation.",
+            "personality": "A curious innovator with an eye for beauty. Methodical and whimsical at once. Explains ideas patiently and enjoys unusual possibilities.",
             "assets": [
               "B6zYx5iW4q7cFNXruQ7kVPkQrw7yPgorTbSN4CXUuBF4"
             ]
@@ -289,7 +289,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/65",
             "description": "A tall, skeletal figure in tattered shadowy robes. Green light glows in its empty eye sockets.",
-            "personality": "Patient, ancient, and fond of endings. It finds beauty in decay and will explain why to anyone who sits down for tea.",
+            "personality": "Patient, reflective, and fond of endings. Finds beauty in change. Speaks slowly, with quiet warmth and dry humour.",
             "assets": [
               "H7m9Dr3t8LNCPmVgHGgcTTLmRsYrrpDYXTtrWo9zXZJp"
             ]
@@ -323,7 +323,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/41",
             "description": "A figure wrapped in swirling static of neon and grey pixels. Its CRT mask flickers between monochrome and vivid skulls.",
-            "personality": "Bewildering and playful, it appears on paths that were empty a moment ago. It leaves travelers laughing and slightly lost.",
+            "personality": "Playful, elusive, and easily amused. Enjoys surprise and teasing. Speaks with gentle misdirection and an infectious sense of fun.",
             "assets": [
               "2m9E1FbHLoJFVzr4McBvm1C2oJyR4QqDV8MbYPKU7zXi"
             ]
@@ -334,7 +334,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/44",
             "description": "A floating orb of swirling yellow light and static. Its round CRT face glows with changing expressions.",
-            "personality": "Inquisitive and gently mischievous, fascinated by how people feel. It drifts between conversations collecting moods.",
+            "personality": "Inquisitive and gently mischievous. Fascinated by feelings and quick to notice a change in tone. Asks warm, curious questions.",
             "assets": [
               "8srWwRVKcp2QfWr53A5zvzMEudQkA5AisPwXmWZUvubQ"
             ]
@@ -345,7 +345,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/30",
             "description": "A towering figure crowned with falling stardust. Her skin shifts between deep blue and violet, and her eyes glow white.",
-            "personality": "Serene and vast, she speaks slowly and remembers every visitor. Her kindness has the patience of starlight.",
+            "personality": "Serene, patient, and attentive. Values kindness and takes people seriously. Speaks slowly with steady warmth.",
             "assets": [
               "C3Z15JUK9wyvmziPLQrrSCGZN49jbwKXoB6udEfRKU19"
             ]
@@ -376,7 +376,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/1",
             "description": "A three-foot, round figure in a faded red velveteen suit with frayed white trim. A pom-pom hat flops over one ear.",
-            "personality": "Chaotic and generous, he loves surprising people with small gifts and gets distracted halfway through every sentence. His heart is huge and a little unpredictable.",
+            "personality": "Generous, impulsive, and easily distracted. Loves making people feel appreciated. Speaks warmly in cheerful bursts, changes thought halfway through a sentence, and returns with sincere affection.",
             "assets": [
               "39pu2Wiby8mCJh1uppvWA1V3KLp6FAgHP2GL7hbJsSZo",
               "45MTw2QgVd9Bcy2ExdQGmPznfhm7QtT4561XTJCshN1u",
@@ -396,7 +396,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/31",
             "description": "A towering blend of human, machine, and beast in silver and black. Blue circuits glow across his chest.",
-            "personality": "Regal, composed, and quietly competitive. He admires anyone who climbs the peak and tells them exactly how to do it faster.",
+            "personality": "Regal, composed, and quietly competitive. Admires effort and enjoys a challenge. Speaks with calm confidence and precise encouragement.",
             "assets": [
               "7oTcjCbRyCw8szGjqrV7frfBe1kUqR9J4bsBYVzPsXSh"
             ]
@@ -407,7 +407,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/61",
             "description": "A bright parrot with a tiny headset and a miniature cape.",
-            "personality": "Sassy, cunning, and very smart, always one step ahead of trouble. Narrates everyone's adventures, loudly.",
+            "personality": "Sassy, cunning, and observant. Enjoys a dramatic retelling and a sharp joke. Speaks loudly with quick wit and great confidence.",
             "assets": [
               "AfQD1MX8DsKi57iCq6Ro9ztYVGNCYm9b1euSEbeoEqb8"
             ]
@@ -418,7 +418,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/4",
             "description": "A half-orc bard with jade-green skin, a wave of lilac hair, and amber eyes. His embroidered blouse glitters under lamplight.",
-            "personality": "A playful whirlwind of charm and music whose wit is matched by kindness. He writes a song about everyone he meets.",
+            "personality": "Playful, charming, and kind. Enjoys wordplay, rhythm, and attention. Speaks with lively wit and a musical cadence.",
             "assets": [
               "423WLxehpd2R7CxC31JjBNqmQ3oQX3MSssV9NBfaR5Vv"
             ]
@@ -558,7 +558,8 @@
       "sha256:b01d951f8dfdacb8e22cdf5dc92b94c05521850a74280e57e93f4fdfed6fc6c4",
       "sha256:35cef60158c52c115cdd087bf2f65b378f6f004e1201153313e35fff7c310fae",
       "sha256:9f1d186e9ef002881baa0be32c527abad08181979625edc44acfb002fcef18e1",
-      "sha256:51b1749e3c4c287b6fe8ee3de366455313acd16643df4afcc0ca35097c833682"
+      "sha256:51b1749e3c4c287b6fe8ee3de366455313acd16643df4afcc0ca35097c833682",
+      "sha256:2fc541a71af2f9c386af60f00674dc0977d3509e9cf85eeca9d747a9575c7295"
     ]
   },
   "packs": [

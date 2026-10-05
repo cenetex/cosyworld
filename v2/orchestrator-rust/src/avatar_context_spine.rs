@@ -282,20 +282,13 @@ impl AvatarContextSpine {
                 format!("I am {}, {}.", actor.name, title)
             });
         } else {
-            thoughts.push("I surface into myself again.".to_string());
+            thoughts.push("I speak in my own voice.".to_string());
         }
-        thoughts.push("I wake here.".to_string());
-        let stable_self = authored
-            .map(|actor| actor.description.clone())
-            .unwrap_or_else(|| fallback_avatar_identity(self.speaker.actor_id).description);
-        if let Some(stable_self) = safe_awakening_sentence(&stable_self) {
-            thoughts.push(format!("The shape I know myself by: {stable_self}"));
-        }
-        let voice = authored
-            .map(|actor| actor.voice.trim().to_string())
-            .filter(|voice| !voice.is_empty())
-            .unwrap_or_else(|| fallback_actor_voice(self.speaker.actor_id));
-        if let Some(voice) = safe_awakening_sentence(&voice) {
+        thoughts.push(
+            "My personality and speech style come from my character context. The current scene tells me where I am, who is present, and what is happening."
+                .to_string(),
+        );
+        if let Some(voice) = authored.and_then(|actor| safe_awakening_sentence(&actor.voice)) {
             thoughts.push(voice);
         }
         if self
@@ -424,6 +417,30 @@ impl AvatarContextSpine {
                 96,
                 true,
             );
+
+        // Dynamic and player-shaped voice stays beside character evidence.
+        // Reviewed seed voices already appear in the system message.
+        let system_voice = (self.speaker.control_mode != "direct_input")
+            .then(|| {
+                active_content()
+                    .actors
+                    .iter()
+                    .find(|actor| actor.id == self.speaker.actor_id)
+            })
+            .flatten()
+            .map(|actor| actor.voice.trim())
+            .unwrap_or_default();
+        if !self.speaker.voice.trim().is_empty()
+            && self.speaker.voice.trim() != system_voice
+            && self.speaker.voice.trim() != self.speaker.stable_traits.trim()
+        {
+            prompt = prompt.user(
+                format!("VOICE · {}", self.speaker.voice),
+                PromptSegmentKind::UniqueEvidence,
+                97,
+                true,
+            );
+        }
 
         if mode == AvatarContextMode::SelfDescription {
             let mutable = if self.speaker.mutable_traits.is_empty() {
@@ -712,6 +729,29 @@ impl AvatarContextSpine {
                 add(
                     format!("i am called {}.", self.speaker.name.trim()),
                     95,
+                    true,
+                );
+            }
+            let persona = if self.speaker.stable_traits.trim().is_empty() {
+                &self.speaker.description
+            } else {
+                &self.speaker.stable_traits
+            };
+            if !persona.trim().is_empty() {
+                add(format!("my character: {}", persona.trim()), 98, true);
+            }
+            if !self.speaker.voice.trim().is_empty() && self.speaker.voice.trim() != persona.trim()
+            {
+                add(
+                    format!("my way of speaking: {}", self.speaker.voice.trim()),
+                    97,
+                    true,
+                );
+            }
+            if !self.speaker.appearance.trim().is_empty() {
+                add(
+                    format!("my appearance: {}", self.speaker.appearance.trim()),
+                    94,
                     true,
                 );
             }
@@ -1584,6 +1624,76 @@ mod tests {
     }
 
     #[test]
+    fn core_characters_keep_personality_separate_from_scene_and_saved_description() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actors: Vec<SeedActorContent> =
+            serde_json::from_str(include_str!("../../content/core/actors.json")).unwrap();
+        for seed in actors {
+            let identity = seed.identity.as_ref().unwrap();
+            runtime.actors.get_mut(&seed.id).unwrap().description =
+                "I stand beside a Scene Description Sentinel.".to_string();
+            let actor = runtime.world.actors[..runtime.world.actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == seed.id)
+                .unwrap();
+            actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            let spine = runtime
+                .avatar_context_spine(seed.id, None, None, "A Scene Beat Sentinel happens.")
+                .unwrap();
+            assert_eq!(spine.speaker.stable_traits, identity.persona);
+            assert_eq!(spine.speaker.appearance, identity.appearance);
+            for mode in [
+                AvatarContextMode::Respond,
+                AvatarContextMode::Think,
+                AvatarContextMode::Dream,
+                AvatarContextMode::SelfDescription,
+            ] {
+                let rendered = spine
+                    .prompt(AvatarContextPromptOptions {
+                        mode,
+                        speech_mode: SpeechMode::Prose,
+                        max_words: 40,
+                        response_job: "reply".to_string(),
+                    })
+                    .render_for_test();
+                assert!(rendered
+                    .user
+                    .contains(&format!("PERSONA · {}", identity.persona)));
+                assert!(rendered.user.contains("Scene Beat Sentinel"));
+                assert!(!rendered.system.contains("Scene Description Sentinel"));
+                assert!(!rendered.system.contains("Scene Beat Sentinel"));
+                assert!(!rendered.system.contains(&seed.description));
+                assert!(!rendered.user.contains(&seed.description));
+            }
+        }
+    }
+
+    #[test]
+    fn free_context_keeps_character_and_voice_in_the_user_context() {
+        let spine = AvatarContextSpine {
+            speaker: AvatarContextActor {
+                actor_id: 999_999,
+                name: "Character Sentinel".to_string(),
+                stable_traits: "Character Trait Sentinel is generous and impulsive.".to_string(),
+                voice: "Character Voice Sentinel speaks in cheerful bursts.".to_string(),
+                appearance: "Character Appearance Sentinel has red fur.".to_string(),
+                control_mode: "direct_input".to_string(),
+                ..AvatarContextActor::default()
+            },
+            ..AvatarContextSpine::default()
+        };
+        let rendered = spine.free_context_prompt_from(0).render_for_test();
+        for text in [
+            "Character Trait Sentinel",
+            "Character Voice Sentinel",
+            "Character Appearance Sentinel",
+        ] {
+            assert!(rendered.user.contains(text));
+            assert!(!rendered.system.contains(text));
+        }
+    }
+
+    #[test]
     fn authored_npc_description_replaces_the_generic_persona_fallback() {
         // Issue #932: authored third-person NPC descriptions failed the
         // first-person grounding check and every inference-controlled actor
@@ -1786,7 +1896,7 @@ mod tests {
         }
         assert!(unproven_autonomous_rendered
             .system
-            .starts_with("I surface into myself again"));
+            .starts_with("I speak in my own voice."));
         for rendered in [&respond_rendered, &think_rendered, &dream_rendered] {
             assert!(rendered
                 .system

@@ -59,8 +59,20 @@ The fields are:
 - `visuality`: `visible`, `subtext_only`, or `never_render`;
 - `salience`: `0`–`100`, used only after authorization.
 
-Actors may add a short first-person `voice` field. It carries the character's authored
-rhythm and preoccupations. It is context, not a backend branch keyed to an actor ID.
+Actors may add a short first-person `voice` field. It describes temperament, rhythm,
+humour, and ways of responding to people. Stable character traits belong in
+`identity.persona`; physical features belong in `identity.appearance`. Current
+surroundings, carried items, and completed actions come from scene and journal evidence.
+
+For example, Rati speaks briskly, cares deeply, and gets impatient with excuses. Doc
+is curious, optimistic, and persistent. These traits apply wherever the character goes.
+Santa Pooz is generous, impulsive, and easily distracted. His cheerful speech often
+changes thought midway through a sentence.
+
+Linked NFT characters recover their authored personality and appearance through the
+saved asset receipt. Their actor id can vary between worlds. Saved self-descriptions
+remain available as lived history; the reviewed personality supplies stable traits.
+The same character context reaches structured replies and free-context replies.
 
 ## Avatar context spine
 
@@ -175,8 +187,9 @@ never reach a prompt segment, a media brief, a gate anchor, or provider telemetr
 
 The spine renders one first-person system awakening from system-owned identity. Authored
 autonomous avatars may use identity re-read from their reviewed active worldpack. Directly
-controlled and non-worldpack avatars use a deterministic fallback persona, because their
-identity or voice may be player-shaped. Place names also stay out of system. The spine then renders player-controlled identity, continuity,
+controlled and dynamic avatars use a neutral first-person opening. Their personality and
+speech style enter as character context in the user message. Reviewed seed voices may
+enter the system message. The scene supplies current surroundings. The spine then renders player-controlled identity, continuity,
 recollections, and structured world evidence in causal order: `SELF`, `PERSONA`,
 `CALLING`, current concern, skills where useful, `INNER CONTINUITY`, `STORY PRESSURE`,
 `OTHER`, `RELATIONSHIP`, `SCENE`, authorized facts, present cast, relevant

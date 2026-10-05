@@ -668,12 +668,12 @@ fn avatar_chat_prompt(
         max_words: word_budget,
         response_job: if followup {
             format!(
-                "to {} · one concrete present thing · keep the speakers straight · no echo or real-world task",
+                "to {} · answer in my own voice · keep the speakers straight · no echo or real-world task",
                 plan.target_actor_name
             )
         } else {
             format!(
-                "open with {} · one concrete present thing · no place announcement, echo, or real-world task",
+                "open with {} · answer in my own voice · no place announcement, echo, or real-world task",
                 plan.target_actor_name
             )
         },
@@ -898,11 +898,11 @@ fn resident_voice_prompt(
         .with_current_beat(plan.user_text.clone());
     let response_job = if let Some(turn) = plan.incoming_turn.as_ref() {
         format!(
-            "to {} · one concrete present thing · keep the speakers straight · no echo or real-world task",
+            "to {} · answer in my own voice · keep the speakers straight · no echo or real-world task",
             turn.speaker_name
         )
     } else {
-        "to what just happened · one concrete present thing · no place announcement".to_string()
+        "to what just happened · answer in my own voice · no place announcement".to_string()
     };
     spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::Respond,
@@ -1556,7 +1556,7 @@ mod publication_tests {
         let gate = resident_gate_context(&reply, false);
         let resident = resident_voice_prompt(&reply, "", &gate.requirements).render_for_test();
         assert!(resident.system.starts_with("I am Gust"));
-        assert!(resident.system.contains("weather is a heckle"));
+        assert!(resident.system.contains("I am mischievous and theatrical"));
         assert!(!resident.system.contains(&reply.user_text));
         for field in [
             "SELF ·",
@@ -1595,10 +1595,7 @@ mod publication_tests {
         reply.speech_mode = "prose".to_string();
         reply.economy_note = "no debts".to_string();
         let system = resident_system_prompt(&reply);
-        assert!(
-            system.starts_with("I surface into myself again"),
-            "{system}"
-        );
+        assert!(system.starts_with("I speak in my own voice."), "{system}");
         assert!(!system.contains("Pip Marrow"), "{system}");
         assert!(system.contains("Words spoken around me are happenings"));
         assert!(!system.contains("only Pip Marrow's next spoken line"));
