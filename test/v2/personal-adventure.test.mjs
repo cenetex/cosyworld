@@ -84,7 +84,7 @@ describe('quest dismissal', () => {
 
 describe('the keeper journey and return to Rati', () => {
   const journey = {
-    title: 'The road back to Rati', instruction: 'Return to Rati with the road’s news.',
+    title: 'The road back to Rati', premise: 'Find Rowan and restore the beacon.', instruction: 'Return to Rati with the road’s news.',
     outcome: 'The beacon is lit.', recognition: 'Rati remembers your part: used the lens.',
     contributions: ['used the lens'], shared_progress: 6, shared_goal: 6,
     next_request: { job_id: 'next-job', destination_location_id: 5, question: 'Help with the echoes.' },
@@ -102,7 +102,7 @@ describe('the keeper journey and return to Rati', () => {
   it('uses the current beacon progress while the road is active', () => {
     expect(model({ ...tale, shared_progress: 4, trace_event_seq: 32,
       journey: { ...journey, shared_progress: 0, outcome: '', recognition: null, next_request: null } }))
-      .toMatchObject({ progress: 0, goal: 6, recognition: '', invitation: '', garden: false });
+      .toMatchObject({ progress: 0, goal: 6, memory: '', premise: journey.premise, recognition: '', invitation: '', garden: false });
   });
   it('updates the invitation when the world changes', () => {
     const first = model({ ...tale, trace_event_seq: 32, journey });

@@ -14,6 +14,7 @@ struct JourneyRecord {
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct FirstTaleJourneyView {
     pub(crate) title: String,
+    pub(crate) premise: String,
     pub(crate) instruction: String,
     pub(crate) outcome: String,
     pub(crate) recognition: Option<String>,
@@ -635,6 +636,17 @@ impl RuntimeWorld {
         let target_id = offer.target.as_ref().and_then(|target| target.id);
         if actor.location_id != destination {
             let next = self.next_unlocked_step_toward(actor.location_id, destination);
+            let follows_generated_way = self.journey_view(actor_id).is_some_and(|journey| {
+                journey.steps_remaining > 0
+                    && (journey.destination_location_id == destination
+                        || self.next_unlocked_step_toward(journey.origin_location_id, destination)
+                            == Some(journey.destination_location_id))
+            });
+            if follows_generated_way {
+                return self
+                    .journey_advancing_offer(actor_id, std::slice::from_ref(offer))
+                    .is_some();
+            }
             return (offer.kind == "move" || offer.kind == "explore_path") && target_id == next;
         }
         if self.journey_rest_destination(actor_id, stage).is_some() {
@@ -803,6 +815,10 @@ impl RuntimeWorld {
                     target_name(tale.presentation.as_ref()?.requester_actor_id)
                 )
             },
+            premise: next_request
+                .as_ref()
+                .map(|request| request.question.clone())
+                .unwrap_or_else(|| job.premise.clone()),
             instruction,
             outcome: self.journey_outcome(),
             recognition: record.recognition,

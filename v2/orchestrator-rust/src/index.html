@@ -15019,9 +15019,9 @@
       const contributed = Number(tale.trace_event_seq || 0) > 0;
       return {
         title: journey?.title || tale.presentation?.title || tale.question,
-        premise: tale.presentation?.premise || tale.consequence,
+        premise: journey ? journey.premise || journey.title : tale.presentation?.premise || tale.consequence,
         instruction: journey?.instruction || tale.continuation?.instruction || tale.instruction,
-        memory: journey ? journey.outcome || tale.completion_memory : contributed ? tale.completion_memory : "",
+        memory: journey ? journey.outcome || "" : contributed ? tale.completion_memory : "",
         recognition: journey ? journey.recognition || "" : contributed ? tale.recognition || "" : "",
         invitation: journey ? journey.next_request?.question || "" : contributed ? tale.next_invitation : "",
         contributions: Array.isArray(journey?.contributions) ? journey.contributions : [],

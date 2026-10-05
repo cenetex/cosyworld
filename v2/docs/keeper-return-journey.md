@@ -2,7 +2,7 @@
 
 The world enables this journey with `continuation.return_to_requester`. Its saved content contract accepts the earlier official and Lantern bundles.
 
-The first garden adventure leads to Mara at the Wayside Lantern Inn. Her bond opens the keeper's road. The story panel follows the first missing step in the beacon task. Its next card comes from the current legal action hand. A tired traveler receives a route to the nearest place where they can rest. The guide resumes after rest.
+The first garden adventure leads to Mara at the Wayside Lantern Inn. Her bond opens the keeper's road. The story panel follows the first missing step in the beacon task. Its next card comes from the current legal action hand. A tired traveler receives a route to the nearest place where they can rest. The guide resumes after rest. Travel cards follow generated waypoints when the next task lies beyond a longer road.
 
 When the beacon task ends, each traveler with saved work can bring news to Mara. They can then return to Rati. A traveler who arrives after the shared task ends carries the current road news straight to Rati.
 

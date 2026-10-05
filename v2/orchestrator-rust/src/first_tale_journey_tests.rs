@@ -539,3 +539,66 @@ fn tired_keeper_traveler_rests_then_receives_the_final_beacon_card() {
     assert_eq!(work.kind, "work");
     assert_eq!(work.project.unwrap().id, JOB);
 }
+
+#[test]
+fn next_request_follows_the_generated_waypoints_to_its_task() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, PLAYER, 2, "Road Returner");
+    mark_garden(&mut runtime, PLAYER);
+    runtime.save_journey_record(
+        PLAYER,
+        &JourneyRecord {
+            return_event_seq: Some(90004),
+            next_job_id: Some("moonlit-trail:quiet-the-echo".to_string()),
+            ..JourneyRecord::default()
+        },
+    );
+    let (_, scout) = advancing(&runtime, PLAYER);
+    assert_eq!(scout.kind, "explore_path");
+    assert_eq!(scout.target.as_ref().and_then(|target| target.id), Some(3));
+    let (action, mutation, _) = runtime.plan_scout_offer(PLAYER, &scout).unwrap();
+    let mut record = JournalRecord::new(action, 863006).into_player_card();
+    record.bind_offer_kind("explore_path");
+    record.projection_mutations.push(mutation);
+    assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    let next_waypoint = runtime
+        .journey_view(PLAYER)
+        .unwrap()
+        .next_location_id
+        .unwrap();
+    let (_, travel) = advancing(&runtime, PLAYER);
+    assert_eq!(travel.kind, "move");
+    assert_eq!(
+        travel.target.as_ref().and_then(|target| target.id),
+        Some(next_waypoint)
+    );
+    let action = match runtime
+        .plan_move_choice_action(PLAYER, next_waypoint, &AccessContext::default())
+        .unwrap()
+    {
+        MovementPlan::Journey {
+            action, mutation, ..
+        } => {
+            let mut record = JournalRecord::new(action, 863007).into_player_card();
+            record.bind_offer_kind("move");
+            record.projection_mutations.push(*mutation);
+            record
+        }
+        MovementPlan::Adjacent(action) => JournalRecord::new(action, 863007).into_player_card(),
+    };
+    assert_eq!(runtime.apply_journal_record(&action).0, CW_OK);
+    let (_, next) = advancing(&runtime, PLAYER);
+    assert_eq!(next.kind, "explore_path");
+    assert_eq!(next.target.as_ref().and_then(|target| target.id), Some(3));
+    let (action, mutation, _) = runtime.plan_scout_offer(PLAYER, &next).unwrap();
+    let mut reveal = JournalRecord::new(action, 863008).into_player_card();
+    reveal.bind_offer_kind("explore_path");
+    reveal.projection_mutations.push(mutation);
+    assert_eq!(runtime.apply_journal_record(&reveal).0, CW_OK);
+    let (_, next) = advancing(&runtime, PLAYER);
+    assert_eq!(next.kind, "move");
+    assert_eq!(
+        next.target.as_ref().and_then(|target| target.id),
+        runtime.journey_view(PLAYER).unwrap().next_location_id
+    );
+}
