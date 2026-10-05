@@ -1556,11 +1556,12 @@ mod publication_tests {
         let gate = resident_gate_context(&reply, false);
         let resident = resident_voice_prompt(&reply, "", &gate.requirements).render_for_test();
         assert!(resident.system.starts_with("I am Gust"));
-        assert!(resident.system.contains("I am mischievous and theatrical"));
+        assert!(resident.system.contains("A little delight."));
+        assert_eq!(resident.system.matches(&reply.speaker_voice).count(), 1);
+        assert!(!resident.user.contains(&reply.speaker_voice));
         assert!(!resident.system.contains(&reply.user_text));
         for field in [
             "SELF ·",
-            "PERSONA ·",
             "CALLING ·",
             "CURRENT CONCERN ·",
             "OBSERVATION_JSON ·",
@@ -1595,7 +1596,7 @@ mod publication_tests {
         reply.speech_mode = "prose".to_string();
         reply.economy_note = "no debts".to_string();
         let system = resident_system_prompt(&reply);
-        assert!(system.starts_with("I speak in my own voice."), "{system}");
+        assert!(system.starts_with("I come back to myself."), "{system}");
         assert!(!system.contains("Pip Marrow"), "{system}");
         assert!(system.contains("Words spoken around me are happenings"));
         assert!(!system.contains("only Pip Marrow's next spoken line"));

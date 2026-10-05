@@ -264,17 +264,17 @@ impl RuntimeWorld {
         &self,
         actor_id: u64,
     ) -> Option<&'static LinkedAvatarCharacter> {
-        let config = active_content().manifest.linked_avatars.as_ref()?;
+        self.linked_avatar_character_key(actor_id)
+            .as_deref()
+            .and_then(authored_linked_avatar_character)
+    }
+
+    pub(crate) fn linked_avatar_character_key(&self, actor_id: u64) -> Option<String> {
         self.materialization_receipts.values().find_map(|receipt| {
-            if receipt.actor_id != actor_id || !is_linked_avatar_receipt(self, receipt) {
-                return None;
-            }
-            config.sources.iter().find_map(|source| {
-                source
-                    .characters
-                    .iter()
-                    .find(|character| receipt.card_id == character_key(source, character))
-            })
+            (receipt.actor_id == actor_id
+                && is_linked_avatar_receipt(self, receipt)
+                && authored_linked_avatar_character(&receipt.card_id).is_some())
+            .then(|| receipt.card_id.clone())
         })
     }
 
@@ -292,6 +292,25 @@ impl RuntimeWorld {
         }
         card
     }
+}
+
+/// Resolve a frozen identity reference against reviewed worldpack content.
+/// The reference selects authored text; asset metadata supplies no prompt text.
+pub(crate) fn authored_linked_avatar_character(
+    key: &str,
+) -> Option<&'static LinkedAvatarCharacter> {
+    active_content()
+        .manifest
+        .linked_avatars
+        .as_ref()?
+        .sources
+        .iter()
+        .find_map(|source| {
+            source
+                .characters
+                .iter()
+                .find(|character| key == character_key(source, character))
+        })
 }
 
 pub(crate) fn linked_avatar_receipt_id(asset_id: &str) -> String {
@@ -1225,10 +1244,11 @@ mod tests {
                         response_job: "answer warmly".to_string(),
                     })
                     .render_for_test();
-                assert!(rendered.user.contains(&format!("PERSONA · {personality}")));
+                assert!(rendered.system.starts_with(personality));
+                assert_eq!(rendered.system.matches(personality).count(), 1);
+                assert!(!rendered.user.contains(personality));
                 assert!(!rendered.system.contains("hearth"));
                 assert!(!rendered.system.contains("door"));
-                assert!(!rendered.system.contains(personality));
             }
         }
         // A display name alone cannot inherit reviewed asset identity.

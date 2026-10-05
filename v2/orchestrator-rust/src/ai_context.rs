@@ -551,10 +551,10 @@ impl crate::RuntimeWorld {
 
 pub(crate) fn fallback_actor_voice(actor_id: u64) -> String {
     const FALLBACK_IDIOLECTS: &[&str] = &[
-        "I am patient and candid. I speak in short, plain sentences. I give people time to explain themselves.",
-        "I am warm and curious. I speak gently, with dry humour. I ask thoughtful questions and state disagreements clearly.",
-        "I am practical and decisive. I get to the point quickly. I value honest answers and useful questions.",
-        "I am careful and quietly stubborn. I choose precise words. I take time to form an opinion and explain it calmly.",
+        "Ah. I am here. I take a moment. A thought settles into place. I want to understand it before I speak.",
+        "There I am. Something in me brightens. I want to know who I might meet. A question is already forming.",
+        "I am here again. Good. My thoughts find their feet quickly. I want to know what matters now.",
+        "I come to myself slowly. A thought catches my attention. I turn it over. I want to be sure of what I mean.",
     ];
     FALLBACK_IDIOLECTS[actor_id as usize % FALLBACK_IDIOLECTS.len()].to_string()
 }
