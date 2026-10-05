@@ -476,6 +476,43 @@ impl RuntimeWorld {
         })
     }
 
+    fn journey_route_step(&self, from_location_id: u64, destination: u64) -> Option<u64> {
+        let mut visited = BTreeSet::from([from_location_id]);
+        let mut queue = VecDeque::from([(from_location_id, None)]);
+        while let Some((location_id, first_step)) = queue.pop_front() {
+            let mut next_locations = self.world.exits[..self.world.exit_count]
+                .iter()
+                .filter(|exit| {
+                    exit.from_location_id == location_id && exit.flags & CW_EXIT_LOCKED == 0
+                })
+                .map(|exit| exit.to_location_id)
+                .collect::<Vec<_>>();
+            // A discovered long road keeps its later landmarks in the plan.
+            // Each unrevealed segment still needs its legal Scout card.
+            for pathway in self.generated_pathways.values() {
+                let path = std::iter::once(pathway.origin_location_id)
+                    .chain(pathway.waypoints.iter().map(|waypoint| waypoint.id))
+                    .chain(std::iter::once(pathway.destination_location_id))
+                    .collect::<Vec<_>>();
+                next_locations.extend(
+                    path.windows(2)
+                        .filter(|edge| edge[0] == location_id)
+                        .map(|edge| edge[1]),
+                );
+            }
+            for next_location in next_locations {
+                if visited.insert(next_location) {
+                    let next_step = first_step.unwrap_or(next_location);
+                    if next_location == destination {
+                        return Some(next_step);
+                    }
+                    queue.push_back((next_location, Some(next_step)));
+                }
+            }
+        }
+        None
+    }
+
     fn journey_next_request(
         &self,
         actor_id: u64,
@@ -504,7 +541,7 @@ impl RuntimeWorld {
                         ContributionRequirement::AtLocation { location_id: id } if id == location_id))) { continue; }
                 if *location_id != actor.location_id
                     && self
-                        .next_unlocked_step_toward(actor.location_id, *location_id)
+                        .journey_route_step(actor.location_id, *location_id)
                         .is_none()
                 {
                     continue;
@@ -635,12 +672,19 @@ impl RuntimeWorld {
         };
         let target_id = offer.target.as_ref().and_then(|target| target.id);
         if actor.location_id != destination {
-            let next = self.next_unlocked_step_toward(actor.location_id, destination);
+            let next = self.journey_route_step(actor.location_id, destination);
             let follows_generated_way = self.journey_view(actor_id).is_some_and(|journey| {
                 journey.steps_remaining > 0
                     && (journey.destination_location_id == destination
-                        || self.next_unlocked_step_toward(journey.origin_location_id, destination)
-                            == Some(journey.destination_location_id))
+                        || self
+                            .journey_route_step(journey.origin_location_id, destination)
+                            .is_some_and(|step| {
+                                self.journeys
+                                    .get(&actor_id)
+                                    .and_then(|planned| planned.path.get(1))
+                                    == Some(&step)
+                                    || step == journey.destination_location_id
+                            }))
             });
             if follows_generated_way {
                 return self

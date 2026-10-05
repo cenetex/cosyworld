@@ -549,7 +549,7 @@ fn next_request_follows_the_generated_waypoints_to_its_task() {
         PLAYER,
         &JourneyRecord {
             return_event_seq: Some(90004),
-            next_job_id: Some("moonlit-trail:quiet-the-echo".to_string()),
+            next_job_id: Some("goblin-cave:name-the-price".to_string()),
             ..JourneyRecord::default()
         },
     );
