@@ -628,7 +628,7 @@
       "scene": "garden_path"
     }
   },
-  "bundle_hash": "sha256:0c9a94e84b7558131b347b9364d06c883515d12d4de57afe36faedd15f08693b",
+  "bundle_hash": "sha256:5d3aac47c658f8ebd8e2b035d97bb3957221b1ec34768835986029422dee5dbc",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1924,7 +1924,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:d7674b3f9a097cb121f8a310aaf8b76771f1844423e914e5c09086819dba25af"
+      "integrity": "sha256:a4fe174e05192f5776df371cc2527ef2f9fee5ef2dc6083a14ab8d01240a6622"
     }
   ],
   "files": {

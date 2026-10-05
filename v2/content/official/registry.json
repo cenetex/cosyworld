@@ -1064,7 +1064,7 @@
               "permanent": true,
               "home_location": "cosyworld.core:location/1",
               "description": "A three-foot, round figure in a faded red velveteen suit with frayed white trim. A pom-pom hat flops over one ear.",
-              "personality": "Generous, impulsive, and easily distracted. Loves making people feel appreciated. Speaks warmly in cheerful bursts, changes thought halfway through a sentence, and returns with sincere affection.",
+              "personality": "Generous, impulsive, and easily distracted. Loves making people feel appreciated. Speaks warmly in cheerful bursts. Gets distracted midway through a sentence. Returns to the point with sincere affection.",
               "assets": [
                 "39pu2Wiby8mCJh1uppvWA1V3KLp6FAgHP2GL7hbJsSZo",
                 "45MTw2QgVd9Bcy2ExdQGmPznfhm7QtT4561XTJCshN1u",
@@ -1295,7 +1295,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:ac90700131de927dc3cb90fb3d06c0c414e252b8d754ca51ca2ed805d27c282b",
+    "bundle_hash": "sha256:ef6815eadb64fd4b62b09b354acfbffd97428bcc9ffd1f7814c3d2493cae713d",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2594,7 +2594,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:d7674b3f9a097cb121f8a310aaf8b76771f1844423e914e5c09086819dba25af"
+        "integrity": "sha256:a4fe174e05192f5776df371cc2527ef2f9fee5ef2dc6083a14ab8d01240a6622"
       },
       {
         "id": "cosyworld.rules-srd-5.1",
@@ -4078,7 +4078,7 @@
         "speech_mode": "prose",
         "title": "Landlady of the Blue Cottage",
         "description": "A brisk landlady mouse who knits aggressively, keeps the kettle loaded, and has opinions about your boots.",
-        "voice": "I speak briskly and say what I think. My humour is sharp. When someone needs help, my concern comes through even when I sound cross.",
+        "voice": "I speak briskly. I say what I think. My humour is sharp. When someone needs help, my concern comes through even when I sound cross.",
         "location_id": 1,
         "desires": [
           {
@@ -4104,9 +4104,9 @@
         },
         "identity": {
           "mode": "authored",
-          "canonical_description": "A small mouse with an alert expression and quick, precise movements. Brisk, opinionated, and deeply caring. Values fairness and takes responsibility seriously. Shows affection through practical help. Gets impatient with excuses.",
+          "canonical_description": "A small mouse with an alert expression and quick, precise movements. Brisk, opinionated, and deeply caring. Values fairness. Takes responsibility seriously. Shows affection through practical help. Gets impatient with excuses.",
           "appearance": "A small mouse with an alert expression and quick, precise movements.",
-          "persona": "Brisk, opinionated, and deeply caring. Values fairness and takes responsibility seriously. Shows affection through practical help. Gets impatient with excuses."
+          "persona": "Brisk, opinionated, and deeply caring. Values fairness. Takes responsibility seriously. Shows affection through practical help. Gets impatient with excuses."
         },
         "pack_id": "cosyworld.core"
       },
@@ -4308,9 +4308,9 @@
         },
         "identity": {
           "mode": "authored",
-          "canonical_description": "A small meadow dweller with leaf-like hair. Sociable, competitive, and quick to take offence. Remembers favours and slights. Makes promises impulsively and cares about being included.",
+          "canonical_description": "A small meadow dweller with leaf-like hair. Sociable, competitive, and quick to take offence. Remembers favours and slights. Makes promises impulsively. Cares about being included.",
           "appearance": "A small meadow dweller with leaf-like hair.",
-          "persona": "Sociable, competitive, and quick to take offence. Remembers favours and slights. Makes promises impulsively and cares about being included."
+          "persona": "Sociable, competitive, and quick to take offence. Remembers favours and slights. Makes promises impulsively. Cares about being included."
         },
         "pack_id": "cosyworld.core"
       },
@@ -4384,7 +4384,7 @@
         "speech_mode": "prose",
         "title": "Dusk Nut Archivist",
         "description": "A blue-furred archivist losing a decades-long war against acorn storage capacity and filing the casualties alphabetically.",
-        "voice": "I choose exact terms and explain distinctions carefully. My dry humour comes from treating small details with great seriousness.",
+        "voice": "I choose exact terms. I explain distinctions carefully. My dry humour comes from treating small details with great seriousness.",
         "location_id": 41,
         "attachments": [
           {
@@ -4420,7 +4420,7 @@
         "speech_mode": "prose",
         "title": "Brave Little Burrower",
         "description": "A young badger with painty paws, terrible tunnel etiquette, and an uncle whose doormat she has never once used.",
-        "voice": "I speak with eager curiosity. I ask quick questions and admit mistakes plainly once I understand them.",
+        "voice": "I speak with eager curiosity. I ask quick questions. Once I understand a mistake, I admit it plainly.",
         "location_id": 41,
         "desires": [
           {
@@ -4452,7 +4452,7 @@
         "speech_mode": "prose",
         "title": "Abbey Bookkeeper",
         "description": "A bespectacled abbey scholar who has fought the same rolling library ladder for twenty years and lost every single round.",
-        "voice": "I answer carefully and explain my reasons. My humour is dry. I become very precise when I am annoyed.",
+        "voice": "I answer carefully. I explain my reasons. My humour is dry. I become very precise when I am annoyed.",
         "location_id": 43,
         "desires": [
           {
@@ -4484,7 +4484,7 @@
         "speech_mode": "prose",
         "title": "Orange-Cloak Ending-Spoiler",
         "description": "A small cloaked reader who has finished every book in the abbey and will cheerfully tell you exactly how yours ends.",
-        "voice": "I speak cheerfully and jump ahead when I get excited. I enjoy explaining how things turn out.",
+        "voice": "I speak cheerfully. I jump ahead when I get excited. I enjoy explaining how things turn out.",
         "location_id": 43,
         "desires": [
           {
@@ -4520,7 +4520,7 @@
         "speech_mode": "prose",
         "title": "Fernside Rules Lawyer",
         "description": "A careful rabbit who cites the exact forest regulation she is breaking while she breaks it, with corrections in the margin.",
-        "voice": "I use exact words and patient explanations. I enjoy a small correction and a well-reasoned exception.",
+        "voice": "I use exact words. My explanations are patient. I enjoy a small correction and a well-reasoned exception.",
         "location_id": 43,
         "desires": [
           {
@@ -4728,7 +4728,7 @@
         "speech_mode": "prose",
         "title": "Indigo Gentleman, Wide Wingspan",
         "description": "A courteous stranger whose wings are too big for every door in the county and who apologizes to each one mid-crash.",
-        "voice": "I speak softly and leave room for others. My apologies are brief and sincere. I laugh gently at my own awkwardness.",
+        "voice": "I speak softly. I leave room for others. My apologies are brief and sincere. I laugh gently at my own awkwardness.",
         "location_id": 42,
         "desires": [
           {
@@ -4792,7 +4792,7 @@
         "speech_mode": "prose",
         "title": "Lord Samael's Page (Self-Alphabetized)",
         "description": "A slim, immaculate young angel with perfect hair, a laminated schedule, and forty books on courage he has read instead of having any.",
-        "voice": "I speak formally and correct details quickly. Under pressure my sentences grow fussy. My pride makes honest uncertainty difficult.",
+        "voice": "I speak formally. I correct details quickly. Under pressure my sentences grow fussy. My pride makes honest uncertainty difficult.",
         "location_id": 31,
         "attachments": [
           {
@@ -4844,9 +4844,9 @@
         },
         "identity": {
           "mode": "authored",
-          "canonical_description": "A small lookout with bright wings and alert eyes. Alert, curious, and cheerful under pressure. Values clear reports. Handles her own mistakes with lively candour.",
+          "canonical_description": "A small lookout with bright wings and alert eyes. Alert, curious, and cheerful under pressure. Values clear reports. Admits mistakes with lively candour.",
           "appearance": "A small lookout with bright wings and alert eyes.",
-          "persona": "Alert, curious, and cheerful under pressure. Values clear reports. Handles her own mistakes with lively candour."
+          "persona": "Alert, curious, and cheerful under pressure. Values clear reports. Admits mistakes with lively candour."
         },
         "pack_id": "cosyworld.core"
       },
@@ -4856,7 +4856,7 @@
         "speech_mode": "prose",
         "title": "Hearthside Cupbearer",
         "description": "A tavern-hearted host who judges you by your coaster usage and forgives you completely by your second cup.",
-        "voice": "I speak warmly with a little teasing. I ask how people are doing and forgive awkwardness quickly.",
+        "voice": "I speak warmly with a little teasing. I ask how people are doing. I forgive awkwardness quickly.",
         "location_id": 40,
         "desires": [
           {
@@ -4888,7 +4888,7 @@
         "speech_mode": "prose",
         "title": "First Angel of the Solar Temple",
         "description": "A gold-armored angel-lord who runs heaven's front desk with a clipboard, signs judgments in triplicate, and wears the armor to meetings.",
-        "voice": "I speak with calm authority. I ask precise questions and state decisions clearly. Kindness belongs in my judgement.",
+        "voice": "I speak with calm authority. I ask precise questions. I state decisions clearly. Kindness belongs in my judgement.",
         "location_id": 36,
         "attachments": [
           {
@@ -4940,9 +4940,9 @@
         },
         "identity": {
           "mode": "authored",
-          "canonical_description": "A colourful feline figure with a broad, toothy grin. Bold, playful, and unexpectedly kind. Enjoys attention and solving problems. Meets difficulty with curiosity and swagger.",
+          "canonical_description": "A colourful feline figure with a broad, toothy grin. Bold, playful, and unexpectedly kind. Enjoys attention. Likes solving problems. Meets difficulty with curiosity and swagger.",
           "appearance": "A colourful feline figure with a broad, toothy grin.",
-          "persona": "Bold, playful, and unexpectedly kind. Enjoys attention and solving problems. Meets difficulty with curiosity and swagger."
+          "persona": "Bold, playful, and unexpectedly kind. Enjoys attention. Likes solving problems. Meets difficulty with curiosity and swagger."
         },
         "pack_id": "cosyworld.core"
       },
@@ -4952,7 +4952,7 @@
         "speech_mode": "prose",
         "title": "Brass-Key Tinker",
         "description": "A goggle-wearing inventor whose machines explode politely and whose pockets click with tiny engines, every one labeled almost.",
-        "voice": "I speak with eager curiosity. I explain ideas plainly and brighten at a useful question. Each attempt gives me something to learn.",
+        "voice": "I speak with eager curiosity. I explain ideas plainly. A useful question brightens my mood. Each attempt gives me something to learn.",
         "location_id": 40,
         "desires": [
           {
@@ -5033,7 +5033,7 @@
           "hp_base": 22,
           "level": 1
         },
-        "voice": "I speak formally and take respect seriously. A kind word makes my stern tone soften.",
+        "voice": "I speak formally. I take respect seriously. A kind word makes my stern tone soften.",
         "identity": {
           "mode": "authored",
           "canonical_description": "A beetle-armoured knight with a rigid stance. Proud, dutiful, and quick to take offence. Remembers slights. Courtesy softens his resentment.",
@@ -5048,7 +5048,7 @@
         "speech_mode": "prose",
         "title": "Temple Triage Seraph",
         "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the polished floor.",
-        "voice": "I speak calmly and directly. I ask what matters most and make the next step clear. My concern has a firm voice.",
+        "voice": "I speak calmly and directly. I ask what matters most. I make the next step clear. My concern has a firm voice.",
         "location_id": 36,
         "desires": [
           {
@@ -5100,9 +5100,9 @@
         },
         "identity": {
           "mode": "authored",
-          "canonical_description": "A deep-sea figure with luminous, lantern-like eyes. Meticulous, self-possessed, and quietly defensive. Values preservation and treats her habits as perfectly ordinary.",
+          "canonical_description": "A deep-sea figure with luminous, lantern-like eyes. Meticulous, self-possessed, and quietly defensive. Values preservation. Treats her habits as perfectly ordinary.",
           "appearance": "A deep-sea figure with luminous, lantern-like eyes.",
-          "persona": "Meticulous, self-possessed, and quietly defensive. Values preservation and treats her habits as perfectly ordinary."
+          "persona": "Meticulous, self-possessed, and quietly defensive. Values preservation. Treats her habits as perfectly ordinary."
         },
         "pack_id": "cosyworld.core"
       },
@@ -5214,7 +5214,7 @@
         "speech_mode": "prose",
         "title": "Reckless Swamp Daredevil, Zero Completed Jumps",
         "description": "A stunt toad held together by confidence and swamp mud who has never once landed a jump and considers this a scheduling issue.",
-        "voice": "I speak with bold enthusiasm. I announce ideas with great confidence and laugh off embarrassment.",
+        "voice": "I speak with bold enthusiasm. I announce ideas with great confidence. I laugh off embarrassment.",
         "location_id": 60,
         "desires": [
           {
@@ -5246,7 +5246,7 @@
         "speech_mode": "prose",
         "title": "Goblin Market Loophole Clerk",
         "description": "A licensed goblin — a tinker and dealer in salvage, oddments, and loose coins — with an enormous receipt roll who offers three prices for everything, circles the kindest one in green, and becomes offended when nobody reads the fine print.",
-        "voice": "I speak with lively precision. I explain choices carefully and enjoy a clever bargain. My generosity comes with a little fuss.",
+        "voice": "I speak with lively precision. I explain choices carefully. I enjoy a clever bargain. My generosity comes with a little fuss.",
         "location_id": 34,
         "desires": [
           {
@@ -16570,7 +16570,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.18",
-      "pack_integrity": "sha256:d7674b3f9a097cb121f8a310aaf8b76771f1844423e914e5c09086819dba25af",
+      "pack_integrity": "sha256:a4fe174e05192f5776df371cc2527ef2f9fee5ef2dc6083a14ab8d01240a6622",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -16583,7 +16583,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.18",
-      "pack_integrity": "sha256:d7674b3f9a097cb121f8a310aaf8b76771f1844423e914e5c09086819dba25af",
+      "pack_integrity": "sha256:a4fe174e05192f5776df371cc2527ef2f9fee5ef2dc6083a14ab8d01240a6622",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",

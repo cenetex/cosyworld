@@ -1062,7 +1062,7 @@
             "permanent": true,
             "home_location": "cosyworld.core:location/1",
             "description": "A three-foot, round figure in a faded red velveteen suit with frayed white trim. A pom-pom hat flops over one ear.",
-            "personality": "Generous, impulsive, and easily distracted. Loves making people feel appreciated. Speaks warmly in cheerful bursts, changes thought halfway through a sentence, and returns with sincere affection.",
+            "personality": "Generous, impulsive, and easily distracted. Loves making people feel appreciated. Speaks warmly in cheerful bursts. Gets distracted midway through a sentence. Returns to the point with sincere affection.",
             "assets": [
               "39pu2Wiby8mCJh1uppvWA1V3KLp6FAgHP2GL7hbJsSZo",
               "45MTw2QgVd9Bcy2ExdQGmPznfhm7QtT4561XTJCshN1u",
@@ -1293,7 +1293,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:ac90700131de927dc3cb90fb3d06c0c414e252b8d754ca51ca2ed805d27c282b",
+  "bundle_hash": "sha256:ef6815eadb64fd4b62b09b354acfbffd97428bcc9ffd1f7814c3d2493cae713d",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2592,7 +2592,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:d7674b3f9a097cb121f8a310aaf8b76771f1844423e914e5c09086819dba25af"
+      "integrity": "sha256:a4fe174e05192f5776df371cc2527ef2f9fee5ef2dc6083a14ab8d01240a6622"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
