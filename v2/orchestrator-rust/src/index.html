@@ -12768,6 +12768,8 @@
       "item.traded",
       "job.contribution.resolved",
       "first_tale.public_trace",
+      "first_tale.journey_reported",
+      "first_tale.journey_returned",
       "clock.updated",
       "clock.threshold",
       "natural_feature.revealed",
@@ -15007,20 +15009,24 @@
 
     function adventureModel(tale = state?.first_tale) {
       if (!tale) return null;
-      const progress = Math.max(0, Math.min(Number(tale.shared_goal || 0), Number(tale.shared_progress || 0)));
-      const goal = Math.max(0, Number(tale.shared_goal || 0));
+      const journey = tale.journey;
+      const progress = Math.max(0, Math.min(Number(journey?.shared_goal ?? tale.shared_goal ?? 0), Number(journey?.shared_progress ?? tale.shared_progress ?? 0)));
+      const goal = Math.max(0, Number(journey?.shared_goal ?? tale.shared_goal ?? 0));
       const contributed = Number(tale.trace_event_seq || 0) > 0;
       return {
-        title: tale.presentation?.title || tale.question,
+        title: journey?.title || tale.presentation?.title || tale.question,
         premise: tale.presentation?.premise || tale.consequence,
-        instruction: tale.continuation?.instruction || tale.instruction,
-        memory: contributed ? tale.completion_memory : "",
-        recognition: contributed ? tale.recognition || "" : "",
-        invitation: contributed ? tale.next_invitation : "",
+        instruction: journey?.instruction || tale.continuation?.instruction || tale.instruction,
+        memory: journey ? journey.outcome || tale.completion_memory : contributed ? tale.completion_memory : "",
+        recognition: journey ? journey.recognition || "" : contributed ? tale.recognition || "" : "",
+        invitation: journey ? journey.next_request?.question || "" : contributed ? tale.next_invitation : "",
+        contributions: Array.isArray(journey?.contributions) ? journey.contributions : [],
+        journey: Boolean(journey),
+        outcome: journey?.outcome || "",
         progress, goal,
-        garden: tale.presentation?.scene === "garden_path",
+        garden: !journey && tale.presentation?.scene === "garden_path",
         atGarden: Number(state?.location?.id) === Number(tale.destination_location_id),
-        status: goal && progress >= goal ? "The garden path is open."
+        status: journey ? journey.outcome || "The keeper’s road is taking shape." : goal && progress >= goal ? "The garden path is open."
           : progress ? "The first stones are clear. The path is taking shape."
           : "Rainwater covers the garden path.",
       };
@@ -15060,7 +15066,7 @@
       const model = adventureModel();
       host.hidden = !model || adventureIsDismissed();
       if (!model) { host.innerHTML = ""; return; }
-      host.innerHTML = `<button type="button" class="adventure-dismiss" data-dismiss-adventure aria-label="Dismiss quest">×</button><div><span class="adventure-kicker">${model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
+      host.innerHTML = `<button type="button" class="adventure-dismiss" data-dismiss-adventure aria-label="Dismiss quest">×</button><div><span class="adventure-kicker">${model.journey ? 'Your road story' : model.memory ? 'Your mark on this place' : 'Your first adventure'}</span><h2>${escapeHtml(model.title)}</h2><div class="adventure-next" data-first-tale-presentation><strong>${model.journey ? 'Your next step' : model.memory ? 'Next time, or right now' : 'Your next step'}</strong><p>${escapeHtml(model.instruction)}</p></div><p${model.memory ? ' data-first-tale-completion-memory' : ''}>${escapeHtml(model.memory || model.premise)}</p>${model.garden && model.atGarden ? gardenPathScene(model) : ''}${model.journey && !model.outcome && model.goal ? `<p>${model.progress} / ${model.goal} shared beacon steps</p>` : ''}${model.contributions.length && !model.recognition ? `<p>Your part: ${model.contributions.map(escapeHtml).join('; ')}.</p>` : ''}${model.recognition ? `<p class="adventure-recognition">${escapeHtml(model.recognition)}</p>` : ''}${model.invitation ? `<details><summary>Keep this invitation</summary><p>${escapeHtml(model.invitation)}</p><small>Saved with your adventure. Open the Journal when you return.</small></details>` : ''}</div>`;
     }
 
     function journalAdventureHtml() {
@@ -16414,6 +16420,9 @@
       }
       if (type === "relationship.beat" || type === "relationship.advanced") {
         return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
+      }
+      if (type === "first_tale.journey_reported" || type === "first_tale.journey_returned") {
+        return event.content || "Your road story is remembered.";
       }
       if (type === "first_tale.public_trace") {
         const trace = cleanStatusText(event.content || "left the next visitor a clearer way");

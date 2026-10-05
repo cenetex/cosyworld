@@ -80,3 +80,35 @@ describe('quest dismissal', () => {
     expect(vm.runInContext('adventureIsDismissed()', reload)).toBe(false);
   });
 });
+
+
+describe('the keeper journey and return to Rati', () => {
+  const journey = {
+    title: 'The road back to Rati', instruction: 'Return to Rati with the road’s news.',
+    outcome: 'The beacon is lit.', recognition: 'Rati remembers your part: used the lens.',
+    contributions: ['used the lens'], shared_progress: 6, shared_goal: 6,
+    next_request: { job_id: 'next-job', destination_location_id: 5, question: 'Help with the echoes.' },
+  };
+  it('shows the current road result, personal credit, and live next request after reload', () => {
+    const saved = JSON.parse(JSON.stringify({ ...tale, trace_event_seq: 32, journey }));
+    expect(model(saved)).toMatchObject({ title: journey.title, progress: 6, goal: 6,
+      memory: journey.outcome, recognition: journey.recognition, invitation: 'Help with the echoes.',
+      instruction: journey.instruction, garden: false, contributions: ['used the lens'] });
+  });
+  it('shows shared completion and the late visitor’s own news', () => {
+    expect(model({ ...tale, trace_event_seq: 33, journey: { ...journey, contributions: [], recognition: 'Rati welcomes your road news.' } }))
+      .toMatchObject({ progress: 6, recognition: 'Rati welcomes your road news.', contributions: [] });
+  });
+  it('uses the current beacon progress while the road is active', () => {
+    expect(model({ ...tale, shared_progress: 4, trace_event_seq: 32,
+      journey: { ...journey, shared_progress: 0, outcome: '', recognition: null, next_request: null } }))
+      .toMatchObject({ progress: 0, goal: 6, recognition: '', invitation: '', garden: false });
+  });
+  it('updates the invitation when the world changes', () => {
+    const first = model({ ...tale, trace_event_seq: 32, journey });
+    const changed = model({ ...tale, trace_event_seq: 32, journey: { ...journey, next_request: { question: 'Help at the threshold.' } } });
+    expect(first.invitation).toBe('Help with the echoes.');
+    expect(changed.invitation).toBe('Help at the threshold.');
+    expect(changed.recognition).toBe(first.recognition);
+  });
+});
