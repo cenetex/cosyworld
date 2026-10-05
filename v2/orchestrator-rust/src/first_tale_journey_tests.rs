@@ -561,6 +561,9 @@ fn next_request_follows_the_generated_waypoints_to_its_task() {
     record.bind_offer_kind("explore_path");
     record.projection_mutations.push(mutation);
     assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    runtime = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .unwrap();
     let next_waypoint = runtime
         .journey_view(PLAYER)
         .unwrap()

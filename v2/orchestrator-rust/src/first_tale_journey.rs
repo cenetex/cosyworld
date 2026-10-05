@@ -485,6 +485,15 @@ impl RuntimeWorld {
                 .filter(|exit| {
                     exit.from_location_id == location_id && exit.flags & CW_EXIT_LOCKED == 0
                 })
+                .filter(|exit| {
+                    !self.generated_pathways.values().any(|pathway| {
+                        !pathway.waypoints.is_empty()
+                            && ((pathway.origin_location_id == exit.from_location_id
+                                && pathway.destination_location_id == exit.to_location_id)
+                                || (pathway.destination_location_id == exit.from_location_id
+                                    && pathway.origin_location_id == exit.to_location_id))
+                    })
+                })
                 .map(|exit| exit.to_location_id)
                 .collect::<Vec<_>>();
             // A discovered long road keeps its later landmarks in the plan.
@@ -673,25 +682,20 @@ impl RuntimeWorld {
         let target_id = offer.target.as_ref().and_then(|target| target.id);
         if actor.location_id != destination {
             let next = self.journey_route_step(actor.location_id, destination);
-            let follows_generated_way = self.journey_view(actor_id).is_some_and(|journey| {
-                journey.steps_remaining > 0
-                    && (journey.destination_location_id == destination
-                        || self
-                            .journey_route_step(journey.origin_location_id, destination)
-                            .is_some_and(|step| {
-                                self.journeys
-                                    .get(&actor_id)
-                                    .and_then(|planned| planned.path.get(1))
-                                    == Some(&step)
-                                    || step == journey.destination_location_id
-                            }))
-            });
-            if follows_generated_way {
-                return self
-                    .journey_advancing_offer(actor_id, std::slice::from_ref(offer))
-                    .is_some();
-            }
-            return (offer.kind == "move" || offer.kind == "explore_path") && target_id == next;
+            let scouts_next_segment = offer.kind == "explore_path"
+                && self.generated_pathways.values().any(|pathway| {
+                    if target_id != Some(pathway.destination_location_id) {
+                        return false;
+                    }
+                    let path = std::iter::once(pathway.origin_location_id)
+                        .chain(pathway.waypoints.iter().map(|waypoint| waypoint.id))
+                        .chain(std::iter::once(pathway.destination_location_id))
+                        .collect::<Vec<_>>();
+                    path.windows(2)
+                        .any(|edge| edge[0] == actor.location_id && Some(edge[1]) == next)
+                });
+            return ((offer.kind == "move" || offer.kind == "explore_path") && target_id == next)
+                || scouts_next_segment;
         }
         if self.journey_rest_destination(actor_id, stage).is_some() {
             return offer.kind == "rest";
