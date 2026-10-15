@@ -103,6 +103,8 @@ do not define V2 behavior.
 
 ## Planning documents
 
+- **[Avatar simulation redesign](design/avatar-simulation-redesign.md)** — proposed play centred on one guided avatar, an independent cast, and chat and cards with a clear purpose; includes a local interactive prototype.
+
 - **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
   account-owned Species, Class, and Origin cards, classless level-zero arrival,
   first-action Class reveal, world discovery, new-tale lifecycle, and migration
