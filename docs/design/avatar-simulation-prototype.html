@@ -128,7 +128,7 @@
     log: [
       { who: 'Rati', line: 'I have enough soup for everyone. I would love some company.' },
       { who: 'Mara', line: 'Pip’s brass ring would fit my lantern. I miss reading under the pear tree.' },
-      { who: 'Pip', line: 'I like my shiny ring. A cup of mint tea might tempt me to swap.' }
+      { who: 'Pip', line: 'I like my shiny ring. A cup of mint tea might tempt me to swap. I could use company, too.' }
     ]
   };
   const say = (who, line, reason = '') => state.log.push({ who, line, reason });
@@ -155,7 +155,7 @@
       run: () => { state.carriedMint -= 1; state.potMint = true; say('Briony', 'Would this mint go well with the soup?'); say('Rati', 'Just what it needed. I’ll stir it in.'); remember('Rati flavoured the shared supper with Briony’s mint.'); }
     },
     trade: {
-      label: 'Offer Pip mint for the brass ring', reason: 'Pip has said he would trade for mint tea.', focus: 'pip',
+      label: 'Offer Pip mint for the brass ring', reason: 'Pip likes mint tea. This offers something he values.', focus: 'pip',
       available: () => state.carriedMint > 0 && state.ring === 'Pip',
       run: () => { state.carriedMint -= 1; state.ring = 'Briony'; state.pipTea = true; say('Briony', 'My mint for your ring?'); say('Pip', 'Gladly. Mara will put it to good use.'); remember('Pip agreed to trade his brass ring for Briony’s mint.'); }
     },
