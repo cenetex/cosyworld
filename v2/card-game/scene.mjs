@@ -133,10 +133,13 @@ export function sceneScript(world) {
       itemId: e.itemId || null,
       targetId: e.targetId || null,
       receiveId: e.receiveId || null,
+      questPlan: e.questPlan ? structuredClone(e.questPlan) : null,
       quest:
         e.kind === "quest"
           ? {
               programId: e.programId,
+              program: e.program ? structuredClone(e.program) : null,
+              target: e.target ? structuredClone(e.target) : null,
               step: e.step,
               level: e.level,
               hand: e.fulfillment ? structuredClone(e.fulfillment) : null,

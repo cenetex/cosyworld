@@ -4,6 +4,10 @@ import {
   programFor,
   desireFor,
   levelOf,
+  targetsFor,
+  alternatives,
+  generateProgram,
+  sequence,
 } from "./quests.mjs";
 // The playable slice uses one rule path for the guided avatar and the cast.
 export const places = {
@@ -61,7 +65,7 @@ export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld() {
   return {
-    schema: 2,
+    schema: 3,
     turn: 0,
     revision: 0,
     eventSeq: 1,
@@ -225,37 +229,126 @@ export function tradeOffers(s, actor) {
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
   for (const actor of actorIds) {
-    if (!met.has(actor) && programFor(s, actor) && handStatus(s, actor).met) {
+    const target = targetsFor(s, actor).find(
+      (h) => handStatus(s, actor, h).met,
+    );
+    if (!met.has(actor) && target) {
       met.set(actor, {
-        items: carried(s, actor),
-        location: s.actors[actor].place,
-        avatars: actorIds.filter(
-          (id) => id !== actor && s.actors[id].place === s.actors[actor].place,
-        ),
+        target: structuredClone(target),
+        fulfillment: {
+          items: carried(s, actor),
+          location: s.actors[actor].place,
+          avatars: actorIds.filter(
+            (id) =>
+              id !== actor && s.actors[id].place === s.actors[actor].place,
+          ),
+        },
       });
     }
   }
 }
+function ensurePrograms(s) {
+  const basis = structuredClone(s);
+  for (const actor of actorIds) {
+    const p = s.actors[actor].progress;
+    if (p.program >= questPrograms[actor].length && !p.current) {
+      p.completedHands ??= questPrograms[actor].reduce(
+        (n, program) => n + program.steps.length,
+        0,
+      );
+      p.recent ??= [];
+      p.current = generateProgram(basis, actor, places, things);
+    }
+  }
+}
+// Cast members reconsider an unfinished bargain after twelve turns. Keep the
+// completed prefix; every remaining hand still needs a real world match.
+function refreshStalledPrograms(s) {
+  const basis = structuredClone(s);
+  for (const actor of actorIds.filter((id) => id !== "vale")) {
+    const p = s.actors[actor].progress,
+      current = programFor(s, actor);
+    if (
+      !current?.generated ||
+      s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
+    )
+      continue;
+    const fresh = generateProgram(basis, actor, places, things, {
+      independent: true,
+    });
+    const unfinished = fresh.steps.filter(
+      (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
+    );
+    if (!unfinished.length) continue;
+    p.current = {
+      ...fresh,
+      steps: sequence(
+        current.steps.slice(0, p.step),
+        unfinished.slice(0, current.steps.length - p.step),
+      ),
+    };
+    addLog(
+      s,
+      "World",
+      `${nameOf(actor)} finds a new purpose: ${handText(desireFor(s, actor))}.`,
+      {
+        actorId: actor,
+        questPlan: structuredClone(p.current),
+      },
+    );
+  }
+}
 function advancePrograms(s, met) {
-  for (const [actor, fulfillment] of met) {
+  const receipts = [];
+  for (const [actor, evidence] of met) {
     const progress = s.actors[actor].progress,
-      program = programFor(s, actor);
-    const step = progress.step;
+      program = programFor(s, actor),
+      step = progress.step,
+      programIndex = progress.program;
     progress.marks.push(s.turn);
+    progress.marks = progress.marks.slice(-32);
     progress.step += 1;
-    let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
-    if (progress.step === program.steps.length) {
+    const complete = progress.step === program.steps.length;
+    if (complete) {
+      if (program.generated) {
+        progress.completedHands += program.steps.length;
+        progress.recent = [...progress.recent, program.generated.item].slice(
+          -4,
+        );
+        delete progress.current;
+      }
       progress.program += 1;
       progress.step = 0;
-      text += ` Level ${levelOf(s, actor)}.`;
     }
-    if (programFor(s, actor))
-      text += ` Next: ${handText(desireFor(s, actor))}.`;
-    else text += " Both quest programs are complete.";
+    receipts.push({
+      actor,
+      program,
+      step,
+      programIndex,
+      complete,
+      ...evidence,
+    });
+  }
+  ensurePrograms(s);
+  for (const {
+    actor,
+    program,
+    step,
+    programIndex,
+    complete,
+    target,
+    fulfillment,
+  } of receipts) {
+    let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
+    if (complete) text += ` Level ${levelOf(s, actor)}.`;
+    text += ` Next: ${handText(desireFor(s, actor))}.`;
     addLog(s, "World", text, {
       kind: "quest",
       actorId: actor,
       programId: program.id,
+      program: structuredClone(program),
+      programIndex,
+      target,
       fulfillment,
       step,
       level: levelOf(s, actor),
@@ -647,44 +740,78 @@ export function plan(s, actor = "vale") {
     action ? { action, reason } : idle(reason);
   const missing = hand.items.filter((id) => rootHolder(s, id) !== actor);
   const reason = `Seek this hand: ${handText(hand)}.`;
-  for (const item of missing) {
-    if (itemPlace(s, item) !== here) continue;
-    const take = find("take", item);
-    if (take) return choose(take, reason);
-    const trade = acts.find(
-      (a) =>
-        a.kind === "trade" &&
-        bundle(s, a.receive).includes(item) &&
-        !needed(s, actor, a.item),
-    );
-    if (trade) return choose(trade, reason);
-    const owner = rootHolder(s, item);
-    if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
+  const acquire = (item, seen = new Set()) => {
+    if (seen.has(item) || rootHolder(s, item) === actor) return null;
+    seen = new Set([...seen, item]);
+    const owner = rootHolder(s, item),
+      local = itemPlace(s, item) === here;
+    if (local) {
+      const take = find("take", item);
+      if (take) return choose(take, reason);
+      const trade = acts.find(
+        (a) =>
+          a.kind === "trade" &&
+          bundle(s, a.receive).includes(item) &&
+          !needed(s, actor, a.item),
+      );
+      if (trade) return choose(trade, reason);
       let heldItem = item;
       while (s.items[s.items[heldItem].holder])
         heldItem = s.items[heldItem].holder;
       const ask = find("ask", heldItem);
-      if (ask)
-        return choose(
-          ask,
-          `Ask ${nameOf(owner)} for ${nameOf(item)}. ${reason}`,
+      if (ask && willingToGive(s, owner, heldItem)) return choose(ask, reason);
+      if (!hasSpace(s, actor, item)) {
+        const drop = acts.find(
+          (a) => a.kind === "drop" && !needed(s, actor, a.item),
         );
+        if (drop) return choose(drop, "Make room for the target hand.");
+        if (
+          rootHolder(s, "cloth") === actor &&
+          !hand.items.includes("cloth") &&
+          find("take", "cloth")
+        )
+          return choose(
+            find("take", "cloth"),
+            "Uncover the object to make room.",
+          );
+      }
     }
-    if (!hasSpace(s, actor, item)) {
-      const drop = acts.find(
-        (a) => a.kind === "drop" && !needed(s, actor, a.item),
-      );
-      if (drop) return choose(drop, "Make room for the target hand.");
-      if (rootHolder(s, "cloth") === actor && !hand.items.includes("cloth"))
-        return choose(
-          find("take", "cloth"),
-          "Uncover the object to make room.",
-        );
+    // A desired item can require another item as payment. Follow that need
+    // through the same take, travel and trade rules, with cycle detection.
+    if (
+      programFor(s, actor)?.generated &&
+      actorIds.includes(owner) &&
+      !needed(s, owner, item)
+    ) {
+      for (const payment of desireFor(s, owner).items) {
+        if (!hand.items.includes(payment) && rootHolder(s, payment) !== owner) {
+          const purchase = acquire(payment, seen);
+          if (purchase)
+            return {
+              ...purchase,
+              reason: `Seek ${nameOf(payment)} to trade for ${nameOf(item)}.`,
+            };
+        }
+      }
     }
+    if (!local) return choose(toward(s, actor, itemPlace(s, item)), reason);
+    if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
+      let heldItem = item;
+      while (s.items[s.items[heldItem].holder])
+        heldItem = s.items[heldItem].holder;
+      if (find("ask", heldItem)) return choose(find("ask", heldItem), reason);
+    }
+    return null;
+  };
+  for (const item of missing
+    .slice()
+    .sort(
+      (a, b) =>
+        Number(itemPlace(s, b) === here) - Number(itemPlace(s, a) === here),
+    )) {
+    const next = acquire(item);
+    if (next) return next;
   }
-  const elsewhere = missing.find((id) => itemPlace(s, id) !== here);
-  if (elsewhere)
-    return choose(toward(s, actor, itemPlace(s, elsewhere)), reason);
   if (missing.length) return idle(reason);
   // Item affordances also apply when an avatar carries its target hand.
   if (hand.items.includes("lamp") && rootHolder(s, "lamp") === actor) {
@@ -764,8 +891,66 @@ export function play(s, action, expectedRevision = s.revision) {
         : "The reflected path closes. The paths through the station remain open.",
     );
   advancePrograms(next, met);
+  refreshStalledPrograms(next);
   validateWorld(next);
   return { ok: true, state: next };
+}
+function validHand(h, actor) {
+  return (
+    h &&
+    Array.isArray(h.items) &&
+    h.items.length <= 3 &&
+    new Set(h.items).size === h.items.length &&
+    h.items.every((id) => ids.includes(id)) &&
+    (h.location === null || Object.hasOwn(places, h.location)) &&
+    Array.isArray(h.avatars) &&
+    h.avatars.length <= 2 &&
+    new Set(h.avatars).size === h.avatars.length &&
+    h.avatars.every((id) => actorIds.includes(id) && id !== actor)
+  );
+}
+function validProgram(p, actor, s) {
+  if (
+    !p ||
+    !actorIds.includes(actor) ||
+    typeof p.id !== "string" ||
+    p.id.length > 80 ||
+    !p.id.length ||
+    typeof p.name !== "string" ||
+    p.name.length > 100 ||
+    !p.name.length ||
+    !Array.isArray(p.steps) ||
+    !p.steps.length ||
+    p.steps.length > 12
+  )
+    return false;
+  for (const step of p.steps) {
+    const options = step?.any ?? [step];
+    if (
+      !Array.isArray(options) ||
+      !options.length ||
+      options.length > 6 ||
+      !options.every((h) => validHand(h, actor))
+    )
+      return false;
+  }
+  if (p.generated) {
+    const g = p.generated;
+    if (
+      !Number.isSafeInteger(g.turn) ||
+      g.turn < 0 ||
+      g.turn > s.turn ||
+      !Number.isSafeInteger(g.level) ||
+      g.level < 3 ||
+      g.level > s.turn + 1 ||
+      !ids.includes(g.item) ||
+      ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
+      !actorIds.includes(g.partner) ||
+      g.partner === actor
+    )
+      return false;
+  }
+  return true;
 }
 export function validateWorld(s) {
   const fail = () => {
@@ -775,7 +960,7 @@ export function validateWorld(s) {
   };
   if (
     !s ||
-    s.schema !== 2 ||
+    s.schema !== 3 ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
@@ -804,23 +989,45 @@ export function validateWorld(s) {
       programs = questPrograms[id];
     if (
       !progress ||
-      !Number.isInteger(progress.program) ||
+      !Number.isSafeInteger(progress.program) ||
       progress.program < 0 ||
-      progress.program > programs.length ||
+      progress.program > s.turn ||
       !Number.isInteger(progress.step) ||
-      progress.step < 0 ||
-      (progress.program === programs.length
-        ? progress.step !== 0
-        : progress.step >= programs[progress.program].steps.length)
+      progress.step < 0
     )
       fail();
-    const count =
-      programs
-        .slice(0, progress.program)
-        .reduce((n, p) => n + p.steps.length, 0) + progress.step;
+    const program = programFor(s, id);
+    if (!validProgram(program, id, s) || progress.step >= program.steps.length)
+      fail();
+    let completed = programs
+      .slice(0, progress.program)
+      .reduce((n, p) => n + p.steps.length, 0);
+    if (progress.program >= programs.length) {
+      if (
+        !Number.isSafeInteger(progress.completedHands) ||
+        progress.completedHands <
+          completed + (progress.program - programs.length) ||
+        progress.completedHands >
+          completed + 12 * (progress.program - programs.length) ||
+        program.id !== `generated-${id}-${levelOf(s, id)}` ||
+        program.generated?.level !== levelOf(s, id) ||
+        !Array.isArray(progress.recent) ||
+        progress.recent.length > 4 ||
+        progress.recent.some((item) => !ids.includes(item))
+      )
+        fail();
+      completed = progress.completedHands;
+    } else if (
+      progress.current ||
+      progress.completedHands !== undefined ||
+      progress.recent !== undefined
+    )
+      fail();
+    const count = completed + progress.step;
     if (
+      count > s.turn ||
       !Array.isArray(progress.marks) ||
-      progress.marks.length !== count ||
+      progress.marks.length !== Math.min(32, count) ||
       progress.marks.some(
         (turn, i) =>
           !Number.isSafeInteger(turn) ||
@@ -831,6 +1038,7 @@ export function validateWorld(s) {
     )
       fail();
   }
+
   for (const [id, item] of Object.entries(s.items)) {
     if (
       ![
@@ -923,41 +1131,57 @@ export function validateWorld(s) {
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (e.itemId != null && !ids.includes(e.itemId)) fail();
     if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
+    if (e.questPlan !== undefined && !validProgram(e.questPlan, e.actorId, s))
+      fail();
     if (e.kind === "quest") {
-      const program = questPrograms[e.actorId]?.find(
+      const authoredIndex = questPrograms[e.actorId]?.findIndex(
         (p) => p.id === e.programId,
       );
+      const program = e.program || questPrograms[e.actorId]?.[authoredIndex];
+      const index = e.programIndex ?? authoredIndex;
       if (
-        !program ||
+        !validProgram(program, e.actorId, s) ||
+        program.id !== e.programId ||
+        !Number.isSafeInteger(index) ||
+        index < 0 ||
+        index > s.actors[e.actorId].progress.program ||
         !Number.isInteger(e.step) ||
         e.step < 0 ||
         e.step >= program.steps.length ||
-        !Number.isInteger(e.level) ||
-        e.level < 1 ||
-        e.level > 3
+        e.level !== index + 1 + Number(e.step === program.steps.length - 1) ||
+        (program.generated &&
+          (program.generated.level !== index + 1 ||
+            program.id !== `generated-${e.actorId}-${index + 1}`))
       )
         fail();
-    }
-    if (e.kind === "quest" && e.fulfillment !== undefined) {
-      const target = questPrograms[e.actorId].find((p) => p.id === e.programId)
-          .steps[e.step],
-        seen = e.fulfillment;
+      const options = alternatives(program.steps[e.step]),
+        target = e.target || options[0];
       if (
-        !seen ||
-        !Array.isArray(seen.items) ||
-        seen.items.length > 3 ||
-        new Set(seen.items).size !== seen.items.length ||
-        seen.items.some((id) => !ids.includes(id)) ||
-        !Object.hasOwn(places, seen.location) ||
-        !Array.isArray(seen.avatars) ||
-        seen.avatars.length > 2 ||
-        new Set(seen.avatars).size !== seen.avatars.length ||
-        seen.avatars.some((id) => !actorIds.includes(id) || id === e.actorId) ||
-        target.items.some((id) => !seen.items.includes(id)) ||
-        (target.location && target.location !== seen.location) ||
-        target.avatars.some((id) => !seen.avatars.includes(id))
+        !validHand(target, e.actorId) ||
+        !options.some((h) => JSON.stringify(h) === JSON.stringify(target))
       )
         fail();
+      if (e.fulfillment !== undefined) {
+        const seen = e.fulfillment;
+        if (
+          !seen ||
+          !Array.isArray(seen.items) ||
+          seen.items.length > 3 ||
+          new Set(seen.items).size !== seen.items.length ||
+          seen.items.some((id) => !ids.includes(id)) ||
+          !Object.hasOwn(places, seen.location) ||
+          !Array.isArray(seen.avatars) ||
+          seen.avatars.length > 2 ||
+          new Set(seen.avatars).size !== seen.avatars.length ||
+          seen.avatars.some(
+            (id) => !actorIds.includes(id) || id === e.actorId,
+          ) ||
+          target.items.some((id) => !seen.items.includes(id)) ||
+          (target.location && target.location !== seen.location) ||
+          target.avatars.some((id) => !seen.avatars.includes(id))
+        )
+          fail();
+      }
     }
     if (
       e.targetId != null &&
@@ -1001,6 +1225,27 @@ export function decodeSave(text) {
         delete actor.aim;
       }
     }
+  }
+  if (s?.schema === 2) {
+    for (const [id, actor] of Object.entries(s.actors || {})) {
+      const p = actor?.progress,
+        programs = questPrograms[id];
+      if (
+        !programs ||
+        !p ||
+        !Number.isInteger(p.program) ||
+        p.program < 0 ||
+        p.program > programs.length ||
+        !Number.isInteger(p.step) ||
+        p.step < 0 ||
+        (p.program === programs.length
+          ? p.step !== 0
+          : p.step >= programs[p.program].steps.length)
+      )
+        throw new Error("This save has an invalid quest step.");
+    }
+    s.schema = 3;
+    ensurePrograms(s);
   }
   return validateWorld(s);
 }

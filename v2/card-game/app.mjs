@@ -17,7 +17,14 @@ import {
 } from "./world.mjs";
 import { currentScene, sceneScript, portrait } from "./scene.mjs";
 import { availableCards, cardType, cardPlay, playLabel } from "./cards.mjs";
-import { questPrograms, desireFor, programFor, levelOf } from "./quests.mjs";
+import {
+  questPrograms,
+  desireFor,
+  programFor,
+  levelOf,
+  targetsFor,
+  alternatives,
+} from "./quests.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
@@ -141,7 +148,7 @@ function card(id) {
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   el.title =
     type === "avatar"
-      ? `${def.text} ${programFor(world, id)?.name || "Programs complete"}. ${handText(desireFor(world, id))}.`
+      ? `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
       : def.text;
   el.append(
     node(
@@ -177,7 +184,7 @@ function card(id) {
       progress = world.actors[id].progress;
     caption = program
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
-      : "Both programs complete";
+      : "Next journey";
     detail = handText(desireFor(world, id));
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
@@ -224,6 +231,15 @@ function card(id) {
         ? target.avatars.map((e) => ({ ...e, text: nameOf(e.id) }))
         : [{ met: true, text: "Any company" }],
     );
+    const choices = targetsFor(world, id);
+    if (choices.length > 1)
+      info.append(
+        node(
+          "span",
+          `${choices.length} possible hands · Menu shows choices`,
+          "trade-offers",
+        ),
+      );
     const offers = tradeOffers(world, id);
     if (id !== "vale")
       info.append(
@@ -415,12 +431,36 @@ $("history-button").onclick = () => {
 };
 $("menu-button").onclick = () => {
   $("quest-guide").replaceChildren(
-    ...questPrograms.vale.map((program, index) => {
+    ...[
+      ...questPrograms.vale.map((program, index) => ({
+        program,
+        index,
+        actor: "vale",
+      })),
+      ...(world.actors.vale.progress.current
+        ? [
+            {
+              actor: "vale",
+              program: programFor(world, "vale"),
+              index: world.actors.vale.progress.program,
+            },
+          ]
+        : []),
+      ...Object.keys(people)
+        .filter((id) => id !== "vale")
+        .map((actor) => ({
+          actor,
+          program: programFor(world, actor),
+          index: world.actors[actor].progress.program,
+        })),
+    ].map(({ program, index, actor }) => {
       const block = node("section", undefined, "quest-guide-program");
-      block.append(node("h3", `${program.name} · Level ${index + 2}`));
+      block.append(
+        node("h3", `${nameOf(actor)} · ${program.name} · Level ${index + 2}`),
+      );
       const steps = node("ol");
       for (const [i, hand] of program.steps.entries()) {
-        const progress = world.actors.vale.progress;
+        const progress = world.actors[actor].progress;
         const done =
           progress.program > index ||
           (progress.program === index && progress.step > i);
@@ -428,7 +468,7 @@ $("menu-button").onclick = () => {
         steps.append(
           node(
             "li",
-            `${done ? "✓ " : current ? "Now: " : ""}${handText(hand)}`,
+            `${done ? "✓ " : current ? "Now: " : ""}${alternatives(hand).map(handText).join(" OR ")}`,
           ),
         );
       }
