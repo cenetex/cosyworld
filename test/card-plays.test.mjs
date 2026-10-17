@@ -19,6 +19,7 @@ describe("playing the world through cards", () => {
   it("offers reachable items, local avatars, exits and the current place", () => {
     let s = createWorld();
     expect(availableCards(s)).toEqual([
+      "vale",
       "lamp",
       "bell",
       "attic",
@@ -27,13 +28,13 @@ describe("playing the world through cards", () => {
     ]);
     s = cards(s, "lamp");
     expect(availableCards(s)).toContain("moth");
-    expect(availableCards(s)).not.toContain("keeper");
+    expect(availableCards(s)).toContain("keeper");
     s = cards(s, "attic");
     expect(availableCards(s)).toEqual([
+      "vale",
       "lamp",
-      "oil",
+      "cloth",
       "moth",
-      "keeper",
       "station",
       "attic",
     ]);
@@ -51,7 +52,10 @@ describe("playing the world through cards", () => {
     expect(cards(s, "lamp").items.lamp.holder).toBe("vale");
   });
   it("plays a route using light, oil, a reflected path, and a cloth", () => {
-    let s = cards(createWorld(), "lamp");
+    const start = createWorld();
+    start.items.oil.holder = "vale";
+    start.items.cloth.holder = "vale";
+    let s = cards(start, "lamp");
     s = cards(s, "lamp", "attic");
     s = cards(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
@@ -91,7 +95,9 @@ describe("playing the world through cards", () => {
     expect(cardPlay(s, ["bell", "pond"]).action).toBeFalsy();
   });
   it("rings a carried bell and covers it with a cloth", () => {
-    let s = cards(createWorld(), "bell");
+    const start = createWorld();
+    start.items.cloth.holder = "pond";
+    let s = cards(start, "bell");
     s = cards(s, "bell");
     expect(s.items.bell.ringing).toBe(2);
     expect(s.actors.keeper.place).toBe("station");
@@ -111,8 +117,9 @@ describe("playing the world through cards", () => {
     s = createWorld();
     s.actors.keeper.place = "station";
     s.items.bell.holder = "keeper";
-    s = cards(s, "bell");
-    expect(s.items.bell.holder).toBe("vale");
+    s = cards(s, "oil");
+    expect(s.items.oil.holder).toBe("vale");
+    s.items.bell.holder = "vale";
     s.items.lamp.holder = "vale";
     s.items.oil.holder = "vale";
     s.items.cloth.holder = "station";

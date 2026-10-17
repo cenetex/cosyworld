@@ -1,3 +1,4 @@
+import { desireFor } from "./quests.mjs";
 import {
   places,
   people,
@@ -8,11 +9,13 @@ import {
   rootHolder,
   exits,
   covered,
+  handText,
 } from "./world.mjs";
 
 export function availableCards(world) {
   const here = world.actors.vale.place;
   return [
+    "vale",
     ...Object.keys(things)
       .filter((id) => itemPlace(world, id) === here)
       .sort(
@@ -57,7 +60,10 @@ export function cardPlay(world, selected) {
         `Travel to ${nameOf(id)}.`,
       );
     if (people[id])
-      return result(find("talk", null, id), `Meet ${nameOf(id)} here.`);
+      return result(
+        id === "vale" ? find("wait") : find("talk", null, id),
+        `Meet ${nameOf(id)} here.`,
+      );
     const holder = world.items[id].holder;
     if (people[rootHolder(world, id)] && rootHolder(world, id) !== "vale")
       return result(find("ask", id), `Make room to ask for the ${nameOf(id)}.`);
@@ -100,15 +106,32 @@ export function cardPlay(world, selected) {
       find("give", item, avatar) || find("ask", item, avatar),
       `${nameOf(avatar)} seeks a different item, or needs carrying space.`,
     );
+  const trade = actions.find(
+    (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
+  );
+  if (trade) return result(trade);
   const action = actions.find(
     (a) =>
       ["cover", "refill"].includes(a.kind) &&
       a.cards.length === cards.length &&
       cards.every((id) => a.cards.includes(id)),
   );
+  const heldByOther = cards.find(
+    (id) =>
+      things[id] &&
+      people[rootHolder(world, id)] &&
+      rootHolder(world, id) !== "vale",
+  );
+  if (!action && heldByOther)
+    return result(
+      null,
+      `${nameOf(rootHolder(world, heldByOther))} wants to ${handText(desireFor(world, rootHolder(world, heldByOther)))}.`,
+    );
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 export function playLabel(action) {
+  if (action?.kind === "trade")
+    return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
   return {
     take: "Take",
     drop: "Put down",

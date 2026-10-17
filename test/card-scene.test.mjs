@@ -62,9 +62,12 @@ describe("JRPG scenes", () => {
     expect(currentScene(s, spoken).slots).toEqual(["vale", "moth"]);
     expect(currentScene(s).slots).toEqual(["vale", null]);
   });
-  it("lets Pip seek oil and refill a lamp that has burned dry", () => {
+  it("lets an avatar refill its target lamp with reachable oil", () => {
     let s = createWorld();
-    for (let i = 0; i < 16; i++) s = act(s, "wait");
+    s.items.lamp.holder = "moth";
+    s.items.lamp.fuel = 0;
+    s.items.oil.holder = "moth";
+    s = act(s, "wait");
     expect(s.items.oil.doses).toBeLessThan(3);
     expect(s.items.lamp.fuel).toBeGreaterThan(0);
     expect(s.log.some((e) => e.actorId === "moth" && e.verb === "refill")).toBe(
@@ -126,7 +129,8 @@ describe("JRPG scenes", () => {
     expect(sceneScript(s).beats.at(-1).kind).toBe("hint");
     s = act(s, "take", "lamp");
     s = act(s, "talk", null, "moth");
-    expect(currentScene(s).activeSpeaker).toBe("vale");
+    const spoken = s.log.findLastIndex((e) => e.kind === "dialogue");
+    expect(currentScene(s, spoken).activeSpeaker).toBe("vale");
     expect(
       sceneLines(s).some((e) => e.actorId === "moth" && e.kind === "dialogue"),
     ).toBe(true);

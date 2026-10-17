@@ -286,12 +286,12 @@ h1 {
   margin-right: auto;
 }
 .card {
-  flex: 0 0 166px;
-  width: 166px;
-  height: 172px;
+  flex: 0 0 190px;
+  width: 190px;
+  height: 224px;
   display: grid;
   grid-template-columns: 46px 1fr;
-  grid-template-rows: 16px 34px 23px 36px 1fr;
+  grid-template-rows: 16px 34px 34px 80px 1fr;
   gap: 0 8px;
   text-align: left;
   padding: 9px 10px;
@@ -481,8 +481,8 @@ h2 {
     gap: 16px;
   }
   .card {
-    flex-basis: 178px;
-    width: 178px;
+    flex-basis: 194px;
+    width: 194px;
   }
 }
 @media (max-width: 700px) {
@@ -549,11 +549,11 @@ h2 {
     gap: 8px;
   }
   .card {
-    flex-basis: 148px;
-    width: 148px;
-    height: 162px;
+    flex-basis: 174px;
+    width: 174px;
+    height: 210px;
     grid-template-columns: 36px 1fr;
-    grid-template-rows: 16px 30px 22px 34px 1fr;
+    grid-template-rows: 16px 30px 30px 76px 1fr;
     padding: 7px 8px;
     gap: 0 6px;
   }
@@ -611,4 +611,49 @@ h2 {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+.hand-condition {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+.condition-label {
+  color: #bcb5c4;
+  min-width: 24px;
+}
+.hand-token {
+  color: #e9d9bd;
+}
+.hand-token[data-met="true"] {
+  color: #a5d6af;
+}
+.trade-offers {
+  display: block;
+  margin-top: 5px;
+  color: #dfc38d;
+  font-size: 9px;
+}
+.card .state {
+  line-height: 1.25;
+}
+.card.avatar .caption {
+  color: #e6d9c5;
+  font-size: 9px;
+}
+.quest-guide-program {
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+}
+.quest-guide-program h3 {
+  font:
+    18px Georgia,
+    serif;
+  color: var(--gold);
+}
+.quest-guide-program li {
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.5;
 }

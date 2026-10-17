@@ -103,7 +103,7 @@ do not define V2 behavior.
 
 ## Planning documents
 
-- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a playable whimsical cosmic horror slice played through one row of avatar, item, and location cards.
+- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a playable whimsical cosmic horror slice with target-hand desires, card trades, and quest programs that earn levels.
 - **[Design research](design/avatar-item-location-research.md)** — V1 source findings, card games, OSR play, world construction, character simulation, and V2 reuse.
 
 - **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
