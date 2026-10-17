@@ -859,3 +859,8 @@ h2 {
     bottom: -95px;
   }
 }
+@media (max-width: 700px) and (min-height: 651px) {
+  .portrait img {
+    bottom: -145px;
+  }
+}

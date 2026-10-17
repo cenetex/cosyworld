@@ -103,7 +103,7 @@ do not define V2 behavior.
 
 ## Planning documents
 
-- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a proposed whimsical cosmic horror game built from simple world rules, chat, and persistent cards.
+- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a playable whimsical cosmic horror slice with a scene, chat, and one row of cards.
 - **[Design research](design/avatar-item-location-research.md)** — V1 source findings, card games, OSR play, world construction, character simulation, and V2 reuse.
 
 - **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
