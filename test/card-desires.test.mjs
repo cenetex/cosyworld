@@ -132,6 +132,17 @@ describe("target hands and quest programs", () => {
         .quest.hand,
     ).toEqual(receipt.fulfillment);
   });
+  it("records a ready hand when the next play leaves its place", () => {
+    let s = createWorld();
+    s.items.lamp.holder = "vale";
+    s.actors.moth.place = "station";
+    s = cards(s, "attic");
+    expect(s.actors.vale.progress).toEqual({ program: 0, step: 1, marks: [1] });
+    expect(
+      s.log.find((e) => e.kind === "quest" && e.actorId === "vale").fulfillment
+        .location,
+    ).toBe("station");
+  });
   it("keeps later hands pending until their program step is active", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
@@ -279,6 +290,41 @@ describe("card trade rules", () => {
     s = cards(s, "vale");
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.items.bell.holder).toBe("keeper");
+  });
+  it("seeks a desired cover through the object its owner holds", () => {
+    const s = createWorld();
+    s.turn = 4;
+    s.revision = 4;
+    s.actors.moth.progress = { program: 1, step: 0, marks: [1, 2] };
+    s.actors.keeper.progress = { program: 1, step: 1, marks: [1, 2, 3] };
+    s.actors.moth.place = "station";
+    s.actors.keeper.place = "station";
+    s.items.bell.holder = "keeper";
+    s.items.cloth.holder = "bell";
+    s.items.oil.holder = "moth";
+    expect(() => validateWorld(s)).not.toThrow();
+    expect(plan(s, "moth").action).toMatchObject({
+      kind: "trade",
+      item: "oil",
+      receive: "bell",
+      target: "keeper",
+    });
+    expect(cardPlay(s, ["cloth"]).hint).toContain("Bell");
+  });
+  it("uses the cloth on the ringing bell when several objects can be covered", () => {
+    const s = createWorld();
+    s.turn = 1;
+    s.revision = 1;
+    s.actors.keeper.progress = { program: 0, step: 1, marks: [1] };
+    for (const id of ["lamp", "bell", "cloth"]) s.items[id].holder = "keeper";
+    s.items.bell.ringing = 2;
+    s.items.oil.holder = "station";
+    expect(() => validateWorld(s)).not.toThrow();
+    expect(plan(s, "keeper").action).toMatchObject({
+      kind: "cover",
+      item: "cloth",
+      target: "bell",
+    });
   });
   it("rechecks offers against current custody and ignores forged payload fields", () => {
     let s = playRoute(createWorld(), firstProgram.slice(0, 2));

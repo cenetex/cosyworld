@@ -66,7 +66,12 @@ export function cardPlay(world, selected) {
       );
     const holder = world.items[id].holder;
     if (people[rootHolder(world, id)] && rootHolder(world, id) !== "vale")
-      return result(find("ask", id), `Make room to ask for the ${nameOf(id)}.`);
+      return result(
+        find("ask", id),
+        things[holder]
+          ? `Play ${nameOf(holder)} to ask for the covered pair.`
+          : `Make room to ask for the ${nameOf(id)}.`,
+      );
     if (holder !== "vale")
       return result(
         find("take", id),

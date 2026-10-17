@@ -172,7 +172,7 @@ export function handText(hand) {
   return [
     hand.items.length
       ? `hold ${hand.items.map(nameOf).join(" + ")}`
-      : "hands free to choose",
+      : "hold any items",
     hand.location ? `at ${nameOf(hand.location)}` : "in any place",
     hand.avatars.length
       ? `with ${hand.avatars.map(nameOf).join(" + ")}`
@@ -635,9 +635,12 @@ export function plan(s, actor = "vale") {
   const acts = legalActions(s, actor),
     hand = desireFor(s, actor);
   const here = s.actors[actor].place;
-  const find = (kind, item) =>
+  const find = (kind, item, target) =>
     acts.find(
-      (a) => a.kind === kind && (item === undefined || a.item === item),
+      (a) =>
+        a.kind === kind &&
+        (item === undefined || a.item === item) &&
+        (target === undefined || a.target === target),
     );
   const idle = (reason) => ({ action: acts[0], reason });
   const choose = (action, reason) =>
@@ -650,12 +653,17 @@ export function plan(s, actor = "vale") {
     if (take) return choose(take, reason);
     const trade = acts.find(
       (a) =>
-        a.kind === "trade" && a.receive === item && !needed(s, actor, a.item),
+        a.kind === "trade" &&
+        bundle(s, a.receive).includes(item) &&
+        !needed(s, actor, a.item),
     );
     if (trade) return choose(trade, reason);
     const owner = rootHolder(s, item);
     if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
-      const ask = find("ask", item);
+      let heldItem = item;
+      while (s.items[s.items[heldItem].holder])
+        heldItem = s.items[heldItem].holder;
+      const ask = find("ask", heldItem);
       if (ask)
         return choose(
           ask,
@@ -691,9 +699,9 @@ export function plan(s, actor = "vale") {
     hand.items.includes("cloth") &&
     rootHolder(s, "bell") === actor &&
     s.items.bell.ringing &&
-    find("cover", "cloth")
+    find("cover", "cloth", "bell")
   )
-    return choose(find("cover", "cloth"), "Wrap the ringing bell.");
+    return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
   if (hand.location && here !== hand.location)
     return choose(toward(s, actor, hand.location), reason);
   return idle(
@@ -726,6 +734,7 @@ export function play(s, action, expectedRevision = s.revision) {
   if (exact.kind === "wait")
     addLog(next, "World", "Vale waits. The cast takes a turn.");
   const met = new Map();
+  captureHands(next, met);
   perform(next, exact);
   captureHands(next, met);
   for (const actor of ["moth", "keeper"]) {

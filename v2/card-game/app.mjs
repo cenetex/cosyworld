@@ -231,7 +231,9 @@ function card(id) {
           "span",
           offers.length
             ? `Offers: ${offers.map(nameOf).join(", ")}`
-            : "Keeps this hand",
+            : target.met
+              ? "Hand complete"
+              : "Seeking this hand",
           "trade-offers",
         ),
       );
