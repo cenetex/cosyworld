@@ -80,7 +80,7 @@ The location image fills the stage. Two character cutouts sit above a dialogue b
 
 This follows the staging in Ruby High's `ruby2/visual-scene/VISUAL_LANGUAGE.md` and its painted scene mockups, inspected at `eec6ce23`. Ruby High separates world events, performance, and scene layout. The two-speaker rule is the current CosyWorld design. The cutouts and backgrounds are newly generated for this slice; [art prompts and files](../../v2/card-game/assets/PROVENANCE.md) record their source.
 
-Original CosyWorld at `1f8b46bb` supplies the media path: `SceneCameraTool.mjs` gathered location and avatar references, while `VideoCameraTool.mjs` turned recent chat into a motion prompt. Its story service also kept ordered scene beats. The slice records stable event IDs, speakers, locations, acts, targets, local cast, object custody, and light. **History → Save scene script** exports those records with asset references and timing hints. The last 100 records are retained; the export marks a truncated history. Future image and video renderers can consume this script.
+Original CosyWorld at `1f8b46bb` supplies the media path: `SceneCameraTool.mjs` gathered location and avatar references, while `VideoCameraTool.mjs` turned recent chat into a motion prompt. Its story service also kept ordered scene beats. The slice records stable event IDs, speakers, locations, acts, targets, local cast, object custody, and light. **History → Save scene script** exports those records with asset references and timing hints. The history holds up to 100 records. Scene beats take priority as commands fill the log, and the export marks omitted records. Future image and video renderers can consume this script.
 
 ## Scope and status
 

@@ -84,7 +84,8 @@ function save() {
 function status(id) {
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
-  if (id === "oil") return `${world.items.oil.doses} doses · +4 fuel each`;
+  if (id === "oil")
+    return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
