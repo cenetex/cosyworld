@@ -165,16 +165,11 @@ describe("target hands and quest programs", () => {
     ]);
     for (const actor of ["vale", "moth", "keeper"]) {
       expect(levelOf(s, actor)).toBe(3);
-      expect(programFor(s, actor)).toBe(null);
+      expect(programFor(s, actor).generated.level).toBe(3);
     }
-    const marks = structuredClone(
-      Object.fromEntries(
-        Object.entries(s.actors).map(([id, a]) => [id, a.progress.marks]),
-      ),
-    );
-    for (let i = 0; i < 12; i++) s = cards(s, "vale");
-    for (const actor of ["vale", "moth", "keeper"])
-      expect(s.actors[actor].progress.marks).toEqual(marks[actor]);
+    const restored = decodeSave(encodeSave(s));
+    expect(restored).toEqual(s);
+    expect(cards(restored, "vale")).toEqual(cards(s, "vale"));
   });
   it("moves the cast toward its target items and place while Vale waits", () => {
     let s = createWorld();
@@ -368,7 +363,7 @@ describe("quest saves and scene records", () => {
     legacy.items.lamp.holder = "vale";
     legacy.actors.vale.place = "pond";
     const restored = decodeSave(JSON.stringify(legacy));
-    expect(restored.schema).toBe(2);
+    expect(restored.schema).toBe(3);
     expect(restored.items).toEqual(legacy.items);
     expect(restored.log).toEqual(legacy.log);
     expect(restored.actors.vale.place).toBe("pond");

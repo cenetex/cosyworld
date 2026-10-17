@@ -87,7 +87,24 @@ A target hand has three parts: `items`, `location`, and `avatars`. It is met whe
 
 The avatar cards show **Hold / At / With**, with checks for each part that is true. They also show the active program, step, level, and spare items on offer. **Menu** lists Vale's full programs.
 
-Quest programs are ordered target hands in `v2/card-game/quests.mjs`. Each completed hand advances one step. The final hand earns one level and opens the next program. The slice gives each avatar two programs, from level 1 through level 3. Completion is saved once. Finishing both programs leaves the avatar free to hold its resting hand and share spare items.
+Quest programs are ordered target hands in `v2/card-game/quests.mjs`. Each completed hand advances one step. The final hand earns one level and opens the next program. The opening gives each avatar two authored programs. From level 3, each completed program creates another from current item holders, spare items, companions, and reachable paths. Levels keep increasing. Each program is saved when created, so reloads preserve its goals.
+
+Programs use small reusable builders in `quests.mjs`:
+
+```js
+const lampHand = hand(hold("lamp"), withAvatars("moth"));
+const journey = sequence(
+  hand(lampHand, at("station")),
+  either(hand(lampHand, at("pond")), hand(lampHand, at("attic"))),
+);
+const program = sequence(journey, carryTo(["lamp", "bell"], "station"));
+```
+
+`hand` combines item, place, and avatar parts. `sequence` joins hands, fragments, and whole programs in order. `either` lets any listed hand complete one step. `meet` and `carryTo` are reusable fragments made from those parts. The cast chooses a useful current alternative; the player can fulfill any alternative. The menu shows the choices for Vale and the cast.
+
+Generated programs combine gathering an item or a payment, meeting another avatar, and carrying the item to another reachable place. Higher levels can include a second carried item. Recent items help vary later programs. The cast follows payment needs through the same item rules, so it can obtain something to trade for its goal. A cast member revisits a generated goal after twelve turns without a completed step. It keeps its completed prefix and chooses unfinished steps from the current world. Vale keeps the selected program until completion.
+
+Completion is saved once. Saves retain the current program, total completed hands, and the last 32 completion turns. The last four generated item goals help vary choices. Older completed saves keep their levels and receive a new program. Quest records include the exact program and chosen target, so later changes preserve the meaning of earlier awards.
 
 A hand can be completed between cast acts. The round records the matching items, place, and people as proof, then advances programs after every actor has acted. Each avatar advances at most one step in a turn. This preserves a completed meeting when someone leaves later in that turn.
 
