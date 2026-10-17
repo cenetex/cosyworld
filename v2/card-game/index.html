@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#14151c" />
+    <title>CosyWorld · The reflected shore</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./app.mjs"></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <span class="brand">COSYWORLD / SMALL WORLD 01</span>
+        <h1>The reflected shore</h1>
+      </div>
+      <div class="session">
+        <span id="turn">Turn 0</span
+        ><button id="rules-button" aria-expanded="false" aria-controls="rules">
+          How to play</button
+        ><button id="new-game">New game</button>
+      </div>
+    </header>
+    <div id="notice" role="status" hidden></div>
+    <section id="rules" hidden>
+      <h2>Play the things in the world</h2>
+      <p>
+        Select a card to see its acts. Pair an item with another item or an
+        avatar to use it or give it. You can also drag one card onto another.
+        Choose an act, then press <strong>Play</strong>.
+      </p>
+      <p>
+        Each play takes one turn. Pip and the keeper each act once, then the
+        lamp burns one fuel. Reading cards, writing an aim, and preparing a play
+        are free.
+      </p>
+      <p>
+        Guide Vale with an aim and use <strong>Vale’s next step</strong>, or
+        choose each act yourself. The world is saved in this browser. Chat
+        accepts short acts such as “take lamp”, “ring bell”, and “aim: help
+        Pip”.
+      </p>
+    </section>
+    <main>
+      <section class="table" aria-label="Card table">
+        <div class="scene-heading">
+          <div>
+            <span class="eyebrow">YOU ARE HERE</span>
+            <h2 id="place-title"></h2>
+          </div>
+          <span id="path-state"></span>
+        </div>
+        <p id="scene-text"></p>
+        <div class="zone-head">
+          <h3>Locations</h3>
+          <span>Choose a path</span>
+        </div>
+        <div id="locations" class="cards locations"></div>
+        <div class="zone-head">
+          <h3>Avatars</h3>
+          <span>Each has an aim</span>
+        </div>
+        <div id="avatars" class="cards avatars"></div>
+        <div class="object-table">
+          <div>
+            <div class="zone-head">
+              <h3>Items here</h3>
+              <span id="ground-label"></span>
+            </div>
+            <div id="ground" class="cards items"></div>
+          </div>
+          <div class="hand-zone">
+            <div class="zone-head">
+              <h3>Vale’s hand</h3>
+              <span id="hand-count"></span>
+            </div>
+            <div id="hand" class="cards items"></div>
+          </div>
+        </div>
+        <section id="inspection" aria-label="Selected cards">
+          <p>Choose a card. Pair two cards to use an item or give it.</p>
+        </section>
+        <div class="next-step">
+          <label for="aim">Vale’s aim</label
+          ><select id="aim"></select>
+          <p id="reason"></p>
+          <div>
+            <button id="next">Vale’s next step</button
+            ><button id="wait">Wait one turn</button>
+          </div>
+        </div>
+      </section>
+      <aside class="chat-panel" aria-label="World chat">
+        <div class="chat-heading">
+          <h2>At the table</h2>
+          <span>Acts & conversation</span>
+        </div>
+        <div
+          id="messages"
+          role="log"
+          aria-label="Conversation"
+          aria-live="polite"
+          aria-relevant="additions"
+        ></div>
+        <section class="play-area" aria-label="Prepare a play">
+          <div class="play-head">
+            <span class="eyebrow">YOUR PLAY</span
+            ><button id="clear" class="quiet">Clear cards</button>
+          </div>
+          <div id="choices" aria-label="Available acts"></div>
+          <p id="preview" aria-live="polite">
+            Select a card or choose Vale’s next step.
+          </p>
+          <div class="play-footer">
+            <span id="cost">Reading is free.</span
+            ><button id="play" class="primary" disabled>
+              Play this turn <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </section>
+        <form id="chat-form">
+          <label for="chat-input">Speak to Vale</label>
+          <div class="compose">
+            <input
+              id="chat-input"
+              maxlength="240"
+              autocomplete="off"
+              placeholder="Take lamp · aim: help Pip"
+            /><button type="submit" aria-label="Send message">↗</button>
+          </div>
+          <p>A short act prepares a play. An aim guides the next step.</p>
+        </form>
+      </aside>
+    </main>
+    <dialog id="reset-dialog">
+      <h2>Start a new world?</h2>
+      <p>Your current places, items, and conversation will be replaced.</p>
+      <div>
+        <button id="cancel-reset">Keep playing</button
+        ><button id="confirm-reset" class="primary">Start new world</button>
+      </div>
+    </dialog>
+  </body>
+</html>
