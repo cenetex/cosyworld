@@ -6,6 +6,9 @@ do not define V2 behavior.
 
 ## Product and design
 
+- **[Visual Language and World Map](art-direction/README.md)** — the first
+  dreaming oak art proposal, with a style guide, character studies, an
+  illustrated atlas, and the flow of dreams through the founding trio.
 - **[The CosyWorld Pact](cosyworld-pact.md)** — the promises CosyWorld makes
   about shared truth, sanctuary, honest choices, discovery, return, AI
   authority, progression, and player boundaries.
