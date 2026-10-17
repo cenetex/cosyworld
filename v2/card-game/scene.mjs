@@ -9,6 +9,7 @@ import {
 
 export const backdrop = (id) => `./assets/${id}.png`;
 export const portrait = (id) => `./assets/${id}.png`;
+import { desireFor, programFor, levelOf } from "./quests.mjs";
 const personIds = Object.keys(people);
 const speakerId = (entry) =>
   entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
@@ -78,6 +79,10 @@ export function sceneLines(world) {
 export function currentScene(world, lineIndex = null) {
   const lines = sceneLines(world);
   const line = lines.find((e) => e.index === lineIndex) ||
+    lines.findLast(
+      (e) =>
+        e.kind === "quest" && e.actorId === "vale" && e.turn === world.turn,
+    ) ||
     lines.at(-1) || {
       text: places[world.actors.vale.place].text,
       speaker: "World",
@@ -127,6 +132,16 @@ export function sceneScript(world) {
       verb: e.verb || null,
       itemId: e.itemId || null,
       targetId: e.targetId || null,
+      receiveId: e.receiveId || null,
+      quest:
+        e.kind === "quest"
+          ? {
+              programId: e.programId,
+              step: e.step,
+              level: e.level,
+              hand: e.fulfillment ? structuredClone(e.fulfillment) : null,
+            }
+          : null,
       cast: e.cast || [],
       items: e.items || [],
       light: e.light ?? null,
@@ -141,7 +156,10 @@ export function sceneScript(world) {
         id,
         locationId: world.actors[id].place,
         items: carried(world, id),
-        aim: world.actors[id].aim,
+        level: levelOf(world, id),
+        desire: desireFor(world, id),
+        programId: programFor(world, id)?.id || null,
+        progress: structuredClone(world.actors[id].progress),
       })),
       items: Object.entries(world.items).map(([id, item]) => ({
         id,

@@ -1,3 +1,10 @@
+import {
+  questPrograms,
+  newProgress,
+  programFor,
+  desireFor,
+  levelOf,
+} from "./quests.mjs";
 // The playable slice uses one rule path for the guided avatar and the cast.
 export const places = {
   station: {
@@ -23,11 +30,11 @@ export const people = {
   },
   moth: {
     name: "Pip",
-    text: "A moth in a borrowed waistcoat. Wants to bring a lamp to the pond.",
+    text: "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond.",
   },
   keeper: {
     name: "The keeper",
-    text: "A tall figure with a clock for a face. Carries noisy bells to the attic.",
+    text: "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
   },
 };
 export const things = {
@@ -41,18 +48,12 @@ export const things = {
   },
   bell: {
     name: "Bell",
-    text: "Rings for three turns. The keeper hears it across all three places.",
+    text: "Rings for three turns. The Black cloth stops its sound.",
   },
   cloth: {
     name: "Black cloth",
     text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object.",
   },
-};
-export const aims = {
-  explore: "Cross a reflection",
-  moth: "Help Pip bring light to the pond",
-  bell: "Bring the bell to the pond",
-  free: "Choose each step myself",
 };
 const ids = Object.keys(things);
 const actorIds = Object.keys(people);
@@ -60,20 +61,35 @@ export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld() {
   return {
-    schema: 1,
+    schema: 2,
     turn: 0,
     revision: 0,
     eventSeq: 1,
     actors: {
-      vale: { place: "station", aim: "free", crossed: 0, lastTalk: -9 },
-      moth: { place: "pond", aim: "moth", crossed: 0, lastTalk: -9 },
-      keeper: { place: "attic", aim: "quiet", crossed: 0, lastTalk: -9 },
+      vale: {
+        place: "station",
+        progress: newProgress(),
+        crossed: 0,
+        lastTalk: -9,
+      },
+      moth: {
+        place: "pond",
+        progress: newProgress(),
+        crossed: 0,
+        lastTalk: -9,
+      },
+      keeper: {
+        place: "attic",
+        progress: newProgress(),
+        crossed: 0,
+        lastTalk: -9,
+      },
     },
     items: {
       lamp: { holder: "station", fuel: 8, lit: false, history: [] },
-      oil: { holder: "attic", doses: 3, history: [] },
+      oil: { holder: "keeper", doses: 3, history: [] },
       bell: { holder: "station", ringing: 0, history: [] },
-      cloth: { holder: "pond", history: [] },
+      cloth: { holder: "moth", history: [] },
     },
     log: [
       {
@@ -89,7 +105,7 @@ export function createWorld() {
         ],
         light: false,
         speaker: "World",
-        text: "Vale arrives at the empty station. Pip is looking for a lamp. The keeper wants quiet. Something under the pond is listening.",
+        text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants a different hand. Something under the pond is listening.",
       },
     ],
   };
@@ -132,11 +148,120 @@ const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
     (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
   3;
-const accepts = (actor, item) =>
+export function handStatus(s, actor, hand = desireFor(s, actor)) {
+  const held = carried(s, actor),
+    here = s.actors[actor].place;
+  const items = hand.items.map((id) => ({ id, met: held.includes(id) }));
+  const location = {
+    id: hand.location,
+    met: !hand.location || here === hand.location,
+  };
+  const avatars = hand.avatars.map((id) => ({
+    id,
+    met: s.actors[id].place === here,
+  }));
+  return {
+    items,
+    location,
+    avatars,
+    met:
+      items.every((e) => e.met) && location.met && avatars.every((e) => e.met),
+  };
+}
+export function handText(hand) {
+  return [
+    hand.items.length
+      ? `hold ${hand.items.map(nameOf).join(" + ")}`
+      : "hold any items",
+    hand.location ? `at ${nameOf(hand.location)}` : "in any place",
+    hand.avatars.length
+      ? `with ${hand.avatars.map(nameOf).join(" + ")}`
+      : "with any company",
+  ].join(" · ");
+}
+const bundle = (s, item) => [
+  item,
+  ...(s.items.cloth.holder === item ? ["cloth"] : []),
+];
+const needed = (s, actor, item) =>
+  bundle(s, item).some((id) => desireFor(s, actor).items.includes(id));
+const accepts = (s, actor, item) =>
   actor === "vale" ||
-  (actor === "moth"
-    ? ["lamp", "oil"].includes(item)
-    : ["bell", "cloth"].includes(item));
+  bundle(s, item).some(
+    (id) =>
+      desireFor(s, actor).items.includes(id) && rootHolder(s, id) !== actor,
+  );
+export function willingToGive(s, owner, item) {
+  return (
+    owner !== "vale" &&
+    !needed(s, owner, item) &&
+    handStatus(s, owner).items.every((e) => e.met)
+  );
+}
+export function canTrade(s, actor, give, receive) {
+  const other = s.items[receive]?.holder;
+  if (
+    s.items[give]?.holder !== actor ||
+    !actorIds.includes(other) ||
+    other === actor ||
+    other === "vale" ||
+    s.actors[actor].place !== s.actors[other].place
+  )
+    return false;
+  if (!accepts(s, other, give) || needed(s, other, receive)) return false;
+  const outgoing = loadOf(s, give),
+    incoming = loadOf(s, receive);
+  return (
+    carried(s, actor).length - outgoing + incoming <= 3 &&
+    carried(s, other).length - incoming + outgoing <= 3
+  );
+}
+export function tradeOffers(s, actor) {
+  return ids.filter(
+    (id) => s.items[id].holder === actor && !needed(s, actor, id),
+  );
+}
+// Capture each fulfilled hand before another actor can leave or move an item.
+// Program changes happen after the round, so every actor pursues one step per turn.
+function captureHands(s, met) {
+  for (const actor of actorIds) {
+    if (!met.has(actor) && programFor(s, actor) && handStatus(s, actor).met) {
+      met.set(actor, {
+        items: carried(s, actor),
+        location: s.actors[actor].place,
+        avatars: actorIds.filter(
+          (id) => id !== actor && s.actors[id].place === s.actors[actor].place,
+        ),
+      });
+    }
+  }
+}
+function advancePrograms(s, met) {
+  for (const [actor, fulfillment] of met) {
+    const progress = s.actors[actor].progress,
+      program = programFor(s, actor);
+    const step = progress.step;
+    progress.marks.push(s.turn);
+    progress.step += 1;
+    let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
+    if (progress.step === program.steps.length) {
+      progress.program += 1;
+      progress.step = 0;
+      text += ` Level ${levelOf(s, actor)}.`;
+    }
+    if (programFor(s, actor))
+      text += ` Next: ${handText(desireFor(s, actor))}.`;
+    else text += " Both quest programs are complete.";
+    addLog(s, "World", text, {
+      kind: "quest",
+      actorId: actor,
+      programId: program.id,
+      fulfillment,
+      step,
+      level: levelOf(s, actor),
+    });
+  }
+}
 function addLog(s, speaker, text, detail = {}) {
   const actorId =
     detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
@@ -274,7 +399,7 @@ export function legalActions(s, actor = "vale") {
         (p) =>
           p !== actor &&
           s.actors[p].place === here &&
-          accepts(p, id) &&
+          accepts(s, p, id) &&
           hasSpace(s, p, id),
       )) {
         out.push(
@@ -336,7 +461,7 @@ export function legalActions(s, actor = "vale") {
           actor,
           id,
           null,
-          `${nameOf(actor)} rings the Bell. The keeper will hear it.`,
+          `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
           [id],
         ),
       );
@@ -378,6 +503,22 @@ export function legalActions(s, actor = "vale") {
       }
     }
   }
+  for (const give of ids)
+    for (const receive of ids) {
+      if (!canTrade(s, actor, give, receive)) continue;
+      const other = s.items[receive].holder;
+      const action = offer(
+        "trade",
+        actor,
+        give,
+        other,
+        `${nameOf(actor)} trades the ${nameOf(give)} for ${nameOf(other)}’s ${nameOf(receive)}.`,
+        [give, receive],
+      );
+      action.receive = receive;
+      action.key += ":" + receive;
+      out.push(action);
+    }
   return out;
 }
 export function matchingActions(s, selected) {
@@ -389,15 +530,8 @@ export function matchingActions(s, selected) {
   );
 }
 function sayWant(s, actor) {
-  if (actor === "keeper")
-    return s.items.bell.ringing > 0
-      ? "That bell will wake the thing below the pond. Hand it here, or wrap it in the cloth."
-      : "I keep the bell in the attic. The cloth stops its sound. Quiet bells may travel.";
-  if (actor === "moth")
-    return itemPlace(s, "lamp") === "pond" && shining(s)
-      ? "The light is here. Look: the thing below us has opened an eye."
-      : "I want a lamp beside the pond. If you give me one, I can carry it there. Oil keeps it alive.";
-  return "Let me choose what to do with it.";
+  const offers = tradeOffers(s, actor);
+  return `I want to ${handText(desireFor(s, actor))}.${offers.length ? ` I can offer ${offers.map(nameOf).join(" or ")}.` : ""}`;
 }
 function perform(s, a) {
   const who = nameOf(a.actor);
@@ -422,6 +556,10 @@ function perform(s, a) {
       break;
     case "give":
       transfer(s, a.item, a.target, a.text);
+      break;
+    case "trade":
+      transfer(s, a.item, a.target, a.text);
+      transfer(s, a.receive, a.actor, a.text);
       break;
     case "light":
       s.items.lamp.lit = true;
@@ -452,12 +590,7 @@ function perform(s, a) {
       s.actors[a.actor].lastTalk = s.turn;
       return;
     case "ask": {
-      const willing =
-        a.target === "keeper"
-          ? s.items.bell.ringing === 0
-          : a.target === "moth"
-            ? a.item === "lamp" && s.items.lamp.fuel === 0
-            : false;
+      const willing = willingToGive(s, a.target, a.item);
       addLog(s, who, `May I have the ${nameOf(a.item)}?`);
       if (willing) {
         text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
@@ -478,6 +611,7 @@ function perform(s, a) {
     verb: a.kind,
     itemId: a.item,
     targetId: a.target,
+    ...(a.receive ? { receiveId: a.receive } : {}),
   });
 }
 function toward(s, actor, target) {
@@ -498,136 +632,86 @@ function toward(s, actor, target) {
   }
 }
 export function plan(s, actor = "vale") {
-  const acts = legalActions(s, actor);
+  const acts = legalActions(s, actor),
+    hand = desireFor(s, actor);
+  const here = s.actors[actor].place;
   const find = (kind, item, target) =>
     acts.find(
       (a) =>
         a.kind === kind &&
-        (!item || a.item === item) &&
-        (!target || a.target === target),
+        (item === undefined || a.item === item) &&
+        (target === undefined || a.target === target),
     );
-  const here = s.actors[actor].place;
   const idle = (reason) => ({ action: acts[0], reason });
   const choose = (action, reason) =>
     action ? { action, reason } : idle(reason);
-  const seek = (id, reason) => {
-    const at = itemPlace(s, id);
-    return choose(
-      here !== at ? toward(s, actor, at) : find("take", id) || find("ask", id),
-      reason,
+  const missing = hand.items.filter((id) => rootHolder(s, id) !== actor);
+  const reason = `Seek this hand: ${handText(hand)}.`;
+  for (const item of missing) {
+    if (itemPlace(s, item) !== here) continue;
+    const take = find("take", item);
+    if (take) return choose(take, reason);
+    const trade = acts.find(
+      (a) =>
+        a.kind === "trade" &&
+        bundle(s, a.receive).includes(item) &&
+        !needed(s, actor, a.item),
     );
-  };
-  if (actor === "keeper") {
-    if (s.items.bell.holder === actor)
-      return choose(
-        here === "attic" ? find("drop", "bell") : toward(s, actor, "attic"),
-        "Put the bell in the attic.",
-      );
-    if (s.items.bell.ringing > 0 && !covered(s, "bell")) {
-      const at = itemPlace(s, "bell");
-      if (at !== here)
-        return choose(toward(s, actor, at), "Follow the ringing bell.");
-      if (s.items.bell.holder === here)
-        return choose(find("take", "bell"), "Carry the noise away.");
-      if (s.turn - s.actors[actor].lastTalk >= 3)
-        return choose(find("ask", "bell"), "Ask for the noisy bell.");
+    if (trade) return choose(trade, reason);
+    const owner = rootHolder(s, item);
+    if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
+      let heldItem = item;
+      while (s.items[s.items[heldItem].holder])
+        heldItem = s.items[heldItem].holder;
+      const ask = find("ask", heldItem);
+      if (ask)
+        return choose(
+          ask,
+          `Ask ${nameOf(owner)} for ${nameOf(item)}. ${reason}`,
+        );
     }
-    return idle("Enjoy the quiet.");
-  }
-  if (actor === "moth") {
-    if (s.items.lamp.holder === actor) {
-      if (covered(s, "lamp"))
-        return choose(find("take", "cloth"), "Uncover the light.");
-      if (!s.items.lamp.lit && s.items.lamp.fuel > 0)
-        return choose(find("light", "lamp"), "Light the lamp.");
-      if (s.items.lamp.fuel === 0) {
-        if (s.items.oil.doses === 0)
-          return idle("Wait by the empty lamp. The oil is spent.");
-        const refill = find("refill", "oil");
-        if (refill) return choose(refill, "Feed oil to the lamp.");
-        if (
-          here === itemPlace(s, "oil") &&
-          s.turn - s.actors[actor].lastTalk < 3
-        )
-          return idle("Wait for an answer about the oil.");
-        return seek("oil", "Find oil for the lamp.");
-      }
-      return choose(
-        here === "pond" ? find("drop", "lamp") : toward(s, actor, "pond"),
-        "Bring light to the pond.",
+    if (!hasSpace(s, actor, item)) {
+      const drop = acts.find(
+        (a) => a.kind === "drop" && !needed(s, actor, a.item),
       );
+      if (drop) return choose(drop, "Make room for the target hand.");
+      if (rootHolder(s, "cloth") === actor && !hand.items.includes("cloth"))
+        return choose(
+          find("take", "cloth"),
+          "Uncover the object to make room.",
+        );
     }
-    if (itemPlace(s, "lamp") === "pond" && shining(s))
-      return choose(
-        here === "pond" ? acts[0] : toward(s, actor, "pond"),
-        "Watch the light on the pond.",
-      );
-    if (itemPlace(s, "lamp") !== here)
-      return choose(
-        toward(s, actor, itemPlace(s, "lamp")),
-        "Find the lamp for the pond.",
-      );
-    if (find("take", "lamp"))
-      return choose(find("take", "lamp"), "Carry the lamp to the pond.");
-    if (s.turn - s.actors[actor].lastTalk >= 3)
-      return choose(find("ask", "lamp"), "Ask for the lamp.");
-    return idle("Wait for a chance to carry the lamp.");
   }
-  switch (s.actors.vale.aim) {
-    case "explore":
-      if (s.actors.vale.crossed > 0)
-        return idle(
-          "You crossed a reflection. Choose another aim or play freely.",
-        );
-      if (reflectionOpen(s))
-        return choose(
-          here === "station"
-            ? toward(s, actor, "attic")
-            : find("move", null, here === "attic" ? "pond" : "attic"),
-          "Cross the lit reflection.",
-        );
-      if (covered(s, "lamp") && canReach(s, actor, "cloth"))
-        return choose(find("take", "cloth"), "Uncover the lamp.");
-      if (s.items.lamp.holder !== actor)
-        return seek("lamp", "Find a lamp to open a reflection.");
-      if (!s.items.lamp.fuel)
-        return find("refill", "oil")
-          ? choose(find("refill", "oil"), "Refill the lamp.")
-          : seek("oil", "Find oil for the lamp.");
-      if (here === "station")
-        return choose(
-          toward(s, actor, "attic"),
-          "Bring the lamp to a reflection.",
-        );
-      return choose(find("light", "lamp"), "Light the reflection.");
-    case "moth":
-      if (itemPlace(s, "lamp") === "pond" && shining(s))
-        return idle(
-          "Pip has light at the pond. Choose another aim or play freely.",
-        );
-      if (s.items.lamp.holder === "moth")
-        return idle("Give Pip time to carry the lamp.");
-      if (s.items.lamp.holder !== actor)
-        return seek("lamp", "Find a lamp for Pip.");
-      if (here !== s.actors.moth.place)
-        return choose(
-          toward(s, actor, s.actors.moth.place),
-          "Bring the lamp to Pip.",
-        );
-      return choose(find("give", "lamp", "moth"), "Let Pip carry the lamp.");
-    case "bell":
-      if (s.items.bell.holder === "pond")
-        return idle(
-          "The bell is at the pond. Choose another aim or play freely.",
-        );
-      if (s.items.bell.holder !== actor) return seek("bell", "Find the bell.");
-      return choose(
-        here === "pond" ? find("drop", "bell") : toward(s, actor, "pond"),
-        "Bring the bell to the pond.",
-      );
-    default:
-      return idle("Watch the cast for one turn.");
+  const elsewhere = missing.find((id) => itemPlace(s, id) !== here);
+  if (elsewhere)
+    return choose(toward(s, actor, itemPlace(s, elsewhere)), reason);
+  if (missing.length) return idle(reason);
+  // Item affordances also apply when an avatar carries its target hand.
+  if (hand.items.includes("lamp") && rootHolder(s, "lamp") === actor) {
+    if (covered(s, "lamp") && !hand.items.includes("cloth"))
+      return choose(find("take", "cloth"), "Uncover the light.");
+    if (s.items.lamp.fuel <= 2 && find("refill", "oil"))
+      return choose(find("refill", "oil"), "Feed oil to the lamp.");
+    if (!s.items.lamp.lit && s.items.lamp.fuel > 0)
+      return choose(find("light", "lamp"), "Light the lamp.");
   }
+  if (
+    hand.items.includes("cloth") &&
+    rootHolder(s, "bell") === actor &&
+    s.items.bell.ringing &&
+    find("cover", "cloth", "bell")
+  )
+    return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
+  if (hand.location && here !== hand.location)
+    return choose(toward(s, actor, hand.location), reason);
+  return idle(
+    handStatus(s, actor).met
+      ? "Hold the target hand."
+      : `Wait for ${hand.avatars
+          .filter((id) => s.actors[id].place !== here)
+          .map(nameOf)
+          .join(" and ")} at ${nameOf(here)}.`,
+  );
 }
 export function play(s, action, expectedRevision = s.revision) {
   if (expectedRevision !== s.revision)
@@ -649,9 +733,14 @@ export function play(s, action, expectedRevision = s.revision) {
   const wasOpen = reflectionOpen(next);
   if (exact.kind === "wait")
     addLog(next, "World", "Vale waits. The cast takes a turn.");
+  const met = new Map();
+  captureHands(next, met);
   perform(next, exact);
-  for (const actor of ["moth", "keeper"])
+  captureHands(next, met);
+  for (const actor of ["moth", "keeper"]) {
     perform(next, plan(next, actor).action);
+    captureHands(next, met);
+  }
   if (next.items.lamp.lit) {
     next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
     if (next.items.lamp.fuel === 0) {
@@ -674,16 +763,9 @@ export function play(s, action, expectedRevision = s.revision) {
         ? "The attic mirror and the pond open onto each other. A dark shore waits between them."
         : "The reflected path closes. The paths through the station remain open.",
     );
+  advancePrograms(next, met);
   validateWorld(next);
   return { ok: true, state: next };
-}
-export function setAim(s, aim) {
-  if (!Object.hasOwn(aims, aim)) throw new Error("Choose one of Vale’s aims.");
-  const next = structuredClone(s);
-  next.actors.vale.aim = aim;
-  next.revision += 1;
-  addLog(next, "Vale", `My aim: ${aims[aim].toLowerCase()}.`);
-  return next;
 }
 export function validateWorld(s) {
   const fail = () => {
@@ -693,7 +775,7 @@ export function validateWorld(s) {
   };
   if (
     !s ||
-    s.schema !== 1 ||
+    s.schema !== 2 ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
@@ -718,10 +800,34 @@ export function validateWorld(s) {
       a.lastTalk > s.turn
     )
       fail();
+    const progress = a.progress,
+      programs = questPrograms[id];
     if (
-      id === "vale"
-        ? !Object.hasOwn(aims, a.aim)
-        : a.aim !== (id === "moth" ? "moth" : "quiet")
+      !progress ||
+      !Number.isInteger(progress.program) ||
+      progress.program < 0 ||
+      progress.program > programs.length ||
+      !Number.isInteger(progress.step) ||
+      progress.step < 0 ||
+      (progress.program === programs.length
+        ? progress.step !== 0
+        : progress.step >= programs[progress.program].steps.length)
+    )
+      fail();
+    const count =
+      programs
+        .slice(0, progress.program)
+        .reduce((n, p) => n + p.steps.length, 0) + progress.step;
+    if (
+      !Array.isArray(progress.marks) ||
+      progress.marks.length !== count ||
+      progress.marks.some(
+        (turn, i) =>
+          !Number.isSafeInteger(turn) ||
+          turn < 1 ||
+          turn > s.turn ||
+          (i > 0 && turn <= progress.marks[i - 1]),
+      )
     )
       fail();
   }
@@ -797,6 +903,7 @@ export function validateWorld(s) {
     "cover",
     "talk",
     "wait",
+    "trade",
   ];
   for (const e of s.log) {
     if (e.seq !== undefined) {
@@ -806,13 +913,52 @@ export function validateWorld(s) {
     }
     if (
       e.kind !== undefined &&
-      !["action", "dialogue", "narration", "input", "hint"].includes(e.kind)
+      !["action", "dialogue", "narration", "input", "hint", "quest"].includes(
+        e.kind,
+      )
     )
       fail();
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (e.itemId != null && !ids.includes(e.itemId)) fail();
+    if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
+    if (e.kind === "quest") {
+      const program = questPrograms[e.actorId]?.find(
+        (p) => p.id === e.programId,
+      );
+      if (
+        !program ||
+        !Number.isInteger(e.step) ||
+        e.step < 0 ||
+        e.step >= program.steps.length ||
+        !Number.isInteger(e.level) ||
+        e.level < 1 ||
+        e.level > 3
+      )
+        fail();
+    }
+    if (e.kind === "quest" && e.fulfillment !== undefined) {
+      const target = questPrograms[e.actorId].find((p) => p.id === e.programId)
+          .steps[e.step],
+        seen = e.fulfillment;
+      if (
+        !seen ||
+        !Array.isArray(seen.items) ||
+        seen.items.length > 3 ||
+        new Set(seen.items).size !== seen.items.length ||
+        seen.items.some((id) => !ids.includes(id)) ||
+        !Object.hasOwn(places, seen.location) ||
+        !Array.isArray(seen.avatars) ||
+        seen.avatars.length > 2 ||
+        new Set(seen.avatars).size !== seen.avatars.length ||
+        seen.avatars.some((id) => !actorIds.includes(id) || id === e.actorId) ||
+        target.items.some((id) => !seen.items.includes(id)) ||
+        (target.location && target.location !== seen.location) ||
+        target.avatars.some((id) => !seen.avatars.includes(id))
+      )
+        fail();
+    }
     if (
       e.targetId != null &&
       ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId)
@@ -845,4 +991,16 @@ export function validateWorld(s) {
   return s;
 }
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
-export const decodeSave = (text) => validateWorld(JSON.parse(text));
+export function decodeSave(text) {
+  const s = JSON.parse(text);
+  if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
+    s.schema = 2;
+    for (const actor of Object.values(s.actors)) {
+      if (actor && typeof actor === "object") {
+        actor.progress = newProgress();
+        delete actor.aim;
+      }
+    }
+  }
+  return validateWorld(s);
+}

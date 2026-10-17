@@ -11,9 +11,13 @@ import {
   play,
   encodeSave,
   decodeSave,
+  handStatus,
+  handText,
+  tradeOffers,
 } from "./world.mjs";
 import { currentScene, sceneScript, portrait } from "./scene.mjs";
 import { availableCards, cardType, cardPlay, playLabel } from "./cards.mjs";
+import { questPrograms, desireFor, programFor, levelOf } from "./quests.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
@@ -135,8 +139,17 @@ function card(id) {
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
-  el.title = def.text;
-  el.append(node("span", type, "kind"));
+  el.title =
+    type === "avatar"
+      ? `${def.text} ${programFor(world, id)?.name || "Programs complete"}. ${handText(desireFor(world, id))}.`
+      : def.text;
+  el.append(
+    node(
+      "span",
+      type === "avatar" ? `${type} · Level ${levelOf(world, id)}` : type,
+      "kind",
+    ),
+  );
   const graphic = node("span", undefined, "art");
   if (type === "item") graphic.innerHTML = art(id);
   else {
@@ -160,8 +173,12 @@ function card(id) {
             : "On the ground";
     detail = status(id);
   } else if (type === "avatar") {
-    caption = "Here";
-    detail = id === "moth" ? "Wants light at the pond" : "Wants quiet";
+    const program = programFor(world, id),
+      progress = world.actors[id].progress;
+    caption = program
+      ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
+      : "Both programs complete";
+    detail = handText(desireFor(world, id));
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
     detail =
@@ -172,6 +189,55 @@ function card(id) {
   el.append(node("span", caption, "caption"));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
+  if (type === "avatar") {
+    info.textContent = "";
+    const target = handStatus(world, id);
+    const row = (label, entries) => {
+      const line = node("span", undefined, "hand-condition");
+      line.append(node("span", label, "condition-label"));
+      for (const entry of entries) {
+        const token = node(
+          "span",
+          `${entry.met ? "✓" : "·"} ${entry.text}`,
+          "hand-token",
+        );
+        token.dataset.met = String(entry.met);
+        line.append(token);
+      }
+      info.append(line);
+    };
+    row(
+      "Hold",
+      target.items.length
+        ? target.items.map((e) => ({ ...e, text: nameOf(e.id) }))
+        : [{ met: true, text: "Any items" }],
+    );
+    row("At", [
+      {
+        ...target.location,
+        text: target.location.id ? nameOf(target.location.id) : "Any place",
+      },
+    ]);
+    row(
+      "With",
+      target.avatars.length
+        ? target.avatars.map((e) => ({ ...e, text: nameOf(e.id) }))
+        : [{ met: true, text: "Any company" }],
+    );
+    const offers = tradeOffers(world, id);
+    if (id !== "vale")
+      info.append(
+        node(
+          "span",
+          offers.length
+            ? `Offers: ${offers.map(nameOf).join(", ")}`
+            : target.met
+              ? "Hand complete"
+              : "Seeking this hand",
+          "trade-offers",
+        ),
+      );
+  }
   el.append(info);
   const label = playLabel(chosen.action);
   el.append(
@@ -236,7 +302,14 @@ function renderScene() {
       const image = node("img");
       image.src = portrait(id);
       image.alt = "";
-      button.append(image, node("span", nameOf(id), "portrait-name"));
+      button.append(
+        image,
+        node(
+          "span",
+          `${nameOf(id)} · Lv ${levelOf(world, id)}`,
+          "portrait-name",
+        ),
+      );
       return button;
     }),
   );
@@ -340,7 +413,31 @@ $("history-button").onclick = () => {
   $("history-dialog").showModal();
   $("messages").scrollTop = $("messages").scrollHeight;
 };
-$("menu-button").onclick = () => $("menu-dialog").showModal();
+$("menu-button").onclick = () => {
+  $("quest-guide").replaceChildren(
+    ...questPrograms.vale.map((program, index) => {
+      const block = node("section", undefined, "quest-guide-program");
+      block.append(node("h3", `${program.name} · Level ${index + 2}`));
+      const steps = node("ol");
+      for (const [i, hand] of program.steps.entries()) {
+        const progress = world.actors.vale.progress;
+        const done =
+          progress.program > index ||
+          (progress.program === index && progress.step > i);
+        const current = progress.program === index && progress.step === i;
+        steps.append(
+          node(
+            "li",
+            `${done ? "✓ " : current ? "Now: " : ""}${handText(hand)}`,
+          ),
+        );
+      }
+      block.append(steps);
+      return block;
+    }),
+  );
+  $("menu-dialog").showModal();
+};
 document
   .querySelectorAll("[data-close]")
   .forEach(

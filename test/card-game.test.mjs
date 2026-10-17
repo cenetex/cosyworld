@@ -5,7 +5,6 @@ import {
   matchingActions,
   play,
   plan,
-  setAim,
   reflectionOpen,
   exits,
   itemPlace,
@@ -58,27 +57,18 @@ describe("the reflected shore card game", () => {
     s = act(s, "wait");
     expect(s.actors.moth.place).toBe("pond");
     s = act(s, "wait");
-    expect(s.items.lamp.holder).toBe("pond");
+    expect(s.items.lamp.holder).toBe("moth");
     expect(s.actors.vale.place).toBe("station");
     expect(reflectionOpen(s)).toBe(true);
   });
 
-  it("supports three chosen aims through the common action rules", () => {
-    for (const aim of ["explore", "moth", "bell"]) {
-      let s = setAim(createWorld(), aim);
-      for (let i = 0; i < 6; i++) s = play(s, plan(s).action).state;
-      if (aim === "explore") expect(s.actors.vale.crossed).toBeGreaterThan(0);
-      if (aim === "moth") {
-        expect(itemPlace(s, "lamp")).toBe("pond");
-        expect(s.items.lamp.lit).toBe(true);
-      }
-      if (aim === "bell") expect(s.items.bell.holder).toBe("pond");
-    }
-  });
-
   it("opens a real route with light and closes it when covered", () => {
-    let s = setAim(createWorld(), "explore");
-    for (let i = 0; i < 4; i++) s = play(s, plan(s).action).state;
+    let s = createWorld();
+    s.items.cloth.holder = "pond";
+    s = act(s, "take", "lamp");
+    s = act(s, "move", null, "attic");
+    s = act(s, "light", "lamp");
+    s = act(s, "move", null, "pond");
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.vale.crossed).toBe(1);
     expect(exits(s, "pond")).toContain("attic");
@@ -94,6 +84,7 @@ describe("the reflected shore card game", () => {
   it("moves a cover with its object when a different avatar takes it", () => {
     let s = createWorld();
     s.actors.vale.place = "pond";
+    s.items.cloth.holder = "pond";
     s.actors.moth.place = "attic";
     s.items.lamp.holder = "vale";
     s = act(s, "cover", "cloth", "lamp");
@@ -113,6 +104,7 @@ describe("the reflected shore card game", () => {
     s.actors.vale.place = "attic";
     s.items.lamp.holder = "vale";
     s.items.lamp.fuel = 10;
+    s.items.oil.holder = "attic";
     expect(matchingActions(s, ["oil", "lamp"]).map((a) => a.kind)).toEqual([
       "refill",
     ]);
@@ -122,7 +114,7 @@ describe("the reflected shore card game", () => {
     expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
   });
 
-  it("lets the keeper follow noise, take the bell, and carry it away", () => {
+  it("lets the keeper seek the bell and carry it toward its target place", () => {
     let s = act(createWorld(), "ring", "bell");
     expect(s.actors.keeper.place).toBe("station");
     s = act(s, "wait");
@@ -130,19 +122,19 @@ describe("the reflected shore card game", () => {
     s = act(s, "wait");
     expect(itemPlace(s, "bell")).toBe("attic");
     s = act(s, "wait");
-    expect(s.items.bell.holder).toBe("attic");
+    expect(s.items.bell.holder).toBe("keeper");
     expect(s.items.bell.ringing).toBe(0);
   });
 
-  it("uses the same cloth to stop sound and change the keeper’s plan", () => {
+  it("uses the same cloth to stop sound", () => {
     let s = createWorld();
     s.actors.vale.place = "pond";
     s.actors.keeper.place = "station";
     s.items.bell.holder = "pond";
+    s.items.cloth.holder = "pond";
     s.items.bell.ringing = 2;
     s = act(s, "cover", "cloth", "bell");
     expect(s.items.bell.ringing).toBe(0);
-    expect(s.actors.keeper.place).toBe("station");
     expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
   });
 
@@ -158,8 +150,8 @@ describe("the reflected shore card game", () => {
     s = createWorld();
     s.actors.keeper.place = "station";
     s.items.bell.holder = "keeper";
-    s = act(s, "ask", "bell", "keeper");
-    expect(s.items.bell.holder).toBe("vale");
+    s = act(s, "ask", "oil", "keeper");
+    expect(s.items.oil.holder).toBe("vale");
   });
 
   it("counts attached objects when enforcing carrying space", () => {
@@ -197,7 +189,7 @@ describe("the reflected shore card game", () => {
     expect(encodeSave(s)).toBe(before);
   });
 
-  it("restores positions, cast aims, object memory, and the exact next turn", () => {
+  it("restores positions, quest progress, object memory, and the exact next turn", () => {
     let s = createWorld();
     for (let i = 0; i < 5; i++) s = play(s, plan(s).action).state;
     const restored = decodeSave(encodeSave(s));
@@ -206,7 +198,7 @@ describe("the reflected shore card game", () => {
       play(s, plan(s).action),
     );
     expect(() => decodeSave("{")).toThrow();
-    expect(() => decodeSave(JSON.stringify({ ...s, schema: 2 }))).toThrow();
+    expect(() => decodeSave(JSON.stringify({ ...s, schema: 3 }))).toThrow();
     const broken = structuredClone(s);
     broken.items.cloth.holder = "cloth";
     expect(() => validateWorld(broken)).toThrow();
@@ -227,7 +219,6 @@ describe("the reflected shore card game", () => {
       expect(Object.keys(s.items)).toHaveLength(4);
       if (i % 97 === 0) {
         s = decodeSave(encodeSave(s));
-        s = setAim(s, ["explore", "moth", "bell", "free"][seed % 4]);
       }
     }
     expect(s.turn).toBe(4000);
@@ -243,6 +234,7 @@ describe("the reflected shore card game", () => {
       expect(await page.text()).toContain("Current scene");
       expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
       expect((await fetch(`${url}/cards.mjs`)).status).toBe(200);
+      expect((await fetch(`${url}/quests.mjs`)).status).toBe(200);
       for (const id of ["station", "attic", "pond", "vale", "moth", "keeper"]) {
         const image = await fetch(`${url}/assets/${id}.png`);
         expect(image.status).toBe(200);
