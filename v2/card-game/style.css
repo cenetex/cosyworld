@@ -20,14 +20,11 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
-button,
-input,
-select {
+button {
   font: inherit;
   color: inherit;
 }
-button,
-select {
+button {
   min-height: 44px;
   border: 1px solid var(--edge);
   border-radius: 5px;
@@ -35,8 +32,7 @@ select {
   padding: 8px 13px;
   cursor: pointer;
 }
-button:hover,
-select:hover {
+button:hover {
   border-color: var(--gold);
   background: #353342;
 }
@@ -49,9 +45,7 @@ button[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1px var(--gold);
   background: #3f3940;
 }
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
+button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -117,7 +111,7 @@ main {
 }
 .stage {
   position: relative;
-  min-height: 270px;
+  min-height: 0;
   flex: 1;
   isolation: isolate;
   overflow: hidden;
@@ -151,10 +145,6 @@ main {
   padding: 18px 28px;
   pointer-events: none;
 }
-.scene-heading button,
-.scene-heading nav {
-  pointer-events: auto;
-}
 .eyebrow {
   font-size: 9px;
   letter-spacing: 0.2em;
@@ -173,23 +163,6 @@ h1 {
   color: #dbd4ca;
   margin: 8px 0;
 }
-#paths {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-#paths button,
-#people button {
-  background: #161722c9;
-  font-size: 11px;
-  padding: 6px 10px;
-  backdrop-filter: blur(8px);
-}
-#people {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
 .cast {
   position: absolute;
   inset: 58px 12% 115px;
@@ -206,18 +179,12 @@ h1 {
   border: 0;
   background: transparent;
   padding: 0;
-  pointer-events: auto;
+  pointer-events: none;
   transition:
     filter 0.25s,
     transform 0.25s;
   filter: brightness(0.85);
   outline-offset: -4px;
-}
-.portrait:hover,
-.portrait[aria-pressed="true"] {
-  background: transparent;
-  filter: brightness(1.1);
-  box-shadow: none;
 }
 .portrait.active {
   filter: brightness(1.13);
@@ -241,10 +208,6 @@ h1 {
   border-radius: 3px;
   font-size: 11px;
   white-space: nowrap;
-}
-.portrait[aria-pressed="true"] .portrait-name {
-  background: var(--gold);
-  color: #191a25;
 }
 .portrait.empty {
   visibility: hidden;
@@ -283,7 +246,7 @@ h1 {
   gap: 4px;
 }
 .line-controls button {
-  min-height: 30px;
+  min-height: 44px;
   min-width: 44px;
   padding: 0 9px;
   font-size: 22px;
@@ -299,136 +262,52 @@ h1 {
   overflow: auto;
   margin: 5px 0 12px;
 }
-#chat-form {
-  display: flex;
-  gap: 8px;
-  border-top: 1px solid #ffffff19;
-  padding-top: 8px;
-}
-#chat-input {
-  min-width: 0;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 8px 0;
-  font-size: 13px;
-  min-height: 38px;
-}
-#chat-form button {
-  min-height: 38px;
-  font-size: 12px;
-  padding: 5px 14px;
-}
+/* Every world action belongs to a card in this single row. */
 .play-dock {
+  position: relative;
   flex: none;
   background: linear-gradient(#1c1d28, #13141c);
   border-top: 1px solid #645941;
-  padding: 10px 24px 5px;
-}
-.play-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  min-height: 48px;
-}
-.play-intent {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-#preview {
-  font-size: 13px;
-  margin: 0;
-  max-width: 580px;
-}
-#choices {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-#choices button {
-  font-size: 11px;
-  min-height: 34px;
-  padding: 4px 10px;
-}
-.play-controls {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.play-controls button {
-  font-size: 12px;
-}
-.hand-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 8px 0;
-}
-.hand-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 10px;
-  letter-spacing: 0.09em;
-}
-.hand-title strong {
-  color: var(--gold);
-}
-#hand-count {
-  color: var(--muted);
-  letter-spacing: 0;
-}
-.reach-note {
-  color: #898796;
-  letter-spacing: 0;
-}
-.aim-controls {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.aim-controls button,
-.aim-controls select {
-  min-height: 34px;
-  font-size: 11px;
-  padding: 5px 9px;
-}
-.aim-controls select {
-  max-width: 220px;
+  padding: 0 18px 4px;
 }
 .hand {
   display: flex;
   flex-wrap: nowrap;
-  justify-content: center;
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 4px 6px;
+  padding: 18px 5px 8px;
   scrollbar-width: thin;
-  min-height: 136px;
+}
+.card:first-child {
+  margin-left: auto;
+}
+.card:last-child {
+  margin-right: auto;
 }
 .card {
-  flex: 0 0 160px;
-  width: 160px;
-  height: 128px;
+  flex: 0 0 166px;
+  width: 166px;
+  height: 172px;
   display: grid;
   grid-template-columns: 46px 1fr;
-  grid-template-rows: 20px 35px 24px 30px;
+  grid-template-rows: 16px 34px 23px 36px 1fr;
   gap: 0 8px;
   text-align: left;
-  padding: 8px 10px;
+  padding: 9px 10px;
   background: linear-gradient(130deg, #393746, #252734);
   border: 1px solid #6d6272;
-  border-radius: 7px;
-  transition: transform 0.15s;
+  border-radius: 8px;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+  touch-action: pan-x;
 }
 .card:hover {
   transform: translateY(-3px);
+}
+.card[aria-pressed="true"] {
+  transform: translateY(-8px);
 }
 .card .kind {
   font-size: 8px;
@@ -451,6 +330,15 @@ h1 {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.card .art img {
+  width: 46px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.card.avatar .art img {
+  object-fit: contain;
+}
 .card .name {
   font:
     17px/1.1 Georgia,
@@ -469,22 +357,49 @@ h1 {
   font-size: 10px;
   color: #d7cdbd;
 }
+.card-play {
+  grid-column: 1/-1;
+  align-self: end;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--gold);
+}
+.card[aria-pressed="true"] .card-play {
+  color: #fff1ce;
+}
+.card.location {
+  background: linear-gradient(140deg, #263b40, #232932);
+}
+.card.avatar {
+  background: linear-gradient(140deg, #453745, #2b2737);
+}
 .card.lit {
   background: linear-gradient(140deg, #594631, #272733);
 }
 .card.drag-over {
   outline: 2px solid var(--gold);
 }
-.cost {
+.stage.ready::after {
+  content: attr(data-play);
+  position: absolute;
+  z-index: 6;
+  inset: 8px;
+  display: grid;
+  place-content: center;
+  padding: 20px;
   text-align: center;
-  font-size: 10px;
-  color: #9c97a5;
-  margin: 3px 0;
+  border: 2px dashed var(--gold);
+  border-radius: 8px;
+  background: #171621aa;
+  font:
+    22px/1.3 Georgia,
+    serif;
+  color: #fff1ce;
+  pointer-events: none;
 }
-.empty {
-  font-size: 13px;
-  color: var(--muted);
-  margin: auto;
+.stage.drag-over::after {
+  background: #3b3036c9;
+  border-style: solid;
 }
 dialog {
   color: var(--ink);
@@ -544,6 +459,11 @@ h2 {
 }
 .sr-only {
   position: absolute;
+  top: 0;
+  left: 0;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -552,6 +472,7 @@ h2 {
 [hidden] {
   display: none !important;
 }
+
 @media (min-width: 1400px) {
   .cast {
     inset: 44px 20% 115px;
@@ -581,12 +502,8 @@ h2 {
   .top-actions button {
     padding: 5px 9px;
   }
-  .stage {
-    min-height: 260px;
-  }
   .scene-heading {
     padding: 12px 14px;
-    gap: 6px;
   }
   h1 {
     font-size: 25px;
@@ -594,28 +511,12 @@ h2 {
   .eyebrow {
     display: none;
   }
-  #people {
-    flex-direction: column;
-    gap: 4px;
-  }
-  #people button {
-    min-height: 32px;
-    padding: 4px 8px;
-  }
   #path-state {
     font-size: 10px;
     margin: 5px 0;
   }
-  #paths {
-    gap: 4px;
-  }
-  #paths button {
-    min-height: 36px;
-    font-size: 10px;
-    padding: 5px 8px;
-  }
   .cast {
-    inset: 80px 3% 127px;
+    inset: 65px 3% 115px;
   }
   .portrait {
     width: 48%;
@@ -641,92 +542,18 @@ h2 {
     margin: 2px 0 8px;
     min-height: 20px;
   }
-  .line-controls button {
-    min-height: 32px;
-  }
-  #chat-input {
-    font-size: 16px;
-    min-height: 36px;
-  }
-  #chat-form {
-    padding-top: 4px;
-  }
-  #chat-form button {
-    min-height: 38px;
-  }
   .play-dock {
-    padding: 8px 10px 4px;
-  }
-  .play-strip {
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .play-intent {
-    gap: 6px;
-    flex: 1;
-  }
-  #preview {
-    font-size: 11px;
-  }
-  #choices {
-    gap: 4px;
-  }
-  #choices button {
-    font-size: 10px;
-    min-height: 32px;
-    padding: 4px 8px;
-  }
-  .play-controls {
-    gap: 4px;
-    flex-wrap: wrap;
-    width: 102px;
-    justify-content: flex-end;
-  }
-  .play-controls button {
-    font-size: 10px;
-    min-height: 34px;
-    padding: 5px 8px;
-  }
-  .play-controls .primary {
-    min-width: 102px;
-    min-height: 38px;
-  }
-  .hand-heading {
-    flex-wrap: wrap;
-    gap: 7px;
-    margin: 7px 0 3px;
-  }
-  .hand-title {
-    font-size: 9px;
-  }
-  .reach-note {
-    display: none;
-  }
-  .aim-controls {
-    width: 100%;
-    gap: 5px;
-  }
-  .aim-controls select {
-    flex: 1;
-    max-width: none;
-    min-width: 0;
-  }
-  .aim-controls button,
-  .aim-controls select {
-    min-height: 32px;
-    font-size: 10px;
+    padding: 0 8px 4px;
   }
   .hand {
-    justify-content: flex-start;
     gap: 8px;
-    min-height: 120px;
   }
   .card {
-    flex-basis: 142px;
-    width: 142px;
-    height: 114px;
+    flex-basis: 148px;
+    width: 148px;
+    height: 162px;
     grid-template-columns: 36px 1fr;
-    grid-template-rows: 16px 30px 22px 25px;
+    grid-template-rows: 16px 30px 22px 34px 1fr;
     padding: 7px 8px;
     gap: 0 6px;
   }
@@ -734,105 +561,39 @@ h2 {
     width: 34px;
     height: 42px;
   }
+  .card .art img {
+    width: 36px;
+    height: 48px;
+  }
   .card .name {
     font-size: 15px;
   }
   .card .state {
     font-size: 9px;
   }
-  .cost {
-    font-size: 9px;
+  .card-play {
+    font-size: 10px;
   }
 }
-@media (max-height: 660px) and (min-width: 701px) {
+@media (max-height: 650px) {
   .topbar {
     min-height: 48px;
-    padding: 3px 14px;
-  }
-  .hand {
-    min-height: 110px;
-  }
-  .card {
-    height: 105px;
-    grid-template-rows: 14px 27px 18px 24px;
-  }
-  .hand-heading {
-    margin: 4px 0;
-  }
-  .stage {
-    min-height: 230px;
+    padding-top: 2px;
+    padding-bottom: 2px;
   }
   .scene-heading {
-    padding: 10px 20px;
-  }
-  .cast {
-    inset: 50px 20% 110px;
-  }
-  .dialogue {
-    bottom: 8px;
-  }
-  .play-dock {
-    padding-top: 5px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Full figures extend behind the dialogue tray, like stage cutouts. */
-.portrait img {
-  position: absolute;
-  left: -15%;
-  bottom: -95px;
-  width: 130%;
-  height: clamp(330px, 54vh, 660px);
-}
-@media (max-width: 700px) {
-  .portrait img {
-    left: -30%;
-    bottom: -90px;
-    width: 160%;
-    height: clamp(300px, 47vh, 440px);
-  }
-}
-
-@media (max-width: 700px) and (max-height: 550px) {
-  .hand,
-  .hand-heading {
-    display: none;
-  }
-  .stage {
-    min-height: 210px;
+    padding-top: 8px;
   }
   .cast {
     top: 55px;
+    bottom: 75px;
   }
-  .portrait img {
-    height: 260px;
-    bottom: -75px;
+  .portrait .portrait-name {
+    bottom: 0;
   }
-}
-@media (max-width: 700px) and (min-height: 551px) and (max-height: 650px) {
-  .stage {
-    min-height: 220px;
-  }
-  .cast {
-    top: 40px;
-  }
-  .portrait img {
-    height: 280px;
-  }
-}
-@media (max-width: 700px) and (max-height: 650px) {
   .dialogue {
-    padding: 6px 9px;
-  }
-  .line-controls button {
-    min-height: 24px;
-    font-size: 18px;
+    bottom: 7px;
+    padding: 5px 10px;
   }
   #speaker {
     font-size: 14px;
@@ -844,23 +605,10 @@ h2 {
     min-height: 16px;
     margin: 3px 0 6px;
   }
-  #chat-form {
-    padding-top: 3px;
-  }
-  #chat-input {
-    min-height: 30px;
-    padding: 4px 0;
-  }
-  #chat-form button {
-    min-height: 30px;
-  }
-  .portrait img {
-    height: 210px;
-    bottom: -95px;
-  }
 }
-@media (max-width: 700px) and (min-height: 651px) {
-  .portrait img {
-    bottom: -145px;
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -18,7 +18,7 @@
     </header>
     <p id="notice" class="notice" role="status" hidden></p>
     <main>
-      <section class="stage" aria-label="Current scene">
+      <section id="stage" class="stage" aria-label="Current scene">
         <img id="backdrop" class="backdrop" alt="" />
         <div class="scene-shade"></div>
         <div class="scene-heading">
@@ -26,9 +26,7 @@
             <p class="eyebrow">THE PLACE</p>
             <h1 id="place-title"></h1>
             <p id="path-state"></p>
-            <nav id="paths" aria-label="Paths"></nav>
           </div>
-          <div id="people" aria-label="People here"></div>
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
         <section class="dialogue" aria-label="Conversation">
@@ -41,53 +39,13 @@
             </div>
           </div>
           <p id="dialogue-text" aria-live="polite"></p>
-          <form id="chat-form">
-            <label class="sr-only" for="chat-input"
-              >Speak or suggest a play</label
-            ><input
-              id="chat-input"
-              maxlength="500"
-              autocomplete="off"
-              placeholder="Speak, or try “take lamp”…"
-            /><button type="submit">Send</button>
-          </form>
         </section>
       </section>
-      <section class="play-dock" aria-label="Card hand and play">
-        <div class="play-strip">
-          <div class="play-intent">
-            <p id="preview" aria-live="polite">
-              Choose an item, a person, or a path.
-            </p>
-            <div id="choices" aria-label="Possible plays"></div>
-          </div>
-          <div class="play-controls">
-            <button id="inspect">Read</button><button id="clear">Clear</button
-            ><button id="play" class="primary" disabled>Play</button>
-          </div>
-        </div>
-        <div class="hand-heading">
-          <div class="hand-title">
-            <strong>VALE’S HAND</strong><span id="hand-count"></span
-            ><span class="reach-note">Carried items & things within reach</span>
-          </div>
-          <div class="aim-controls">
-            <label class="sr-only" for="aim">Vale’s aim</label
-            ><select id="aim"></select
-            ><button id="next">Next step</button><button id="wait">Wait</button>
-          </div>
-        </div>
-        <div id="hand" class="hand" aria-label="Item cards"></div>
-        <p id="cost" class="cost"></p>
+      <section class="play-dock" aria-label="Card hand">
+        <div id="hand" class="hand" aria-label="Playable cards"></div>
+        <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>
     </main>
-    <dialog id="read-dialog">
-      <div class="modal-heading">
-        <h2>Read the cards</h2>
-        <button data-close="read-dialog">Close</button>
-      </div>
-      <div id="inspection"></div>
-    </dialog>
     <dialog id="history-dialog">
       <div class="modal-heading">
         <h2>Conversation</h2>
@@ -101,19 +59,27 @@
         <h2>The reflected shore</h2>
         <button data-close="menu-dialog">Close</button>
       </div>
-      <p>Guide Vale. Pip and the keeper take a turn after every play.</p>
       <p>
-        Choose an item card, a person, or a path. Pair cards to use an item or
-        give it. Read and plan freely; press Play to spend one turn.
+        Play cards to guide Vale. Pip and the keeper take a turn after each
+        play.
       </p>
       <p>
-        A lit lamp opens the path between reflections. Oil feeds the lamp. A
-        cloth blocks light and sound. The keeper follows a ringing bell. Pip
-        wants light at the pond.
+        Tap a card to raise it. Tap a second card to combine them. Tap a raised
+        card to play. The card shows what will happen.
       </p>
       <p>
-        Try “take lamp”, “use oil on lamp”, “give lamp to Pip”, or “aim: help
-        Pip”. Chat prepares a play for you to confirm.
+        You can also drag a card or raised pair into the scene. Drag one card
+        onto another to form a pair. Tap the scene or press Escape to lower your
+        cards.
+      </p>
+      <p>
+        A location card travels there. The current location passes a turn. Pair
+        a carried item with the current location to put it down, or with an
+        avatar to give it.
+      </p>
+      <p>
+        Oil flask + Lamp adds fuel. Black cloth + Lamp blocks light. Black cloth
+        + Bell muffles sound. Play an avatar card to hear what they want.
       </p>
       <p>Your game saves in this browser. History holds the scene script.</p>
       <button id="new-game">New game</button>
