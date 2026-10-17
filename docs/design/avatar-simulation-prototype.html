@@ -4,278 +4,313 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>CosyWorld avatar simulation design preview</title>
-<style>body { margin: 0; padding: 16px; background: light-dark(#e7e9df, #101710); } @media(max-width:540px) { body { padding: 0; } }</style>
+<title>CosyWorld card game design</title>
+<style>body { margin: 0; padding: 16px; } @media (max-width: 560px) { body { padding: 8px; } }</style>
 </head>
 <body>
 <style>
-  #cw-avatar-play {
-    --cw-paper: light-dark(#f4f1e7, #142019);
-    --cw-surface: light-dark(#fffdf7, #1d2b21);
-    --cw-ink: light-dark(#233b2b, #ebe9da);
-    --cw-soft: light-dark(#586852, #b6c1ad);
-    --cw-line: light-dark(#d4d9c8, #40513d);
-    --cw-green: light-dark(#2f5839, #d2e1b8);
-    --cw-on-green: light-dark(#fffdf7, #192719);
-    --cw-warm: light-dark(#eee5ca, #34402a);
-    color: var(--cw-ink);
-    background: var(--cw-paper);
-    font: 15px/1.5 system-ui, sans-serif;
-    border-radius: 16px;
-    overflow: clip;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  #cw-avatar-play * { box-sizing: border-box; }
-  #cw-avatar-play [hidden] { display: none !important; }
-  #cw-avatar-play button { font: inherit; color: inherit; }
-  #cw-avatar-play button:focus-visible { outline: 3px solid var(--cw-green); outline-offset: 3px; }
-  #cw-avatar-play .cw-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 16px 22px; border-bottom: 1px solid var(--cw-line); padding-right: 100px; }
-  #cw-avatar-play .cw-brand { font: 24px/1.2 Georgia, serif; }
-  #cw-avatar-play .cw-small { font-size: 12px; color: var(--cw-soft); }
-  #cw-avatar-play .cw-place { margin-left: auto; }
-  #cw-avatar-play .cw-body { padding: 20px 22px; }
-  #cw-avatar-play .cw-section-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-  #cw-avatar-play h2 { font: 26px/1.2 Georgia, serif; margin: 0; }
-  #cw-avatar-play h3 { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
-  #cw-avatar-play p { margin: 4px 0; }
-  #cw-avatar-play .cw-button { padding: 9px 14px; min-height: 44px; border-radius: 8px; border: 1px solid var(--cw-line); background: var(--cw-surface); text-align: left; }
-  #cw-avatar-play .cw-button:hover { background: var(--cw-warm); }
-  #cw-avatar-play .cw-primary { background: var(--cw-green); color: var(--cw-on-green); border-color: var(--cw-green); }
-  #cw-avatar-play .cw-primary:hover { background: var(--cw-green); filter: brightness(1.07); }
-  #cw-avatar-play .cw-quiet { border: 0; background: transparent; text-decoration: underline; text-underline-offset: 4px; padding: 8px 2px; min-height: 44px; }
-  #cw-avatar-play .cw-conversation { display: grid; gap: 12px; margin: 16px 0 20px; }
-  #cw-avatar-play .cw-line { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; }
-  #cw-avatar-play .cw-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--cw-warm); font: 16px Georgia, serif; }
-  #cw-avatar-play .cw-speaker { font-size: 12px; color: var(--cw-soft); }
-  #cw-avatar-play .cw-reason { color: var(--cw-soft); font-size: 12px; }
-  #cw-avatar-play .cw-moment { border-left: 2px solid var(--cw-line); padding-left: 12px; margin-left: 44px; font-size: 13px; }
-  #cw-avatar-play .cw-guide { background: var(--cw-surface); border: 1px solid var(--cw-line); border-radius: 12px; padding: 16px; }
-  #cw-avatar-play .cw-guide-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
-  #cw-avatar-play .cw-intention { font: 21px/1.3 Georgia, serif; margin: 7px 0 12px; }
-  #cw-avatar-play .cw-next { margin: 12px 0; }
-  #cw-avatar-play .cw-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  #cw-avatar-play .cw-intents { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
-  #cw-avatar-play .cw-intent { border: 1px solid var(--cw-line); border-radius: 10px; padding: 12px; text-align: left; background: var(--cw-surface); min-height: 86px; }
-  #cw-avatar-play .cw-intent[aria-pressed=true] { border-color: var(--cw-green); background: var(--cw-warm); }
-  #cw-avatar-play .cw-intent span { display: block; margin-top: 4px; font-size: 12px; color: var(--cw-soft); }
-  #cw-avatar-play .cw-cast-title { margin: 22px 0 10px; }
-  #cw-avatar-play .cw-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  #cw-avatar-play .cw-entity { text-align: left; background: var(--cw-surface); border: 1px solid var(--cw-line); border-radius: 10px; padding: 12px; min-width: 0; }
-  #cw-avatar-play .cw-entity[aria-pressed=true] { border-color: var(--cw-green); background: var(--cw-warm); }
-  #cw-avatar-play .cw-entity strong { display: block; font: 19px/1.3 Georgia, serif; margin-bottom: 6px; }
-  #cw-avatar-play .cw-entity span { display: block; font-size: 12px; color: var(--cw-soft); }
-  #cw-avatar-play .cw-focus { margin-top: 12px; padding: 12px 0; border-top: 1px solid var(--cw-line); }
-  #cw-avatar-play .cw-focus .cw-actions { margin-top: 8px; }
-  #cw-avatar-play .cw-footer { display: flex; flex-wrap: wrap; gap: 4px 16px; border-top: 1px solid var(--cw-line); margin-top: 18px; padding-top: 12px; font-size: 12px; color: var(--cw-soft); }
-  #cw-avatar-play .cw-journal { margin: 12px 0; padding: 14px; background: var(--cw-surface); border-radius: 10px; }
-  #cw-avatar-play .cw-journal ul { padding-left: 18px; margin: 8px 0; }
-  #cw-avatar-play .cw-journal li { margin: 8px 0; }
-  #cw-avatar-play .cw-status { margin-top: 10px; color: var(--cw-soft); font-size: 12px; }
-  @media (max-width: 540px) {
-    #cw-avatar-play .cw-header { padding: 14px; padding-right: 90px; }
-    #cw-avatar-play .cw-place { margin-left: 0; width: 100%; }
-    #cw-avatar-play .cw-body { padding: 16px 14px; }
-    #cw-avatar-play .cw-intents { grid-template-columns: 1fr; }
-    #cw-avatar-play .cw-intent { min-height: 60px; }
-    #cw-avatar-play .cw-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    #cw-avatar-play .cw-section-line { align-items: flex-start; }
-    #cw-avatar-play h2 { font-size: 23px; }
-  }
+#cw-card-play {
+  --cw-paper: light-dark(#f4eddd, #1f2923);
+  --cw-card: light-dark(#fffaf0, #303b31);
+  --cw-ink: light-dark(#243b30, #f0ebd8);
+  --cw-soft: light-dark(#536454, #c0cab9);
+  --cw-line: light-dark(#c7c8af, #68745e);
+  --cw-felt: light-dark(#dce3cf, #172a22);
+  --cw-green: light-dark(#315541, #d9e7bc);
+  --cw-on-green: light-dark(#fffaf0, #1a3024);
+  --cw-gold: light-dark(#80571e, #e7bf73);
+  --cw-shadow: light-dark(#24453224, #00000040);
+  color: var(--cw-ink); background: var(--cw-paper);
+  font: 14px/1.45 system-ui, sans-serif; border-radius: 16px; max-width: 900px; margin: auto;
+}
+#cw-card-play * { box-sizing: border-box; }
+#cw-card-play [hidden] { display: none !important; }
+#cw-card-play button { font: inherit; color: inherit; }
+#cw-card-play p { margin: 0; }
+#cw-card-play .cw-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 16px 100px 14px 20px; }
+#cw-card-play .cw-brand { font: 25px/1.1 Georgia, serif; }
+#cw-card-play .cw-small { font-size: 12px; color: var(--cw-soft); }
+#cw-card-play .cw-scene { background: var(--cw-felt); padding: 18px 20px 20px; }
+#cw-card-play .cw-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+#cw-card-play h2 { font: 26px/1.2 Georgia, serif; margin: 0; }
+#cw-card-play h3 { font: 20px/1.2 Georgia, serif; margin: 0; }
+#cw-card-play .cw-quiet { border: 0; background: transparent; min-height: 44px; padding: 8px 0; text-decoration: underline; text-underline-offset: 4px; }
+#cw-card-play .cw-chat { display: grid; gap: 8px; padding: 0 0 16px; }
+#cw-card-play .cw-chat p { max-width: 67ch; }
+#cw-card-play .cw-chat strong { font-weight: 600; margin-right: 8px; }
+#cw-card-play .cw-chat .cw-event { color: var(--cw-soft); font-size: 12px; }
+#cw-card-play .cw-table, #cw-card-play .cw-hand { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; align-items: stretch; }
+#cw-card-play .cw-playing-card { position: relative; display: flex; flex-direction: column; text-align: left; min-width: 0; padding: 10px; border: 1px solid var(--cw-line); border-radius: 9px; background: var(--cw-card); box-shadow: 0 3px 0 var(--cw-line), 0 6px 12px var(--cw-shadow); transition: transform 140ms ease, box-shadow 140ms ease; }
+#cw-card-play .cw-playing-card:hover { transform: translateY(-3px); }
+#cw-card-play .cw-playing-card[aria-pressed=true] { outline: 3px solid var(--cw-green); outline-offset: 2px; transform: translateY(-4px); }
+#cw-card-play .cw-playing-card.cw-ready { border: 2px solid var(--cw-green); padding: 9px; }
+#cw-card-play .cw-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+#cw-card-play .cw-symbol { display: grid; place-items: center; min-height: 48px; margin: 7px 0; background: var(--cw-felt); border-radius: 50% 50% 4px 4px; color: var(--cw-green); font: 36px/1 Georgia, serif; }
+#cw-card-play .cw-playing-card strong { display: block; font: 20px/1.1 Georgia, serif; margin: 4px 0 6px; }
+#cw-card-play .cw-playing-card .cw-card-text { display: block; font-size: 12px; }
+#cw-card-play .cw-card-foot { display: block; border-top: 1px solid var(--cw-line); font-size: 11px; margin-top: auto; padding-top: 7px; color: var(--cw-soft); }
+#cw-card-play .cw-table .cw-card-text { margin-bottom: 12px; }
+#cw-card-play .cw-ready .cw-card-foot { color: var(--cw-green); font-weight: 600; }
+#cw-card-play .cw-hand .cw-playing-card { min-height: 172px; }
+#cw-card-play .cw-hand .cw-symbol { min-height: 32px; font-size: 29px; background: transparent; margin: 3px 0; }
+#cw-card-play .cw-hand .cw-card-text { margin-bottom: 12px; }
+#cw-card-play .cw-hand .cw-playing-card[data-card=breathe] { background: var(--cw-felt); }
+#cw-card-play .cw-play-area { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--cw-line); }
+#cw-card-play .cw-preview { flex: 1 1 230px; }
+#cw-card-play .cw-preview-title { font: 20px/1.25 Georgia, serif; margin-bottom: 4px; }
+#cw-card-play .cw-play-button { border: 1px solid var(--cw-green); background: var(--cw-green); color: var(--cw-on-green); border-radius: 8px; padding: 10px 16px; min-height: 44px; }
+#cw-card-play .cw-in-hand { padding: 18px 20px 22px; }
+#cw-card-play .cw-hand-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 14px; margin-bottom: 14px; }
+#cw-card-play .cw-spent { margin-top: 16px; color: var(--cw-soft); font-size: 12px; }
+#cw-card-play .cw-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 20px; border-top: 1px solid var(--cw-line); }
+#cw-card-play .cw-memory { color: var(--cw-gold); }
+#cw-card-play .cw-journal { padding: 18px 20px; border-top: 1px solid var(--cw-line); }
+#cw-card-play .cw-journal ol { padding-left: 20px; margin: 12px 0; }
+#cw-card-play .cw-journal li { margin: 7px 0; }
+#cw-card-play .cw-journal details { margin-top: 12px; }
+#cw-card-play .cw-journal summary { min-height: 44px; padding: 10px 0; }
+#cw-card-play .cw-only-reader { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 560px) {
+  #cw-card-play .cw-top { padding-left: 14px; }
+  #cw-card-play .cw-scene, #cw-card-play .cw-in-hand, #cw-card-play .cw-journal { padding: 16px 14px; }
+  #cw-card-play .cw-play-area { padding: 14px; }
+  #cw-card-play .cw-table, #cw-card-play .cw-hand { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+  #cw-card-play .cw-hand .cw-playing-card { min-height: 140px; }
+  #cw-card-play .cw-playing-card .cw-symbol { display: none; }
+  #cw-card-play h2 { font-size: 23px; }
+  #cw-card-play .cw-heading { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { #cw-card-play .cw-playing-card { transition: none; } }
 </style>
-<section id="cw-avatar-play" aria-label="CosyWorld avatar simulation design preview">
-  <header class="cw-header">
-    <div class="cw-brand">CosyWorld</div>
-    <div class="cw-place cw-small">Cottage garden · early evening</div>
-  </header>
-  <div class="cw-body">
-    <div class="cw-section-line">
-      <div><h2>A few lives crossing</h2><p class="cw-small">Design preview · local simulation</p></div>
-      <button type="button" class="cw-quiet cursor-interaction" data-command="journal" aria-expanded="false">Journal</button>
-    </div>
-    <div class="cw-conversation" aria-label="Shared room conversation" data-region="chat"></div>
-    <div class="cw-journal" data-region="journal" hidden></div>
-    <section class="cw-guide" aria-label="Guide Briony">
-      <div class="cw-guide-top"><span class="cw-small">BRIONY · YOU GUIDE HER INTENTIONS</span><button type="button" class="cw-quiet cursor-interaction" data-command="interests" aria-expanded="true">Change intention</button></div>
-      <p class="cw-intention" data-region="intention"></p>
-      <div class="cw-intents" data-region="interests" aria-label="What matters to Briony"></div>
-      <div class="cw-next"><div class="cw-small">WHAT I PLAN TO TRY</div><p data-region="next"></p><p class="cw-reason" data-region="reason"></p></div>
-      <div class="cw-actions"><button type="button" class="cw-button cw-primary cursor-interaction" data-command="act">Let Briony act</button><button type="button" class="cw-button cursor-interaction" data-command="watch">Watch one moment</button></div>
-      <p class="cw-status" data-region="status" role="status" aria-live="polite"></p>
-    </section>
-    <h3 class="cw-cast-title">People and things you can focus on</h3>
-    <div class="cw-cards" data-region="cards" aria-label="Entity cards"></div>
-    <section class="cw-focus" data-region="focus" aria-label="Selected card" hidden></section>
-    <div class="cw-footer"><span data-region="moment"></span><span>Inspect freely · act to advance the scene</span></div>
-  </div>
+<section id="cw-card-play" aria-label="CosyWorld playable card game proposal">
+  <header class="cw-top"><span class="cw-brand">CosyWorld</span><span class="cw-small">You guide Briony · the cast has its own plans</span></header>
+  <section class="cw-scene" aria-label="The table">
+    <div class="cw-heading"><div><h2>An evening in the garden</h2><p class="cw-small" data-region="turn">Cottage garden · your turn</p></div><button type="button" class="cw-quiet cursor-interaction" data-command="journal" aria-expanded="false">Journal</button></div>
+    <div class="cw-chat" data-region="chat" aria-label="Room chat"></div>
+    <div class="cw-table" data-region="table" aria-label="People and places to play onto"></div>
+  </section>
+  <section class="cw-play-area" aria-label="Your play">
+    <div class="cw-preview"><p class="cw-preview-title" data-region="preview-title">What will you play?</p><p class="cw-small" data-region="preview-detail">Choose a card from your hand. Then choose someone or somewhere to play it.</p></div>
+    <button type="button" class="cw-play-button cursor-interaction" data-command="play" hidden>Play card · 1 turn</button>
+    <button type="button" class="cw-quiet cursor-interaction" data-command="cancel" hidden>Put back</button>
+  </section>
+  <section class="cw-in-hand" aria-label="Briony's hand">
+    <div class="cw-hand-heading"><h3>Your hand</h3><span class="cw-small">Play one card. Everyone gets a turn.</span></div>
+    <div class="cw-hand" data-region="hand"></div>
+    <p class="cw-spent" data-region="spent">Approaches return when you take a breath.</p>
+  </section>
+  <div class="cw-bottom"><span class="cw-small">Playable design · local rules</span><span class="cw-small cw-memory" data-region="memory">One sprig of mint. An evening to make your own.</span></div>
+  <section class="cw-journal" data-region="journal" aria-label="Evening journal" hidden></section>
+  <p class="cw-only-reader" data-region="announcement" role="status" aria-live="polite"></p>
 </section>
 <script>
 (() => {
-  const root = document.getElementById('cw-avatar-play');
-  const region = name => root.querySelector(`[data-region="${name}"]`);
-  const intentions = {
-    company: { title: 'Bring people together', why: 'Make room for a friendship.' },
-    lantern: { title: 'Help Mara read outdoors', why: 'Find a use for what others value.' },
-    curiosity: { title: 'Follow my curiosity', why: 'See what the garden holds.' }
-  };
-  const state = {
-    tick: 0, intention: 'company', focus: null, override: null, interests: true, journal: false,
-    mint: 2, carriedMint: 0, potMint: false, warm: false, meal: false,
-    ring: 'Pip', lamp: 'broken', maraAsked: false, brace: false,
-    story: false, invited: false, pipAtTable: false, welcomed: false, outdoorMeal: false,
-    seedFound: false, discoveryShared: false, moonflowers: false, acorn: false,
-    pipTea: false, memories: [], status: 'Choose what matters. Briony will suggest a first step.',
-    log: [
-      { who: 'Rati', line: 'I have enough soup for everyone. I would love some company.' },
-      { who: 'Mara', line: 'Pip’s brass ring would fit my lantern. I miss reading under the pear tree.' },
-      { who: 'Pip', line: 'I like my shiny ring. A cup of mint tea might tempt me to swap. I could use company, too.' }
-    ]
-  };
-  const say = (who, line, reason = '') => state.log.push({ who, line, reason });
-  const remember = text => { if (!state.memories.includes(text)) state.memories.push(text); };
-  const actions = {
-    story: {
-      label: 'Share a story with Pip', reason: 'He has been hoping for company.', focus: 'pip',
-      available: () => !state.story,
-      run: () => { state.story = true; say('Briony', 'I tell Pip about the first garden I ever saw.'); say('Pip', 'Stay a little longer. I have a story for you, too.'); remember('Pip and Briony shared their first stories.'); }
-    },
-    invite: {
-      label: 'Invite Pip to sit with Rati', reason: 'Rati wants company, and Pip has warmed to us.', focus: 'pip',
-      available: () => state.story && !state.invited,
-      run: () => { state.invited = true; say('Briony', 'Pip, shall we bring our stories to Rati’s table?'); say('Pip', 'Yes. I’ll join you when the bowls are ready.'); remember('Pip accepted Briony’s supper invitation.'); }
-    },
-    mint: {
-      label: 'Pick a sprig of mint', reason: 'Mint could flavour Rati’s soup or make tea for Pip.', focus: 'garden',
-      available: () => state.mint > 0,
-      run: () => { state.mint -= 1; state.carriedMint += 1; say('Briony', 'I pick a sprig of mint and keep it with me.'); }
-    },
-    soup: {
-      label: 'Offer mint for Rati’s soup', reason: 'Rati can use it to flavour the pot.', focus: 'rati',
-      available: () => state.carriedMint > 0 && !state.potMint,
-      run: () => { state.carriedMint -= 1; state.potMint = true; say('Briony', 'Would this mint go well with the soup?'); say('Rati', 'Just what it needed. I’ll stir it in.'); remember('Rati flavoured the shared supper with Briony’s mint.'); }
-    },
-    trade: {
-      label: 'Offer Pip mint for the brass ring', reason: 'Pip likes mint tea. This offers something he values.', focus: 'pip',
-      available: () => state.carriedMint > 0 && state.ring === 'Pip',
-      run: () => { state.carriedMint -= 1; state.ring = 'Briony'; state.pipTea = true; say('Briony', 'My mint for your ring?'); say('Pip', 'Gladly. Mara will put it to good use.'); remember('Pip agreed to trade his brass ring for Briony’s mint.'); }
-    },
-    ring: {
-      label: 'Give the brass ring to Mara', reason: 'It fits the lantern she wants to repair.', focus: 'mara',
-      available: () => state.ring === 'Briony',
-      run: () => { state.ring = 'Mara'; say('Briony', 'Mara, Pip traded me the ring. Here it is.'); remember('Briony brought Mara the ring for her reading lantern.'); }
-    },
-    observe: {
-      label: 'Look where the fireflies gather', reason: 'They keep settling beside the mint bed.', focus: 'garden',
-      available: () => !state.seedFound,
-      run: () => { state.seedFound = true; say('Briony', 'I find moonflower seeds where the fireflies gather.'); remember('Briony found moonflower seeds by following the fireflies.'); }
-    },
-    share: {
-      label: 'Show Pip the moonflower seeds', reason: 'He has been collecting things from the garden.', focus: 'pip',
-      available: () => state.seedFound && !state.discoveryShared,
-      run: () => { state.discoveryShared = true; say('Briony', 'Pip, look what the fireflies led me to.'); say('Pip', 'Moonflowers! Let’s find a good patch for them.'); remember('Pip and Briony found a shared interest in moonflowers.'); }
-    },
-    plant: {
-      label: 'Plant moonflowers beside the path', reason: 'Their flowers will give the fireflies a new place to gather.', focus: 'garden',
-      available: () => state.seedFound && !state.moonflowers,
-      run: () => { state.moonflowers = true; say('Briony', state.discoveryShared ? 'Pip holds the seeds while I make a shallow bed beside the path.' : 'I plant the seeds in a shallow bed beside the path.'); remember(state.discoveryShared ? 'Briony and Pip planted the moonflower bed together.' : 'Briony planted a moonflower bed beside the path.'); }
-    },
-    enjoy: {
-      label: 'Spend a quiet moment here', reason: 'There is time to enjoy the life taking shape around us.', focus: 'rati',
-      available: () => true,
-      run: () => say('Briony', state.outdoorMeal ? 'I settle under the pear tree with a warm bowl.' : 'I sit for a while and listen to the garden.')
+  // BEGIN CARD GAME MODEL
+  function createCardGame() {
+    const cards = {
+      reach: { name: 'Reach out', kind: 'Approach', symbol: '❧', text: 'Spend a moment with someone.', foot: 'Returns after a breath' },
+      notice: { name: 'Look closer', kind: 'Approach', symbol: '✧', text: 'Find something in the garden.', foot: 'Returns after a breath' },
+      mint: { name: 'Mint sprig', kind: 'Item', symbol: '❦', text: 'Flavour for Rati. Tea for Pip.', foot: 'Use or trade this sprig' },
+      breathe: { name: 'Take a breath', kind: 'Rest', symbol: '☾', text: 'Recover your spent approaches.', foot: 'The cast takes a turn' },
+      ring: { name: 'Brass ring', kind: 'Item', symbol: '◎', text: 'Mend a lantern or a wind chime.', foot: 'Becomes part of the repair' },
+      seed: { name: 'Moonflower seeds', kind: 'Item', symbol: '✺', text: 'Plant a patch or offer them to Pip.', foot: 'One packet · one patch' },
+      invite: { name: 'Supper invitation', kind: 'Invitation', symbol: '❧', text: 'Ask someone to join Rati’s table.', foot: 'Used when they accept' }
+    };
+    const state = {
+      tick: 0, hand: ['reach', 'notice', 'mint', 'breathe'], spent: [], moves: [],
+      mintGrowing: 1, mintUsed: 0, ring: 'Pip', seeds: 'garden', lamp: 'broken', chime: false,
+      warm: false, meal: false, potMint: false, outdoorMeal: false,
+      friend: false, metRati: false, metMara: false, invitationDrawn: false,
+      pipTea: false, pipInvited: false, pipAtTable: false, welcomed: false,
+      maraAsked: false, brace: false, maraInvited: false, maraAtTable: false,
+      acorn: false, moonflowers: false, sharedPlanting: false,
+      memories: [], draws: [], lastPlay: null, activations: { Rati: 0, Mara: 0, Pip: 0 },
+      log: [
+        { who: 'Rati', text: 'Soup in three turns. There’s room for everyone.' },
+        { who: 'Pip', text: 'I’d swap my brass ring for mint. Tea sounds lovely.' },
+        { who: 'Mara', text: 'That ring fits my reading lantern. I could hang it in the pear tree.' }
+      ]
+    };
+    const say = (who, text) => state.log.push({ who, text });
+    const remember = text => { if (!state.memories.includes(text)) state.memories.push(text); };
+    function draw(id) { if (!state.hand.includes(id)) { state.hand.splice(state.hand.indexOf('breathe'), 0, id); state.draws.push(cards[id].name); } }
+    const offer = (label, detail, run) => ({ label, detail, run });
+    function getOffer(card, target) {
+      if (!state.hand.includes(card)) return null;
+      if (card === 'breathe' && target === 'self') return offer('Give the evening a moment', 'Recover every spent approach. Each person takes one turn.', () => {
+        state.spent.splice(0).forEach(draw); say('Briony', 'I take a breath and listen to the garden.'); return false;
+      });
+      if (card === 'reach') {
+        if (target === 'pip') return offer(state.friend ? 'Spend time with Pip' : 'Share a story with Pip', state.friend ? 'Enjoy your friendship while the evening moves on.' : 'Pip wants company. A shared story can make a future invitation welcome.', () => {
+          say('Briony', 'I tell Pip a story from the road.'); say('Pip', state.friend ? 'I have another one for you, too.' : 'Stay a while. It’s good to have company.'); state.friend = true; remember('Pip and Briony became friends through their stories.');
+        });
+        if (target === 'rati') return offer(state.metRati ? 'Keep Rati company' : 'Offer to bring someone to supper', state.metRati ? 'Sit with Rati for a moment.' : 'Rati will give you a Supper invitation card. You choose whom to ask.', () => {
+          say('Briony', 'Who shall we have at the table tonight?'); say('Rati', 'Bring a friend. There’s plenty to share.'); state.metRati = true;
+          if (!state.invitationDrawn) { state.invitationDrawn = true; draw('invite'); }
+          remember('Rati welcomed Briony to her supper table.');
+        });
+        if (target === 'mara') return offer('Share a moment with Mara', state.lamp === 'broken' ? 'Hear why the lantern matters to her.' : 'Enjoy a page from her book together.', () => {
+          state.metMara = true; say('Briony', 'What are you reading, Mara?'); say('Mara', 'Travels through the night gardens. Let me read you a little.'); remember('Mara shared her favourite book with Briony.');
+        });
+      }
+      if (card === 'notice' && target === 'garden') {
+        if (state.seeds === 'garden') return offer('Follow the fireflies', 'Find Moonflower seeds. Add the packet to your hand.', () => { state.seeds = 'Briony'; draw('seed'); say('Briony', 'The fireflies lead me to a packet of moonflower seeds.'); });
+        if (state.mintGrowing > 0 && !state.hand.includes('mint')) return offer('Pick the last mint sprig', 'Add Mint sprig to your hand. The patch will have time to regrow after this visit.', () => { state.mintGrowing -= 1; draw('mint'); say('Briony', 'I pick the last full sprig and leave the young shoots to grow.'); });
+        return offer('Watch the fireflies', 'Enjoy the garden while the others follow their plans.', () => { say('Briony', 'I watch the fireflies settle among the leaves.'); });
+      }
+      if (card === 'mint') {
+        if (target === 'pip') return offer(state.ring === 'Pip' ? 'Trade mint for Pip’s ring' : 'Make mint tea for Pip', state.ring === 'Pip' ? 'Pip has offered this trade. Give the sprig and draw Brass ring.' : 'Use the sprig. Share a cup of tea and strengthen your friendship.', () => {
+          state.mintUsed += 1; state.pipTea = true;
+          if (state.ring === 'Pip') { state.ring = 'Briony'; draw('ring'); say('Pip', 'Mint for my ring. A fair trade!'); remember('Briony traded mint for Pip’s brass ring.'); }
+          else { state.friend = true; say('Pip', 'Tea together. Just what I needed.'); remember('Pip and Briony shared mint tea.'); }
+        });
+        if (target === 'rati') return offer(state.meal ? 'Make tea for Rati' : 'Add mint to Rati’s soup', state.meal ? 'The soup is served. Use the sprig for a shared cup of tea.' : `Use the sprig to flavour supper. Rati serves in ${3 - state.tick} ${3 - state.tick === 1 ? 'turn' : 'turns'}.`, () => {
+          state.mintUsed += 1;
+          if (state.meal) { say('Rati', 'A cup of mint tea after all that cooking. Thank you.'); remember('Briony made tea for Rati after supper.'); }
+          else { state.potMint = true; say('Rati', 'I’ll stir your mint into the soup. Everyone gets a little.'); remember('Briony’s mint flavoured the shared supper.'); }
+        });
+      }
+      if (card === 'ring' && state.ring === 'Briony') {
+        if (target === 'mara') return offer('Give Mara the brass ring', 'Give her the part. Mara can repair her lantern on her next turn.', () => { state.ring = 'Mara'; say('Briony', 'Mara, this ring is yours.'); });
+        if (target === 'garden' && !state.chime) return offer('Mend the wind chime', 'Use the ring to hang the garden’s old chime. Mara can pursue her own repair.', () => { state.ring = 'chime'; state.chime = true; say('Briony', 'The brass ring holds the old chime together. The breeze finds its voice.'); remember('Briony brought the garden’s wind chime back to life.'); });
+      }
+      if (card === 'seed' && state.seeds === 'Briony') {
+        if (target === 'garden') return offer('Plant a moonflower patch', 'Use the packet. Leave a living mark beside the path.', () => { state.seeds = 'planted'; state.moonflowers = true; say('Briony', 'I plant moonflowers beside the path.'); remember('Briony planted a moonflower patch beside the path.'); });
+        if (target === 'pip') return offer('Offer the seeds to Pip', state.friend ? 'Pip wants to plant with you. He will fit it around supper.' : 'Pip likes growing things. He chooses when and where to plant them.', () => { state.seeds = 'Pip'; say('Pip', state.friend ? 'Let’s plant these together when I have a moment.' : 'Moonflowers! I know a good patch for these.'); });
+      }
+      if (card === 'invite') {
+        if (target === 'pip' && !state.pipAtTable && !state.pipInvited) return offer('Invite Pip to supper', state.friend || state.pipTea || state.acorn ? 'Pip is ready for company. He will join when the soup is ready.' : 'Pip may stay with his acorn. You keep the invitation if he waits.', () => {
+          if (!state.friend && !state.pipTea && !state.acorn) { say('Pip', 'Let me plant this acorn first. Ask me again in a little while.'); return false; }
+          state.pipInvited = true; say('Pip', 'Yes. Save me a place when the soup is ready.'); remember('Pip accepted Briony’s supper invitation.');
+        });
+        if (target === 'mara' && !state.maraAtTable && !state.maraInvited) return offer('Invite Mara to supper', state.lamp === 'broken' ? 'Mara wants to finish her lamp first. You keep the invitation if she waits.' : 'Mara is ready for company. She will join when the soup is ready.', () => {
+          if (state.lamp === 'broken') { say('Mara', 'I want to finish this lamp first. Keep a place for me.'); return false; }
+          state.maraInvited = true; say('Mara', 'I’d love to. I’ll bring my book.'); remember('Mara accepted Briony’s supper invitation.');
+        });
+      }
+      return null;
     }
-  };
-  function chooseNext() {
-    if (state.override && actions[state.override].available()) return state.override;
-    const orders = {
-      company: ['story', 'invite', 'soup', 'enjoy'],
-      lantern: state.ring === 'Pip' ? ['trade', 'mint', 'enjoy'] : ['ring', 'enjoy'],
-      curiosity: ['observe', 'share', 'plant', 'enjoy']
-    };
-    return orders[state.intention].find(key => actions[key].available()) || 'enjoy';
+    function ratiActs() {
+      if (!state.warm) { state.warm = true; say('Rati', 'I put the soup over the fire.'); return; }
+      if (!state.meal && state.tick >= 3) { state.meal = true; say('Rati', state.potMint ? 'Mint soup is ready. Bring your bowls.' : 'Soup is ready. Come while it’s warm.'); return; }
+      if (state.meal && state.lamp === 'bright' && !state.outdoorMeal) { state.outdoorMeal = true; say('Rati', 'Mara’s lamp means we can eat under the pear tree.'); remember('Mara’s lantern made supper under the pear tree possible.'); return; }
+      if (state.pipAtTable && !state.welcomed) { state.welcomed = true; say('Rati', 'Pip, tell me about the treasures you found.'); remember('Rati and Pip shared supper and stories.'); }
+    }
+    function maraActs() {
+      if (state.ring === 'Mara') { state.ring = 'lantern'; state.lamp = 'bright'; say('Mara', 'The ring fits. I can hang my lantern outdoors again.'); remember('Briony’s gift helped Mara make a portable lantern.'); return; }
+      if (state.maraInvited && state.meal && !state.maraAtTable) { state.maraAtTable = true; say('Mara', 'I bring my book over to Rati’s table.'); return; }
+      if (!state.maraAsked) { state.maraAsked = true; say('Mara', state.ring === 'Briony' ? 'Briony, that ring would fit my lamp.' : 'Pip, I’d like that ring for my lamp.'); return; }
+      if (state.tick >= 4 && !state.brace && state.lamp === 'broken') { state.brace = true; say('Mara', 'I’ll try a wooden brace for my lamp.'); return; }
+      if (state.brace && state.lamp === 'broken') { state.lamp = 'sheltered'; say('Mara', 'The brace works. I can read on the porch tonight.'); remember('Mara found her own way to repair a porch lamp.'); }
+    }
+    function pipActs() {
+      if (state.meal && !state.pipAtTable && (state.pipInvited || state.tick >= 5)) { state.pipAtTable = true; say('Pip', state.pipInvited ? 'I take the seat Briony saved for me.' : 'That soup smells good. I’m joining Rati.'); return; }
+      if (state.seeds === 'Pip') { state.seeds = 'planted'; state.moonflowers = true; state.sharedPlanting = state.friend; say('Pip', state.friend ? 'Briony, hold the packet. Let’s plant these beside the path.' : 'I plant the moonflowers near my acorn.'); remember(state.friend ? 'Briony and Pip planted moonflowers together.' : 'Pip chose a home for the seeds Briony gave him.'); return; }
+      if (state.tick >= 2 && !state.acorn) { state.acorn = true; say('Pip', 'I plant an acorn beside the fence.'); }
+    }
+    function play(card, target) {
+      const move = getOffer(card, target);
+      if (!move) return false;
+      state.draws = []; const start = state.log.length;
+      const consumed = move.run() !== false;
+      if (card === 'reach' || card === 'notice') { state.hand = state.hand.filter(id => id !== card); state.spent.push(card); }
+      else if (card !== 'breathe' && consumed) state.hand = state.hand.filter(id => id !== card);
+      state.tick += 1; state.moves.push({ card, target });
+      const cast = [['Rati', ratiActs], ['Mara', maraActs], ['Pip', pipActs]];
+      const first = (state.tick - 1) % cast.length;
+      for (let i = 0; i < cast.length; i += 1) { const [name, act] = cast[(i + first) % cast.length]; state.activations[name] += 1; act(); }
+      state.lastPlay = { card, target, label: move.label, events: state.log.slice(start), draws: [...state.draws] };
+      return true;
+    }
+    function table() {
+      return {
+        rati: { name: 'Rati', kind: 'Host', symbol: 'R', text: state.outdoorMeal ? 'Supper under the pear tree.' : state.meal ? 'Soup served. A seat for you.' : `Soup ready in ${3 - state.tick} ${3 - state.tick === 1 ? 'turn' : 'turns'}.`, foot: state.potMint ? 'Your mint is in the soup' : 'Wants everyone to feel welcome' },
+        mara: { name: 'Mara', kind: 'Reader', symbol: 'M', text: state.maraAtTable ? 'Reading with the supper guests.' : state.lamp === 'bright' ? 'A lantern for the pear tree.' : state.lamp === 'sheltered' ? 'Her porch lamp works.' : state.brace ? 'Fitting a wooden lamp brace.' : 'Wants to mend her lantern.', foot: state.lamp === 'broken' ? 'A brass ring would fit' : 'A good book to share' },
+        pip: { name: 'Pip', kind: 'Collector', symbol: 'P', text: state.pipAtTable ? 'Sharing supper with Rati.' : state.seeds === 'Pip' ? 'Planning a moonflower patch.' : state.pipTea ? 'Making his mint tea.' : 'A brass ring. A wish for tea.', foot: state.friend ? 'Your friend · likes growing things' : 'Likes company and little treasures' },
+        garden: { name: 'Garden', kind: 'Place', symbol: '❦', text: state.moonflowers ? 'Moonflowers have a home here.' : state.seeds === 'garden' ? 'Fireflies gather by the mint.' : state.mintGrowing ? 'One full sprig of mint remains.' : 'Young mint shoots are growing.', foot: state.chime ? 'Your wind chime catches the breeze' : 'An old chime waits for a new ring' }
+      };
+    }
+    return { state, cards, table, getOffer, play };
   }
-  function ratiActs() {
-    if (!state.warm) { state.warm = true; say('Rati', 'I put the soup over the fire.', 'She wants to feed her visitors.'); return; }
-    if (!state.meal && (state.tick >= 3 || state.potMint)) { state.meal = true; say('Rati', state.potMint ? 'The mint soup is ready. Bring a bowl.' : 'The soup is ready. There is a place for each of you.'); return; }
-    if (state.pipAtTable && !state.welcomed) { state.welcomed = true; say('Rati', 'Pip, tell me about the treasures you found.'); remember('Rati and Pip got to know each other over supper.'); return; }
-    if (state.meal && state.lamp === 'bright' && !state.outdoorMeal) { state.outdoorMeal = true; say('Rati', 'With Mara’s lamp, we can take supper under the pear tree.'); remember('Mara’s repaired lamp made an outdoor supper possible.'); }
+  // END CARD GAME MODEL
+  const root = document.getElementById('cw-card-play');
+  const region = name => root.querySelector(`[data-region="${name}"]`);
+  const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  let game = createCardGame();
+  let selected = null, target = null, journal = false;
+  function reveal(name) {
+    if (window.matchMedia('(max-width: 560px)').matches) region(name).scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }
-  function maraActs() {
-    if (state.ring === 'Mara' && state.lamp !== 'bright') { state.ring = 'lantern'; state.lamp = 'bright'; say('Mara', 'The ring fits. My lantern can hang from the pear tree again.', 'She used the part Briony brought her.'); remember('Mara repaired a lantern that can travel outdoors.'); return; }
-    if (!state.maraAsked) { state.maraAsked = true; say('Mara', 'Pip, would you part with that ring? I could use it for my lamp.'); return; }
-    if (state.tick >= 4 && !state.brace && state.lamp === 'broken' && state.ring === 'Pip') { state.brace = true; say('Mara', 'I carve a wooden brace from the spare wood.', 'She is trying another way to hold the lamp.'); return; }
-    if (state.brace && state.lamp === 'broken') { state.lamp = 'sheltered'; say('Mara', 'This brace will hold the lamp on the porch. I can read there tonight.'); remember('Mara made her own sheltered repair for the lantern.'); }
+  function restore(snapshot) {
+    const saved = snapshot?.privateContent;
+    if (saved?.version !== 3 || !Array.isArray(saved.moves) || saved.moves.length > 120) return;
+    const restored = createCardGame();
+    for (const move of saved.moves) { if (!move || !restored.play(move.card, move.target)) return; }
+    if (JSON.stringify(restored.state.moves) === JSON.stringify(game.state.moves)) return;
+    game = restored; selected = null; target = null; render();
   }
-  function pipActs() {
-    if (state.meal && !state.pipAtTable && (state.invited || state.tick >= 5)) { state.pipAtTable = true; say('Pip', state.invited ? 'I take the seat Briony saved beside Rati.' : 'That soup smells good. Rati, may I sit with you?', state.invited ? 'He is keeping his agreement with Briony.' : 'He wants company and a warm meal.'); return; }
-    if (state.tick >= 2 && !state.acorn) { state.acorn = true; say('Pip', 'I tuck an acorn into the earth beside the fence.', 'He likes leaving little treasures where they can grow.'); remember('Pip planted an acorn beside the fence.'); }
-  }
-  function advance(watch) {
-    state.tick += 1;
-    const start = state.log.length;
-    if (!watch) { const key = chooseNext(); actions[key].run(); state.override = null; }
-    const cast = [ratiActs, maraActs, pipActs];
-    const first = (state.tick - 1) % cast.length;
-    for (let i = 0; i < cast.length; i += 1) cast[(i + first) % cast.length]();
-    if (state.log.length === start) say('Garden', 'The company settles into a quiet moment.');
-    state.status = watch ? 'You watched one moment. The cast followed its own interests.' : 'One step taken. Briony is considering the scene as it stands now.';
-    state.interests = false;
-    render();
-  }
-  function entityFacts() {
-    return {
-      rati: { name: 'Rati', kind: 'AVATAR', fact: state.outdoorMeal ? 'Serving supper under the pear tree.' : state.meal ? 'Supper is ready. Hoping for company.' : 'Making soup for her visitors.' },
-      mara: { name: 'Mara', kind: 'AVATAR', fact: state.lamp === 'bright' ? 'Her reading lantern can travel.' : state.lamp === 'sheltered' ? 'Reading by her repaired porch lamp.' : 'Wants to mend her reading lantern.' },
-      pip: { name: 'Pip', kind: 'AVATAR', fact: state.pipAtTable ? 'Sharing supper with Rati.' : state.pipTea ? 'Making mint tea. Glad he traded.' : state.ring === 'Pip' ? 'Keeping a brass ring. Likes mint tea.' : 'Looking for company.' },
-      garden: { name: 'The mint bed', kind: 'PLACE', fact: state.moonflowers ? 'Moonflowers planted beside the path.' : state.seedFound ? 'Moonflower seeds found here.' : 'Fireflies gather around the leaves.' }
-    };
-  }
-  function renderChat() {
-    const list = state.journal ? state.log : state.log.slice(-4);
-    region('chat').innerHTML = list.map(entry => `<div class="cw-line"><span class="cw-avatar" aria-hidden="true">${entry.who[0]}</span><div><span class="cw-speaker">${entry.who}</span><p>${entry.line}</p>${entry.reason ? `<p class="cw-reason">${entry.reason}</p>` : ''}</div></div>`).join('');
+  function save() {
+    if (game.state.moves.length <= 120 && window.openai?.setWidgetState) {
+      const result = window.openai.setWidgetState({ modelContent: { role: 'Guide Briony through card play', turn: game.state.tick, memories: game.state.memories }, privateContent: { version: 3, moves: game.state.moves } });
+      if (result?.catch) result.catch(() => {});
+    }
   }
   function render() {
-    const next = chooseNext();
-    const chosen = intentions[state.intention];
-    renderChat();
-    region('intention').textContent = chosen.title;
-    region('next').textContent = actions[next].label;
-    region('reason').textContent = actions[next].reason;
-    region('status').textContent = state.status;
-    region('moment').textContent = `Moment ${state.tick} · you guide Briony`;
-    root.querySelector('[data-command="act"]').setAttribute('aria-label', `Let Briony act: ${actions[next].label}`);
-    region('interests').hidden = !state.interests;
-    root.querySelector('[data-command="interests"]').setAttribute('aria-expanded', String(state.interests));
-    region('interests').innerHTML = Object.entries(intentions).map(([id, intent]) => `<button type="button" class="cw-intent cursor-interaction" data-intention="${id}" aria-pressed="${state.intention === id}">${intent.title}<span>${intent.why}</span></button>`).join('');
-    const facts = entityFacts();
-    region('cards').innerHTML = Object.entries(facts).map(([id, entry]) => `<button type="button" class="cw-entity cursor-interaction" data-focus="${id}" aria-pressed="${state.focus === id}" aria-label="Focus on ${entry.name}"><span>${entry.kind}</span><strong>${entry.name}</strong><span>${entry.fact}</span></button>`).join('');
-    region('focus').hidden = !state.focus;
-    if (state.focus) {
-      const available = Object.entries(actions).filter(([, action]) => action.focus === state.focus && action.available());
-      region('focus').innerHTML = `<h3>${facts[state.focus].name}</h3><p class="cw-small">Choose a specific next step. Briony keeps your wider intention in mind.</p><div class="cw-actions">${available.map(([id, action]) => `<button type="button" class="cw-button cursor-interaction" data-step="${id}" aria-pressed="${state.override === id}">${action.label}</button>`).join('')}</div>${available.length ? '' : '<p>Their current activity is visible on the card. Watch a moment to see how it develops.</p>'}`;
-    }
-    region('journal').hidden = !state.journal;
-    root.querySelector('[data-command="journal"]').textContent = state.journal ? 'Close Journal' : 'Journal';
-    root.querySelector('[data-command="journal"]').setAttribute('aria-expanded', String(state.journal));
-    region('journal').innerHTML = `<h3>What this evening has changed</h3><p>Briony cares about: ${chosen.title.toLowerCase()}.</p><p class="cw-small">Brass ring: ${state.ring}. Mint in your pack: ${state.carriedMint}. Mint growing: ${state.mint}.</p>${state.memories.length ? `<ul>${state.memories.map(memory => `<li>${memory}</li>`).join('')}</ul>` : '<p>The evening is just beginning.</p>'}`;
+    const { state, cards } = game;
+    const focus = document.activeElement?.closest('button');
+    const focusKey = focus && root.contains(focus) ? ['card', 'target', 'command'].find(key => focus.dataset[key]) : null;
+    const focusValue = focusKey ? focus.dataset[focusKey] : null;
+    const facts = game.table();
+    const move = selected ? game.getOffer(selected, target) : null;
+    region('turn').textContent = `Cottage garden · turn ${state.tick + 1} · one card to play`;
+    const chat = state.lastPlay ? [{ who: 'You played', text: state.lastPlay.label }, ...state.lastPlay.events] : state.log;
+    region('chat').innerHTML = chat.map(entry => `<p class="${entry.who === 'You played' ? 'cw-event' : ''}"><strong>${escape(entry.who)}</strong>${escape(entry.text)}</p>`).join('') + (state.lastPlay?.draws.length ? `<p class="cw-event">Into your hand: ${state.lastPlay.draws.map(escape).join(' · ')}</p>` : '');
+    region('table').innerHTML = Object.entries(facts).map(([id, fact]) => {
+      const use = selected ? game.getOffer(selected, id) : null;
+      return `<button type="button" class="cw-playing-card cursor-interaction ${use ? 'cw-ready' : ''}" data-target="${id}" aria-pressed="${target === id}" aria-label="${escape(fact.name + (use ? ': ' + use.label : ': inspect'))}"><span class="cw-card-top">${fact.kind}<span aria-hidden="true">◇</span></span><span class="cw-symbol" aria-hidden="true">${fact.symbol}</span><strong>${fact.name}</strong><span class="cw-card-text">${fact.text}</span><span class="cw-card-foot">${use ? 'Play here · ' + escape(use.label) : fact.foot}</span></button>`;
+    }).join('');
+    region('hand').innerHTML = state.hand.map(id => {
+      const card = cards[id];
+      return `<button type="button" class="cw-playing-card cursor-interaction" data-card="${id}" aria-pressed="${selected === id}" aria-label="${card.name}: ${card.text}"><span class="cw-card-top">${card.kind}<span>1 turn</span></span><span class="cw-symbol" aria-hidden="true">${card.symbol}</span><strong>${card.name}</strong><span class="cw-card-text">${card.text}</span><span class="cw-card-foot">${card.foot}</span></button>`;
+    }).join('');
+    if (move) { region('preview-title').textContent = `${cards[selected].name} → ${target === 'self' ? 'Briony' : facts[target].name}`; region('preview-detail').textContent = move.detail; }
+    else if (selected) {
+      const uses = Object.keys(facts).filter(id => game.getOffer(selected, id));
+      region('preview-title').textContent = `${cards[selected].name} → ${target ? facts[target].name : '…'}`;
+      region('preview-detail').textContent = target ? `${facts[target].text} ${uses.length ? 'Play this card on ' + uses.map(id => facts[id].name).join(' or ') + '.' : 'Keep this card for a later opportunity.'}` : uses.length ? `Choose ${uses.map(id => facts[id].name).join(' or ')}. Check the result, then play.` : 'Keep this card for a later opportunity.';
+    } else if (target) { region('preview-title').textContent = facts[target].name; region('preview-detail').textContent = `${facts[target].text} ${facts[target].foot}. Choose a card to make a play.`; }
+    else { region('preview-title').textContent = state.lastPlay ? 'Your next play' : 'What will you play?'; region('preview-detail').textContent = 'Choose a card from your hand. Then choose someone or somewhere to play it.'; }
+    const playButton = root.querySelector('[data-command="play"]');
+    playButton.hidden = !move; playButton.textContent = selected === 'breathe' ? 'Take a breath · 1 turn' : 'Play card · 1 turn';
+    root.querySelector('[data-command="cancel"]').hidden = !selected && !target;
+    region('spent').textContent = state.spent.length ? `Resting: ${state.spent.map(id => cards[id].name).join(' · ')}. Take a breath to bring them back.` : 'Approaches return when you take a breath. Items move into the world.';
+    region('memory').textContent = state.memories.at(-1) || 'One sprig of mint. An evening to make your own.';
+    region('journal').hidden = !journal;
+    root.querySelector('[data-command="journal"]').setAttribute('aria-expanded', String(journal));
+    root.querySelector('[data-command="journal"]').textContent = journal ? 'Close journal' : 'Journal';
+    region('journal').innerHTML = `<h3>What this evening changed</h3>${state.memories.length ? `<ol>${state.memories.map(text => `<li>${escape(text)}</li>`).join('')}</ol>` : '<p>Your first play is waiting.</p>'}<details><summary class="cursor-interaction">Read the conversation</summary><div class="cw-chat">${state.log.map(entry => `<p><strong>${escape(entry.who)}</strong>${escape(entry.text)}</p>`).join('')}</div></details>`;
+    if (focusKey) root.querySelector(`[data-${focusKey}="${focusValue}"]`)?.focus({ preventScroll: true });
   }
   root.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button || !root.contains(button)) return;
-    if (button.dataset.intention) {
-      state.intention = button.dataset.intention; state.override = null; state.interests = false;
-      state.status = 'Intention chosen. The next step is ready for your approval.'; render(); return;
+    if (button.dataset.card) {
+      selected = selected === button.dataset.card ? null : button.dataset.card;
+      target = selected === 'breathe' ? 'self' : null;
+      render(); region('announcement').textContent = `${region('preview-title').textContent}. ${region('preview-detail').textContent}`;
+      if (selected) reveal(selected === 'breathe' ? 'preview-title' : 'table'); return;
     }
-    if (button.dataset.focus) { state.focus = state.focus === button.dataset.focus ? null : button.dataset.focus; render(); return; }
-    if (button.dataset.step) { state.override = button.dataset.step; state.status = 'Your chosen step is ready. Let Briony act when you are ready.'; render(); return; }
-    switch (button.dataset.command) {
-      case 'act': advance(false); break;
-      case 'watch': advance(true); break;
-      case 'interests': state.interests = !state.interests; render(); break;
-      case 'journal': state.journal = !state.journal; render(); break;
+    if (button.dataset.target) { if (selected === 'breathe') selected = null; target = button.dataset.target; render(); region('announcement').textContent = region('preview-detail').textContent; reveal('preview-title'); return; }
+    if (button.dataset.command === 'play' && game.play(selected, target)) {
+      selected = null; target = null; render(); save();
+      region('announcement').textContent = `${game.state.lastPlay.label}. ${game.state.lastPlay.events.map(entry => entry.who + ': ' + entry.text).join(' ')} ${game.state.lastPlay.draws.length ? 'Cards in hand: ' + game.state.lastPlay.draws.join(', ') + '.' : ''} Your turn.`;
+      root.querySelector('[data-card]')?.focus({ preventScroll: true }); reveal('chat'); return;
     }
+    if (button.dataset.command === 'cancel') { selected = null; target = null; render(); root.querySelector('[data-card]')?.focus({ preventScroll: true }); }
+    if (button.dataset.command === 'journal') { journal = !journal; render(); }
   });
-  render();
+  window.addEventListener('openai:set_globals', event => { if (event.detail?.globals?.widgetState) restore(event.detail.globals.widgetState); });
+  render(); restore(window.openai?.widgetState);
 })();
 </script>
 
