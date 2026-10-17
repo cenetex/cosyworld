@@ -103,7 +103,8 @@ do not define V2 behavior.
 
 ## Planning documents
 
-- **[A card game about a life](design/avatar-simulation-redesign.md)** — proposed card play for one guided avatar and an independent cast; includes a playable hand, card trades, recovery, chat, and a local prototype.
+- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a proposed whimsical cosmic horror game built from simple world rules, chat, and persistent cards.
+- **[Design research](design/avatar-item-location-research.md)** — V1 source findings, card games, OSR play, world construction, character simulation, and V2 reuse.
 
 - **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
   account-owned Species, Class, and Origin cards, classless level-zero arrival,
