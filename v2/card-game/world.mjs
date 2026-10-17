@@ -273,7 +273,9 @@ function refreshStalledPrograms(s) {
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
     )
       continue;
-    const fresh = generateProgram(basis, actor, places, things);
+    const fresh = generateProgram(basis, actor, places, things, {
+      independent: true,
+    });
     const unfinished = fresh.steps.filter(
       (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
     );

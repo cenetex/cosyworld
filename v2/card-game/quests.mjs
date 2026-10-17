@@ -132,7 +132,13 @@ export const levelOf = (s, actor) => 1 + s.actors[actor].progress.program;
 
 // Resolve new programs once, at a level boundary, from real custody and paths.
 // The resulting hands are plain saved data, so reloads keep the same bargain.
-export function generateProgram(s, actor, places, things) {
+export function generateProgram(
+  s,
+  actor,
+  places,
+  things,
+  { independent = false } = {},
+) {
   const progress = s.actors[actor].progress;
   const actors = Object.keys(s.actors),
     ids = Object.keys(s.items);
@@ -151,29 +157,40 @@ export function generateProgram(s, actor, places, things) {
   const available = (item) => {
     const owner = ownerOf(s, item);
     return (
+      (!independent || owner !== "vale") &&
       reachable.includes(placeOf(item)) &&
       (!s.actors[owner] || owner === actor || !needed(owner, item))
     );
   };
   const rotation = (progress.program + actors.indexOf(actor)) % ids.length;
   const rotated = [...ids.slice(rotation), ...ids.slice(0, rotation)];
-  const candidates = rotated.filter(
-    (id) => !s.items[s.items[id].holder] && available(id),
-  );
+  const candidates = rotated.filter((id) => {
+    const owner = ownerOf(s, id);
+    if (s.items[s.items[id].holder] || !available(id)) return false;
+    if (!independent || !s.actors[owner] || owner === actor) return true;
+    const payment = desireFor(s, owner).items.filter(
+      (item) => ownerOf(s, item) !== owner,
+    );
+    return !payment.length || payment.some(available);
+  });
   if (!candidates.length)
     candidates.push(
       ...rotated.filter(
-        (id) => !s.items[s.items[id].holder] && reachable.includes(placeOf(id)),
+        (id) =>
+          !s.items[s.items[id].holder] &&
+          (!independent || ownerOf(s, id) !== "vale") &&
+          reachable.includes(placeOf(id)),
       ),
     );
   const recent = progress.recent || [];
   const score = (item) => {
     const owner = ownerOf(s, item);
-    return (
-      (owner === actor ? 0 : s.actors[owner] ? 6 : 4) -
-      (actor !== "vale" && owner === "vale" ? 8 : 0) -
-      (recent.includes(item) ? 3 : 0)
-    );
+    let value = owner === actor ? 0 : s.actors[owner] ? 6 : 4;
+    // Bring Vale into new bargains regularly. A stalled cast goal can then
+    // choose items held by the cast, leaving the player's response voluntary.
+    if (actor !== "vale" && owner === "vale")
+      value = progress.program % 3 === 0 ? 10 : -2;
+    return value - (recent.includes(item) ? 3 : 0);
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
   if (!item)
