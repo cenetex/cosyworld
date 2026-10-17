@@ -248,3 +248,11 @@ mergeable.
 Passkeys are scoped to their relying-party domain. Restoring the Lonely Forest
 account tables to the Lonely Forest app preserves its domain credentials; those
 credentials do not authenticate at `cosyworld.fly.dev`.
+
+## Primary card game
+
+The root addresses open The reflected shore card game. `COSYWORLD_PRIMARY_GAME=cards` selects it on the primary Fly app and the Lonely Forest root process. Named Lonely Forest worlds keep their own home pages. `/classic` opens the shared-world client. Existing world APIs and saved journals keep their established paths.
+
+The card table saves in browser storage on each origin. The release embeds its HTML, modules, styles, and six images under `/card-game/`. The deployment workflow compares every public file with the committed release and checks service health.
+
+Run `node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev https://lonelyforest.com` to check the public tables against a local release checkout.

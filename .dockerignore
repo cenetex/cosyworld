@@ -9,6 +9,8 @@
 !deploy/lonelyforest/**
 !v2/
 !v2/content-engine-version.txt
+!v2/card-game/
+!v2/card-game/**
 !v2/ai-model-rust/
 !v2/ai-model-rust/Cargo.toml
 !v2/ai-model-rust/Cargo.lock

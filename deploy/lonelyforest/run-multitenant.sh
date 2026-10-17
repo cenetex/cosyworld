@@ -73,6 +73,10 @@ run_world() {
   if [ "$slug" = "hoppycat" ] && [ -n "${COSYWORLD_AI_CAPABILITY_MODELS_JSON_HOPPYCAT:-}" ]; then
     export COSYWORLD_AI_CAPABILITY_MODELS_JSON="$COSYWORLD_AI_CAPABILITY_MODELS_JSON_HOPPYCAT"
   fi
+  # Each named world keeps its own home page; the root hosts the card table.
+  if [ "$slug" != "root" ]; then
+    export COSYWORLD_PRIMARY_GAME="world"
+  fi
   active_child=""
 
   # Invoked indirectly by the signal trap below.

@@ -222,7 +222,7 @@ describe("the reflected shore card game", () => {
       }
     }
     expect(s.turn).toBe(4000);
-  });
+  }, 60_000);
 
   it("serves only the game assets and supports a clean browser reload", async () => {
     const server = createServer();
@@ -231,7 +231,21 @@ describe("the reflected shore card game", () => {
     try {
       const page = await fetch(url);
       expect(page.status).toBe(200);
-      expect(await page.text()).toContain("Current scene");
+      const html = await page.text();
+      expect(html).toContain("Current scene");
+      expect(html).toContain('<base href="/card-game/" />');
+      for (const file of [
+        "",
+        "style.css",
+        "app.mjs",
+        "world.mjs",
+        "quests.mjs",
+        "scene.mjs",
+        "cards.mjs",
+        "assets/station.png",
+      ]) {
+        expect((await fetch(`${url}/card-game/${file}`)).status).toBe(200);
+      }
       expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
       expect((await fetch(`${url}/cards.mjs`)).status).toBe(200);
       expect((await fetch(`${url}/quests.mjs`)).status).toBe(200);

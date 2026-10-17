@@ -12,6 +12,9 @@ use tracing::Instrument;
 
 use super::*;
 
+#[path = "card_game.rs"]
+mod card_game;
+
 // Keep command work bounded without making routine player and resident activity
 // contend for a single slot. Saturated callers fail fast and can safely retry
 // the same intent while health endpoints continue to bypass this admission gate.
@@ -116,7 +119,9 @@ fn app_router_with_dependencies(
 ) -> Router {
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
-        .route("/", get(index))
+        .merge(card_game::router(
+            std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
+        ))
         .route("/moderation", get(moderation_console))
         .route(
             "/assets/packs/{pack_id}/{*asset_path}",
