@@ -9,6 +9,7 @@ const assets = new Map([
   ["/app.mjs", ["app.mjs", "text/javascript"]],
   ["/world.mjs", ["world.mjs", "text/javascript"]],
   ["/scene.mjs", ["scene.mjs", "text/javascript"]],
+  ["/cards.mjs", ["cards.mjs", "text/javascript"]],
   ...["station", "attic", "pond", "vale", "moth", "keeper"].map((id) => [
     `/assets/${id}.png`,
     [`assets/${id}.png`, "image/png"],

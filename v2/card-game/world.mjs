@@ -65,7 +65,7 @@ export function createWorld() {
     revision: 0,
     eventSeq: 1,
     actors: {
-      vale: { place: "station", aim: "explore", crossed: 0, lastTalk: -9 },
+      vale: { place: "station", aim: "free", crossed: 0, lastTalk: -9 },
       moth: { place: "pond", aim: "moth", crossed: 0, lastTalk: -9 },
       keeper: { place: "attic", aim: "quiet", crossed: 0, lastTalk: -9 },
     },
@@ -89,7 +89,7 @@ export function createWorld() {
         ],
         light: false,
         speaker: "World",
-        text: "Vale arrives at the empty station. Pip is looking for a lamp. The keeper wants quiet. Choose a card, or let Vale take a step toward an aim.",
+        text: "Vale arrives at the empty station. Pip is looking for a lamp. The keeper wants quiet. Something under the pond is listening.",
       },
     ],
   };
@@ -397,7 +397,7 @@ function sayWant(s, actor) {
     return itemPlace(s, "lamp") === "pond" && shining(s)
       ? "The light is here. Look: the thing below us has opened an eye."
       : "I want a lamp beside the pond. If you give me one, I can carry it there. Oil keeps it alive.";
-  return `I want to ${aims[s.actors.vale.aim].toLowerCase()}.`;
+  return "Let me choose what to do with it.";
 }
 function perform(s, a) {
   const who = nameOf(a.actor);
@@ -684,89 +684,6 @@ export function setAim(s, aim) {
   next.revision += 1;
   addLog(next, "Vale", `My aim: ${aims[aim].toLowerCase()}.`);
   return next;
-}
-export function chat(s, raw) {
-  const text = String(raw).trim().slice(0, 240);
-  const lower = text.toLowerCase();
-  if (!text) return { state: s };
-  const next = structuredClone(s);
-  next.revision += 1;
-  addLog(next, "You", text);
-  const goal = /^(?:aim|goal)\s*:\s*(.*)$/i.exec(text)?.[1].toLowerCase();
-  if (goal) {
-    const id = /pip|moth|help/.test(goal)
-      ? "moth"
-      : /bell/.test(goal)
-        ? "bell"
-        : /reflect|explore|cross/.test(goal)
-          ? "explore"
-          : /free|myself|own/.test(goal)
-            ? "free"
-            : null;
-    if (id) return { state: setAim(next, id) };
-  }
-  const aliases = {
-    lamp: /lamp|lantern/,
-    oil: /oil|flask/,
-    bell: /bell/,
-    cloth: /cloth|blanket/,
-    moth: /pip|moth/,
-    keeper: /keeper/,
-    station: /station/,
-    attic: /attic/,
-    pond: /pond/,
-  };
-  let named = Object.keys(aliases).filter((id) => aliases[id].test(lower));
-  if (/uncover/.test(lower) && named.includes(s.items.cloth.holder))
-    named = ["cloth"];
-  const kinds = [
-    ["refill", /refill|pour|fuel/],
-    ["snuff", /snuff|put out|extinguish/],
-    ["take", /uncover|take|pick up|grab/],
-    ["cover", /cover|wrap|muffle/],
-    ["give", /give|hand .* to/],
-    ["ask", /ask .* for|request/],
-    ["ring", /\bring\b/],
-    ["light", /light|ignite/],
-    ["drop", /drop|put down|leave/],
-    ["move", /go|move|travel|walk|cross/],
-    ["talk", /talk|speak|ask/],
-    ["wait", /^wait/],
-  ];
-  const kind =
-    /^use\b/.test(lower) && named.includes("oil")
-      ? "refill"
-      : /^use\b/.test(lower) && named.includes("cloth")
-        ? "cover"
-        : kinds.find(([, pattern]) => pattern.test(lower))?.[0];
-  const matches = legalActions(s).filter(
-    (a) =>
-      a.kind === kind &&
-      !(kind === "move" && a.item && !named.some((id) => ids.includes(id))) &&
-      (named.length
-        ? named.every((id) => a.cards.includes(id))
-        : ["wait"].includes(kind)),
-  );
-  if (matches.length === 1) {
-    addLog(next, "Vale", "That play is ready below the scene.", {
-      kind: "hint",
-    });
-    return { state: next, action: matches[0] };
-  }
-  const listener = named.find(
-    (id) =>
-      ["moth", "keeper"].includes(id) &&
-      s.actors[id].place === s.actors.vale.place,
-  );
-  if (!kind && listener) addLog(next, nameOf(listener), sayWant(s, listener));
-  else
-    addLog(
-      next,
-      "Vale",
-      "Select cards to choose an act. You can also say “take lamp”, “ring bell”, or “aim: help Pip”. I will show the exact play first.",
-      { kind: "hint" },
-    );
-  return { state: next };
 }
 export function validateWorld(s) {
   const fail = () => {

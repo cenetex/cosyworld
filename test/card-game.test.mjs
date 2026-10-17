@@ -6,7 +6,6 @@ import {
   play,
   plan,
   setAim,
-  chat,
   reflectionOpen,
   exits,
   itemPlace,
@@ -78,7 +77,7 @@ describe("the reflected shore card game", () => {
   });
 
   it("opens a real route with light and closes it when covered", () => {
-    let s = createWorld();
+    let s = setAim(createWorld(), "explore");
     for (let i = 0; i < 4; i++) s = play(s, plan(s).action).state;
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.vale.crossed).toBe(1);
@@ -198,22 +197,6 @@ describe("the reflected shore card game", () => {
     expect(encodeSave(s)).toBe(before);
   });
 
-  it("prepares chat commands for confirmation and changes aims without a turn", () => {
-    const s = createWorld();
-    const result = chat(s, "take lamp");
-    expect(result.action.kind).toBe("take");
-    expect(result.state.items.lamp.holder).toBe("station");
-    expect(result.state.turn).toBe(0);
-    const goal = chat(result.state, "aim: help Pip");
-    expect(goal.state.actors.vale.aim).toBe("moth");
-    expect(goal.state.turn).toBe(0);
-    expect(chat(s, "destroy the universe").action).toBeUndefined();
-    const fixture = createWorld();
-    fixture.actors.vale.place = "attic";
-    fixture.items.lamp.holder = "vale";
-    expect(chat(fixture, "use oil on lamp").action.kind).toBe("refill");
-  });
-
   it("restores positions, cast aims, object memory, and the exact next turn", () => {
     let s = createWorld();
     for (let i = 0; i < 5; i++) s = play(s, plan(s).action).state;
@@ -259,6 +242,7 @@ describe("the reflected shore card game", () => {
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("Current scene");
       expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
+      expect((await fetch(`${url}/cards.mjs`)).status).toBe(200);
       for (const id of ["station", "attic", "pond", "vale", "moth", "keeper"]) {
         const image = await fetch(`${url}/assets/${id}.png`);
         expect(image.status).toBe(200);
