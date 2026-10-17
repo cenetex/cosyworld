@@ -18,7 +18,10 @@ const assets = new Map([
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {
-    const path = new URL(req.url, "http://localhost").pathname;
+    const pathname = new URL(req.url, "http://localhost").pathname;
+    const path = pathname.startsWith("/card-game/")
+      ? pathname.slice("/card-game".length)
+      : pathname;
     const asset = assets.get(path);
     if (!asset || !["GET", "HEAD"].includes(req.method)) {
       res.writeHead(404);
@@ -32,7 +35,7 @@ export function createServer() {
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'",
+          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'",
       });
       res.end(req.method === "HEAD" ? undefined : body);
     } catch {

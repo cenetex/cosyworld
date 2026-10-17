@@ -6,6 +6,7 @@ primary_region = "sjc"
 # request hosts never select a registry or filesystem path inside a process.
 
 [env]
+  COSYWORLD_PRIMARY_GAME = "cards"
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_MULTITENANT_DATA_ROOT = "/data/worldpacks"

@@ -5,6 +5,7 @@ primary_region = "sjc"
   dockerfile = "Dockerfile"
 
 [env]
+  COSYWORLD_PRIMARY_GAME = "cards"
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_LOG_TENANT = "primary"

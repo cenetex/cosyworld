@@ -45,6 +45,8 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
     readFile(resolve(repoRoot, "deploy/entrypoint.sh"), "utf8"),
   ]);
 
+  assert.match(fly, /COSYWORLD_PRIMARY_GAME = "cards"/);
+  assert.match(supervisor, /if \[ "\$slug" != "root" \]; then\n    export COSYWORLD_PRIMARY_GAME="world"\n  fi/);
   assert.match(supervisor, /tenant_config="\$\{COSYWORLD_MULTITENANT_TENANTS_CONFIG:-\/app\/deploy\/lonelyforest\/tenants\.tsv\}"/);
   assert.match(supervisor, /while IFS='\|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins;/);
   assert.match(supervisor, /trap 'stop_all; exit 1' USR1/);
