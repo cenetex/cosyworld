@@ -22,6 +22,9 @@ import {
   decodeSave,
 } from "./world.mjs";
 
+import { currentScene, sceneScript, portrait } from "./scene.mjs";
+
+let lineIndex = null;
 const $ = (id) => document.getElementById(id);
 // A named table gives browser tests and local players separate save slots.
 const tableName = new URLSearchParams(window.location.search).get("table");
@@ -269,11 +272,65 @@ function renderPlay() {
       ? "Choose what Vale should do with these cards."
       : selected.length
         ? "Read these cards, or choose a reachable item, avatar, or path."
-        : "Select a card or choose Vale’s next step.";
+        : "Choose an item, a person, or a path.";
   $("cost").textContent = prepared
     ? "1 turn · the cast acts · lit lamps burn fuel"
     : "Reading is free.";
   $("play").disabled = !prepared || saveBlocked;
+}
+function target(id, label, className = "") {
+  const button = node("button", label, className);
+  button.type = "button";
+  button.dataset.card = id;
+  button.setAttribute("aria-pressed", String(selected.includes(id)));
+  button.onclick = () => toggle(id);
+  button.addEventListener("dragover", (e) => e.preventDefault());
+  button.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const source = e.dataTransfer.getData("text/plain");
+    if (Object.hasOwn(things, source)) {
+      selected = [source, id];
+      prepared = null;
+      render();
+    }
+  });
+  return button;
+}
+function renderScene() {
+  const scene = currentScene(world, lineIndex);
+  const img = $("backdrop");
+  if (img.getAttribute("src") !== scene.background) img.src = scene.background;
+  img.alt = places[scene.locationId].text;
+  $("cast").replaceChildren(
+    ...scene.slots.map((id) => {
+      if (!id) return node("div", "", "portrait empty");
+      const button = target(
+        id,
+        undefined,
+        `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
+      );
+      button.setAttribute("aria-label", `${nameOf(id)}, avatar`);
+      const image = node("img");
+      image.src = portrait(id);
+      image.alt = "";
+      button.append(image, node("span", nameOf(id), "portrait-name"));
+      return button;
+    }),
+  );
+  $("speaker").textContent = scene.line.speaker;
+  $("line-turn").textContent = `Turn ${scene.line.turn ?? world.turn}`;
+  $("dialogue-text").textContent = scene.line.text;
+  const at = scene.lines.findIndex((e) => e.index === scene.line.index);
+  $("previous-line").disabled = at <= 0;
+  $("next-line").disabled = at >= scene.lines.length - 1;
+  $("previous-line").onclick = () => {
+    lineIndex = scene.lines[at - 1].index;
+    renderScene();
+  };
+  $("next-line").onclick = () => {
+    lineIndex = scene.lines[at + 1].index;
+    renderScene();
+  };
 }
 let renderedLog = [];
 function renderLog() {
@@ -307,35 +364,38 @@ function render() {
   $("turn").textContent = `Turn ${world.turn}`;
   const here = world.actors.vale.place;
   $("place-title").textContent = nameOf(here);
-  $("scene-text").textContent = places[here].text;
   $("path-state").textContent = reflectionOpen(world)
     ? "The reflected path is open"
     : "Reflections open in lamplight";
   fill(
-    "locations",
-    Object.keys(places).map((id) => card(id, "location")),
+    "paths",
+    exits(world, here).map((id) => {
+      const button = target(id, `→ ${nameOf(id)}`);
+      button.setAttribute("aria-label", `${nameOf(id)}, location`);
+      return button;
+    }),
   );
   fill(
-    "avatars",
-    Object.keys(people).map((id) => card(id, "avatar")),
+    "people",
+    Object.keys(people)
+      .filter((id) => world.actors[id].place === here)
+      .map((id) => target(id, nameOf(id))),
   );
-  const visible = Object.keys(things).filter(
-    (id) => itemPlace(world, id) === here && rootHolder(world, id) !== "vale",
-  );
-  fill(
-    "ground",
-    visible.map((id) => card(id, "item")),
-    "Empty ground. The paths lead to other objects.",
-  );
+  const visible = Object.keys(things)
+    .filter((id) => itemPlace(world, id) === here)
+    .sort(
+      (a, b) =>
+        Number(rootHolder(world, b) === "vale") -
+        Number(rootHolder(world, a) === "vale"),
+    );
   fill(
     "hand",
-    carried(world, "vale").map((id) => card(id, "item")),
-    "Empty hands. Select a loose item and take it.",
+    visible.map((id) => card(id, "item")),
+    "Empty hands. Explore a path to find objects.",
   );
-  $("ground-label").textContent = "At this place";
-  $("hand-count").textContent = `${carried(world, "vale").length} / 3 spaces`;
+  $("hand-count").textContent = `${carried(world, "vale").length} / 3 carried`;
   $("aim").value = world.actors.vale.aim;
-  $("reason").textContent = plan(world).reason;
+  renderScene();
   $("next").disabled = saveBlocked;
   $("wait").disabled = saveBlocked;
   $("aim").disabled = saveBlocked;
@@ -355,6 +415,7 @@ Object.entries(aims).forEach(([id, text]) => {
 });
 $("aim").onchange = () => {
   world = setAim(world, $("aim").value);
+  lineIndex = null;
   prepared = null;
   save();
   render();
@@ -389,6 +450,7 @@ $("play").onclick = () => {
     return;
   }
   world = result.state;
+  lineIndex = null;
   selected = [];
   prepared = null;
   save();
@@ -401,23 +463,55 @@ $("chat-form").onsubmit = (event) => {
   if (saveBlocked) return;
   const result = chat(world, $("chat-input").value);
   world = result.state;
+  lineIndex = null;
+  $("chat-input").blur();
   $("chat-input").value = "";
   if (result.action) {
     selected = result.action.cards;
     prepared = { action: result.action, revision: world.revision };
-  } else prepared = null;
+  } else {
+    prepared = null;
+    const hint = world.log.at(-1);
+    if (hint?.kind === "hint") notice(hint.text);
+  }
   save();
   render();
   $("messages").scrollTop = $("messages").scrollHeight;
 };
-$("rules-button").onclick = () => {
-  $("rules").hidden = !$("rules").hidden;
-  $("rules-button").setAttribute("aria-expanded", String(!$("rules").hidden));
+$("inspect").onclick = () => {
+  inspect();
+  $("read-dialog").showModal();
 };
-$("new-game").onclick = () => $("reset-dialog").showModal();
+$("history-button").onclick = () => {
+  $("history-dialog").showModal();
+  $("messages").scrollTop = $("messages").scrollHeight;
+};
+$("menu-button").onclick = () => $("menu-dialog").showModal();
+document
+  .querySelectorAll("[data-close]")
+  .forEach(
+    (button) => (button.onclick = () => $(button.dataset.close).close()),
+  );
+$("export-script").onclick = () => {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(sceneScript(world), null, 2)], {
+      type: "application/json",
+    }),
+  );
+  const link = node("a");
+  link.href = url;
+  link.download = `cosyworld-scene-turn-${world.turn}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+$("new-game").onclick = () => {
+  $("menu-dialog").close();
+  $("reset-dialog").showModal();
+};
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
   world = createWorld();
+  lineIndex = null;
   selected = [];
   prepared = null;
   saveBlocked = false;
@@ -430,6 +524,7 @@ window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
   try {
     world = decodeSave(event.newValue);
+    lineIndex = null;
     selected = [];
     prepared = null;
     saveBlocked = false;

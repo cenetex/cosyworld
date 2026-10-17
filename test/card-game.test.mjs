@@ -257,7 +257,17 @@ describe("the reflected shore card game", () => {
     try {
       const page = await fetch(url);
       expect(page.status).toBe(200);
-      expect(await page.text()).toContain("Card table");
+      expect(await page.text()).toContain("Current scene");
+      expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
+      for (const id of ["station", "attic", "pond", "vale", "moth", "keeper"]) {
+        const image = await fetch(`${url}/assets/${id}.png`);
+        expect(image.status).toBe(200);
+        expect(image.headers.get("content-type")).toContain("image/png");
+        const bytes = new Uint8Array(await image.arrayBuffer());
+        expect(Array.from(bytes.slice(0, 8))).toEqual([
+          137, 80, 78, 71, 13, 10, 26, 10,
+        ]);
+      }
       const script = await fetch(`${url}/world.mjs`);
       expect(script.headers.get("content-type")).toContain("text/javascript");
       expect((await fetch(`${url}/package.json`)).status).toBe(404);

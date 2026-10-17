@@ -1,6 +1,6 @@
 # CosyWorld: avatars, items, and locations
 
-Status: research direction for review. Updated October 16, 2026. The source findings and game references are in [the research notes](avatar-item-location-research.md).
+Status: playable local slice. Updated October 17, 2026. The source findings and game references are in [the research notes](avatar-item-location-research.md).
 
 CosyWorld is a whimsical cosmic horror world built from three kinds of thing: avatars, items, and locations. The player guides one avatar's intentions. Other avatars pursue their own aims. Cards make the world tangible. Chat shows what the cast notices, says, and does.
 
@@ -16,7 +16,7 @@ The purpose of play is to explore, experiment, and change a world that has a lif
 
 Cards are views of persistent world entities. Picking up a cup moves that cup into the avatar's hand. Giving it away changes its holder. Breaking it changes the object. Entering a place reveals its occupants and things. The history follows the entity through each change.
 
-Start with V1's small inventory as a candidate: one held item and one stored item. Compare it with a small visible pack during playtests. Item custody and carrying space should stay easy to read.
+The slice gives each avatar three carrying spaces. An attached cloth takes one space and moves with its covered object. The single bottom row shows carried items and objects within reach, with custody on each card.
 
 ## One common action loop
 
@@ -56,13 +56,17 @@ The horror comes from contact with something larger, a costly discovery, an alte
 
 Use short language on cards. Give an unusual item one clear power. Let its name and image carry more of the tone. Chat should make a changed fact or a character's next choice easy to understand.
 
-## The next slice
+## Play the slice
 
-Use three linked places, the guided avatar, two independent avatars, and a handful of items. Give each item an ordinary use and give one item or place a strange power. The research notes contain a lamp, moth, keeper, and reflection arrangement for this purpose.
+Run `npm run play:cards` from the repository, then open `http://127.0.0.1:4177/`.
 
-The player should be able to choose several aims from the visible situation. The guided avatar should take a useful step toward its stated aim. The cast should change an opportunity through its own actions. For example, a keeper seeking quiet could carry a ringing bell to another place. An object should support a useful interaction in two places. A saved visit should restore positions, custody, known uses, and remembered events.
+The scene contains Vale, Pip, the keeper, three places, and four items. Select a card, cutout, or path. Pair two items to combine their uses. Pair an item with an avatar to offer it. Choose the act, read the exact result, and press **Play**. Each play gives the cast one act and burns one unit of lamp fuel. Read and plan freely.
 
-Begin with a plain table and chat. Judge the rules through play before another visual design pass. A successful test produces these observations:
+The lamp opens a route between the attic mirror and the pond. Oil adds fuel. Cloth blocks light or muffles the bell. Pip seeks the lamp, feeds it oil, and carries it to the pond. The keeper follows sound and carries the bell to the attic. The same rules govern Vale and the cast.
+
+Choose an aim for Vale and use **Next step**, or choose each act yourself. Chat accepts short commands such as `take lamp`, `go attic`, `use oil on lamp`, `uncover lamp`, and `give lamp to Pip`. It previews a supported play. Talking to a present character reveals their current want. Local saves restore custody, fuel, cast plans, and history. A named URL such as `?table=playtest` creates a separate save slot.
+
+A successful test produces these observations:
 
 - A player predicts a useful interaction from the card's stated facts.
 - The same rule works in a second place or with another suitable object.
@@ -70,6 +74,16 @@ Begin with a plain table and chat. Judge the rules through play before another v
 - Different players pursue different aims in the same starting world.
 - Players can explain one lasting change they caused.
 
+## Scene and conversation
+
+The location image fills the stage. Two character cutouts sit above a dialogue box. The two most recent local speakers keep stable left and right positions; the least recent speaker gives up a slot when a third person speaks. Paths and small cast buttons remain available. Item cards stay in one row at the bottom, with horizontal scrolling on phones. History opens separately. The arrow controls read earlier scene lines for free.
+
+This follows the staging in Ruby High's `ruby2/visual-scene/VISUAL_LANGUAGE.md` and its painted scene mockups, inspected at `eec6ce23`. Ruby High separates world events, performance, and scene layout. The two-speaker rule is the current CosyWorld design. The cutouts and backgrounds are newly generated for this slice; [art prompts and files](../../v2/card-game/assets/PROVENANCE.md) record their source.
+
+Original CosyWorld at `1f8b46bb` supplies the media path: `SceneCameraTool.mjs` gathered location and avatar references, while `VideoCameraTool.mjs` turned recent chat into a motion prompt. Its story service also kept ordered scene beats. The slice records stable event IDs, speakers, locations, acts, targets, local cast, object custody, and light. **History → Save scene script** exports those records with asset references and timing hints. The last 100 records are retained; the export marks a truncated history. Future image and video renderers can consume this script.
+
 ## Scope and status
 
-This PR records research and a proposed direction. Runtime work follows a small rules test. V2's saved entities, ownership checks, action validation, and replay are the likely foundations. The research notes distinguish active motive code from unfinished foundations.
+The playable slice is a local browser game in `v2/card-game`. Its rules and cast run in a small deterministic model. It uses short command parsing and state-based character lines. Generated backdrops and transparent cutouts establish the scene. The existing V2 runtime remains the foundation for a later shared-world version.
+
+Validation covers item custody, capacity, shared action rules, independent goals, stale actions, chat previews, save restore, 4,000 varied turns, speaker slots, historical cast, and scene exports. Browser checks cover card pairs, chat, reflected travel, desktop and phone layouts, and reloads.

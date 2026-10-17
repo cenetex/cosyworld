@@ -63,6 +63,7 @@ export function createWorld() {
     schema: 1,
     turn: 0,
     revision: 0,
+    eventSeq: 1,
     actors: {
       vale: { place: "station", aim: "explore", crossed: 0, lastTalk: -9 },
       moth: { place: "pond", aim: "moth", crossed: 0, lastTalk: -9 },
@@ -76,7 +77,17 @@ export function createWorld() {
     },
     log: [
       {
+        seq: 1,
         turn: 0,
+        kind: "narration",
+        actorId: null,
+        locationId: "station",
+        cast: ["vale"],
+        items: [
+          { id: "lamp", holder: "station", fuel: 8, lit: false },
+          { id: "bell", holder: "station", ringing: 0 },
+        ],
+        light: false,
         speaker: "World",
         text: "Vale arrives at the empty station. Pip is looking for a lamp. The keeper wants quiet. Choose a card, or let Vale take a step toward an aim.",
       },
@@ -126,9 +137,45 @@ const accepts = (actor, item) =>
   (actor === "moth"
     ? ["lamp", "oil"].includes(item)
     : ["bell", "cloth"].includes(item));
-function addLog(s, speaker, text) {
-  s.log.push({ turn: s.turn, speaker, text });
-  s.log = s.log.slice(-100);
+function addLog(s, speaker, text, detail = {}) {
+  const actorId =
+    detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
+  const locationId = detail.locationId || s.actors[actorId || "vale"].place;
+  if (s.eventSeq === undefined) {
+    s.log.forEach((entry, index) => {
+      entry.seq = index + 1;
+    });
+    s.eventSeq = s.log.length;
+  }
+  s.eventSeq += 1;
+  s.log.push({
+    seq: s.eventSeq,
+    turn: s.turn,
+    speaker,
+    text,
+    kind:
+      detail.kind ||
+      (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
+    actorId,
+    locationId,
+    cast: actorIds.filter((id) => s.actors[id].place === locationId),
+    items: ids
+      .filter((id) => itemPlace(s, id) === locationId)
+      .map((id) => {
+        const { history, ...item } = s.items[id];
+        return { id, ...item };
+      }),
+    light: shining(s) && itemPlace(s, "lamp") === locationId,
+    ...detail,
+  });
+  while (s.log.length > 100) {
+    // Keep scene beats when commands fill the history. Retain the latest reply.
+    const hint = s.log.findIndex(
+      (entry, index) =>
+        index < s.log.length - 1 && ["input", "hint"].includes(entry.kind),
+    );
+    s.log.splice(hint >= 0 ? hint : 0, 1);
+  }
 }
 function remember(s, item, text) {
   s.items[item].history.push(`Turn ${s.turn}: ${text}`);
@@ -425,7 +472,13 @@ function perform(s, a) {
     default:
       throw new Error("Unknown act.");
   }
-  addLog(s, "World", text);
+  addLog(s, "World", text, {
+    kind: "action",
+    actorId: a.actor,
+    verb: a.kind,
+    itemId: a.item,
+    targetId: a.target,
+  });
 }
 function toward(s, actor, target) {
   const from = s.actors[actor].place;
@@ -487,8 +540,18 @@ export function plan(s, actor = "vale") {
         return choose(find("take", "cloth"), "Uncover the light.");
       if (!s.items.lamp.lit && s.items.lamp.fuel > 0)
         return choose(find("light", "lamp"), "Light the lamp.");
-      if (s.items.lamp.fuel === 0)
-        return choose(find("refill", "oil"), "Find oil for the lamp.");
+      if (s.items.lamp.fuel === 0) {
+        if (s.items.oil.doses === 0)
+          return idle("Wait by the empty lamp. The oil is spent.");
+        const refill = find("refill", "oil");
+        if (refill) return choose(refill, "Feed oil to the lamp.");
+        if (
+          here === itemPlace(s, "oil") &&
+          s.turn - s.actors[actor].lastTalk < 3
+        )
+          return idle("Wait for an answer about the oil.");
+        return seek("oil", "Find oil for the lamp.");
+      }
       return choose(
         here === "pond" ? find("drop", "lamp") : toward(s, actor, "pond"),
         "Bring light to the pond.",
@@ -597,6 +660,7 @@ export function play(s, action, expectedRevision = s.revision) {
         next,
         "World",
         "The Lamp runs dry. Its flame folds into a tiny black sun.",
+        { locationId: itemPlace(next, "lamp") },
       );
     }
   }
@@ -652,7 +716,9 @@ export function chat(s, raw) {
     attic: /attic/,
     pond: /pond/,
   };
-  const named = Object.keys(aliases).filter((id) => aliases[id].test(lower));
+  let named = Object.keys(aliases).filter((id) => aliases[id].test(lower));
+  if (/uncover/.test(lower) && named.includes(s.items.cloth.holder))
+    named = ["cloth"];
   const kinds = [
     ["refill", /refill|pour|fuel/],
     ["snuff", /snuff|put out|extinguish/],
@@ -660,7 +726,7 @@ export function chat(s, raw) {
     ["cover", /cover|wrap|muffle/],
     ["give", /give|hand .* to/],
     ["ask", /ask .* for|request/],
-    ["ring", /ring/],
+    ["ring", /\bring\b/],
     ["light", /light|ignite/],
     ["drop", /drop|put down|leave/],
     ["move", /go|move|travel|walk|cross/],
@@ -676,12 +742,15 @@ export function chat(s, raw) {
   const matches = legalActions(s).filter(
     (a) =>
       a.kind === kind &&
+      !(kind === "move" && a.item && !named.some((id) => ids.includes(id))) &&
       (named.length
         ? named.every((id) => a.cards.includes(id))
         : ["wait"].includes(kind)),
   );
   if (matches.length === 1) {
-    addLog(next, "Vale", "That play is ready below the table.");
+    addLog(next, "Vale", "That play is ready below the scene.", {
+      kind: "hint",
+    });
     return { state: next, action: matches[0] };
   }
   const listener = named.find(
@@ -695,6 +764,7 @@ export function chat(s, raw) {
       next,
       "Vale",
       "Select cards to choose an act. You can also say “take lamp”, “ring bell”, or “aim: help Pip”. I will show the exact play first.",
+      { kind: "hint" },
     );
   return { state: next };
 }
@@ -791,6 +861,70 @@ export function validateWorld(s) {
     )
   )
     fail();
+  if (
+    s.eventSeq !== undefined &&
+    (!Number.isSafeInteger(s.eventSeq) || s.eventSeq < s.log.length)
+  )
+    fail();
+  let seq = 0;
+  const verbs = [
+    "move",
+    "take",
+    "drop",
+    "give",
+    "ask",
+    "light",
+    "snuff",
+    "ring",
+    "refill",
+    "cover",
+    "talk",
+    "wait",
+  ];
+  for (const e of s.log) {
+    if (e.seq !== undefined) {
+      if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
+        fail();
+      seq = e.seq;
+    }
+    if (
+      e.kind !== undefined &&
+      !["action", "dialogue", "narration", "input", "hint"].includes(e.kind)
+    )
+      fail();
+    if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
+    if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
+    if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (e.itemId != null && !ids.includes(e.itemId)) fail();
+    if (
+      e.targetId != null &&
+      ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId)
+    )
+      fail();
+    if (e.light !== undefined && typeof e.light !== "boolean") fail();
+    if (
+      e.cast !== undefined &&
+      (!Array.isArray(e.cast) ||
+        e.cast.length > 3 ||
+        new Set(e.cast).size !== e.cast.length ||
+        e.cast.some((id) => !actorIds.includes(id)))
+    )
+      fail();
+    if (
+      e.items !== undefined &&
+      (!Array.isArray(e.items) ||
+        e.items.length > 4 ||
+        e.items.some(
+          (item) =>
+            !item ||
+            !ids.includes(item.id) ||
+            ![...actorIds, ...ids, ...Object.keys(places)].includes(
+              item.holder,
+            ),
+        ))
+    )
+      fail();
+  }
   return s;
 }
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));

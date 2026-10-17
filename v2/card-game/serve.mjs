@@ -8,6 +8,11 @@ const assets = new Map([
   ["/style.css", ["style.css", "text/css"]],
   ["/app.mjs", ["app.mjs", "text/javascript"]],
   ["/world.mjs", ["world.mjs", "text/javascript"]],
+  ["/scene.mjs", ["scene.mjs", "text/javascript"]],
+  ...["station", "attic", "pond", "vale", "moth", "keeper"].map((id) => [
+    `/assets/${id}.png`,
+    [`assets/${id}.png`, "image/png"],
+  ]),
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {
