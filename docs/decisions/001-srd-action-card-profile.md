@@ -1,6 +1,6 @@
 # ADR-001: SRD 5.2.1 Action-Card Profile
 
-- Status: accepted for internal development; collectible policy superseded by ADR 0006
+- Status: accepted for internal development; collectible policy superseded by ADR 0006; superseded as the card table's action substrate by ADR 0015
 - Date: 2026-07-19
 - Profile: `cosyworld.srd5/1`
 - Source rules: System Reference Document 5.2.1

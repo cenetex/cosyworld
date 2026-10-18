@@ -1,10 +1,24 @@
 # CosyWorld Documentation
 
-CosyWorld V2 is the current product and runtime. Start with the documents below;
+CosyWorld V2 is the current product and runtime. Its primary play loop is The
+reflected shore, the card table in `v2/card-game/`; the shared world runs at
+`/classic`. Start with the documents below;
 older Node/Discord/X/Telegram service notes are retained as a legacy archive and
 do not define V2 behavior.
 
 ## Product and design
+
+- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** —
+  the card table: cards as views of world entities, pairs, target hands, cast
+  trades, and quest programs that earn levels. Run it with `npm run play:cards`.
+- **[ADR 0015: The Card Table Is the Primary Play Loop](decisions/0015-card-table-is-the-primary-play-loop.md)** —
+  vocabulary, authority while the table is local, the path to a shared table,
+  and the disposition of earlier decisions.
+- **[Design research](design/avatar-item-location-research.md)** — V1 source
+  findings, card games, OSR play, world construction, and V2 reuse.
+
+The documents below describe the shared world and `/classic`. Where they
+describe the dealt action hand, ADR 0015 governs the card table.
 
 - **[The CosyWorld Pact](cosyworld-pact.md)** — the promises CosyWorld makes
   about shared truth, sanctuary, honest choices, discovery, return, AI
@@ -103,10 +117,28 @@ do not define V2 behavior.
 
 ## Planning documents
 
-- **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** — a playable whimsical cosmic horror slice with target-hand desires, card trades, and quest programs that earn levels.
-- **[Design research](design/avatar-item-location-research.md)** — V1 source findings, card games, OSR play, world construction, character simulation, and V2 reuse.
+### Feeds the card table
 
-- **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
+- **[The Shared Card Table](backlog/shared-card-table.md)** — the phased port of
+  card rules into the kernel and journal, card sites as pack data, and the
+  golden-trace parity oracle.
+- **[Resident Drive Autonomy](backlog/resident-drive-autonomy.md)** — A/L/I drive
+  patterns, which map directly to target hands.
+- **[Quest Grammar and Return](backlog/quest-grammar-and-return.md)** — focal
+  operations that become quest-program builders.
+- **[Thresholds, Trails, and the Strict Referee](backlog/thresholds-trails-and-strict-referee.md)** —
+  Gates, Hazards, and Leads on location cards.
+- **[Player Journal as a Semantic Chronicle](backlog/player-journal-semantic-chronicle.md)** —
+  story beats, object memory, and places that recount events.
+- **[Void Vision Quests](backlog/void-vision-quests.md)** — budgeted programs
+  that dim rather than fail.
+- **[Fiction Frontier](backlog/fiction-frontier.md)** — every state change gets
+  a scene line.
+
+### Shared world and `/classic`
+
+- **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** — *historical; collection
+  cards conflict with ADR 0015's cards-as-entities rule* —
   account-owned Species, Class, and Origin cards, classless level-zero arrival,
   first-action Class reveal, world discovery, new-tale lifecycle, and migration
   from compound campaign choices.
@@ -189,4 +221,4 @@ current PRD take precedence:
 - [Legacy service documentation](services/)
 - [Deployment guide](deployment/07-deployment.md)
 
-Last reviewed: 2026-08-10.
+Last reviewed: 2026-10-17.

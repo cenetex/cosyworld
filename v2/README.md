@@ -4,8 +4,12 @@ This folder contains the canonical CosyWorld runtime: a deterministic C rules
 kernel, a Rust HTTP/SSE orchestrator, a browser MUD shell, content worldpack
 data, and the local smoke/deployment gates.
 
-The older Node service remains in the repository as a legacy companion for
-integrations and migration work. Gameplay truth lives here.
+The former Node service under `src/` has been removed. Gameplay truth lives here.
+
+The primary play loop is the card table in `v2/card-game/`
+([ADR 0015](../docs/decisions/0015-card-table-is-the-primary-play-loop.md)). It
+runs in the browser with local saves; this runtime embeds and serves its files.
+The rest of this guide describes the shared-world runtime.
 
 ADR 0006 accepts a wallet-optional core with an avatar-NFT-only bridge. The
 Box/pack, keepsake, wallet-gate, and item/location materialization player
@@ -667,6 +671,10 @@ Open:
 http://127.0.0.1:3102/
 ```
 
+With `COSYWORLD_PRIMARY_GAME=cards`, as in production, `/` serves the card table
+and `/classic` serves the shared-world client below. `/card-game/` always serves
+the table. Locally the variable is unset, so `/` is the shared-world client.
+
 The browser UX is intentionally chat/MUD-first: a terminal-style transcript, compact room presence, and one contextual command. It should not expose debug tables, stat grids, item spreadsheets, route IDs, text inputs, or dialogue choice sheets during normal play.
 
 The transcript is a polite `role="log"` live region labeled as the shared room timeline. Whiskerwind remains visibly emoji-only, but Whiskerwind message rows include descriptive `aria-label` text so symbol-only speech is not inaccessible to screen readers.
@@ -830,6 +838,8 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 
 ## Endpoints
 
+- `GET /card-game/` and `GET /card-game/{file}` (embedded card table)
+- `GET /classic` (shared-world client)
 - `GET /health`
 - `GET /meta`
 - `GET /licenses`

@@ -1,8 +1,10 @@
 # CosyWorld
 
-CosyWorld is a shared AI MUD: players enter one living world, become an avatar,
-and act through a small card-driven browser surface backed by a deterministic
-C rules kernel and a Rust HTTP/SSE orchestrator.
+CosyWorld is a card game set in a whimsical cosmic horror world. You play Vale
+through a row of avatar, item, and location cards while the cast pursue their
+own goals. The production root serves The reflected shore. The shared-world MUD,
+backed by a deterministic C rules kernel and a Rust HTTP/SSE orchestrator, runs
+at `/classic` and is the foundation for a shared card table.
 
 CosyWorld V2 is the canonical product and runtime. Gameplay, world content,
 browser behavior, and deployment work live under `v2/`.
@@ -18,10 +20,17 @@ You need:
 - A Rust toolchain with Cargo and a working C compiler.
 - Python 3, `screen`, and `lsof` for the local runtime scripts.
 
-Install the JavaScript dependencies, then start the current browser game:
+Install the JavaScript dependencies, then start the card table:
 
 ```sh
 npm install
+npm run play:cards
+```
+
+Open [http://127.0.0.1:4177/](http://127.0.0.1:4177/). Saves stay in that
+browser. To run the shared-world runtime instead:
+
+```sh
 npm run dev
 ```
 
