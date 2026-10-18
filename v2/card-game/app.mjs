@@ -264,6 +264,7 @@ function commitAction(action, revision) {
   reveal.finish();
   speechSounds.stop();
   storyStatus = "pending";
+  replay = 0;
   world = result.state;
   selected = [];
   lineIndex = null;
@@ -580,7 +581,11 @@ function renderScene() {
       replay,
     ]);
     reveal.show(key, text, speaker, {
-      instant: !inspected && storyStatus === "pending",
+      instant:
+        !inspected &&
+        lineIndex === null &&
+        replay === 0 &&
+        storyStatus === "pending",
     });
   } else {
     reveal.cancel();
@@ -806,5 +811,6 @@ window.addEventListener("storage", (event) => {
     render();
   }
 });
+pauseSpeech();
 render();
 if (!saveBlocked && !currentScene(world).line) narrator.changed();
