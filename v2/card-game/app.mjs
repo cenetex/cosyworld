@@ -95,11 +95,17 @@ function save() {
 }
 let storyStatus = "ready",
   renderedCast = "",
+  renderedPrior = "",
+  renderedHand = "",
   speechKey = null,
   speechGlyphs = [],
   shownLetters = 0,
+  glyphBottoms = [],
+  speechHeight = 0,
+  speechComplete = null,
   nextSceneIndex = null,
-  replay = 0;
+  replay = 0,
+  pendingReplay = 0;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const speechSounds = createSpeechSounds();
 let soundEnabled = true;
@@ -107,6 +113,31 @@ try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";
 } catch {}
 speechSounds.setEnabled(soundEnabled);
+function measureSpeech() {
+  const text = $("dialogue-text");
+  glyphBottoms = speechGlyphs.map(
+    (glyph) => glyph.offsetTop + glyph.offsetHeight,
+  );
+  speechHeight = text.clientHeight;
+}
+new ResizeObserver(measureSpeech).observe($("dialogue-text"));
+function updateSpeechControls(complete) {
+  $("dialogue-advance").dataset.revealing = String(!complete);
+  $("dialogue-advance").setAttribute(
+    "aria-label",
+    complete
+      ? nextSceneIndex !== null
+        ? "Continue to the next line"
+        : "Read this line again"
+      : "Reveal the full line",
+  );
+  $("speech-hint").textContent = complete
+    ? nextSceneIndex !== null
+      ? "Continue"
+      : "Read again"
+    : "Tap to reveal";
+  $("next-line").disabled = complete && nextSceneIndex === null;
+}
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -117,12 +148,14 @@ const reveal = createTextReveal({
     if (speechKey !== value.key) {
       speechKey = value.key;
       shownLetters = 0;
+      speechComplete = null;
       text.scrollTop = 0;
       speechSounds.stop();
       speechGlyphs = value.letters.map((letter) =>
         node("span", letter, "speech-letter"),
       );
       text.replaceChildren(...speechGlyphs);
+      measureSpeech();
       $("speech-announcement").textContent = "";
     }
     speechGlyphs[Math.max(0, shownLetters - 1)]?.classList.remove("cursor");
@@ -131,26 +164,14 @@ const reveal = createTextReveal({
     shownLetters = value.shown;
     const cursor = speechGlyphs[Math.max(0, shownLetters - 1)];
     cursor?.classList.add("cursor");
-    $("dialogue-advance").dataset.revealing = String(!value.complete);
-    $("dialogue-advance").setAttribute(
-      "aria-label",
-      value.complete
-        ? nextSceneIndex !== null
-          ? "Continue to the next line"
-          : "Read this line again"
-        : "Reveal the full line",
-    );
-    $("speech-hint").textContent = value.complete
-      ? nextSceneIndex !== null
-        ? "Continue"
-        : "Read again"
-      : "Tap to reveal";
-    // Keep the cursor in view inside a long line; the scene itself stays still.
-    if (cursor && !value.complete) {
-      const bottom = cursor.offsetTop + cursor.offsetHeight;
-      if (bottom > text.scrollTop + text.clientHeight)
-        text.scrollTop = bottom - text.clientHeight;
+    if (speechComplete !== value.complete) {
+      speechComplete = value.complete;
+      updateSpeechControls(value.complete);
     }
+    // Layout is measured once per line or resize, then reused for each letter.
+    const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
+    if (!value.complete && bottom > text.scrollTop + speechHeight)
+      text.scrollTop = bottom - speechHeight;
     if (value.complete) {
       $("speech-announcement").textContent =
         `${nameOf(value.speaker)}: ${value.text}`;
@@ -264,10 +285,14 @@ function commitAction(action, revision) {
   reveal.finish();
   speechSounds.stop();
   storyStatus = "pending";
-  replay = 0;
+  pendingReplay = replay;
+  const previousLine = currentScene(world, lineIndex).line;
   world = result.state;
   selected = [];
-  lineIndex = null;
+  lineIndex =
+    previousLine?.locationId === world.actors.vale.place
+      ? world.log.findIndex((entry) => entry.seq === previousLine.seq)
+      : null;
   notice("");
   save();
   render();
@@ -483,37 +508,36 @@ function renderScene() {
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
-  const castKey = JSON.stringify([
-    scene.slots,
-    scene.activeSpeaker,
-    scene.slots.map((id) => id && levelOf(world, id)),
-  ]);
+  const castKey = JSON.stringify(scene.slots);
   if (castKey !== renderedCast) {
     renderedCast = castKey;
     $("cast").replaceChildren(
-      ...scene.slots.map((id) => {
-        if (!id) return node("div", "", "portrait empty");
-        const button = node(
-          "div",
-          undefined,
-          `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
-        );
-        button.setAttribute("aria-label", nameOf(id));
+      ...scene.slots.map((id, index) => {
+        const existing = $("cast").children[index];
+        if (existing?.dataset.avatar === (id || "")) return existing;
+        if (!id) {
+          const empty = node("div", "", "portrait empty");
+          empty.dataset.avatar = "";
+          return empty;
+        }
+        const figure = node("div", undefined, "portrait");
+        figure.dataset.avatar = id;
+        figure.setAttribute("aria-label", nameOf(id));
         const image = node("img");
         image.src = portrait(id);
         image.alt = "";
-        button.append(
-          image,
-          node(
-            "span",
-            `${nameOf(id)} · Lv ${levelOf(world, id)}`,
-            "portrait-name",
-          ),
-        );
-        return button;
+        figure.append(image, node("span", "", "portrait-name"));
+        return figure;
       }),
     );
   }
+  scene.slots.forEach((id, index) => {
+    if (!id) return;
+    const figure = $("cast").children[index];
+    figure.classList.toggle("active", scene.activeSpeaker === id);
+    figure.querySelector(".portrait-name").textContent =
+      `${nameOf(id)} · Lv ${levelOf(world, id)}`;
+  });
   const previous =
     inspected && world.memories[inspected].text !== scene.line?.text
       ? scene.line
@@ -523,20 +547,24 @@ function renderScene() {
               entry.index < scene.line.index && entry.kind === "dialogue",
           ) || null
         : scene.previous;
-  $("prior-response").hidden = !previous;
-  $("prior-speaker").textContent = previous?.speaker || "";
-  $("prior-text").textContent = previous?.text || "";
-  const priorId =
-    previous?.entityId || previous?.actorId || previous?.locationId;
-  const priorPortrait = $("prior-portrait");
-  priorPortrait.replaceChildren();
-  if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
-  else if (priorId) {
-    const image = node("img");
-    image.src = portrait(priorId);
-    image.alt = "";
-    priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
-    priorPortrait.append(image);
+  const priorKey = JSON.stringify(previous);
+  if (priorKey !== renderedPrior) {
+    renderedPrior = priorKey;
+    $("prior-response").hidden = !previous;
+    $("prior-speaker").textContent = previous?.speaker || "";
+    $("prior-text").textContent = previous?.text || "";
+    const priorId =
+      previous?.entityId || previous?.actorId || previous?.locationId;
+    const priorPortrait = $("prior-portrait");
+    priorPortrait.replaceChildren();
+    if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
+    else if (priorId) {
+      const image = node("img");
+      image.src = portrait(priorId);
+      image.alt = "";
+      priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
+      priorPortrait.append(image);
+    }
   }
   $("speaker").textContent = inspected
     ? nameOf(inspected)
@@ -582,10 +610,7 @@ function renderScene() {
     ]);
     reveal.show(key, text, speaker, {
       instant:
-        !inspected &&
-        lineIndex === null &&
-        replay === 0 &&
-        storyStatus === "pending",
+        !inspected && replay === pendingReplay && storyStatus === "pending",
     });
   } else {
     reveal.cancel();
@@ -594,7 +619,7 @@ function renderScene() {
     $("speech-announcement").textContent = "";
   }
   $("previous-line").disabled = Boolean(inspected) || at <= 0;
-  $("next-line").disabled = reveal.complete && nextSceneIndex === null;
+  updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
     lineIndex = scene.lines[at - 1].index;
     renderScene();
@@ -649,8 +674,16 @@ function render() {
   $("path-state").textContent = reflectionOpen(world)
     ? "The reflected path is open"
     : "Reflections open in lamplight";
-  $("hand").replaceChildren(...availableCards(world).map(card));
-  $("hand").scrollLeft = scroll;
+  const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
+  if (handKey !== renderedHand) {
+    renderedHand = handKey;
+    $("hand").replaceChildren(...availableCards(world).map(card));
+    $("hand").scrollLeft = scroll;
+  }
+  for (const card of $("hand").querySelectorAll("[data-card]")) {
+    const words = world.memories[card.dataset.card]?.text;
+    if (words) card.title = words;
+  }
   $("play-readout").textContent = selected.length
     ? cardPlay(world, selected).hint
     : "";
@@ -780,6 +813,8 @@ $("confirm-reset").onclick = () => {
   reveal.cancel();
   speechSounds.stop();
   world = createWorld();
+  renderedHand = "";
+  replay = pendingReplay = 0;
   lineIndex = null;
   selected = [];
   saveBlocked = false;
@@ -797,6 +832,7 @@ window.addEventListener("storage", (event) => {
   speechSounds.stop();
   try {
     world = decodeSave(event.newValue);
+    renderedHand = "";
     lineIndex = null;
     selected = [];
     saveBlocked = false;
