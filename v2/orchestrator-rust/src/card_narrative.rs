@@ -298,9 +298,10 @@ async fn complete(
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
     let user = prompt(context);
+    let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v3",
+        prompt_version: "card-entity-text-v4",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -309,7 +310,7 @@ async fn complete(
         timeout: Duration::from_secs(22),
         max_attempts: 1,
         referer: "https://cosyworld.fly.dev",
-        response_format: None,
+        response_format: Some(&format),
         room_id: None,
     };
     let Ok(Ok(completion)) = tokio::time::timeout(Duration::from_secs(25), async {
@@ -405,6 +406,7 @@ mod tests {
     async fn route_uses_personas_desires_and_memories_with_the_configured_model() {
         let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {
             assert_eq!(body["model"], "test-entity-model");
+            assert_eq!(body["response_format"]["type"], "json_object");
             let instructions = body["messages"][0]["content"].as_str().unwrap();
             assert!(instructions.contains("Vale is the player avatar") && instructions.contains("direct response"));
             let input = body["messages"][1]["content"].as_str().unwrap();
