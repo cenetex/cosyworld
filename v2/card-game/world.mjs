@@ -471,6 +471,51 @@ function settleStandoffs(s) {
     }
   }
 }
+// A joint trip follows the invited avatar's current target hands.
+export function accompanyDecision(s, actor, companion, destination) {
+  const here = s.actors[companion].place;
+  if (standoffFor(s, actor) || standoffFor(s, companion))
+    return { accepted: false, reason: "Attend to the standoff first." };
+  if (s.peaceUntil[companion] > s.turn)
+    return { accepted: false, reason: "Catch a breath after the standoff." };
+  const distance = (from, to) => {
+    const route = routeBetween(s, from, to);
+    return route ? route.length - 1 : Infinity;
+  };
+  const closer = (place) =>
+    distance(destination, place) < distance(here, place);
+  const agree = (reason) => ({ accepted: true, reason });
+  for (const hand of targetsFor(s, companion)) {
+    const missing = hand.items.filter((id) => rootHolder(s, id) !== companion);
+    // Collect a wanted object here before leaving it behind. Objects carried
+    // by the requester travel with the pair and remain within reach.
+    if (
+      missing.some(
+        (id) => itemPlace(s, id) === here && rootHolder(s, id) !== actor,
+      )
+    )
+      continue;
+    const distant = missing.filter((id) => rootHolder(s, id) !== actor);
+    const sought = distant.find((id) => closer(itemPlace(s, id)));
+    if (sought) return agree(`Seek the ${nameOf(sought)}.`);
+    if (distant.length) continue;
+    if (hand.location) {
+      if (closer(hand.location))
+        return agree(`Reach ${nameOf(hand.location)} for the target hand.`);
+      continue;
+    }
+    const company = hand.avatars.filter((id) => id !== actor);
+    const meet = company.find((id) => closer(s.actors[id].place));
+    if (meet) return agree(`Meet ${nameOf(meet)}.`);
+    if (company.every((id) => s.actors[id].place === destination))
+      return agree(`Travel in ${nameOf(actor)}'s company.`);
+  }
+  return {
+    accepted: false,
+    reason: `Pursue this hand first: ${handText(desireFor(s, companion))}.`,
+  };
+}
+
 export function legalActions(s, actor = "vale") {
   const here = s.actors[actor].place;
   const out = [
@@ -478,6 +523,21 @@ export function legalActions(s, actor = "vale") {
   ];
   for (const to of exits(s, here)) {
     const through = !places[here].exits.includes(to);
+    for (const other of actorIds.filter(
+      (id) => id !== actor && s.actors[id].place === here,
+    )) {
+      const request = offer(
+        "accompany",
+        actor,
+        null,
+        other,
+        `${nameOf(actor)} asks ${nameOf(other)} to accompany them to ${nameOf(to)}.`,
+        [other, to],
+      );
+      request.destination = to;
+      request.key += `:${to}`;
+      out.push(request);
+    }
     out.push(
       offer(
         "move",
@@ -722,6 +782,14 @@ export function matchingActions(s, selected) {
       a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
   );
 }
+function travel(s, actor, destination) {
+  const through = !places[s.actors[actor].place].exits.includes(destination);
+  if (through) s.actors[actor].crossed += 1;
+  s.actors[actor].place = destination;
+  for (const id of carried(s, actor))
+    remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+  return through;
+}
 function perform(s, a) {
   const who = nameOf(a.actor);
   const here = s.actors[a.actor].place;
@@ -736,8 +804,28 @@ function perform(s, a) {
   }
   if (a.kind === "wait") return;
   let text = a.text;
-  let arrival = null;
+  let arrival = null,
+    invitation = null;
   switch (a.kind) {
+    case "accompany": {
+      const respondentConflict = standoffFor(s, a.target);
+      if (respondentConflict) {
+        respondentConflict.guarding[a.target] = false;
+        if (respondentConflict.defender === a.target)
+          respondentConflict.answered = true;
+      }
+      invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+      s.actors[a.actor].lastTalk = s.turn;
+      if (invitation.accepted) {
+        const through = travel(s, a.actor, a.destination);
+        travel(s, a.target, a.destination);
+        text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
+        if (through) text += " Something on the far shore turns its head.";
+      } else {
+        text += ` ${nameOf(a.target)} declines the trip. ${invitation.reason}`;
+      }
+      break;
+    }
     case "threaten":
       s.standoffs.push({
         challenger: a.actor,
@@ -804,13 +892,8 @@ function perform(s, a) {
       break;
     }
     case "move":
-      if (!places[here].exits.includes(a.target)) {
-        s.actors[a.actor].crossed += 1;
+      if (travel(s, a.actor, a.target))
         text += " Something on the far shore turns its head.";
-      }
-      s.actors[a.actor].place = a.target;
-      for (const id of carried(s, a.actor))
-        remember(s, id, `${who} carried it to ${nameOf(a.target)}.`);
       break;
     case "take":
       transfer(s, a.item, a.actor, a.text);
@@ -874,6 +957,9 @@ function perform(s, a) {
     itemId: a.item,
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
+    ...(invitation
+      ? { destinationId: a.destination, accepted: invitation.accepted }
+      : {}),
     ...(a.kind === "attack" ? { locationId: here } : {}),
   });
   if (arrival) {
@@ -881,23 +967,27 @@ function perform(s, a) {
     addLog(s, "World", arrivalText, details);
   }
   settleStandoffs(s);
+  // Answering the request is the invited avatar's action for this round.
+  return invitation ? a.target : null;
 }
-function toward(s, actor, target) {
-  const from = s.actors[actor].place;
+function routeBetween(s, from, target) {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {
     const route = queue.shift();
-    if (route.at(-1) === target)
-      return legalActions(s, actor).find(
-        (a) => a.kind === "move" && a.target === route[1],
-      );
+    if (route.at(-1) === target) return route;
     for (const next of exits(s, route.at(-1)))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);
       }
   }
+}
+function toward(s, actor, target) {
+  const route = routeBetween(s, s.actors[actor].place, target);
+  return legalActions(s, actor).find(
+    (a) => a.kind === "move" && a.target === route?.[1],
+  );
 }
 export function plan(s, actor = "vale") {
   const acts = legalActions(s, actor),
@@ -1117,9 +1207,10 @@ export function play(s, action, expectedRevision = s.revision) {
     addLog(next, "World", "Vale waits. The cast takes a turn.");
   const met = new Map();
   captureHands(next, met);
-  perform(next, exact);
+  const respondent = perform(next, exact);
   captureHands(next, met);
   for (const actor of ["moth", "keeper"]) {
+    if (actor === respondent) continue;
     perform(next, plan(next, actor).action);
     captureHands(next, met);
   }
@@ -1411,6 +1502,7 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "accompany",
     "threaten",
     "guard",
     "attack",
@@ -1456,9 +1548,35 @@ export function validateWorld(s) {
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
       fail();
     if (e.generated !== undefined && e.generated !== true) fail();
+    for (const field of ["departureTo", "arrivalFrom"])
+      if (
+        e[field] !== undefined &&
+        (!e.generated ||
+          e.kind !== "dialogue" ||
+          !actorIds.includes(e.actorId) ||
+          !Object.hasOwn(places, e[field]) ||
+          e[field] === e.locationId)
+      )
+        fail();
+    if (e.departureTo && e.arrivalFrom) fail();
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
+      fail();
+    if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
+    if (
+      e.verb === "accompany" &&
+      (!actorIds.includes(e.actorId) ||
+        !actorIds.includes(e.targetId) ||
+        e.targetId === e.actorId ||
+        !Object.hasOwn(places, e.destinationId) ||
+        !Object.hasOwn(places, e.fromLocationId) ||
+        e.destinationId === e.fromLocationId ||
+        typeof e.accepted !== "boolean" ||
+        e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId))
+    )
+      fail();
     if (e.itemId != null && !ids.includes(e.itemId)) fail();
     if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
     if (e.questPlan !== undefined && !validProgram(e.questPlan, e.actorId, s))

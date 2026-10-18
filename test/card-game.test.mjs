@@ -241,6 +241,7 @@ describe("the reflected shore card game", () => {
         "world.mjs",
         "quests.mjs",
         "scene.mjs",
+        "dialogue.mjs",
         "cards.mjs",
         "assets/station.png",
       ]) {

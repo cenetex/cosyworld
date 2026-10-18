@@ -1,5 +1,10 @@
 import { createNarrator } from "./narrative.mjs";
 import {
+  createTextReveal,
+  createSpeechSounds,
+  createExchange,
+} from "./dialogue.mjs";
+import {
   places,
   people,
   things,
@@ -19,7 +24,13 @@ import {
   opponentOf,
   strikePower,
 } from "./world.mjs";
-import { currentScene, sceneScript, portrait } from "./scene.mjs";
+import {
+  currentScene,
+  sceneScript,
+  sceneCast,
+  sceneChanges,
+  portrait,
+} from "./scene.mjs";
 import {
   availableCards,
   cardType,
@@ -93,22 +104,200 @@ function save() {
   }
 }
 let storyStatus = "ready",
-  storyPreview = null,
-  renderedCast = "";
+  renderedCast = "",
+  renderedPrior = "",
+  renderedHand = "",
+  speechKey = null,
+  speechGlyphs = [],
+  shownLetters = 0,
+  glyphBottoms = [],
+  speechHeight = 0,
+  speechScrollTarget = 0,
+  speechComplete = null,
+  nextSceneIndex = null,
+  replay = 0,
+  pendingReplay = 0,
+  cardsCooling = false,
+  reviewing = false,
+  pendingCast = null,
+  departed = new Set();
+const completedSpeech = new Set();
+let shownSceneLine = null;
+function updateCardCooldown() {
+  $("hand").dataset.cooling = String(cardsCooling);
+  $("hand").setAttribute("aria-busy", String(cardsCooling));
+  for (const button of $("hand").querySelectorAll("button")) {
+    button.disabled = saveBlocked || cardsCooling;
+    if (button.dataset.card) button.draggable = !button.disabled;
+  }
+}
+const exchange = createExchange({
+  show: (line) => {
+    reviewing = false;
+    lineIndex = world.log.findIndex((entry) => entry.seq === line.seq);
+    renderScene();
+  },
+  settled: (line) => {
+    if (line.departureTo) departed.add(line.actorId);
+    renderScene();
+  },
+  busy: (value) => {
+    cardsCooling = value;
+    updateCardCooldown();
+    // A failed request releases the hand as well.
+    if (!value) {
+      pendingCast = null;
+      renderScene();
+    }
+  },
+});
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const speechSounds = createSpeechSounds();
+let soundEnabled = true;
+try {
+  soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";
+} catch {}
+speechSounds.setEnabled(soundEnabled);
+function measureSpeech() {
+  const text = $("dialogue-text");
+  glyphBottoms = speechGlyphs.map(
+    (glyph) => glyph.offsetTop + glyph.offsetHeight,
+  );
+  speechHeight = text.clientHeight;
+  speechScrollTarget = text.scrollTop;
+}
+new ResizeObserver(measureSpeech).observe($("dialogue-text"));
+function updateSpeechControls(complete) {
+  $("dialogue-advance").dataset.revealing = String(!complete);
+  $("dialogue-advance").setAttribute(
+    "aria-label",
+    complete
+      ? nextSceneIndex !== null
+        ? "Continue to the next line"
+        : exchange.current
+          ? "Finish this exchange"
+          : "Read this line again"
+      : "Reveal the full line",
+  );
+  $("speech-hint").textContent = complete
+    ? nextSceneIndex !== null
+      ? "Continue"
+      : exchange.current
+        ? "Continue"
+        : "Read again"
+    : "Tap to reveal";
+  $("next-line").disabled = complete && nextSceneIndex === null;
+}
+const reveal = createTextReveal({
+  reduced: () => reducedMotion.matches,
+  sound: (...args) => {
+    if (!document.hidden) speechSounds.syllable(...args);
+  },
+  frame: (value) => {
+    const text = $("dialogue-text");
+    if (speechKey !== value.key) {
+      speechKey = value.key;
+      shownLetters = 0;
+      speechComplete = null;
+      text.scrollTop = 0;
+      speechSounds.stop();
+      speechGlyphs = value.letters.map((letter) =>
+        node("span", letter, "speech-letter"),
+      );
+      text.replaceChildren(...speechGlyphs);
+      measureSpeech();
+      $("speech-announcement").textContent = "";
+    }
+    speechGlyphs[Math.max(0, shownLetters - 1)]?.classList.remove("cursor");
+    for (let i = shownLetters; i < value.shown; i++)
+      speechGlyphs[i].classList.add("revealed");
+    shownLetters = value.shown;
+    const cursor = speechGlyphs[Math.max(0, shownLetters - 1)];
+    cursor?.classList.add("cursor");
+    if (speechComplete !== value.complete) {
+      speechComplete = value.complete;
+      updateSpeechControls(value.complete);
+    }
+    // Layout is measured once per line or resize, then reused for each letter.
+    const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
+    if (!value.complete && bottom > speechScrollTarget + speechHeight) {
+      speechScrollTarget = bottom - speechHeight;
+      text.scrollTo({
+        top: speechScrollTarget,
+        behavior: reducedMotion.matches ? "instant" : "smooth",
+      });
+    }
+    if (value.complete) {
+      $("speech-announcement").textContent =
+        `${nameOf(value.speaker)}: ${value.text}`;
+      $("next-line").disabled = nextSceneIndex === null;
+      completedSpeech.add(value.key);
+      if (completedSpeech.size > 100)
+        completedSpeech.delete(completedSpeech.values().next().value);
+      if (shownSceneLine)
+        exchange.revealed(shownSceneLine.seq, value.text, value.instant);
+    }
+  },
+});
+reducedMotion.addEventListener("change", () => {
+  if (reducedMotion.matches) {
+    reveal.finish();
+    speechSounds.stop();
+  }
+});
+function pauseSpeech() {
+  const paused =
+    document.hidden || Boolean(document.querySelector("dialog[open]"));
+  reveal.pause(paused);
+  exchange.pause(paused);
+  if (paused) speechSounds.stop();
+}
+document.addEventListener("visibilitychange", pauseSpeech);
+document.addEventListener("pointerdown", () => speechSounds.unlock(), {
+  capture: true,
+});
+document.addEventListener("keydown", () => speechSounds.unlock(), {
+  capture: true,
+});
+function updateSoundButton() {
+  $("speech-sound").textContent =
+    `Voice sounds: ${soundEnabled ? "on" : "off"}`;
+  $("speech-sound").setAttribute("aria-pressed", String(soundEnabled));
+}
+$("speech-sound").onclick = () => {
+  soundEnabled = !soundEnabled;
+  speechSounds.setEnabled(soundEnabled);
+  if (soundEnabled) speechSounds.unlock();
+  try {
+    localStorage.setItem(
+      "cosyworld.dialogue.sound",
+      soundEnabled ? "on" : "off",
+    );
+  } catch {}
+  updateSoundButton();
+};
+updateSoundButton();
 const narrator = createNarrator({
   getWorld: () => world,
   apply: (next) => {
     world = next;
-    lineIndex = null;
+    storyStatus = "ready";
+    pendingCast = null;
     save();
+    const lines = world.log.filter(
+      (entry) =>
+        entry.generated &&
+        entry.kind === "dialogue" &&
+        entry.turn === world.turn &&
+        entry.locationId === world.actors.vale.place,
+    );
+    exchange.load(lines);
     render();
-  },
-  preview: (value) => {
-    storyPreview = value;
-    renderScene();
   },
   status: (value) => {
     storyStatus = value;
+    if (value === "pending" && !exchange.active) exchange.begin();
+    if (value === "retry") exchange.cancel();
     renderScene();
   },
 });
@@ -129,7 +318,7 @@ function status(id) {
 }
 
 function choose(id) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   if (selected.includes(id)) {
     commit(selected, selectionRevision);
     return;
@@ -139,7 +328,7 @@ function choose(id) {
   render();
 }
 function commit(cards, revision) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   const resolved = cardPlay(world, cards);
   if (!resolved.action) {
     $("play-readout").textContent = resolved.hint;
@@ -148,7 +337,7 @@ function commit(cards, revision) {
   commitAction(resolved.action, revision);
 }
 function commitAction(action, revision) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
@@ -156,9 +345,32 @@ function commitAction(action, revision) {
     render();
     return;
   }
+  reveal.finish();
+  speechSounds.stop();
+  storyStatus = "pending";
+  pendingReplay = replay;
+  const previousLine = currentScene(world, lineIndex).line;
   world = result.state;
+  dragging = [];
+  $("stage").classList.remove("ready", "drag-over");
+  departed.clear();
+  const visible = [
+    ...new Set([
+      ...Object.keys(people).filter(
+        (id) => world.actors[id].place === world.actors.vale.place,
+      ),
+      ...sceneChanges(world)
+        .filter((change) => change.leaving)
+        .map((change) => change.actorId),
+    ]),
+  ];
+  pendingCast = sceneCast(world, world.log.length - 1, visible);
+  exchange.begin();
   selected = [];
-  lineIndex = null;
+  lineIndex =
+    previousLine?.locationId === world.actors.vale.place
+      ? world.log.findIndex((entry) => entry.seq === previousLine.seq)
+      : null;
   notice("");
   save();
   render();
@@ -177,7 +389,7 @@ function card(id) {
   );
   el.type = "button";
   el.dataset.card = id;
-  el.disabled = saveBlocked;
+  el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
@@ -307,8 +519,12 @@ function card(id) {
     ),
   );
   el.addEventListener("click", () => choose(id));
-  el.draggable = true;
+  el.draggable = !el.disabled;
   el.addEventListener("dragstart", (e) => {
+    if (cardsCooling || saveBlocked) {
+      e.preventDefault();
+      return;
+    }
     dragging = selected.includes(id) ? [...selected] : [id];
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
@@ -330,7 +546,12 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (dragging.length && !dragging.includes(id)) {
+    if (
+      !cardsCooling &&
+      !saveBlocked &&
+      dragging.length &&
+      !dragging.includes(id)
+    ) {
       selected = [dragging[0], id];
       selectionRevision = world.revision;
       render();
@@ -341,14 +562,14 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  if (type === "avatar") {
+  if (type === "avatar" && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
     const revision = world.revision;
     for (const action of avatarPlays(world, id)) {
       const button = node("button", playLabel(action));
       button.type = "button";
-      button.disabled = saveBlocked;
+      button.disabled = saveBlocked || cardsCooling;
       button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
       button.title =
         action.kind === "threaten"
@@ -366,116 +587,163 @@ function card(id) {
   return frame;
 }
 function renderScene() {
-  let scene = currentScene(world, lineIndex);
-  const streaming =
-    lineIndex === null && storyPreview?.context.revision === world.revision;
-  const draft = streaming
-    ? storyPreview.entries.map(({ id, text }) => ({
-        text,
-        speaker: nameOf(id),
-        actorId: id,
-        entityId: id,
-        turn: world.turn,
-        generated: true,
-      }))
-    : [];
-  if (draft.length)
-    scene = {
-      ...scene,
-      line: draft.at(-1),
-      previous: draft.at(-2) || scene.line,
-      activeSpeaker: draft.at(-1).actorId,
-      slots: [...storyPreview.context.speakers, null].slice(0, 2),
-    };
+  const scene = currentScene(world, lineIndex);
+  if (pendingCast) scene.slots = pendingCast;
+  shownSceneLine = scene.line;
   const inspected =
-    selected.length === 1 && world.memories[selected[0]]?.text
+    !cardsCooling && selected.length === 1 && world.memories[selected[0]]?.text
       ? selected[0]
       : null;
+  if (inspected) shownSceneLine = null;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
-  const castKey = JSON.stringify([
-    scene.slots,
-    scene.activeSpeaker,
-    scene.slots.map((id) => id && levelOf(world, id)),
-  ]);
+  const castKey = JSON.stringify(scene.slots);
   if (castKey !== renderedCast) {
     renderedCast = castKey;
     $("cast").replaceChildren(
-      ...scene.slots.map((id) => {
-        if (!id) return node("div", "", "portrait empty");
-        const button = node(
-          "div",
-          undefined,
-          `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
-        );
-        button.setAttribute("aria-label", nameOf(id));
+      ...scene.slots.map((id, index) => {
+        const existing = $("cast").children[index];
+        if (existing?.dataset.avatar === (id || "")) return existing;
+        if (!id) {
+          const empty = node("div", "", "portrait empty");
+          empty.dataset.avatar = "";
+          return empty;
+        }
+        const figure = node("div", undefined, "portrait");
+        figure.dataset.avatar = id;
+        figure.setAttribute("aria-label", nameOf(id));
         const image = node("img");
         image.src = portrait(id);
         image.alt = "";
-        button.append(
-          image,
-          node(
-            "span",
-            `${nameOf(id)} · Lv ${levelOf(world, id)}`,
-            "portrait-name",
-          ),
-        );
-        return button;
+        figure.append(image, node("span", "", "portrait-name"));
+        return figure;
       }),
     );
   }
+  scene.slots.forEach((id, index) => {
+    if (!id) return;
+    const figure = $("cast").children[index];
+    figure.classList.toggle("active", scene.activeSpeaker === id);
+    const left =
+      !reviewing && departed.has(id) && scene.line?.turn === world.turn;
+    figure.classList.toggle("departed", left);
+    figure.setAttribute("aria-hidden", String(left));
+    figure.querySelector(".portrait-name").textContent =
+      `${nameOf(id)} · Lv ${levelOf(world, id)}`;
+  });
   const previous =
     inspected && world.memories[inspected].text !== scene.line?.text
       ? scene.line
-      : scene.previous;
-  $("prior-response").hidden = !previous;
-  $("prior-speaker").textContent = previous?.speaker || "";
-  $("prior-text").textContent = previous?.text || "";
-  const priorId =
-    previous?.entityId || previous?.actorId || previous?.locationId;
-  const priorPortrait = $("prior-portrait");
-  priorPortrait.replaceChildren();
-  if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
-  else if (priorId) {
-    const image = node("img");
-    image.src = portrait(priorId);
-    image.alt = "";
-    priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
-    priorPortrait.append(image);
+      : scene.line?.kind === "dialogue"
+        ? scene.lines.findLast(
+            (entry) =>
+              entry.index < scene.line.index && entry.kind === "dialogue",
+          ) || null
+        : scene.previous;
+  const priorKey = JSON.stringify(previous);
+  if (priorKey !== renderedPrior) {
+    renderedPrior = priorKey;
+    $("prior-response").hidden = !previous;
+    $("prior-speaker").textContent = previous?.speaker || "";
+    $("prior-text").textContent = previous?.text || "";
+    const priorId =
+      previous?.entityId || previous?.actorId || previous?.locationId;
+    const priorPortrait = $("prior-portrait");
+    priorPortrait.replaceChildren();
+    if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
+    else if (priorId) {
+      const image = node("img");
+      image.src = portrait(priorId);
+      image.alt = "";
+      priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
+      priorPortrait.append(image);
+    }
   }
   $("speaker").textContent = inspected
     ? nameOf(inspected)
     : scene.line?.speaker || "";
   $("line-turn").textContent = inspected
     ? `Turn ${world.memories[inspected].turn}`
-    : storyStatus === "pending"
-      ? draft.length
-        ? "Speaking…"
-        : "Finding words…"
-      : storyStatus === "retry"
-        ? "Story text will try again with your next play"
-        : scene.line
-          ? `Turn ${scene.line.turn}`
-          : "";
-  $("dialogue-text").textContent = inspected
+    : scene.line
+      ? scene.line.departureTo
+        ? `${exchange.current?.seq === scene.line.seq && !departed.has(scene.line.actorId) ? "Leaving for" : "Left for"} ${nameOf(scene.line.departureTo)}`
+        : scene.line.arrivalFrom
+          ? `Arrived from ${nameOf(scene.line.arrivalFrom)}`
+          : `Turn ${scene.line.turn}`
+      : "";
+  $("story-status").hidden = storyStatus === "ready";
+  $("story-status").textContent =
+    storyStatus === "retry" ? "Words return with your next play" : "···";
+  $("story-status").setAttribute(
+    "aria-label",
+    storyStatus === "retry"
+      ? "Words return with your next play"
+      : "New words are on the way",
+  );
+  const text = inspected
     ? world.memories[inspected].text
     : scene.line?.text || "";
-  $("dialogue-text").setAttribute("aria-busy", String(Boolean(draft.length)));
-  $("dialogue-text").hidden = !$("dialogue-text").textContent;
-  const at = scene.lines.findIndex((e) => e.index === scene.line?.index);
-  $("previous-line").disabled =
-    Boolean(inspected) || Boolean(draft.length) || at <= 0;
-  $("next-line").disabled =
-    Boolean(inspected) || Boolean(draft.length) || at >= scene.lines.length - 1;
+  const speaker =
+    inspected ||
+    scene.line?.entityId ||
+    scene.line?.actorId ||
+    scene.locationId;
+  const at = scene.lines.findIndex(
+    (entry) => entry.index === scene.line?.index,
+  );
+  nextSceneIndex =
+    !inspected && at >= 0 && at < scene.lines.length - 1
+      ? scene.lines[at + 1].index
+      : null;
+  if (exchange.active)
+    nextSceneIndex = exchange.hasNext ? nextSceneIndex : null;
+  $("dialogue-advance").hidden = !text;
+  $("speech-hint").hidden = !text;
+  if (text) {
+    const key = JSON.stringify([
+      inspected,
+      inspected ? world.memories[inspected].turn : scene.line.seq,
+      speaker,
+      text,
+      replay,
+    ]);
+    reveal.show(key, text, speaker, {
+      instant:
+        completedSpeech.has(key) ||
+        (!inspected && replay === pendingReplay && storyStatus === "pending"),
+    });
+  } else {
+    reveal.cancel();
+    speechSounds.stop();
+    speechKey = null;
+    $("dialogue-text").replaceChildren();
+    $("speech-announcement").textContent = "";
+  }
+  $("previous-line").disabled = cardsCooling || Boolean(inspected) || at <= 0;
+  updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
+    reviewing = true;
     lineIndex = scene.lines[at - 1].index;
     renderScene();
   };
-  $("next-line").onclick = () => {
-    lineIndex = scene.lines[at + 1].index;
+  const advance = () => {
+    if (!reveal.complete) {
+      reveal.finish();
+      speechSounds.stop();
+      return;
+    }
+    if (exchange.current) {
+      exchange.advance();
+      return;
+    }
+    reviewing = true;
+    if (nextSceneIndex !== null) lineIndex = nextSceneIndex;
+    else replay++;
     renderScene();
   };
+  $("dialogue-advance").onclick = advance;
+  $("next-line").onclick = advance;
 }
 let renderedLog = [];
 function renderLog() {
@@ -514,13 +782,22 @@ function render() {
   $("path-state").textContent = reflectionOpen(world)
     ? "The reflected path is open"
     : "Reflections open in lamplight";
-  $("hand").replaceChildren(...availableCards(world).map(card));
-  $("hand").scrollLeft = scroll;
+  const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
+  if (handKey !== renderedHand) {
+    renderedHand = handKey;
+    $("hand").replaceChildren(...availableCards(world).map(card));
+    $("hand").scrollLeft = scroll;
+  }
+  for (const card of $("hand").querySelectorAll("[data-card]")) {
+    const words = world.memories[card.dataset.card]?.text;
+    if (words) card.title = words;
+  }
   $("play-readout").textContent = selected.length
     ? cardPlay(world, selected).hint
     : "";
   renderScene();
   renderLog();
+  updateCardCooldown();
   if (focused)
     document
       .querySelector(`[data-card="${focused}"]`)
@@ -553,7 +830,8 @@ document.addEventListener("click", (e) => {
   if (
     selected.length &&
     !e.target.closest(".card") &&
-    !e.target.closest("dialog")
+    !e.target.closest("dialog") &&
+    !e.target.closest(".dialogue")
   ) {
     selected = [];
     render();
@@ -561,6 +839,7 @@ document.addEventListener("click", (e) => {
 });
 $("history-button").onclick = () => {
   $("history-dialog").showModal();
+  pauseSpeech();
   $("messages").scrollTop = $("messages").scrollHeight;
 };
 $("menu-button").onclick = () => {
@@ -611,12 +890,16 @@ $("menu-button").onclick = () => {
     }),
   );
   $("menu-dialog").showModal();
+  pauseSpeech();
 };
 document
   .querySelectorAll("[data-close]")
   .forEach(
     (button) => (button.onclick = () => $(button.dataset.close).close()),
   );
+document
+  .querySelectorAll("dialog")
+  .forEach((dialog) => dialog.addEventListener("close", pauseSpeech));
 $("export-script").onclick = () => {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(sceneScript(world), null, 2)], {
@@ -632,11 +915,20 @@ $("export-script").onclick = () => {
 $("new-game").onclick = () => {
   $("menu-dialog").close();
   $("reset-dialog").showModal();
+  pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
   narrator.invalidate();
+  exchange.cancel();
+  departed.clear();
+  reveal.cancel();
+  speechSounds.stop();
   world = createWorld();
+  completedSpeech.clear();
+  reviewing = false;
+  renderedHand = "";
+  replay = pendingReplay = 0;
   lineIndex = null;
   selected = [];
   saveBlocked = false;
@@ -649,14 +941,20 @@ $("confirm-reset").onclick = () => {
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
   narrator.invalidate();
+  exchange.cancel();
+  departed.clear();
+  reveal.cancel();
+  speechKey = null;
+  speechSounds.stop();
   try {
     world = decodeSave(event.newValue);
+    renderedHand = "";
     lineIndex = null;
     selected = [];
     saveBlocked = false;
     notice("The world was updated in another tab.");
     render();
-    if (!currentScene(world).line) narrator.changed();
+    if (!hasCurrentWords()) narrator.changed();
   } catch {
     saveBlocked = true;
     notice(
@@ -665,5 +963,15 @@ window.addEventListener("storage", (event) => {
     render();
   }
 });
+pauseSpeech();
 render();
-if (!saveBlocked && !currentScene(world).line) narrator.changed();
+function hasCurrentWords() {
+  return world.log.some(
+    (entry) =>
+      entry.generated &&
+      entry.kind === "dialogue" &&
+      entry.turn === world.turn &&
+      entry.locationId === world.actors.vale.place,
+  );
+}
+if (!saveBlocked && !hasCurrentWords()) narrator.changed();

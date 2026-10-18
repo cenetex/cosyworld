@@ -50,7 +50,7 @@ export function avatarPlays(world, id) {
     );
 }
 
-// Each face names one play. Pairs express use, handover, travel, or placement.
+// Each face names one play. Pairs express use, handover, travel, invitations, or placement.
 // The shared world rules still decide whether that play is legal.
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
@@ -115,6 +115,20 @@ export function cardPlay(world, selected) {
   const item = cards.find((id) => things[id]);
   const location = cards.find((id) => places[id]);
   const avatar = cards.find((id) => people[id]);
+  if (avatar && location)
+    return result(
+      avatar === "vale"
+        ? location === here
+          ? find("wait")
+          : find("move", null, location)
+        : actions.find(
+            (a) =>
+              a.kind === "accompany" &&
+              a.target === avatar &&
+              a.destination === location,
+          ),
+      "Pair a nearby avatar with an open path to ask them to accompany you.",
+    );
   if (item && location)
     return result(
       location === here
@@ -154,6 +168,7 @@ export function playLabel(action) {
   if (action?.kind === "trade")
     return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
   return {
+    accompany: "Accompany",
     threaten: "Threaten",
     guard: "Guard",
     attack: "Attack",

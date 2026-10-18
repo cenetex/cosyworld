@@ -44,13 +44,33 @@
           </div>
           <div class="dialogue-heading">
             <strong id="speaker"></strong><span id="line-turn"></span>
+            <span id="story-status" role="status" hidden></span>
             <div class="line-controls">
               <button id="previous-line" aria-label="Previous scene line">
                 ‹</button
               ><button id="next-line" aria-label="Next scene line">›</button>
             </div>
           </div>
-          <p id="dialogue-text" aria-live="polite"></p>
+          <button
+            id="dialogue-advance"
+            class="speech-line"
+            type="button"
+            hidden
+          >
+            <span id="dialogue-text" aria-hidden="true"></span>
+          </button>
+          <span
+            id="speech-hint"
+            class="speech-hint"
+            aria-hidden="true"
+            hidden
+          ></span>
+          <span
+            id="speech-announcement"
+            class="sr-only"
+            aria-live="polite"
+            aria-atomic="true"
+          ></span>
         </section>
       </section>
       <section class="play-dock" aria-label="Card hand">
@@ -95,6 +115,12 @@
         after a play.
       </p>
       <p>
+        Pair an avatar with another location to ask them to accompany Vale. Tap
+        either raised card to play the request. They choose from their current
+        target hands. An agreement takes both avatars and their items along that
+        path. Each request takes one turn.
+      </p>
+      <p>
         Oil flask + Lamp adds fuel. Black cloth + Lamp blocks light. Black cloth
         + Bell muffles sound. Play an avatar card to hear what they want.
       </p>
@@ -114,6 +140,14 @@
         Complete any listed choice to finish that step. The cast can find a new
         purpose when a bargain stalls.
       </p>
+      <p>
+        Tap a speaking line to reveal it. Tap again to continue. Each exchange
+        also advances at a reading pace. The hand rests until the exchange
+        finishes. The arrows let you read earlier lines.
+      </p>
+      <button id="speech-sound" type="button" aria-pressed="true">
+        Voice sounds: on
+      </button>
       <div id="quest-guide" aria-label="Quest programs"></div>
       <p>Your game saves in this browser. History holds the scene script.</p>
       <button id="new-game">New game</button>

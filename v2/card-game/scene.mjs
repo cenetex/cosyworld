@@ -21,6 +21,29 @@ const entryKind = (entry) =>
       ? "input"
       : "narration");
 
+// Movement witnessed from Vale's current scene, including a forced retreat.
+export function sceneChanges(world) {
+  const here = world.actors.vale.place;
+  return world.log
+    .filter(
+      (entry) =>
+        entry.turn === world.turn &&
+        !entry.generated &&
+        entry.actorId &&
+        entry.actorId !== "vale" &&
+        entry.fromLocationId &&
+        entry.locationId !== entry.fromLocationId &&
+        (entry.locationId === here || entry.fromLocationId === here) &&
+        world.actors[entry.actorId].place === entry.locationId,
+    )
+    .map((entry) => ({
+      actorId: entry.actorId,
+      from: entry.fromLocationId,
+      to: entry.locationId,
+      leaving: entry.fromLocationId === here,
+    }));
+}
+
 // Stable left/right slots: A, B, A, C keeps A left and replaces B with C.
 // Only actual dialogue updates recency. Narration and input keep the cast still.
 export function sceneCast(
@@ -36,7 +59,11 @@ export function sceneCast(
   let start = 0;
   for (let i = 0; i <= through; i++) {
     const e = world.log[i];
-    if (e?.kind === "action" && e.actorId === "vale" && e.verb === "move")
+    if (
+      e?.kind === "action" &&
+      e.actorId === "vale" &&
+      (e.verb === "move" || (e.verb === "accompany" && e.accepted))
+    )
       start = i;
   }
   const touch = (id) => {
@@ -130,6 +157,10 @@ export function sceneScript(world) {
       itemId: e.itemId || null,
       targetId: e.targetId || null,
       receiveId: e.receiveId || null,
+      destinationId: e.destinationId || null,
+      departureTo: e.departureTo || null,
+      arrivalFrom: e.arrivalFrom || null,
+      accepted: e.accepted ?? null,
       questPlan: e.questPlan ? structuredClone(e.questPlan) : null,
       quest:
         e.kind === "quest"
@@ -146,7 +177,12 @@ export function sceneScript(world) {
       items: e.items || [],
       light: e.light ?? null,
       performance: {
-        pose: e.verb === "move" ? "walk" : e.verb ? "act" : "speak",
+        pose:
+          e.verb === "move" || (e.verb === "accompany" && e.accepted)
+            ? "walk"
+            : e.verb
+              ? "act"
+              : "speak",
         suggestedDurationMs: Math.min(7000, Math.max(1600, e.text.length * 45)),
       },
     })),

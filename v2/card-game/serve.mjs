@@ -14,6 +14,7 @@ const assets = new Map([
   ["/quests.mjs", ["quests.mjs", "text/javascript"]],
   ["/memory.mjs", ["memory.mjs", "text/javascript"]],
   ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
+  ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
   ...["station", "attic", "pond", "vale", "moth", "keeper"].map((id) => [
     `/assets/${id}.png`,
