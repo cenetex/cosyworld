@@ -85,6 +85,16 @@ describe("card standoffs", () => {
     s = act(s, "attack", "moth");
     expect(standoffFor(s, "vale")).toBeUndefined();
     expect(s.actors.vale.place).toBe("attic");
+    expect(narrativeContext(s).outcome).toMatchObject({
+      card: { kind: "attack", target: "moth" },
+      avatars: expect.arrayContaining([
+        expect.objectContaining({
+          id: "vale",
+          location: "attic",
+          travel: { from: "station", to: "attic", companions: [] },
+        }),
+      ]),
+    });
     expect(levelOf(s, "vale")).toBe(1);
     expect(s.peaceUntil.vale).toBe(s.turn + 3);
   });
@@ -97,6 +107,13 @@ describe("card standoffs", () => {
     expect(trade.kind).toBe("trade");
     s = play(s, trade).state;
     expect(s.items.cloth.holder).toBe("vale");
+    expect(narrativeContext(s).outcome).toMatchObject({
+      card: { kind: "trade", target: "moth", item: "lamp", receive: "cloth" },
+      items: expect.arrayContaining([
+        { id: "cloth", holder: "vale", location: "station" },
+        { id: "lamp", holder: "moth", location: "station" },
+      ]),
+    });
     expect(s.standoffs).toEqual([]);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
