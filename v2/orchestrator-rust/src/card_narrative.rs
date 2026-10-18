@@ -232,7 +232,7 @@ async fn generate(
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
         prompt_version: "card-entity-text-v1",
-        capability: ModelCapability::Voice,
+        capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
         temperature: 0.7,
@@ -327,6 +327,7 @@ mod tests {
     #[tokio::test]
     async fn route_uses_personas_desires_and_memories_with_the_configured_model() {
         let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {
+            assert_eq!(body["model"], "test-entity-model");
             let input = body["messages"][1]["content"].as_str().unwrap();
             assert!(input.contains("borrowed waistcoat") && input.contains("Vale lit the lamp") && input.contains("pond"));
             Json(json!({"model":"test-entity-model","choices":[{"message":{"content":json!({"entries":[
@@ -343,7 +344,21 @@ mod tests {
         let config = AiConfig {
             api_key: "test-secret".into(),
             base_url: format!("http://{address}"),
-            model: "test-entity-model".into(),
+            model: "unused-voice-model".into(),
+            registry: Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+                &json!({
+                    "schema_version": 1, "snapshot_version": "card-world-text-test",
+                    "declared": [{
+                        "requested_model_id": "test-entity-model", "provider": "openai_compatible",
+                        "concrete_model": {"model_id": "test-entity-model"},
+                        "input_modalities": ["text"], "output_modalities": ["text"],
+                        "supported_parameters": {"structured_output": true, "json_mode": true},
+                        "data_policy": {"retention": "none", "training": "prohibited"},
+                        "capabilities": ["world_content"],
+                        "prompt_adapter": {"id": "openai-chat", "version": "1"}
+                    }], "discovered": []
+                }).to_string()
+            ).unwrap())),
             ..AiConfig::default()
         };
         let app = router::<()>(Arc::new(Some(config)));
