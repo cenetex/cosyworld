@@ -7,7 +7,7 @@ data, and the local smoke/deployment gates.
 The former Node service under `src/` has been removed. Gameplay truth lives here.
 
 The primary play loop is the card table in `v2/card-game/`
-([ADR 0015](../docs/decisions/0015-card-table-is-the-primary-play-loop.md)). It
+([ADR 0015](../docs/decisions/0015-a-generated-world-seen-through-cards.md)). It
 runs in the browser with local saves; this runtime embeds and serves its files.
 The rest of this guide describes the shared-world runtime.
 

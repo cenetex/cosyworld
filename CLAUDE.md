@@ -6,24 +6,31 @@ model or agent implementation.
 
 ## Product and authority
 
-CosyWorld V2 is the only product. Its primary play loop is The reflected shore,
-a card table in `v2/card-game/`. Both Fly apps serve it at `/`
+CosyWorld V2 is the only product: one shared world that players live in, built
+from general rules and deterministic generators rather than scripted quests.
+Players see it through the card table in `v2/card-game/`. Both Fly apps serve the
+table at `/`
 (`COSYWORLD_PRIMARY_GAME=cards`). The shared-world MUD runs at `/classic`, and
 named Lonely Forest worlds keep their own pages. The former Node companion under
 `src/` has been removed. All work belongs under `v2/`. See
-`docs/decisions/0015-card-table-is-the-primary-play-loop.md`.
+`docs/decisions/0015-a-generated-world-seen-through-cards.md`.
 
-The card table runs in the browser. Its rules, cast, and quest programs are a
-deterministic JavaScript model (`world.mjs`, `quests.mjs`, `cards.mjs`,
+The card table is still a prototype that runs in the browser. Its rules,
+residents, and quest generator are a deterministic JavaScript model (`world.mjs`, `quests.mjs`, `cards.mjs`,
 `scene.mjs`). Each browser's localStorage save is the only record of that table.
-The table has no server state, accounts, AI, currency, or rewards. The Rust
-binary embeds and serves its files (`card_game.rs`) and does nothing else for it.
+Its first site (lamp, oil, cloth, bell, and the attic–pond path) is generated
+scaffolding, not design to extend. The table has no server state, accounts,
+currency, or rewards. The Rust binary serves its files (`card_game.rs`), and
+`POST /card-game/text` (`card_narrative.rs`) writes its descriptions and
+dialogue; that text never changes state.
 
 New card rules land in the JavaScript model with tests in `test/card-*.test.mjs`.
+Rules stay general: no rule names a specific entity, and new content comes from
+generators and pack data.
 A rule may stay client-only while it affects one browser's table. Anything
 shared, multiplayer, persisted on the server, or reward-bearing crosses the C
-kernel and the journal first, with parity tests against the JS model. The port
-plan is `docs/backlog/shared-card-table.md`.
+kernel and the journal first, with parity tests against the JS model. The plan
+is `docs/backlog/generated-world-core.md`.
 
 The shared runtime keeps its own authority split:
 
@@ -43,8 +50,8 @@ validation and commitment through the normal world-event path.
 
 ## Repository map
 
-- `v2/card-game/`: The reflected shore, the primary card table: a client-only
-  deterministic model, UI, art (`assets/PROVENANCE.md`), and a dev server. A new
+- `v2/card-game/`: the card table prototype: a client-only deterministic model,
+  UI, text client, art (`assets/PROVENANCE.md`), and a dev server. A new
   public file must be listed in `serve.mjs`, `orchestrator-rust/src/card_game.rs`,
   and `scripts/smoke-deployed-card-game.mjs`.
 - `v2/core-c/`: deterministic rules kernel, public ABI, and C tests.

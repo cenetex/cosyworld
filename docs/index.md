@@ -1,19 +1,20 @@
 # CosyWorld Documentation
 
-CosyWorld V2 is the current product and runtime. Its primary play loop is The
-reflected shore, the card table in `v2/card-game/`; the shared world runs at
-`/classic`. Start with the documents below;
+CosyWorld V2 is the current product and runtime. Its core is one world players
+live in, grown from general rules and generators and seen through the card table
+in `v2/card-game/`; the shared world runs at `/classic`. Start with the documents below;
 older Node/Discord/X/Telegram service notes are retained as a legacy archive and
 do not define V2 behavior.
 
 ## Product and design
 
 - **[Avatars, items, and locations](design/avatar-simulation-redesign.md)** —
-  the card table: cards as views of world entities, pairs, target hands, cast
-  trades, and quest programs that earn levels. Run it with `npm run play:cards`.
-- **[ADR 0015: The Card Table Is the Primary Play Loop](decisions/0015-card-table-is-the-primary-play-loop.md)** —
-  vocabulary, authority while the table is local, the path to a shared table,
-  and the disposition of earlier decisions.
+  the card table prototype: cards as views of world entities, pairs, target
+  hands, resident trades, and generated quests. Its first site is scaffolding.
+  Run it with `npm run play:cards`.
+- **[ADR 0015: A Generated World, Seen Through Cards](decisions/0015-a-generated-world-seen-through-cards.md)** —
+  the generated-world core, the card table as its interface, story as an
+  optional layer, and the disposition of earlier decisions.
 - **[Design research](design/avatar-item-location-research.md)** — V1 source
   findings, card games, OSR play, world construction, and V2 reuse.
 
@@ -119,9 +120,9 @@ describe the dealt action hand, ADR 0015 governs the card table.
 
 ### Feeds the card table
 
-- **[The Shared Card Table](backlog/shared-card-table.md)** — the phased port of
-  card rules into the kernel and journal, card sites as pack data, and the
-  golden-trace parity oracle.
+- **[Generated World Core](backlog/generated-world-core.md)** — make the
+  prototype general, add spawn rules, then port the general rules into the
+  kernel and journal.
 - **[Resident Drive Autonomy](backlog/resident-drive-autonomy.md)** — A/L/I drive
   patterns, which map directly to target hands.
 - **[Quest Grammar and Return](backlog/quest-grammar-and-return.md)** — focal

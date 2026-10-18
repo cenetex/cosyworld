@@ -41,8 +41,8 @@ When immediate work lands:
 4. promote only the next smallest justified slice.
 
 The current product proof is the card table
-([ADR 0015](../decisions/0015-card-table-is-the-primary-play-loop.md)). Its
-next sequence is [The Shared Card Table](shared-card-table.md). A planning
+([ADR 0015](../decisions/0015-a-generated-world-seen-through-cards.md)). Its
+next sequence is [Generated World Core](generated-world-core.md). A planning
 document that predates ADR 0015 and describes the dealt action hand applies to
 `/classic` until it is rewritten for the table.
 

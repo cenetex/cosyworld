@@ -1,10 +1,11 @@
 # CosyWorld
 
-CosyWorld is a card game set in a whimsical cosmic horror world. You play Vale
-through a row of avatar, item, and location cards while the cast pursue their
-own goals. The production root serves The reflected shore. The shared-world MUD,
-backed by a deterministic C rules kernel and a Rust HTTP/SSE orchestrator, runs
-at `/classic` and is the foundation for a shared card table.
+CosyWorld is a shared AI MUD that players live in. You act through a row of
+avatar, item, and location cards while residents pursue their own goals by the
+same rules. The world grows from general rules and generators, not scripted
+quests. The production root serves the card table prototype. The shared-world
+runtime, a deterministic C rules kernel and a Rust HTTP/SSE orchestrator, runs
+at `/classic` and is the foundation the table will run on.
 
 CosyWorld V2 is the canonical product and runtime. Gameplay, world content,
 browser behavior, and deployment work live under `v2/`.

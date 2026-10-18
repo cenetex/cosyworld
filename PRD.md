@@ -2,7 +2,7 @@
 
 Last major revision: 2026-08-12. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, the card-composed world, and the accepted wallet-optional ownership boundary in ADR 0006.
 
-The production root is The reflected shore, a card table in `v2/card-game/`. Its design is `docs/design/avatar-simulation-redesign.md` and its authority is ADR 0015. The shared world this document describes remains live at `/classic` and is the foundation for a shared card table. Where this document describes the dealt action hand, ADR 0015 governs the card table.
+The production root is the card table in `v2/card-game/`, the interface to the world this document describes. ADR 0015 sets its direction: the core is a world players live in, grown from general rules and generators, and story is an optional layer. The table's first site is prototype scaffolding. The shared world remains live at `/classic` and is the foundation the table will run on. Where this document describes the dealt action hand, ADR 0015 governs the card table.
 
 Companion documents:
 
