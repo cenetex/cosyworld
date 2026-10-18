@@ -625,10 +625,10 @@ function renderScene() {
     if (!id) return;
     const figure = $("cast").children[index];
     figure.classList.toggle("active", scene.activeSpeaker === id);
-    figure.classList.toggle(
-      "departed",
-      !reviewing && departed.has(id) && scene.line?.turn === world.turn,
-    );
+    const left =
+      !reviewing && departed.has(id) && scene.line?.turn === world.turn;
+    figure.classList.toggle("departed", left);
+    figure.setAttribute("aria-hidden", String(left));
     figure.querySelector(".portrait-name").textContent =
       `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
