@@ -304,6 +304,9 @@ h1 {
   background: transparent;
 }
 #dialogue-text {
+  display: block;
+  position: relative;
+  text-align: left;
   font:
     16px/1.4 Georgia,
     serif;
@@ -311,6 +314,57 @@ h1 {
   max-height: 68px;
   overflow: auto;
   margin: 5px 0 12px;
+}
+.speech-line {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.speech-line:hover {
+  background: transparent;
+}
+.speech-letter {
+  visibility: hidden;
+  position: relative;
+}
+.speech-letter.revealed {
+  visibility: visible;
+}
+.speech-letter.cursor::after {
+  content: "";
+  visibility: visible;
+  position: absolute;
+  left: 100%;
+  bottom: 0;
+  width: 0.5em;
+  border-bottom: 2px solid var(--gold);
+  animation: speech-blink 0.9s steps(1) infinite;
+}
+[data-revealing="true"] .speech-letter.cursor::after {
+  width: 0;
+  height: 1em;
+  border-bottom: 0;
+  border-left: 2px solid var(--gold);
+  animation: none;
+}
+.speech-hint {
+  display: block;
+  text-align: right;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: -5px;
+}
+#story-status {
+  color: var(--muted);
+  font-size: 10px;
+}
+@keyframes speech-blink {
+  50% {
+    opacity: 0;
+  }
 }
 /* Every world action belongs to a card in this single row. */
 .play-dock {
@@ -696,6 +750,7 @@ h2 {
 }
 @media (prefers-reduced-motion: reduce) {
   * {
+    animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }

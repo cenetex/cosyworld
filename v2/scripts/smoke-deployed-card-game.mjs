@@ -16,6 +16,7 @@ const files = [
   "quests.mjs",
   "memory.mjs",
   "narrative.mjs",
+  "dialogue.mjs",
   "entity-profiles.json",
   ...["station", "attic", "pond", "vale", "moth", "keeper"].map(
     (id) => `assets/${id}.png`,

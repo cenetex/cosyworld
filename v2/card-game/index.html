@@ -44,13 +44,33 @@
           </div>
           <div class="dialogue-heading">
             <strong id="speaker"></strong><span id="line-turn"></span>
+            <span id="story-status" role="status" hidden></span>
             <div class="line-controls">
               <button id="previous-line" aria-label="Previous scene line">
                 ‹</button
               ><button id="next-line" aria-label="Next scene line">›</button>
             </div>
           </div>
-          <p id="dialogue-text" aria-live="polite"></p>
+          <button
+            id="dialogue-advance"
+            class="speech-line"
+            type="button"
+            hidden
+          >
+            <span id="dialogue-text" aria-hidden="true"></span>
+          </button>
+          <span
+            id="speech-hint"
+            class="speech-hint"
+            aria-hidden="true"
+            hidden
+          ></span>
+          <span
+            id="speech-announcement"
+            class="sr-only"
+            aria-live="polite"
+            aria-atomic="true"
+          ></span>
         </section>
       </section>
       <section class="play-dock" aria-label="Card hand">
@@ -114,6 +134,13 @@
         Complete any listed choice to finish that step. The cast can find a new
         purpose when a bargain stalls.
       </p>
+      <p>
+        Tap a speaking line to reveal it. Tap again to continue. The arrows let
+        you read earlier lines.
+      </p>
+      <button id="speech-sound" type="button" aria-pressed="true">
+        Voice sounds: on
+      </button>
       <div id="quest-guide" aria-label="Quest programs"></div>
       <p>Your game saves in this browser. History holds the scene script.</p>
       <button id="new-game">New game</button>
