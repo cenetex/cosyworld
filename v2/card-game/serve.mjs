@@ -1,4 +1,5 @@
 import http from "node:http";
+import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -49,18 +50,34 @@ export function createServer() {
           }
           chunks.push(chunk);
         }
+        const abort = new AbortController();
+        res.on("close", () => abort.abort());
         const response = await fetch(new URL("/card-game/text", origin), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: req.headers.accept || "application/json",
+          },
           body: Buffer.concat(chunks),
-          signal: AbortSignal.timeout(28_000),
+          signal: AbortSignal.any([abort.signal, AbortSignal.timeout(28_000)]),
         });
         res.writeHead(response.status, {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store",
+          "Content-Type":
+            response.headers.get("content-type") || "application/json",
+          "Cache-Control": "no-store, no-transform",
+          "X-Accel-Buffering": "no",
         });
-        res.end(await response.text());
+        res.flushHeaders();
+        for await (const chunk of response.body) {
+          if (!res.write(chunk))
+            await once(res, "drain", { signal: abort.signal });
+        }
+        res.end();
       } catch {
+        if (res.headersSent) {
+          res.end();
+          return;
+        }
         res.writeHead(503);
         res.end(
           JSON.stringify({ error: "The story service is taking a moment." }),

@@ -158,16 +158,98 @@ export function applyGeneratedText(world, context, response) {
   return validateWorld(next);
 }
 
-export async function requestNarrative(context, signal) {
+// Read complete JSON string units while the model is still writing an entry.
+export function partialEntries(source) {
+  const entries = [];
+  const pattern = /\{\s*"id"\s*:\s*("(?:[^"\\]|\\.)*")\s*,\s*"text"\s*:\s*"/gu;
+  for (const match of source.matchAll(pattern)) {
+    let raw = "";
+    for (let i = match.index + match[0].length; i < source.length; i++) {
+      const char = source[i];
+      if (char === '"') break;
+      if (char === "\\") {
+        const length = source[i + 1] === "u" ? 6 : 2;
+        if (i + length > source.length) break;
+        raw += source.slice(i, i + length);
+        i += length - 1;
+      } else raw += char;
+    }
+    try {
+      const id = JSON.parse(match[1]);
+      const text = JSON.parse('"' + raw + '"').replace(/[\uD800-\uDBFF]$/u, "");
+      if (
+        profiles[id] &&
+        text &&
+        text.length <= 400 &&
+        !/[\u0000-\u001f\u007f]/u.test(text)
+      )
+        entries.push({ id, text });
+    } catch {
+      /* A partial escape will be complete in a later chunk. */
+    }
+  }
+  return entries;
+}
+
+export async function requestNarrative(context, signal, progress = () => {}) {
   const response = await fetch("/card-game/text", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
     body: JSON.stringify(context),
     signal,
   });
   if (!response.ok)
     throw new Error(`Story service returned ${response.status}.`);
-  return response.json();
+  if (!response.headers.get("content-type")?.includes("text/event-stream"))
+    return response.json();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "",
+    text = "",
+    bytes = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) throw new Error("Story stream ended early.");
+      bytes += value.length;
+      if (bytes > 256 * 1024)
+        throw new Error("Story stream exceeded its limit.");
+      buffer = (buffer + decoder.decode(value, { stream: true })).replace(
+        /\r\n/g,
+        "\n",
+      );
+      let end;
+      while ((end = buffer.indexOf("\n\n")) >= 0) {
+        const frame = buffer.slice(0, end);
+        buffer = buffer.slice(end + 2);
+        const data = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trimStart())
+          .join("\n");
+        if (!data) continue;
+        const event = JSON.parse(data);
+        if (event.type === "error")
+          throw new Error("Story generation was interrupted.");
+        if (event.type === "complete") return event;
+        if (event.type === "delta" && typeof event.text === "string") {
+          text += event.text;
+          if (text.length > 16 * 1024)
+            throw new Error("Story text exceeded its limit.");
+          progress(
+            partialEntries(text).filter((entry) =>
+              context.speakers.includes(entry.id),
+            ),
+          );
+        }
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
 }
 
 // Keep one request in flight and coalesce quick plays to the newest world.
@@ -176,6 +258,7 @@ export function createNarrator({
   apply,
   status,
   request = requestNarrative,
+  preview = () => {},
 }) {
   let ticket = 0,
     pending = null,
@@ -193,14 +276,28 @@ export function createNarrator({
         const timer = setTimeout(() => controller.abort(), 30_000);
         status("pending");
         try {
-          const response = await request(context, controller.signal);
+          const response = await request(
+            context,
+            controller.signal,
+            (entries) => {
+              if (
+                version === ticket &&
+                getWorld().revision === context.revision
+              )
+                preview({ context, entries });
+            },
+          );
           if (version === ticket) {
+            preview(null);
             const next = applyGeneratedText(getWorld(), context, response);
             if (next) apply(next);
             status("ready");
           }
         } catch {
-          if (version === ticket) status("retry");
+          if (version === ticket) {
+            preview(null);
+            status("retry");
+          }
         } finally {
           clearTimeout(timer);
         }
@@ -212,12 +309,15 @@ export function createNarrator({
   return {
     changed(action = null) {
       pending = { action, version: ++ticket };
+      preview(null);
+      controller?.abort();
       void drain();
     },
     invalidate() {
       ticket += 1;
       pending = null;
       controller?.abort();
+      preview(null);
       status("ready");
     },
   };

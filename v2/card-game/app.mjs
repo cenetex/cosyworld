@@ -83,7 +83,9 @@ function save() {
     );
   }
 }
-let storyStatus = "ready";
+let storyStatus = "ready",
+  storyPreview = null,
+  renderedCast = "";
 const narrator = createNarrator({
   getWorld: () => world,
   apply: (next) => {
@@ -91,6 +93,10 @@ const narrator = createNarrator({
     lineIndex = null;
     save();
     render();
+  },
+  preview: (value) => {
+    storyPreview = value;
+    renderScene();
   },
   status: (value) => {
     storyStatus = value;
@@ -319,7 +325,27 @@ function card(id) {
   return el;
 }
 function renderScene() {
-  const scene = currentScene(world, lineIndex);
+  let scene = currentScene(world, lineIndex);
+  const streaming =
+    lineIndex === null && storyPreview?.context.revision === world.revision;
+  const draft = streaming
+    ? storyPreview.entries.map(({ id, text }) => ({
+        text,
+        speaker: nameOf(id),
+        actorId: id,
+        entityId: id,
+        turn: world.turn,
+        generated: true,
+      }))
+    : [];
+  if (draft.length)
+    scene = {
+      ...scene,
+      line: draft.at(-1),
+      previous: draft.at(-2) || scene.line,
+      activeSpeaker: draft.at(-1).actorId,
+      slots: [...storyPreview.context.speakers, null].slice(0, 2),
+    };
   const inspected =
     selected.length === 1 && world.memories[selected[0]]?.text
       ? selected[0]
@@ -327,29 +353,37 @@ function renderScene() {
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
-  $("cast").replaceChildren(
-    ...scene.slots.map((id) => {
-      if (!id) return node("div", "", "portrait empty");
-      const button = node(
-        "div",
-        undefined,
-        `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
-      );
-      button.setAttribute("aria-label", nameOf(id));
-      const image = node("img");
-      image.src = portrait(id);
-      image.alt = "";
-      button.append(
-        image,
-        node(
-          "span",
-          `${nameOf(id)} · Lv ${levelOf(world, id)}`,
-          "portrait-name",
-        ),
-      );
-      return button;
-    }),
-  );
+  const castKey = JSON.stringify([
+    scene.slots,
+    scene.activeSpeaker,
+    scene.slots.map((id) => id && levelOf(world, id)),
+  ]);
+  if (castKey !== renderedCast) {
+    renderedCast = castKey;
+    $("cast").replaceChildren(
+      ...scene.slots.map((id) => {
+        if (!id) return node("div", "", "portrait empty");
+        const button = node(
+          "div",
+          undefined,
+          `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
+        );
+        button.setAttribute("aria-label", nameOf(id));
+        const image = node("img");
+        image.src = portrait(id);
+        image.alt = "";
+        button.append(
+          image,
+          node(
+            "span",
+            `${nameOf(id)} · Lv ${levelOf(world, id)}`,
+            "portrait-name",
+          ),
+        );
+        return button;
+      }),
+    );
+  }
   const previous =
     inspected && world.memories[inspected].text !== scene.line?.text
       ? scene.line
@@ -375,7 +409,9 @@ function renderScene() {
   $("line-turn").textContent = inspected
     ? `Turn ${world.memories[inspected].turn}`
     : storyStatus === "pending"
-      ? "Finding words…"
+      ? draft.length
+        ? "Speaking…"
+        : "Finding words…"
       : storyStatus === "retry"
         ? "Story text will try again with your next play"
         : scene.line
@@ -384,10 +420,13 @@ function renderScene() {
   $("dialogue-text").textContent = inspected
     ? world.memories[inspected].text
     : scene.line?.text || "";
+  $("dialogue-text").setAttribute("aria-busy", String(Boolean(draft.length)));
   $("dialogue-text").hidden = !$("dialogue-text").textContent;
   const at = scene.lines.findIndex((e) => e.index === scene.line?.index);
-  $("previous-line").disabled = Boolean(inspected) || at <= 0;
-  $("next-line").disabled = Boolean(inspected) || at >= scene.lines.length - 1;
+  $("previous-line").disabled =
+    Boolean(inspected) || Boolean(draft.length) || at <= 0;
+  $("next-line").disabled =
+    Boolean(inspected) || Boolean(draft.length) || at >= scene.lines.length - 1;
   $("previous-line").onclick = () => {
     lineIndex = scene.lines[at - 1].index;
     renderScene();
