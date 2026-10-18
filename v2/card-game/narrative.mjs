@@ -50,6 +50,11 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
+        if (
+          played?.verb === "accompany" &&
+          [played.actorId, played.targetId].includes(id)
+        )
+          facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(

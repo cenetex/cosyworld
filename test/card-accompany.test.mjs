@@ -273,12 +273,33 @@ describe("accompany card requests", () => {
     expect(world.standoffs).toHaveLength(1);
     expect(world.standoffs[0].guarding.moth).toBe(false);
   });
+  it("gives the model the recorded refusal even after an earlier promise", () => {
+    const world = request(together(), "moth", "attic");
+    world.memories.moth.text = "I will go with you.";
+    const context = narrativeContext(world);
+    expect(context.action).toContain("Pip declines the trip");
+    expect(context.speakers).toEqual(["vale", "moth"]);
+    for (const id of ["vale", "moth"]) {
+      const entity = context.entities.find((e) => e.id === id);
+      expect(entity.facts[0]).toContain(
+        "Pip declined Vale's invitation to Mirror attic",
+      );
+      expect(entity.facts.length).toBeLessThanOrEqual(8);
+      expect(entity.facts.every((fact) => fact.length <= 240)).toBe(true);
+    }
+    expect(context.entities.find((e) => e.id === "moth").previous).toContain(
+      "will go",
+    );
+  });
   it("generates both speakers from the agreed result and exports the joint trip", () => {
     const world = request(together(), "moth", "pond");
     const context = narrativeContext(world);
     expect(context.location).toBe("pond");
     expect(context.speakers).toEqual(["vale", "moth"]);
     expect(context.action).toContain("Pip agrees");
+    expect(context.entities.find((e) => e.id === "moth").facts[0]).toContain(
+      "Pip agreed to Vale's invitation to Black pond",
+    );
     const next = applyGeneratedText(world, context, {
       revision: world.revision,
       model: "fixture-model",

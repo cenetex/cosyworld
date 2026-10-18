@@ -814,7 +814,7 @@ function perform(s, a) {
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
         if (through) text += " Something on the far shore turns its head.";
       } else {
-        text += ` ${nameOf(a.target)} stays to answer. ${invitation.reason}`;
+        text += ` ${nameOf(a.target)} declines the trip. ${invitation.reason}`;
       }
       break;
     }
