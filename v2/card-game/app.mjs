@@ -350,18 +350,42 @@ function renderScene() {
       return button;
     }),
   );
-  $("speaker").textContent = inspected ? nameOf(inspected) : scene.line.speaker;
+  const previous =
+    inspected && world.memories[inspected].text !== scene.line?.text
+      ? scene.line
+      : scene.previous;
+  $("prior-response").hidden = !previous;
+  $("prior-speaker").textContent = previous?.speaker || "";
+  $("prior-text").textContent = previous?.text || "";
+  const priorId =
+    previous?.entityId || previous?.actorId || previous?.locationId;
+  const priorPortrait = $("prior-portrait");
+  priorPortrait.replaceChildren();
+  if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
+  else if (priorId) {
+    const image = node("img");
+    image.src = portrait(priorId);
+    image.alt = "";
+    priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
+    priorPortrait.append(image);
+  }
+  $("speaker").textContent = inspected
+    ? nameOf(inspected)
+    : scene.line?.speaker || "";
   $("line-turn").textContent = inspected
     ? `Turn ${world.memories[inspected].turn}`
     : storyStatus === "pending"
       ? "Finding words…"
       : storyStatus === "retry"
         ? "Story text will try again with your next play"
-        : `Turn ${scene.line.turn ?? world.turn}`;
+        : scene.line
+          ? `Turn ${scene.line.turn}`
+          : "";
   $("dialogue-text").textContent = inspected
     ? world.memories[inspected].text
-    : scene.line.text;
-  const at = scene.lines.findIndex((e) => e.index === scene.line.index);
+    : scene.line?.text || "";
+  $("dialogue-text").hidden = !$("dialogue-text").textContent;
+  const at = scene.lines.findIndex((e) => e.index === scene.line?.index);
   $("previous-line").disabled = Boolean(inspected) || at <= 0;
   $("next-line").disabled = Boolean(inspected) || at >= scene.lines.length - 1;
   $("previous-line").onclick = () => {
@@ -377,16 +401,17 @@ let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const conversation = world.log.filter((entry) => entry.generated === true);
   let common = 0;
   while (
     common < renderedLog.length &&
-    common < world.log.length &&
-    renderedLog[common] === JSON.stringify(world.log[common])
+    common < conversation.length &&
+    renderedLog[common] === JSON.stringify(conversation[common])
   )
     common++;
   // Preserve existing nodes so screen readers announce only new messages.
   while (box.children.length > common) box.lastChild.remove();
-  for (const entry of world.log.slice(common)) {
+  for (const entry of conversation.slice(common)) {
     const item = node(
       "div",
       undefined,
@@ -397,7 +422,7 @@ function renderLog() {
     item.append(by, node("p", entry.text));
     box.append(item);
   }
-  renderedLog = world.log.map((e) => JSON.stringify(e));
+  renderedLog = conversation.map((e) => JSON.stringify(e));
   if (atEnd || common === 0) box.scrollTop = box.scrollHeight;
 }
 
@@ -539,6 +564,7 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   render();
+  narrator.changed();
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
@@ -550,6 +576,7 @@ window.addEventListener("storage", (event) => {
     saveBlocked = false;
     notice("The world was updated in another tab.");
     render();
+    if (!currentScene(world).line) narrator.changed();
   } catch {
     saveBlocked = true;
     notice(
@@ -559,3 +586,4 @@ window.addEventListener("storage", (event) => {
   }
 });
 render();
+if (!saveBlocked && !currentScene(world).line) narrator.changed();

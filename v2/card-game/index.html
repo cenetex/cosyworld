@@ -31,6 +31,17 @@
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
         <section class="dialogue" aria-label="Conversation">
+          <div id="prior-response" class="prior-response" hidden>
+            <span
+              id="prior-portrait"
+              class="prior-portrait"
+              aria-hidden="true"
+            ></span>
+            <div class="prior-content">
+              <strong id="prior-speaker"></strong>
+              <p id="prior-text"></p>
+            </div>
+          </div>
           <div class="dialogue-heading">
             <strong id="speaker"></strong><span id="line-turn"></span>
             <div class="line-controls">
@@ -79,8 +90,9 @@
         avatar to give it.
       </p>
       <p>
-        Raise a card to read its latest words. Avatars, items, and places remember
-        what happens around them. Their words grow from those memories after a play.
+        Raise a card to read its latest words. Avatars, items, and places
+        remember what happens around them. Their words grow from those memories
+        after a play.
       </p>
       <p>
         Oil flask + Lamp adds fuel. Black cloth + Lamp blocks light. Black cloth

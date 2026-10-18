@@ -165,7 +165,7 @@ h1 {
 }
 .cast {
   position: absolute;
-  inset: 58px 12% 115px;
+  inset: 58px 12% 205px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -225,6 +225,56 @@ h1 {
   box-shadow: 0 10px 35px #08091470;
   padding: 10px 18px;
   backdrop-filter: blur(12px);
+}
+.prior-response {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #ffffff20;
+  padding: 2px 0 10px;
+  margin-bottom: 3px;
+  color: #c7bfbb;
+}
+.prior-portrait {
+  flex: 0 0 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid #89745d;
+  border-radius: 50%;
+  background: #35323d;
+}
+.prior-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.prior-portrait[data-kind="avatar"] img {
+  height: 200%;
+  object-position: center top;
+  transform: translateY(6px) scale(2.5);
+  transform-origin: 50% 12%;
+}
+.prior-portrait svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.7;
+}
+.prior-content {
+  min-width: 0;
+}
+#prior-speaker {
+  font-size: 11px;
+  font-weight: 600;
+}
+#prior-text {
+  font:
+    13px/1.35 Georgia,
+    serif;
+  margin: 3px 0 0;
+  max-height: 54px;
+  overflow: auto;
 }
 .dialogue-heading {
   display: flex;
@@ -475,7 +525,7 @@ h2 {
 
 @media (min-width: 1400px) {
   .cast {
-    inset: 44px 20% 115px;
+    inset: 44px 20% 205px;
   }
   .hand {
     gap: 16px;
@@ -516,7 +566,7 @@ h2 {
     margin: 5px 0;
   }
   .cast {
-    inset: 65px 3% 115px;
+    inset: 65px 3% 235px;
   }
   .portrait {
     width: 48%;
@@ -586,7 +636,7 @@ h2 {
   }
   .cast {
     top: 55px;
-    bottom: 75px;
+    bottom: 155px;
   }
   .portrait .portrait-name {
     bottom: 0;
@@ -604,6 +654,33 @@ h2 {
     max-height: 32px;
     min-height: 16px;
     margin: 3px 0 6px;
+  }
+}
+@media (max-width: 700px) {
+  .prior-response {
+    gap: 8px;
+    padding-bottom: 7px;
+  }
+  .prior-portrait {
+    flex-basis: 32px;
+    height: 32px;
+  }
+  #prior-text {
+    font-size: 12px;
+    max-height: 49px;
+  }
+}
+@media (max-height: 650px) {
+  .prior-response {
+    padding-bottom: 4px;
+  }
+  .prior-portrait {
+    flex-basis: 28px;
+    height: 28px;
+  }
+  #prior-text {
+    font-size: 11px;
+    max-height: 30px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
