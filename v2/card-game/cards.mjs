@@ -34,6 +34,22 @@ export function cardType(id) {
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
 
+export function avatarPlays(world, id) {
+  if (!people[id] || !availableCards(world).includes(id)) return [];
+  return legalActions(world)
+    .filter((a) =>
+      id === "vale"
+        ? a.kind === "wait" || a.kind === "guard"
+        : a.target === id &&
+          ["talk", "threaten", "guard", "attack"].includes(a.kind),
+    )
+    .sort(
+      (a, b) =>
+        ["talk", "wait", "threaten", "guard", "attack"].indexOf(a.kind) -
+        ["talk", "wait", "threaten", "guard", "attack"].indexOf(b.kind),
+    );
+}
+
 // Each face names one play. Pairs express use, handover, travel, or placement.
 // The shared world rules still decide whether that play is legal.
 export function cardPlay(world, selected) {
@@ -138,6 +154,9 @@ export function playLabel(action) {
   if (action?.kind === "trade")
     return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
   return {
+    threaten: "Threaten",
+    guard: "Guard",
+    attack: "Attack",
     take: "Take",
     drop: "Put down",
     give: "Give",
