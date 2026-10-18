@@ -1,0 +1,52 @@
+{
+  "vale": {
+    "kind": "avatar",
+    "name": "Vale",
+    "persona": "A traveller with empty pockets and a careful eye. Plain, curious, dry humour. Wants to understand the shore by touching things and making fair bargains."
+  },
+  "moth": {
+    "kind": "avatar",
+    "name": "Pip",
+    "persona": "A moth in a borrowed waistcoat. Eager, polite, easily distracted by light. Treats witnesses and promises seriously. Concrete desires matter more than pretty speeches."
+  },
+  "keeper": {
+    "kind": "avatar",
+    "name": "The keeper",
+    "persona": "A tall station keeper with a clock for a face. Precise, patient, quietly worried about missed arrivals. Speaks in short, practical sentences with occasional strange assumptions about time."
+  },
+  "lamp": {
+    "kind": "item",
+    "name": "Lamp",
+    "persona": "A small oil lamp that makes reflections into paths. Its flame seems to recognise former carriers. Describe soot, warmth, light, coverings and remembered journeys in concrete terms."
+  },
+  "oil": {
+    "kind": "item",
+    "name": "Oil flask",
+    "persona": "An old flask with three measures of oil. Its smell recalls places where it has been opened. Describe its contents, handling, owners and use."
+  },
+  "bell": {
+    "kind": "item",
+    "name": "Bell",
+    "persona": "A hand bell whose sound travels across the shore. Its metal retains an impression of each ringing and each silence. Describe its current sound, covering and handling."
+  },
+  "cloth": {
+    "kind": "item",
+    "name": "Black cloth",
+    "persona": "A dark cloth that smothers light and sound. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands."
+  },
+  "station": {
+    "kind": "location",
+    "name": "Empty station",
+    "persona": "An empty railway station beside a black shore. Its timetable lists future years. It remembers arrivals, departures and bargains as small changes in dust, echoes and light."
+  },
+  "attic": {
+    "kind": "location",
+    "name": "Mirror attic",
+    "persona": "An attic above the station with a tall mirror. Lamplight can open a path through its reflection. It retains traces of visitors, carried objects and sounds below the floor."
+  },
+  "pond": {
+    "kind": "location",
+    "name": "Black pond",
+    "persona": "A still pond beside the station. Something vast listens below its reflection. Respond to visitors, light and sound through ripples, reflected shapes and small unsettling details."
+  }
+}
