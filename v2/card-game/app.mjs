@@ -1,3 +1,4 @@
+import { createNarrator } from "./narrative.mjs";
 import {
   places,
   people,
@@ -82,6 +83,20 @@ function save() {
     );
   }
 }
+let storyStatus = "ready";
+const narrator = createNarrator({
+  getWorld: () => world,
+  apply: (next) => {
+    world = next;
+    lineIndex = null;
+    save();
+    render();
+  },
+  status: (value) => {
+    storyStatus = value;
+    renderScene();
+  },
+});
 function status(id) {
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
@@ -128,6 +143,7 @@ function commit(cards, revision) {
   notice("");
   save();
   render();
+  narrator.changed(resolved.action);
 }
 function card(id) {
   const type = cardType(id),
@@ -147,9 +163,10 @@ function card(id) {
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   el.title =
-    type === "avatar"
+    world.memories[id].text ||
+    (type === "avatar"
       ? `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
-      : def.text;
+      : def.text);
   el.append(
     node(
       "span",
@@ -303,6 +320,10 @@ function card(id) {
 }
 function renderScene() {
   const scene = currentScene(world, lineIndex);
+  const inspected =
+    selected.length === 1 && world.memories[selected[0]]?.text
+      ? selected[0]
+      : null;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
@@ -329,12 +350,20 @@ function renderScene() {
       return button;
     }),
   );
-  $("speaker").textContent = scene.line.speaker;
-  $("line-turn").textContent = `Turn ${scene.line.turn ?? world.turn}`;
-  $("dialogue-text").textContent = scene.line.text;
+  $("speaker").textContent = inspected ? nameOf(inspected) : scene.line.speaker;
+  $("line-turn").textContent = inspected
+    ? `Turn ${world.memories[inspected].turn}`
+    : storyStatus === "pending"
+      ? "Finding words…"
+      : storyStatus === "retry"
+        ? "Story text will try again with your next play"
+        : `Turn ${scene.line.turn ?? world.turn}`;
+  $("dialogue-text").textContent = inspected
+    ? world.memories[inspected].text
+    : scene.line.text;
   const at = scene.lines.findIndex((e) => e.index === scene.line.index);
-  $("previous-line").disabled = at <= 0;
-  $("next-line").disabled = at >= scene.lines.length - 1;
+  $("previous-line").disabled = Boolean(inspected) || at <= 0;
+  $("next-line").disabled = Boolean(inspected) || at >= scene.lines.length - 1;
   $("previous-line").onclick = () => {
     lineIndex = scene.lines[at - 1].index;
     renderScene();
@@ -501,6 +530,7 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
+  narrator.invalidate();
   world = createWorld();
   lineIndex = null;
   selected = [];
@@ -512,6 +542,7 @@ $("confirm-reset").onclick = () => {
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
+  narrator.invalidate();
   try {
     world = decodeSave(event.newValue);
     lineIndex = null;

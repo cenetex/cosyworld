@@ -79,6 +79,7 @@ export function sceneLines(world) {
 export function currentScene(world, lineIndex = null) {
   const lines = sceneLines(world);
   const line = lines.find((e) => e.index === lineIndex) ||
+    lines.findLast((e) => e.generated && e.turn === world.turn) ||
     lines.findLast(
       (e) =>
         e.kind === "quest" && e.actorId === "vale" && e.turn === world.turn,
@@ -122,6 +123,7 @@ export function sceneScript(world) {
       name: p.name,
       cutout: portrait(id),
     })),
+    memories: structuredClone(world.memories),
     beats: world.log.map((e, index) => ({
       id: e.seq || index + 1,
       turn: e.turn,

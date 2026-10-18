@@ -1,3 +1,7 @@
+import {
+  narrativeContext,
+  applyGeneratedText,
+} from "../v2/card-game/narrative.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -54,6 +58,15 @@ describe("JRPG scenes", () => {
   it("shows the recorded cast when reading an earlier line", () => {
     let s = act(createWorld(), "wait");
     s = act(s, "talk", null, "moth");
+    const context = narrativeContext(s, { target: "moth" });
+    s = applyGeneratedText(s, context, {
+      revision: s.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: `${id} remembers the meeting.`,
+      })),
+    });
     const spoken = s.log.findIndex(
       (e) => e.kind === "dialogue" && e.actorId === "moth",
     );
@@ -129,8 +142,17 @@ describe("JRPG scenes", () => {
     expect(sceneScript(s).beats.at(-1).kind).toBe("hint");
     s = act(s, "take", "lamp");
     s = act(s, "talk", null, "moth");
+    const context = narrativeContext(s, { target: "moth" });
+    s = applyGeneratedText(s, context, {
+      revision: s.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: `${id} remembers the meeting.`,
+      })),
+    });
     const spoken = s.log.findLastIndex((e) => e.kind === "dialogue");
-    expect(currentScene(s, spoken).activeSpeaker).toBe("vale");
+    expect(currentScene(s, spoken).activeSpeaker).toBe("moth");
     expect(
       sceneLines(s).some((e) => e.actorId === "moth" && e.kind === "dialogue"),
     ).toBe(true);
@@ -177,6 +199,8 @@ describe("JRPG scenes", () => {
   });
   it("restores earlier saves and assigns event order on the next action", () => {
     const s = createWorld();
+    s.schema = 3;
+    delete s.memories;
     delete s.eventSeq;
     s.log = s.log.map(({ turn, speaker, text }) => ({ turn, speaker, text }));
     const restored = decodeSave(JSON.stringify(s));

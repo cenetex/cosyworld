@@ -77,9 +77,9 @@ describe("playing the world through cards", () => {
   it("talks and gives through avatar cards while the cast pursues its goals", () => {
     let s = cards(createWorld(), "lamp");
     s = cards(s, "moth");
-    expect(
-      s.log.some((e) => e.kind === "dialogue" && e.actorId === "moth"),
-    ).toBe(true);
+    expect(s.log.some((e) => e.verb === "talk" && e.targetId === "moth")).toBe(
+      true,
+    );
     s = cards(s, "lamp", "moth");
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.items.lamp.lit).toBe(true);
