@@ -61,6 +61,8 @@ describe("entity memories and model text", () => {
   it("sends current desires and per-entity memories and keeps generated text through reload", () => {
     const world = act(createWorld(), "take", "lamp");
     const context = narrativeContext(world, { item: "lamp" });
+    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.action).toBe("Vale takes the Lamp.");
     expect(
       context.entities.find((e) => e.id === "moth").desire.items,
     ).toContain("lamp");
@@ -78,13 +80,29 @@ describe("entity memories and model text", () => {
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);
     expect(next.revision).toBe(world.revision);
-    for (const id of ["station", "lamp", "moth"]) {
+    for (const id of ["station", "lamp", "vale", "moth"]) {
       expect(next.memories[id].text).toContain("remembers");
       expect(next.log.some((e) => e.entityId === id && e.generated)).toBe(true);
     }
     expect(currentScene(next).line.generated).toBe(true);
     expect(sceneScript(next).memories).toEqual(next.memories);
     expect(decodeSave(encodeSave(next))).toEqual(next);
+  });
+
+  it("gives Vale a line alone and starts a direct exchange with the chosen avatar", () => {
+    expect(narrativeContext(createWorld()).speakers).toEqual(["vale"]);
+    let world = act(createWorld(), "take", "lamp");
+    world = act(world, "talk", null, "keeper");
+    const context = narrativeContext(world, { target: "keeper" });
+    expect(context.speakers).toEqual(["vale", "keeper"]);
+    expect(context.action).toBe("Vale asks The keeper what they want.");
+    const next = applyGeneratedText(world, context, response(context));
+    expect(next.log.slice(-2).map((entry) => entry.actorId)).toEqual([
+      "vale",
+      "keeper",
+    ]);
+    expect(currentScene(next).previous.actorId).toBe("vale");
+    expect(currentScene(next).line.actorId).toBe("keeper");
   });
 
   it("migrates old saves and retains quest progress and item histories", () => {

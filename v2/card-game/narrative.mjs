@@ -21,15 +21,25 @@ export function narrativeContext(world, action = null) {
   );
   const ids = [location, ...localItems, ...present];
   const focus = localItems.includes(action?.item) ? action.item : null;
-  const speakers = present.includes(action?.target)
-    ? ["vale", action.target]
-    : [present.find((id) => id !== "vale") || "vale"];
+  const played = world.log.findLast(
+    (entry) =>
+      entry.turn === world.turn &&
+      entry.kind === "action" &&
+      entry.actorId === "vale",
+  );
+  const target = action?.target || played?.targetId;
+  const partner =
+    present.includes(target) && target !== "vale"
+      ? target
+      : present.find((id) => id !== "vale");
+  const speakers = partner ? ["vale", partner] : ["vale"];
   return {
     revision: world.revision,
     turn: world.turn,
     location,
     focus,
     speakers,
+    action: played?.text || null,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
       const facts = [];

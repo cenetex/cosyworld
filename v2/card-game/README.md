@@ -2,7 +2,9 @@
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events and the latest generated text. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events.
 
-After a card play, the browser sends the current local entities, their facts, avatar target hands, and eight recent memories to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It returns one text for each local entity. Raising a card shows that entity's latest text. The place, played item, and chosen speakers also receive scene beats.
+After a card play, the browser sends the current local entities, their facts, avatar target hands, and eight recent memories to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It returns one text for each local entity. Raising a card shows that entity's latest text. The place, played item, and chosen speakers also receive scene beats. Vale speaks first, followed by the local partner. The prompt includes the completed card play so their lines form a question and answer or a shared reaction.
+
+The conversation shows generated text, with the prior line and speaker portrait above the current line. While the model writes, the last generated exchange stays visible. Fresh tables and older saves request an opening exchange. Action records remain in the saved world and scene export.
 
 The card rules still commit movement, trades, quest progress and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Fast plays share one active request and queue the latest scene. A failed request leaves cards playable; the next play tries again. A new game or a save update from another tab cancels the old request.
 
