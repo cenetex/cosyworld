@@ -24,3 +24,13 @@ Avatar cards offer Talk and Threaten. A threat opens a standoff between the two 
 Talk and item trades stay available during a standoff. Travel ends it; releasing the disputed item settles it. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along a normal path. Both avatars get three turns to recover before another threat. Quest programs still award levels.
 
 The cast starts with a guard or a brave reply. It responds to attacks, and a challenger can press an item demand after two turns. In generated quest programs, two refused requests for an item both avatars need can lead to a threat. Every threat, guard, hit, release and retreat enters the witnesses' memories. Saves from earlier versions gain an empty standoff state.
+
+## Accompany requests
+
+Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap either raised card, or drag the pair into the scene, to play the request. Pairing Vale with a location travels there directly.
+
+The invited avatar chooses from the alternatives in its current target hand. It first seeks any wanted item left here, then travels toward distant items, its target location, or wanted company. Items carried by Vale travel with the request, so an avatar can join its supplier. An avatar attends to an active standoff or recovery before accepting a trip.
+
+The request and reply take one round. An agreement moves both avatars together, with their own items and attached covers. Each avatar uses its normal travel action; fuel and ringing advance once. The other cast member takes its normal turn. Each avatar resumes its own goals on the next play. Hands fulfilled during the joint arrival count toward both quest programs.
+
+Requests record the destination and the answer in the scene script. Both places, witnesses, avatars and carried items remember an agreed trip. The same model request writes Vale's invitation and the invited avatar's reply from the completed result, desires, personas and memories.
