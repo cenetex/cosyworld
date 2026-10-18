@@ -251,6 +251,8 @@ h1 {
 .prior-portrait[data-kind="avatar"] img {
   height: 200%;
   object-position: center top;
+  transform: translateY(6px) scale(2.5);
+  transform-origin: 50% 12%;
 }
 .prior-portrait svg {
   width: 100%;
@@ -564,7 +566,7 @@ h2 {
     margin: 5px 0;
   }
   .cast {
-    inset: 65px 3% 205px;
+    inset: 65px 3% 235px;
   }
   .portrait {
     width: 48%;
