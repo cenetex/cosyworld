@@ -1501,6 +1501,17 @@ export function validateWorld(s) {
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
       fail();
     if (e.generated !== undefined && e.generated !== true) fail();
+    for (const field of ["departureTo", "arrivalFrom"])
+      if (
+        e[field] !== undefined &&
+        (!e.generated ||
+          e.kind !== "dialogue" ||
+          !actorIds.includes(e.actorId) ||
+          !Object.hasOwn(places, e[field]) ||
+          e[field] === e.locationId)
+      )
+        fail();
+    if (e.departureTo && e.arrivalFrom) fail();
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();

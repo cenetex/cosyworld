@@ -61,7 +61,7 @@ describe("entity memories and model text", () => {
   it("sends current desires and per-entity memories and keeps generated text through reload", () => {
     const world = act(createWorld(), "take", "lamp");
     const context = narrativeContext(world, { item: "lamp" });
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     expect(context.action).toBe("Vale takes the Lamp.");
     expect(
       context.entities.find((e) => e.id === "moth").desire.items,
@@ -189,5 +189,114 @@ describe("entity memories and model text", () => {
     await flush();
     expect(status).toHaveBeenLastCalledWith("ready");
     expect(world.memories.station.turn).toBe(2);
+  });
+});
+
+describe("witnessed departures and conversation continuity", () => {
+  it("keeps a departing avatar's farewell in the source scene and in memory", () => {
+    let world = createWorld();
+    for (let i = 0; i < 4; i++) world = act(world, "wait");
+    expect(world.actors.moth.place).toBe("pond");
+    const context = narrativeContext(world);
+    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(
+      context.events.some((text) => text.includes("Pip goes to Black pond")),
+    ).toBe(true);
+    const pip = context.entities.find((e) => e.id === "moth");
+    expect(pip.facts.join(" ")).toContain(
+      "Leaving Empty station for Black pond",
+    );
+    expect(pip.facts.join(" ")).toContain("currently at Black pond");
+    const next = applyGeneratedText(world, context, response(context));
+    const farewell = next.log.at(-1);
+    expect(farewell).toMatchObject({
+      actorId: "moth",
+      departureTo: "pond",
+      locationId: "station",
+      cast: ["vale", "moth"],
+    });
+    expect(currentScene(next, next.log.length - 1).slots).toEqual([
+      "vale",
+      "moth",
+    ]);
+    expect(currentScene(next).slots).toEqual(["vale", null]);
+    expect(next.memories.vale.events.at(-1).text).toContain("Pip remembers");
+    expect(sceneScript(next).beats.at(-1).departureTo).toBe("pond");
+    expect(decodeSave(encodeSave(next))).toEqual(next);
+    const later = act(next, "wait");
+    expect(narrativeContext(later).speakers).not.toContain("moth");
+  });
+  it("gives both arrivals a voice, with one ordered exchange for the next turn", () => {
+    let world = act(createWorld(), "wait");
+    let context = narrativeContext(world);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    world = applyGeneratedText(world, context, response(context));
+    expect(
+      world.log
+        .filter((e) => e.arrivalFrom)
+        .map((e) => [e.actorId, e.arrivalFrom]),
+    ).toEqual([
+      ["moth", "pond"],
+      ["keeper", "attic"],
+    ]);
+    world = act(world, "talk", null, "keeper");
+    context = narrativeContext(world);
+    expect(context.conversation.map((e) => e.actorId)).toEqual([
+      "vale",
+      "moth",
+      "keeper",
+    ]);
+    expect(context.speakers.slice(0, 2)).toEqual(["vale", "keeper"]);
+    expect(
+      context.entities.every(
+        (e) =>
+          e.facts.length <= 8 && e.facts.every((fact) => fact.length <= 240),
+      ),
+    ).toBe(true);
+  });
+  it("handles two departures and removes each speaker from later casts", () => {
+    let world = act(createWorld(), "wait");
+    world.items.lamp.holder = "moth";
+    world.items.lamp.lit = true;
+    world.items.bell.holder = "keeper";
+    world = act(world, "wait");
+    const context = narrativeContext(world);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    const next = applyGeneratedText(world, context, response(context));
+    const farewells = next.log.filter((e) => e.departureTo);
+    expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "attic"]);
+    expect(farewells[0].cast).toContain("moth");
+    expect(farewells[1].cast).not.toContain("moth");
+    expect(farewells[1].cast).toContain("keeper");
+  });
+  it("includes a retreating opponent's answer with the witnessed result", () => {
+    let world = createWorld();
+    world.actors.moth.place = "station";
+    world.items.lamp.holder = "moth";
+    world = act(world, "threaten", null, "moth");
+    world.standoffs[0].resolve.moth = 1;
+    world = act(world, "attack", null, "moth");
+    const context = narrativeContext(world);
+    expect(context.speakers).toContain("moth");
+    expect(context.action).toContain("retreats");
+    const next = applyGeneratedText(world, context, response(context));
+    expect(
+      next.log.findLast((e) => e.generated && e.actorId === "moth"),
+    ).toMatchObject({ departureTo: "attic", locationId: "station" });
+  });
+  it("validates saved movement captions and preserves old generated lines", () => {
+    const world = createWorld(),
+      context = narrativeContext(world);
+    const next = applyGeneratedText(world, context, response(context));
+    expect(decodeSave(encodeSave(next))).toEqual(next);
+    for (const patch of [
+      { departureTo: "wrong" },
+      { departureTo: "station" },
+      { departureTo: "pond", arrivalFrom: "attic" },
+    ]) {
+      const bad = structuredClone(next);
+      Object.assign(bad.log.at(-1), patch);
+      expect(() => decodeSave(JSON.stringify(bad))).toThrow();
+    }
   });
 });

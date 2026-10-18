@@ -21,6 +21,29 @@ const entryKind = (entry) =>
       ? "input"
       : "narration");
 
+// Movement witnessed from Vale's current scene, including a forced retreat.
+export function sceneChanges(world) {
+  const here = world.actors.vale.place;
+  return world.log
+    .filter(
+      (entry) =>
+        entry.turn === world.turn &&
+        !entry.generated &&
+        entry.actorId &&
+        entry.actorId !== "vale" &&
+        entry.fromLocationId &&
+        entry.locationId !== entry.fromLocationId &&
+        (entry.locationId === here || entry.fromLocationId === here) &&
+        world.actors[entry.actorId].place === entry.locationId,
+    )
+    .map((entry) => ({
+      actorId: entry.actorId,
+      from: entry.fromLocationId,
+      to: entry.locationId,
+      leaving: entry.fromLocationId === here,
+    }));
+}
+
 // Stable left/right slots: A, B, A, C keeps A left and replaces B with C.
 // Only actual dialogue updates recency. Narration and input keep the cast still.
 export function sceneCast(
@@ -135,6 +158,8 @@ export function sceneScript(world) {
       targetId: e.targetId || null,
       receiveId: e.receiveId || null,
       destinationId: e.destinationId || null,
+      departureTo: e.departureTo || null,
+      arrivalFrom: e.arrivalFrom || null,
       accepted: e.accepted ?? null,
       questPlan: e.questPlan ? structuredClone(e.questPlan) : null,
       quest:

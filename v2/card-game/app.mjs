@@ -1,5 +1,9 @@
 import { createNarrator } from "./narrative.mjs";
-import { createTextReveal, createSpeechSounds } from "./dialogue.mjs";
+import {
+  createTextReveal,
+  createSpeechSounds,
+  createExchange,
+} from "./dialogue.mjs";
 import {
   places,
   people,
@@ -20,7 +24,13 @@ import {
   opponentOf,
   strikePower,
 } from "./world.mjs";
-import { currentScene, sceneScript, portrait } from "./scene.mjs";
+import {
+  currentScene,
+  sceneScript,
+  sceneCast,
+  sceneChanges,
+  portrait,
+} from "./scene.mjs";
 import {
   availableCards,
   cardType,
@@ -106,7 +116,41 @@ let storyStatus = "ready",
   speechComplete = null,
   nextSceneIndex = null,
   replay = 0,
-  pendingReplay = 0;
+  pendingReplay = 0,
+  cardsCooling = false,
+  reviewing = false,
+  pendingCast = null,
+  departed = new Set();
+const completedSpeech = new Set();
+let shownSceneLine = null;
+function updateCardCooldown() {
+  $("hand").dataset.cooling = String(cardsCooling);
+  $("hand").setAttribute("aria-busy", String(cardsCooling));
+  for (const button of $("hand").querySelectorAll("button")) {
+    button.disabled = saveBlocked || cardsCooling;
+    if (button.dataset.card) button.draggable = !button.disabled;
+  }
+}
+const exchange = createExchange({
+  show: (line) => {
+    reviewing = false;
+    lineIndex = world.log.findIndex((entry) => entry.seq === line.seq);
+    renderScene();
+  },
+  settled: (line) => {
+    if (line.departureTo) departed.add(line.actorId);
+    renderScene();
+  },
+  busy: (value) => {
+    cardsCooling = value;
+    updateCardCooldown();
+    // A failed request releases the hand as well.
+    if (!value) {
+      pendingCast = null;
+      renderScene();
+    }
+  },
+});
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const speechSounds = createSpeechSounds();
 let soundEnabled = true;
@@ -130,13 +174,17 @@ function updateSpeechControls(complete) {
     complete
       ? nextSceneIndex !== null
         ? "Continue to the next line"
-        : "Read this line again"
+        : exchange.active
+          ? "Finish this exchange"
+          : "Read this line again"
       : "Reveal the full line",
   );
   $("speech-hint").textContent = complete
     ? nextSceneIndex !== null
       ? "Continue"
-      : "Read again"
+      : exchange.active
+        ? "Continue"
+        : "Read again"
     : "Tap to reveal";
   $("next-line").disabled = complete && nextSceneIndex === null;
 }
@@ -183,6 +231,11 @@ const reveal = createTextReveal({
       $("speech-announcement").textContent =
         `${nameOf(value.speaker)}: ${value.text}`;
       $("next-line").disabled = nextSceneIndex === null;
+      completedSpeech.add(value.key);
+      if (completedSpeech.size > 100)
+        completedSpeech.delete(completedSpeech.values().next().value);
+      if (shownSceneLine)
+        exchange.revealed(shownSceneLine.seq, value.text, value.instant);
     }
   },
 });
@@ -196,6 +249,7 @@ function pauseSpeech() {
   const paused =
     document.hidden || Boolean(document.querySelector("dialog[open]"));
   reveal.pause(paused);
+  exchange.pause(paused);
   if (paused) speechSounds.stop();
 }
 document.addEventListener("visibilitychange", pauseSpeech);
@@ -227,21 +281,23 @@ const narrator = createNarrator({
   getWorld: () => world,
   apply: (next) => {
     world = next;
-    // Start with Vale. The player advances to the partner at their own pace.
-    lineIndex = world.log.findLastIndex(
+    storyStatus = "ready";
+    pendingCast = null;
+    save();
+    const lines = world.log.filter(
       (entry) =>
         entry.generated &&
         entry.kind === "dialogue" &&
-        entry.actorId === "vale" &&
-        entry.turn === world.turn,
+        entry.turn === world.turn &&
+        entry.locationId === world.actors.vale.place,
     );
-    if (lineIndex < 0) lineIndex = null;
-    storyStatus = "ready";
-    save();
+    exchange.load(lines);
     render();
   },
   status: (value) => {
     storyStatus = value;
+    if (value === "pending" && !exchange.active) exchange.begin();
+    if (value === "retry") exchange.cancel();
     renderScene();
   },
 });
@@ -262,7 +318,7 @@ function status(id) {
 }
 
 function choose(id) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   if (selected.includes(id)) {
     commit(selected, selectionRevision);
     return;
@@ -272,7 +328,7 @@ function choose(id) {
   render();
 }
 function commit(cards, revision) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   const resolved = cardPlay(world, cards);
   if (!resolved.action) {
     $("play-readout").textContent = resolved.hint;
@@ -281,7 +337,7 @@ function commit(cards, revision) {
   commitAction(resolved.action, revision);
 }
 function commitAction(action, revision) {
-  if (saveBlocked) return;
+  if (saveBlocked || cardsCooling) return;
   const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
@@ -295,6 +351,21 @@ function commitAction(action, revision) {
   pendingReplay = replay;
   const previousLine = currentScene(world, lineIndex).line;
   world = result.state;
+  dragging = [];
+  $("stage").classList.remove("ready", "drag-over");
+  departed.clear();
+  const visible = [
+    ...new Set([
+      ...Object.keys(people).filter(
+        (id) => world.actors[id].place === world.actors.vale.place,
+      ),
+      ...sceneChanges(world)
+        .filter((change) => change.leaving)
+        .map((change) => change.actorId),
+    ]),
+  ];
+  pendingCast = sceneCast(world, world.log.length - 1, visible);
+  exchange.begin();
   selected = [];
   lineIndex =
     previousLine?.locationId === world.actors.vale.place
@@ -318,7 +389,7 @@ function card(id) {
   );
   el.type = "button";
   el.dataset.card = id;
-  el.disabled = saveBlocked;
+  el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
@@ -448,8 +519,12 @@ function card(id) {
     ),
   );
   el.addEventListener("click", () => choose(id));
-  el.draggable = true;
+  el.draggable = !el.disabled;
   el.addEventListener("dragstart", (e) => {
+    if (cardsCooling || saveBlocked) {
+      e.preventDefault();
+      return;
+    }
     dragging = selected.includes(id) ? [...selected] : [id];
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
@@ -471,7 +546,12 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (dragging.length && !dragging.includes(id)) {
+    if (
+      !cardsCooling &&
+      !saveBlocked &&
+      dragging.length &&
+      !dragging.includes(id)
+    ) {
       selected = [dragging[0], id];
       selectionRevision = world.revision;
       render();
@@ -489,7 +569,7 @@ function card(id) {
     for (const action of avatarPlays(world, id)) {
       const button = node("button", playLabel(action));
       button.type = "button";
-      button.disabled = saveBlocked;
+      button.disabled = saveBlocked || cardsCooling;
       button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
       button.title =
         action.kind === "threaten"
@@ -508,10 +588,13 @@ function card(id) {
 }
 function renderScene() {
   const scene = currentScene(world, lineIndex);
+  if (pendingCast) scene.slots = pendingCast;
+  shownSceneLine = scene.line;
   const inspected =
-    selected.length === 1 && world.memories[selected[0]]?.text
+    !cardsCooling && selected.length === 1 && world.memories[selected[0]]?.text
       ? selected[0]
       : null;
+  if (inspected) shownSceneLine = null;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
@@ -542,6 +625,10 @@ function renderScene() {
     if (!id) return;
     const figure = $("cast").children[index];
     figure.classList.toggle("active", scene.activeSpeaker === id);
+    figure.classList.toggle(
+      "departed",
+      !reviewing && departed.has(id) && scene.line?.turn === world.turn,
+    );
     figure.querySelector(".portrait-name").textContent =
       `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
@@ -579,7 +666,11 @@ function renderScene() {
   $("line-turn").textContent = inspected
     ? `Turn ${world.memories[inspected].turn}`
     : scene.line
-      ? `Turn ${scene.line.turn}`
+      ? scene.line.departureTo
+        ? `${exchange.current?.seq === scene.line.seq && !departed.has(scene.line.actorId) ? "Leaving for" : "Left for"} ${nameOf(scene.line.departureTo)}`
+        : scene.line.arrivalFrom
+          ? `Arrived from ${nameOf(scene.line.arrivalFrom)}`
+          : `Turn ${scene.line.turn}`
       : "";
   $("story-status").hidden = storyStatus === "ready";
   $("story-status").textContent =
@@ -605,6 +696,8 @@ function renderScene() {
     !inspected && at >= 0 && at < scene.lines.length - 1
       ? scene.lines[at + 1].index
       : null;
+  if (exchange.active)
+    nextSceneIndex = exchange.hasNext ? nextSceneIndex : null;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = !text;
   if (text) {
@@ -617,17 +710,20 @@ function renderScene() {
     ]);
     reveal.show(key, text, speaker, {
       instant:
-        !inspected && replay === pendingReplay && storyStatus === "pending",
+        completedSpeech.has(key) ||
+        (!inspected && replay === pendingReplay && storyStatus === "pending"),
     });
   } else {
     reveal.cancel();
     speechSounds.stop();
     speechKey = null;
+    $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
   }
-  $("previous-line").disabled = Boolean(inspected) || at <= 0;
+  $("previous-line").disabled = cardsCooling || Boolean(inspected) || at <= 0;
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
+    reviewing = true;
     lineIndex = scene.lines[at - 1].index;
     renderScene();
   };
@@ -637,6 +733,11 @@ function renderScene() {
       speechSounds.stop();
       return;
     }
+    if (exchange.active) {
+      exchange.advance();
+      return;
+    }
+    reviewing = true;
     if (nextSceneIndex !== null) lineIndex = nextSceneIndex;
     else replay++;
     renderScene();
@@ -696,6 +797,7 @@ function render() {
     : "";
   renderScene();
   renderLog();
+  updateCardCooldown();
   if (focused)
     document
       .querySelector(`[data-card="${focused}"]`)
@@ -813,10 +915,13 @@ $("export-script").onclick = () => {
 $("new-game").onclick = () => {
   $("menu-dialog").close();
   $("reset-dialog").showModal();
+  pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
   narrator.invalidate();
+  exchange.cancel();
+  departed.clear();
   reveal.cancel();
   speechSounds.stop();
   world = createWorld();
@@ -834,6 +939,8 @@ $("confirm-reset").onclick = () => {
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
   narrator.invalidate();
+  exchange.cancel();
+  departed.clear();
   reveal.cancel();
   speechKey = null;
   speechSounds.stop();
@@ -845,7 +952,7 @@ window.addEventListener("storage", (event) => {
     saveBlocked = false;
     notice("The world was updated in another tab.");
     render();
-    if (!currentScene(world).line) narrator.changed();
+    if (!hasCurrentWords()) narrator.changed();
   } catch {
     saveBlocked = true;
     notice(
@@ -856,4 +963,13 @@ window.addEventListener("storage", (event) => {
 });
 pauseSpeech();
 render();
-if (!saveBlocked && !currentScene(world).line) narrator.changed();
+function hasCurrentWords() {
+  return world.log.some(
+    (entry) =>
+      entry.generated &&
+      entry.kind === "dialogue" &&
+      entry.turn === world.turn &&
+      entry.locationId === world.actors.vale.place,
+  );
+}
+if (!saveBlocked && !hasCurrentWords()) narrator.changed();
