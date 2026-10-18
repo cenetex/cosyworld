@@ -102,6 +102,7 @@ let storyStatus = "ready",
   shownLetters = 0,
   glyphBottoms = [],
   speechHeight = 0,
+  speechScrollTarget = 0,
   speechComplete = null,
   nextSceneIndex = null,
   replay = 0,
@@ -119,6 +120,7 @@ function measureSpeech() {
     (glyph) => glyph.offsetTop + glyph.offsetHeight,
   );
   speechHeight = text.clientHeight;
+  speechScrollTarget = text.scrollTop;
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
@@ -170,8 +172,13 @@ const reveal = createTextReveal({
     }
     // Layout is measured once per line or resize, then reused for each letter.
     const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
-    if (!value.complete && bottom > text.scrollTop + speechHeight)
-      text.scrollTop = bottom - speechHeight;
+    if (!value.complete && bottom > speechScrollTarget + speechHeight) {
+      speechScrollTarget = bottom - speechHeight;
+      text.scrollTo({
+        top: speechScrollTarget,
+        behavior: reducedMotion.matches ? "instant" : "smooth",
+      });
+    }
     if (value.complete) {
       $("speech-announcement").textContent =
         `${nameOf(value.speaker)}: ${value.text}`;

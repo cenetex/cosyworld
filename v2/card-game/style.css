@@ -701,7 +701,7 @@ h2 {
     font-size: 10px;
   }
 }
-@media (max-height: 650px) {
+@media (max-height: 740px) {
   .topbar {
     min-height: 48px;
     padding-top: 2px;
@@ -746,7 +746,7 @@ h2 {
     max-height: 49px;
   }
 }
-@media (max-height: 650px) {
+@media (max-height: 740px) {
   .prior-response {
     height: 50px;
     padding-bottom: 4px;
