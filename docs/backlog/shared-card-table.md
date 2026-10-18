@@ -36,6 +36,7 @@ with more avatars and items, so fix them before the port or a second site.
    keeps its program until it completes, so the player locks too. After 600
    turns, no progress was reachable within ten plays in 10 of 30 runs at a 50%
    planner mix, 19 of 30 under random play, and none under the planner alone.
+   The current slice is #1062.
    - Reject a generated hand whose missing items are needed by an actor who
      needs ours. The stall revision drops contested items and companions.
    - Add a liveness test: from any reachable state, someone progresses within N
@@ -98,7 +99,7 @@ constants, replay mapping, and Rust integration tests together.
 1. **Golden trace.** Refactor `play()` to return the ordered sub-actions it
    applied and add a pure state digest. Check in a trace from the 4,000-turn run
    and the quest-program runs. A Vitest fails when the fixture is stale. No
-   behavior change.
+   behavior change. The current slice is #1063.
 2. **Kernel custody and item state.** Side table, bundle-aware custody, light,
    snuff, ring, refill, cover, uncover-take, round-end, and the reflection gate.
    A C test replays the custody part of the trace.
