@@ -329,16 +329,25 @@ h1 {
   padding: 18px 5px 8px;
   scrollbar-width: thin;
 }
-.card:first-child {
+.card-frame:first-child {
   margin-left: auto;
 }
-.card:last-child {
+.card-frame:last-child {
   margin-right: auto;
 }
-.card {
+.card-frame {
+  position: relative;
   flex: 0 0 190px;
   width: 190px;
-  height: 224px;
+  height: 244px;
+  transition: transform 0.15s;
+}
+.card-frame[data-raised="true"] {
+  transform: translateY(-8px);
+}
+.card {
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-columns: 46px 1fr;
   grid-template-rows: 16px 34px 34px 80px 1fr;
@@ -357,7 +366,7 @@ h1 {
   transform: translateY(-3px);
 }
 .card[aria-pressed="true"] {
-  transform: translateY(-8px);
+  border-color: var(--gold);
 }
 .card .kind {
   font-size: 8px;
@@ -530,7 +539,7 @@ h2 {
   .hand {
     gap: 16px;
   }
-  .card {
+  .card-frame {
     flex-basis: 194px;
     width: 194px;
   }
@@ -598,10 +607,12 @@ h2 {
   .hand {
     gap: 8px;
   }
-  .card {
+  .card-frame {
     flex-basis: 174px;
     width: 174px;
-    height: 210px;
+    height: 230px;
+  }
+  .card {
     grid-template-columns: 36px 1fr;
     grid-template-rows: 16px 30px 30px 76px 1fr;
     padding: 7px 8px;
@@ -733,4 +744,33 @@ h2 {
   margin: 10px 0;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.card.has-options .card-play {
+  visibility: hidden;
+}
+.card .caption.conflict {
+  color: #f0ba95;
+}
+.card-options {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 3px;
+}
+.card-options button {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 2px;
+  font-size: 11px;
+  color: var(--gold);
+  border: 1px solid #89765d;
+  background: #25232e;
+  border-radius: 5px;
+}
+.card-options button:hover {
+  background: #463a3c;
 }

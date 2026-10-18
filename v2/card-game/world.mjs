@@ -71,7 +71,9 @@ export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld() {
   const world = {
-    schema: 4,
+    schema: 5,
+    standoffs: [],
+    peaceUntil: { vale: 0, moth: 0, keeper: 0 },
     memories: newMemories(),
     turn: 0,
     revision: 0,
@@ -424,6 +426,43 @@ function offer(kind, actor, item, target, text, cards) {
     key: [kind, actor, item || "", target || ""].join(":"),
   };
 }
+export function standoffFor(s, actor) {
+  return s.standoffs.find((c) => [c.challenger, c.defender].includes(actor));
+}
+export function opponentOf(c, actor) {
+  return c.challenger === actor ? c.defender : c.challenger;
+}
+export function strikePower(s, actor, target) {
+  return 2 + Math.sign(levelOf(s, actor) - levelOf(s, target));
+}
+function closeStandoff(s, c) {
+  s.standoffs = s.standoffs.filter((entry) => entry !== c);
+  for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
+}
+function settleStandoffs(s) {
+  for (const c of [...s.standoffs]) {
+    const separated = [c.challenger, c.defender].some(
+      (id) => s.actors[id].place !== c.location,
+    );
+    const released = c.item && rootHolder(s, c.item) !== c.defender;
+    if (separated || released) {
+      closeStandoff(s, c);
+      addLog(
+        s,
+        "World",
+        separated
+          ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.`
+          : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
+        {
+          actorId: c.challenger,
+          targetId: c.defender,
+          itemId: c.item,
+          locationId: c.location,
+        },
+      );
+    }
+  }
+}
 export function legalActions(s, actor = "vale") {
   const here = s.actors[actor].place;
   const out = [
@@ -457,6 +496,49 @@ export function legalActions(s, actor = "vale") {
   for (const other of actorIds.filter(
     (id) => id !== actor && s.actors[id].place === here,
   )) {
+    const conflict = standoffFor(s, actor);
+    if (conflict && opponentOf(conflict, actor) === other) {
+      out.push(
+        offer(
+          "guard",
+          actor,
+          null,
+          other,
+          `${nameOf(actor)} guards against ${nameOf(other)}.`,
+          [other],
+        ),
+        offer(
+          "attack",
+          actor,
+          null,
+          other,
+          `${nameOf(actor)} attacks ${nameOf(other)}.`,
+          [other],
+        ),
+      );
+    } else if (
+      !conflict &&
+      !standoffFor(s, other) &&
+      s.peaceUntil[actor] <= s.turn &&
+      s.peaceUntil[other] <= s.turn
+    ) {
+      const stake =
+        ids.find(
+          (id) => s.items[id].holder === other && needed(s, actor, id),
+        ) ||
+        ids.find((id) => s.items[id].holder === other) ||
+        null;
+      out.push(
+        offer(
+          "threaten",
+          actor,
+          stake,
+          other,
+          `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over the ${nameOf(stake)}` : ""}.`,
+          [other],
+        ),
+      );
+    }
     out.push(
       offer(
         "talk",
@@ -639,9 +721,80 @@ function perform(s, a) {
     ...actorIds.filter((id) => s.actors[id].place === here),
     ...ids.filter((id) => itemPlace(s, id) === here),
   ];
+  const conflict = standoffFor(s, a.actor);
+  if (conflict) {
+    conflict.guarding[a.actor] = false;
+    if (a.actor === conflict.defender) conflict.answered = true;
+  }
   if (a.kind === "wait") return;
   let text = a.text;
+  let arrival = null;
   switch (a.kind) {
+    case "threaten":
+      s.standoffs.push({
+        challenger: a.actor,
+        defender: a.target,
+        location: here,
+        item: a.item,
+        opened: s.turn,
+        answered: false,
+        resolve: { [a.actor]: 4, [a.target]: 4 },
+        guarding: { [a.actor]: false, [a.target]: false },
+        struck: { [a.actor]: false, [a.target]: false },
+      });
+      break;
+    case "guard":
+      conflict.guarding[a.actor] = true;
+      break;
+    case "attack": {
+      const guarded = conflict.guarding[a.target];
+      const damage = Math.max(
+        1,
+        strikePower(s, a.actor, a.target) - Number(guarded),
+      );
+      conflict.guarding[a.target] = false;
+      conflict.struck[a.actor] = true;
+      conflict.resolve[a.target] = Math.max(
+        0,
+        conflict.resolve[a.target] - damage,
+      );
+      text += ` ${guarded ? "The guard softens the blow. " : ""}${nameOf(a.target)} loses ${damage} resolve.`;
+      if (conflict.resolve[a.target] === 0) {
+        const dropped =
+          conflict.item && rootHolder(s, conflict.item) === a.target
+            ? conflict.item
+            : ids.find(
+                (id) =>
+                  s.items[id].holder === a.target && needed(s, a.actor, id),
+              );
+        if (dropped) {
+          transfer(
+            s,
+            dropped,
+            here,
+            `${nameOf(a.target)} yields the ${nameOf(dropped)}.`,
+          );
+          text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
+        }
+        const retreat = places[here].exits[0];
+        s.actors[a.target].place = retreat;
+        for (const id of carried(s, a.target))
+          remember(
+            s,
+            id,
+            `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`,
+          );
+        text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+        closeStandoff(s, conflict);
+        arrival = {
+          text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
+          actorId: a.target,
+          locationId: retreat,
+          fromLocationId: here,
+        };
+      }
+      break;
+    }
     case "move":
       if (!places[here].exits.includes(a.target)) {
         s.actors[a.actor].crossed += 1;
@@ -713,7 +866,13 @@ function perform(s, a) {
     itemId: a.item,
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
+    ...(a.kind === "attack" ? { locationId: here } : {}),
   });
+  if (arrival) {
+    const { text: arrivalText, ...details } = arrival;
+    addLog(s, "World", arrivalText, details);
+  }
+  settleStandoffs(s);
 }
 function toward(s, actor, target) {
   const from = s.actors[actor].place;
@@ -746,6 +905,33 @@ export function plan(s, actor = "vale") {
   const idle = (reason) => ({ action: acts[0], reason });
   const choose = (action, reason) =>
     action ? { action, reason } : idle(reason);
+  if (s.peaceUntil[actor] > s.turn)
+    return idle("Catch a breath after the standoff.");
+  const conflict = standoffFor(s, actor);
+  if (conflict) {
+    const other = opponentOf(conflict, actor);
+    if (actor === conflict.defender && !conflict.answered)
+      return choose(
+        find(
+          levelOf(s, actor) > levelOf(s, other) ? "talk" : "guard",
+          undefined,
+          other,
+        ),
+        "Answer the threat.",
+      );
+    if (conflict.struck[other] || conflict.struck[actor])
+      return choose(find("attack", undefined, other), "Answer the attack.");
+    if (
+      conflict.challenger === actor &&
+      conflict.item &&
+      needed(s, actor, conflict.item) &&
+      s.turn - conflict.opened >= 2
+    )
+      return choose(
+        find("attack", undefined, other),
+        "Press the demand for the disputed item.",
+      );
+  }
   const missing = hand.items.filter((id) => rootHolder(s, id) !== actor);
   const reason = `Seek this hand: ${handText(hand)}.`;
   const acquire = (item, seen = new Set()) => {
@@ -803,6 +989,25 @@ export function plan(s, actor = "vale") {
       }
     }
     if (!local) return choose(toward(s, actor, itemPlace(s, item)), reason);
+    if (
+      actorIds.includes(owner) &&
+      local &&
+      needed(s, owner, item) &&
+      programFor(s, actor)?.generated
+    ) {
+      const refusals = s.log.filter(
+        (e) =>
+          e.kind === "action" &&
+          e.verb === "ask" &&
+          e.actorId === actor &&
+          e.targetId === owner &&
+          e.itemId === item &&
+          s.turn - e.turn <= 12,
+      );
+      const threat = find("threaten", undefined, owner);
+      if (refusals.length >= 2 && threat)
+        return choose(threat, "The same item is blocking both target hands.");
+    }
     if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
       let heldItem = item;
       while (s.items[s.items[heldItem].holder])
@@ -968,7 +1173,7 @@ export function validateWorld(s) {
   };
   if (
     !s ||
-    s.schema !== 4 ||
+    s.schema !== 5 ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
@@ -985,6 +1190,57 @@ export function validateWorld(s) {
   )
     fail();
   if (!validMemories(s)) fail();
+  if (
+    !s.peaceUntil ||
+    Object.keys(s.peaceUntil).sort().join() !==
+      actorIds.slice().sort().join() ||
+    Object.values(s.peaceUntil).some(
+      (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3,
+    ) ||
+    !Array.isArray(s.standoffs) ||
+    s.standoffs.length > 1
+  )
+    fail();
+  for (const c of s.standoffs) {
+    if (
+      !c ||
+      !actorIds.includes(c.challenger) ||
+      !actorIds.includes(c.defender) ||
+      c.challenger === c.defender ||
+      !Object.hasOwn(places, c.location) ||
+      (c.item !== null && !ids.includes(c.item)) ||
+      typeof c.answered !== "boolean" ||
+      !Number.isSafeInteger(c.opened) ||
+      c.opened < 1 ||
+      c.opened > s.turn
+    )
+      fail();
+    const pair = [c.challenger, c.defender];
+    if (
+      pair.some(
+        (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn,
+      ) ||
+      (c.item && rootHolder(s, c.item) !== c.defender)
+    )
+      fail();
+    for (const field of ["resolve", "guarding", "struck"])
+      if (
+        !c[field] ||
+        Object.keys(c[field]).sort().join() !== pair.slice().sort().join()
+      )
+        fail();
+    if (
+      pair.some(
+        (id) =>
+          !Number.isInteger(c.resolve[id]) ||
+          c.resolve[id] < 1 ||
+          c.resolve[id] > 4 ||
+          typeof c.guarding[id] !== "boolean" ||
+          typeof c.struck[id] !== "boolean",
+      )
+    )
+      fail();
+  }
   for (const [id, a] of Object.entries(s.actors)) {
     if (
       !Object.hasOwn(places, a.place) ||
@@ -1108,6 +1364,9 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "threaten",
+    "guard",
+    "attack",
     "move",
     "take",
     "drop",
@@ -1280,6 +1539,11 @@ export function decodeSave(text) {
       s.eventSeq = s.log.length;
     }
     if (Array.isArray(s.log)) migrateMemories(s);
+  }
+  if (s?.schema === 4) {
+    s.schema = 5;
+    s.standoffs = [];
+    s.peaceUntil = { vale: 0, moth: 0, keeper: 0 };
   }
   return validateWorld(s);
 }

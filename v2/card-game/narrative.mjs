@@ -8,6 +8,8 @@ import {
   exits,
   nameOf,
   validateWorld,
+  standoffFor,
+  opponentOf,
 } from "./world.mjs";
 import { desireFor } from "./quests.mjs";
 
@@ -48,6 +50,11 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
+        const conflict = standoffFor(world, id);
+        if (conflict)
+          facts.push(
+            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
+          );
         desire = desireFor(world, id);
         for (const item of desire.items)
           facts.push(
@@ -89,8 +96,7 @@ export function narrativeContext(world, action = null) {
         );
       }
       facts.push(
-        `Here: ${present.map(nameOf).join(", ")}.`,
-        `Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
+        `Here: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,

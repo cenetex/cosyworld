@@ -15,9 +15,18 @@ import {
   handStatus,
   handText,
   tradeOffers,
+  standoffFor,
+  opponentOf,
+  strikePower,
 } from "./world.mjs";
 import { currentScene, sceneScript, portrait } from "./scene.mjs";
-import { availableCards, cardType, cardPlay, playLabel } from "./cards.mjs";
+import {
+  availableCards,
+  cardType,
+  cardPlay,
+  playLabel,
+  avatarPlays,
+} from "./cards.mjs";
 import {
   questPrograms,
   desireFor,
@@ -136,7 +145,11 @@ function commit(cards, revision) {
     $("play-readout").textContent = resolved.hint;
     return;
   }
-  const result = play(world, resolved.action, revision);
+  commitAction(resolved.action, revision);
+}
+function commitAction(action, revision) {
+  if (saveBlocked) return;
+  const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
     selected = [];
@@ -149,7 +162,7 @@ function commit(cards, revision) {
   notice("");
   save();
   render();
-  narrator.changed(resolved.action);
+  narrator.changed(action);
 }
 function card(id) {
   const type = cardType(id),
@@ -216,7 +229,10 @@ function card(id) {
         ? "Pass a turn · pair to put down"
         : "Travel · carry your items";
   }
-  el.append(node("span", caption, "caption"));
+  const conflict = type === "avatar" ? standoffFor(world, id) : null;
+  if (conflict)
+    caption = `Facing ${nameOf(opponentOf(conflict, id))} · Resolve ${conflict.resolve[id]}/4${conflict.guarding[id] ? " · Guarding" : ""}`;
+  el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
   if (type === "avatar") {
@@ -322,7 +338,32 @@ function card(id) {
     dragging = [];
     $("stage").classList.remove("ready", "drag-over");
   });
-  return el;
+  const frame = node("div", undefined, "card-frame");
+  frame.dataset.raised = String(raised);
+  frame.append(el);
+  if (type === "avatar") {
+    el.classList.add("has-options");
+    const options = node("div", undefined, "card-options");
+    const revision = world.revision;
+    for (const action of avatarPlays(world, id)) {
+      const button = node("button", playLabel(action));
+      button.type = "button";
+      button.disabled = saveBlocked;
+      button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
+      button.title =
+        action.kind === "threaten"
+          ? `Open a standoff${action.item ? ` over ${nameOf(action.item)}` : ""}.`
+          : action.kind === "guard"
+            ? "Reduce the next hit by 1. Guard lasts until your next play."
+            : action.kind === "attack"
+              ? `${strikePower(world, "vale", action.target)} resolve damage. At zero, the loser drops the disputed item and retreats.`
+              : action.text;
+      button.addEventListener("click", () => commitAction(action, revision));
+      options.append(button);
+    }
+    frame.append(options);
+  }
+  return frame;
 }
 function renderScene() {
   let scene = currentScene(world, lineIndex);
