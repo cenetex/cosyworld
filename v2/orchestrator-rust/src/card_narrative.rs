@@ -297,7 +297,7 @@ async fn complete(
     context: &Context,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
-    let user = prompt(&context);
+    let user = prompt(context);
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
         prompt_version: "card-entity-text-v3",
@@ -332,7 +332,7 @@ async fn complete(
             "The story response needs another try.",
         ));
     }
-    let Some(entries) = parse(&completion.text, &context) else {
+    let Some(entries) = parse(&completion.text, context) else {
         return Err(error(
             StatusCode::BAD_GATEWAY,
             "The story response needs another try.",
