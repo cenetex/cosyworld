@@ -925,6 +925,8 @@ $("confirm-reset").onclick = () => {
   reveal.cancel();
   speechSounds.stop();
   world = createWorld();
+  completedSpeech.clear();
+  reviewing = false;
   renderedHand = "";
   replay = pendingReplay = 0;
   lineIndex = null;
