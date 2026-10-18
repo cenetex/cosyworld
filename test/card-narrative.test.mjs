@@ -254,6 +254,18 @@ describe("witnessed departures and conversation continuity", () => {
       ),
     ).toBe(true);
   });
+  it("lets a departure lead a quiet turn and keeps an explicit partner first", () => {
+    let world = createWorld();
+    for (let i = 0; i < 3; i++) world = act(world, "wait");
+    expect(world.actors.moth.place).toBe("station");
+    expect(world.actors.keeper.place).toBe("attic");
+    expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
+    expect(narrativeContext(world, { target: "moth" }).speakers).toEqual([
+      "vale",
+      "moth",
+      "keeper",
+    ]);
+  });
   it("handles two departures and removes each speaker from later casts", () => {
     let world = act(createWorld(), "wait");
     world.items.lamp.holder = "moth";

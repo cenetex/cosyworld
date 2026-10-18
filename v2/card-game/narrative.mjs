@@ -39,7 +39,7 @@ export function narrativeContext(world, action = null) {
   const partner =
     audience.includes(target) && target !== "vale"
       ? target
-      : present.find((id) => id !== "vale");
+      : departing[0] || present.find((id) => id !== "vale");
   const speakers = [
     ...new Set(
       ["vale", partner, ...changes.map((change) => change.actorId)].filter(
