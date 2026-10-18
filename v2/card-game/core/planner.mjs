@@ -2,6 +2,7 @@
 // so residents follow the player's reach, consent, capacity, and exchange rules.
 import {
   avatarOrder,
+  awake,
   desireFor,
   holderOf,
   isPlayer,
@@ -92,6 +93,7 @@ export function plan(s, avatar) {
         there = s.avatars[id].place;
       return (
         id !== avatar &&
+        awake(s, id) &&
         there !== here &&
         theirs.avatars.includes(avatar) &&
         (theirs.location || there) === there &&
@@ -165,6 +167,22 @@ export function plan(s, avatar) {
     }
     return null;
   };
+  // Between players, a swap comes before a gift: accept one that costs
+  // nothing this hand needs, and offer a spare for an item this hand needs.
+  const accept = acts.find(
+    (a) =>
+      a.kind === "accept" &&
+      (!needed(s, avatar, a.item) || needed(s, avatar, a.receive)),
+  );
+  if (accept) return choose(accept, `Accept ${n(accept.target)}’s offer.`);
+  const swap = acts.find(
+    (a) =>
+      a.kind === "offer" &&
+      needed(s, avatar, a.receive) &&
+      !needed(s, avatar, a.item) &&
+      !s.offers.some((o) => o.from === avatar && o.receive === a.receive),
+  );
+  if (swap) return choose(swap, `Offer ${n(swap.target)} a swap.`);
   // Hand a spare to an avatar here whose goal needs it. A resident does this
   // only when it would agree to an ask.
   const spare = acts.find(
@@ -189,6 +207,7 @@ export function plan(s, avatar) {
     const offered = missing.some(
       (id) =>
         isPlayer(s, holderOf(s, id)) &&
+        awake(s, holderOf(s, id)) &&
         s.avatars[holderOf(s, id)].place === here,
     );
     const waiting = !offered && waitingHere(avatarOrder(s));

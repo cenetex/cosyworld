@@ -2,7 +2,7 @@
 // rule is data: one trigger and one effect from closed sets, a table of rows
 // to draw from, and a cap. A rule fires once per claim key, and the claim
 // records what it created, so a replay creates the same entities.
-import { avatarOrder, choiceHash, newProgress } from "./goals.mjs";
+import { avatarOrder, awake, choiceHash, newAvatar } from "./goals.mjs";
 
 export const TRIGGERS = [
   "quest_completed_here",
@@ -34,8 +34,9 @@ function occurrences(s, placeId, rule, round) {
       );
     }
     case "gathered":
-      return avatarOrder(s).filter((id) => s.avatars[id].place === placeId)
-        .length >= when.count && round.touched.has(placeId)
+      return avatarOrder(s).filter(
+        (id) => awake(s, id) && s.avatars[id].place === placeId,
+      ).length >= when.count && round.touched.has(placeId)
         ? 1
         : 0;
   }
@@ -66,14 +67,7 @@ function create(s, placeId, rule, key) {
       s.items[id] = { ...describe(row), holder: placeId, history: [] };
       break;
     case "bring_resident":
-      s.avatars[id] = {
-        ...describe(row),
-        role: "resident",
-        place: placeId,
-        progress: newProgress(),
-        lastTalk: -9,
-        peaceUntil: 0,
-      };
+      s.avatars[id] = newAvatar(describe(row), "resident", placeId);
       break;
   }
   return id;

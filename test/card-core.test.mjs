@@ -121,13 +121,19 @@ describe("the general card core", () => {
     expect(varied).toBe(true);
   });
 
-  it("accepts plays only from players at the current revision", () => {
+  it("accepts plays only from players, checked against the current world", () => {
     const s = createWorld(shore);
     const resident = avatarOrder(s).find((id) => !isPlayer(s, id));
     expect(play(s, legalActions(s, resident)[0]).ok).toBe(false);
     const wait = legalActions(s, "vale")[0];
-    expect(play(s, wait, s.revision + 1).ok).toBe(false);
-    expect(play(s, wait).ok).toBe(true);
+    expect(play(s, wait)).toMatchObject({ ok: true, stale: false });
+    expect(play(s, wait, s.revision - 1)).toMatchObject({
+      ok: true,
+      stale: true,
+    });
+    const take = legalActions(s, "vale").find((a) => a.kind === "take");
+    const moved = play(s, take).state;
+    expect(play(moved, take, s.revision).ok).toBe(false);
   });
 
   it("derives consent from goals for every avatar", () => {
@@ -248,7 +254,7 @@ describe("the general card core", () => {
         s = play(s, plan(s, "vale").action).state;
       }
       const busy = Object.keys(before).filter(
-        (id) => id === "vale" || activeTurns[id] >= 120,
+        (id) => id === "vale" || activeTurns[id] >= 80,
       );
       expect(busy.length, `seed ${k}`).toBeGreaterThan(1);
       for (const id of busy)

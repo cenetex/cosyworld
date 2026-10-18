@@ -2,7 +2,9 @@
 // world's registries live in its state, so seeds and later spawns can add
 // entities without code changes. No rule names a specific entity.
 import {
+  asleep,
   avatarOrder,
+  awake,
   carried,
   desireFor,
   distances,
@@ -14,7 +16,7 @@ import {
   levelOf,
   nameOf,
   needed,
-  newProgress,
+  newAvatar,
   programFor,
   sequence,
   targetsFor,
@@ -27,9 +29,11 @@ export const DEFAULT_RULES = {
   carry: 3,
   actRadius: 2,
   questRadius: 3,
-  stallTurns: 12,
-  errandTurns: 24,
+  stallActs: 12,
+  errandActs: 24,
   maxSpawns: 64,
+  offerTurns: 16,
+  answerTurns: 12,
 };
 const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const VERBS = [
@@ -44,6 +48,8 @@ const VERBS = [
   "threaten",
   "guard",
   "attack",
+  "offer",
+  "accept",
 ];
 
 const entity = ({ name, text = "", tags = [] }) => ({
@@ -65,6 +71,8 @@ export function createWorld(seed) {
     avatars: {},
     items: {},
     standoffs: [],
+    offers: [],
+    offerSeq: 0,
     tables: structuredClone(seed.tables || {}),
     claims: {},
     spawned: 0,
@@ -78,14 +86,7 @@ export function createWorld(seed) {
       spawn: structuredClone(p.spawn || []),
     };
   for (const a of seed.avatars)
-    s.avatars[a.id] = {
-      ...entity(a),
-      role: a.role,
-      place: a.place,
-      progress: newProgress(),
-      lastTalk: -9,
-      peaceUntil: 0,
-    };
+    s.avatars[a.id] = newAvatar(entity(a), a.role, a.place);
   for (const i of seed.items)
     s.items[i.id] = { ...entity(i), holder: i.holder, history: [] };
   ensureQuests(s);
@@ -135,11 +136,10 @@ export function handText(s, h) {
 // Consent comes from goals. A player accepts any gift and answers asks and
 // trades with its own plays. A resident accepts what its hand still needs.
 export const accepts = (s, avatar, item) =>
-  isPlayer(s, avatar) ||
+  (isPlayer(s, avatar) && awake(s, avatar)) ||
   (needed(s, avatar, item) && holderOf(s, item) !== avatar);
 export const stalled = (s, avatar) =>
-  s.turn - (s.avatars[avatar].progress.marks.at(-1) || 0) >=
-  s.rules.errandTurns;
+  s.avatars[avatar].progress.drift >= s.rules.errandActs;
 // A resident gives a spare once its own items are in hand. After a player has
 // gone a long while without completing a hand, residents give that player
 // spares sooner, so every player keeps a way forward.
@@ -158,6 +158,7 @@ export function canTrade(s, avatar, give, receive) {
     !s.avatars[other] ||
     other === avatar ||
     isPlayer(s, other) ||
+    asleep(s, other) ||
     placeOf(s, avatar) !== placeOf(s, other)
   )
     return false;
@@ -178,19 +179,28 @@ function closeStandoff(s, c) {
   for (const id of [c.challenger, c.defender])
     s.avatars[id].peaceUntil = s.turn + 3;
 }
+// A threatened player must answer before anyone can strike it. A player who
+// leaves the table, or does not answer in time, ends the standoff and keeps
+// everything, so no player loses an item while away.
+const unanswered = (s, c) => isPlayer(s, c.defender) && !c.answered;
 function settleStandoffs(s) {
   for (const c of [...s.standoffs]) {
     const separated = [c.challenger, c.defender].some(
       (id) => placeOf(s, id) !== c.location,
     );
     const released = c.item && holderOf(s, c.item) !== c.defender;
-    if (!separated && !released) continue;
+    const away =
+      [c.challenger, c.defender].some((id) => asleep(s, id)) ||
+      (unanswered(s, c) && s.turn - c.opened >= s.rules.answerTurns);
+    if (!separated && !released && !away) continue;
     closeStandoff(s, c);
     addLog(
       s,
-      separated
-        ? `${nameOf(s, c.challenger)} and ${nameOf(s, c.defender)} part. The standoff ends.`
-        : `The ${nameOf(s, c.item)} changes hands. The standoff ends.`,
+      away
+        ? `${nameOf(s, c.defender)} does not answer ${nameOf(s, c.challenger)}. The standoff ends.`
+        : separated
+          ? `${nameOf(s, c.challenger)} and ${nameOf(s, c.defender)} part. The standoff ends.`
+          : `The ${nameOf(s, c.item)} changes hands. The standoff ends.`,
       {
         actorId: c.challenger,
         targetId: c.defender,
@@ -233,9 +243,10 @@ export function legalActions(s, actor) {
       );
   }
   const conflict = standoffFor(s, actor);
-  for (const other of avatarOrder(s).filter(
-    (id) => id !== actor && placeOf(s, id) === here,
-  )) {
+  const company = avatarOrder(s).filter(
+    (id) => id !== actor && awake(s, id) && placeOf(s, id) === here,
+  );
+  for (const other of company) {
     if (conflict && opponentOf(conflict, actor) === other) {
       out.push(
         offer(
@@ -246,15 +257,18 @@ export function legalActions(s, actor) {
           `${n(actor)} guards against ${n(other)}.`,
           [other],
         ),
-        offer(
-          "attack",
-          actor,
-          null,
-          other,
-          `${n(actor)} attacks ${n(other)}.`,
-          [other],
-        ),
       );
+      if (!unanswered(s, conflict))
+        out.push(
+          offer(
+            "attack",
+            actor,
+            null,
+            other,
+            `${n(actor)} attacks ${n(other)}.`,
+            [other],
+          ),
+        );
     } else if (
       !conflict &&
       !standoffFor(s, other) &&
@@ -304,12 +318,8 @@ export function legalActions(s, actor) {
           [id],
         ),
       );
-      for (const other of avatarOrder(s).filter(
-        (p) =>
-          p !== actor &&
-          placeOf(s, p) === here &&
-          accepts(s, p, id) &&
-          hasSpace(s, p, id),
+      for (const other of company.filter(
+        (p) => accepts(s, p, id) && hasSpace(s, p, id),
       ))
         out.push(
           offer(
@@ -321,7 +331,7 @@ export function legalActions(s, actor) {
             [id, other],
           ),
         );
-    } else if (s.avatars[holder] && hasSpace(s, actor, id)) {
+    } else if (awake(s, holder) && hasSpace(s, actor, id)) {
       out.push(
         offer(
           "ask",
@@ -350,8 +360,60 @@ export function legalActions(s, actor) {
       action.key += ":" + receive;
       out.push(action);
     }
+  // Players exchange by consent in two plays: one offers a swap, the other
+  // accepts it. Nothing moves until the second play.
+  if (isPlayer(s, actor)) {
+    for (const other of company.filter((id) => isPlayer(s, id)))
+      for (const give of carried(s, actor))
+        for (const receive of carried(s, other)) {
+          if (
+            s.offers.some(
+              (o) =>
+                o.from === actor && o.give === give && o.receive === receive,
+            )
+          )
+            continue;
+          const action = offer(
+            "offer",
+            actor,
+            give,
+            other,
+            `${n(actor)} offers ${n(other)} the ${n(give)} for the ${n(receive)}.`,
+            [give, receive],
+          );
+          action.receive = receive;
+          action.key += ":" + receive;
+          out.push(action);
+        }
+    for (const o of s.offers.filter((o) => o.to === actor)) {
+      const action = offer(
+        "accept",
+        actor,
+        o.receive,
+        o.from,
+        `${n(actor)} accepts ${n(o.from)}’s offer: the ${n(o.give)} for the ${n(o.receive)}.`,
+        [o.give, o.receive],
+      );
+      action.receive = o.give;
+      action.offer = o.id;
+      action.key += ":" + o.id;
+      out.push(action);
+    }
+  }
   return out;
 }
+
+// An offer stands while both players are here and awake, both items are
+// still theirs, and it is recent. Offer ids are never reused, so an accepted
+// or lapsed offer cannot be accepted again.
+const offerStands = (s, o) =>
+  awake(s, o.from) &&
+  awake(s, o.to) &&
+  placeOf(s, o.from) === o.place &&
+  placeOf(s, o.to) === o.place &&
+  holderOf(s, o.give) === o.from &&
+  holderOf(s, o.receive) === o.to &&
+  s.turn - o.turn <= s.rules.offerTurns;
 
 function remember(s, item, text) {
   s.items[item].history = [
@@ -392,6 +454,9 @@ function perform(s, a, round = newRound()) {
   const here = placeOf(s, a.actor);
   const witnesses = avatarOrder(s).filter((id) => placeOf(s, id) === here);
   round.touched.add(here);
+  const progress = s.avatars[a.actor].progress;
+  progress.idle += 1;
+  progress.drift += 1;
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
     conflict.guarding[a.actor] = false;
@@ -484,6 +549,23 @@ function perform(s, a, round = newRound()) {
     case "talk":
       s.avatars[a.actor].lastTalk = s.turn;
       break;
+    case "offer":
+      s.offerSeq += 1;
+      s.offers.push({
+        id: `offer-${s.offerSeq}`,
+        from: a.actor,
+        to: a.target,
+        give: a.item,
+        receive: a.receive,
+        place: here,
+        turn: s.turn,
+      });
+      break;
+    case "accept":
+      s.offers = s.offers.filter((o) => o.id !== a.offer);
+      transfer(s, a.item, a.target, a.text);
+      transfer(s, a.receive, a.actor, a.text);
+      break;
     case "ask":
       if (willingToGive(s, a.target, a.item, a.actor)) {
         text = `${n(a.target)} hands the ${n(a.item)} to ${who}.`;
@@ -515,7 +597,7 @@ function perform(s, a, round = newRound()) {
 // Quest changes happen after the round, so every avatar pursues one step per play.
 function captureHands(s, met) {
   for (const avatar of avatarOrder(s)) {
-    if (met.has(avatar)) continue;
+    if (met.has(avatar) || asleep(s, avatar)) continue;
     const target = targetsFor(s, avatar).find(
       (h) => handStatus(s, avatar, h).met,
     );
@@ -527,7 +609,9 @@ function captureHands(s, met) {
 function ensureQuests(s) {
   for (const avatar of avatarOrder(s)) {
     const p = s.avatars[avatar].progress;
-    if (!p.current) p.current = generateQuest(structuredClone(s), avatar);
+    if (p.current) continue;
+    p.current = generateQuest(structuredClone(s), avatar);
+    p.idle = 0;
   }
 }
 function advanceQuests(s, met, round = newRound()) {
@@ -537,6 +621,8 @@ function advanceQuests(s, met, round = newRound()) {
       quest = programFor(s, avatar),
       step = progress.step;
     progress.marks = [...progress.marks, s.turn].slice(-32);
+    progress.idle = 0;
+    progress.drift = 0;
     progress.step += 1;
     const complete = progress.step === quest.steps.length;
     if (complete) {
@@ -573,11 +659,7 @@ function refreshStalledQuests(s, active) {
   for (const avatar of active) {
     const p = s.avatars[avatar].progress,
       current = programFor(s, avatar);
-    if (
-      s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) <
-      s.rules.stallTurns
-    )
-      continue;
+    if (p.idle < s.rules.stallActs) continue;
     const fresh = generateQuest(structuredClone(s), avatar, {
       independent: !isPlayer(s, avatar),
       solo: stalled(s, avatar),
@@ -586,6 +668,7 @@ function refreshStalledQuests(s, active) {
       (step) => !alternatives(step).some((h) => handStatus(s, avatar, h).met),
     );
     if (!unfinished.length) continue;
+    p.idle = 0;
     p.current = {
       ...fresh,
       steps: sequence(
@@ -616,7 +699,7 @@ function spawnText(s, { id, kind, place }) {
   return `${n(id)} arrives at ${n(place)}.`;
 }
 
-// Residents near the acting player take one act each. Residents farther away
+// Residents near the acting player hear the play. Residents farther away
 // stay still, so a quiet part of the world does not change.
 export function activeResidents(s, player) {
   const near = distances(s, placeOf(s, player), s.rules.actRadius);
@@ -624,26 +707,49 @@ export function activeResidents(s, player) {
     (id) => !isPlayer(s, id) && near.has(placeOf(s, id)),
   );
 }
+// Awake players within reach of a resident.
+export function playersNear(s, resident) {
+  const near = distances(s, placeOf(s, resident), s.rules.actRadius);
+  return avatarOrder(s).filter(
+    (id) => isPlayer(s, id) && awake(s, id) && near.has(placeOf(s, id)),
+  ).length;
+}
+// A resident acts once for every play by each player near it, so it keeps one
+// player's pace however many players share its part of the world.
+function residentsToAct(s, player) {
+  return activeResidents(s, player).filter((id) => {
+    const a = s.avatars[id];
+    a.heard += 1;
+    if (a.heard < Math.max(1, playersNear(s, id))) return false;
+    a.heard = 0;
+    return true;
+  });
+}
 
+// A play is checked against the world as it is when it arrives, not as the
+// player last saw it. Another player's move can make a card stale; it is
+// refused only if it is no longer legal. `stale` tells the client to redraw.
 export function play(s, action, expectedRevision = s.revision) {
-  if (expectedRevision !== s.revision)
-    return {
-      ok: false,
-      state: s,
-      error: "The world changed. Choose a current play.",
-    };
   const actor = action?.actor;
-  const exact =
-    actor && isPlayer(s, actor)
-      ? legalActions(s, actor).find((a) => a.key === action.key)
-      : null;
-  if (!exact)
+  if (!actor || !isPlayer(s, actor))
     return {
       ok: false,
       state: s,
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  // A sleeping player wakes by playing.
+  if (asleep(next, actor)) {
+    next.avatars[actor].asleep = false;
+    addLog(next, `${nameOf(next, actor)} wakes.`, { actorId: actor });
+  }
+  const exact = legalActions(next, actor).find((a) => a.key === action.key);
+  if (!exact)
+    return {
+      ok: false,
+      state: s,
+      error: "That play has changed. Check the cards and choose again.",
+    };
   next.turn += 1;
   next.revision += 1;
   const met = new Map();
@@ -651,13 +757,15 @@ export function play(s, action, expectedRevision = s.revision) {
   const round = newRound();
   perform(next, exact, round);
   captureHands(next, met);
-  const active = activeResidents(next, actor);
-  for (const resident of active) {
+  const acting = residentsToAct(next, actor);
+  for (const resident of acting) {
     perform(next, plan(next, resident).action, round);
     captureHands(next, met);
   }
   advanceQuests(next, met, round);
-  refreshStalledQuests(next, [actor, ...active]);
+  refreshStalledQuests(next, [actor, ...acting]);
+  next.offers = next.offers.filter((o) => offerStands(next, o));
+  settleStandoffs(next);
   for (const spawn of applySpawns(next, round))
     addLog(next, spawnText(next, spawn), {
       kind: "spawn",
@@ -666,6 +774,38 @@ export function play(s, action, expectedRevision = s.revision) {
       claim: spawn.key,
     });
   ensureQuests(next);
+  validateWorld(next);
+  return { ok: true, state: next, stale: expectedRevision !== s.revision };
+}
+
+// A player joins the shared world. The runtime journals this like a play.
+export function join(s, { id, name, text = "", place }) {
+  if (!ID.test(id || "") || s.places[id] || s.avatars[id] || s.items[id])
+    return { ok: false, state: s, error: "Choose an unused avatar id." };
+  if (!s.places[place])
+    return { ok: false, state: s, error: "Choose a place in this world." };
+  const next = structuredClone(s);
+  next.avatars[id] = newAvatar(entity({ name, text }), "player", place);
+  next.revision += 1;
+  ensureQuests(next);
+  addLog(next, `${nameOf(next, id)} arrives at ${nameOf(next, place)}.`, {
+    actorId: id,
+  });
+  validateWorld(next);
+  return { ok: true, state: next };
+}
+
+// A player leaves the table. The runtime journals this when a session ends.
+// The avatar stays where it is with everything it holds until it plays again.
+export function rest(s, player) {
+  if (!isPlayer(s, player) || asleep(s, player))
+    return { ok: false, state: s, error: "Only an awake player can rest." };
+  const next = structuredClone(s);
+  next.avatars[player].asleep = true;
+  next.revision += 1;
+  addLog(next, `${nameOf(next, player)} falls asleep.`, { actorId: player });
+  next.offers = next.offers.filter((o) => offerStands(next, o));
+  settleStandoffs(next);
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -756,13 +896,17 @@ export function validateWorld(s) {
       !["player", "resident"].includes(a.role) ||
       !s.places[a.place] ||
       !Number.isInteger(a.lastTalk) ||
-      !Number.isInteger(a.peaceUntil)
+      !Number.isInteger(a.peaceUntil) ||
+      !Number.isInteger(a.heard) ||
+      a.heard < 0 ||
+      typeof a.asleep !== "boolean" ||
+      (a.asleep && a.role !== "player")
     )
       fail(`avatar ${id} is invalid`);
     const p = a.progress;
     if (
       !p ||
-      ![p.program, p.step, p.completedHands].every(
+      ![p.program, p.step, p.completedHands, p.idle, p.drift].every(
         (v) => Number.isInteger(v) && v >= 0,
       ) ||
       !Array.isArray(p.marks) ||
@@ -791,6 +935,21 @@ export function validateWorld(s) {
       (c.item !== null && !s.items[c.item])
     )
       fail("a standoff is invalid");
+  if (
+    !Array.isArray(s.offers) ||
+    !Number.isInteger(s.offerSeq) ||
+    s.offers.some(
+      (o) =>
+        !isPlayer(s, o.from) ||
+        !isPlayer(s, o.to) ||
+        o.from === o.to ||
+        !s.items[o.give] ||
+        !s.items[o.receive] ||
+        !s.places[o.place] ||
+        !Number.isInteger(o.turn),
+    )
+  )
+    fail("an offer is invalid");
   if (
     !Array.isArray(s.log) ||
     s.log.length > 100 ||

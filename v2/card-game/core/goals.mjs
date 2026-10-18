@@ -38,6 +38,9 @@ export const meet = (items, avatar, locations) =>
 export const carryTo = (items, location) => hand(hold(...items), at(location));
 
 export const restingHand = () => ({ items: [], location: null, avatars: [] });
+// Stalls are counted in the avatar's own acts, not world turns, so a crowded
+// world does not age one avatar's goal faster than another's. `idle` counts
+// acts since the last mark or new goal; `drift` counts acts since the last mark.
 export const newProgress = () => ({
   program: 0,
   step: 0,
@@ -45,9 +48,28 @@ export const newProgress = () => ({
   completedHands: 0,
   recent: [],
   current: null,
+  idle: 0,
+  drift: 0,
+});
+// Every avatar record has the same fields, whether it comes from a seed, a
+// spawn rule, or a player joining. `heard` counts nearby plays since a
+// resident last acted; `asleep` marks a player who has left the table.
+export const newAvatar = (entity, role, place) => ({
+  ...entity,
+  role,
+  place,
+  progress: newProgress(),
+  lastTalk: -9,
+  peaceUntil: 0,
+  heard: 0,
+  asleep: false,
 });
 
 export const isPlayer = (s, id) => s.avatars[id]?.role === "player";
+// A sleeping player is still in the world but takes no part in it: no one can
+// threaten, ask, or trade with it, and new goals leave its items alone.
+export const asleep = (s, id) => Boolean(s.avatars[id]?.asleep);
+export const awake = (s, id) => Boolean(s.avatars[id]) && !asleep(s, id);
 // Players act first in every ordering, so residents come to players.
 export const avatarOrder = (s) => {
   const ids = Object.keys(s.avatars);
@@ -140,7 +162,9 @@ export function generateQuest(
   // lock each other out. Players keep what they carry.
   const wantedElsewhere = (item) =>
     !isPlayer(s, avatar) &&
-    order.some((other) => other !== avatar && needed(s, other, item));
+    order.some(
+      (other) => other !== avatar && awake(s, other) && needed(s, other, item),
+    );
   const held = carried(s, avatar).filter((item) => !wantedElsewhere(item));
   const away = reachable.filter((place) => place !== here);
   // A long stall ends with an errand the avatar can finish alone. It keeps
@@ -162,6 +186,7 @@ export function generateQuest(
   const available = (item) => {
     const owner = holderOf(s, item);
     return (
+      !asleep(s, owner) &&
       (!independent || !isPlayer(s, owner)) &&
       near.has(itemPlace(s, item)) &&
       (!s.avatars[owner] || owner === avatar || !needed(s, owner, item))
@@ -186,7 +211,9 @@ export function generateQuest(
   });
   if (!candidates.length)
     candidates = rotated.filter(
-      (item) => !independent || !isPlayer(s, holderOf(s, item)),
+      (item) =>
+        !asleep(s, holderOf(s, item)) &&
+        (!independent || !isPlayer(s, holderOf(s, item))),
     );
   if (!candidates.length) return errand();
   const recent = progress.recent;
@@ -208,7 +235,8 @@ export function generateQuest(
   // resident, wherever it is.
   const counterpart = (other) => isPlayer(s, other) !== isPlayer(s, avatar);
   const others = order.filter(
-    (other) => other !== avatar && near.has(s.avatars[other].place),
+    (other) =>
+      other !== avatar && awake(s, other) && near.has(s.avatars[other].place),
   );
   const company = others.filter(counterpart).length
     ? others.filter(counterpart)
@@ -216,7 +244,9 @@ export function generateQuest(
   const everywhere = distances(s, here);
   const nearest = isPlayer(s, avatar)
     ? order
-        .filter((other) => other !== avatar && counterpart(other))
+        .filter(
+          (other) => other !== avatar && awake(s, other) && counterpart(other),
+        )
         .sort(
           (a, b) =>
             (everywhere.get(s.avatars[a].place) ?? Infinity) -
@@ -247,6 +277,7 @@ export function generateQuest(
     order.some(
       (other) =>
         other !== avatar &&
+        awake(s, other) &&
         counterpart(other) &&
         s.avatars[other].place === place,
     ),
