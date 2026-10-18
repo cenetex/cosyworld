@@ -122,6 +122,10 @@ fn app_router_with_dependencies(
         .merge(card_game::router(
             std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
         ))
+        .merge(card_game::text_router(
+            state.ai_config.clone(),
+            std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
+        ))
         .route("/moderation", get(moderation_console))
         .route(
             "/assets/packs/{pack_id}/{*asset_path}",

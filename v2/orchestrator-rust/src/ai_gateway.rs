@@ -1,3 +1,6 @@
+#[path = "ai_gateway_stream.rs"]
+mod streaming;
+
 #[path = "ai_registry.rs"]
 mod registry;
 
@@ -1361,6 +1364,22 @@ pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
+    request_chat_completion_progress(config, request, None).await
+}
+
+pub(crate) async fn request_chat_completion_stream(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    on_delta: &(dyn Fn(&str) -> bool + Send + Sync),
+) -> Result<AiCompletion, AiGatewayError> {
+    request_chat_completion_progress(config, request, Some(on_delta)).await
+}
+
+async fn request_chat_completion_progress(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<AiCompletion, AiGatewayError> {
     let selection = config
         .pin_model(request.capability)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
@@ -1391,6 +1410,7 @@ pub(crate) async fn request_chat_completion(
         raw_mode,
         selection.sends_openrouter_zdr_constraint(),
         Some(&selection),
+        on_delta,
     )
     .await
 }
@@ -1438,6 +1458,7 @@ pub(crate) async fn request_chat_completion_with_selection(
         raw_mode,
         selection.sends_openrouter_zdr_constraint(),
         Some(selection),
+        None,
     )
     .await
 }
@@ -1476,6 +1497,7 @@ pub(crate) async fn request_routed_chat_completion(
         config.reasoning_effort.as_deref(),
         false,
         false,
+        None,
         None,
     )
     .await
@@ -3191,6 +3213,7 @@ pub(crate) async fn request_image_policy_decision(
         false,
         false,
         None,
+        None,
     )
     .await?;
     let mut decision =
@@ -3409,6 +3432,7 @@ async fn request_completion(
     raw_mode: bool,
     enforce_zero_data_retention: bool,
     selection: Option<&PinnedModelSelection>,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
     let context_hash = {
@@ -3494,6 +3518,10 @@ async fn request_completion(
             "model": model,
             "messages": messages
         });
+        if on_delta.is_some() {
+            payload["stream"] = json!(true);
+            payload["stream_options"] = json!({ "include_usage": true });
+        }
         if !provider_managed_reasoning {
             payload["max_tokens"] = json!(max_tokens);
         }
@@ -3636,12 +3664,23 @@ async fn request_completion(
             ));
         };
 
-        let body: serde_json::Value = response.json().await.map_err(|error| AiGatewayError {
-            kind: AiFailureKind::InvalidResponse,
-            message: format!("{feature} response was not valid JSON: {error}"),
-            attempts: attempt,
-            latency: started_at.elapsed(),
-        })?;
+        let body: serde_json::Value = if let Some(on_delta) = on_delta {
+            streaming::read_completion(response, on_delta, selection)
+                .await
+                .map_err(|message| AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{feature} stream failed: {message}"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                })?
+        } else {
+            response.json().await.map_err(|error| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response was not valid JSON: {error}"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?
+        };
         let first_choice = body
             .get("choices")
             .and_then(|choices| choices.get(0))

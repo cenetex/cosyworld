@@ -71,29 +71,25 @@ export function sceneLines(world) {
   return world.log
     .map((entry, index) => ({ ...entry, index }))
     .filter(
-      (e) =>
-        !["input", "hint"].includes(entryKind(e)) &&
-        (!e.locationId || e.locationId === here),
+      (e) => e.generated === true && (!e.locationId || e.locationId === here),
     );
 }
 export function currentScene(world, lineIndex = null) {
   const lines = sceneLines(world);
-  const line = lines.find((e) => e.index === lineIndex) ||
-    lines.findLast(
-      (e) =>
-        e.kind === "quest" && e.actorId === "vale" && e.turn === world.turn,
-    ) ||
-    lines.at(-1) || {
-      text: places[world.actors.vale.place].text,
-      speaker: "World",
-      index: world.log.length - 1,
-    };
+  const line = lines.find((e) => e.index === lineIndex) || lines.at(-1) || null;
+  const previous = lines[lines.indexOf(line) - 1] || null;
   return {
     locationId: world.actors.vale.place,
     background: backdrop(world.actors.vale.place),
-    slots: sceneCast(world, line.index, lineIndex === null ? null : line.cast),
-    activeSpeaker: entryKind(line) === "dialogue" ? speakerId(line) : null,
+    slots: sceneCast(
+      world,
+      line?.index,
+      lineIndex === null ? null : line?.cast,
+    ),
+    activeSpeaker:
+      line && entryKind(line) === "dialogue" ? speakerId(line) : null,
     line,
+    previous,
     lines,
   };
 }
@@ -122,6 +118,7 @@ export function sceneScript(world) {
       name: p.name,
       cutout: portrait(id),
     })),
+    memories: structuredClone(world.memories),
     beats: world.log.map((e, index) => ({
       id: e.seq || index + 1,
       turn: e.turn,

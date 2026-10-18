@@ -1,3 +1,7 @@
+import {
+  narrativeContext,
+  applyGeneratedText,
+} from "../v2/card-game/narrative.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -54,6 +58,15 @@ describe("JRPG scenes", () => {
   it("shows the recorded cast when reading an earlier line", () => {
     let s = act(createWorld(), "wait");
     s = act(s, "talk", null, "moth");
+    const context = narrativeContext(s, { target: "moth" });
+    s = applyGeneratedText(s, context, {
+      revision: s.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: `${id} remembers the meeting.`,
+      })),
+    });
     const spoken = s.log.findIndex(
       (e) => e.kind === "dialogue" && e.actorId === "moth",
     );
@@ -110,7 +123,7 @@ describe("JRPG scenes", () => {
     dialogue(s, "vale", { kind: "action", verb: "move" });
     expect(sceneCast(s)).toEqual(["vale", "moth"]);
   });
-  it("reads earlier command records while local dialogue leads the scene", () => {
+  it("keeps action records in the export while generated dialogue leads the scene", () => {
     let s = createWorld();
     for (const kind of ["input", "hint"]) {
       s.log.push({
@@ -123,18 +136,46 @@ describe("JRPG scenes", () => {
         text: "take lamp",
       });
     }
+    dialogue(s, "keeper", {
+      speaker: "The keeper",
+      text: "I want to hold Black cloth at Mirror attic.",
+    });
     s = decodeSave(encodeSave(s));
-    expect(sceneLines(s)).toHaveLength(1);
-    expect(currentScene(s).line.speaker).toBe("World");
-    expect(sceneScript(s).beats.at(-1).kind).toBe("hint");
+    expect(sceneLines(s)).toHaveLength(0);
+    expect(currentScene(s).line).toBeNull();
+    expect(sceneScript(s).beats.some((beat) => beat.kind === "hint")).toBe(
+      true,
+    );
     s = act(s, "take", "lamp");
     s = act(s, "talk", null, "moth");
+    const context = narrativeContext(s, { target: "moth" });
+    s = applyGeneratedText(s, context, {
+      revision: s.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: `${id} remembers the meeting.`,
+      })),
+    });
     const spoken = s.log.findLastIndex((e) => e.kind === "dialogue");
-    expect(currentScene(s, spoken).activeSpeaker).toBe("vale");
+    expect(currentScene(s, spoken).activeSpeaker).toBe("moth");
     expect(
       sceneLines(s).some((e) => e.actorId === "moth" && e.kind === "dialogue"),
     ).toBe(true);
     expect(currentScene(s).slots).toEqual(["vale", "moth"]);
+    const scene = currentScene(s);
+    expect(scene.previous.actorId).toBe("vale");
+    expect(scene.previous.generated).toBe(true);
+    expect(scene.line.actorId).toBe("moth");
+    expect(sceneLines(s).every((line) => line.generated)).toBe(true);
+    const restored = decodeSave(encodeSave(s));
+    expect(currentScene(restored).previous).toEqual(scene.previous);
+    expect(currentScene(restored).line).toEqual(scene.line);
+    const pending = act(s, "wait");
+    expect(currentScene(pending).line).toEqual(scene.line);
+    expect(currentScene(pending, scene.previous.index).line).toEqual(
+      scene.previous,
+    );
   });
   it("exports ordered acts, local cast, object custody and image references", () => {
     const s = act(createWorld(), "take", "lamp");
@@ -177,10 +218,12 @@ describe("JRPG scenes", () => {
   });
   it("restores earlier saves and assigns event order on the next action", () => {
     const s = createWorld();
+    s.schema = 3;
+    delete s.memories;
     delete s.eventSeq;
     s.log = s.log.map(({ turn, speaker, text }) => ({ turn, speaker, text }));
     const restored = decodeSave(JSON.stringify(s));
-    expect(currentScene(restored).line.text).toBe(s.log[0].text);
+    expect(currentScene(restored).line).toBeNull();
     expect(sceneScript(restored).beats[0].locationId).toBe(null);
     const next = act(restored, "take", "lamp");
     expect(next.log.map((e) => e.seq)).toEqual(next.log.map((_, i) => i + 1));

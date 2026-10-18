@@ -264,11 +264,9 @@ describe("card trade rules", () => {
     ).toBe(false);
     const next = cards(s, "vale");
     expect(next.items.lamp.holder).toBe("vale");
-    expect(
-      next.log.some(
-        (e) => e.actorId === "moth" && e.text.includes("May I have"),
-      ),
-    ).toBe(true);
+    expect(next.log.some((e) => e.actorId === "moth" && e.verb === "ask")).toBe(
+      true,
+    );
   });
   it("lets two cast members make a mutually useful trade", () => {
     let s = createWorld();
@@ -363,7 +361,7 @@ describe("quest saves and scene records", () => {
     legacy.items.lamp.holder = "vale";
     legacy.actors.vale.place = "pond";
     const restored = decodeSave(JSON.stringify(legacy));
-    expect(restored.schema).toBe(3);
+    expect(restored.schema).toBe(5);
     expect(restored.items).toEqual(legacy.items);
     expect(restored.log).toEqual(legacy.log);
     expect(restored.actors.vale.place).toBe("pond");

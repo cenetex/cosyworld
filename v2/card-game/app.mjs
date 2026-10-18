@@ -1,3 +1,4 @@
+import { createNarrator } from "./narrative.mjs";
 import {
   places,
   people,
@@ -14,9 +15,18 @@ import {
   handStatus,
   handText,
   tradeOffers,
+  standoffFor,
+  opponentOf,
+  strikePower,
 } from "./world.mjs";
 import { currentScene, sceneScript, portrait } from "./scene.mjs";
-import { availableCards, cardType, cardPlay, playLabel } from "./cards.mjs";
+import {
+  availableCards,
+  cardType,
+  cardPlay,
+  playLabel,
+  avatarPlays,
+} from "./cards.mjs";
 import {
   questPrograms,
   desireFor,
@@ -82,6 +92,26 @@ function save() {
     );
   }
 }
+let storyStatus = "ready",
+  storyPreview = null,
+  renderedCast = "";
+const narrator = createNarrator({
+  getWorld: () => world,
+  apply: (next) => {
+    world = next;
+    lineIndex = null;
+    save();
+    render();
+  },
+  preview: (value) => {
+    storyPreview = value;
+    renderScene();
+  },
+  status: (value) => {
+    storyStatus = value;
+    renderScene();
+  },
+});
 function status(id) {
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
@@ -115,7 +145,11 @@ function commit(cards, revision) {
     $("play-readout").textContent = resolved.hint;
     return;
   }
-  const result = play(world, resolved.action, revision);
+  commitAction(resolved.action, revision);
+}
+function commitAction(action, revision) {
+  if (saveBlocked) return;
+  const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
     selected = [];
@@ -128,6 +162,7 @@ function commit(cards, revision) {
   notice("");
   save();
   render();
+  narrator.changed(action);
 }
 function card(id) {
   const type = cardType(id),
@@ -147,9 +182,10 @@ function card(id) {
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   el.title =
-    type === "avatar"
+    world.memories[id].text ||
+    (type === "avatar"
       ? `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
-      : def.text;
+      : def.text);
   el.append(
     node(
       "span",
@@ -193,7 +229,10 @@ function card(id) {
         ? "Pass a turn · pair to put down"
         : "Travel · carry your items";
   }
-  el.append(node("span", caption, "caption"));
+  const conflict = type === "avatar" ? standoffFor(world, id) : null;
+  if (conflict)
+    caption = `Facing ${nameOf(opponentOf(conflict, id))} · Resolve ${conflict.resolve[id]}/4${conflict.guarding[id] ? " · Guarding" : ""}`;
+  el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
   if (type === "avatar") {
@@ -299,42 +338,136 @@ function card(id) {
     dragging = [];
     $("stage").classList.remove("ready", "drag-over");
   });
-  return el;
+  const frame = node("div", undefined, "card-frame");
+  frame.dataset.raised = String(raised);
+  frame.append(el);
+  if (type === "avatar") {
+    el.classList.add("has-options");
+    const options = node("div", undefined, "card-options");
+    const revision = world.revision;
+    for (const action of avatarPlays(world, id)) {
+      const button = node("button", playLabel(action));
+      button.type = "button";
+      button.disabled = saveBlocked;
+      button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
+      button.title =
+        action.kind === "threaten"
+          ? `Open a standoff${action.item ? ` over ${nameOf(action.item)}` : ""}.`
+          : action.kind === "guard"
+            ? "Reduce the next hit by 1. Guard lasts until your next play."
+            : action.kind === "attack"
+              ? `${strikePower(world, "vale", action.target)} resolve damage. At zero, the loser drops the disputed item and retreats.`
+              : action.text;
+      button.addEventListener("click", () => commitAction(action, revision));
+      options.append(button);
+    }
+    frame.append(options);
+  }
+  return frame;
 }
 function renderScene() {
-  const scene = currentScene(world, lineIndex);
+  let scene = currentScene(world, lineIndex);
+  const streaming =
+    lineIndex === null && storyPreview?.context.revision === world.revision;
+  const draft = streaming
+    ? storyPreview.entries.map(({ id, text }) => ({
+        text,
+        speaker: nameOf(id),
+        actorId: id,
+        entityId: id,
+        turn: world.turn,
+        generated: true,
+      }))
+    : [];
+  if (draft.length)
+    scene = {
+      ...scene,
+      line: draft.at(-1),
+      previous: draft.at(-2) || scene.line,
+      activeSpeaker: draft.at(-1).actorId,
+      slots: [...storyPreview.context.speakers, null].slice(0, 2),
+    };
+  const inspected =
+    selected.length === 1 && world.memories[selected[0]]?.text
+      ? selected[0]
+      : null;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
-  $("cast").replaceChildren(
-    ...scene.slots.map((id) => {
-      if (!id) return node("div", "", "portrait empty");
-      const button = node(
-        "div",
-        undefined,
-        `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
-      );
-      button.setAttribute("aria-label", nameOf(id));
-      const image = node("img");
-      image.src = portrait(id);
-      image.alt = "";
-      button.append(
-        image,
-        node(
-          "span",
-          `${nameOf(id)} · Lv ${levelOf(world, id)}`,
-          "portrait-name",
-        ),
-      );
-      return button;
-    }),
-  );
-  $("speaker").textContent = scene.line.speaker;
-  $("line-turn").textContent = `Turn ${scene.line.turn ?? world.turn}`;
-  $("dialogue-text").textContent = scene.line.text;
-  const at = scene.lines.findIndex((e) => e.index === scene.line.index);
-  $("previous-line").disabled = at <= 0;
-  $("next-line").disabled = at >= scene.lines.length - 1;
+  const castKey = JSON.stringify([
+    scene.slots,
+    scene.activeSpeaker,
+    scene.slots.map((id) => id && levelOf(world, id)),
+  ]);
+  if (castKey !== renderedCast) {
+    renderedCast = castKey;
+    $("cast").replaceChildren(
+      ...scene.slots.map((id) => {
+        if (!id) return node("div", "", "portrait empty");
+        const button = node(
+          "div",
+          undefined,
+          `portrait ${scene.activeSpeaker === id ? "active" : ""}`,
+        );
+        button.setAttribute("aria-label", nameOf(id));
+        const image = node("img");
+        image.src = portrait(id);
+        image.alt = "";
+        button.append(
+          image,
+          node(
+            "span",
+            `${nameOf(id)} · Lv ${levelOf(world, id)}`,
+            "portrait-name",
+          ),
+        );
+        return button;
+      }),
+    );
+  }
+  const previous =
+    inspected && world.memories[inspected].text !== scene.line?.text
+      ? scene.line
+      : scene.previous;
+  $("prior-response").hidden = !previous;
+  $("prior-speaker").textContent = previous?.speaker || "";
+  $("prior-text").textContent = previous?.text || "";
+  const priorId =
+    previous?.entityId || previous?.actorId || previous?.locationId;
+  const priorPortrait = $("prior-portrait");
+  priorPortrait.replaceChildren();
+  if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
+  else if (priorId) {
+    const image = node("img");
+    image.src = portrait(priorId);
+    image.alt = "";
+    priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
+    priorPortrait.append(image);
+  }
+  $("speaker").textContent = inspected
+    ? nameOf(inspected)
+    : scene.line?.speaker || "";
+  $("line-turn").textContent = inspected
+    ? `Turn ${world.memories[inspected].turn}`
+    : storyStatus === "pending"
+      ? draft.length
+        ? "Speaking…"
+        : "Finding words…"
+      : storyStatus === "retry"
+        ? "Story text will try again with your next play"
+        : scene.line
+          ? `Turn ${scene.line.turn}`
+          : "";
+  $("dialogue-text").textContent = inspected
+    ? world.memories[inspected].text
+    : scene.line?.text || "";
+  $("dialogue-text").setAttribute("aria-busy", String(Boolean(draft.length)));
+  $("dialogue-text").hidden = !$("dialogue-text").textContent;
+  const at = scene.lines.findIndex((e) => e.index === scene.line?.index);
+  $("previous-line").disabled =
+    Boolean(inspected) || Boolean(draft.length) || at <= 0;
+  $("next-line").disabled =
+    Boolean(inspected) || Boolean(draft.length) || at >= scene.lines.length - 1;
   $("previous-line").onclick = () => {
     lineIndex = scene.lines[at - 1].index;
     renderScene();
@@ -348,16 +481,17 @@ let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const conversation = world.log.filter((entry) => entry.generated === true);
   let common = 0;
   while (
     common < renderedLog.length &&
-    common < world.log.length &&
-    renderedLog[common] === JSON.stringify(world.log[common])
+    common < conversation.length &&
+    renderedLog[common] === JSON.stringify(conversation[common])
   )
     common++;
   // Preserve existing nodes so screen readers announce only new messages.
   while (box.children.length > common) box.lastChild.remove();
-  for (const entry of world.log.slice(common)) {
+  for (const entry of conversation.slice(common)) {
     const item = node(
       "div",
       undefined,
@@ -368,7 +502,7 @@ function renderLog() {
     item.append(by, node("p", entry.text));
     box.append(item);
   }
-  renderedLog = world.log.map((e) => JSON.stringify(e));
+  renderedLog = conversation.map((e) => JSON.stringify(e));
   if (atEnd || common === 0) box.scrollTop = box.scrollHeight;
 }
 
@@ -501,6 +635,7 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
+  narrator.invalidate();
   world = createWorld();
   lineIndex = null;
   selected = [];
@@ -509,9 +644,11 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   render();
+  narrator.changed();
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
+  narrator.invalidate();
   try {
     world = decodeSave(event.newValue);
     lineIndex = null;
@@ -519,6 +656,7 @@ window.addEventListener("storage", (event) => {
     saveBlocked = false;
     notice("The world was updated in another tab.");
     render();
+    if (!currentScene(world).line) narrator.changed();
   } catch {
     saveBlocked = true;
     notice(
@@ -528,3 +666,4 @@ window.addEventListener("storage", (event) => {
   }
 });
 render();
+if (!saveBlocked && !currentScene(world).line) narrator.changed();

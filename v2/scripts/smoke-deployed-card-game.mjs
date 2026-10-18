@@ -14,6 +14,9 @@ const files = [
   "scene.mjs",
   "cards.mjs",
   "quests.mjs",
+  "memory.mjs",
+  "narrative.mjs",
+  "entity-profiles.json",
   ...["station", "attic", "pond", "vale", "moth", "keeper"].map(
     (id) => `assets/${id}.png`,
   ),
@@ -35,11 +38,13 @@ for (const target of targets) {
     );
     const expectedType = file.endsWith(".png")
       ? "image/png"
-      : file.endsWith(".mjs")
-        ? "text/javascript"
-        : file.endsWith(".css")
-          ? "text/css"
-          : "text/html";
+      : file.endsWith(".json")
+        ? "application/json"
+        : file.endsWith(".mjs")
+          ? "text/javascript"
+          : file.endsWith(".css")
+            ? "text/css"
+            : "text/html";
     assert(
       response.headers.get("content-type")?.startsWith(expectedType),
       `${url}: content type`,

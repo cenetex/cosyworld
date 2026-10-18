@@ -198,7 +198,7 @@ describe("the reflected shore card game", () => {
       play(s, plan(s).action),
     );
     expect(() => decodeSave("{")).toThrow();
-    expect(() => decodeSave(JSON.stringify({ ...s, schema: 4 }))).toThrow();
+    expect(() => decodeSave(JSON.stringify({ ...s, schema: 6 }))).toThrow();
     const broken = structuredClone(s);
     broken.items.cloth.holder = "cloth";
     expect(() => validateWorld(broken)).toThrow();

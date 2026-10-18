@@ -1,3 +1,17 @@
+#[path = "card_narrative.rs"]
+mod narrative;
+
+pub(super) fn text_router<S: Clone + Send + Sync + 'static>(
+    ai: std::sync::Arc<Option<crate::ai_gateway::AiConfig>>,
+    primary: bool,
+) -> Router<S> {
+    if primary {
+        narrative::router(ai)
+    } else {
+        Router::new()
+    }
+}
+
 use axum::{
     extract::Path,
     http::{header, StatusCode},
@@ -6,7 +20,7 @@ use axum::{
     Router,
 };
 
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'";
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'";
 
 pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<S> {
     Router::new()
@@ -66,6 +80,18 @@ fn serve(path: &str) -> Response {
         "quests.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quests.mjs"),
+        ),
+        "memory.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/memory.mjs"),
+        ),
+        "narrative.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/narrative.mjs"),
+        ),
+        "entity-profiles.json" => (
+            "application/json; charset=utf-8",
+            include_bytes!("../../card-game/entity-profiles.json"),
         ),
         "assets/station.png" => (
             "image/png",
@@ -159,6 +185,9 @@ mod tests {
             "scene.mjs",
             "cards.mjs",
             "quests.mjs",
+            "memory.mjs",
+            "narrative.mjs",
+            "entity-profiles.json",
             "assets/station.png",
             "assets/attic.png",
             "assets/pond.png",
