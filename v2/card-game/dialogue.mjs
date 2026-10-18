@@ -1,9 +1,7 @@
 // A complete line gets its own clock, independent of network chunk timing.
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 export function splitLetters(text) {
-  return Array.from(
-    new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
-    ({ segment }) => segment,
-  );
+  return Array.from(segmenter.segment(text), ({ segment }) => segment);
 }
 export function letterDelay(letter) {
   if (/[.!?…]/u.test(letter)) return 180;
@@ -14,28 +12,48 @@ export function createTextReveal({
   frame,
   sound = () => {},
   reduced = () => false,
+  now = () => performance.now(),
+  requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
+  cancelFrame = globalThis.cancelAnimationFrame?.bind(globalThis),
 }) {
   let current = null,
     timer = null,
-    paused = false;
+    paused = false,
+    due = 0,
+    remaining = 28;
   const stop = () => {
-    clearTimeout(timer);
+    if (requestFrame) cancelFrame(timer);
+    else clearTimeout(timer);
     timer = null;
   };
   const emit = () =>
     frame({ ...current, complete: current.shown === current.letters.length });
-  function schedule(delay = 28) {
+  function queue() {
     if (!paused && current && current.shown < current.letters.length)
-      timer = setTimeout(step, delay);
+      timer = requestFrame
+        ? requestFrame(step)
+        : setTimeout(step, Math.max(0, due - now()));
+  }
+  function schedule(delay = 28) {
+    due = now() + delay;
+    queue();
   }
   function step() {
     timer = null;
     if (!current || paused) return;
+    const time = now();
+    if (time < due) {
+      queue();
+      return;
+    }
     const letter = current.letters[current.shown++];
     if (!reduced() && /[\p{L}\p{N}]/u.test(letter) && current.shown % 2 === 1)
       sound(current.speaker, letter, current.shown);
     emit();
-    schedule(letterDelay(letter));
+    // Keep the cadence through small frame delays. A slow frame reveals one
+    // letter, so returning from a busy frame keeps the words readable.
+    due = Math.max(due + letterDelay(letter), time);
+    queue();
   }
   return {
     show(key, text, speaker, { instant = false } = {}) {
@@ -49,6 +67,7 @@ export function createTextReveal({
         letters,
         shown: instant || reduced() ? letters.length : 0,
       };
+      remaining = 28;
       emit();
       schedule();
     },
@@ -59,9 +78,11 @@ export function createTextReveal({
       emit();
     },
     pause(value) {
+      if (paused === value) return;
+      if (value) remaining = Math.max(0, due - now());
       paused = value;
       stop();
-      if (!paused) schedule();
+      if (!paused) schedule(remaining);
     },
     cancel() {
       stop();

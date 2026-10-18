@@ -84,6 +84,55 @@ describe("paced conversation", () => {
     vi.advanceTimersByTime(28);
     expect(last().shown).toBe(3);
   });
+  it("keeps the rest of a punctuation pause when a menu closes", () => {
+    const { reveal, last } = player();
+    reveal.show("a", "Hi, Pip", "vale");
+    vi.advanceTimersByTime(100);
+    expect(last().shown).toBe(3);
+    reveal.pause(true);
+    vi.advanceTimersByTime(10000);
+    reveal.pause(false);
+    vi.advanceTimersByTime(73);
+    expect(last().shown).toBe(3);
+    vi.advanceTimersByTime(1);
+    expect(last().shown).toBe(4);
+  });
+  it("uses paint frames and reveals one letter after a slow frame", () => {
+    let time = 0,
+      callback = null;
+    const frame = vi.fn(),
+      sound = vi.fn(),
+      cancelFrame = vi.fn();
+    const reveal = createTextReveal({
+      frame,
+      sound,
+      now: () => time,
+      requestFrame: (next) => {
+        callback = next;
+        return 1;
+      },
+      cancelFrame,
+    });
+    const tick = (at) => {
+      time = at;
+      callback();
+    };
+    reveal.show("a", "Readable words", "vale");
+    tick(16);
+    expect(frame.mock.lastCall[0].shown).toBe(0);
+    tick(32);
+    expect(frame.mock.lastCall[0].shown).toBe(1);
+    tick(48);
+    expect(frame.mock.lastCall[0].shown).toBe(1);
+    tick(64);
+    expect(frame.mock.lastCall[0].shown).toBe(2);
+    tick(600);
+    expect(frame.mock.lastCall[0].shown).toBe(3);
+    expect(sound).toHaveBeenCalledTimes(2);
+    reveal.finish();
+    expect(cancelFrame).toHaveBeenLastCalledWith(1);
+    expect(frame.mock.lastCall[0].complete).toBe(true);
+  });
   it("shows whole lines for reduced motion and existing lines while waiting", () => {
     for (const options of [{ reduced: () => true }, {}]) {
       const { reveal, last, sound } = player(options);
