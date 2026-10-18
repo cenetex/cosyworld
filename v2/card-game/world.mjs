@@ -109,7 +109,7 @@ export function createWorld() {
         ],
         light: false,
         speaker: "World",
-        text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants a different hand. Something under the pond is listening.",
+        text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants something ... different. Under the pond, a presence is listening.",
       },
     ],
   };
