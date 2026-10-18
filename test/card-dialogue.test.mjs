@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   createTextReveal,
+  createExchange,
   splitLetters,
   createSpeechSounds,
 } from "../v2/card-game/dialogue.mjs";
@@ -216,5 +217,120 @@ describe("short character voices", () => {
       unavailable.unlock();
       unavailable.syllable("vale", "a", 1);
     }).not.toThrow();
+  });
+});
+
+describe("one exchange per card play", () => {
+  function setup() {
+    vi.useFakeTimers();
+    const show = vi.fn(),
+      settled = vi.fn(),
+      busy = vi.fn();
+    const exchange = createExchange({ show, settled, busy });
+    const lines = [
+      { seq: 1, text: "Come with me." },
+      { seq: 2, text: "I am leaving for the pond.", departureTo: "pond" },
+    ];
+    return { exchange, lines, show, settled, busy };
+  }
+  it("holds cards through generation and every reply, then releases them", () => {
+    const { exchange, lines, show, settled, busy } = setup();
+    exchange.begin();
+    expect(busy).toHaveBeenLastCalledWith(true);
+    vi.advanceTimersByTime(2000);
+    expect(exchange.active).toBe(true);
+    exchange.load(lines);
+    expect(show).toHaveBeenLastCalledWith(lines[0]);
+    exchange.revealed(1, lines[0].text);
+    vi.advanceTimersByTime(1199);
+    expect(show).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(show).toHaveBeenLastCalledWith(lines[1]);
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(exchange.active).toBe(true);
+    exchange.revealed(2, lines[1].text);
+    vi.advanceTimersByTime(899);
+    expect(exchange.active).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(settled).toHaveBeenLastCalledWith(lines[1]);
+    expect(busy).toHaveBeenLastCalledWith(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("ignores old lines and lets a completed line advance once on a tap", () => {
+    const { exchange, lines, show } = setup();
+    exchange.begin();
+    exchange.load(lines);
+    exchange.revealed(99, "Old words");
+    exchange.advance();
+    expect(show).toHaveBeenCalledTimes(1);
+    exchange.revealed(1, lines[0].text);
+    exchange.advance();
+    exchange.advance();
+    vi.advanceTimersByTime(10000);
+    expect(show).toHaveBeenCalledTimes(2);
+    expect(exchange.current).toEqual(lines[1]);
+  });
+  it("gives a revealed or reduced-motion line time to be read", () => {
+    const { exchange, lines, show } = setup();
+    exchange.begin();
+    exchange.load(lines);
+    exchange.revealed(1, "A".repeat(200), true);
+    vi.advanceTimersByTime(4999);
+    expect(show).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+  it("pauses the reading beat in a menu or background tab", () => {
+    const { exchange, lines, show } = setup();
+    exchange.begin();
+    exchange.load(lines);
+    exchange.revealed(1, lines[0].text);
+    vi.advanceTimersByTime(500);
+    exchange.pause(true);
+    vi.advanceTimersByTime(20000);
+    expect(show).toHaveBeenCalledTimes(1);
+    exchange.pause(false);
+    vi.advanceTimersByTime(699);
+    expect(show).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+  it("waits for visibility when a whole line arrives while paused", () => {
+    const { exchange, lines, show } = setup();
+    exchange.begin();
+    exchange.pause(true);
+    exchange.load(lines);
+    exchange.revealed(1, lines[0].text);
+    vi.runAllTimers();
+    expect(show).toHaveBeenCalledTimes(1);
+    exchange.pause(false);
+    vi.advanceTimersByTime(1200);
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+  it("cancels timers on reset or provider failure and accepts a fresh turn", () => {
+    const { exchange, lines, show, busy } = setup();
+    exchange.begin();
+    exchange.load(lines);
+    exchange.revealed(1, lines[0].text);
+    exchange.cancel();
+    vi.runAllTimers();
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(busy).toHaveBeenLastCalledWith(false);
+    exchange.begin();
+    exchange.load([lines[1]]);
+    exchange.revealed(2, lines[1].text);
+    vi.runAllTimers();
+    expect(exchange.active).toBe(false);
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+  it("keeps repeated render callbacks from extending a completed line's beat", () => {
+    const { exchange, lines, show } = setup();
+    exchange.begin();
+    exchange.load(lines);
+    exchange.revealed(1, lines[0].text);
+    vi.advanceTimersByTime(1000);
+    exchange.revealed(1, lines[0].text);
+    vi.advanceTimersByTime(200);
+    expect(show).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,3 +1,4 @@
+import { sceneChanges } from "./scene.mjs";
 import { profiles } from "./memory.mjs";
 import {
   addLog,
@@ -21,7 +22,12 @@ export function narrativeContext(world, action = null) {
   const localItems = Object.keys(world.items).filter(
     (id) => itemPlace(world, id) === location,
   );
-  const ids = [location, ...localItems, ...present];
+  const changes = sceneChanges(world);
+  const departing = changes
+    .filter((change) => change.leaving)
+    .map((change) => change.actorId);
+  const audience = [...new Set([...present, ...departing])];
+  const ids = [location, ...localItems, ...audience];
   const focus = localItems.includes(action?.item) ? action.item : null;
   const played = world.log.findLast(
     (entry) =>
@@ -31,17 +37,47 @@ export function narrativeContext(world, action = null) {
   );
   const target = action?.target || played?.targetId;
   const partner =
-    present.includes(target) && target !== "vale"
+    audience.includes(target) && target !== "vale"
       ? target
-      : present.find((id) => id !== "vale");
-  const speakers = partner ? ["vale", partner] : ["vale"];
+      : departing[0] || present.find((id) => id !== "vale");
+  const speakers = [
+    ...new Set(
+      ["vale", partner, ...changes.map((change) => change.actorId)].filter(
+        Boolean,
+      ),
+    ),
+  ];
+  const events = world.log
+    .filter(
+      (entry) =>
+        entry.turn === world.turn &&
+        !entry.generated &&
+        (entry.locationId === location ||
+          entry.fromLocationId === location ||
+          entry.witnesses?.includes("vale")),
+    )
+    .slice(-8)
+    .map((entry) => entry.text);
+  const conversation = world.log
+    .filter(
+      (entry) =>
+        entry.generated &&
+        entry.kind === "dialogue" &&
+        entry.locationId === location &&
+        entry.turn < world.turn,
+    )
+    .slice(-4)
+    .map(({ actorId, text }) => ({ actorId, text }));
   return {
     revision: world.revision,
     turn: world.turn,
     location,
     focus,
     speakers,
-    action: played?.text || null,
+    action:
+      played?.text || (world.turn ? "Vale waits and watches the cast." : null),
+    events,
+    conversation,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
       const facts = [];
@@ -55,6 +91,13 @@ export function narrativeContext(world, action = null) {
           [played.actorId, played.targetId].includes(id)
         )
           facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+        const movement = changes.find((change) => change.actorId === id);
+        if (movement)
+          facts.push(
+            movement.leaving
+              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to Vale and name your destination and reason as you leave.`
+              : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`,
+          );
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
@@ -69,7 +112,7 @@ export function narrativeContext(world, action = null) {
           );
         if (desire.location)
           facts.push(
-            `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(location)}.`,
+            `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(world.actors[id].place)}.`,
           );
         if (desire.avatars.length)
           facts.push(
@@ -105,7 +148,7 @@ export function narrativeContext(world, action = null) {
       );
       return {
         id,
-        facts,
+        facts: facts.slice(0, 8),
         desire,
         memories: world.memories[id].events
           .slice(-8)
@@ -149,6 +192,17 @@ export function applyGeneratedText(world, context, response) {
       model: response.model,
     });
   }
+  const changes = sceneChanges(next);
+  const cast = [
+    ...new Set([
+      ...Object.keys(next.actors).filter(
+        (id) => next.actors[id].place === context.location,
+      ),
+      ...changes
+        .filter((change) => change.leaving)
+        .map((change) => change.actorId),
+    ]),
+  ];
   // Descriptions stay on cards; the current place, played item and speakers also
   // become scene beats, with the same cast and item snapshot as other events.
   for (const id of [
@@ -158,13 +212,18 @@ export function applyGeneratedText(world, context, response) {
   ].filter(Boolean)) {
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
+    const movement = changes.find((change) => change.actorId === id);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? "dialogue" : "narration",
       actorId: avatar ? id : null,
       entityId: id,
       generated: true,
       locationId: context.location,
+      cast: [...cast],
+      ...(movement?.leaving ? { departureTo: movement.to } : {}),
+      ...(movement && !movement.leaving ? { arrivalFrom: movement.from } : {}),
     });
+    if (movement?.leaving) cast.splice(cast.indexOf(id), 1);
   }
   return validateWorld(next);
 }

@@ -278,7 +278,7 @@ describe("accompany card requests", () => {
     world.memories.moth.text = "I will go with you.";
     const context = narrativeContext(world);
     expect(context.action).toContain("Pip declines the trip");
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     for (const id of ["vale", "moth"]) {
       const entity = context.entities.find((e) => e.id === id);
       expect(entity.facts[0]).toContain(

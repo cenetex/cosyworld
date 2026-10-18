@@ -65,6 +65,7 @@ export function createTextReveal({
         text,
         speaker,
         letters,
+        instant: instant || reduced(),
         shown: instant || reduced() ? letters.length : 0,
       };
       remaining = 28;
@@ -74,6 +75,7 @@ export function createTextReveal({
     finish() {
       stop();
       if (!current || current.shown === current.letters.length) return;
+      current.instant = true;
       current.shown = current.letters.length;
       emit();
     },
@@ -164,6 +166,101 @@ export function createSpeechSounds({
       };
       osc.start(now);
       osc.stop(now + 0.07);
+    },
+  };
+}
+
+// A turn owns its exchange until every reply has had a readable beat.
+// Existing dialogue controls can advance it; cards become ready at the end.
+export function createExchange({
+  show,
+  settled = () => {},
+  busy = () => {},
+  now = () => performance.now(),
+  setTimer = setTimeout,
+  clearTimer = clearTimeout,
+}) {
+  let active = false,
+    lines = [],
+    index = -1,
+    timer = null,
+    due = 0,
+    remaining = null,
+    paused = false,
+    completed = null;
+  function clear() {
+    if (timer !== null) clearTimer(timer);
+    timer = null;
+  }
+  function arm(delay) {
+    clear();
+    remaining = delay;
+    due = now() + delay;
+    if (!paused) timer = setTimer(advance, delay);
+  }
+  function finish() {
+    clear();
+    remaining = null;
+    active = false;
+    lines = [];
+    index = -1;
+    completed = null;
+    busy(false);
+  }
+  function advance() {
+    if (!active || index < 0 || completed !== lines[index]?.seq) return;
+    clear();
+    remaining = null;
+    settled(lines[index]);
+    completed = null;
+    if (++index < lines.length) show(lines[index]);
+    else finish();
+  }
+  return {
+    begin() {
+      clear();
+      remaining = null;
+      lines = [];
+      index = -1;
+      completed = null;
+      active = true;
+      busy(true);
+    },
+    load(value) {
+      if (!active) return;
+      lines = value;
+      index = 0;
+      if (lines.length) show(lines[0]);
+      else finish();
+    },
+    revealed(seq, text, instant = false) {
+      if (!active || seq !== lines[index]?.seq || completed === seq) return;
+      completed = seq;
+      arm(
+        index === lines.length - 1
+          ? 900
+          : instant
+            ? Math.min(9000, Math.max(2200, text.length * 25))
+            : Math.min(2800, Math.max(1200, text.length * 12)),
+      );
+    },
+    advance,
+    cancel: finish,
+    pause(value) {
+      if (paused === value) return;
+      if (value && timer !== null) remaining = Math.max(0, due - now());
+      paused = value;
+      clear();
+      if (!paused && remaining !== null) arm(remaining);
+    },
+    get active() {
+      return active;
+    },
+    get current() {
+      return active ? lines[index] || null : null;
+    },
+    get hasNext() {
+      return active && index >= 0 && index < lines.length - 1;
     },
   };
 }
