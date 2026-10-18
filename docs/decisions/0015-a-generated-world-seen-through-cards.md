@@ -87,8 +87,9 @@ the row and "target hand" for a goal.
 
 ### Core verbs
 
-The rules offer travel, take, put down, give, ask, trade, talk, and wait. Ask,
-give, and trade need the other avatar's consent. Consent comes from that
+The rules offer travel, take, put down, give, ask, trade, talk, and wait. Any
+avatar can threaten another over an item, which opens a standoff with guard and
+attack (#1073). Ask, give, and trade need the other avatar's consent. Consent comes from that
 avatar's current goals: it keeps what its goals need and offers its spares.
 Trades are atomic two-holder swaps. New verbs need a general rule over tags,
 never a rule for one entity.
