@@ -165,7 +165,7 @@ h1 {
 }
 .cast {
   position: absolute;
-  inset: 58px 12% 205px;
+  inset: 58px 12% 249px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -182,13 +182,13 @@ h1 {
   pointer-events: none;
   transition:
     filter 0.25s,
-    transform 0.25s;
+    opacity 0.3s,
+    transform 0.3s;
   filter: brightness(0.85);
   outline-offset: -4px;
 }
 .portrait.active {
   filter: brightness(1.13);
-  transform: translateY(-3px);
 }
 .portrait img {
   width: 100%;
@@ -228,6 +228,7 @@ h1 {
 }
 .prior-response {
   display: flex;
+  height: 66px;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid #ffffff20;
@@ -273,7 +274,7 @@ h1 {
     13px/1.35 Georgia,
     serif;
   margin: 3px 0 0;
-  max-height: 54px;
+  max-height: 36px;
   overflow: auto;
 }
 .dialogue-heading {
@@ -304,13 +305,71 @@ h1 {
   background: transparent;
 }
 #dialogue-text {
+  display: block;
+  position: relative;
+  text-align: left;
   font:
     16px/1.4 Georgia,
     serif;
-  min-height: 24px;
-  max-height: 68px;
-  overflow: auto;
+  height: 68px;
+  padding-right: 1em;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   margin: 5px 0 12px;
+}
+.speech-line {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.speech-line:hover {
+  background: transparent;
+}
+.speech-letter {
+  visibility: hidden;
+  position: relative;
+}
+.speech-letter.revealed {
+  visibility: visible;
+}
+.speech-letter.cursor::after {
+  content: "";
+  visibility: visible;
+  position: absolute;
+  left: 100%;
+  bottom: 0;
+  width: 0.5em;
+  border-bottom: 2px solid var(--gold);
+  animation: speech-blink 0.9s steps(1) infinite;
+}
+[data-revealing="true"] .speech-letter.cursor::after {
+  width: 0;
+  height: 1em;
+  border-bottom: 0;
+  border-left: 2px solid var(--gold);
+  animation: none;
+}
+.speech-hint {
+  display: block;
+  height: 12px;
+  line-height: 12px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: -5px;
+}
+#story-status {
+  color: var(--muted);
+  font-size: 10px;
+}
+@keyframes speech-blink {
+  50% {
+    opacity: 0;
+  }
 }
 /* Every world action belongs to a card in this single row. */
 .play-dock {
@@ -531,10 +590,20 @@ h2 {
 [hidden] {
   display: none !important;
 }
+/* Keep the two-line stage steady while a first exchange is being written. */
+.prior-response[hidden] {
+  display: flex !important;
+  visibility: hidden;
+}
+.speech-line[hidden],
+.speech-hint[hidden] {
+  display: block !important;
+  visibility: hidden;
+}
 
 @media (min-width: 1400px) {
   .cast {
-    inset: 44px 20% 205px;
+    inset: 44px 20% 249px;
   }
   .hand {
     gap: 16px;
@@ -597,9 +666,8 @@ h2 {
   }
   #dialogue-text {
     font-size: 14px;
-    max-height: 58px;
+    height: 60px;
     margin: 2px 0 8px;
-    min-height: 20px;
   }
   .play-dock {
     padding: 0 8px 4px;
@@ -636,7 +704,7 @@ h2 {
     font-size: 10px;
   }
 }
-@media (max-height: 650px) {
+@media (max-height: 740px) {
   .topbar {
     min-height: 48px;
     padding-top: 2px;
@@ -647,7 +715,7 @@ h2 {
   }
   .cast {
     top: 55px;
-    bottom: 155px;
+    bottom: 175px;
   }
   .portrait .portrait-name {
     bottom: 0;
@@ -662,13 +730,13 @@ h2 {
   #dialogue-text {
     font-size: 12px;
     line-height: 1.3;
-    max-height: 32px;
-    min-height: 16px;
+    height: 32px;
     margin: 3px 0 6px;
   }
 }
 @media (max-width: 700px) {
   .prior-response {
+    height: 76px;
     gap: 8px;
     padding-bottom: 7px;
   }
@@ -681,8 +749,9 @@ h2 {
     max-height: 49px;
   }
 }
-@media (max-height: 650px) {
+@media (max-height: 740px) {
   .prior-response {
+    height: 50px;
     padding-bottom: 4px;
   }
   .prior-portrait {
@@ -696,6 +765,7 @@ h2 {
 }
 @media (prefers-reduced-motion: reduce) {
   * {
+    animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }
@@ -773,4 +843,18 @@ h2 {
 }
 .card-options button:hover {
   background: #463a3c;
+}
+
+/* Let the farewell finish before the cutout leaves its existing slot. */
+.portrait.departed {
+  opacity: 0;
+  transform: translateX(18px);
+}
+.hand[data-cooling="true"] .card,
+.hand[data-cooling="true"] .card-options button {
+  opacity: 0.7;
+  cursor: wait;
+}
+.hand[data-cooling="true"] .card:hover {
+  transform: none;
 }
