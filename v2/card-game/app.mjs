@@ -482,7 +482,7 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  if (type === "avatar") {
+  if (type === "avatar" && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
     const revision = world.revision;

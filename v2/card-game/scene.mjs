@@ -36,7 +36,11 @@ export function sceneCast(
   let start = 0;
   for (let i = 0; i <= through; i++) {
     const e = world.log[i];
-    if (e?.kind === "action" && e.actorId === "vale" && e.verb === "move")
+    if (
+      e?.kind === "action" &&
+      e.actorId === "vale" &&
+      (e.verb === "move" || (e.verb === "accompany" && e.accepted))
+    )
       start = i;
   }
   const touch = (id) => {
@@ -130,6 +134,8 @@ export function sceneScript(world) {
       itemId: e.itemId || null,
       targetId: e.targetId || null,
       receiveId: e.receiveId || null,
+      destinationId: e.destinationId || null,
+      accepted: e.accepted ?? null,
       questPlan: e.questPlan ? structuredClone(e.questPlan) : null,
       quest:
         e.kind === "quest"
@@ -146,7 +152,12 @@ export function sceneScript(world) {
       items: e.items || [],
       light: e.light ?? null,
       performance: {
-        pose: e.verb === "move" ? "walk" : e.verb ? "act" : "speak",
+        pose:
+          e.verb === "move" || (e.verb === "accompany" && e.accepted)
+            ? "walk"
+            : e.verb
+              ? "act"
+              : "speak",
         suggestedDurationMs: Math.min(7000, Math.max(1600, e.text.length * 45)),
       },
     })),
