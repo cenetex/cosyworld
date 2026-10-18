@@ -192,7 +192,10 @@ describe("card standoffs", () => {
   it("carries the threat, guard and combat facts into each witness's model context", () => {
     const s = act(meeting(), "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    expect(
+      context.entities.find((e) => e.id === "keeper").facts.join(" "),
+    ).toContain("Just arrived from Black pond");
     for (const id of ["vale", "moth", "lamp", "station"])
       expect(
         s.memories[id].events.some((e) => e.text.includes("threatens")),
