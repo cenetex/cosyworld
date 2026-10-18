@@ -174,7 +174,7 @@ function updateSpeechControls(complete) {
     complete
       ? nextSceneIndex !== null
         ? "Continue to the next line"
-        : exchange.active
+        : exchange.current
           ? "Finish this exchange"
           : "Read this line again"
       : "Reveal the full line",
@@ -182,7 +182,7 @@ function updateSpeechControls(complete) {
   $("speech-hint").textContent = complete
     ? nextSceneIndex !== null
       ? "Continue"
-      : exchange.active
+      : exchange.current
         ? "Continue"
         : "Read again"
     : "Tap to reveal";
@@ -733,7 +733,7 @@ function renderScene() {
       speechSounds.stop();
       return;
     }
-    if (exchange.active) {
+    if (exchange.current) {
       exchange.advance();
       return;
     }
