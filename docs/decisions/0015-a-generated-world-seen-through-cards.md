@@ -75,7 +75,7 @@ named entity, and no rule special-cases one.
 | card        | A view of one entity.                                                             |
 | table       | The row of every card an avatar can reach now.                                    |
 | pair        | Two raised cards that resolve to one offer.                                       |
-| play        | One certified act. It commits, then residents in that place act.                  |
+| play        | One certified act. It commits, then residents within reach act.                   |
 | target hand | A goal: Hold these items, At this place, With these avatars.                      |
 | quest       | An ordered list of target hands, made by the quest generator or authored content. |
 | level       | Earned once per completed quest.                                                  |
@@ -93,6 +93,31 @@ attack (#1073). Ask, give, and trade need the other avatar's consent. Consent co
 avatar's current goals: it keeps what its goals need and offers its spares.
 Trades are atomic two-holder swaps. New verbs need a general rule over tags,
 never a rule for one entity.
+
+### Many players share one world
+
+Solo play is the shared world with one player. The same rules serve any number
+of players:
+
+- **Residents keep one player's pace.** A resident acts once for every play by
+  each awake player within reach. Three players near one resident do not make
+  it act three times as often.
+- **Plays are checked as they arrive.** The rules check a play against the world
+  when it is applied, not against the revision the player last saw. Another
+  player's move refuses a play only when it is no longer legal.
+- **Players exchange by consent.** Players swap items by an offer and an
+  acceptance, two plays. An offer lapses when either player leaves, either item
+  moves, or it grows old. Gifts need no answer.
+- **A threatened player answers first.** No one can attack a player that has not
+  answered a threat. An unanswered standoff ends after a set number of turns,
+  with nothing lost.
+- **Absent players sleep.** The runtime journals a rest when a session ends. A
+  sleeping avatar keeps its place and items. No one can threaten, ask, or trade
+  with it, and new goals leave its items alone. It wakes when it plays.
+- **Players join a running world.** A new player arrives at a place with a
+  generated goal.
+- **Stalls count an avatar's own acts,** so a crowded world does not age one
+  avatar's goal faster than another's.
 
 ### Generators
 

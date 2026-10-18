@@ -66,8 +66,8 @@ One PR, no new mechanics. When it lands, the rules name no entity.
 - **Players are a role.** Any avatar can be a player. The consent rules treat
   players the same way: a player can always accept, and offers to a player still
   need the player's play. `valeStalled` becomes a stall rule for every avatar.
-- **Turns are per place.** A play gives one act to each resident in the acting
-  avatar's place and leaves the rest of the world still.
+- **Turns are local.** A play gives one act to each resident within reach of
+  the acting player and leaves the rest of the world still.
 - **Tests follow.** Scripted route tests are replaced by property tests over
   random seeds: liveness, consent, custody conservation, determinism, and save
   round trips.
@@ -109,6 +109,28 @@ Measure with headless play over many seeds and player mixes:
 - Growth stays within caps, and new entities enter goals within a few plays.
 - Trades and asks between avatars stay frequent as the world grows.
 - Levels slow as the world grows, instead of passing 80 in 600 turns.
+
+## Phase 2b: many players
+
+Built in the card core after phase 2. The decisions are in ADR 0015, "Many
+players share one world":
+
+- residents keep one player's pace;
+- plays are checked against the world as they arrive;
+- players swap by offer and acceptance;
+- a threatened player answers before anyone strikes;
+- absent players sleep;
+- players join a running world;
+- stalls count an avatar's own acts.
+
+Measure with four players on uneven schedules over long runs:
+
+- Each player levels with its own plays, at about the same rate per play.
+- A player who rests keeps every item until it plays again.
+- Replays are exact.
+
+Still to decide: whether fighting between players needs an opt-in or a
+sanctuary rule, and how rankings and seasons work across one world's life.
 
 ## Loop health carried over
 
@@ -170,10 +192,9 @@ to the core.
 
 ## Open questions
 
-- How residents act when several players play in one place at once. See
-  [Scene concurrency policy](../concurrency-policy.md).
-- Human-to-human trades use the pending offers in
-  [transfer consent](../transfer-consent.md).
+- How phase 2b's offers map onto the pending offers in
+  [transfer consent](../transfer-consent.md), and its pace rule onto the
+  [scene concurrency policy](../concurrency-policy.md).
 - Whether places, items, or residents ever leave the world, and how history
   survives that.
 - Where spawned places get art: pack pools, generated images, or plain cards.
