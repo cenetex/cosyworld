@@ -69,6 +69,11 @@ describe("entity memories and model text", () => {
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
+    const vale = context.entities.find((e) => e.id === "vale");
+    expect(vale.facts.join(" ")).toContain(
+      "Wants Oil flask, currently with The keeper",
+    );
+    expect(context.entities.every((e) => e.facts.length <= 8)).toBe(true);
     const next = applyGeneratedText(world, context, response(context));
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);

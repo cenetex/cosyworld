@@ -9,7 +9,7 @@ import {
   nameOf,
   validateWorld,
 } from "./world.mjs";
-import { desireFor, levelOf, programFor } from "./quests.mjs";
+import { desireFor } from "./quests.mjs";
 
 export function narrativeContext(world, action = null) {
   const location = world.actors.vale.place;
@@ -36,25 +36,41 @@ export function narrativeContext(world, action = null) {
       let desire = null;
       if (kind === "avatar") {
         facts.push(
-          `Level ${levelOf(world, id)}.`,
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
-        const program = programFor(world, id);
-        facts.push(
-          `Quest: ${program.name}, hand ${world.actors[id].progress.step + 1} of ${program.steps.length}.`,
-        );
         desire = desireFor(world, id);
+        for (const item of desire.items)
+          facts.push(
+            carried(world, id).includes(item)
+              ? `Already holds the wanted ${nameOf(item)}.`
+              : `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`,
+          );
+        if (desire.location)
+          facts.push(
+            `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(location)}.`,
+          );
+        if (desire.avatars.length)
+          facts.push(
+            `Wants the company of ${desire.avatars.map(nameOf).join(", ")}.`,
+          );
       } else if (kind === "item") {
         const item = world.items[id];
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
         if (id === "lamp")
           facts.push(
-            `Fuel ${item.fuel}/12; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.fuel === 0 ? "Empty" : item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
           );
-        if (id === "oil") facts.push(`${item.doses} doses remain.`);
+        if (id === "oil")
+          facts.push(
+            item.doses === 0
+              ? "The flask is empty."
+              : item.doses === 1
+                ? "A little oil remains."
+                : "The flask holds oil.",
+          );
         if (id === "bell")
           facts.push(
-            `${item.ringing} turns of ringing remain; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.ringing ? "Ringing" : "Silent"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
