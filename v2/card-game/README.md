@@ -2,7 +2,7 @@
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events and the latest generated text. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events.
 
-After a card play, the browser sends the current local entities, their facts, avatar target hands, and eight recent memories to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured voice model through the existing AI gateway. One request covers the scene. It returns one text for each local entity. Raising a card shows that entity's latest text. The place, played item, and chosen speakers also receive scene beats.
+After a card play, the browser sends the current local entities, their facts, avatar target hands, and eight recent memories to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It returns one text for each local entity. Raising a card shows that entity's latest text. The place, played item, and chosen speakers also receive scene beats.
 
 The card rules still commit movement, trades, quest progress and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Fast plays share one active request and queue the latest scene. A failed request leaves cards playable; the next play tries again. A new game or a save update from another tab cancels the old request.
 
