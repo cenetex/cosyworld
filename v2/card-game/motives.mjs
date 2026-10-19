@@ -199,6 +199,8 @@ export function recordReaction(s, a, witnesses, accepted) {
     if (prior) {
       prior.weight = Math.min(3, prior.weight + 1);
       prior.turn = s.turn;
+      list.splice(list.indexOf(prior), 1);
+      list.push(prior);
     } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
     s.motives.grievances[id] = list.slice(-6);
   };
@@ -239,13 +241,14 @@ export function recordReaction(s, a, witnesses, accepted) {
     );
   }
 }
-export function motiveFacts(s, actor) {
+export function motiveFacts(s, actor, limit = 6) {
   return [
     tastes[actor].likes,
     `Current interest: ${interest(s, actor).text}.`,
-    ...(s.motives?.grievances[actor] || []).map(
-      (g) => `Remembered grievance: ${g.reason}`,
-    ),
+    ...(s.motives?.grievances[actor] || [])
+      .slice(-limit)
+      .reverse()
+      .map((g) => `Remembered grievance: ${g.reason}`),
   ];
 }
 export function validMotives(s) {

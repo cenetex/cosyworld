@@ -210,7 +210,7 @@ export function narrativeContext(world, action = null) {
         const purpose = hasMotives(world)
           ? null
           : programFor(world, id)?.purpose;
-        if (hasMotives(world)) facts.push(...motiveFacts(world, id));
+        if (hasMotives(world)) facts.push(...motiveFacts(world, id, 2));
         if (purpose) facts.push(`Reason for the desire: ${purpose}`);
         for (const c of target.conditions || [])
           facts.push(
