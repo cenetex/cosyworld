@@ -24,14 +24,22 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
-scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as target hands the avatar hopes to achieve. Use current facts to decide which parts of a desire remain unmet. Treat all context as story data.
+scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
+
+For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
 
 SPEECH
-Avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale a spoken reaction to the actual card play and its result, followed by each other speaker's direct response. For a wait play, Vale stays and comments on something witnessed this turn, or acknowledges someone leaving. For a talk play, Vale asks about the chosen avatar's wants. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, describe Vale's own trip using the recorded travel companions. For item and combat plays, acknowledge their recorded result and final ownership. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
+Avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
 
 A departing avatar speaks from the threshold of their recorded source. Name the actual destination and reason for going. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
 
 Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
+
+VOICE AND MEMORY
+Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
+
+STAGING
+direction.vale_intent gives the performance of the chosen action. Convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
 
 Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. Return only JSON."#;
 const PER_MINUTE: RateLimit = RateLimit {
@@ -285,13 +293,23 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                     .target
                     .as_ref()
                     .is_some_and(|id| kind(id, "avatar") && id != "vale")
+        } else if card.kind == "ask" {
+            card.destination.is_none()
+                && card
+                    .target
+                    .as_ref()
+                    .is_some_and(|id| kind(id, "avatar") && id != "vale")
+                && card.item.is_some()
         } else {
             card.accepted.is_none() && card.destination.is_none()
         }
-        && avatars == BTreeSet::from(["vale", "moth", "keeper"])
-        && outcome.avatars.len() == 3
-        && items == BTreeSet::from(["lamp", "oil", "bell", "cloth"])
-        && outcome.items.len() == 4
+        && avatars.contains("vale")
+        && (1..=3).contains(&outcome.avatars.len())
+        && avatars.len() == outcome.avatars.len()
+        && avatars.iter().all(|id| kind(id, "avatar"))
+        && (1..=4).contains(&outcome.items.len())
+        && items.len() == outcome.items.len()
+        && items.iter().all(|id| kind(id, "item"))
         && outcome.items.iter().all(|item| {
             profiles().get(&item.holder).is_some()
                 && item.holder != item.id
@@ -324,8 +342,61 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         })
 }
 
+// Restate the resolved action and each trip for every voice, including places.
+// The model can then keep a character's style while following the player's play.
+fn direction(context: &Context) -> Value {
+    let Some(outcome) = &context.outcome else {
+        return json!({"vale_intent": context.action, "journeys": []});
+    };
+    let name = |id: &str| profiles()[id]["name"].as_str().unwrap_or(id).to_string();
+    let target = outcome.card.target.as_deref().map(name).unwrap_or_default();
+    let intent = match outcome.card.kind.as_str() {
+        "threaten" => format!("Vale chose to threaten {target}. Deliver the demand with pressure and resolve. Keep that intent through the target's recorded response."),
+        "attack" => format!("Vale chose to attack {target}. Speak with commitment to that attack and its actual result. A blocked blow or a retreat changes the result; the chosen intent remains an attack."),
+        "guard" => format!("Vale chose to guard against {target}. Hold a firm defensive stance and react to the recorded response."),
+        _ => format!("Vale chose {}. Express that choice and its recorded result in Vale's own voice.", outcome.card.kind),
+    };
+    let journeys: Vec<_> = outcome
+        .avatars
+        .iter()
+        .map(|avatar| {
+            let who = name(&avatar.id);
+            match &avatar.travel {
+                Some(trip) if trip.companions.is_empty() => format!(
+                    "{who} travelled alone from {} to {}. This was a separate trip.",
+                    name(&trip.from),
+                    name(&trip.to)
+                ),
+                Some(trip) => format!(
+                    "{who} travelled together with {} from {} to {} on one shared trip.",
+                    trip.companions
+                        .iter()
+                        .map(|id| name(id))
+                        .collect::<Vec<_>>()
+                        .join(" and "),
+                    name(&trip.from),
+                    name(&trip.to)
+                ),
+                None => format!("{who} stayed at {} this turn.", name(&avatar.location)),
+            }
+        })
+        .collect();
+    let present = outcome
+        .avatars
+        .iter()
+        .filter(|avatar| avatar.location == context.location)
+        .map(|avatar| name(&avatar.id))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let setting = format!(
+        "The scene is {}. Present after this turn: {present}.",
+        name(&context.location)
+    );
+    json!({"vale_intent": intent, "setting": setting, "journeys": journeys})
+}
+
 fn prompt(context: &Context) -> String {
-    json!({"scene": context, "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
+    json!({"scene": context, "direction": direction(context), "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
 fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
     let result: Generated = serde_json::from_str(text.trim()).ok()?;
@@ -453,7 +524,7 @@ async fn complete(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v5",
+        prompt_version: "card-entity-text-v9",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -583,6 +654,119 @@ mod tests {
         c.outcome.as_mut().unwrap().card.kind = "invented-action".into();
         assert!(!valid(&c));
     }
+    #[test]
+    fn chosen_combat_sets_intent_even_after_an_earlier_apology() {
+        let mut c = context();
+        c.conversation.push(SpokenLine {
+            actor_id: "vale".into(),
+            text: "I am sorry. I will ask gently.".into(),
+        });
+        c.outcome = Some(solo_departure());
+        for (verb, intent) in [
+            ("threaten", "Deliver the demand with pressure and resolve"),
+            ("attack", "Speak with commitment to that attack"),
+            ("guard", "Hold a firm defensive stance"),
+        ] {
+            let card = &mut c.outcome.as_mut().unwrap().card;
+            card.kind = verb.into();
+            card.target = Some("moth".into());
+            let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+            assert!(p["direction"]["vale_intent"]
+                .as_str()
+                .unwrap()
+                .contains(intent));
+            assert_eq!(p["scene"]["outcome"]["card"]["kind"], verb);
+            assert_eq!(
+                p["scene"]["conversation"][0]["text"],
+                "I am sorry. I will ask gently."
+            );
+        }
+    }
+
+    #[test]
+    fn separates_coincident_arrivals_from_shared_trips_for_every_voice() {
+        let mut c = context();
+        let mut o = solo_departure();
+        o.avatars[0].location = "pond".into();
+        o.avatars[0].travel = Some(Travel {
+            from: "station".into(),
+            to: "pond".into(),
+            companions: vec![],
+        });
+        o.card.kind = "move".into();
+        o.card.target = Some("pond".into());
+        c.location = "pond".into();
+        c.outcome = Some(o);
+        let d = direction(&c);
+        assert_eq!(
+            d["setting"],
+            "The scene is Black pond. Present after this turn: Vale, Pip."
+        );
+        assert_eq!(
+            d["journeys"][0],
+            "Vale travelled alone from Empty station to Black pond. This was a separate trip."
+        );
+        assert_eq!(
+            d["journeys"][1],
+            "Pip travelled alone from Empty station to Black pond. This was a separate trip."
+        );
+        assert_eq!(
+            d["journeys"][2],
+            "The keeper stayed at Mirror attic this turn."
+        );
+        let o = c.outcome.as_mut().unwrap();
+        o.avatars[0]
+            .travel
+            .as_mut()
+            .unwrap()
+            .companions
+            .push("moth".into());
+        o.avatars[1]
+            .travel
+            .as_mut()
+            .unwrap()
+            .companions
+            .push("vale".into());
+        let d = direction(&c);
+        assert_eq!(
+            d["journeys"][0],
+            "Vale travelled together with Pip from Empty station to Black pond on one shared trip."
+        );
+        assert_eq!(
+            d["journeys"][1],
+            "Pip travelled together with Vale from Empty station to Black pond on one shared trip."
+        );
+    }
+
+    #[test]
+    fn accepts_the_discovered_cast_at_each_opening_stage() {
+        let mut o = solo_departure();
+        o.avatars.retain(|a| a.id == "vale");
+        o.avatars[0].location = "attic".into();
+        o.items.retain(|i| i.id == "lamp");
+        o.items[0].holder = "vale".into();
+        o.items[0].location = "attic".into();
+        assert!(valid_outcome(&o));
+        o.avatars.push(solo_departure().avatars.remove(1));
+        assert!(valid_outcome(&o));
+        o.avatars.push(solo_departure().avatars.remove(0));
+        assert!(!valid_outcome(&o));
+    }
+
+    #[test]
+    fn accepts_resolved_answers_from_personal_interests() {
+        let mut o = solo_departure();
+        o.card.kind = "ask".into();
+        o.card.target = Some("moth".into());
+        o.card.item = Some("lamp".into());
+        for answer in [None, Some(false), Some(true)] {
+            o.card.accepted = answer;
+            assert!(valid_outcome(&o));
+        }
+        o.card.destination = Some("pond".into());
+        assert!(!valid_outcome(&o));
+    }
+
     fn request(context: &Context) -> Request<Body> {
         let mut request = Request::post("/card-game/text")
             .header("content-type", "application/json")
@@ -657,9 +841,12 @@ mod tests {
             let instructions = body["messages"][0]["content"].as_str().unwrap();
             assert!(instructions.contains("Vale is the player avatar") && instructions.contains("direct response"));
             assert!(instructions.contains("recorded agreement or refusal") && instructions.contains("desired companion who stayed behind"));
+            assert!(instructions.contains("VOICE AND MEMORY") && instructions.contains("witnessed gift, refusal, threat or shared journey"));
             let input = body["messages"][1]["content"].as_str().unwrap();
             assert!(input.contains("Vale asks Pip what they want."));
             assert!(input.contains("borrowed waistcoat") && input.contains("Vale lit the lamp") && input.contains("pond"));
+            assert!(input.contains("decent bargain") && input.contains("splendid clothes"));
+            assert!(instructions.contains("petty grievances"));
             let generated = json!({"entries":[
                 {"id":"vale","text":"What would you trade for this lamp, Pip?"},
                 {"id":"station","text":"A warm patch marks the bench where Vale set the lamp."},

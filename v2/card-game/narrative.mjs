@@ -1,3 +1,4 @@
+import { hasMotives, hasQuestPrograms, motiveFacts } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles } from "./memory.mjs";
 import {
@@ -12,7 +13,25 @@ import {
   standoffFor,
   opponentOf,
 } from "./world.mjs";
-import { desireFor } from "./quests.mjs";
+import { desireFor, programFor, knownActors } from "./quests.mjs";
+import { conditionMet, conditionText } from "./situations.mjs";
+
+// Keep a few lasting encounters beside fresh facts. Speech stays secondary to
+// witnessed events; quest counters remain on the cards and in the history.
+export function speechMemories(memory) {
+  const concrete = (e) =>
+    e.kind === "event" &&
+    !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
+  const recent = memory.events.filter(concrete).slice(-4);
+  const lasting = (memory.landmarks || [])
+    .filter(concrete)
+    .filter((e) => !recent.some((r) => r.seq === e.seq))
+    .slice(-2);
+  const said = memory.events.filter((e) => e.kind === "expression").slice(-2);
+  return [...lasting, ...recent, ...said]
+    .sort((a, b) => a.seq - b.seq)
+    .map(({ turn, kind, text }) => ({ turn, kind, text }));
+}
 
 // Capture the resolved turn separately from wishes and remembered speech.
 export function turnOutcome(world) {
@@ -31,40 +50,49 @@ export function turnOutcome(world) {
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
     },
-    avatars: Object.entries(world.actors).map(([id, actor]) => {
-      const movement = events.findLast(
-        (entry) =>
-          entry.fromLocationId &&
-          entry.fromLocationId !== entry.locationId &&
-          entry.locationId === actor.place &&
-          (entry.actorId === id ||
-            (entry.verb === "accompany" &&
-              entry.accepted &&
-              entry.targetId === id)),
-      );
-      const shared = movement?.verb === "accompany" && movement.accepted;
-      return {
+    avatars: Object.entries(world.actors)
+      .filter(([id]) => knownActors(world).includes(id))
+      .map(([id, actor]) => {
+        const movement = events.findLast(
+          (entry) =>
+            entry.fromLocationId &&
+            entry.fromLocationId !== entry.locationId &&
+            entry.locationId === actor.place &&
+            (entry.actorId === id ||
+              (entry.verb === "accompany" &&
+                entry.accepted &&
+                entry.targetId === id)),
+        );
+        const shared = movement?.verb === "accompany" && movement.accepted;
+        return {
+          id,
+          location: actor.place,
+          holding: carried(world, id),
+          travel: movement
+            ? {
+                from: movement.fromLocationId,
+                to: movement.locationId,
+                companions: shared
+                  ? [movement.actorId, movement.targetId].filter(
+                      (other) => other !== id,
+                    )
+                  : [],
+              }
+            : null,
+        };
+      }),
+    items: Object.entries(world.items)
+      .filter(
+        ([id]) =>
+          !world.opening ||
+          knownActors(world).includes(rootHolder(world, id)) ||
+          itemPlace(world, id) === world.actors.vale.place,
+      )
+      .map(([id, item]) => ({
         id,
-        location: actor.place,
-        holding: carried(world, id),
-        travel: movement
-          ? {
-              from: movement.fromLocationId,
-              to: movement.locationId,
-              companions: shared
-                ? [movement.actorId, movement.targetId].filter(
-                    (other) => other !== id,
-                  )
-                : [],
-            }
-          : null,
-      };
-    }),
-    items: Object.entries(world.items).map(([id, item]) => ({
-      id,
-      holder: item.holder,
-      location: itemPlace(world, id),
-    })),
+        holder: item.holder,
+        location: itemPlace(world, id),
+      })),
   };
 }
 
@@ -80,6 +108,9 @@ export function narrativeContext(world, action = null) {
   const departing = changes
     .filter((change) => change.leaving)
     .map((change) => change.actorId);
+  const introductions = present.filter(
+    (id) => id !== "vale" && world.opening?.met[id] === world.turn,
+  );
   const audience = [...new Set([...present, ...departing])];
   const ids = [location, ...localItems, ...audience];
   const focus = localItems.includes(action?.item) ? action.item : null;
@@ -93,12 +124,15 @@ export function narrativeContext(world, action = null) {
   const partner =
     audience.includes(target) && target !== "vale"
       ? target
-      : departing[0] || present.find((id) => id !== "vale");
+      : introductions[0] || departing[0] || present.find((id) => id !== "vale");
   const speakers = [
     ...new Set(
-      ["vale", partner, ...changes.map((change) => change.actorId)].filter(
-        Boolean,
-      ),
+      [
+        "vale",
+        partner,
+        ...introductions,
+        ...changes.map((change) => change.actorId),
+      ].filter(Boolean),
     ),
   ];
   const events = world.log
@@ -106,6 +140,8 @@ export function narrativeContext(world, action = null) {
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
+        entry.kind !== "quest" &&
+        !entry.questPlan &&
         (entry.locationId === location ||
           entry.fromLocationId === location ||
           entry.witnesses?.includes("vale")),
@@ -138,6 +174,20 @@ export function narrativeContext(world, action = null) {
       const facts = [];
       let desire = null;
       if (kind === "avatar") {
+        if (
+          played?.verb === "trade" &&
+          [played.actorId, played.targetId].includes(id)
+        ) {
+          const giving =
+            id === played.actorId ? played.itemId : played.receiveId;
+          const receiving =
+            id === played.actorId ? played.receiveId : played.itemId;
+          const other =
+            id === played.actorId ? played.targetId : played.actorId;
+          facts.push(
+            `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`,
+          );
+        }
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
@@ -166,7 +216,39 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
           );
-        desire = desireFor(world, id);
+        const target = desireFor(world, id);
+        desire = {
+          items: target.items,
+          location: target.location,
+          avatars: target.avatars,
+        };
+        const purpose = hasQuestPrograms(world)
+          ? programFor(world, id)?.purpose
+          : null;
+        if (hasMotives(world)) {
+          const personal = motiveFacts(world, id, 2);
+          facts.push(
+            ...(world.opening && !world.opening.crossed
+              ? personal.slice(0, 1)
+              : personal),
+          );
+        }
+        if (world.opening?.met[id] === world.turn && id !== "vale")
+          facts.push(
+            "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
+          );
+        if (purpose) facts.push(`Reason for the desire: ${purpose}`);
+        for (const c of target.conditions || [])
+          facts.push(
+            `${conditionMet(world, c) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
+          );
+        const helpers = Object.entries(world.actors[id].trust)
+          .filter(([, n]) => n > 0)
+          .map(([other]) => nameOf(other));
+        if (helpers.length)
+          facts.push(
+            `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,
+          );
         for (const item of desire.items)
           facts.push(
             carried(world, id).includes(item)
@@ -203,19 +285,31 @@ export function narrativeContext(world, action = null) {
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
         facts.push(
-          `Paths open to: ${exits(world, id).map(nameOf).join(", ")}.`,
+          `Paths open to: ${exits(world, id).map(nameOf).join(", ") || "the mirror is waiting for lamplight"}.`,
         );
+        if (id === "attic" || id === "pond")
+          facts.push(
+            world.locations.attic.anchored
+              ? "The mirror path is fixed open even in darkness."
+              : "The reflection path needs a lit uncovered lamp at the attic or pond.",
+          );
+        if (id === "pond" && world.locations.pond.answer === "hush")
+          facts.push(
+            "The wrapped bell made this shore a refuge. The cast will keep peace here until the bell rings again.",
+          );
+        if (id === "pond" && world.locations.pond.answer === "call")
+          facts.push(
+            "The pond answered the bell with oil. Its shore carries every sound again.",
+          );
       }
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,
-        facts: facts.slice(0, 8),
+        facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
         desire,
-        memories: world.memories[id].events
-          .slice(-8)
-          .map(({ turn, kind, text }) => ({ turn, kind, text })),
+        memories: speechMemories(world.memories[id]),
         previous: world.memories[id].text,
       };
     }),

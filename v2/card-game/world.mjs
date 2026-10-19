@@ -1,4 +1,16 @@
 import {
+  hasMotives,
+  hasQuestPrograms,
+  resentment,
+  valueOf,
+  tradeDecision,
+  giftDecision,
+  socialTravel,
+  socialPlan,
+  recordReaction,
+  validMotives,
+} from "./motives.mjs";
+import {
   newMemories,
   rememberEvent,
   migrateMemories,
@@ -6,6 +18,8 @@ import {
 } from "./memory.mjs";
 import {
   questPrograms,
+  programsFor,
+  knownActors,
   newProgress,
   programFor,
   desireFor,
@@ -15,6 +29,13 @@ import {
   generateProgram,
   sequence,
 } from "./quests.mjs";
+import {
+  conditionMet,
+  conditionText,
+  requiredItems,
+  validCondition,
+  validConsequence,
+} from "./situations.mjs";
 // The playable slice uses one rule path for the guided avatar and the cast.
 export const places = {
   station: {
@@ -58,7 +79,7 @@ export const things = {
   },
   bell: {
     name: "Bell",
-    text: "Rings for three turns. The Black cloth stops its sound.",
+    text: "Rings for three turns. At the pond, its call brings one dose into an empty oil flask. The Black cloth stops its sound.",
   },
   cloth: {
     name: "Black cloth",
@@ -69,9 +90,10 @@ const ids = Object.keys(things);
 const actorIds = Object.keys(people);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-export function createWorld() {
+export function createWorld({ opening = false } = {}) {
   const world = {
-    schema: 5,
+    schema: 6,
+    locations: { attic: { anchored: false }, pond: { answer: null } },
     standoffs: [],
     peaceUntil: { vale: 0, moth: 0, keeper: 0 },
     memories: newMemories(),
@@ -84,18 +106,21 @@ export function createWorld() {
         progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
+        trust: { moth: 0, keeper: 0 },
       },
       moth: {
         place: "pond",
         progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
+        trust: { vale: 0, keeper: 0 },
       },
       keeper: {
         place: "attic",
         progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
+        trust: { vale: 0, moth: 0 },
       },
     },
     items: {
@@ -122,6 +147,18 @@ export function createWorld() {
       },
     ],
   };
+  if (opening) {
+    world.opening = { version: 1, crossed: false, met: { vale: 0 } };
+    world.actors.vale.place = "attic";
+    world.actors.keeper.place = "station";
+    world.items.lamp.holder = "vale";
+    world.log[0] = {
+      ...world.log[0],
+      locationId: "attic",
+      items: [{ id: "lamp", holder: "vale", fuel: 8, lit: false }],
+      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore. The wick is ready to light.",
+    };
+  }
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -143,16 +180,45 @@ export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
   s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
 export const reflectionOpen = (s) =>
-  shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp"));
+  Boolean(s.locations?.attic.anchored) ||
+  (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+const baseExits = (s, place) =>
+  s.opening
+    ? places[place].exits.filter((to) => ![place, to].includes("attic"))
+    : places[place].exits;
+export const placeText = (s, place) =>
+  s.opening && place === "attic"
+    ? "A tall mirror reflects a black shore. The lamp wakes the crossing to the pond."
+    : s.opening && place === "station"
+      ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
+      : places[place].text;
 export function exits(s, place) {
   return [
-    ...places[place].exits,
+    ...baseExits(s, place),
     ...(reflectionOpen(s) && place === "attic"
       ? ["pond"]
       : reflectionOpen(s) && place === "pond"
         ? ["attic"]
         : []),
   ];
+}
+const programPlaces = (s) =>
+  s.opening
+    ? Object.fromEntries(
+        Object.keys(places).map((id) => [
+          id,
+          { ...places[id], exits: exits(s, id) },
+        ]),
+      )
+    : places;
+function meetCast(s) {
+  if (!s.opening) return;
+  for (const id of actorIds)
+    if (
+      s.actors[id].place === s.actors.vale.place &&
+      s.opening.met[id] === undefined
+    )
+      s.opening.met[id] = s.turn;
 }
 const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
@@ -175,12 +241,20 @@ export function handStatus(s, actor, hand = desireFor(s, actor)) {
     id,
     met: s.actors[id].place === here,
   }));
+  const conditions = (hand.conditions || []).map((c) => ({
+    ...c,
+    met: conditionMet(s, c),
+  }));
   return {
     items,
     location,
     avatars,
+    conditions,
     met:
-      items.every((e) => e.met) && location.met && avatars.every((e) => e.met),
+      items.every((e) => e.met) &&
+      location.met &&
+      avatars.every((e) => e.met) &&
+      conditions.every((e) => e.met),
   };
 }
 export function handText(hand) {
@@ -192,6 +266,7 @@ export function handText(hand) {
     hand.avatars.length
       ? `with ${hand.avatars.map(nameOf).join(" + ")}`
       : "with any company",
+    ...(hand.conditions || []).map((c) => conditionText(c, nameOf)),
   ].join(" · ");
 }
 const bundle = (s, item) => [
@@ -199,12 +274,16 @@ const bundle = (s, item) => [
   ...(s.items.cloth.holder === item ? ["cloth"] : []),
 ];
 const needed = (s, actor, item) =>
-  bundle(s, item).some((id) => desireFor(s, actor).items.includes(id));
+  bundle(s, item).some((id) =>
+    requiredItems(s, actor, desireFor(s, actor)).includes(id),
+  );
 const accepts = (s, actor, item) =>
+  (hasMotives(s) && valueOf(s, actor, item) >= 2) ||
   actor === "vale" ||
   bundle(s, item).some(
     (id) =>
-      desireFor(s, actor).items.includes(id) && rootHolder(s, id) !== actor,
+      requiredItems(s, actor, desireFor(s, actor)).includes(id) &&
+      rootHolder(s, id) !== actor,
   );
 // The cast gives a spare once its own items are in hand. After Vale has gone
 // a long while without completing a hand, it gives Vale spares sooner, so the
@@ -212,10 +291,19 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
+  if (hasMotives(s) && recipient && resentment(s, owner, recipient))
+    return false;
+  if (!hasQuestPrograms(s))
+    return (
+      owner !== "vale" &&
+      recipient !== null &&
+      giftDecision(s, owner, item, recipient).accepted
+    );
   return (
     owner !== "vale" &&
     !needed(s, owner, item) &&
     (handStatus(s, owner).items.every((e) => e.met) ||
+      (recipient && s.actors[owner].trust[recipient] > 0) ||
       (recipient === "vale" && valeStalled(s)))
   );
 }
@@ -224,12 +312,24 @@ export function canTrade(s, actor, give, receive) {
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
+    !knownActors(s).includes(other) ||
     other === actor ||
     other === "vale" ||
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
-  if (!accepts(s, other, give) || needed(s, other, receive)) return false;
+  if (
+    hasMotives(s)
+      ? !tradeDecision(s, actor, give, receive).accepted &&
+        !(
+          hasQuestPrograms(s) &&
+          !resentment(s, other, actor) &&
+          needed(s, other, give) &&
+          !needed(s, other, receive)
+        )
+      : !accepts(s, other, give) || needed(s, other, receive)
+  )
+    return false;
   const outgoing = loadOf(s, give),
     incoming = loadOf(s, receive);
   return (
@@ -239,13 +339,18 @@ export function canTrade(s, actor, give, receive) {
 }
 export function tradeOffers(s, actor) {
   return ids.filter(
-    (id) => s.items[id].holder === actor && !needed(s, actor, id),
+    (id) =>
+      s.items[id].holder === actor &&
+      (hasQuestPrograms(s)
+        ? !needed(s, actor, id)
+        : valueOf(s, actor, id) <= 6),
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
-  for (const actor of actorIds) {
+  if (!hasQuestPrograms(s)) return;
+  for (const actor of knownActors(s)) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
     );
@@ -259,6 +364,9 @@ function captureHands(s, met) {
             (id) =>
               id !== actor && s.actors[id].place === s.actors[actor].place,
           ),
+          ...((target.conditions || []).length
+            ? { conditions: handStatus(s, actor, target).conditions }
+            : {}),
         },
       });
     }
@@ -269,20 +377,27 @@ function captureHands(s, met) {
 function ensurePrograms(s) {
   for (const actor of actorIds) {
     const p = s.actors[actor].progress;
-    if (p.program >= questPrograms[actor].length && !p.current) {
-      p.completedHands ??= questPrograms[actor].reduce(
+    if (p.program >= programsFor(s, actor).length && !p.current) {
+      p.completedHands ??= programsFor(s, actor).reduce(
         (n, program) => n + program.steps.length,
         0,
       );
       p.recent ??= [];
-      p.current = generateProgram(structuredClone(s), actor, places, things);
+      p.recentKinds ??= [];
+      p.current = generateProgram(
+        structuredClone(s),
+        actor,
+        programPlaces(s),
+        things,
+      );
     }
   }
 }
 // Cast members reconsider an unfinished bargain after twelve turns. Keep the
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
-  for (const actor of actorIds.filter((id) => id !== "vale")) {
+  if (!hasQuestPrograms(s)) return;
+  for (const actor of knownActors(s).filter((id) => id !== "vale")) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
     if (
@@ -290,10 +405,16 @@ function refreshStalledPrograms(s) {
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
     )
       continue;
-    const fresh = generateProgram(structuredClone(s), actor, places, things, {
-      independent: true,
-      solo: s.turn - (p.marks.at(-1) || 0) >= 24,
-    });
+    const fresh = generateProgram(
+      structuredClone(s),
+      actor,
+      programPlaces(s),
+      things,
+      {
+        independent: true,
+        solo: s.turn - (p.marks.at(-1) || 0) >= 24,
+      },
+    );
     const unfinished = fresh.steps.filter(
       (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
     );
@@ -316,7 +437,51 @@ function refreshStalledPrograms(s) {
     );
   }
 }
+function applyConsequence(s, actor, target) {
+  const effect = target.consequence;
+  if (!effect) return;
+  let text;
+  switch (effect.kind) {
+    case "anchor":
+      s.locations.attic.anchored = true;
+      text =
+        "The mirror holds the crossing. The attic and pond stay joined when the lamp goes dark.";
+      break;
+    case "oil":
+      s.items.oil.doses = 3;
+      s.locations.pond.answer = "call";
+      remember(
+        s,
+        "oil",
+        "The pond answered the bell. Three measures of oil fill the flask.",
+      );
+      text =
+        "The pond answers the bell. Three measures of oil fill the flask, wherever its carrier stands.";
+      break;
+    case "hush":
+      s.locations.pond.answer = "hush";
+      for (const c of [...s.standoffs].filter((c) => c.location === "pond"))
+        closeStandoff(s, c);
+      text =
+        "The pond accepts the muffled bell. Its shore becomes a refuge: the cast will settle disputes here until the bell rings again.";
+      break;
+    case "trust":
+      s.actors[effect.avatar].trust[actor] = Math.min(
+        3,
+        s.actors[effect.avatar].trust[actor] + 1,
+      );
+      text = `${nameOf(effect.avatar)} remembers ${nameOf(actor)}'s help. They will share spare items sooner and accept a detour in their company.`;
+      break;
+  }
+  addLog(s, "World", text, {
+    actorId: actor,
+    consequence: structuredClone(effect),
+    itemId: effect.kind === "oil" ? "oil" : undefined,
+    targetId: effect.avatar,
+  });
+}
 function advancePrograms(s, met) {
+  if (!hasQuestPrograms(s)) return;
   const receipts = [];
   for (const [actor, evidence] of met) {
     const progress = s.actors[actor].progress,
@@ -328,12 +493,17 @@ function advancePrograms(s, met) {
     progress.step += 1;
     const complete = progress.step === program.steps.length;
     if (complete) {
+      applyConsequence(s, actor, evidence.target);
       if (program.generated) {
         progress.completedHands += program.steps.length;
         if (program.generated.item)
           progress.recent = [...progress.recent, program.generated.item].slice(
             -4,
           );
+        progress.recentKinds = [
+          ...(progress.recentKinds || []),
+          program.generated.situation || "bargain",
+        ].slice(-4);
         delete progress.current;
       }
       progress.program += 1;
@@ -395,7 +565,7 @@ export function addLog(s, speaker, text, detail = {}) {
       (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
     actorId,
     locationId,
-    cast: actorIds.filter((id) => s.actors[id].place === locationId),
+    cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
     items: ids
       .filter((id) => itemPlace(s, id) === locationId)
       .map((id) => {
@@ -478,6 +648,15 @@ export function accompanyDecision(s, actor, companion, destination) {
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
+  if (hasMotives(s)) {
+    const social = socialTravel(s, actor, companion, destination);
+    if (
+      !hasQuestPrograms(s) ||
+      resentment(s, companion, actor) ||
+      social.accepted
+    )
+      return social;
+  }
   const distance = (from, to) => {
     const route = routeBetween(s, from, to);
     return route ? route.length - 1 : Infinity;
@@ -486,7 +665,9 @@ export function accompanyDecision(s, actor, companion, destination) {
     distance(destination, place) < distance(here, place);
   const agree = (reason) => ({ accepted: true, reason });
   for (const hand of targetsFor(s, companion)) {
-    const missing = hand.items.filter((id) => rootHolder(s, id) !== companion);
+    const missing = requiredItems(s, companion, hand).filter(
+      (id) => rootHolder(s, id) !== companion,
+    );
     // Collect a wanted object here before leaving it behind. Objects carried
     // by the requester travel with the pair and remain within reach.
     if (
@@ -510,6 +691,11 @@ export function accompanyDecision(s, actor, companion, destination) {
     if (company.every((id) => s.actors[id].place === destination))
       return agree(`Travel in ${nameOf(actor)}'s company.`);
   }
+  if (s.actors[companion].trust[actor] > 0)
+    return {
+      ...agree(`Remember ${nameOf(actor)}'s help and share this detour.`),
+      favor: true,
+    };
   return {
     accepted: false,
     reason: `Pursue this hand first: ${handText(desireFor(s, companion))}.`,
@@ -522,8 +708,8 @@ export function legalActions(s, actor = "vale") {
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   for (const to of exits(s, here)) {
-    const through = !places[here].exits.includes(to);
-    for (const other of actorIds.filter(
+    const through = !baseExits(s, here).includes(to);
+    for (const other of knownActors(s).filter(
       (id) => id !== actor && s.actors[id].place === here,
     )) {
       const request = offer(
@@ -561,7 +747,7 @@ export function legalActions(s, actor = "vale") {
       );
     }
   }
-  for (const other of actorIds.filter(
+  for (const other of knownActors(s).filter(
     (id) => id !== actor && s.actors[id].place === here,
   )) {
     const conflict = standoffFor(s, actor);
@@ -620,7 +806,12 @@ export function legalActions(s, actor = "vale") {
   }
   for (const id of ids) {
     const item = s.items[id];
-    if (itemPlace(s, id) !== here) continue;
+    if (
+      itemPlace(s, id) !== here ||
+      (actorIds.includes(rootHolder(s, id)) &&
+        !knownActors(s).includes(rootHolder(s, id)))
+    )
+      continue;
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
@@ -648,11 +839,16 @@ export function legalActions(s, actor = "vale") {
           [id],
         ),
       );
-      for (const other of actorIds.filter(
+      for (const other of knownActors(s).filter(
         (p) =>
           p !== actor &&
           s.actors[p].place === here &&
-          accepts(s, p, id) &&
+          (accepts(s, p, id) ||
+            targetsFor(s, actor).some((h) =>
+              h.conditions?.some(
+                (c) => c.kind === "heldBy" && c.item === id && c.avatar === p,
+              ),
+            )) &&
           hasSpace(s, p, id),
       )) {
         out.push(
@@ -783,7 +979,7 @@ export function matchingActions(s, selected) {
   );
 }
 function travel(s, actor, destination) {
-  const through = !places[s.actors[actor].place].exits.includes(destination);
+  const through = !baseExits(s, s.actors[actor].place).includes(destination);
   if (through) s.actors[actor].crossed += 1;
   s.actors[actor].place = destination;
   for (const id of carried(s, actor))
@@ -792,6 +988,7 @@ function travel(s, actor, destination) {
 }
 function perform(s, a) {
   const who = nameOf(a.actor);
+  const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
   const witnesses = [
     ...actorIds.filter((id) => s.actors[id].place === here),
@@ -804,7 +1001,9 @@ function perform(s, a) {
   }
   if (a.kind === "wait") return;
   let text = a.text;
-  let arrival = null,
+  let requestAccepted = false;
+  let affected = null,
+    arrival = null,
     invitation = null;
   switch (a.kind) {
     case "accompany": {
@@ -815,18 +1014,21 @@ function perform(s, a) {
           respondentConflict.answered = true;
       }
       invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+      if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
         const through = travel(s, a.actor, a.destination);
         travel(s, a.target, a.destination);
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
-        if (through) text += " Something on the far shore turns its head.";
+        if (through && firstCrossing)
+          text += " Something on the far shore turns its head.";
       } else {
         text += ` ${nameOf(a.target)} declines the trip. ${invitation.reason}`;
       }
       break;
     }
     case "threaten":
+      if (here === "pond") s.locations.pond.answer = null;
       s.standoffs.push({
         challenger: a.actor,
         defender: a.target,
@@ -872,7 +1074,7 @@ function perform(s, a) {
           );
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
-        const retreat = places[here].exits[0];
+        const retreat = exits(s, here)[0];
         s.actors[a.target].place = retreat;
         for (const id of carried(s, a.target))
           remember(
@@ -892,7 +1094,7 @@ function perform(s, a) {
       break;
     }
     case "move":
-      if (travel(s, a.actor, a.target))
+      if (travel(s, a.actor, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
     case "take":
@@ -909,6 +1111,19 @@ function perform(s, a) {
       transfer(s, a.receive, a.actor, a.text);
       break;
     case "light":
+      if (
+        s.opening &&
+        !s.opening.crossed &&
+        a.actor === "vale" &&
+        here === "attic" &&
+        s.items.lamp.holder === "attic"
+      )
+        transfer(
+          s,
+          "lamp",
+          "vale",
+          "Vale lifts the lamp as its light wakes the mirror.",
+        );
       s.items.lamp.lit = true;
       remember(s, "lamp", a.text);
       break;
@@ -917,8 +1132,22 @@ function perform(s, a) {
       remember(s, "lamp", a.text);
       break;
     case "ring":
+      s.locations.pond.answer =
+        s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
       s.items.bell.ringing = 3;
       remember(s, "bell", a.text);
+      if (here === "pond" && s.items.oil.doses === 0) {
+        s.items.oil.doses = 1;
+        s.locations.pond.answer = "call";
+        affected = "oil";
+        text +=
+          " The pond answers. One measure of oil gathers in the empty flask.";
+        remember(
+          s,
+          "oil",
+          "The pond answers the bell with one measure of oil.",
+        );
+      }
       break;
     case "refill":
       s.items.oil.doses -= 1;
@@ -936,11 +1165,19 @@ function perform(s, a) {
       break;
     case "ask": {
       const willing = willingToGive(s, a.target, a.item, a.actor);
+      requestAccepted = willing;
       if (willing) {
+        if (
+          !handStatus(s, a.target).items.every((e) => e.met) &&
+          s.actors[a.target].trust[a.actor] > 0
+        )
+          s.actors[a.target].trust[a.actor] -= 1;
         text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
+        if (hasMotives(s))
+          text += ` ${giftDecision(s, a.target, a.item, a.actor).reason}`;
       }
       s.actors[a.actor].lastTalk = s.turn;
       break;
@@ -948,6 +1185,8 @@ function perform(s, a) {
     default:
       throw new Error("Unknown act.");
   }
+  meetCast(s);
+  recordReaction(s, a, witnesses, requestAccepted);
   addLog(s, "World", text, {
     kind: "action",
     actorId: a.actor,
@@ -955,8 +1194,10 @@ function perform(s, a) {
     fromLocationId: here,
     witnesses,
     itemId: a.item,
+    ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
+    ...(hasMotives(s) && a.kind === "ask" ? { accepted: requestAccepted } : {}),
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
@@ -990,8 +1231,31 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = "vale") {
+  if (!knownActors(s).includes(actor))
+    return {
+      action: legalActions(s, actor)[0],
+      reason: "Wait for a first meeting.",
+    };
   const acts = legalActions(s, actor),
     hand = desireFor(s, actor);
+  if (
+    hasMotives(s) &&
+    (!hasQuestPrograms(s) ||
+      standoffFor(s, actor) ||
+      s.peaceUntil[actor] > s.turn ||
+      actorIds.some(
+        (other) =>
+          s.actors[other].place === s.actors[actor].place &&
+          resentment(s, actor, other) > 0,
+      ))
+  )
+    return socialPlan(s, actor, acts, {
+      standoffFor,
+      opponentOf,
+      routeBetween,
+      carried,
+      willingToGive,
+    });
   const here = s.actors[actor].place;
   const find = (kind, item, target) =>
     acts.find(
@@ -1030,7 +1294,8 @@ export function plan(s, actor = "vale") {
         "Press the demand for the disputed item.",
       );
   }
-  const missing = hand.items.filter((id) => rootHolder(s, id) !== actor);
+  const resources = requiredItems(s, actor, hand);
+  const missing = resources.filter((id) => rootHolder(s, id) !== actor);
   const reason = `Seek this hand: ${handText(hand)}.`;
   // Another avatar can hold its whole hand somewhere else and wait only for
   // this one. Going there completes that hand and ends the wait.
@@ -1098,7 +1363,7 @@ export function plan(s, actor = "vale") {
       actorIds.includes(owner) &&
       !needed(s, owner, item)
     ) {
-      for (const payment of desireFor(s, owner).items) {
+      for (const payment of requiredItems(s, owner, desireFor(s, owner))) {
         if (!hand.items.includes(payment) && rootHolder(s, payment) !== owner) {
           const purchase = acquire(payment, seen);
           if (purchase)
@@ -1125,7 +1390,10 @@ export function plan(s, actor = "vale") {
           e.itemId === item &&
           s.turn - e.turn <= 12,
       );
-      const threat = find("threaten", undefined, owner);
+      const threat =
+        here === "pond" && s.locations.pond.answer === "hush"
+          ? null
+          : find("threaten", undefined, owner);
       if (refusals.length >= 2 && threat)
         return choose(threat, "The same item is blocking both target hands.");
     }
@@ -1153,6 +1421,56 @@ export function plan(s, actor = "vale") {
     );
     const waiting = !offered && waitingHere(actorIds);
     return waiting ? goMeet(waiting) : idle(reason);
+  }
+  // Timing matters: reach the meeting place before using a brief sound or light.
+  if (hand.conditions?.length) {
+    if (
+      hand.conditions.some((c) => c.kind === "lit") &&
+      !s.items.lamp.fuel &&
+      !s.items.oil.doses
+    ) {
+      if (here !== "pond")
+        return choose(toward(s, actor, "pond"), "Call for oil at the pond.");
+      if (covered(s, "bell"))
+        return choose(find("take", "cloth"), "Unwrap the bell for the pond.");
+      return choose(
+        find("ring", "bell"),
+        "Call one measure of oil into the empty flask.",
+      );
+    }
+    if (hand.location && here !== hand.location)
+      return choose(toward(s, actor, hand.location), reason);
+    for (const c of hand.conditions.filter((c) => !conditionMet(s, c))) {
+      if (c.kind === "heldBy") {
+        if (s.items[c.item].holder !== actor && rootHolder(s, c.item) === actor)
+          return choose(
+            find("take", c.item),
+            "Uncover the promised item before handing it over.",
+          );
+        if (s.actors[c.avatar].place !== here) return goMeet(c.avatar);
+        return choose(
+          find("give", c.item, c.avatar),
+          "Put the promised item in their hands.",
+        );
+      }
+      if (c.kind === "covered")
+        return choose(
+          find("cover", "cloth", c.item),
+          "Wrap the sound or light.",
+        );
+      if (covered(s, c.item))
+        return choose(
+          find("take", "cloth"),
+          "Uncover the wanted sound or light.",
+        );
+      if (c.kind === "ringing")
+        return choose(find("ring", "bell"), "Let the pond hear the bell.");
+      if (c.kind === "lit") {
+        if (!s.items.lamp.fuel)
+          return choose(find("refill", "oil"), "Feed oil to the lamp.");
+        return choose(find("light", "lamp"), "Make a light for the meeting.");
+      }
+    }
   }
   // Item affordances also apply when an avatar carries its target hand.
   if (hand.items.includes("lamp") && rootHolder(s, "lamp") === actor) {
@@ -1207,10 +1525,35 @@ export function play(s, action, expectedRevision = s.revision) {
     addLog(next, "World", "Vale waits. The cast takes a turn.");
   const met = new Map();
   captureHands(next, met);
+  const active = knownActors(next);
   const respondent = perform(next, exact);
   captureHands(next, met);
+  if (
+    next.opening &&
+    !next.opening.crossed &&
+    exact.kind === "light" &&
+    next.actors.vale.place === "attic"
+  ) {
+    next.opening.crossed = true;
+    next.locations.attic.anchored = true;
+    travel(next, "vale", "pond");
+    meetCast(next);
+    addLog(
+      next,
+      "World",
+      "The first lamplight carries Vale alone through the attic mirror to Black pond. Pip is already waiting by the water. The mirror holds the return path, even when the lamp goes dark.",
+      {
+        kind: "narration",
+        actorId: "vale",
+        verb: "move",
+        fromLocationId: "attic",
+        locationId: "pond",
+        itemId: "lamp",
+      },
+    );
+  }
   for (const actor of ["moth", "keeper"]) {
-    if (actor === respondent) continue;
+    if (actor === respondent || !active.includes(actor)) continue;
     perform(next, plan(next, actor).action);
     captureHands(next, met);
   }
@@ -1252,7 +1595,12 @@ function validHand(h, actor) {
     Array.isArray(h.avatars) &&
     h.avatars.length <= 2 &&
     new Set(h.avatars).size === h.avatars.length &&
-    h.avatars.every((id) => actorIds.includes(id) && id !== actor)
+    h.avatars.every((id) => actorIds.includes(id) && id !== actor) &&
+    (h.conditions === undefined ||
+      (Array.isArray(h.conditions) &&
+        h.conditions.length <= 3 &&
+        h.conditions.every((c) => validCondition(c, actor)))) &&
+    (h.consequence === undefined || validConsequence(h.consequence, actor))
   );
 }
 function validProgram(p, actor, s) {
@@ -1268,6 +1616,11 @@ function validProgram(p, actor, s) {
     !Array.isArray(p.steps) ||
     !p.steps.length ||
     p.steps.length > 12
+  )
+    return false;
+  if (
+    p.purpose !== undefined &&
+    (typeof p.purpose !== "string" || p.purpose.length > 240)
   )
     return false;
   for (const step of p.steps) {
@@ -1311,13 +1664,33 @@ export function validateWorld(s) {
   };
   if (
     !s ||
-    s.schema !== 5 ||
+    s.schema !== 6 ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
   )
     fail();
+  if (s.opening !== undefined) {
+    const o = s.opening;
+    if (
+      !o ||
+      o.version !== 1 ||
+      typeof o.crossed !== "boolean" ||
+      !o.met ||
+      o.met.vale !== 0 ||
+      Object.keys(o.met).some((id) => !actorIds.includes(id)) ||
+      Object.values(o.met).some(
+        (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn,
+      ) ||
+      (o.met.keeper !== undefined && o.met.moth === undefined) ||
+      (!o.crossed &&
+        (s.actors?.vale?.place !== "attic" ||
+          Object.keys(o.met).length !== 1)) ||
+      (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
+    )
+      fail();
+  }
   if (
     Object.keys(s.actors || {})
       .sort()
@@ -1327,7 +1700,13 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validMemories(s)) fail();
+  if (!validMemories(s) || !validMotives(s)) fail();
+  if (
+    !s.locations ||
+    typeof s.locations.attic?.anchored !== "boolean" ||
+    ![null, "call", "hush"].includes(s.locations.pond?.answer)
+  )
+    fail();
   if (
     !s.peaceUntil ||
     Object.keys(s.peaceUntil).sort().join() !==
@@ -1381,6 +1760,16 @@ export function validateWorld(s) {
   }
   for (const [id, a] of Object.entries(s.actors)) {
     if (
+      !a.trust ||
+      Object.keys(a.trust).sort().join() !==
+        actorIds
+          .filter((other) => other !== id)
+          .sort()
+          .join() ||
+      Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3)
+    )
+      fail();
+    if (
       !Object.hasOwn(places, a.place) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||
@@ -1389,7 +1778,7 @@ export function validateWorld(s) {
     )
       fail();
     const progress = a.progress,
-      programs = questPrograms[id];
+      programs = programsFor(s, id);
     if (
       !progress ||
       !Number.isSafeInteger(progress.program) ||
@@ -1420,6 +1809,22 @@ export function validateWorld(s) {
       )
         fail();
       completed = progress.completedHands;
+      if (
+        progress.recentKinds !== undefined &&
+        (!Array.isArray(progress.recentKinds) ||
+          progress.recentKinds.length > 4 ||
+          progress.recentKinds.some(
+            (kind) =>
+              ![
+                "crossing",
+                "answer",
+                "delivery",
+                "gathering",
+                "bargain",
+              ].includes(kind),
+          ))
+      )
+        fail();
     } else if (
       progress.current ||
       progress.completedHands !== undefined ||
@@ -1581,11 +1986,15 @@ export function validateWorld(s) {
     if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
     if (e.questPlan !== undefined && !validProgram(e.questPlan, e.actorId, s))
       fail();
+    if (
+      e.consequence !== undefined &&
+      !validConsequence(e.consequence, e.actorId)
+    )
+      fail();
     if (e.kind === "quest") {
-      const authoredIndex = questPrograms[e.actorId]?.findIndex(
-        (p) => p.id === e.programId,
-      );
-      const program = e.program || questPrograms[e.actorId]?.[authoredIndex];
+      const authored = s.actors[e.actorId] ? programsFor(s, e.actorId) : [];
+      const authoredIndex = authored.findIndex((p) => p.id === e.programId);
+      const program = e.program || authored[authoredIndex];
       const index = e.programIndex ?? authoredIndex;
       if (
         !validProgram(program, e.actorId, s) ||
@@ -1627,6 +2036,12 @@ export function validateWorld(s) {
           target.items.some((id) => !seen.items.includes(id)) ||
           (target.location && target.location !== seen.location) ||
           target.avatars.some((id) => !seen.avatars.includes(id))
+        )
+          fail();
+        if (
+          target.conditions?.length &&
+          JSON.stringify(seen.conditions) !==
+            JSON.stringify(target.conditions.map((c) => ({ ...c, met: true })))
         )
           fail();
       }
@@ -1709,6 +2124,18 @@ export function decodeSave(text) {
     s.schema = 5;
     s.standoffs = [];
     s.peaceUntil = { vale: 0, moth: 0, keeper: 0 };
+  }
+  if (s?.schema === 5) {
+    s.schema = 6;
+    s.locations = { attic: { anchored: false }, pond: { answer: null } };
+    for (const [id, actor] of Object.entries(s.actors || {}))
+      actor.trust = Object.fromEntries(
+        actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+      );
+    const remembered = { ...s, memories: newMemories() };
+    for (const entry of s.log || []) rememberEvent(remembered, entry);
+    for (const [id, memory] of Object.entries(s.memories || {}))
+      memory.landmarks = remembered.memories[id]?.landmarks || [];
   }
   return validateWorld(s);
 }

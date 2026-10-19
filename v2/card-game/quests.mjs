@@ -1,3 +1,12 @@
+import { hasQuestPrograms, interest } from "./motives.mjs";
+import {
+  condition,
+  conditionMet,
+  requiredItems,
+  situationPrograms,
+} from "./situations.mjs";
+export { condition } from "./situations.mjs";
+
 // Hand parts combine at one moment. Sequences join reusable steps;
 // either offers several hands that can complete the same step.
 export const hold = (...items) => ({ items });
@@ -12,6 +21,11 @@ export function hand(...parts) {
     items: [...new Set(parts.flatMap((p) => p.items || []))],
     location: locations[0] || null,
     avatars: [...new Set(parts.flatMap((p) => p.avatars || []))],
+    ...(parts.some((p) => p.conditions?.length)
+      ? {
+          conditions: parts.flatMap((p) => p.conditions || []),
+        }
+      : {}),
   };
 }
 export const sequence = (...parts) =>
@@ -91,6 +105,52 @@ export const questPrograms = {
     },
   ],
 };
+// New tables discover the cast through the mirror and the shore. Older saves
+// keep their authored programs and the progress earned against those hands.
+export const openingPrograms = {
+  vale: [
+    {
+      id: "first-light",
+      name: "Light the lamp",
+      purpose:
+        "Wake the attic mirror with the lamp. Its first light carries you to the shore.",
+      steps: [hand(hold("lamp"), at("attic"), condition("lit", "lamp"))],
+    },
+    {
+      id: "along-the-shore",
+      name: "Along the shore",
+      purpose:
+        "Meet the moth by the water, then carry the lamp along the path to the station.",
+      steps: [
+        hand(hold("lamp"), at("pond"), withAvatars("moth")),
+        hand(hold("lamp"), at("station")),
+      ],
+    },
+  ],
+  moth: [
+    {
+      ...questPrograms.moth[0],
+      steps: [
+        hand(hold("lamp"), at("pond"), withAvatars("vale")),
+        hand(hold("oil"), at("station"), withAvatars("keeper")),
+      ],
+    },
+    questPrograms.moth[1],
+  ],
+  keeper: [
+    {
+      ...questPrograms.keeper[0],
+      steps: [
+        hand(hold("bell"), at("station"), withAvatars("vale")),
+        hand(hold("cloth"), at("pond"), withAvatars("moth")),
+      ],
+    },
+    questPrograms.keeper[1],
+  ],
+};
+export const knownActors = (s) => Object.keys(s.opening?.met || s.actors);
+export const programsFor = (s, actor) =>
+  (s.opening ? openingPrograms : questPrograms)[actor];
 export const restingHands = {
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
@@ -98,11 +158,13 @@ export const restingHands = {
 };
 export const newProgress = () => ({ program: 0, step: 0, marks: [] });
 export const programFor = (s, actor) =>
-  questPrograms[actor][s.actors[actor].progress.program] ||
+  programsFor(s, actor)[s.actors[actor].progress.program] ||
   s.actors[actor].progress.current ||
   null;
 export const targetsFor = (s, actor) =>
-  alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]);
+  hasQuestPrograms(s)
+    ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
+    : [interest(s, actor)];
 const ownerOf = (s, item) => {
   let owner = s.items[item].holder;
   const seen = new Set([item]);
@@ -117,7 +179,17 @@ const ownerOf = (s, item) => {
 export const desireFor = (s, actor) => {
   const here = s.actors[actor].place;
   const score = (h) =>
-    h.items.filter((id) => ownerOf(s, id) !== actor).length * 20 +
+    requiredItems(s, actor, h).filter((id) => ownerOf(s, id) !== actor).length *
+      20 +
+    (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
+    (h.conditions || []).filter(
+      (c) =>
+        c.kind === "heldBy" &&
+        ownerOf(s, c.item) !== c.avatar &&
+        Object.keys(s.items).filter((id) => ownerOf(s, id) === c.avatar)
+          .length >= 3,
+    ).length *
+      30 +
     (h.location && h.location !== here ? 3 : 0) +
     h.avatars.filter((id) => s.actors[id].place !== (h.location || here))
       .length *
@@ -140,7 +212,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = Object.keys(s.actors),
+  const actors = knownActors(s),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
   const reachable = [here];
@@ -152,7 +224,9 @@ export function generateProgram(
   const bundle = (item) =>
     ids.filter((id) => id === item || s.items[id].holder === item);
   const needed = (owner, item) =>
-    bundle(item).some((id) => desireFor(s, owner).items.includes(id));
+    bundle(item).some((id) =>
+      requiredItems(s, owner, desireFor(s, owner)).includes(id),
+    );
   // A cast member does not build a new goal around keeping something another
   // avatar wants now. It can then trade or give that item, so wants cannot
   // lock each other out. Vale keeps carried items.
@@ -165,6 +239,7 @@ export function generateProgram(
   const available = (item) => {
     const owner = ownerOf(s, item);
     return (
+      (!s.actors[owner] || actors.includes(owner)) &&
       (!independent || owner !== "vale") &&
       reachable.includes(placeOf(item)) &&
       (!s.actors[owner] || owner === actor || !needed(owner, item))
@@ -197,7 +272,7 @@ export function generateProgram(
     if (s.items[s.items[id].holder] || !available(id)) return false;
     if (owner === actor && wantedElsewhere(id)) return false;
     if (!independent || !s.actors[owner] || owner === actor) return true;
-    const payment = desireFor(s, owner).items.filter(
+    const payment = requiredItems(s, owner, desireFor(s, owner)).filter(
       (item) => ownerOf(s, item) !== owner,
     );
     return !payment.length || payment.some(available);
@@ -206,12 +281,17 @@ export function generateProgram(
     candidates.push(
       ...rotated.filter(
         (id) =>
+          (!s.actors[ownerOf(s, id)] || actors.includes(ownerOf(s, id))) &&
           !s.items[s.items[id].holder] &&
           (!independent || ownerOf(s, id) !== "vale") &&
           reachable.includes(placeOf(id)),
       ),
     );
   const recent = progress.recent || [];
+  const active = actors
+    .filter((id) => id !== actor)
+    .map((id) => programFor(s, id))
+    .filter(Boolean);
   const score = (item) => {
     const owner = ownerOf(s, item);
     let value = owner === actor ? 0 : s.actors[owner] ? 6 : 4;
@@ -219,7 +299,11 @@ export function generateProgram(
     // choose items held by the cast, leaving the player's response voluntary.
     if (actor !== "vale" && owner === "vale")
       value = progress.program % 3 === 0 ? 10 : -2;
-    return value - (recent.includes(item) ? 3 : 0);
+    return (
+      value -
+      (recent.includes(item) ? 3 : 0) -
+      active.filter((p) => p.generated?.item === item).length * 4
+    );
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
   if (!item)
@@ -232,7 +316,7 @@ export function generateProgram(
       : others[(progress.program + actors.indexOf(actor)) % others.length];
   const payment =
     owner !== actor && s.actors[owner]
-      ? desireFor(s, owner).items.find(
+      ? requiredItems(s, owner, desireFor(s, owner)).find(
           (id) => ownerOf(s, id) !== owner && id !== item && available(id),
         )
       : null;
@@ -254,7 +338,7 @@ export function generateProgram(
   const gathering = hand(hold(payment || item));
   const meeting = meet([item], partner, reachable);
   const journey = carryTo(finalItems, destination);
-  return {
+  const base = {
     id: `generated-${actor}-${progress.program + 1}`,
     name: payment
       ? `A trade with ${partner === "moth" ? "Pip" : partner === "keeper" ? "the keeper" : "Vale"}`
@@ -265,4 +349,48 @@ export function generateProgram(
     ),
     generated: { turn: s.turn, level: levelOf(s, actor), item, owner, partner },
   };
+  if (independent || !s.locations) return base;
+  const catalog = situationPrograms(s, actor, base, {
+    hand,
+    hold,
+    at,
+    withAvatars,
+    either,
+    reachable,
+    available: (id) =>
+      available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
+    needed: (id) => requiredItems(s, id, desireFor(s, id)),
+    name: (id) =>
+      things[id]?.name ||
+      places[id]?.name ||
+      { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id],
+  });
+  const preferences = {
+    vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
+    moth: ["delivery", "gathering", "crossing", "answer", "bargain"],
+    keeper: ["answer", "delivery", "crossing", "gathering", "bargain"],
+  }[actor];
+  catalog.push({
+    ...base,
+    purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,
+    generated: { ...base.generated, situation: "bargain" },
+  });
+  const recentKinds = progress.recentKinds || [];
+  const kindOf = (p) => p.generated?.situation || "bargain";
+  // Prefer a different purpose from the cast's active programs. Shared items
+  // can still connect a delivery, a crossing and a bargain into one story.
+  const unseen = catalog.filter((p) => !recentKinds.includes(kindOf(p)));
+  const fresh = unseen.length ? unseen : catalog;
+  const distinct = fresh.filter(
+    (p) => !active.some((other) => kindOf(other) === kindOf(p)),
+  );
+  const choices = distinct.length ? distinct : fresh;
+  const rank = (p) =>
+    preferences.indexOf(kindOf(p)) +
+    recentKinds.reduce(
+      (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
+      0,
+    ) +
+    (recent.includes(p.generated.item) ? 2 : 0);
+  return choices.sort((a, b) => rank(a) - rank(b))[0] || base;
 }

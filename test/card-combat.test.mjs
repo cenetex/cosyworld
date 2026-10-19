@@ -148,7 +148,7 @@ describe("card standoffs", () => {
     delete old.standoffs;
     delete old.peaceUntil;
     const migrated = decodeSave(JSON.stringify(old));
-    expect(migrated.schema).toBe(5);
+    expect(migrated.schema).toBe(6);
     expect(migrated.items).toEqual(old.items);
     expect(migrated.standoffs).toEqual([]);
   });

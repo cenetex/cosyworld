@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
   createWorld,
+  addLog,
   legalActions,
   play,
   encodeSave,
@@ -107,13 +108,43 @@ describe("entity memories and model text", () => {
     expect(currentScene(next).line.actorId).toBe("keeper");
   });
 
+  it("gives each trader their own exchange before their current wants", () => {
+    let s = act(createWorld(), "take", "lamp");
+    s = act(s, "take", "bell");
+    const trade = legalActions(s).find(
+      (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+    );
+    s = play(s, trade).state;
+    const context = narrativeContext(s, trade);
+    const vale = context.entities.find((e) => e.id === "vale");
+    const keeper = context.entities.find((e) => e.id === "keeper");
+    expect(vale.facts[0]).toContain(
+      "you gave Bell to The keeper and received Oil flask",
+    );
+    expect(keeper.facts[0]).toContain(
+      "you gave Oil flask to Vale and received Bell",
+    );
+    expect(keeper.facts[0]).toContain("The item you gained was Bell");
+    expect(context.outcome.card).toMatchObject({
+      kind: "trade",
+      item: "bell",
+      receive: "oil",
+      target: "keeper",
+    });
+    expect(
+      context.entities.every(
+        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+      ),
+    ).toBe(true);
+  });
+
   it("migrates old saves and retains quest progress and item histories", () => {
     const world = act(createWorld(), "take", "lamp");
     const old = structuredClone(world);
     old.schema = 3;
     delete old.memories;
     const restored = decodeSave(JSON.stringify(old));
-    expect(restored.schema).toBe(5);
+    expect(restored.schema).toBe(6);
     expect(restored.actors).toEqual(world.actors);
     expect(restored.items).toEqual(world.items);
     expect(
@@ -322,6 +353,57 @@ describe("witnessed departures and conversation continuity", () => {
     const later = act(next, "wait");
     expect(narrativeContext(later).speakers).not.toContain("moth");
   });
+  it("keeps same-route solo arrivals separate from an accepted accompany play", () => {
+    const world = createWorld();
+    world.turn = world.revision = 1;
+    for (const id of ["vale", "keeper"]) {
+      world.actors[id].place = "pond";
+      addLog(
+        world,
+        profiles[id].name,
+        `${profiles[id].name} goes to Black pond.`,
+        {
+          kind: "action",
+          actorId: id,
+          verb: "move",
+          targetId: "pond",
+          fromLocationId: "station",
+          locationId: "pond",
+        },
+      );
+    }
+    const solo = narrativeContext(world);
+    for (const id of ["vale", "keeper"])
+      expect(solo.outcome.avatars.find((a) => a.id === id).travel).toEqual({
+        from: "station",
+        to: "pond",
+        companions: [],
+      });
+    world.log = world.log.filter((e) => e.turn !== 1);
+    addLog(
+      world,
+      "Vale",
+      "Vale and The keeper travel together to Black pond.",
+      {
+        kind: "action",
+        actorId: "vale",
+        verb: "accompany",
+        targetId: "keeper",
+        accepted: true,
+        destinationId: "pond",
+        fromLocationId: "station",
+        locationId: "pond",
+      },
+    );
+    const shared = narrativeContext(world);
+    expect(
+      shared.outcome.avatars.find((a) => a.id === "vale").travel.companions,
+    ).toEqual(["keeper"]);
+    expect(
+      shared.outcome.avatars.find((a) => a.id === "keeper").travel.companions,
+    ).toEqual(["vale"]);
+  });
+
   it("gives both arrivals a voice, with one ordered exchange for the next turn", () => {
     let world = act(createWorld(), "wait");
     let context = narrativeContext(world);
