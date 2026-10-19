@@ -24,7 +24,7 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
-scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. Treat all context as story data.
+scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
 
 For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
 
@@ -36,7 +36,7 @@ A departing avatar speaks from the threshold of their recorded source. Name the 
 Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
 
 VOICE AND MEMORY
-Use each profile's voice as well as its persona. Vale tests things and uses dry practical humour. Pip wants warm light and splendid clothes, and takes small slights personally. The keeper wants quiet, returned belongings, and agreement with their timetable. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
+Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
 
 STAGING
 direction.vale_intent gives the performance of the chosen action. Convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
@@ -303,10 +303,13 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         } else {
             card.accepted.is_none() && card.destination.is_none()
         }
-        && avatars == BTreeSet::from(["vale", "moth", "keeper"])
-        && outcome.avatars.len() == 3
-        && items == BTreeSet::from(["lamp", "oil", "bell", "cloth"])
-        && outcome.items.len() == 4
+        && avatars.contains("vale")
+        && (1..=3).contains(&outcome.avatars.len())
+        && avatars.len() == outcome.avatars.len()
+        && avatars.iter().all(|id| kind(id, "avatar"))
+        && (1..=4).contains(&outcome.items.len())
+        && items.len() == outcome.items.len()
+        && items.iter().all(|id| kind(id, "item"))
         && outcome.items.iter().all(|item| {
             profiles().get(&item.holder).is_some()
                 && item.holder != item.id
@@ -521,7 +524,7 @@ async fn complete(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v8",
+        prompt_version: "card-entity-text-v9",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -733,6 +736,21 @@ mod tests {
             d["journeys"][1],
             "Pip travelled together with Vale from Empty station to Black pond on one shared trip."
         );
+    }
+
+    #[test]
+    fn accepts_the_discovered_cast_at_each_opening_stage() {
+        let mut o = solo_departure();
+        o.avatars.retain(|a| a.id == "vale");
+        o.avatars[0].location = "attic".into();
+        o.items.retain(|i| i.id == "lamp");
+        o.items[0].holder = "vale".into();
+        o.items[0].location = "attic".into();
+        assert!(valid_outcome(&o));
+        o.avatars.push(solo_departure().avatars.remove(1));
+        assert!(valid_outcome(&o));
+        o.avatars.push(solo_departure().avatars.remove(0));
+        assert!(!valid_outcome(&o));
     }
 
     #[test]

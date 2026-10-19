@@ -1,5 +1,6 @@
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import {
+  condition,
   conditionMet,
   requiredItems,
   situationPrograms,
@@ -104,6 +105,52 @@ export const questPrograms = {
     },
   ],
 };
+// New tables discover the cast through the mirror and the shore. Older saves
+// keep their authored programs and the progress earned against those hands.
+export const openingPrograms = {
+  vale: [
+    {
+      id: "first-light",
+      name: "Light the lamp",
+      purpose:
+        "Wake the attic mirror with the lamp. Its first light carries you to the shore.",
+      steps: [hand(hold("lamp"), at("attic"), condition("lit", "lamp"))],
+    },
+    {
+      id: "along-the-shore",
+      name: "Along the shore",
+      purpose:
+        "Meet the moth by the water, then carry the lamp along the path to the station.",
+      steps: [
+        hand(hold("lamp"), at("pond"), withAvatars("moth")),
+        hand(hold("lamp"), at("station")),
+      ],
+    },
+  ],
+  moth: [
+    {
+      ...questPrograms.moth[0],
+      steps: [
+        hand(hold("lamp"), at("pond"), withAvatars("vale")),
+        hand(hold("oil"), at("station"), withAvatars("keeper")),
+      ],
+    },
+    questPrograms.moth[1],
+  ],
+  keeper: [
+    {
+      ...questPrograms.keeper[0],
+      steps: [
+        hand(hold("bell"), at("station"), withAvatars("vale")),
+        hand(hold("cloth"), at("pond"), withAvatars("moth")),
+      ],
+    },
+    questPrograms.keeper[1],
+  ],
+};
+export const knownActors = (s) => Object.keys(s.opening?.met || s.actors);
+export const programsFor = (s, actor) =>
+  (s.opening ? openingPrograms : questPrograms)[actor];
 export const restingHands = {
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
@@ -111,7 +158,7 @@ export const restingHands = {
 };
 export const newProgress = () => ({ program: 0, step: 0, marks: [] });
 export const programFor = (s, actor) =>
-  questPrograms[actor][s.actors[actor].progress.program] ||
+  programsFor(s, actor)[s.actors[actor].progress.program] ||
   s.actors[actor].progress.current ||
   null;
 export const targetsFor = (s, actor) =>
@@ -165,7 +212,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = Object.keys(s.actors),
+  const actors = knownActors(s),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
   const reachable = [here];
@@ -192,6 +239,7 @@ export function generateProgram(
   const available = (item) => {
     const owner = ownerOf(s, item);
     return (
+      (!s.actors[owner] || actors.includes(owner)) &&
       (!independent || owner !== "vale") &&
       reachable.includes(placeOf(item)) &&
       (!s.actors[owner] || owner === actor || !needed(owner, item))
@@ -233,6 +281,7 @@ export function generateProgram(
     candidates.push(
       ...rotated.filter(
         (id) =>
+          (!s.actors[ownerOf(s, id)] || actors.includes(ownerOf(s, id))) &&
           !s.items[s.items[id].holder] &&
           (!independent || ownerOf(s, id) !== "vale") &&
           reachable.includes(placeOf(id)),

@@ -18,6 +18,8 @@ import {
 } from "./memory.mjs";
 import {
   questPrograms,
+  programsFor,
+  knownActors,
   newProgress,
   programFor,
   desireFor,
@@ -88,7 +90,7 @@ const ids = Object.keys(things);
 const actorIds = Object.keys(people);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-export function createWorld() {
+export function createWorld({ opening = false } = {}) {
   const world = {
     schema: 6,
     locations: { attic: { anchored: false }, pond: { answer: null } },
@@ -145,6 +147,18 @@ export function createWorld() {
       },
     ],
   };
+  if (opening) {
+    world.opening = { version: 1, crossed: false, met: { vale: 0 } };
+    world.actors.vale.place = "attic";
+    world.actors.keeper.place = "station";
+    world.items.lamp.holder = "vale";
+    world.log[0] = {
+      ...world.log[0],
+      locationId: "attic",
+      items: [{ id: "lamp", holder: "vale", fuel: 8, lit: false }],
+      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore. The wick is ready to light.",
+    };
+  }
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -168,15 +182,43 @@ export const shining = (s) =>
 export const reflectionOpen = (s) =>
   Boolean(s.locations?.attic.anchored) ||
   (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+const baseExits = (s, place) =>
+  s.opening
+    ? places[place].exits.filter((to) => ![place, to].includes("attic"))
+    : places[place].exits;
+export const placeText = (s, place) =>
+  s.opening && place === "attic"
+    ? "A tall mirror reflects a black shore. The lamp wakes the crossing to the pond."
+    : s.opening && place === "station"
+      ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
+      : places[place].text;
 export function exits(s, place) {
   return [
-    ...places[place].exits,
+    ...baseExits(s, place),
     ...(reflectionOpen(s) && place === "attic"
       ? ["pond"]
       : reflectionOpen(s) && place === "pond"
         ? ["attic"]
         : []),
   ];
+}
+const programPlaces = (s) =>
+  s.opening
+    ? Object.fromEntries(
+        Object.keys(places).map((id) => [
+          id,
+          { ...places[id], exits: exits(s, id) },
+        ]),
+      )
+    : places;
+function meetCast(s) {
+  if (!s.opening) return;
+  for (const id of actorIds)
+    if (
+      s.actors[id].place === s.actors.vale.place &&
+      s.opening.met[id] === undefined
+    )
+      s.opening.met[id] = s.turn;
 }
 const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
@@ -270,6 +312,7 @@ export function canTrade(s, actor, give, receive) {
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
+    !knownActors(s).includes(other) ||
     other === actor ||
     other === "vale" ||
     s.actors[actor].place !== s.actors[other].place
@@ -307,7 +350,7 @@ export function tradeOffers(s, actor) {
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of actorIds) {
+  for (const actor of knownActors(s)) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
     );
@@ -334,14 +377,19 @@ function captureHands(s, met) {
 function ensurePrograms(s) {
   for (const actor of actorIds) {
     const p = s.actors[actor].progress;
-    if (p.program >= questPrograms[actor].length && !p.current) {
-      p.completedHands ??= questPrograms[actor].reduce(
+    if (p.program >= programsFor(s, actor).length && !p.current) {
+      p.completedHands ??= programsFor(s, actor).reduce(
         (n, program) => n + program.steps.length,
         0,
       );
       p.recent ??= [];
       p.recentKinds ??= [];
-      p.current = generateProgram(structuredClone(s), actor, places, things);
+      p.current = generateProgram(
+        structuredClone(s),
+        actor,
+        programPlaces(s),
+        things,
+      );
     }
   }
 }
@@ -349,7 +397,7 @@ function ensurePrograms(s) {
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of actorIds.filter((id) => id !== "vale")) {
+  for (const actor of knownActors(s).filter((id) => id !== "vale")) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
     if (
@@ -357,10 +405,16 @@ function refreshStalledPrograms(s) {
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
     )
       continue;
-    const fresh = generateProgram(structuredClone(s), actor, places, things, {
-      independent: true,
-      solo: s.turn - (p.marks.at(-1) || 0) >= 24,
-    });
+    const fresh = generateProgram(
+      structuredClone(s),
+      actor,
+      programPlaces(s),
+      things,
+      {
+        independent: true,
+        solo: s.turn - (p.marks.at(-1) || 0) >= 24,
+      },
+    );
     const unfinished = fresh.steps.filter(
       (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
     );
@@ -511,7 +565,7 @@ export function addLog(s, speaker, text, detail = {}) {
       (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
     actorId,
     locationId,
-    cast: actorIds.filter((id) => s.actors[id].place === locationId),
+    cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
     items: ids
       .filter((id) => itemPlace(s, id) === locationId)
       .map((id) => {
@@ -654,8 +708,8 @@ export function legalActions(s, actor = "vale") {
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   for (const to of exits(s, here)) {
-    const through = !places[here].exits.includes(to);
-    for (const other of actorIds.filter(
+    const through = !baseExits(s, here).includes(to);
+    for (const other of knownActors(s).filter(
       (id) => id !== actor && s.actors[id].place === here,
     )) {
       const request = offer(
@@ -693,7 +747,7 @@ export function legalActions(s, actor = "vale") {
       );
     }
   }
-  for (const other of actorIds.filter(
+  for (const other of knownActors(s).filter(
     (id) => id !== actor && s.actors[id].place === here,
   )) {
     const conflict = standoffFor(s, actor);
@@ -752,7 +806,12 @@ export function legalActions(s, actor = "vale") {
   }
   for (const id of ids) {
     const item = s.items[id];
-    if (itemPlace(s, id) !== here) continue;
+    if (
+      itemPlace(s, id) !== here ||
+      (actorIds.includes(rootHolder(s, id)) &&
+        !knownActors(s).includes(rootHolder(s, id)))
+    )
+      continue;
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
@@ -780,7 +839,7 @@ export function legalActions(s, actor = "vale") {
           [id],
         ),
       );
-      for (const other of actorIds.filter(
+      for (const other of knownActors(s).filter(
         (p) =>
           p !== actor &&
           s.actors[p].place === here &&
@@ -920,7 +979,7 @@ export function matchingActions(s, selected) {
   );
 }
 function travel(s, actor, destination) {
-  const through = !places[s.actors[actor].place].exits.includes(destination);
+  const through = !baseExits(s, s.actors[actor].place).includes(destination);
   if (through) s.actors[actor].crossed += 1;
   s.actors[actor].place = destination;
   for (const id of carried(s, actor))
@@ -1015,7 +1074,7 @@ function perform(s, a) {
           );
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
-        const retreat = places[here].exits[0];
+        const retreat = exits(s, here)[0];
         s.actors[a.target].place = retreat;
         for (const id of carried(s, a.target))
           remember(
@@ -1052,6 +1111,19 @@ function perform(s, a) {
       transfer(s, a.receive, a.actor, a.text);
       break;
     case "light":
+      if (
+        s.opening &&
+        !s.opening.crossed &&
+        a.actor === "vale" &&
+        here === "attic" &&
+        s.items.lamp.holder === "attic"
+      )
+        transfer(
+          s,
+          "lamp",
+          "vale",
+          "Vale lifts the lamp as its light wakes the mirror.",
+        );
       s.items.lamp.lit = true;
       remember(s, "lamp", a.text);
       break;
@@ -1113,6 +1185,7 @@ function perform(s, a) {
     default:
       throw new Error("Unknown act.");
   }
+  meetCast(s);
   recordReaction(s, a, witnesses, requestAccepted);
   addLog(s, "World", text, {
     kind: "action",
@@ -1158,6 +1231,11 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = "vale") {
+  if (!knownActors(s).includes(actor))
+    return {
+      action: legalActions(s, actor)[0],
+      reason: "Wait for a first meeting.",
+    };
   const acts = legalActions(s, actor),
     hand = desireFor(s, actor);
   if (
@@ -1447,10 +1525,35 @@ export function play(s, action, expectedRevision = s.revision) {
     addLog(next, "World", "Vale waits. The cast takes a turn.");
   const met = new Map();
   captureHands(next, met);
+  const active = knownActors(next);
   const respondent = perform(next, exact);
   captureHands(next, met);
+  if (
+    next.opening &&
+    !next.opening.crossed &&
+    exact.kind === "light" &&
+    next.actors.vale.place === "attic"
+  ) {
+    next.opening.crossed = true;
+    next.locations.attic.anchored = true;
+    travel(next, "vale", "pond");
+    meetCast(next);
+    addLog(
+      next,
+      "World",
+      "The first lamplight carries Vale alone through the attic mirror to Black pond. Pip is already waiting by the water. The mirror holds the return path, even when the lamp goes dark.",
+      {
+        kind: "narration",
+        actorId: "vale",
+        verb: "move",
+        fromLocationId: "attic",
+        locationId: "pond",
+        itemId: "lamp",
+      },
+    );
+  }
   for (const actor of ["moth", "keeper"]) {
-    if (actor === respondent) continue;
+    if (actor === respondent || !active.includes(actor)) continue;
     perform(next, plan(next, actor).action);
     captureHands(next, met);
   }
@@ -1568,6 +1671,26 @@ export function validateWorld(s) {
     s.revision < s.turn
   )
     fail();
+  if (s.opening !== undefined) {
+    const o = s.opening;
+    if (
+      !o ||
+      o.version !== 1 ||
+      typeof o.crossed !== "boolean" ||
+      !o.met ||
+      o.met.vale !== 0 ||
+      Object.keys(o.met).some((id) => !actorIds.includes(id)) ||
+      Object.values(o.met).some(
+        (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn,
+      ) ||
+      (o.met.keeper !== undefined && o.met.moth === undefined) ||
+      (!o.crossed &&
+        (s.actors?.vale?.place !== "attic" ||
+          Object.keys(o.met).length !== 1)) ||
+      (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
+    )
+      fail();
+  }
   if (
     Object.keys(s.actors || {})
       .sort()
@@ -1655,7 +1778,7 @@ export function validateWorld(s) {
     )
       fail();
     const progress = a.progress,
-      programs = questPrograms[id];
+      programs = programsFor(s, id);
     if (
       !progress ||
       !Number.isSafeInteger(progress.program) ||
@@ -1869,10 +1992,9 @@ export function validateWorld(s) {
     )
       fail();
     if (e.kind === "quest") {
-      const authoredIndex = questPrograms[e.actorId]?.findIndex(
-        (p) => p.id === e.programId,
-      );
-      const program = e.program || questPrograms[e.actorId]?.[authoredIndex];
+      const authored = s.actors[e.actorId] ? programsFor(s, e.actorId) : [];
+      const authoredIndex = authored.findIndex((p) => p.id === e.programId);
+      const program = e.program || authored[authoredIndex];
       const index = e.programIndex ?? authoredIndex;
       if (
         !validProgram(program, e.actorId, s) ||
