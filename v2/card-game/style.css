@@ -116,6 +116,7 @@ main {
   isolation: isolate;
   overflow: hidden;
   background: #232330;
+  container-type: size;
 }
 .backdrop,
 .scene-shade {
@@ -632,9 +633,6 @@ h2 {
   display: none !important;
 }
 @media (min-width: 1400px) {
-  .cast {
-    inset: 44px 15% 250px;
-  }
   .hand {
     gap: 16px;
   }
@@ -800,6 +798,40 @@ h2 {
   #prior-text {
     font-size: 11px;
     max-height: 30px;
+  }
+}
+/* Frame the group from the scene height, even on a very wide screen. Keep
+   their feet above the full two-line exchange, with room for the title. */
+@media (min-width: 701px) {
+  .cast {
+    --cast-top: 18px;
+    --cast-bottom: 242px;
+    inset: var(--cast-top) 0 var(--cast-bottom);
+    margin-inline: auto;
+    width: min(
+      90%,
+      1200px,
+      calc((100cqh - var(--cast-top) - var(--cast-bottom)) * 2.8)
+    );
+  }
+}
+@media (min-width: 701px) and (max-height: 740px) {
+  .cast {
+    --cast-bottom: 168px;
+  }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .cast:not([data-count="1"]) {
+    --cast-top: 100px;
+  }
+}
+/* Short windows keep a readable scene; the same card row follows below. */
+@media (max-height: 640px) {
+  body {
+    overflow-y: auto;
+  }
+  .stage {
+    min-height: 460px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

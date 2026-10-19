@@ -109,8 +109,8 @@ export function sceneStaging(
     order.length === 3
       ? [
           [22, 1, 0],
-          [59, 0.74, 8],
-          [81, 0.64, 20],
+          [59, 0.84, 4],
+          [81, 0.76, 8],
         ]
       : order.length === 2
         ? [
