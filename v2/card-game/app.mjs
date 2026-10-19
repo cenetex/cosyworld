@@ -1,3 +1,10 @@
+import {
+  enableMotives,
+  hasMotives,
+  interest,
+  motiveFacts,
+  tastes,
+} from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
 import { conditionText } from "./situations.mjs";
 import {
@@ -54,7 +61,7 @@ const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
   "cosyworld.reflected-shore.v1" +
   (tableName && /^[a-z0-9-]{1,40}$/i.test(tableName) ? `.${tableName}` : "");
-let world = createWorld(),
+let world = enableMotives(createWorld()),
   selected = [],
   saveBlocked = false,
   lineSeq = null,
@@ -91,7 +98,7 @@ function notice(text) {
 }
 try {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) world = decodeSave(saved);
+  if (saved) world = enableMotives(decodeSave(saved));
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -410,12 +417,16 @@ function card(id) {
   el.title =
     world.memories[id].text ||
     (type === "avatar"
-      ? `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
+      ? hasMotives(world)
+        ? motiveFacts(world, id).join(". ")
+        : `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
       : def.text);
   el.append(
     node(
       "span",
-      type === "avatar" ? `${type} · Level ${levelOf(world, id)}` : type,
+      type === "avatar" && !hasMotives(world)
+        ? `${type} · Level ${levelOf(world, id)}`
+        : type,
       "kind",
     ),
   );
@@ -448,6 +459,10 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
+    if (hasMotives(world)) {
+      caption = interest(world, id).text;
+      detail = tastes[id].likes;
+    }
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
     detail =
@@ -461,7 +476,29 @@ function card(id) {
   el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
-  if (type === "avatar") {
+  if (type === "avatar" && hasMotives(world)) {
+    info.textContent = "";
+    info.append(node("span", tastes[id].likes, "hand-condition"));
+    const grudge = world.motives.grievances[id].at(-1);
+    info.append(
+      node(
+        "span",
+        grudge
+          ? `Sore at ${nameOf(grudge.other)}: ${grudge.kind}`
+          : `Touchy about: ${tastes[id].sore}`,
+        "hand-condition",
+      ),
+    );
+    info.title = motiveFacts(world, id).join("\n");
+    if (id !== "vale")
+      info.append(
+        node(
+          "span",
+          `Offers: ${tradeOffers(world, id).map(nameOf).join(", ") || "Make an offer"}`,
+          "trade-offers",
+        ),
+      );
+  } else if (type === "avatar") {
     info.textContent = "";
     const target = handStatus(world, id);
     const row = (label, entries) => {
@@ -507,11 +544,7 @@ function card(id) {
     const choices = targetsFor(world, id);
     if (choices.length > 1)
       info.append(
-        node(
-          "span",
-          `${choices.length} choices · Menu`,
-          "trade-offers",
-        ),
+        node("span", `${choices.length} choices · Menu`, "trade-offers"),
       );
     const offers = tradeOffers(world, id);
     if (id !== "vale")
@@ -728,8 +761,9 @@ function renderScene() {
         }),
       );
     }
-    figure.querySelector(".portrait-name").textContent =
-      `${nameOf(id)} · Lv ${levelOf(world, id)}`;
+    figure.querySelector(".portrait-name").textContent = hasMotives(world)
+      ? nameOf(id)
+      : `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
   const previous =
     scene.line?.kind === "dialogue"
@@ -927,6 +961,21 @@ $("history-button").onclick = () => {
   $("messages").scrollTop = $("messages").scrollHeight;
 };
 $("menu-button").onclick = () => {
+  if (hasMotives(world)) {
+    $("quest-guide").replaceChildren(
+      ...Object.keys(people).map((id) => {
+        const block = node("section", undefined, "quest-guide-program");
+        block.append(
+          node("h3", nameOf(id)),
+          ...motiveFacts(world, id).map((fact) => node("p", fact)),
+        );
+        return block;
+      }),
+    );
+    $("menu-dialog").showModal();
+    pauseSpeech();
+    return;
+  }
   $("quest-guide").replaceChildren(
     ...[
       ...questPrograms.vale.map((program, index) => ({
@@ -1009,7 +1058,7 @@ $("confirm-reset").onclick = () => {
   departed.clear();
   reveal.cancel();
   speechSounds.stop();
-  world = createWorld();
+  world = enableMotives(createWorld());
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
@@ -1032,7 +1081,7 @@ window.addEventListener("storage", (event) => {
   speechKey = null;
   speechSounds.stop();
   try {
-    world = decodeSave(event.newValue);
+    world = enableMotives(decodeSave(event.newValue));
     renderedHand = "";
     lineSeq = null;
     selected = [];

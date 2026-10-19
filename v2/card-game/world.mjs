@@ -1,4 +1,14 @@
 import {
+  hasMotives,
+  valueOf,
+  tradeDecision,
+  giftDecision,
+  socialTravel,
+  socialPlan,
+  recordReaction,
+  validMotives,
+} from "./motives.mjs";
+import {
   newMemories,
   rememberEvent,
   migrateMemories,
@@ -224,6 +234,7 @@ const needed = (s, actor, item) =>
     requiredItems(s, actor, desireFor(s, actor)).includes(id),
   );
 const accepts = (s, actor, item) =>
+  (hasMotives(s) && valueOf(s, actor, item) >= 2) ||
   actor === "vale" ||
   bundle(s, item).some(
     (id) =>
@@ -236,6 +247,12 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
+  if (hasMotives(s))
+    return (
+      owner !== "vale" &&
+      recipient !== null &&
+      giftDecision(s, owner, item, recipient).accepted
+    );
   return (
     owner !== "vale" &&
     !needed(s, owner, item) &&
@@ -254,7 +271,12 @@ export function canTrade(s, actor, give, receive) {
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
-  if (!accepts(s, other, give) || needed(s, other, receive)) return false;
+  if (
+    hasMotives(s)
+      ? !tradeDecision(s, actor, give, receive).accepted
+      : !accepts(s, other, give) || needed(s, other, receive)
+  )
+    return false;
   const outgoing = loadOf(s, give),
     incoming = loadOf(s, receive);
   return (
@@ -264,12 +286,15 @@ export function canTrade(s, actor, give, receive) {
 }
 export function tradeOffers(s, actor) {
   return ids.filter(
-    (id) => s.items[id].holder === actor && !needed(s, actor, id),
+    (id) =>
+      s.items[id].holder === actor &&
+      (hasMotives(s) ? valueOf(s, actor, id) <= 6 : !needed(s, actor, id)),
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
+  if (hasMotives(s)) return;
   for (const actor of actorIds) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
@@ -311,6 +336,7 @@ function ensurePrograms(s) {
 // Cast members reconsider an unfinished bargain after twelve turns. Keep the
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
+  if (hasMotives(s)) return;
   for (const actor of actorIds.filter((id) => id !== "vale")) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
@@ -389,6 +415,7 @@ function applyConsequence(s, actor, target) {
   });
 }
 function advancePrograms(s, met) {
+  if (hasMotives(s)) return;
   const receipts = [];
   for (const [actor, evidence] of met) {
     const progress = s.actors[actor].progress,
@@ -555,6 +582,7 @@ export function accompanyDecision(s, actor, companion, destination) {
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
+  if (hasMotives(s)) return socialTravel(s, actor, companion, destination);
   const distance = (from, to) => {
     const route = routeBetween(s, from, to);
     return route ? route.length - 1 : Infinity;
@@ -894,6 +922,7 @@ function perform(s, a) {
   }
   if (a.kind === "wait") return;
   let text = a.text;
+  let requestAccepted = false;
   let affected = null,
     arrival = null,
     invitation = null;
@@ -1044,6 +1073,7 @@ function perform(s, a) {
       break;
     case "ask": {
       const willing = willingToGive(s, a.target, a.item, a.actor);
+      requestAccepted = willing;
       if (willing) {
         if (
           !handStatus(s, a.target).items.every((e) => e.met) &&
@@ -1054,6 +1084,8 @@ function perform(s, a) {
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
+        if (hasMotives(s))
+          text += ` ${giftDecision(s, a.target, a.item, a.actor).reason}`;
       }
       s.actors[a.actor].lastTalk = s.turn;
       break;
@@ -1061,6 +1093,7 @@ function perform(s, a) {
     default:
       throw new Error("Unknown act.");
   }
+  recordReaction(s, a, witnesses, requestAccepted);
   addLog(s, "World", text, {
     kind: "action",
     actorId: a.actor,
@@ -1071,6 +1104,7 @@ function perform(s, a) {
     ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
+    ...(hasMotives(s) && a.kind === "ask" ? { accepted: requestAccepted } : {}),
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
@@ -1106,6 +1140,14 @@ function toward(s, actor, target) {
 export function plan(s, actor = "vale") {
   const acts = legalActions(s, actor),
     hand = desireFor(s, actor);
+  if (hasMotives(s))
+    return socialPlan(s, actor, acts, {
+      standoffFor,
+      opponentOf,
+      routeBetween,
+      carried,
+      willingToGive,
+    });
   const here = s.actors[actor].place;
   const find = (kind, item, target) =>
     acts.find(
@@ -1505,7 +1547,7 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validMemories(s)) fail();
+  if (!validMemories(s) || !validMotives(s)) fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||

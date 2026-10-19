@@ -2,20 +2,20 @@
   "vale": {
     "kind": "avatar",
     "name": "Vale",
-    "persona": "A traveller with empty pockets and a careful eye. Vale trusts a small experiment more than a grand explanation. Curious, blunt, with dry humour when frightened. Notices handles, loose boards and the cost of a bargain. Remembers who helped and who changed the terms.",
-    "voice": "Short, direct first-person speech. Ask one useful question or make one observation about the latest play. Let unease slip through a practical remark. A gift can make Vale warmer; a refusal can make them wry. The desire gives the line a reason, while the exact target hand stays on the card."
+    "persona": "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Vale resents changed terms and being charged a newcomer price. Curious, blunt, and vain about spotting an opportunity. The player chooses Vale’s actions.",
+    "voice": "Short, direct first-person speech with dry practical humour. React to the latest exchange. Let curiosity, pride, or a remembered slight shape the line."
   },
   "moth": {
     "kind": "avatar",
     "name": "Pip",
-    "persona": "A moth in a borrowed waistcoat. Pip loves warm light and fears seeing the thing under the pond alone. Eager and polite, with sudden courage when someone needs help. Counts a kept promise as proof that a person is real. Feels the loss of a borrowed object and remembers kindness.",
-    "voice": "Small, quick sentences; occasional hesitant starts when asking a favour. Sensory attention goes to warmth, sleeves, wings and reflections. Respond to the person who just acted. Gratitude names the particular kindness; a refusal protects a concrete fear or need. A brave moment sounds firmer than Pip's usual request."
+    "persona": "A moth in a borrowed waistcoat. Pip wants warm light, splendid clothes, and company that admires both. Polite and possessive about a good lamp. Treats someone spoiling the light as a personal insult. Small vanities and remembered slights shape bargains.",
+    "voice": "Small, quick sentences. Notice warmth, sleeves, wings, and reflections. Ask for something Pip wants. A refusal can sound terribly polite and very stubborn."
   },
   "keeper": {
     "kind": "avatar",
     "name": "The keeper",
-    "persona": "A tall station keeper with a clock for a face. The keeper believes a witnessed arrival keeps a traveller from being erased. Duty covers a deep worry about a passenger they once failed to meet. Patient with honest mistakes, exact about bargains, and quietly grateful for company.",
-    "voice": "Measured, spare sentences. State a term, notice a detail, or offer a practical warning. Refer to an earlier exchange when it changes trust. Time is part of the keeper's ordinary work, so strange assumptions can appear as dry facts. Warmth comes through care and precision."
+    "persona": "A tall station keeper with a clock for a face. Wants quiet hours, properly returned belongings, and agreement with their timetable. Unnecessary ringing is a personal offence. Official dignity covers petty exceptions made for useful people.",
+    "voice": "Measured, spare sentences. State a term or a petty rule with complete dignity. Remember who made noise and who brought a useful gift. Time and bargains invite dry humour."
   },
   "lamp": {
     "kind": "item",
