@@ -32,7 +32,9 @@ function continuing() {
   const s = createWorld();
   s.schema = 2;
   s.turn = s.revision = 20;
-  for (const [id, actor] of Object.entries(s.actors)) {
+  for (const [id, actor] of Object.entries(s.actors).filter(
+    ([id]) => id !== "badger",
+  )) {
     actor.place = "station";
     actor.progress = {
       program: 2,
@@ -90,7 +92,7 @@ describe("situations and their consequences", () => {
 
   it("spreads new purposes across the cast, including simultaneous level boundaries", () => {
     const s = continuing();
-    for (const actor of Object.values(s.actors)) {
+    for (const actor of [s.actors.vale, s.actors.moth, s.actors.keeper]) {
       actor.progress.recentKinds = [];
       delete actor.progress.current;
     }
@@ -98,7 +100,7 @@ describe("situations and their consequences", () => {
     s.items.oil.doses = 1;
     for (const id of ["keeper", "moth", "vale"])
       s.actors[id].progress.current = generateProgram(s, id, places, things);
-    const kinds = Object.keys(s.actors).map(
+    const kinds = ["vale", "moth", "keeper"].map(
       (id) => programFor(s, id).generated.situation,
     );
     expect(new Set(kinds).size).toBe(3);

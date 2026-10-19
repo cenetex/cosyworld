@@ -132,14 +132,6 @@ fn serve(path: &str) -> Response {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/entry.mjs"),
         ),
-        "awakening.mjs" => (
-            "text/javascript; charset=utf-8",
-            include_bytes!("../../card-game/awakening.mjs"),
-        ),
-        "awakening-world.mjs" => (
-            "text/javascript; charset=utf-8",
-            include_bytes!("../../card-game/awakening-world.mjs"),
-        ),
         "awakening.css" => (
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/awakening.css"),
@@ -320,8 +312,6 @@ mod tests {
             "index.html",
             "style.css",
             "entry.mjs",
-            "awakening.mjs",
-            "awakening-world.mjs",
             "awakening.css",
             "assets/steam-clock-background.png",
             "assets/badger-sleeping.png",

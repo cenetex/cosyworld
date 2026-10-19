@@ -9,8 +9,6 @@ const assets = new Map([
   ["/index.html", ["index.html", "text/html"]],
   ["/style.css", ["style.css", "text/css"]],
   ["/entry.mjs", ["entry.mjs", "text/javascript"]],
-  ["/awakening.mjs", ["awakening.mjs", "text/javascript"]],
-  ["/awakening-world.mjs", ["awakening-world.mjs", "text/javascript"]],
   ["/awakening.css", ["awakening.css", "text/css"]],
   ["/app.mjs", ["app.mjs", "text/javascript"]],
   ["/world.mjs", ["world.mjs", "text/javascript"]],

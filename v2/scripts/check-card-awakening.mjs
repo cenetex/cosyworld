@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import profiles from "../card-game/entity-profiles.json" with { type: "json" };
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -12,59 +12,121 @@ try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
+    reducedMotion: "reduce",
   });
   const page = await context.newPage();
   const errors = [];
+  const requests = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(`${origin}/?table=badger-check`);
-  const sprite = page.locator("#badger-sprite");
-  await sprite.waitFor();
+  await page.route("**/card-game/text", async (route) => {
+    const input = route.request().postDataJSON();
+    requests.push(input);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        revision: input.revision,
+        model: "browser-fixture",
+        entries: input.entities.map(({ id, facts }) => ({
+          id,
+          text:
+            id === "badger"
+              ? facts.some((fact) => fact.startsWith("Asleep"))
+                ? "Badger snores softly on the moss."
+                : "I had almost finished that nap. Almost."
+              : id === "clearing"
+                ? "The old clock ticks above the warm moss."
+                : `${profiles[id].name} notices the echo by the water.`,
+        })),
+      }),
+    });
+  });
+  const ready = async () => {
+    for (let i = 0; i < 250; i++) {
+      if (
+        (await page.locator("#hand").getAttribute("data-cooling")) === "false"
+      )
+        return;
+      if (await page.locator("#dialogue-advance").isVisible())
+        await page.locator("#dialogue-advance").click();
+      await page.waitForTimeout(40);
+    }
+    throw new Error("The hand stayed busy after the scene response.");
+  };
+  const state = () =>
+    page.evaluate(() =>
+      JSON.parse(
+        localStorage.getItem("cosyworld.reflected-shore.v1.badger-check"),
+      ),
+    );
+  const play = async (id) => {
+    await ready();
+    await page.locator(`[data-card="${id}"]`).click();
+    await page.locator(`[data-card="${id}"]`).click();
+    await ready();
+  };
   const decode = () =>
     page.evaluate(() =>
       Promise.all([...document.images].map((image) => image.decode())),
     );
-  const play = async (id) => {
-    await page.locator(`[data-card="${id}"]`).click();
-    await page.locator(`[data-card="${id}"]`).click();
-  };
-  const state = () =>
-    page.evaluate(() =>
-      JSON.parse(localStorage.getItem("cosyworld.steam-clock.v1.badger-check")),
-    );
   await mkdir("output/badger-check", { recursive: true });
+  await page.goto(`${origin}/?table=badger-check`);
+  await page.locator('[data-card="lamp"]').waitFor();
+  await play("lamp");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("station");
+  await play("bell");
+  assert.equal((await state()).items.bell.holder, "vale");
+  await play("pond");
+  await play("bell");
+  assert.equal((await state()).steamClock.rings, 1);
+  assert.equal((await state()).actors.vale.place, "pond");
+  assert.match(
+    await page.locator('[data-card="bell"] .state').textContent(),
+    /Ring again/,
+  );
+  await page.reload();
+  await page.locator('[data-card="bell"]').waitFor();
+  await play("bell");
+  assert.equal((await state()).actors.vale.place, "clearing");
+  assert.equal((await state()).items.bell.holder, "vale");
+  const sprite = page.locator("#badger-sprite");
+  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
+  assert.equal(requests.at(-1).location, "clearing");
+  assert.ok(!requests.at(-1).speakers.includes("badger"));
   await decode();
-  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
   await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
-  const badgerCard = page.locator('[data-card="badger"]');
-  await badgerCard.focus();
+  const before = (await state()).turn;
+  await page.locator('[data-card="badger"]').focus();
   await page.keyboard.press("Enter");
-  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
-  assert.equal(await page.locator("#turn").textContent(), "Turn 0");
+  assert.equal((await state()).turn, before);
   await page.keyboard.press("Escape");
-  assert.equal(await badgerCard.getAttribute("aria-pressed"), "false");
+  assert.equal(
+    await page.locator('[data-card="badger"]').getAttribute("aria-pressed"),
+    "false",
+  );
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
-  assert.equal(await sprite.getAttribute("data-state"), "grumpy");
-  assert.equal((await state()).badger.wakeCause, "voice");
+  await ready();
+  assert.equal((await state()).actors.badger.awake, true);
+  assert.ok(requests.at(-1).speakers.includes("badger"));
   await decode();
   await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
+  await page.locator("#menu-button").click();
+  await page.locator('[data-close="menu-dialog"]').click();
+  await play("pond");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("bell");
+  await play("pond"); // Waiting is a real play and breaks the two-ring sequence.
+  assert.equal((await state()).steamClock.rings, 0);
+  await play("bell");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("bell");
+  assert.equal((await state()).actors.vale.place, "clearing");
   await page.reload();
-  await sprite.waitFor();
+  await page.locator('[data-card="badger"]').waitFor();
+  await ready();
   assert.equal(await sprite.getAttribute("data-state"), "grumpy");
-  const sibling = await context.newPage();
-  await sibling.goto(`${origin}/?table=badger-check`);
-  await sibling.locator("#badger-sprite").waitFor();
-  await play("clock");
-  assert.equal((await state()).badger.irritation, 3);
-  await sibling.waitForFunction(
-    () => document.getElementById("turn").textContent === "Turn 2",
-  );
-  await play("clearing");
-  await play("clearing");
-  await play("clearing");
-  assert.equal((await state()).badger.irritation, 0);
-  await play("badger");
-  assert.match(await page.locator("#dialogue-text").textContent(), /sit there/);
   await page.setViewportSize({ width: 390, height: 844 });
   await decode();
   await page.screenshot({ path: "output/badger-check/mobile-awake.png" });
@@ -75,81 +137,15 @@ try {
     bounds.y + bounds.height <
       (await page.locator(".dialogue").boundingBox()).y,
   );
-  await page.locator("#menu-button").click();
-  await page.locator("#new-game").click();
-  await page.locator("#cancel-reset").click();
-  assert.equal((await state()).badger.awake, true);
-  await page.locator("#new-game").click();
-  await page.locator("#confirm-reset").click();
-  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
-  await play("clock");
-  assert.equal((await state()).badger.wakeCause, "clock");
-  await page.evaluate(() =>
-    localStorage.setItem("cosyworld.steam-clock.v1.badger-check", "broken"),
-  );
-  await page.reload();
-  await badgerCard.waitFor();
-  assert.equal(await badgerCard.isDisabled(), true);
-  assert.equal(
-    await page.evaluate(() =>
-      localStorage.getItem("cosyworld.steam-clock.v1.badger-check"),
-    ),
-    "broken",
-  );
-  await page.locator("#menu-button").click();
-  await page.locator("#new-game").click();
-  await page.locator("#confirm-reset").click();
-  assert.equal(await badgerCard.isDisabled(), false);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.screenshot({
     path: "output/badger-check/small-phone.png",
     fullPage: true,
   });
   assert.equal(await page.evaluate(() => document.body.scrollWidth), 320);
-  const shoreSave = encodeSave(createWorld());
-  await page.evaluate(
-    (saved) =>
-      localStorage.setItem("cosyworld.reflected-shore.v1.legacy", saved),
-    shoreSave,
-  );
-  await page.route("**/card-game/text", (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: '{"error":"Browser check"}',
-    }),
-  );
-  await page.goto(`${origin}/?table=legacy`);
-  await page.locator('[data-card="vale"]').waitFor();
-  await page.locator("#menu-button").click();
-  await page.getByRole("link", { name: "Visit the Steam Clock" }).click();
-  await sprite.waitFor();
-  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
-  assert.equal(
-    await page.evaluate(() =>
-      localStorage.getItem("cosyworld.reflected-shore.v1.legacy"),
-    ),
-    shoreSave,
-  );
-  const privatePage = await context.newPage();
-  await privatePage.addInitScript(() =>
-    Object.defineProperty(window, "localStorage", {
-      get() {
-        throw new Error("Saving unavailable");
-      },
-    }),
-  );
-  await privatePage.goto(origin);
-  const privateBadger = privatePage.locator('[data-card="badger"]');
-  await privateBadger.click();
-  await privateBadger.click();
-  assert.equal(
-    await privatePage.locator("#badger-sprite").getAttribute("data-state"),
-    "grumpy",
-  );
   assert.deepEqual(errors, []);
   console.log(
-    "Badger browser check passed: wake, keyboard, reload, shared tabs, mood, reset, recovery, old saves, and phone layouts.",
+    "Steam Clock browser check passed: attic start, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
   );
 } finally {
   await browser?.close();

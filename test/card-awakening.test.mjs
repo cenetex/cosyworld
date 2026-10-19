@@ -1,98 +1,150 @@
 import { describe, expect, it } from "vitest";
 import {
-  createAwakening,
-  playAwakening,
-  decodeAwakening,
-  badgerImage,
-  awakeningCards,
-  chooseOpening,
-  saveKey,
-} from "../v2/card-game/awakening-world.mjs";
+  createWorld,
+  play,
+  legalActions,
+  encodeSave,
+  decodeSave,
+  exits,
+  rootHolder,
+} from "../v2/card-game/world.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { narrativeContext, turnOutcome } from "../v2/card-game/narrative.mjs";
+import { knownActors } from "../v2/card-game/quests.mjs";
 
-describe("Badger at the Steam Clock", () => {
-  it("keeps card inspection free and wakes a separate character", () => {
-    const asleep = createAwakening();
-    const snapshot = JSON.stringify(asleep);
-    expect(awakeningCards(asleep)[0].action).toBe("wake");
-    expect(badgerImage(asleep)).toContain("sleeping");
-    const awake = playAwakening(asleep, "wake");
-    expect(JSON.stringify(asleep)).toBe(snapshot);
-    expect(awake.badger).toEqual({
-      awake: true,
-      irritation: 1,
-      wakeCause: "voice",
-    });
-    expect(awake.events.slice(-2).map((event) => event.actor)).toEqual([
-      "player",
-      "badger",
-    ]);
-    expect(badgerImage(awake)).toContain("grumpy");
-    expect(awakeningCards(awake)[0].action).toBe("talk");
-    expect(playAwakening(awake, "wake")).toBe(awake);
-  });
+function pond() {
+  const s = enableMotives(createWorld());
+  s.actors.vale.place = "pond";
+  s.actors.moth.place = "attic";
+  s.actors.keeper.place = "station";
+  s.items.bell.holder = "vale";
+  s.items.lamp.holder = "vale";
+  return s;
+}
+function act(s, kind, item, target) {
+  const action = legalActions(s).find(
+    (a) =>
+      a.kind === kind &&
+      (!item || a.item === item) &&
+      (!target || a.target === target),
+  );
+  expect(action, `${kind} ${item || target || ""}`).toBeTruthy();
+  const result = play(s, action);
+  expect(result.ok).toBe(true);
+  return result.state;
+}
+const ring = (s) => act(s, "ring", "bell");
 
-  it("remembers a noisy wake and lets quiet ease the irritation", () => {
-    let world = playAwakening(createAwakening(), "tap");
-    expect(world.badger.wakeCause).toBe("clock");
-    expect(world.badger.irritation).toBe(2);
-    expect(playAwakening(world, "talk").events.at(-1).text).toContain(
-      "ringing",
-    );
-    world = playAwakening(playAwakening(world, "wait"), "wait");
-    expect(world.badger.irritation).toBe(0);
-    expect(playAwakening(world, "talk").events.at(-1).text).toContain(
-      "sit there",
-    );
-    expect(decodeAwakening(JSON.stringify(world))).toEqual(world);
-    expect(world.badger.wakeCause).toBe("clock");
-  });
-
-  it("lets Badger sleep through waiting and bounds a long visit", () => {
-    let world = createAwakening();
-    for (let turn = 0; turn < 100; turn++) world = playAwakening(world, "wait");
-    expect(world.badger.awake).toBe(false);
-    expect(world.turn).toBe(100);
-    expect(world.events).toHaveLength(80);
-    expect(decodeAwakening(JSON.stringify(world))).toEqual(world);
-    expect(playAwakening(world, "invented")).toBe(world);
-  });
-
-  it("rejects broken saves before they can replace playable state", () => {
-    for (const mutate of [
-      (s) => (s.schema = 2),
-      (s) => (s.turn = -1),
-      (s) => (s.badger.awake = true),
-      (s) => (s.badger.irritation = 20),
-      (s) => (s.events = []),
-      (s) => (s.events[0].actor = "vale"),
-    ]) {
-      const world = createAwakening();
-      mutate(world);
-      expect(() => decodeAwakening(JSON.stringify(world))).toThrow();
-    }
-  });
-
-  it("starts fresh tables in the clearing and keeps existing shore saves reachable", () => {
-    const entries = new Map();
-    const storage = { getItem: (key) => entries.get(key) };
-    expect(chooseOpening("", storage)).toBe("forest");
-    entries.set("cosyworld.reflected-shore.v1", "saved shore");
-    expect(chooseOpening("", storage)).toBe("shore");
-    expect(chooseOpening("?world=forest", storage)).toBe("forest");
-    entries.set(saveKey(""), "saved clearing");
-    expect(chooseOpening("", storage)).toBe("forest");
-    expect(chooseOpening("?world=shore", storage)).toBe("shore");
-    expect(chooseOpening("?table=new-table", storage)).toBe("forest");
-    expect(saveKey("?table=new-table")).toBe(
-      "cosyworld.steam-clock.v1.new-table",
-    );
-    expect(saveKey("?table=../unsafe")).toBe("cosyworld.steam-clock.v1");
+describe("the bell crossing to the Steam Clock", () => {
+  it("crosses on the second consecutive ring with carried items and a real travel record", () => {
+    const start = pond();
+    const first = ring(start);
+    expect(first.actors.vale.place).toBe("pond");
+    expect(first.steamClock.rings).toBe(1);
+    expect(knownActors(first)).not.toContain("badger");
+    const before = encodeSave(first);
+    availableCards(first);
+    cardPlay(first, ["bell"]);
+    expect(encodeSave(first)).toBe(before);
+    const next = ring(decodeSave(before));
+    expect(next.actors.vale.place).toBe("clearing");
+    expect(next.steamClock).toEqual({ rings: 0, discovered: true });
+    expect(rootHolder(next, "bell")).toBe("vale");
+    expect(rootHolder(next, "lamp")).toBe("vale");
+    expect(next.actors.badger.awake).toBe(false);
+    expect(availableCards(next)).toContain("badger");
+    expect(exits(next, "clearing")).toEqual(["pond"]);
+    expect(turnOutcome(next).card.kind).toBe("ring");
     expect(
-      chooseOpening("", {
-        getItem() {
-          throw new Error("blocked");
-        },
-      }),
-    ).toBe("forest");
+      turnOutcome(next).avatars.find((a) => a.id === "vale").travel,
+    ).toEqual({ from: "pond", to: "clearing", companions: [] });
+    expect(
+      next.memories.clearing.events.some((e) => e.text.includes("second ring")),
+    ).toBe(true);
+    expect(decodeSave(encodeSave(next))).toEqual(next);
+  });
+
+  it("breaks the sequence on another committed play and keeps failed plays free", () => {
+    let s = ring(pond());
+    const rejected = play(s, { key: "invented" });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.state).toBe(s);
+    s = act(s, "wait");
+    expect(s.steamClock.rings).toBe(0);
+    s = ring(s);
+    expect(s.actors.vale.place).toBe("pond");
+    s = act(s, "move", null, "station");
+    s = act(s, "move", null, "pond");
+    s = ring(s);
+    expect(s.actors.vale.place).toBe("pond");
+  });
+
+  it("uses clear player rings at Black pond", () => {
+    const s = pond();
+    s.actors.vale.place = "station";
+    expect(ring(ring(s)).actors.vale.place).toBe("station");
+    s.actors.vale.place = "pond";
+    s.items.cloth.holder = "bell";
+    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
+    expect(s.steamClock.rings).toBe(0);
+  });
+
+  it("keeps Badger asleep on arrival, then remembers waking him across return trips", () => {
+    let s = ring(ring(pond()));
+    expect(narrativeContext(s).speakers).not.toContain("badger");
+    expect(
+      narrativeContext(s)
+        .entities.find((e) => e.id === "badger")
+        .facts.join(" "),
+    ).toContain("Asleep");
+    s = act(s, "talk", null, "badger");
+    expect(s.actors.badger.awake).toBe(true);
+    expect(s.actors.badger.wakeCause).toBe("voice");
+    expect(narrativeContext(s).speakers).toContain("badger");
+    s = act(s, "move", null, "pond");
+    s = ring(ring(decodeSave(encodeSave(s))));
+    expect(s.actors.badger.awake).toBe(true);
+    expect(s.actors.badger.progress).toEqual({
+      program: 0,
+      step: 0,
+      marks: [],
+    });
+    expect(narrativeContext(s).outcome.avatars).toHaveLength(4);
+  });
+
+  it("allows a return after leaving the bell behind and reacts to local ringing", () => {
+    let s = ring(ring(pond()));
+    s = ring(s);
+    expect(s.actors.badger).toMatchObject({
+      awake: true,
+      wakeCause: "bell",
+      irritation: 2,
+    });
+    s = act(s, "wait");
+    expect(s.actors.badger.irritation).toBe(1);
+    s = act(s, "drop", "bell");
+    s = act(s, "move", null, "pond");
+    expect(s.actors.vale.place).toBe("pond");
+    expect(s.items.bell.holder).toBe("clearing");
+  });
+
+  it("adds the clearing to an older shore save while keeping existing belongings and memories", () => {
+    const old = pond();
+    delete old.steamClock;
+    delete old.actors.badger;
+    delete old.peaceUntil.badger;
+    delete old.memories.badger;
+    delete old.memories.clearing;
+    delete old.motives.grievances.badger;
+    for (const actor of Object.values(old.actors)) delete actor.trust.badger;
+    const restored = decodeSave(JSON.stringify(old));
+    expect(restored.items).toEqual(old.items);
+    expect(restored.log).toEqual(old.log);
+    expect(restored.actors.vale.place).toBe("pond");
+    expect(restored.actors.badger.awake).toBe(false);
+    expect(ring(ring(restored)).actors.vale.place).toBe("clearing");
+    restored.steamClock.rings = 2;
+    expect(() => decodeSave(JSON.stringify(restored))).toThrow();
   });
 });

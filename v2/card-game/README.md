@@ -1,31 +1,27 @@
 # Card world text and memory
 
-## Badger at the Steam Clock
+## The bell crossing to the Steam Clock
 
-Fresh browser tables open in the Forest Clearing with Grumpy Badger asleep
-beside the old Steam Clock. The player is a visitor. Raising a card previews
-its action; playing it records the visitor's action and Badger's response.
-The same cards support keyboard use and dragging into the scene.
+Ring the Bell twice in a row at Black pond to warp to the Forest Clearing.
+The first ring draws an answering tick from the old Steam Clock. The second
+carries Vale and their belongings to the clearing. A different successful
+player play resets the sequence; inspecting cards and hearing replies keeps
+it. The first ring also survives a reload. The bell must be uncovered.
 
-A soft greeting wakes Badger. Tapping the clock wakes him with a stronger
-grievance. Quiet turns ease his irritation. The first wake cause, current
-mood, and latest 80 history entries save under `cosyworld.steam-clock.v1`,
-with the existing optional table suffix. Both cutouts share the backdrop's
-image coordinates and keep the same ground position across screen sizes.
+Badger starts asleep beside the clock. Playing his avatar card wakes him.
+His mood, wake cause, memories, and generated conversation belong to the
+same world save as the shore cast and items. Ringing beside him annoys him;
+quiet turns ease that irritation. He keeps his warm patch of moss.
 
-This first encounter uses short authored replies. The clearing rules and
-state live in `awakening-world.mjs`; `awakening.mjs` presents them in the
-existing card shell. Avatar generation remains a later step.
+The Black pond card in the clearing returns Vale and their belongings to the
+shore. It works even if the bell has been left behind. Each outward crossing
+uses the two-ring rule again. The normal card UI handles travel, inventory,
+conversation, and history throughout. Earlier shore saves gain the clearing
+and its sleeping resident when loaded.
 
-Existing shore saves resume in the shore. Each world's menu links to the
-other, with separate saves. `?world=forest` opens the clearing directly;
-`?world=shore` opens the Vale, Pip, and Keeper table. The sections below
-describe that shore table and its generated conversation.
-
-Run `node v2/scripts/check-card-awakening.mjs` for the browser check. It covers
-the first wake, reload, keyboard play, quiet and noisy reactions, phone layout,
-save recovery, and the route back to a shore save. Screenshots are written to
-`output/badger-check/`.
+Run `node v2/scripts/check-card-awakening.mjs` for a browser check of the bell
+sequence, waking Badger, returning, reloads, and phone layouts. Screenshots
+are saved in `output/badger-check/`.
 
 ## Shore text and memory
 

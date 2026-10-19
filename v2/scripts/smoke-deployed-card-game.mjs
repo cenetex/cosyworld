@@ -11,8 +11,6 @@ const files = [
   "index.html",
   "style.css",
   "entry.mjs",
-  "awakening.mjs",
-  "awakening-world.mjs",
   "awakening.css",
   "assets/steam-clock-background.png",
   "assets/badger-sleeping.png",

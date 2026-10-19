@@ -34,7 +34,9 @@ function completedSave() {
   s.schema = 2;
   s.turn = 8;
   s.revision = 8;
-  for (const [id, a] of Object.entries(s.actors)) {
+  for (const [id, a] of Object.entries(s.actors).filter(
+    ([id]) => id !== "badger",
+  )) {
     a.progress = {
       program: 2,
       step: 0,
@@ -108,7 +110,7 @@ describe("composable quest programs", () => {
   it("uses reachable places, real holders and current spare items deterministically", () => {
     const s = continuing(),
       before = encodeSave(s);
-    for (const actor of Object.keys(s.actors)) {
+    for (const actor of ["vale", "moth", "keeper"]) {
       const p = generateProgram(s, actor, places, things);
       expect(p).toEqual(generateProgram(s, actor, places, things));
       expect(p.generated.owner).toBe(rootHolder(s, p.generated.item));
@@ -223,7 +225,7 @@ describe("composable quest programs", () => {
       ).length;
       for (const entry of s.log.filter((e) => e.turn === s.turn && e.verb))
         verbs.add(entry.verb);
-      for (const actor of Object.keys(s.actors)) {
+      for (const actor of ["vale", "moth", "keeper"]) {
         ids.add(programFor(s, actor).id);
         situations.add(programFor(s, actor).generated?.situation || "bargain");
       }
@@ -233,7 +235,7 @@ describe("composable quest programs", () => {
       expect(verbs.has(verb)).toBe(true);
     expect(situations.size).toBeGreaterThanOrEqual(4);
     expect(ids.size).toBeGreaterThan(20);
-    for (const actor of Object.keys(s.actors)) {
+    for (const actor of ["vale", "moth", "keeper"]) {
       expect(levelOf(s, actor)).toBeGreaterThan(10);
       expect(s.actors[actor].progress.marks.length).toBeLessThanOrEqual(32);
       expect(s.actors[actor].progress.recent.length).toBeLessThanOrEqual(4);
@@ -263,7 +265,7 @@ describe("composable quest programs", () => {
       s = decodeSave(JSON.stringify(old));
     expect(s.items).toEqual(old.items);
     expect(s.log).toEqual(old.log);
-    for (const actor of Object.keys(s.actors)) {
+    for (const actor of ["vale", "moth", "keeper"]) {
       expect(levelOf(s, actor)).toBe(3);
       expect(s.actors[actor].progress.marks).toEqual(
         old.actors[actor].progress.marks,

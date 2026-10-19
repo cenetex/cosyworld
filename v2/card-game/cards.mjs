@@ -186,6 +186,12 @@ export function cardPlay(world, selected) {
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 export function playLabel(action) {
+  if (
+    action?.target === "badger" &&
+    action?.kind === "talk" &&
+    action.text.includes("gently wakes")
+  )
+    return "Wake gently";
   if (action?.kind === "trade")
     return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
   return {
