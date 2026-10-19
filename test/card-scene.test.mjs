@@ -213,7 +213,7 @@ describe("JRPG scenes", () => {
       facing: "left",
       gazeTargetId: "vale",
     });
-    expect(reply.actors.map((a) => a.scale)).toEqual([1, 0.74, 0.64]);
+    expect(reply.actors.map((a) => a.scale)).toEqual([1, 0.84, 0.76]);
   });
   it("mirrors the whole composition at a scene entrance", () => {
     const s = gathered();
