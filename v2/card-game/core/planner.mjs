@@ -22,6 +22,7 @@ import {
   standoffFor,
   willingToGive,
 } from "./world.mjs";
+import { latentItem } from "./growth.mjs";
 
 function toward(s, avatar, target) {
   const from = s.avatars[avatar].place;
@@ -111,6 +112,32 @@ export function plan(s, avatar) {
   const acquire = (item, seen = new Set()) => {
     if (seen.has(item) || holderOf(s, item) === avatar) return null;
     seen = new Set([...seen, item]);
+    // A promised item comes from its maker: bring that place's inputs and put
+    // them down there.
+    if (latentItem(s, item)) {
+      const maker = s.items[item].maker,
+        work = s.places[maker].quest;
+      if (work?.reward !== item) return null;
+      for (const input of work.items) {
+        if (holderOf(s, input) === maker) continue;
+        if (holderOf(s, input) !== avatar) {
+          const fetch = acquire(input, seen);
+          if (fetch)
+            return { ...fetch, reason: `Seek ${n(input)} for ${n(maker)}.` };
+          continue;
+        }
+        if (here === maker)
+          return choose(
+            find("drop", input),
+            `Put the ${n(input)} down for ${n(maker)}.`,
+          );
+        return choose(
+          toward(s, avatar, maker),
+          `Bring the ${n(input)} to ${n(maker)}.`,
+        );
+      }
+      return null;
+    }
     const owner = holderOf(s, item),
       local = itemPlace(s, item) === here;
     if (local) {

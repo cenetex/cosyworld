@@ -9,58 +9,22 @@
       "name": "Empty station",
       "text": "The timetable lists years that have yet to happen.",
       "exits": ["attic", "pond"],
-      "spawn": [
-        {
-          "id": "travellers",
-          "when": {
-            "kind": "visits",
-            "count": 8
-          },
-          "make": {
-            "kind": "bring_resident",
-            "table": "travellers"
-          },
-          "max": 3
-        }
-      ]
+      "makes": "finds",
+      "beyond": "shore-places"
     },
     {
       "id": "attic",
       "name": "Mirror attic",
       "text": "A tall mirror reflects a black shore.",
       "exits": ["station"],
-      "spawn": [
-        {
-          "id": "finds",
-          "when": {
-            "kind": "item_brought"
-          },
-          "make": {
-            "kind": "add_item",
-            "table": "finds"
-          },
-          "max": 3
-        }
-      ]
+      "makes": "finds"
     },
     {
       "id": "pond",
       "name": "Black pond",
       "text": "Something vast breathes beneath the reflection.",
       "exits": ["station"],
-      "spawn": [
-        {
-          "id": "far-shore",
-          "when": {
-            "kind": "quest_completed_here"
-          },
-          "make": {
-            "kind": "open_place",
-            "table": "shore-places"
-          },
-          "max": 2
-        }
-      ]
+      "beyond": "shore-places"
     }
   ],
   "avatars": [
@@ -117,103 +81,30 @@
       {
         "name": "Reed bank",
         "text": "Reeds lean toward anyone who stands still.",
-        "spawn": [
-          {
-            "id": "finds",
-            "when": {
-              "kind": "gathered",
-              "count": 2
-            },
-            "make": {
-              "kind": "add_item",
-              "table": "finds"
-            },
-            "max": 2
-          },
-          {
-            "id": "deeper",
-            "when": {
-              "kind": "quest_completed_here"
-            },
-            "make": {
-              "kind": "open_place",
-              "table": "shore-places"
-            },
-            "max": 1
-          }
-        ]
+        "makes": "finds",
+        "beyond": "shore-places"
       },
       {
         "name": "Sunken platform",
         "text": "A station platform rises from the water, its clock stopped.",
-        "spawn": [
-          {
-            "id": "finds",
-            "when": {
-              "kind": "gathered",
-              "count": 2
-            },
-            "make": {
-              "kind": "add_item",
-              "table": "finds"
-            },
-            "max": 2
-          },
-          {
-            "id": "deeper",
-            "when": {
-              "kind": "quest_completed_here"
-            },
-            "make": {
-              "kind": "open_place",
-              "table": "shore-places"
-            },
-            "max": 1
-          }
-        ]
+        "beyond": "shore-places"
       },
       {
         "name": "Lantern jetty",
         "text": "Planks run out over black water and stop.",
-        "spawn": [
-          {
-            "id": "finds",
-            "when": {
-              "kind": "gathered",
-              "count": 2
-            },
-            "make": {
-              "kind": "add_item",
-              "table": "finds"
-            },
-            "max": 2
-          },
-          {
-            "id": "deeper",
-            "when": {
-              "kind": "quest_completed_here"
-            },
-            "make": {
-              "kind": "open_place",
-              "table": "shore-places"
-            },
-            "max": 1
-          }
-        ]
-      }
-    ],
-    "travellers": [
-      {
-        "name": "The ferryman",
-        "text": "He counts passengers who have not yet arrived."
+        "makes": "finds",
+        "beyond": "shore-places"
       },
       {
-        "name": "Wren",
-        "text": "A girl with a jar of moths and no lid."
+        "name": "Drowned waiting room",
+        "text": "Benches face a window full of water.",
+        "makes": "finds"
       },
       {
-        "name": "The cartographer",
-        "text": "She maps rooms before anyone builds them."
+        "name": "Signal box",
+        "text": "Levers for lines that no longer exist.",
+        "makes": "finds",
+        "beyond": "shore-places"
       }
     ],
     "finds": [
@@ -232,6 +123,22 @@
       {
         "name": "Wet ticket",
         "text": "Single, one way, to the pond."
+      },
+      {
+        "name": "Brass lens",
+        "text": "Everything through it looks further away."
+      },
+      {
+        "name": "Coil of rope",
+        "text": "Damp, and longer than it should be."
+      },
+      {
+        "name": "Tin whistle",
+        "text": "It plays one note, and the note echoes."
+      },
+      {
+        "name": "Ferry token",
+        "text": "Worn smooth on one side."
       }
     ]
   }
