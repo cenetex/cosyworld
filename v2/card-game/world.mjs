@@ -575,15 +575,51 @@ export function addLog(s, speaker, text, detail = {}) {
     light: shining(s) && itemPlace(s, "lamp") === locationId,
     ...detail,
   });
-  rememberEvent(s, s.log.at(-1));
-  while (s.log.length > 100) {
-    // Keep scene beats when commands fill the history. Retain the latest reply.
+  const entry = s.log.at(-1);
+  if (
+    !entry.generated &&
+    entry.actorId === "vale" &&
+    entry.fromLocationId &&
+    entry.fromLocationId !== entry.locationId &&
+    (entry.verb === "move" || (entry.verb === "accompany" && entry.accepted))
+  )
+    s.arrival = {
+      seq: entry.seq,
+      fromLocationId: entry.fromLocationId,
+      locationId: entry.locationId,
+    };
+  rememberEvent(s, entry);
+  trimLog(s);
+}
+// Rules read recent history, so generated words never shorten the authoritative
+// window. Each kind keeps its own limit; the same plays leave the same events.
+export const LOG_LIMIT = 100;
+export const GENERATED_LOG_LIMIT = 100;
+function trimLog(s) {
+  const authoritative = () => s.log.filter((entry) => !entry.generated).length;
+  while (authoritative() > LOG_LIMIT) {
+    // Keep scene beats when commands fill the history. Retain the latest event.
+    const last = s.log.findLastIndex((entry) => !entry.generated);
     const hint = s.log.findIndex(
       (entry, index) =>
-        index < s.log.length - 1 && ["input", "hint"].includes(entry.kind),
+        !entry.generated &&
+        index < last &&
+        ["input", "hint"].includes(entry.kind),
     );
-    s.log.splice(hint >= 0 ? hint : 0, 1);
+    s.log.splice(
+      hint >= 0 ? hint : s.log.findIndex((entry) => !entry.generated),
+      1,
+    );
   }
+  // Generated words older than every remaining event have no scene to join.
+  while (
+    s.log.filter((entry) => entry.generated).length > GENERATED_LOG_LIMIT ||
+    s.log[0]?.generated
+  )
+    s.log.splice(
+      s.log.findIndex((entry) => entry.generated),
+      1,
+    );
 }
 function remember(s, item, text) {
   s.items[item].history.push(`Turn ${s.turn}: ${text}`);
@@ -1887,7 +1923,8 @@ export function validateWorld(s) {
     fail();
   if (
     !Array.isArray(s.log) ||
-    s.log.length > 100 ||
+    s.log.filter((e) => !e?.generated).length > LOG_LIMIT ||
+    s.log.filter((e) => e?.generated).length > GENERATED_LOG_LIMIT ||
     s.log.some(
       (e) =>
         !Number.isSafeInteger(e.turn) ||
@@ -1903,6 +1940,17 @@ export function validateWorld(s) {
   if (
     s.eventSeq !== undefined &&
     (!Number.isSafeInteger(s.eventSeq) || s.eventSeq < s.log.length)
+  )
+    fail();
+  if (
+    s.arrival !== undefined &&
+    (!s.arrival ||
+      !Number.isSafeInteger(s.arrival.seq) ||
+      s.arrival.seq < 1 ||
+      s.arrival.seq > s.eventSeq ||
+      !Object.hasOwn(places, s.arrival.fromLocationId) ||
+      !Object.hasOwn(places, s.arrival.locationId) ||
+      s.arrival.fromLocationId === s.arrival.locationId)
   )
     fail();
   let seq = 0;

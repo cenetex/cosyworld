@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -292,5 +293,22 @@ describe("the reflected shore card game", () => {
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
+  });
+  it("ends a review of earlier lines when a new play commits", () => {
+    // A failed words request re-renders the scene; it must show the new cast.
+    const app = readFileSync(
+      new URL("../v2/card-game/app.mjs", import.meta.url),
+      "utf8",
+    );
+    const commit = app.slice(
+      app.indexOf("function commitAction("),
+      app.indexOf("\nfunction ", app.indexOf("function commitAction(") + 1),
+    );
+    const accepted = commit.indexOf("world = result.state;");
+    expect(accepted).toBeGreaterThan(0);
+    expect(commit.indexOf("reviewing = false;")).toBeGreaterThan(accepted);
+    // Read again and Previous line stage the cast present now.
+    expect(app).toContain("review: reviewing,");
+    expect(app).toContain("review: reviewing && !resolvedBeat,");
   });
 });
