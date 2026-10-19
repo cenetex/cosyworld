@@ -269,18 +269,6 @@ function visitStart(world, through = world.log.length - 1) {
   );
 }
 
-export function sceneMemory(world, id) {
-  const memory = world.memories[id];
-  if (!memory?.text) return null;
-  if (
-    places[id] &&
-    (id !== world.actors.vale.place ||
-      memory.turn < (world.log[visitStart(world)]?.turn || 0))
-  )
-    return null;
-  return memory;
-}
-
 export function currentScene(world, lineIndex = null, { hold = false } = {}) {
   const lines = sceneLines(world);
   const chosen = lines.find((e) => e.index === lineIndex);
