@@ -45,8 +45,10 @@ export const restingHand = () => ({ items: [], location: null, avatars: [] });
 // Stalls are counted in the avatar's own acts, not world turns, so a crowded
 // world does not age one avatar's goal faster than another's. `idle` counts
 // acts since the last mark or new goal; `drift` counts acts since the last mark.
+// `program` counts finished quests; `xp` only ever goes up.
 export const newProgress = () => ({
   program: 0,
+  xp: 0,
   step: 0,
   marks: [],
   completedHands: 0,
@@ -95,7 +97,15 @@ export const nameOf = (s, id) =>
 export const programFor = (s, avatar) => s.avatars[avatar].progress.current;
 export const targetsFor = (s, avatar) =>
   alternatives(programFor(s, avatar)?.steps[s.avatars[avatar].progress.step]);
-export const levelOf = (s, avatar) => 1 + s.avatars[avatar].progress.program;
+// Level n needs xpPerLevel × n more XP to reach n + 1, so early levels come
+// quickly and later ones need bigger quests.
+export function levelForXp(xp, perLevel) {
+  let level = 1;
+  while (xp >= (perLevel * level * (level + 1)) / 2) level += 1;
+  return level;
+}
+export const levelOf = (s, avatar) =>
+  levelForXp(s.avatars[avatar].progress.xp, s.rules.xpPerLevel);
 
 // Choices use current custody and meetings. Reading a card keeps the save unchanged.
 export function desireFor(s, avatar) {
@@ -154,13 +164,44 @@ export function choiceHash(...parts) {
   return h;
 }
 
+// A quest is worth XP for each hand, each item it asks for, and each step of
+// travel between its hands, plus a bonus when it asks for an item not yet made
+// or opens a doorway. It is fixed when the quest is made. A hand that would
+// already be met when the avatar reaches it is worth nothing, so a quest that
+// asks for what is already true pays no XP.
+export function questXp(s, avatar, quest) {
+  const r = s.rules;
+  const held = new Set(carried(s, avatar));
+  let at = s.avatars[avatar].place,
+    xp = 0;
+  const met = (h) =>
+    h.items.every((id) => held.has(id)) &&
+    (!h.location || h.location === at) &&
+    h.avatars.every((id) => s.avatars[id].place === (h.location || at));
+  for (const step of quest.steps) {
+    const any = alternatives(step);
+    const h = any[0];
+    if (!any.some(met)) {
+      xp += r.xpPerHand + r.xpPerItem * h.items.length;
+      if (h.location)
+        xp += r.xpPerHop * (distances(s, at).get(h.location) ?? 1);
+    }
+    for (const id of h.items) held.add(id);
+    if (h.location) at = h.location;
+  }
+  const { item, door } = quest.generated;
+  if (item && s.items[item].holder === null) xp += r.xpForMake;
+  if (door) xp += r.xpForDoor;
+  return xp;
+}
+
 // Build an avatar's next quest from nearby custody, wants, and paths. The
 // result is plain saved data, so reloads keep the same bargain.
-export function generateQuest(
-  s,
-  avatar,
-  { independent = false, solo = false } = {},
-) {
+export function generateQuest(s, avatar, options) {
+  const quest = buildQuest(s, avatar, options);
+  return { ...quest, xp: questXp(s, avatar, quest) };
+}
+function buildQuest(s, avatar, { independent = false, solo = false } = {}) {
   const progress = s.avatars[avatar].progress;
   const order = avatarOrder(s);
   const here = s.avatars[avatar].place;
@@ -226,11 +267,15 @@ export function generateQuest(
     );
     return !payment.length || payment.some(available);
   });
+  // With nothing free to want, a resident still never builds a goal around
+  // an item another avatar needs, so the only contested item cannot be held
+  // forever. It goes on an errand instead and can give that item away.
   if (!candidates.length)
     candidates = rotated.filter(
       (item) =>
         !asleep(s, holderOf(s, item)) &&
-        (!independent || !isPlayer(s, holderOf(s, item))),
+        (!independent || !isPlayer(s, holderOf(s, item))) &&
+        !(holderOf(s, item) === avatar && wantedElsewhere(item)),
     );
   if (!candidates.length) return errand();
   const recent = progress.recent;
@@ -299,19 +344,28 @@ export function generateQuest(
         s.avatars[other].place === place,
     ),
   );
+  // Quests grow with level: from level 4 they go to the farthest places in
+  // reach, and from level 5 they carry more of what the avatar holds.
+  const level = levelOf(s, avatar);
+  const farthest = (list) => {
+    const d = Math.max(...list.map((place) => near.get(place)));
+    return level >= 4 ? list.filter((place) => near.get(place) === d) : list;
+  };
   const destination = occupied.length
-    ? pick(occupied, "destination")
+    ? pick(farthest(occupied), "destination")
     : destinations.length
-      ? pick(destinations, "destination")
+      ? pick(farthest(destinations), "destination")
       : here;
-  const extra =
-    levelOf(s, avatar) >= 5
-      ? held.find((id) => id !== item && id !== payment)
-      : null;
-  const finalItems = [item, ...(extra ? [extra] : [])];
+  const extras =
+    level >= 5
+      ? Math.min(s.rules.carry - 1, 1 + Math.floor((level - 5) / 4))
+      : 0;
+  const finalItems = [
+    item,
+    ...held.filter((id) => id !== item && id !== payment).slice(0, extras),
+  ];
   const gathering = hand(hold(payment || item));
   const journey = carryTo(finalItems, destination);
-  const level = levelOf(s, avatar);
   // From level 3, every third goal is a place's next make: an item that does
   // not exist until someone completes that place's quest.
   const works = reachable.filter((place) =>

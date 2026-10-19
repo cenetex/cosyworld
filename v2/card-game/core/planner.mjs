@@ -57,8 +57,6 @@ export function plan(s, avatar) {
   const idle = (reason) => ({ action: acts[0], reason });
   const choose = (action, reason) =>
     action ? { action, reason } : idle(reason);
-  if (s.avatars[avatar].peaceUntil > s.turn)
-    return idle("Catch a breath after the standoff.");
   const conflict = standoffFor(s, avatar);
   if (conflict) {
     const other = opponentOf(conflict, avatar);

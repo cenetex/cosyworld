@@ -86,18 +86,27 @@ export function sceneStaging(
     activeSpeaker = line && entryKind(line) === "dialogue"
       ? speakerId(line)
       : null,
+    review = false,
   } = {},
 ) {
   const ids = cast.filter((id) => people[id]);
   const history = world.log.slice(0, through + 1);
-  const entry = history.findLast(
-    (e) =>
-      e.actorId === "vale" &&
-      e.fromLocationId &&
-      e.fromLocationId !== e.locationId &&
-      e.locationId === locationId &&
-      (e.verb === "move" || (e.verb === "accompany" && e.accepted)),
-  );
+  // The latest arrival is also kept on the world after its log entry is trimmed.
+  const kept = world.arrival;
+  const entry =
+    history.findLast(
+      (e) =>
+        e.actorId === "vale" &&
+        e.fromLocationId &&
+        e.fromLocationId !== e.locationId &&
+        e.locationId === locationId &&
+        (e.verb === "move" || (e.verb === "accompany" && e.accepted)),
+    ) ||
+    (kept?.locationId === locationId &&
+    kept.seq < (world.log[0]?.seq ?? 1) &&
+    kept.seq <= (history.at(-1)?.seq ?? world.eventSeq)
+      ? kept
+      : null);
   const locations = Object.keys(places);
   const mirror = Boolean(
     entry &&
@@ -193,19 +202,22 @@ export function sceneStaging(
       });
       return {
         id,
-        presence: history.some(
-          (e) =>
-            e.turn === line?.turn &&
-            e.locationId === locationId &&
-            e.generated &&
-            e.departureTo &&
-            e.actorId === id &&
-            e.seq !== line?.seq,
-        )
-          ? "departed"
-          : line?.actorId === id && line.departureTo
-            ? "departing"
-            : "present",
+        // A replayed line stages the current cast, so nobody there has left.
+        presence: review
+          ? "present"
+          : history.some(
+                (e) =>
+                  e.turn === line?.turn &&
+                  e.locationId === locationId &&
+                  e.generated &&
+                  e.departureTo &&
+                  e.actorId === id &&
+                  e.seq !== line?.seq,
+              )
+            ? "departed"
+            : line?.actorId === id && line.departureTo
+              ? "departing"
+              : "present",
         depth: ["foreground", "middle", "back"][index],
         x: at.get(id),
         scale: positions[index][1],
@@ -269,10 +281,12 @@ function visitStart(world, through = world.log.length - 1) {
   );
 }
 
+// A review replays an earlier line with the avatars present now. Departed
+// speakers keep their words without returning to the stage.
 export function currentScene(
   world,
   lineIndex = null,
-  { hold = false, seq = null } = {},
+  { hold = false, seq = null, review = false } = {},
 ) {
   const lines = sceneLines(world);
   const chosen = lines.find((e) =>
@@ -291,7 +305,7 @@ export function currentScene(
     slots: sceneCast(
       world,
       line?.index,
-      (lineIndex === null && seq === null) || !line
+      review || (lineIndex === null && seq === null) || !line
         ? null
         : exchangeCast(world, line),
     ),

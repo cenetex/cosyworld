@@ -18,6 +18,7 @@ import {
   needed,
   newAvatar,
   programFor,
+  questXp,
   sequence,
   targetsFor,
 } from "./goals.mjs";
@@ -44,7 +45,13 @@ export const DEFAULT_RULES = {
   maxSpawns: 128,
   abandonTurns: 96,
   growthStart: 4,
-  levelsPerGrowth: 10,
+  xpPerGrowth: 600,
+  xpPerLevel: 60,
+  xpPerHand: 10,
+  xpPerItem: 5,
+  xpPerHop: 5,
+  xpForMake: 20,
+  xpForDoor: 30,
   offerTurns: 16,
   answerTurns: 12,
 };
@@ -65,6 +72,9 @@ const VERBS = [
   "accept",
 ];
 
+// Ids from outside are looked up only as own string keys, so an array or an
+// inherited name like "constructor" never matches an entity.
+const owns = (map, id) => typeof id === "string" && Object.hasOwn(map, id);
 const entity = ({ name, text = "", tags = [] }) => ({
   name,
   text,
@@ -237,6 +247,7 @@ function offer(kind, actor, item, target, text, cards) {
   };
 }
 export function legalActions(s, actor) {
+  if (!owns(s.avatars, actor)) return [];
   const n = (id) => nameOf(s, id);
   const here = placeOf(s, actor);
   const out = [offer("wait", actor, null, null, `${n(actor)} waits.`, [])];
@@ -419,7 +430,9 @@ export function legalActions(s, actor) {
 
 // An offer stands while both players are here and awake, both items are
 // still theirs, and it is recent. Offer ids are never reused, so an accepted
-// or lapsed offer cannot be accepted again.
+// or lapsed offer cannot be accepted again. An offer is checked at the end of
+// a play, and the next play comes a turn later, so it is accepted at most
+// offerTurns turns after it was made.
 const offerStands = (s, o) =>
   awake(s, o.from) &&
   awake(s, o.to) &&
@@ -427,7 +440,7 @@ const offerStands = (s, o) =>
   placeOf(s, o.to) === o.place &&
   holderOf(s, o.give) === o.from &&
   holderOf(s, o.receive) === o.to &&
-  s.turn - o.turn <= s.rules.offerTurns;
+  s.turn - o.turn < s.rules.offerTurns;
 
 function remember(s, item, text) {
   s.items[item].history = [
@@ -650,20 +663,24 @@ function advanceQuests(s, met, round = newRound()) {
     const door = quest.steps[step].opens;
     if (door) round.opened.push(openPlace(s, door, avatar));
     const complete = progress.step === quest.steps.length;
+    const before = levelOf(s, avatar);
     if (complete) {
       progress.completedHands += quest.steps.length;
       if (quest.generated.item)
         progress.recent = [...progress.recent, quest.generated.item].slice(-4);
       progress.current = null;
       progress.program += 1;
+      progress.xp += quest.xp;
       progress.step = 0;
     }
-    receipts.push({ avatar, quest, step, complete, target });
+    const levelled = levelOf(s, avatar) > before;
+    receipts.push({ avatar, quest, step, complete, target, levelled });
   }
   ensureQuests(s);
-  for (const { avatar, quest, step, complete, target } of receipts) {
+  for (const { avatar, quest, step, complete, target, levelled } of receipts) {
     let text = `${nameOf(s, avatar)} completes hand ${step + 1}/${quest.steps.length} of ${quest.name}.`;
-    if (complete) text += ` Level ${levelOf(s, avatar)}.`;
+    if (complete) text += ` ${quest.xp} XP.`;
+    if (levelled) text += ` Level ${levelOf(s, avatar)}.`;
     text += ` Next: ${handText(s, desireFor(s, avatar))}.`;
     addLog(s, text, {
       kind: "quest",
@@ -673,6 +690,7 @@ function advanceQuests(s, met, round = newRound()) {
       complete,
       target,
       level: levelOf(s, avatar),
+      xp: s.avatars[avatar].progress.xp,
     });
   }
 }
@@ -689,18 +707,34 @@ function refreshStalledQuests(s, active) {
       solo: stalled(s, avatar),
     });
     const fresh = draft.quest;
+    // A step that opens a doorway stays even when its hand is met already, or
+    // the steps after it would lead into a place nothing opens. A fresh quest
+    // only names doorways that are still closed.
     const unfinished = fresh.steps.filter(
-      (step) => !alternatives(step).some((h) => handStatus(s, avatar, h).met),
+      (step) =>
+        step.opens ||
+        !alternatives(step).some((h) => handStatus(s, avatar, h).met),
     );
     if (!unfinished.length) continue;
     draft.adopt();
     p.idle = 0;
+    const kept = unfinished.slice(
+      0,
+      Math.max(1, current.steps.length - p.step),
+    );
+    // The new quest keeps the share of XP its finished hands had earned and
+    // pays for its new hands. A doorway bonus counts only if its step is kept.
+    const earned = Math.floor((current.xp * p.step) / current.steps.length);
+    const door = kept.some((step) => step.opens) ? fresh.generated.door : null;
     p.current = {
       ...fresh,
-      steps: sequence(
-        current.steps.slice(0, p.step),
-        unfinished.slice(0, Math.max(1, current.steps.length - p.step)),
-      ),
+      steps: sequence(current.steps.slice(0, p.step), kept),
+      xp:
+        earned +
+        questXp(s, avatar, {
+          steps: kept,
+          generated: { ...fresh.generated, door },
+        }),
     };
     addLog(
       s,
@@ -770,7 +804,7 @@ function residentsToAct(s, player) {
 // refused only if it is no longer legal. `stale` tells the client to redraw.
 export function play(s, action, expectedRevision = s.revision) {
   const actor = action?.actor;
-  if (!actor || !isPlayer(s, actor))
+  if (!owns(s.avatars, actor) || !isPlayer(s, actor))
     return {
       ok: false,
       state: s,
@@ -833,11 +867,28 @@ export function play(s, action, expectedRevision = s.revision) {
 }
 
 // A player joins the shared world. The runtime journals this like a play.
-export function join(s, { id, name, text = "", place }) {
-  if (!ID.test(id || "") || s.places[id] || s.avatars[id] || s.items[id])
+export function join(s, { id, name, text = "", place } = {}) {
+  if (
+    typeof id !== "string" ||
+    !ID.test(id) ||
+    owns(s.places, id) ||
+    owns(s.avatars, id) ||
+    owns(s.items, id)
+  )
     return { ok: false, state: s, error: "Choose an unused avatar id." };
-  if (!s.places[place])
-    return { ok: false, state: s, error: "Choose a place in this world." };
+  if (!owns(s.places, place) || latentPlace(s, place))
+    return {
+      ok: false,
+      state: s,
+      error: "Choose an open place in this world.",
+    };
+  if (!validEntity(entity({ name, text })))
+    return {
+      ok: false,
+      state: s,
+      error:
+        "Give the avatar a name of 1 to 80 characters and text of up to 400.",
+    };
   const next = copyWorld(s);
   next.avatars[id] = newAvatar(entity({ name, text }), "player", place);
   next.revision += 1;
@@ -852,7 +903,7 @@ export function join(s, { id, name, text = "", place }) {
 // A player leaves the table. The runtime journals this when a session ends.
 // The avatar stays where it is with everything it holds until it plays again.
 export function rest(s, player) {
-  if (!isPlayer(s, player) || asleep(s, player))
+  if (!owns(s.avatars, player) || !isPlayer(s, player) || asleep(s, player))
     return { ok: false, state: s, error: "Only an awake player can rest." };
   const next = copyWorld(s);
   next.avatars[player].asleep = true;
@@ -867,7 +918,7 @@ export function rest(s, player) {
 
 // The runtime returns an avatar that went on alone to the player who left it.
 export function reclaim(s, id) {
-  if (!s.avatars[id]?.former || isPlayer(s, id))
+  if (!owns(s.avatars, id) || !s.avatars[id].former || isPlayer(s, id))
     return {
       ok: false,
       state: s,
@@ -911,6 +962,8 @@ function validQuest(s, q, avatar) {
       const any = alternatives(step);
       return any.length >= 1 && any.every((h) => validHand(s, h, avatar));
     }) &&
+    Number.isInteger(q.xp) &&
+    q.xp >= 0 &&
     q.generated &&
     Number.isInteger(q.generated.turn) &&
     (q.generated.item === null || Boolean(s.items[q.generated.item])) &&
@@ -982,7 +1035,7 @@ export function validateWorld(s) {
     const p = a.progress;
     if (
       !p ||
-      ![p.program, p.step, p.completedHands, p.idle, p.drift].every(
+      ![p.program, p.xp, p.step, p.completedHands, p.idle, p.drift].every(
         (v) => Number.isInteger(v) && v >= 0,
       ) ||
       !Array.isArray(p.marks) ||

@@ -94,6 +94,20 @@ describe("playing the world through cards", () => {
     expect(s.items.bell.holder).toBe("station");
     expect(cardPlay(s, ["bell", "pond"]).action).toBeFalsy();
   });
+  it("uses a lamp or bell lying here when paired with the current place", () => {
+    let s = createWorld();
+    expect(s.items.bell.holder).toBe("station");
+    expect(cardPlay(s, ["bell"]).action.kind).toBe("take");
+    s = cards(s, "bell", "station");
+    expect(s.items.bell).toMatchObject({ holder: "station", ringing: 2 });
+    s.items.lamp.holder = "station";
+    expect(cardPlay(s, ["station", "lamp"]).action.kind).toBe("light");
+    cards(s, "station", "lamp");
+    s.items.lamp.lit = true;
+    expect(cardPlay(s, ["lamp", "station"]).action.kind).toBe("snuff");
+    cards(s, "lamp", "station");
+    expect(cardPlay(s, ["lamp"]).action.kind).toBe("take");
+  });
   it("rings a carried bell and covers it with a cloth", () => {
     const start = createWorld();
     start.items.cloth.holder = "pond";

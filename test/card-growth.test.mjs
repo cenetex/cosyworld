@@ -10,7 +10,11 @@ import {
   rest,
 } from "../v2/card-game/core/world.mjs";
 import { plan } from "../v2/card-game/core/planner.mjs";
-import { carried, generateQuest } from "../v2/card-game/core/goals.mjs";
+import {
+  carried,
+  generateQuest,
+  levelOf,
+} from "../v2/card-game/core/goals.mjs";
 import { latentItem, latentPlace } from "../v2/card-game/core/growth.mjs";
 
 const shore = JSON.parse(
@@ -26,6 +30,8 @@ const act = (s, action) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
+// The least XP that reaches a level.
+const xpFor = (s, level) => (s.rules.xpPerLevel * (level - 1) * level) / 2;
 const tables = {
   makes: [{ name: "Lens" }, { name: "Rope" }],
   rooms: [{ name: "Room", makes: "makes", beyond: "rooms" }],
@@ -73,7 +79,9 @@ describe("growth through quests", () => {
 
   it("asks higher levels for items that do not exist yet, and the planner makes them", () => {
     let s = workshop();
-    s.avatars.ana.progress.program = 4; // Level 5, every third goal asks for a make.
+    // Level 5, and every third goal asks for a make.
+    Object.assign(s.avatars.ana.progress, { program: 4, xp: xpFor(s, 5) });
+    expect(levelOf(s, "ana")).toBe(5);
     s.avatars.ana.progress.current = null;
     const quest = generateQuest(structuredClone(s), "ana");
     expect(quest.generated.item).toBe(s.places.forge.quest.reward);
@@ -91,7 +99,8 @@ describe("growth through quests", () => {
     s.items[work.items[0]].holder = "forge";
     s = act(s, find(s, "ana", "move", { item: null, target: "forge" }));
     expect(s.items[work.reward].holder).toBe("forge");
-    s.avatars.ana.progress.program = 8; // Level 9, every third goal opens a way.
+    // Level 9, and every third goal opens a way.
+    Object.assign(s.avatars.ana.progress, { program: 8, xp: xpFor(s, 9) });
     s.avatars.ana.progress.current = null;
     const scratch = structuredClone(s);
     const quest = generateQuest(scratch, "ana");
@@ -110,8 +119,8 @@ describe("growth through quests", () => {
     expect(s.log.some((e) => / opens a way from /.test(e.text))).toBe(true);
   });
 
-  it("grows only as levels are gained, and only where play happens", () => {
-    let s = workshop({ growthStart: 1, levelsPerGrowth: 1000 });
+  it("grows only as XP is earned, and only where play happens", () => {
+    let s = workshop({ growthStart: 1, xpPerGrowth: 100_000 });
     const reward = s.places.forge.quest.reward;
     expect(s.spawned).toBe(1);
     s.items[s.places.forge.quest.items[0]].holder = "forge";
