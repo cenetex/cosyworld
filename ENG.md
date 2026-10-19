@@ -84,9 +84,9 @@ The card table comes first. The numbered priorities below serve the shared runti
 
 - **Generalize before extending.** The prototype's first site is scaffolding. No rule may name an entity, and new content comes from generators and pack data, not authored puzzles or per-item powers. See ADR 0015.
 - **Make the prototype general.** Entity registries in world state, the site as seed data, the scripted layer removed, any avatar as a player, and property tests over random seeds. This is phase 1 of `docs/backlog/generated-world-core.md`.
-- **Grow the world through play.** Spawn rules open places, add items, and bring residents when a closed-vocabulary trigger fires, with claim keys and caps. Keep the world live: every avatar progresses within a bounded number of plays.
+- **Grow the world through quests.** Places make items when their quests are met, doorway steps of avatar quests open places, and long-abandoned players become residents. Every reward is promised first so other quests can require it, and claim keys and a level-based budget bound growth. Keep the world live: every avatar progresses within a bounded number of plays.
 - **Give it gates.** Run `writing-register.mjs` over `v2/card-game/` copy. Add a browser smoke for single cards, pairs, dragging, reload, and phone width to `./v2/mvp.sh check`.
-- **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and spawn rules in packs. No multiplayer or reward-bearing card feature ships before its rules cross the kernel.
+- **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and growth tables in packs. No multiplayer or reward-bearing card feature ships before its rules cross the kernel.
 
 Priorities 1–3 are the foundation the shared runtime builds on.
 

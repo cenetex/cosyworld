@@ -72,43 +72,39 @@ One PR, no new mechanics. When it lands, the rules name no entity.
   random seeds: liveness, consent, custody conservation, determinism, and save
   round trips.
 
-## Phase 2: spawn rules
+## Phase 2: growth through quests
 
-A seed may give a place spawn rules. Each rule is one trigger and one effect
-from closed sets, with a claim key and a cap. The generator chooses names and
-details from pack tables, and AI may describe the result later.
+The world grows only as a quest reward. The full model is in ADR 0015,
+"Generators". In short:
 
-| Trigger                           | Meaning                                                   |
-| --------------------------------- | --------------------------------------------------------- |
-| `quest_completed_here`            | A quest finishes with its final hand at this place.       |
-| `item_brought` (by tag)           | An avatar arrives carrying an item with that tag.         |
-| `visits` (count)                  | Distinct avatars have arrived this many times.            |
-| `gathered` (count)                | This many avatars stand here at once.                     |
+| Source                     | Creates | How                                                    |
+| -------------------------- | ------- | ------------------------------------------------------ |
+| A place's quest            | Item    | Put the asked items down at a place with `makes`.      |
+| A doorway step             | Place   | Carry a made key to a place with `beyond`.             |
+| A long-abandoned player    | Avatar  | It goes on alone as a resident. The player can reclaim. |
 
-| Effect                            | Meaning                                                   |
-| --------------------------------- | --------------------------------------------------------- |
-| `open_place` (from a place table) | Create a place with an exit to and from this one.         |
-| `add_item` (from an item table)   | Create an item here.                                      |
-| `bring_resident` (from a table)   | Create a resident here. It gets a generated goal at once. |
+Rules for all growth:
 
-Rules for every spawn:
-
-- It has a claim key scoped to the world, the rule, and the cause, and it fires
-  once per key.
-- It records its seed, the selected table row, and the created ids, so replay
-  creates the same entities.
-- It happens only in the play that caused it. A quiet world never grows.
-- It never creates anything in sanctuary from background work.
-- A spawned item must be useful at once: some current or next generated goal can
-  name it.
-- Caps bound growth per place and per world.
+- Every reward is promised first as a latent entity, so quests can require it.
+  From level 3, some goals ask for what a place will make next. Some goals open
+  a doorway, then carry the key through it.
+- Each make and each doorway has a claim key and happens once.
+- Promises use reserved ids and seeded table rows, so replay creates the same
+  entities.
+- Growth happens only at a place where a play happened. A quiet world never
+  grows.
+- A world budget allows one new item or place for every set number of levels
+  gained across the world, under a hard cap.
+- A place opens no doorway once it has three exits. Each make asks for more
+  inputs.
 
 Measure with headless play over many seeds and player mixes:
 
 - No world freezes, and every avatar progresses within a bounded number of plays.
-- Growth stays within caps, and new entities enter goals within a few plays.
+- The world grows slowly. The shore goes from 3 places to about 9 in 600 solo
+  plays, and to about 22 in 2,000.
 - Trades and asks between avatars stay frequent as the world grows.
-- Levels slow as the world grows, instead of passing 80 in 600 turns.
+- Levels slow as quests deepen. This is still open; see loop health.
 
 ## Phase 2b: many players
 
@@ -136,7 +132,7 @@ sanctuary rule, and how rankings and seasons work across one world's life.
 
 The 2026-10-17 review found five problems. The first, contested goals, was fixed
 by #1062. The light problem was a scripted-site problem and leaves with that
-site. Three remain, and spawn rules make each one larger:
+site. Three remain, and growth makes each one larger:
 
 1. **Levels come too fast.** A generated quest completes about every three
    turns. Scale quests with level: more steps, farther places, and payments that
@@ -151,7 +147,7 @@ site. Three remain, and spawn rules make each one larger:
 ## Phase 3: golden trace
 
 `play()` returns the ordered sub-actions it applied, and a pure state digest
-covers the world. A checked-in trace of long seeded runs, including spawns,
+covers the world. A checked-in trace of long seeded runs, including growth,
 fails a Vitest when it goes stale. #1063 tracks this. It should follow phase 1,
 so the oracle records general rules instead of the scripted site.
 
@@ -163,15 +159,15 @@ mapping, and Rust integration tests together. New action codes start after
 
 1. **Create entities.** Kernel actions create a place, an exit, an item, and a
    resident. Ids come from the existing namespaces. A full array fails loudly.
-   Decide how the world grows past the fixed capacities before shipping spawns.
+   Decide how the world grows past the fixed capacities before shipping growth.
 2. **Consented exchange.** Ask, give, and trade with consent derived from goals,
    as new codes beside `GIVE_ITEM` and `TRADE_ITEM`.
 3. **Quests in the kernel.** Target hands, capture, advance, and levels. An
    assign-quest action installs a generated quest, so replay never re-runs the
    generator.
-4. **Spawn rules in packs.** A closed-vocabulary resource extends lifecycle
-   hooks with the three spawn effects. The compiler rejects unknown fields and
-   resolves every table. Generated places reuse the `x-cosyworld-generation`
+4. **Growth tables in packs.** Places declare `makes` and `beyond` tables in a
+   closed-vocabulary resource. The compiler rejects unknown fields and resolves
+   every table. Generated places reuse the `x-cosyworld-generation`
    policy.
 5. **Residents as proposers.** Rust runs the planner and generator and journals
    each resident act and each assigned quest as its own action. The planner
@@ -197,5 +193,5 @@ to the core.
   [scene concurrency policy](../concurrency-policy.md).
 - Whether places, items, or residents ever leave the world, and how history
   survives that.
-- Where spawned places get art: pack pools, generated images, or plain cards.
+- Where generated places get art: pack pools, generated images, or plain cards.
 - How a local save maps to a server avatar, if at all.

@@ -80,7 +80,7 @@ named entity, and no rule special-cases one.
 | quest       | An ordered list of target hands, made by the quest generator or authored content. |
 | level       | Earned once per completed quest.                                                  |
 | resident    | An avatar no person controls. It plans with the same offers as players.           |
-| spawn rule  | Pack data: when a condition holds in play, create one entity once.                |
+| promise     | A latent item or place a quest will create. Other quests may require it first.    |
 
 "Action hand" names the `/classic` surface only. New documents say "table" for
 the row and "target hand" for a goal.
@@ -113,7 +113,8 @@ of players:
   with nothing lost.
 - **Absent players sleep.** The runtime journals a rest when a session ends. A
   sleeping avatar keeps its place and items. No one can threaten, ask, or trade
-  with it, and new goals leave its items alone. It wakes when it plays.
+  with it, and new goals leave its items alone. It wakes when it plays. After a
+  long absence it goes on alone as a resident; see Generators.
 - **Players join a running world.** A new player arrives at a place with a
   generated goal.
 - **Stalls count an avatar's own acts,** so a crowded world does not age one
@@ -125,21 +126,36 @@ of players:
   nearby entities, their holders, and other avatars' wants. It builds hands that
   overlap with those wants and avoids hands that would deadlock them. #1062
   added the first liveness rules.
-- **Spawn rules.** A place's pack data can declare rules from a closed set of
-  triggers and effects. Triggers include a quest completed here, an item brought
-  here, and repeated visits. Effects open a new place off this one, add an item
-  from a table, or bring a resident with a fresh goal. A rule has a claim key,
-  fires once per key, and records its seed and output.
+- **Growth through quests.** The world grows only as a quest reward, and each
+  kind of entity has one source:
+  - **Places make items.** A place with a `makes` table has a quest of its own:
+    put these items down here. When they are all here, it makes a new item from
+    that table. The inputs stay, so anyone present can take them back or race
+    for the new item. Each make asks for more inputs.
+  - **Avatars open doorways.** A step of an avatar's quest can open a doorway
+    from a place with a `beyond` table to a new place. The key is an item some
+    place made, so new places follow new items.
+  - **Abandoned players become residents.** A player asleep for a long time goes
+    on alone as an autonomous resident. This is the only source of new avatars.
+    The runtime can hand the avatar back to its player.
+- **Promises.** Each reward exists before it is earned, as a latent item with no
+  holder or a latent place with no exits. Other quests can require a promise:
+  bring the item the forge will make, or carry a key through a doorway that does
+  not exist yet. So requirements chain recursively, and the chains deepen with
+  level.
+- **A budget follows levels.** Each new item or place needs a set number of
+  levels gained across the world, so the world grows slowly, as its avatars
+  grow, and faster with more players.
 - **Text.** AI writes bounded descriptions and dialogue through
-  `POST /card-game/text`. It never chooses a spawn, a goal, or a change of
+  `POST /card-game/text`. It never chooses a reward, a goal, or a change of
   custody.
 
-Spawn rules follow the existing constraints:
-- play causes every spawn (ADR 0011);
+Growth follows the existing constraints:
+- play causes every new entity (ADR 0011);
 - background work never changes sanctuary (ENG invariant 7);
 - generated places last for the current world (ADR 0013);
-- spawned ids follow ADR 0003;
-- each spawned item declares a use it adds.
+- generated ids follow ADR 0003;
+- claim keys make every make and every doorway happen once.
 
 ### Authority while the table is local
 
@@ -163,7 +179,8 @@ summary:
    - the scripted site moves to data;
    - no rule names an entity;
    - more than one player avatar can act.
-2. Add spawn rules and measure whether the world stays alive and keeps growing.
+2. Grow the world through quest rewards and measure whether it stays alive and
+   keeps growing.
 3. Record a golden trace of the general rules as the parity oracle.
 4. Port the general rules into the kernel, with actions that create places,
    exits, items, and residents, and a plan for its fixed capacities.
@@ -180,12 +197,12 @@ summary:
 | 0005 | Keep. Gates and stocking are general tag rules a site can use, not core requirements.            |
 | 0006 | Keep. A linked avatar enters the world as an avatar with generated goals.                        |
 | 0007 | Keep. Item devices are optional content over tags.                                               |
-| 0008 | Keep. Quests, completions, levels, and spawns land as declared-write projection mutations.       |
+| 0008 | Keep. Quests, completions, levels, and growth land as declared-write projection mutations.      |
 | 0009 | Keep. A quest is a solo Venture. "With" proves co-presence, not membership.                      |
 | 0010 | Keep.                                                                                            |
-| 0011 | Keep. Generated quests and spawns are deterministic rules output, never batch-minted state.      |
+| 0011 | Keep. Generated quests and growth are deterministic rules output, never batch-minted state.      |
 | 0012 | Keep. Talking to an avatar card is talk, not Notice.                                             |
-| 0013 | Keep. Spawned places last for the current world.                                                 |
+| 0013 | Keep. Generated places last for the current world.                                               |
 | 0014 | Keep. A level-up is not a voice refresh trigger until the world is shared.                       |
 | 001  | Superseded as the table's action substrate. Its entity and item model and code rule stand.       |
 
@@ -204,9 +221,9 @@ summary:
 
 - A new world with no authored quests plays: every avatar gets goals, trades
   happen, and some avatar progresses within a bounded number of plays.
-- Spawn rules grow the world through play and replay to the same entities.
+- Quest rewards grow the world through play and replay to the same entities.
 - Two players at one place see the same custody, and resident trades commit
   atomically.
 - The world replays from the journal and round-trips through a snapshot.
-- AI never changes custody, goals, or spawns outside a certified offer.
+- AI never changes custody, goals, or growth outside a certified offer.
 - The JavaScript golden trace replays to the same digest in C.

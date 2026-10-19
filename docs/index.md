@@ -121,7 +121,7 @@ describe the dealt action hand, ADR 0015 governs the card table.
 ### Feeds the card table
 
 - **[Generated World Core](backlog/generated-world-core.md)** — make the
-  prototype general, add spawn rules, then port the general rules into the
+  prototype general, grow the world through quests, then port the general rules into the
   kernel and journal.
 - **[Resident Drive Autonomy](backlog/resident-drive-autonomy.md)** — A/L/I drive
   patterns, which map directly to target hands.
