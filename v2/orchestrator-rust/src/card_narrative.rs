@@ -667,7 +667,7 @@ mod tests {
             assert!(input.contains("Vale asks Pip what they want."));
             assert!(input.contains("borrowed waistcoat") && input.contains("Vale lit the lamp") && input.contains("pond"));
             assert!(input.contains("decent bargain") && input.contains("splendid clothes"));
-            assert!(input.contains("petty grievances"));
+            assert!(instructions.contains("petty grievances"));
             let generated = json!({"entries":[
                 {"id":"vale","text":"What would you trade for this lamp, Pip?"},
                 {"id":"station","text":"A warm patch marks the bench where Vale set the lamp."},
