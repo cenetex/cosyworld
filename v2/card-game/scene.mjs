@@ -8,7 +8,8 @@ import {
 } from "./world.mjs";
 
 export const backdrop = (id) => `./assets/${id}.png`;
-export const portrait = (id) => `./assets/${id}.png`;
+export const portrait = (id, facing = null) =>
+  `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 import { desireFor, programFor, levelOf } from "./quests.mjs";
 const personIds = Object.keys(people);
 const speakerId = (entry) =>
@@ -44,8 +45,7 @@ export function sceneChanges(world) {
     }));
 }
 
-// Stable left/right slots: A, B, A, C keeps A left and replaces B with C.
-// Only actual dialogue updates recency. Narration and input keep the cast still.
+// Seats follow the cast, so a reply never pushes another character off stage.
 export function sceneCast(
   world,
   through = world.log.length - 1,
@@ -54,44 +54,194 @@ export function sceneCast(
   const here = world.actors.vale.place;
   const present =
     recordedCast || personIds.filter((id) => world.actors[id].place === here);
-  const slots = [null, null],
-    recent = [];
-  let start = 0;
-  for (let i = 0; i <= through; i++) {
-    const e = world.log[i];
-    if (
-      e?.kind === "action" &&
-      e.actorId === "vale" &&
-      (e.verb === "move" || (e.verb === "accompany" && e.accepted))
-    )
-      start = i;
-  }
-  const touch = (id) => {
-    const old = recent.indexOf(id);
-    if (old >= 0) recent.splice(old, 1);
-    recent.push(id);
-    if (slots.includes(id)) return;
-    const free = slots.indexOf(null);
-    if (free >= 0) slots[free] = id;
-    else {
-      const replace = recent.find((person) => slots.includes(person));
-      slots[slots.indexOf(replace)] = id;
-    }
-  };
-  // Establish the scene when no conversation has happened yet.
-  if (present.includes("vale")) touch("vale");
-  for (const entry of world.log.slice(start, through + 1)) {
-    const id = speakerId(entry);
-    if (
-      entryKind(entry) === "dialogue" &&
-      present.includes(id) &&
-      (!entry.locationId || entry.locationId === here)
-    )
-      touch(id);
-  }
-  for (const id of present)
-    if (slots.includes(null) && !slots.includes(id)) touch(id);
+  const slots = personIds.filter((id) => present.includes(id));
+  while (slots.length < 2) slots.push(null);
   return slots;
+}
+
+function exchangeCast(world, line) {
+  return [
+    ...new Set(
+      world.log
+        .filter(
+          (e) =>
+            e.generated &&
+            e.turn === line.turn &&
+            e.locationId === line.locationId,
+        )
+        .flatMap((e) => e.cast || []),
+    ),
+  ];
+}
+
+// Blocking comes from the completed play and its witnesses. The model writes
+// dialogue; the same event record places the actors and their carried props.
+export function sceneStaging(
+  world,
+  {
+    through = world.log.length - 1,
+    locationId = world.actors.vale.place,
+    cast = sceneCast(world, through),
+    line = world.log[through],
+    activeSpeaker = line && entryKind(line) === "dialogue"
+      ? speakerId(line)
+      : null,
+  } = {},
+) {
+  const ids = cast.filter((id) => people[id]);
+  const history = world.log.slice(0, through + 1);
+  const entry = history.findLast(
+    (e) =>
+      e.actorId === "vale" &&
+      e.fromLocationId &&
+      e.fromLocationId !== e.locationId &&
+      e.locationId === locationId &&
+      (e.verb === "move" || (e.verb === "accompany" && e.accepted)),
+  );
+  const locations = Object.keys(places);
+  const mirror = Boolean(
+    entry &&
+      locations.indexOf(entry.fromLocationId) > locations.indexOf(locationId),
+  );
+  const focal = ids.includes("vale") ? "vale" : ids[0];
+  const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
+  const positions =
+    order.length === 3
+      ? [
+          [22, 1, 0],
+          [59, 0.74, 8],
+          [81, 0.64, 20],
+        ]
+      : order.length === 2
+        ? [
+            [24, 1, 0],
+            [76, 0.9, 0],
+          ]
+        : [[50, 1, 0]];
+  const at = new Map(
+    order.map((id, i) => [
+      id,
+      mirror ? 100 - positions[i][0] : positions[i][0],
+    ]),
+  );
+  const events = history.filter((e) => e.turn === line?.turn && !e.generated);
+  const played = events.findLast(
+    (e) => e.kind === "action" && e.actorId === "vale",
+  );
+  const speakerAct = events.findLast(
+    (e) => e.actorId === activeSpeaker && people[e.targetId],
+  );
+  const partner =
+    activeSpeaker === "vale"
+      ? played?.targetId
+      : played?.targetId === activeSpeaker
+        ? "vale"
+        : speakerAct?.targetId;
+  const listener =
+    ids.includes(partner) && partner !== activeSpeaker
+      ? partner
+      : activeSpeaker === "vale"
+        ? order.find((id) => id !== "vale")
+        : ids.includes("vale")
+          ? "vale"
+          : order.find((id) => id !== activeSpeaker);
+  const snapshots = history.flatMap((e) => e.items || []);
+  const items = snapshots.length
+    ? [...new Map(snapshots.map((item) => [item.id, item])).values()]
+    : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
+  return {
+    layout: mirror ? "foreground-right" : "foreground-left",
+    focalId: focal || null,
+    actors: order.map((id, index) => {
+      let gazeTargetId =
+        activeSpeaker && ids.includes(activeSpeaker)
+          ? id === activeSpeaker
+            ? listener
+            : activeSpeaker
+          : order.length === 3
+            ? order[index === 1 ? 2 : 1]
+            : order.find((other) => other !== id);
+      gazeTargetId ||= null;
+      const facing = gazeTargetId
+        ? at.get(gazeTargetId) > at.get(id)
+          ? "right"
+          : "left"
+        : mirror
+          ? "left"
+          : "right";
+      const movement = events.findLast(
+        (e) =>
+          e.fromLocationId &&
+          e.fromLocationId !== e.locationId &&
+          (e.actorId === id ||
+            (e.verb === "accompany" && e.accepted && e.targetId === id)),
+      );
+      const act = events.findLast((e) => e.actorId === id && e.verb);
+      const props = items.filter((item) => {
+        let holder = item.holder;
+        const seen = new Set([item.id]);
+        while (
+          items.some((other) => other.id === holder) &&
+          !seen.has(holder)
+        ) {
+          seen.add(holder);
+          holder = items.find((other) => other.id === holder).holder;
+        }
+        return holder === id;
+      });
+      return {
+        id,
+        presence: history.some(
+          (e) =>
+            e.turn === line?.turn &&
+            e.locationId === locationId &&
+            e.generated &&
+            e.departureTo &&
+            e.actorId === id &&
+            e.seq !== line?.seq,
+        )
+          ? "departed"
+          : line?.actorId === id && line.departureTo
+            ? "departing"
+            : "present",
+        depth: ["foreground", "middle", "back"][index],
+        x: at.get(id),
+        scale: positions[index][1],
+        floor: positions[index][2],
+        facing,
+        gazeTargetId,
+        cutout: portrait(id, facing),
+        flip: id !== "keeper" && facing !== (id === "vale" ? "right" : "left"),
+        pose: movement
+          ? "walk"
+          : ["threaten", "guard", "attack"].includes(act?.verb)
+            ? act.verb
+            : id === activeSpeaker
+              ? "speak"
+              : "listen",
+        movement: movement
+          ? {
+              kind: movement.locationId === locationId ? "arrive" : "leave",
+              from: movement.fromLocationId,
+              to: movement.locationId,
+              companions:
+                movement.verb === "accompany" && movement.accepted
+                  ? [movement.actorId, movement.targetId].filter(
+                      (other) => other !== id,
+                    )
+                  : [],
+            }
+          : null,
+        items: props.map(({ id, lit, fuel, ringing, holder }) => ({
+          id,
+          holder,
+          covered: items.some((item) => item.holder === id),
+          ...(lit !== undefined ? { lit, fuel } : {}),
+          ...(ringing !== undefined ? { ringing } : {}),
+        })),
+      };
+    }),
+  };
 }
 export function sceneLines(world) {
   const here = world.actors.vale.place;
@@ -111,7 +261,7 @@ export function currentScene(world, lineIndex = null) {
     slots: sceneCast(
       world,
       line?.index,
-      lineIndex === null ? null : line?.cast,
+      lineIndex === null || !line ? null : exchangeCast(world, line),
     ),
     activeSpeaker:
       line && entryKind(line) === "dialogue" ? speakerId(line) : null,
@@ -144,6 +294,12 @@ export function sceneScript(world) {
       id,
       name: p.name,
       cutout: portrait(id),
+      facingCutouts: {
+        left: portrait(id, "left"),
+        right: portrait(id, "right"),
+      },
+      nativeFacing: id === "vale" ? "right" : "left",
+      anchors: { feet: [0.5, 0.99], eyes: [0.5, 0.13] },
     })),
     memories: structuredClone(world.memories),
     beats: world.log.map((e, index) => ({
@@ -152,6 +308,7 @@ export function sceneScript(world) {
       kind: entryKind(e),
       actorId: speakerId(e),
       locationId: e.locationId || null,
+      fromLocationId: e.fromLocationId || null,
       text: e.text,
       verb: e.verb || null,
       itemId: e.itemId || null,
@@ -177,6 +334,12 @@ export function sceneScript(world) {
       items: e.items || [],
       light: e.light ?? null,
       performance: {
+        staging: sceneStaging(world, {
+          through: index,
+          locationId: e.locationId,
+          cast: e.generated ? exchangeCast(world, e) : e.cast || [],
+          line: e,
+        }),
         pose:
           e.verb === "move" || (e.verb === "accompany" && e.accepted)
             ? "walk"
@@ -188,6 +351,7 @@ export function sceneScript(world) {
     })),
     current: {
       locationId: world.actors.vale.place,
+      staging: sceneStaging(world),
       avatars: personIds.map((id) => ({
         id,
         locationId: world.actors[id].place,

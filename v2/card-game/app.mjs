@@ -29,6 +29,7 @@ import {
   sceneScript,
   sceneCast,
   sceneChanges,
+  sceneStaging,
   portrait,
 } from "./scene.mjs";
 import {
@@ -598,37 +599,100 @@ function renderScene() {
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
-  const castKey = JSON.stringify(scene.slots);
+  const staging = sceneStaging(world, {
+    through: pendingCast ? world.log.length - 1 : scene.line?.index,
+    cast: scene.slots,
+    line: pendingCast ? null : scene.line,
+    activeSpeaker: pendingCast || inspected ? null : scene.activeSpeaker,
+  });
+  $("cast").dataset.layout = staging.layout;
+  $("cast").dataset.count = String(staging.actors.length);
+  const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
   if (castKey !== renderedCast) {
     renderedCast = castKey;
+    const existing = new Map(
+      [...$("cast").children].map((el) => [el.dataset.avatar, el]),
+    );
     $("cast").replaceChildren(
-      ...scene.slots.map((id, index) => {
-        const existing = $("cast").children[index];
-        if (existing?.dataset.avatar === (id || "")) return existing;
-        if (!id) {
-          const empty = node("div", "", "portrait empty");
-          empty.dataset.avatar = "";
-          return empty;
-        }
+      ...staging.actors.map(({ id }) => {
+        if (existing.has(id)) return existing.get(id);
         const figure = node("div", undefined, "portrait");
         figure.dataset.avatar = id;
         figure.setAttribute("aria-label", nameOf(id));
+        const body = node("div", undefined, "portrait-body");
         const image = node("img");
-        image.src = portrait(id);
         image.alt = "";
-        figure.append(image, node("span", "", "portrait-name"));
+        image.draggable = false;
+        body.append(image, node("div", undefined, "portrait-props"));
+        figure.append(body, node("span", "", "portrait-name"));
         return figure;
       }),
     );
   }
-  scene.slots.forEach((id, index) => {
-    if (!id) return;
+  staging.actors.forEach((actor, index) => {
+    const { id } = actor;
     const figure = $("cast").children[index];
-    figure.classList.toggle("active", scene.activeSpeaker === id);
+    figure.dataset.depth = actor.depth;
+    figure.dataset.facing = actor.facing;
+    figure.dataset.gaze = actor.gazeTargetId || "";
+    figure.dataset.pose = actor.pose;
+    figure.style.setProperty("--stage-x", `${actor.x}%`);
+    figure.style.setProperty("--stage-size", `${actor.scale * 100}%`);
+    figure.style.setProperty("--stage-floor", `${actor.floor}%`);
+    figure.style.setProperty("--exit-x", actor.x < 50 ? "-28px" : "28px");
+    figure.style.setProperty(
+      "--lean",
+      actor.facing === "right" ? ".35deg" : "-.35deg",
+    );
+    const image = figure.querySelector("img");
+    if (image.getAttribute("src") !== actor.cutout) image.src = actor.cutout;
+    image.dataset.flip = String(actor.flip);
+    figure.classList.toggle(
+      "active",
+      scene.activeSpeaker === id && !pendingCast && !inspected,
+    );
     const left =
-      !reviewing && departed.has(id) && scene.line?.turn === world.turn;
+      actor.presence === "departed" ||
+      (!reviewing && departed.has(id) && scene.line?.turn === world.turn);
     figure.classList.toggle("departed", left);
     figure.setAttribute("aria-hidden", String(left));
+    const arrivalKey =
+      actor.movement?.kind === "arrive"
+        ? `${world.turn}:${scene.locationId}`
+        : "";
+    if (
+      arrivalKey &&
+      figure.dataset.arrival !== arrivalKey &&
+      !reviewing &&
+      !reducedMotion.matches
+    ) {
+      figure.querySelector(".portrait-body").animate(
+        [
+          { opacity: 0, translate: actor.x < 50 ? "-24px 0" : "24px 0" },
+          { opacity: 1, translate: "0 0" },
+        ],
+        { duration: 420, easing: "ease-out" },
+      );
+    }
+    figure.dataset.arrival = arrivalKey;
+    const props = figure.querySelector(".portrait-props");
+    const propKey = JSON.stringify(actor.items);
+    if (props.dataset.items !== propKey) {
+      props.dataset.items = propKey;
+      props.replaceChildren(
+        ...actor.items.map((item) => {
+          const prop = node(
+            "span",
+            undefined,
+            `portrait-prop${item.lit && item.fuel > 0 && !item.covered ? " glowing" : ""}`,
+          );
+          prop.dataset.item = item.id;
+          prop.setAttribute("aria-label", nameOf(item.id));
+          prop.innerHTML = art(item.id);
+          return prop;
+        }),
+      );
+    }
     figure.querySelector(".portrait-name").textContent =
       `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });

@@ -13,6 +13,7 @@ import {
 import {
   sceneCast,
   sceneLines,
+  sceneStaging,
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
@@ -72,7 +73,7 @@ describe("JRPG scenes", () => {
     );
     s = act(act(s, "wait"), "wait");
     expect(s.actors.moth.place).toBe("pond");
-    expect(currentScene(s, spoken).slots).toEqual(["vale", "moth"]);
+    expect(currentScene(s, spoken).slots).toEqual(["vale", "moth", "keeper"]);
     expect(currentScene(s).slots).toEqual(["vale", null]);
   });
   it("lets an avatar refill its target lamp with reachable oil", () => {
@@ -88,18 +89,18 @@ describe("JRPG scenes", () => {
     );
   });
 
-  it("keeps speaker sides stable and replaces the least recent speaker", () => {
+  it("keeps all three characters in stable seats through each reply", () => {
     const s = gathered();
     dialogue(s, "vale");
     dialogue(s, "moth");
     dialogue(s, "vale");
-    expect(sceneCast(s)).toEqual(["vale", "moth"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "keeper");
-    expect(sceneCast(s)).toEqual(["vale", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "keeper");
-    expect(sceneCast(s)).toEqual(["vale", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "moth");
-    expect(sceneCast(s)).toEqual(["moth", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
   });
   it("keeps the cast still through narration, input and actions", () => {
     const s = gathered();
@@ -121,7 +122,126 @@ describe("JRPG scenes", () => {
     expect(sceneCast(s)).toEqual(["vale", "moth"]);
     s.actors.keeper.place = "station";
     dialogue(s, "vale", { kind: "action", verb: "move" });
-    expect(sceneCast(s)).toEqual(["vale", "moth"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
+  });
+  it("faces the addressed actor while keeping seats and depth through the reply", () => {
+    const s = gathered();
+    dialogue(s, "vale", { kind: "action", verb: "talk", targetId: "keeper" });
+    dialogue(s, "vale");
+    const first = sceneStaging(s);
+    dialogue(s, "keeper");
+    const reply = sceneStaging(s);
+    expect(
+      first.actors.map(({ id, x, scale, depth }) => ({ id, x, scale, depth })),
+    ).toEqual(
+      reply.actors.map(({ id, x, scale, depth }) => ({ id, x, scale, depth })),
+    );
+    expect(first.actors.find((a) => a.id === "vale")).toMatchObject({
+      facing: "right",
+      gazeTargetId: "keeper",
+    });
+    expect(reply.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "left",
+      gazeTargetId: "vale",
+    });
+    expect(reply.actors.map((a) => a.scale)).toEqual([1, 0.74, 0.64]);
+  });
+  it("mirrors the whole composition at a scene entrance", () => {
+    const s = gathered();
+    dialogue(s, "vale", {
+      kind: "action",
+      verb: "move",
+      fromLocationId: "pond",
+    });
+    dialogue(s, "keeper");
+    const stage = sceneStaging(s);
+    expect(stage.layout).toBe("foreground-right");
+    expect(stage.actors.map((a) => a.x)).toEqual([78, 41, 19]);
+    expect(stage.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "right",
+      flip: false,
+      cutout: "./assets/keeper-right.png",
+    });
+    expect(stage.actors.find((a) => a.id === "vale").flip).toBe(true);
+  });
+  it("lets the two smaller actors face each other for their own trade", () => {
+    const s = gathered();
+    dialogue(s, "moth", { kind: "action", verb: "trade", targetId: "keeper" });
+    dialogue(s, "moth");
+    const stage = sceneStaging(s);
+    expect(stage.actors.find((a) => a.id === "moth")).toMatchObject({
+      facing: "right",
+      gazeTargetId: "keeper",
+    });
+    expect(stage.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "left",
+      gazeTargetId: "moth",
+    });
+  });
+  it("keeps departure seats for the whole exchange and exports solo travel", () => {
+    const s = gathered();
+    dialogue(s, "moth", {
+      kind: "action",
+      verb: "move",
+      fromLocationId: "station",
+      locationId: "pond",
+    });
+    s.actors.moth.place = "pond";
+    dialogue(s, "moth", {
+      generated: true,
+      departureTo: "pond",
+      cast: ["vale", "moth", "keeper"],
+    });
+    const farewell = s.log.length - 1;
+    dialogue(s, "keeper", { generated: true, cast: ["vale", "keeper"] });
+    expect(currentScene(s, farewell).slots).toEqual(
+      currentScene(s, s.log.length - 1).slots,
+    );
+    expect(
+      sceneScript(s)
+        .beats.at(-1)
+        .performance.staging.actors.find((a) => a.id === "moth").presence,
+    ).toBe("departed");
+    const beat = sceneScript(s).beats[farewell];
+    expect(
+      beat.performance.staging.actors.find((a) => a.id === "moth"),
+    ).toMatchObject({
+      presence: "departing",
+      movement: { kind: "leave", from: "station", to: "pond", companions: [] },
+    });
+  });
+  it("records both partners in a shared entrance and exact item custody", () => {
+    const s = gathered();
+    dialogue(s, "vale", {
+      kind: "action",
+      verb: "accompany",
+      targetId: "moth",
+      accepted: true,
+      fromLocationId: "attic",
+      destinationId: "station",
+      cast: ["vale", "moth", "keeper"],
+      items: [
+        { id: "lamp", holder: "vale", lit: true, fuel: 4 },
+        { id: "cloth", holder: "lamp" },
+        { id: "oil", holder: "keeper" },
+      ],
+    });
+    dialogue(s, "moth", { generated: true, cast: ["vale", "moth", "keeper"] });
+    const stage = sceneStaging(s);
+    expect(stage.actors.find((a) => a.id === "vale")).toMatchObject({
+      movement: { kind: "arrive", companions: ["moth"] },
+      items: [{ id: "lamp", lit: true, fuel: 4 }, { id: "cloth" }],
+    });
+    expect(stage.actors.find((a) => a.id === "moth")).toMatchObject({
+      movement: { companions: ["vale"] },
+      items: [],
+    });
+    expect(
+      stage.actors.find((a) => a.id === "keeper").items.map((i) => i.id),
+    ).toEqual(["oil"]);
+    expect(
+      sceneScript(decodeSave(encodeSave(s))).beats.at(-1).performance.staging,
+    ).toEqual(stage);
   });
   it("keeps action records in the export while generated dialogue leads the scene", () => {
     let s = createWorld();
@@ -162,7 +282,7 @@ describe("JRPG scenes", () => {
     expect(
       sceneLines(s).some((e) => e.actorId === "moth" && e.kind === "dialogue"),
     ).toBe(true);
-    expect(currentScene(s).slots).toEqual(["vale", "moth"]);
+    expect(currentScene(s).slots).toEqual(["vale", "moth", "keeper"]);
     const scene = currentScene(s);
     expect(scene.previous.actorId).toBe("vale");
     expect(scene.previous.generated).toBe(true);
