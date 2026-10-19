@@ -1004,6 +1004,11 @@ Public mutation endpoints also pass through lightweight in-memory rate limits be
 - Chat and friendship cards: 45 attempts per actor per minute, with a broader shared IP mutation cap.
 - Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
+- Card story text (`POST /card-game/text`): one request in flight per client IP, 30 per client IP per minute, 240 per client IP per hour, and 1,200 per hour shared by all clients. Two model requests run at once across all clients. The client limits are checked before shared capacity, so a single client cannot hold every slot or spend the shared hour alone.
+
+Each limit key keeps its own window, so a one-minute bucket and a one-hour bucket in the same limiter expire independently.
+
+The client IP for these limits is the TCP peer address, with one exception. When `FLY_APP_NAME` is set, the process is running behind Fly's `[http_service]` proxy, where every TCP peer is the proxy. There the server uses the `Fly-Client-IP` header, which the Fly proxy sets and overwrites on every request. A missing, duplicated, or malformed `Fly-Client-IP` value falls back to the peer address. `X-Forwarded-For`, `X-Real-IP`, and `Forwarded` are never used, and off Fly `Fly-Client-IP` is ignored, because any client can send those headers. An ingress middleware resolves the address once, so every handler that reads `ConnectInfo` sees the same derived client.
 
 Server-authored resident dialogue uses the same durable event contract for replay and SSE broadcast; it is never accepted from client text.
 
