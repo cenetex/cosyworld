@@ -13,8 +13,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeSet,
-    net::SocketAddr,
+    collections::{BTreeMap, BTreeSet},
+    net::{IpAddr, SocketAddr},
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
@@ -46,10 +46,87 @@ const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
 };
+/// One client's share of the hour. Four requests a minute sustained for an
+/// hour covers brisk play (one request per card), while at least five clients
+/// are needed to drain the shared `PER_HOUR` budget. Without this cap a
+/// single client at its `PER_MINUTE` maximum fills `PER_HOUR` in 40 minutes.
+const PER_CLIENT_HOUR: RateLimit = RateLimit {
+    max_hits: 240,
+    window: Duration::from_secs(3600),
+};
 const PER_HOUR: RateLimit = RateLimit {
     max_hits: 1200,
     window: Duration::from_secs(3600),
 };
+/// Model requests in flight across all clients.
+const TOTAL_CONCURRENCY: usize = 2;
+/// Model requests in flight per client. A client's play waits on its own
+/// story text, so one is enough, and it leaves the remaining capacity for
+/// other players.
+const PER_CLIENT_CONCURRENCY: usize = 1;
+
+/// Counts the requests each client currently has in flight.
+#[derive(Debug, Default)]
+struct InFlight {
+    counts: Mutex<BTreeMap<IpAddr, usize>>,
+}
+
+/// Releases a client's in-flight slot when the request finishes or its
+/// stream closes.
+struct InFlightGuard {
+    in_flight: Arc<InFlight>,
+    client: IpAddr,
+}
+
+impl InFlight {
+    fn try_enter(self: &Arc<Self>, client: IpAddr, max: usize) -> Option<InFlightGuard> {
+        let mut counts = self.counts.lock().ok()?;
+        let count = counts.entry(client).or_default();
+        if *count >= max {
+            return None;
+        }
+        *count += 1;
+        Some(InFlightGuard {
+            in_flight: self.clone(),
+            client,
+        })
+    }
+
+    #[cfg(test)]
+    fn count(&self, client: IpAddr) -> usize {
+        self.counts
+            .lock()
+            .unwrap()
+            .get(&client)
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        let Ok(mut counts) = self.in_flight.counts.lock() else {
+            return;
+        };
+        if let Some(count) = counts.get_mut(&self.client) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                counts.remove(&self.client);
+            }
+        }
+    }
+}
+
+/// Per-client minute and hour limits, then the shared hourly budget.
+fn admit(limits: &mut RateLimiter, client: IpAddr, now: Instant) -> bool {
+    limits.allow(format!("card-text:{client}"), PER_MINUTE, now)
+        && limits.allow(
+            format!("card-text-client-hour:{client}"),
+            PER_CLIENT_HOUR,
+            now,
+        )
+        && limits.allow("card-text-hour".into(), PER_HOUR, now)
+}
 
 fn profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
@@ -69,6 +146,7 @@ fn bounded(text: &str, limit: usize) -> bool {
 struct TextState {
     ai: Arc<Option<AiConfig>>,
     limits: Arc<Mutex<RateLimiter>>,
+    in_flight: Arc<InFlight>,
     capacity: Arc<Semaphore>,
 }
 
@@ -94,7 +172,8 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>
         .with_state(TextState {
             ai,
             limits: Arc::new(Mutex::new(RateLimiter::default())),
-            capacity: Arc::new(Semaphore::new(2)),
+            in_flight: Arc::new(InFlight::default()),
+            capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
         })
 }
 
@@ -455,8 +534,16 @@ async fn generate(
             "Story generation is waiting for its model connection.",
         );
     };
-    let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
-        return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
+    // `peer` is already the derived client address (see
+    // `rate_limit::client_addr`). Check this client's own limits before
+    // touching shared capacity, so one client can neither hold every permit
+    // nor spend the shared budget while another client waits.
+    let client = peer.ip();
+    let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
+        return error(
+            StatusCode::TOO_MANY_REQUESTS,
+            "Your last story is still being written.",
+        );
     };
     {
         let Ok(mut limits) = state.limits.lock() else {
@@ -465,16 +552,16 @@ async fn generate(
                 "The story service is restarting.",
             );
         };
-        let now = Instant::now();
-        if !limits.allow(format!("card-text:{}", peer.ip()), PER_MINUTE, now)
-            || !limits.allow("card-text-hour".into(), PER_HOUR, now)
-        {
+        if !admit(&mut limits, client, Instant::now()) {
             return error(
                 StatusCode::TOO_MANY_REQUESTS,
                 "The story service is taking a short break.",
             );
         }
     }
+    let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
+        return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
+    };
     if headers
         .get("accept")
         .is_some_and(|value| value == "text/event-stream")
@@ -483,6 +570,7 @@ async fn generate(
         let (sender, receiver) = mpsc::unbounded_channel::<Event>();
         tokio::spawn(async move {
             let _permit = _permit;
+            let _client_slot = _client_slot;
             let deltas = sender.clone();
             let emit = |text: &str| {
                 deltas
@@ -870,27 +958,7 @@ mod tests {
         let server = tokio::spawn(async move {
             axum::serve(listener, provider).await.unwrap();
         });
-        let config = AiConfig {
-            api_key: "test-secret".into(),
-            base_url: format!("http://{address}"),
-            model: "unused-voice-model".into(),
-            registry: Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
-                &json!({
-                    "schema_version": 1, "snapshot_version": "card-world-text-test",
-                    "declared": [{
-                        "requested_model_id": "test-entity-model", "provider": "openai_compatible",
-                        "concrete_model": {"model_id": "test-entity-model"},
-                        "input_modalities": ["text"], "output_modalities": ["text"],
-                        "supported_parameters": {"structured_output": true, "json_mode": true},
-                        "data_policy": {"retention": "none", "training": "prohibited"},
-                        "capabilities": ["world_content"],
-                        "prompt_adapter": {"id": "openai-chat", "version": "1"}
-                    }], "discovered": []
-                }).to_string()
-            ).unwrap())),
-            ..AiConfig::default()
-        };
-        let app = router::<()>(Arc::new(Some(config)));
+        let app = router::<()>(Arc::new(Some(test_config(address))));
         let response = app.clone().oneshot(request(&context())).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
@@ -957,5 +1025,167 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn one_client_cannot_spend_the_shared_hour_alone() {
+        let mut limits = RateLimiter::default();
+        let greedy: IpAddr = "203.0.113.1".parse().unwrap();
+        let start = Instant::now();
+        // The greedy client stays under its per-minute limit the whole time.
+        let mut admitted = 0;
+        for request in 0..PER_HOUR.max_hits as u64 {
+            if admit(
+                &mut limits,
+                greedy,
+                start + Duration::from_secs(request * 2),
+            ) {
+                admitted += 1;
+            }
+        }
+        assert_eq!(admitted, PER_CLIENT_HOUR.max_hits);
+        const { assert!(PER_CLIENT_HOUR.max_hits * 5 <= PER_HOUR.max_hits) };
+        // Another client still has the shared budget.
+        let later = start + Duration::from_secs(PER_HOUR.max_hits as u64 * 2);
+        for offset in 0..PER_MINUTE.max_hits as u64 {
+            assert!(admit(
+                &mut limits,
+                "198.51.100.7".parse().unwrap(),
+                later + Duration::from_secs(offset)
+            ));
+        }
+        // The greedy client recovers once its own hour rolls over.
+        assert!(admit(
+            &mut limits,
+            greedy,
+            start + Duration::from_secs(3600 + 1)
+        ));
+    }
+
+    #[test]
+    fn in_flight_slots_are_per_client_and_released_on_drop() {
+        let in_flight = Arc::new(InFlight::default());
+        let a: IpAddr = "203.0.113.1".parse().unwrap();
+        let b: IpAddr = "203.0.113.2".parse().unwrap();
+        let first = in_flight.try_enter(a, 1).expect("first slot");
+        assert!(in_flight.try_enter(a, 1).is_none());
+        let other = in_flight.try_enter(b, 1).expect("other client slot");
+        assert_eq!(in_flight.count(a), 1);
+        drop(first);
+        assert_eq!(in_flight.count(a), 0);
+        assert!(in_flight.counts.lock().unwrap().get(&a).is_none());
+        let _again = in_flight.try_enter(a, 1).expect("released slot");
+        drop(other);
+        assert_eq!(in_flight.count(b), 0);
+    }
+
+    fn test_config(address: SocketAddr) -> AiConfig {
+        AiConfig {
+            api_key: "test-secret".into(),
+            base_url: format!("http://{address}"),
+            model: "unused-voice-model".into(),
+            registry: Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+                &json!({
+                    "schema_version": 1, "snapshot_version": "card-world-text-test",
+                    "declared": [{
+                        "requested_model_id": "test-entity-model", "provider": "openai_compatible",
+                        "concrete_model": {"model_id": "test-entity-model"},
+                        "input_modalities": ["text"], "output_modalities": ["text"],
+                        "supported_parameters": {"structured_output": true, "json_mode": true},
+                        "data_policy": {"retention": "none", "training": "prohibited"},
+                        "capabilities": ["world_content"],
+                        "prompt_adapter": {"id": "openai-chat", "version": "1"}
+                    }], "discovered": []
+                }).to_string()
+            ).unwrap())),
+            ..AiConfig::default()
+        }
+    }
+
+    fn request_from(context: &Context, client: &str) -> Request<Body> {
+        let mut request = request(context);
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(client.parse::<SocketAddr>().unwrap()));
+        request
+            .headers_mut()
+            .insert("accept", "text/event-stream".parse().unwrap());
+        request
+    }
+
+    async fn error_text(response: Response) -> String {
+        let bytes = to_bytes(response.into_body(), 4096).await.unwrap();
+        serde_json::from_slice::<Value>(&bytes).unwrap()["error"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn one_client_cannot_hold_every_story_slot() {
+        // A model that never answers keeps each accepted stream in flight.
+        let provider = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                StatusCode::OK
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let app = router::<()>(Arc::new(Some(test_config(address))));
+
+        let held = app
+            .clone()
+            .oneshot(request_from(&context(), "203.0.113.1:5000"))
+            .await
+            .unwrap();
+        assert_eq!(held.status(), StatusCode::OK);
+        let second = app
+            .clone()
+            .oneshot(request_from(&context(), "203.0.113.1:5001"))
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            error_text(second).await,
+            "Your last story is still being written."
+        );
+        // The second shared slot is still open for a different client.
+        let other = app
+            .clone()
+            .oneshot(request_from(&context(), "198.51.100.7:5000"))
+            .await
+            .unwrap();
+        assert_eq!(other.status(), StatusCode::OK);
+        let third = app
+            .clone()
+            .oneshot(request_from(&context(), "192.0.2.9:5000"))
+            .await
+            .unwrap();
+        assert_eq!(third.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(error_text(third).await, "The story service is busy.");
+
+        // Closing the held stream releases that client's slot.
+        drop(held);
+        let mut released = false;
+        for _ in 0..100 {
+            let retry = app
+                .clone()
+                .oneshot(request_from(&context(), "203.0.113.1:5002"))
+                .await
+                .unwrap();
+            if retry.status() == StatusCode::OK {
+                released = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert!(released);
+        drop(other);
+        server.abort();
     }
 }

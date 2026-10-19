@@ -446,7 +446,32 @@ fn app_router_with_dependencies(
             request_log_context,
             request_observability,
         ))
+        // Every per-IP rate limit reads `ConnectInfo`. Resolve it once at
+        // ingress so all of them see the real client behind Fly's proxy.
+        .layer(middleware::from_fn_with_state(
+            ClientIpSource::from_env(),
+            resolve_client_address,
+        ))
         .with_state(state)
+}
+
+/// Replace the socket peer in `ConnectInfo` with the derived client address
+/// (see `rate_limit::client_addr`). Handlers keep extracting
+/// `ConnectInfo<SocketAddr>` and never read forwarding headers themselves.
+async fn resolve_client_address(
+    State(source): State<ClientIpSource>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    if let Some(ConnectInfo(peer)) = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .copied()
+    {
+        let client = client_addr(peer, request.headers(), source);
+        request.extensions_mut().insert(ConnectInfo(client));
+    }
+    next.run(request).await
 }
 
 async fn request_observability(
@@ -665,6 +690,41 @@ mod tests {
     use super::*;
     use axum::body::Bytes;
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn ingress_resolves_the_client_address_handlers_see() {
+        async fn echo(ConnectInfo(client): ConnectInfo<SocketAddr>) -> String {
+            client.ip().to_string()
+        }
+        let peer: SocketAddr = "172.16.0.2:40000".parse().unwrap();
+        for (source, fly_header, expected) in [
+            (ClientIpSource::FlyProxy, Some("203.0.113.5"), "203.0.113.5"),
+            (ClientIpSource::FlyProxy, None, "172.16.0.2"),
+            (
+                ClientIpSource::SocketPeer,
+                Some("203.0.113.5"),
+                "172.16.0.2",
+            ),
+        ] {
+            let app = Router::new()
+                .route("/ip", get(echo))
+                .layer(middleware::from_fn_with_state(
+                    source,
+                    resolve_client_address,
+                ));
+            let mut builder = Request::builder()
+                .uri("/ip")
+                .header("x-forwarded-for", "9.9.9.9");
+            if let Some(value) = fly_header {
+                builder = builder.header(FLY_CLIENT_IP_HEADER, value);
+            }
+            let mut request = builder.body(Body::empty()).unwrap();
+            request.extensions_mut().insert(ConnectInfo(peer));
+            let response = app.oneshot(request).await.unwrap();
+            let body = to_bytes(response.into_body(), 1024).await.unwrap();
+            assert_eq!(body, expected.as_bytes());
+        }
+    }
 
     #[test]
     fn request_ids_are_bounded_log_safe_tokens() {
