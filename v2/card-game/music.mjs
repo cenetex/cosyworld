@@ -118,12 +118,17 @@ export function createRoomMusic({
       action();
       return;
     }
-    fadeTo(0, fadeSeconds);
+    const remaining = audio.duration - audio.currentTime;
+    const seconds =
+      Number.isFinite(remaining) && remaining > 0
+        ? Math.min(fadeSeconds, remaining)
+        : fadeSeconds;
+    fadeTo(0, seconds);
     transitionTimer = setTimeout(() => {
       transitionTimer = null;
       fadeTo(0, 0);
       action();
-    }, fadeSeconds * 1000);
+    }, seconds * 1000);
   }
   function load() {
     pause();

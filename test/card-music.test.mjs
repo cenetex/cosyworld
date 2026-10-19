@@ -162,6 +162,19 @@ describe("room music fades", () => {
     expect(audio.play).toHaveBeenCalledTimes(1);
   });
 
+  it("finishes a travel fade within the outgoing song's remaining time", async () => {
+    const { audio, music, level, begin } = player();
+    await begin();
+    audio.currentTime = 179.5;
+    music.setRoom("station");
+    await advance(250);
+    expect(level()).toBeCloseTo(0.15);
+    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    await advance(250);
+    expect(level()).toBe(0);
+    expect(audio.src).toMatch(/station-1\.mp3$/);
+  });
+
   it("fades a song's ending and loops both tracks in order", async () => {
     const { audio, music, level, begin, ended } = player();
     await begin("pond");
