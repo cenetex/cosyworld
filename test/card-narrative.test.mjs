@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+afterEach(() => vi.useRealTimers());
 import {
   createWorld,
   legalActions,
@@ -167,8 +168,10 @@ describe("entity memories and model text", () => {
     expect(world.turn).toBe(0);
   });
 
-  it("keeps play available after a provider failure and tries the next play", async () => {
+  it("retries a temporary provider failure on the same turn", async () => {
+    vi.useFakeTimers();
     let world = act(createWorld(), "wait");
+    const before = encodeSave(world);
     const status = vi.fn(),
       request = vi
         .fn()
@@ -183,13 +186,105 @@ describe("entity memories and model text", () => {
       request,
     });
     narrator.changed();
-    await flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenLastCalledWith("pending");
+    expect(encodeSave(world)).toBe(before);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls.map(([context]) => context.turn)).toEqual([1, 1]);
+    expect(status).toHaveBeenLastCalledWith("ready");
+    expect(world.turn).toBe(1);
+    expect(world.memories.vale.turn).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("releases the hand when a request is rejected by its input or access rules", async () => {
+    vi.useFakeTimers();
+    const status = vi.fn();
+    const request = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("rejected"), { retryable: false }),
+      );
+    const narrator = createNarrator({
+      getWorld: createWorld,
+      apply: vi.fn(),
+      status,
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith("retry");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("releases a stalled transport within thirty seconds and accepts the next scene", async () => {
+    vi.useFakeTimers();
+    let world = createWorld();
+    const status = vi.fn(),
+      apply = vi.fn((next) => {
+        world = next;
+      });
+    const requests = [];
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply,
+      status,
+      request: (context, signal, progress) =>
+        new Promise((resolve) =>
+          requests.push({ context, signal, progress, resolve }),
+        ),
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(15_750);
+    expect(requests).toHaveLength(2);
+    expect(requests[0].signal.aborted).toBe(true);
+    requests[0].progress([{ id: "vale", text: "Old words" }]);
+    requests[0].resolve(response(requests[0].context));
+    await vi.advanceTimersByTimeAsync(14_250);
+    expect(status).toHaveBeenLastCalledWith("retry");
+    expect(apply).not.toHaveBeenCalled();
+    expect(requests[1].signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
     world = act(world, "wait");
     narrator.changed();
-    await flush();
+    requests[2].resolve(response(requests[2].context));
+    await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith("ready");
-    expect(world.memories.station.turn).toBe(2);
+    expect(world.memories.vale.turn).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels a retry pause when a saved world is replaced", async () => {
+    vi.useFakeTimers();
+    let world = act(createWorld(), "wait");
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementationOnce(async (context) => response(context));
+    const apply = vi.fn((next) => {
+      world = next;
+    });
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply,
+      status: vi.fn(),
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    narrator.invalidate();
+    world = createWorld();
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(world.turn).toBe(0);
+    expect(world.memories.vale.turn).toBe(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

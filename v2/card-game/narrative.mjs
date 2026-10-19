@@ -335,7 +335,12 @@ export async function requestNarrative(context, signal, progress = () => {}) {
     signal,
   });
   if (!response.ok)
-    throw new Error(`Story service returned ${response.status}.`);
+    throw Object.assign(
+      new Error(`Story service returned ${response.status}.`),
+      {
+        retryable: response.status === 429 || response.status >= 500,
+      },
+    );
   if (!response.headers.get("content-type")?.includes("text/event-stream"))
     return response.json();
   const reader = response.body.getReader();
@@ -381,11 +386,58 @@ export async function requestNarrative(context, signal, progress = () => {}) {
       }
     }
   } finally {
-    await reader.cancel().catch(() => {});
+    void reader.cancel().catch(() => {});
   }
 }
 
-// Keep one request in flight and coalesce quick plays to the newest world.
+// Bound each transport even when an aborted stream takes time to settle.
+async function boundedRequest(request, context, signal, progress, timeout) {
+  const attempt = new AbortController();
+  const abort = () => attempt.abort(signal.reason);
+  let timer;
+  const stopped = new Promise((_, reject) => {
+    attempt.signal.addEventListener(
+      "abort",
+      () =>
+        reject(attempt.signal.reason || new Error("Story request stopped.")),
+      { once: true },
+    );
+    timer = setTimeout(
+      () => attempt.abort(new Error("Story request timed out.")),
+      timeout,
+    );
+  });
+  signal.addEventListener("abort", abort, { once: true });
+  if (signal.aborted) abort();
+  try {
+    return await Promise.race([
+      stopped,
+      request(context, attempt.signal, (entries) => {
+        if (!attempt.signal.aborted) progress(entries);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", abort);
+    attempt.abort();
+  }
+}
+function retryPause(signal) {
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      if (signal.aborted) reject(signal.reason);
+      else resolve();
+    };
+    const abort = () => finish();
+    const timer = setTimeout(finish, 750);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) finish();
+  });
+}
+
+// Keep one active scene request and coalesce quick plays to the newest world.
 export function createNarrator({
   getWorld,
   apply,
@@ -397,6 +449,41 @@ export function createNarrator({
     pending = null,
     running = false,
     controller;
+  async function write(context, version, signal) {
+    const deadline = Date.now() + 30_000;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await boundedRequest(
+          request,
+          context,
+          signal,
+          (entries) => {
+            if (version === ticket && getWorld().revision === context.revision)
+              preview({ context, entries });
+          },
+          Math.max(0, Math.min(15_000, deadline - Date.now())),
+        );
+        if (version !== ticket) return;
+        const next = applyGeneratedText(getWorld(), context, response);
+        if (!next)
+          throw new Error("The scene changed while its words were written.");
+        preview(null);
+        apply(next);
+        status("ready");
+        return;
+      } catch (error) {
+        if (signal.aborted || version !== ticket) return;
+        preview(null);
+        if (
+          attempt === 1 ||
+          error?.retryable === false ||
+          Date.now() >= deadline
+        )
+          throw error;
+        await retryPause(signal);
+      }
+    }
+  }
   async function drain() {
     if (running) return;
     running = true;
@@ -404,35 +491,16 @@ export function createNarrator({
       while (pending) {
         const { action, version } = pending;
         pending = null;
-        const context = narrativeContext(getWorld(), action);
         controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 30_000);
         status("pending");
         try {
-          const response = await request(
-            context,
-            controller.signal,
-            (entries) => {
-              if (
-                version === ticket &&
-                getWorld().revision === context.revision
-              )
-                preview({ context, entries });
-            },
-          );
-          if (version === ticket) {
-            preview(null);
-            const next = applyGeneratedText(getWorld(), context, response);
-            if (next) apply(next);
-            status("ready");
-          }
+          const context = narrativeContext(getWorld(), action);
+          await write(context, version, controller.signal);
         } catch {
           if (version === ticket) {
             preview(null);
             status("retry");
           }
-        } finally {
-          clearTimeout(timer);
         }
       }
     } finally {

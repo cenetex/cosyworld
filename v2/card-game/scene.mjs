@@ -269,9 +269,15 @@ function visitStart(world, through = world.log.length - 1) {
   );
 }
 
-export function currentScene(world, lineIndex = null, { hold = false } = {}) {
+export function currentScene(
+  world,
+  lineIndex = null,
+  { hold = false, seq = null } = {},
+) {
   const lines = sceneLines(world);
-  const chosen = lines.find((e) => e.index === lineIndex);
+  const chosen = lines.find((e) =>
+    seq === null ? e.index === lineIndex : e.seq === seq,
+  );
   const start = visitStart(world, chosen?.index);
   const line =
     chosen || (!hold && lines.findLast((e) => e.index >= start)) || null;
@@ -285,7 +291,9 @@ export function currentScene(world, lineIndex = null, { hold = false } = {}) {
     slots: sceneCast(
       world,
       line?.index,
-      lineIndex === null || !line ? null : exchangeCast(world, line),
+      (lineIndex === null && seq === null) || !line
+        ? null
+        : exchangeCast(world, line),
     ),
     activeSpeaker:
       line && entryKind(line) === "dialogue" ? speakerId(line) : null,

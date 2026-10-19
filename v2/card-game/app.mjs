@@ -56,7 +56,7 @@ const SAVE_KEY =
 let world = createWorld(),
   selected = [],
   saveBlocked = false,
-  lineIndex = null,
+  lineSeq = null,
   selectionRevision = 0,
   dragging = [];
 const paths = {
@@ -116,7 +116,7 @@ let storyStatus = "ready",
   speechHeight = 0,
   speechScrollTarget = 0,
   speechComplete = null,
-  nextSceneIndex = null,
+  nextSceneSeq = null,
   replay = 0,
   pendingReplay = 0,
   cardsCooling = false,
@@ -148,7 +148,7 @@ const exchange = createExchange({
   show: (line) => {
     pendingCast = null;
     reviewing = false;
-    lineIndex = world.log.findIndex((entry) => entry.seq === line.seq);
+    lineSeq = line.seq;
     renderScene();
   },
   settled: (line) => {
@@ -186,7 +186,7 @@ function updateSpeechControls(complete) {
   $("dialogue-advance").setAttribute(
     "aria-label",
     complete
-      ? nextSceneIndex !== null
+      ? nextSceneSeq !== null
         ? "Continue to the next line"
         : exchange.current
           ? "Finish this exchange"
@@ -194,13 +194,13 @@ function updateSpeechControls(complete) {
       : "Reveal the full line",
   );
   $("speech-hint").textContent = complete
-    ? nextSceneIndex !== null
+    ? nextSceneSeq !== null
       ? "Continue"
       : exchange.current
         ? "Continue"
         : "Read again"
     : "Tap to reveal";
-  $("next-line").disabled = complete && nextSceneIndex === null;
+  $("next-line").disabled = complete && nextSceneSeq === null;
 }
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
@@ -244,7 +244,7 @@ const reveal = createTextReveal({
     if (value.complete) {
       $("speech-announcement").textContent =
         `${nameOf(value.speaker)}: ${value.text}`;
-      $("next-line").disabled = nextSceneIndex === null;
+      $("next-line").disabled = nextSceneSeq === null;
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
@@ -362,7 +362,7 @@ function commitAction(action, revision) {
   speechSounds.stop();
   storyStatus = "pending";
   pendingReplay = replay;
-  const previousLine = currentScene(world, lineIndex).line;
+  const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   world = result.state;
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
@@ -380,9 +380,9 @@ function commitAction(action, revision) {
   pendingCast = sceneCast(world, world.log.length - 1, visible);
   exchange.begin();
   selected = [];
-  lineIndex =
+  lineSeq =
     previousLine?.locationId === world.actors.vale.place
-      ? world.log.findIndex((entry) => entry.seq === previousLine.seq)
+      ? previousLine.seq
       : null;
   notice("");
   save();
@@ -600,7 +600,10 @@ function card(id) {
   return frame;
 }
 function renderScene() {
-  const scene = currentScene(world, lineIndex, { hold: exchange.preparing });
+  const scene = currentScene(world, null, {
+    seq: lineSeq,
+    hold: exchange.preparing,
+  });
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -770,10 +773,12 @@ function renderScene() {
   const at = scene.lines.findIndex(
     (entry) => entry.index === scene.line?.index,
   );
-  nextSceneIndex =
-    at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].index : null;
-  if (exchange.active)
-    nextSceneIndex = exchange.hasNext ? nextSceneIndex : null;
+  nextSceneSeq =
+    at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].seq : null;
+  if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
+  document.querySelector(".dialogue").hidden =
+    !text && storyStatus === "ready" && !exchange.preparing;
+  document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = !text;
   if (text) {
@@ -794,7 +799,7 @@ function renderScene() {
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
     reviewing = true;
-    lineIndex = scene.lines[at - 1].index;
+    lineSeq = scene.lines[at - 1].seq;
     renderScene();
   };
   const advance = () => {
@@ -808,7 +813,7 @@ function renderScene() {
       return;
     }
     reviewing = true;
-    if (nextSceneIndex !== null) lineIndex = nextSceneIndex;
+    if (nextSceneSeq !== null) lineSeq = nextSceneSeq;
     else replay++;
     renderScene();
   };
@@ -999,7 +1004,7 @@ $("confirm-reset").onclick = () => {
   reviewing = false;
   renderedHand = "";
   replay = pendingReplay = 0;
-  lineIndex = null;
+  lineSeq = null;
   selected = [];
   saveBlocked = false;
   notice("");
@@ -1019,7 +1024,7 @@ window.addEventListener("storage", (event) => {
   try {
     world = decodeSave(event.newValue);
     renderedHand = "";
-    lineIndex = null;
+    lineSeq = null;
     selected = [];
     saveBlocked = false;
     notice("The world was updated in another tab.");
@@ -1045,7 +1050,7 @@ function hasCurrentWords() {
 function resumeScene() {
   if (!saveBlocked && hasCurrentWords()) {
     const line = currentScene(world).line;
-    lineIndex = null;
+    lineSeq = null;
     exchange.begin();
     render();
     exchange.load(line ? [line] : []);
