@@ -69,6 +69,12 @@ export function cardPlay(world, selected) {
         (target === undefined || a.target === target),
     );
   const here = world.actors.vale.place;
+  const use = (id) =>
+    id === "lamp"
+      ? find(world.items.lamp.lit ? "snuff" : "light", id)
+      : id === "bell"
+        ? find("ring", id)
+        : undefined;
   if (cards.length === 1) {
     const id = cards[0];
     if (places[id])
@@ -94,14 +100,10 @@ export function cardPlay(world, selected) {
         find("take", id),
         "Pair a carried item with this place to make room.",
       );
-    if (id === "lamp")
-      return result(
-        find(world.items.lamp.lit ? "snuff" : "light", id),
-        "Pair the Lamp with Oil flask.",
-      );
+    if (id === "lamp") return result(use(id), "Pair the Lamp with Oil flask.");
     if (id === "bell")
       return result(
-        find("ring", id),
+        use(id),
         covered(world, id)
           ? "Play Black cloth to uncover the Bell."
           : "Ring the Bell.",
@@ -130,10 +132,12 @@ export function cardPlay(world, selected) {
           ),
       "Pair a nearby avatar with an open path to ask them to accompany you.",
     );
+  // An item lying here pairs with this place to be used where it lies.
   if (item && location)
     return result(
       location === here
-        ? find("drop", item, here)
+        ? find("drop", item, here) ||
+            (rootHolder(world, item) === here ? use(item) : undefined)
         : find("move", item, location),
       "Carry this item to play it with a location.",
     );
