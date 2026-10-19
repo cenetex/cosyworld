@@ -158,6 +158,20 @@ export function narrativeContext(world, action = null) {
       const facts = [];
       let desire = null;
       if (kind === "avatar") {
+        if (
+          played?.verb === "trade" &&
+          [played.actorId, played.targetId].includes(id)
+        ) {
+          const giving =
+            id === played.actorId ? played.itemId : played.receiveId;
+          const receiving =
+            id === played.actorId ? played.receiveId : played.itemId;
+          const other =
+            id === played.actorId ? played.targetId : played.actorId;
+          facts.push(
+            `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`,
+          );
+        }
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
