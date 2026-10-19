@@ -171,6 +171,14 @@ try {
   await page.locator("#music-volume").scrollIntoViewIfNeeded();
   assert(await page.locator("#music-volume").isVisible());
   assert(await page.locator("#music-toggle").isVisible());
+  await fullVolume();
+  await page.locator("#music-toggle").click();
+  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  await page.waitForFunction(
+    () => document.querySelector("#room-music").paused,
+  );
+  await page.locator("#music-toggle").click();
+  await fullVolume();
   await page.screenshot({ path: "/private/tmp/shore-room-music-mobile.png" });
   assert.deepEqual(errors, []);
   console.log(
