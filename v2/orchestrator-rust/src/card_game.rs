@@ -128,6 +128,34 @@ fn serve(path: &str) -> Response {
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/style.css"),
         ),
+        "entry.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/entry.mjs"),
+        ),
+        "awakening.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/awakening.mjs"),
+        ),
+        "awakening-world.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/awakening-world.mjs"),
+        ),
+        "awakening.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/awakening.css"),
+        ),
+        "assets/steam-clock-background.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/steam-clock-background.png"),
+        ),
+        "assets/badger-sleeping.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/badger-sleeping.png"),
+        ),
+        "assets/badger-grumpy.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/badger-grumpy.png"),
+        ),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),
@@ -291,6 +319,13 @@ mod tests {
         for path in [
             "index.html",
             "style.css",
+            "entry.mjs",
+            "awakening.mjs",
+            "awakening-world.mjs",
+            "awakening.css",
+            "assets/steam-clock-background.png",
+            "assets/badger-sleeping.png",
+            "assets/badger-grumpy.png",
             "app.mjs",
             "world.mjs",
             "scene.mjs",

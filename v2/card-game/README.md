@@ -1,5 +1,34 @@
 # Card world text and memory
 
+## Badger at the Steam Clock
+
+Fresh browser tables open in the Forest Clearing with Grumpy Badger asleep
+beside the old Steam Clock. The player is a visitor. Raising a card previews
+its action; playing it records the visitor's action and Badger's response.
+The same cards support keyboard use and dragging into the scene.
+
+A soft greeting wakes Badger. Tapping the clock wakes him with a stronger
+grievance. Quiet turns ease his irritation. The first wake cause, current
+mood, and latest 80 history entries save under `cosyworld.steam-clock.v1`,
+with the existing optional table suffix. Both cutouts share the backdrop's
+image coordinates and keep the same ground position across screen sizes.
+
+This first encounter uses short authored replies. The clearing rules and
+state live in `awakening-world.mjs`; `awakening.mjs` presents them in the
+existing card shell. Avatar generation remains a later step.
+
+Existing shore saves resume in the shore. Each world's menu links to the
+other, with separate saves. `?world=forest` opens the clearing directly;
+`?world=shore` opens the Vale, Pip, and Keeper table. The sections below
+describe that shore table and its generated conversation.
+
+Run `node v2/scripts/check-card-awakening.mjs` for the browser check. It covers
+the first wake, reload, keyboard play, quiet and noisy reactions, phone layout,
+save recovery, and the route back to a shore save. Screenshots are written to
+`output/badger-check/`.
+
+## Shore text and memory
+
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
 After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. Vale speaks first, followed by the chosen partner and witnessed arrivals or departures. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. A wait play keeps Vale's words at the place where Vale stayed, and a solo farewell frames desired company as a hope for later.

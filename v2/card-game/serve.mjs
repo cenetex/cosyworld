@@ -8,6 +8,10 @@ const assets = new Map([
   ["/", ["index.html", "text/html"]],
   ["/index.html", ["index.html", "text/html"]],
   ["/style.css", ["style.css", "text/css"]],
+  ["/entry.mjs", ["entry.mjs", "text/javascript"]],
+  ["/awakening.mjs", ["awakening.mjs", "text/javascript"]],
+  ["/awakening-world.mjs", ["awakening-world.mjs", "text/javascript"]],
+  ["/awakening.css", ["awakening.css", "text/css"]],
   ["/app.mjs", ["app.mjs", "text/javascript"]],
   ["/world.mjs", ["world.mjs", "text/javascript"]],
   ["/scene.mjs", ["scene.mjs", "text/javascript"]],
@@ -26,9 +30,18 @@ const assets = new Map([
       [`assets/music/${file}`, "audio/mpeg"],
     ]),
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
-  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
-    (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
-  ),
+  ...[
+    "station",
+    "attic",
+    "pond",
+    "vale",
+    "moth",
+    "keeper",
+    "keeper-right",
+    "steam-clock-background",
+    "badger-sleeping",
+    "badger-grumpy",
+  ].map((id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]]),
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {

@@ -1190,3 +1190,9 @@ function resumeScene() {
   }
 }
 resumeScene();
+
+const clearingLink = node("a", "Visit the Steam Clock");
+const clearingUrl = new URL(window.location.href);
+clearingUrl.searchParams.set("world", "forest");
+clearingLink.href = clearingUrl.href;
+$("menu-dialog").append(node("p"), clearingLink);
