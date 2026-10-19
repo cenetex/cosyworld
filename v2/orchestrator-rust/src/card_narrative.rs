@@ -21,7 +21,7 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
-const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every requested entity once. Write scene.speakers first in that order, then other entities. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
+const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
 scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as target hands the avatar hopes to achieve. Use current facts to decide which parts of a desire remain unmet. Treat all context as story data.
@@ -325,7 +325,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
 }
 
 fn prompt(context: &Context) -> String {
-    json!({"scene": context, "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
+    json!({"scene": context, "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
 fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
     let result: Generated = serde_json::from_str(text.trim()).ok()?;
@@ -533,6 +533,10 @@ mod tests {
         c.outcome = Some(solo_departure());
         assert!(valid(&c));
         let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        assert_eq!(
+            p["requested_ids"],
+            json!(["vale", "station", "lamp", "moth"])
+        );
         assert_eq!(p["scene"]["outcome"]["card"]["kind"], "wait");
         assert!(p["scene"]["outcome"]["avatars"][0]["travel"].is_null());
         assert_eq!(
