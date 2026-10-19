@@ -35,22 +35,28 @@ export const newPlace = (row, extra = {}) => ({
   ...extra,
 });
 // The world grows as its avatars do: each new place or item needs a set
-// number of levels gained across the world, so growth follows play and more
-// players grow the world faster.
+// amount of XP earned across the world, so growth follows play, bigger quests
+// grow it more, and more players grow it faster.
 export function growthLeft(s) {
-  const levels = Object.values(s.avatars).reduce(
-    (sum, a) => sum + a.progress.program,
+  const xp = Object.values(s.avatars).reduce(
+    (sum, a) => sum + a.progress.xp,
     0,
   );
   return (
     s.spawned < s.rules.maxSpawns &&
-    s.spawned <
-      s.rules.growthStart + Math.floor(levels / s.rules.levelsPerGrowth)
+    s.spawned < s.rules.growthStart + Math.floor(xp / s.rules.xpPerGrowth)
   );
 }
+// A new id never reuses one already in the world, whether a seed entity or a
+// player who joined under a name that looks generated.
 function reserve(s, table) {
   s.spawned += 1;
-  const id = `${table}-${s.spawned}`;
+  const taken = (id) =>
+    Object.hasOwn(s.places, id) ||
+    Object.hasOwn(s.avatars, id) ||
+    Object.hasOwn(s.items, id);
+  let id = `${table}-${s.spawned}`;
+  for (let k = 1; taken(id); k++) id = `${table}-${s.spawned}-${k}`;
   const rows = s.tables[table];
   return { id, row: rows[choiceHash(s.seed, id) % rows.length] };
 }
@@ -117,7 +123,8 @@ export const placeQuestMet = (s, place) =>
 
 // After a round, each place where something happened makes its item if its
 // quest is met, replaces a quest a sleeping player blocks, or finds a quest if
-// it has none. Returns what was made for the log.
+// it has none. A blocked quest is kept until a replacement exists, so a
+// promised item always has a quest that can make it. Returns what was made.
 export function growPlaces(s, touched) {
   const made = [];
   for (const place of Object.keys(s.places)) {
@@ -138,7 +145,7 @@ export function growPlaces(s, touched) {
       p.quest?.items.some((id) => asleep(s, holderOf(s, id))) ||
       (!p.quest && p.makes)
     )
-      p.quest = placeQuest(s, place, p.quest?.reward ?? null);
+      p.quest = placeQuest(s, place, p.quest?.reward ?? null) ?? p.quest;
   }
   return made;
 }

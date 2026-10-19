@@ -93,18 +93,20 @@ Rules for all growth:
   entities.
 - Growth happens only at a place where a play happened. A quiet world never
   grows.
-- A world budget allows one new item or place for every set number of levels
-  gained across the world, under a hard cap.
+- A world budget allows one new item or place for every set amount of XP
+  earned across the world, under a hard cap.
 - A place opens no doorway once it has three exits. Each make asks for more
   inputs.
 
 Measure with headless play over many seeds and player mixes:
 
 - No world freezes, and every avatar progresses within a bounded number of plays.
-- The world grows slowly. The shore goes from 3 places to about 9 in 600 solo
-  plays, and to about 22 in 2,000.
+- The world grows slowly. The shore goes from 3 places to about 12 in 600 solo
+  plays, and to about 23 in 2,000.
 - Trades and asks between avatars stay frequent as the world grows.
-- Levels slow as quests deepen. This is still open; see loop health.
+- Levels slow as quests deepen. A solo player on the shore reaches about level
+  10 in 600 plays and level 19 in 2,000, and gains fewer levels in each later
+  stretch of play. Before XP, it reached level 62 and level 178.
 
 ## Phase 2b: many players
 
@@ -121,12 +123,14 @@ players share one world":
 
 Measure with four players on uneven schedules over long runs:
 
-- Each player levels with its own plays, at about the same rate per play.
+- Each player finishes quests with its own plays, at about the same rate per
+  play.
 - A player who rests keeps every item until it plays again.
 - Replays are exact.
 
 Still to decide: whether fighting between players needs an opt-in or a
-sanctuary rule, and how rankings and seasons work across one world's life.
+sanctuary rule, and how rankings work across one world's life. XP only goes up,
+so a season can rank XP earned within it but never resets it.
 
 ## Loop health carried over
 
@@ -134,9 +138,9 @@ The 2026-10-17 review found five problems. The first, contested goals, was fixed
 by #1062. The light problem was a scripted-site problem and leaves with that
 site. Three remain, and growth makes each one larger:
 
-1. **Levels come too fast.** A generated quest completes about every three
-   turns. Scale quests with level: more steps, farther places, and payments that
-   pass through a third avatar.
+1. **Levels came too fast.** Fixed by XP: quests are worth XP by size, each
+   level needs more, and quests go farther and carry more with level. Payments
+   that pass through a third avatar are still to try.
 2. **Residents need a player to start and later ignore the player.** Generated
    goals should keep naming nearby player-held items and meetings with players,
    and some resident goals must be finishable without a player.
