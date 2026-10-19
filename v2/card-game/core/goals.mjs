@@ -267,11 +267,15 @@ function buildQuest(s, avatar, { independent = false, solo = false } = {}) {
     );
     return !payment.length || payment.some(available);
   });
+  // With nothing free to want, a resident still never builds a goal around
+  // an item another avatar needs, so the only contested item cannot be held
+  // forever. It goes on an errand instead and can give that item away.
   if (!candidates.length)
     candidates = rotated.filter(
       (item) =>
         !asleep(s, holderOf(s, item)) &&
-        (!independent || !isPlayer(s, holderOf(s, item))),
+        (!independent || !isPlayer(s, holderOf(s, item))) &&
+        !(holderOf(s, item) === avatar && wantedElsewhere(item)),
     );
   if (!candidates.length) return errand();
   const recent = progress.recent;
