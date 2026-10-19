@@ -498,7 +498,7 @@ function card(id) {
     );
     if (target.conditions.length)
       row(
-        "Use",
+        "Need",
         target.conditions.map((c) => ({
           ...c,
           text: conditionText(c, nameOf),
@@ -509,7 +509,7 @@ function card(id) {
       info.append(
         node(
           "span",
-          `${choices.length} possible hands · Menu shows choices`,
+          `${choices.length} choices · Menu`,
           "trade-offers",
         ),
       );
