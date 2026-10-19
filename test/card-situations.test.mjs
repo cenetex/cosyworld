@@ -73,9 +73,9 @@ describe("situations and their consequences", () => {
       kinds.push(p.generated.situation);
       expect(p.purpose.length).toBeLessThanOrEqual(240);
     }
-    expect(new Set(kinds)).toEqual(
-      new Set(["crossing", "answer", "delivery", "gathering"]),
-    );
+    expect(new Set(kinds).size).toBe(4);
+    expect(kinds).toContain("crossing");
+    expect(kinds).toContain("delivery");
     s.actors.vale.progress.recentKinds = [];
     expect(encodeSave(s)).toBe(before);
     s.locations.attic.anchored = true;
@@ -86,6 +86,59 @@ describe("situations and their consequences", () => {
     expect(
       generateProgram(s, "vale", places, things).generated.situation,
     ).not.toBe("gathering");
+  });
+
+  it("spreads new purposes across the cast, including simultaneous level boundaries", () => {
+    const s = continuing();
+    for (const actor of Object.values(s.actors)) {
+      actor.progress.recentKinds = [];
+      delete actor.progress.current;
+    }
+    for (const item of Object.values(s.items)) item.holder = "station";
+    s.items.oil.doses = 1;
+    for (const id of ["keeper", "moth", "vale"])
+      s.actors[id].progress.current = generateProgram(s, id, places, things);
+    const kinds = Object.keys(s.actors).map(
+      (id) => programFor(s, id).generated.situation,
+    );
+    expect(new Set(kinds).size).toBe(3);
+    expect(kinds.filter((kind) => kind === "answer")).toHaveLength(1);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("keeps a useful fallback when the available goals share a purpose", () => {
+    const s = continuing();
+    s.locations.attic.anchored = true;
+    s.locations.pond.answer = "hush";
+    s.items.lamp.fuel = 0;
+    s.items.oil.doses = 3;
+    const isolated = Object.fromEntries(
+      Object.keys(places).map((id) => [id, { exits: [] }]),
+    );
+    for (const item of Object.values(s.items)) item.holder = "attic";
+    for (const actor of Object.values(s.actors)) actor.place = "attic";
+    for (const id of Object.keys(s.actors)) {
+      const p = generateProgram(s, id, isolated, things);
+      expect(p.generated.situation).toBe("bargain");
+      expect(p.steps.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("asks the pond for a change that the world still needs", () => {
+    const s = continuing();
+    for (const item of Object.values(s.items)) item.holder = "station";
+    for (const actor of Object.values(s.actors)) delete actor.progress.current;
+    s.items.oil.doses = 3;
+    const quiet = generateProgram(s, "keeper", places, things);
+    expect(quiet.name).toBe("A quiet shore");
+    expect(quiet.steps[1].any.map((h) => h.consequence.kind)).toEqual(["hush"]);
+    s.locations.pond.answer = "hush";
+    expect(
+      generateProgram(s, "keeper", places, things).generated.situation,
+    ).not.toBe("answer");
+    s.items.oil.doses = 1;
+    const refill = generateProgram(s, "keeper", places, things);
+    expect(refill.steps[1].any.map((h) => h.consequence.kind)).toEqual(["oil"]);
   });
 
   it("checks actual use, coverings and custody together with the target hand", () => {

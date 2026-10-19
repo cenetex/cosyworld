@@ -192,6 +192,58 @@ describe("shore wants and grievances", () => {
     });
   });
 
+  it("continues saved quest programs alongside personal grievances", () => {
+    let s = together(createWorld());
+    s.turn = s.revision = 5;
+    s.actors.vale.progress = { program: 1, step: 1, marks: [1, 2, 3, 4] };
+    s.items.lamp.holder = s.items.bell.holder = "vale";
+    s = enableMotives(s, { questPrograms: true });
+    recordReaction(
+      s,
+      { kind: "ring", actor: "vale", item: "bell" },
+      ["keeper"],
+      false,
+    );
+    const before = structuredClone(s.actors.vale.progress);
+    s = enableMotives(decodeSave(encodeSave(s)), { questPrograms: true });
+    expect(s.actors.vale.progress).toEqual(before);
+    s = act(s, "wait");
+    expect(s.actors.vale.progress.program).toBe(2);
+    expect(s.actors.vale.progress.current.generated).toBeTruthy();
+    expect(resentment(s, "keeper", "vale")).toBe(1);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("keeps the cast progressing and trading with quests and motives together", () => {
+    for (const initial of [7, 42, 1729]) {
+      let s = enableMotives(createWorld(), { questPrograms: true });
+      let seed = initial,
+        trades = 0;
+      const kinds = new Set();
+      for (let i = 0; i < 240; i++) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        const actions = legalActions(s);
+        const action = i % 3 ? plan(s).action : actions[seed % actions.length];
+        const result = play(s, action);
+        if (i % 20 === 0)
+          expect(result).toEqual(play(decodeSave(encodeSave(s)), action));
+        expect(result.ok).toBe(true);
+        s = result.state;
+        trades += s.log.filter(
+          (e) => e.turn === s.turn && e.verb === "trade",
+        ).length;
+        for (const actor of Object.values(s.actors))
+          if (actor.progress.current?.generated.situation)
+            kinds.add(actor.progress.current.generated.situation);
+      }
+      expect(s.actors.moth.progress.program).toBeGreaterThan(3);
+      expect(s.actors.keeper.progress.program).toBeGreaterThan(3);
+      expect(trades).toBeGreaterThan(3);
+      expect(kinds.size).toBeGreaterThanOrEqual(3);
+      expect(decodeSave(encodeSave(s))).toEqual(s);
+    }
+  });
+
   it("keeps mixed play deterministic and preserves archived quest progress", () => {
     let s = fresh(),
       seed = 1729;

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
   createWorld,
+  addLog,
   legalActions,
   play,
   encodeSave,
@@ -352,6 +353,57 @@ describe("witnessed departures and conversation continuity", () => {
     const later = act(next, "wait");
     expect(narrativeContext(later).speakers).not.toContain("moth");
   });
+  it("keeps same-route solo arrivals separate from an accepted accompany play", () => {
+    const world = createWorld();
+    world.turn = world.revision = 1;
+    for (const id of ["vale", "keeper"]) {
+      world.actors[id].place = "pond";
+      addLog(
+        world,
+        profiles[id].name,
+        `${profiles[id].name} goes to Black pond.`,
+        {
+          kind: "action",
+          actorId: id,
+          verb: "move",
+          targetId: "pond",
+          fromLocationId: "station",
+          locationId: "pond",
+        },
+      );
+    }
+    const solo = narrativeContext(world);
+    for (const id of ["vale", "keeper"])
+      expect(solo.outcome.avatars.find((a) => a.id === id).travel).toEqual({
+        from: "station",
+        to: "pond",
+        companions: [],
+      });
+    world.log = world.log.filter((e) => e.turn !== 1);
+    addLog(
+      world,
+      "Vale",
+      "Vale and The keeper travel together to Black pond.",
+      {
+        kind: "action",
+        actorId: "vale",
+        verb: "accompany",
+        targetId: "keeper",
+        accepted: true,
+        destinationId: "pond",
+        fromLocationId: "station",
+        locationId: "pond",
+      },
+    );
+    const shared = narrativeContext(world);
+    expect(
+      shared.outcome.avatars.find((a) => a.id === "vale").travel.companions,
+    ).toEqual(["keeper"]);
+    expect(
+      shared.outcome.avatars.find((a) => a.id === "keeper").travel.companions,
+    ).toEqual(["vale"]);
+  });
+
   it("gives both arrivals a voice, with one ordered exchange for the next turn", () => {
     let world = act(createWorld(), "wait");
     let context = narrativeContext(world);

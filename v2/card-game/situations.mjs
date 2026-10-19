@@ -137,17 +137,25 @@ export function situationPrograms(s, actor, base, api) {
       ),
       { kind: "hush" },
     );
-    choices.push(
-      make(
-        "answer",
-        "An answer from below",
-        "Ring at the pond to refill the oil flask, or wrap the bell there to make the shore a refuge until it rings again.",
-        [
-          hand(hold("bell"), at("station")),
-          canGet("cloth") ? either(call, hush) : call,
-        ],
-      ),
-    );
+    const answers = [
+      ...(s.items.oil.doses < 3 ? [call] : []),
+      ...(canGet("cloth") && s.locations?.pond.answer !== "hush" ? [hush] : []),
+    ];
+    if (answers.length)
+      choices.push(
+        make(
+          "answer",
+          answers.length === 1 && answers[0] === hush
+            ? "A quiet shore"
+            : "An answer from below",
+          answers.length === 2
+            ? "Ring at the pond to refill the oil flask, or wrap the bell there to make the shore a refuge until it rings again."
+            : answers[0] === call
+              ? "Ring at the pond to refill the oil flask."
+              : "Wrap the bell at the pond to make the shore a refuge until it rings again.",
+          [hand(hold("bell"), at("station")), either(...answers)],
+        ),
+      );
   }
   const others = Object.keys(s.actors).filter((id) => id !== actor);
   // Vale chooses handovers through card plays. Residents can arrange care
@@ -166,8 +174,7 @@ export function situationPrograms(s, actor, base, api) {
     (a, b) =>
       Number(b.avatar === gift?.actorId) - Number(a.avatar === gift?.actorId),
   );
-  const delivery = deliveries[0];
-  if (delivery) {
+  for (const delivery of deliveries) {
     const { avatar, item } = delivery;
     const place = s.actors[avatar].place;
     if (reachable.includes(place))

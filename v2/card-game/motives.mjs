@@ -32,12 +32,15 @@ export const names = {
   cloth: "Black cloth",
 };
 export const hasMotives = (s) => s.motives?.version === 1;
-export function enableMotives(s) {
+export const hasQuestPrograms = (s) =>
+  !hasMotives(s) || s.motives.questPrograms === true;
+export function enableMotives(s, { questPrograms = false } = {}) {
   if (!s.motives)
     s.motives = {
       version: 1,
       grievances: Object.fromEntries(actors.map((id) => [id, []])),
     };
+  if (questPrograms) s.motives.questPrograms = true;
   return s;
 }
 export function owner(s, item) {
@@ -256,6 +259,7 @@ export function validMotives(s) {
   const m = s.motives;
   return (
     m?.version === 1 &&
+    (m.questPrograms === undefined || typeof m.questPrograms === "boolean") &&
     Object.keys(m.grievances || {})
       .sort()
       .join() === actors.slice().sort().join() &&

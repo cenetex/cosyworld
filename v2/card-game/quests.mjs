@@ -1,4 +1,4 @@
-import { hasMotives, interest } from "./motives.mjs";
+import { hasQuestPrograms, interest } from "./motives.mjs";
 import {
   conditionMet,
   requiredItems,
@@ -115,9 +115,9 @@ export const programFor = (s, actor) =>
   s.actors[actor].progress.current ||
   null;
 export const targetsFor = (s, actor) =>
-  hasMotives(s)
-    ? [interest(s, actor)]
-    : alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]);
+  hasQuestPrograms(s)
+    ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
+    : [interest(s, actor)];
 const ownerOf = (s, item) => {
   let owner = s.items[item].holder;
   const seen = new Set([item]);
@@ -239,6 +239,10 @@ export function generateProgram(
       ),
     );
   const recent = progress.recent || [];
+  const active = actors
+    .filter((id) => id !== actor)
+    .map((id) => programFor(s, id))
+    .filter(Boolean);
   const score = (item) => {
     const owner = ownerOf(s, item);
     let value = owner === actor ? 0 : s.actors[owner] ? 6 : 4;
@@ -246,7 +250,11 @@ export function generateProgram(
     // choose items held by the cast, leaving the player's response voluntary.
     if (actor !== "vale" && owner === "vale")
       value = progress.program % 3 === 0 ? 10 : -2;
-    return value - (recent.includes(item) ? 3 : 0);
+    return (
+      value -
+      (recent.includes(item) ? 3 : 0) -
+      active.filter((p) => p.generated?.item === item).length * 4
+    );
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
   if (!item)
@@ -319,11 +327,21 @@ export function generateProgram(
     generated: { ...base.generated, situation: "bargain" },
   });
   const recentKinds = progress.recentKinds || [];
+  const kindOf = (p) => p.generated?.situation || "bargain";
+  // Prefer a different purpose from the cast's active programs. Shared items
+  // can still connect a delivery, a crossing and a bargain into one story.
+  const unseen = catalog.filter((p) => !recentKinds.includes(kindOf(p)));
+  const fresh = unseen.length ? unseen : catalog;
+  const distinct = fresh.filter(
+    (p) => !active.some((other) => kindOf(other) === kindOf(p)),
+  );
+  const choices = distinct.length ? distinct : fresh;
   const rank = (p) =>
-    preferences.indexOf(p.generated.situation) +
+    preferences.indexOf(kindOf(p)) +
     recentKinds.reduce(
-      (n, kind, i) => n + (kind === p.generated.situation ? 5 + i * 2 : 0),
+      (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
       0,
-    );
-  return catalog.sort((a, b) => rank(a) - rank(b))[0] || base;
+    ) +
+    (recent.includes(p.generated.item) ? 2 : 0);
+  return choices.sort((a, b) => rank(a) - rank(b))[0] || base;
 }
