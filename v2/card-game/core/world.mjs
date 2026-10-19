@@ -1,5 +1,5 @@
 // The general card core: one rule path for every avatar, item, and place. The
-// world's registries live in its state, so seeds and later spawns can add
+// world's registries live in its state, so seeds and quest rewards can add
 // entities without code changes. No rule names a specific entity.
 import {
   asleep,
@@ -22,7 +22,17 @@ import {
   targetsFor,
 } from "./goals.mjs";
 import { plan } from "./planner.mjs";
-import { applySpawns, validSpawnRule, validTables } from "./spawn.mjs";
+import {
+  growPlaces,
+  latentItem,
+  latentPlace,
+  madeText,
+  newPlace,
+  openPlace,
+  placeQuest,
+  validPlaceQuest,
+  validTables,
+} from "./growth.mjs";
 
 export const SCHEMA = 1;
 export const DEFAULT_RULES = {
@@ -31,7 +41,10 @@ export const DEFAULT_RULES = {
   questRadius: 3,
   stallActs: 12,
   errandActs: 24,
-  maxSpawns: 64,
+  maxSpawns: 128,
+  abandonTurns: 96,
+  growthStart: 4,
+  levelsPerGrowth: 10,
   offerTurns: 16,
   answerTurns: 12,
 };
@@ -79,16 +92,17 @@ export function createWorld(seed) {
     log: [],
   };
   for (const p of seed.places)
-    s.places[p.id] = {
-      ...entity(p),
+    s.places[p.id] = newPlace(entity(p), {
       exits: [...p.exits],
-      visits: 0,
-      spawn: structuredClone(p.spawn || []),
-    };
+      makes: p.makes ?? null,
+      beyond: p.beyond ?? null,
+    });
   for (const a of seed.avatars)
     s.avatars[a.id] = newAvatar(entity(a), a.role, a.place);
   for (const i of seed.items)
     s.items[i.id] = { ...entity(i), holder: i.holder, history: [] };
+  for (const id of Object.keys(s.places))
+    s.places[id].quest = placeQuest(s, id);
   ensureQuests(s);
   const players = avatarOrder(s).filter((id) => isPlayer(s, id));
   addLog(
@@ -523,13 +537,7 @@ function perform(s, a, round = newRound()) {
     }
     case "move":
       s.avatars[a.actor].place = a.target;
-      s.places[a.target].visits += 1;
       round.touched.add(a.target);
-      round.arrivals.push({
-        avatar: a.actor,
-        place: a.target,
-        items: carried(s, a.actor),
-      });
       for (const id of carried(s, a.actor))
         remember(s, id, `${who} carried it to ${n(a.target)}.`);
       break;
@@ -610,9 +618,24 @@ function ensureQuests(s) {
   for (const avatar of avatarOrder(s)) {
     const p = s.avatars[avatar].progress;
     if (p.current) continue;
-    p.current = generateQuest(structuredClone(s), avatar);
+    p.current = draftQuest(s, avatar).adopt();
     p.idle = 0;
   }
+}
+// The generator reads a copy of the world. A goal it promises a doorway in
+// adds that latent place to the world only once the goal is kept.
+function draftQuest(s, avatar, options) {
+  const scratch = copyWorld(s);
+  const quest = generateQuest(scratch, avatar, options);
+  return {
+    quest,
+    adopt() {
+      for (const [id, place] of Object.entries(scratch.places))
+        s.places[id] ??= place;
+      s.spawned = scratch.spawned;
+      return quest;
+    },
+  };
 }
 function advanceQuests(s, met, round = newRound()) {
   const receipts = [];
@@ -624,9 +647,10 @@ function advanceQuests(s, met, round = newRound()) {
     progress.idle = 0;
     progress.drift = 0;
     progress.step += 1;
+    const door = quest.steps[step].opens;
+    if (door) round.opened.push(openPlace(s, door, avatar));
     const complete = progress.step === quest.steps.length;
     if (complete) {
-      round.completed.push({ avatar, place: placeOf(s, avatar) });
       progress.completedHands += quest.steps.length;
       if (quest.generated.item)
         progress.recent = [...progress.recent, quest.generated.item].slice(-4);
@@ -660,14 +684,16 @@ function refreshStalledQuests(s, active) {
     const p = s.avatars[avatar].progress,
       current = programFor(s, avatar);
     if (p.idle < s.rules.stallActs) continue;
-    const fresh = generateQuest(structuredClone(s), avatar, {
+    const draft = draftQuest(s, avatar, {
       independent: !isPlayer(s, avatar),
       solo: stalled(s, avatar),
     });
+    const fresh = draft.quest;
     const unfinished = fresh.steps.filter(
       (step) => !alternatives(step).some((h) => handStatus(s, avatar, h).met),
     );
     if (!unfinished.length) continue;
+    draft.adopt();
     p.idle = 0;
     p.current = {
       ...fresh,
@@ -684,19 +710,32 @@ function refreshStalledQuests(s, active) {
   }
 }
 
-// One round's causes: arrivals, completed quests, and places where an act
-// happened. Spawn rules read only these, so a quiet place never grows.
-function newRound() {
-  const round = { arrivals: [], completed: [], touched: new Set() };
-  round.visits = (place) =>
-    round.arrivals.filter((a) => a.place === place).length;
-  return round;
+// Log entries never change once written, so copies of the world share them.
+function copyWorld(s) {
+  const next = structuredClone({ ...s, log: [] });
+  next.log = [...s.log];
+  return next;
 }
-function spawnText(s, { id, kind, place }) {
-  const n = (e) => nameOf(s, e);
-  if (kind === "open_place") return `A way opens from ${n(place)} to ${n(id)}.`;
-  if (kind === "add_item") return `A ${n(id)} turns up in ${n(place)}.`;
-  return `${n(id)} arrives at ${n(place)}.`;
+
+// One round's causes: places where an act happened and doorways opened.
+// Places grow only from these, so a quiet place never changes.
+function newRound() {
+  return { touched: new Set(), opened: [] };
+}
+// A player asleep for a long time goes on alone as a resident. This is the
+// only way new avatars enter the world. Its holdings stay its own.
+function abandonSleepers(s) {
+  for (const id of avatarOrder(s)) {
+    const a = s.avatars[id];
+    if (!a.asleep || s.turn - a.restedAt < s.rules.abandonTurns) continue;
+    Object.assign(a, { role: "resident", asleep: false, restedAt: null });
+    a.former = true;
+    a.progress.idle = s.rules.stallActs;
+    addLog(s, `${a.name} has been away a long time and goes on alone.`, {
+      actorId: id,
+      kind: "arrival",
+    });
+  }
 }
 
 // Residents near the acting player hear the play. Residents farther away
@@ -737,10 +776,11 @@ export function play(s, action, expectedRevision = s.revision) {
       state: s,
       error: "That play has changed. Check the cards and choose again.",
     };
-  const next = structuredClone(s);
+  const next = copyWorld(s);
   // A sleeping player wakes by playing.
   if (asleep(next, actor)) {
     next.avatars[actor].asleep = false;
+    next.avatars[actor].restedAt = null;
     addLog(next, `${nameOf(next, actor)} wakes.`, { actorId: actor });
   }
   const exact = legalActions(next, actor).find((a) => a.key === action.key);
@@ -766,13 +806,27 @@ export function play(s, action, expectedRevision = s.revision) {
   refreshStalledQuests(next, [actor, ...acting]);
   next.offers = next.offers.filter((o) => offerStands(next, o));
   settleStandoffs(next);
-  for (const spawn of applySpawns(next, round))
-    addLog(next, spawnText(next, spawn), {
-      kind: "spawn",
-      locationId: spawn.place,
-      spawnId: spawn.id,
-      claim: spawn.key,
+  for (const door of round.opened.filter(Boolean)) {
+    round.touched.add(door.place);
+    addLog(
+      next,
+      `${nameOf(next, door.by)} opens a way from ${nameOf(next, door.from)} to ${nameOf(next, door.place)}.`,
+      {
+        kind: "growth",
+        actorId: door.by,
+        locationId: door.from,
+        placeId: door.place,
+      },
+    );
+  }
+  for (const made of growPlaces(next, round.touched))
+    addLog(next, madeText(next, made), {
+      kind: "growth",
+      locationId: made.place,
+      itemId: made.item,
+      cast: made.makers,
     });
+  abandonSleepers(next);
   ensureQuests(next);
   validateWorld(next);
   return { ok: true, state: next, stale: expectedRevision !== s.revision };
@@ -784,7 +838,7 @@ export function join(s, { id, name, text = "", place }) {
     return { ok: false, state: s, error: "Choose an unused avatar id." };
   if (!s.places[place])
     return { ok: false, state: s, error: "Choose a place in this world." };
-  const next = structuredClone(s);
+  const next = copyWorld(s);
   next.avatars[id] = newAvatar(entity({ name, text }), "player", place);
   next.revision += 1;
   ensureQuests(next);
@@ -800,12 +854,29 @@ export function join(s, { id, name, text = "", place }) {
 export function rest(s, player) {
   if (!isPlayer(s, player) || asleep(s, player))
     return { ok: false, state: s, error: "Only an awake player can rest." };
-  const next = structuredClone(s);
+  const next = copyWorld(s);
   next.avatars[player].asleep = true;
+  next.avatars[player].restedAt = next.turn;
   next.revision += 1;
   addLog(next, `${nameOf(next, player)} falls asleep.`, { actorId: player });
   next.offers = next.offers.filter((o) => offerStands(next, o));
   settleStandoffs(next);
+  validateWorld(next);
+  return { ok: true, state: next };
+}
+
+// The runtime returns an avatar that went on alone to the player who left it.
+export function reclaim(s, id) {
+  if (!s.avatars[id]?.former || isPlayer(s, id))
+    return {
+      ok: false,
+      state: s,
+      error: "Only an avatar that went on alone can be reclaimed.",
+    };
+  const next = copyWorld(s);
+  Object.assign(next.avatars[id], { role: "player", former: false });
+  next.revision += 1;
+  addLog(next, `${nameOf(next, id)} is back.`, { actorId: id });
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -878,16 +949,18 @@ export function validateWorld(s) {
       (c) => !Number.isInteger(c.turn) || !all.includes(c.created),
     )
   )
-    fail("spawn records are invalid");
+    fail("growth records are invalid");
   for (const [id, p] of Object.entries(s.places))
     if (
       !validEntity(p) ||
-      !Number.isInteger(p.visits) ||
-      !Array.isArray(p.spawn) ||
-      !p.spawn.every((rule) => validSpawnRule(rule, s.tables)) ||
       !Array.isArray(p.exits) ||
       p.exits.some((to) => !s.places[to] || to === id) ||
-      new Set(p.exits).size !== p.exits.length
+      new Set(p.exits).size !== p.exits.length ||
+      [p.makes, p.beyond].some((t) => t !== null && !s.tables[t]) ||
+      !Number.isInteger(p.made) ||
+      typeof p.latent !== "boolean" ||
+      (p.latent && (p.exits.length || !s.places[p.opener])) ||
+      !validPlaceQuest(s, id, p.quest)
     )
       fail(`place ${id} is invalid`);
   for (const [id, a] of Object.entries(s.avatars)) {
@@ -900,7 +973,10 @@ export function validateWorld(s) {
       !Number.isInteger(a.heard) ||
       a.heard < 0 ||
       typeof a.asleep !== "boolean" ||
-      (a.asleep && a.role !== "player")
+      (a.asleep && a.role !== "player") ||
+      a.asleep !== Number.isInteger(a.restedAt) ||
+      typeof a.former !== "boolean" ||
+      latentPlace(s, a.place)
     )
       fail(`avatar ${id} is invalid`);
     const p = a.progress;
@@ -921,7 +997,9 @@ export function validateWorld(s) {
   for (const [id, item] of Object.entries(s.items))
     if (
       !validEntity(item) ||
-      !(s.places[item.holder] || s.avatars[item.holder]) ||
+      (latentItem(s, id)
+        ? !s.places[item.maker]
+        : !(s.places[item.holder] || s.avatars[item.holder])) ||
       !Array.isArray(item.history) ||
       item.history.length > 12
     )

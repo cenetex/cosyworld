@@ -1,5 +1,9 @@
 // Target hands and the quest generator for the general card core. Nothing here
 // names an entity: every choice reads the world's own registries.
+import { latentPlace, promisePlace } from "./growth.mjs";
+
+// A place opens no doorway once it has this many exits.
+const MAX_EXITS = 3;
 
 // Hand parts combine at one moment. Sequences join reusable steps;
 // either offers several hands that can complete the same step.
@@ -63,6 +67,8 @@ export const newAvatar = (entity, role, place) => ({
   peaceUntil: 0,
   heard: 0,
   asleep: false,
+  restedAt: null,
+  former: false,
 });
 
 export const isPlayer = (s, id) => s.avatars[id]?.role === "player";
@@ -106,8 +112,19 @@ export function desireFor(s, avatar) {
       .sort((a, b) => score(a) - score(b))[0] || restingHand()
   );
 }
-export const needed = (s, avatar, item) =>
-  desireFor(s, avatar).items.includes(item);
+// An avatar needs the items in its hand, and the inputs a place asks for when
+// the hand wants what that place will make.
+export function needed(s, avatar, item) {
+  const want = desireFor(s, avatar).items;
+  return (
+    want.includes(item) ||
+    want.some(
+      (id) =>
+        s.items[id].holder === null &&
+        s.places[s.items[id].maker].quest?.items.includes(item),
+    )
+  );
+}
 
 // Breadth-first distances over the current exits, up to a radius.
 export function distances(s, from, radius = Infinity) {
@@ -294,6 +311,63 @@ export function generateQuest(
   const finalItems = [item, ...(extra ? [extra] : [])];
   const gathering = hand(hold(payment || item));
   const journey = carryTo(finalItems, destination);
+  const level = levelOf(s, avatar);
+  // From level 3, every third goal is a place's next make: an item that does
+  // not exist until someone completes that place's quest.
+  const works = reachable.filter((place) =>
+    s.places[place].quest?.items.every(
+      (input) => !asleep(s, holderOf(s, input)),
+    ),
+  );
+  if (level >= 3 && progress.program % 3 === 1 && works.length) {
+    const place = pick(works, "work");
+    const made = s.places[place].quest.reward;
+    const onward = reachable.filter((other) => other !== place);
+    return {
+      id,
+      name: `What ${nameOf(s, place)} makes next`,
+      steps: sequence(
+        hand(hold(made)),
+        ...(onward.length ? [carryTo([made], pick(onward, "onward"))] : []),
+      ),
+      generated: meta({ item: made, owner: place, partner: null }),
+    };
+  }
+  // From level 3, every third goal opens a doorway from a place at the edge of
+  // reach to a new place. The key is an item some place made, so new places
+  // follow new items, and new items follow what avatars bring.
+  const key = candidates.find((id) => s.items[id].maker);
+  const edge = reachable.filter(
+    (place) =>
+      s.places[place].beyond &&
+      s.places[place].exits.length < MAX_EXITS &&
+      !latentPlace(s, place),
+  );
+  const far = Math.max(0, ...edge.map((place) => near.get(place)));
+  const from =
+    level >= 3 && progress.program % 3 === 2 && key && edge.length
+      ? pick(
+          edge.filter((place) => near.get(place) === far),
+          "edge",
+        )
+      : null;
+  const door = from && promisePlace(s, from);
+  if (door)
+    return {
+      id,
+      name: `A doorway from ${nameOf(s, from)}`,
+      steps: sequence(
+        hand(hold(key)),
+        { ...carryTo([key], from), opens: door },
+        carryTo([key], door),
+      ),
+      generated: meta({
+        item: key,
+        owner: holderOf(s, key),
+        partner: null,
+        door,
+      }),
+    };
   const steps = partner
     ? progress.program % 2
       ? [gathering, journey, meet([item], partner, meetingPlaces)]
