@@ -35,17 +35,16 @@ export const newPlace = (row, extra = {}) => ({
   ...extra,
 });
 // The world grows as its avatars do: each new place or item needs a set
-// number of levels gained across the world, so growth follows play and more
-// players grow the world faster.
+// amount of XP earned across the world, so growth follows play, bigger quests
+// grow it more, and more players grow it faster.
 export function growthLeft(s) {
-  const levels = Object.values(s.avatars).reduce(
-    (sum, a) => sum + a.progress.program,
+  const xp = Object.values(s.avatars).reduce(
+    (sum, a) => sum + a.progress.xp,
     0,
   );
   return (
     s.spawned < s.rules.maxSpawns &&
-    s.spawned <
-      s.rules.growthStart + Math.floor(levels / s.rules.levelsPerGrowth)
+    s.spawned < s.rules.growthStart + Math.floor(xp / s.rules.xpPerGrowth)
   );
 }
 function reserve(s, table) {

@@ -156,7 +156,7 @@ describe("multiplayer in the card core", () => {
       ])
         s = join(s, { id, name, place }).state;
       const players = ["vale", "ash", "bee", "cal"];
-      const levels = {},
+      const quests = {},
         plays = {};
       let x = (k * 2654435761) >>> 0;
       for (let t = 0; t < 600; t++) {
@@ -181,16 +181,16 @@ describe("multiplayer in the card core", () => {
         );
       }
       for (const id of Object.keys(s.avatars))
-        levels[id] = s.avatars[id].progress.program;
-      return { s, levels, plays };
+        quests[id] = s.avatars[id].progress.program;
+      return { s, quests, plays };
     };
     const a = run(1);
     expect(encodeSave(a.s)).toBe(encodeSave(run(1).s));
-    // Each player levels with its own plays, however often the others play.
+    // Each player finishes quests with its own plays, however often the others play.
     for (const k of [1, 2, 3]) {
-      const { levels, plays } = k === 1 ? a : run(k);
+      const { quests, plays } = k === 1 ? a : run(k);
       for (const id of ["vale", "ash", "bee"])
-        expect(levels[id], `run ${k} ${id}`).toBeGreaterThanOrEqual(
+        expect(quests[id], `run ${k} ${id}`).toBeGreaterThanOrEqual(
           Math.floor(plays[id] / 40),
         );
     }

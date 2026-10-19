@@ -78,7 +78,7 @@ named entity, and no rule special-cases one.
 | play        | One certified act. It commits, then residents within reach act.                   |
 | target hand | A goal: Hold these items, At this place, With these avatars.                      |
 | quest       | An ordered list of target hands, made by the quest generator or authored content. |
-| level       | Earned once per completed quest.                                                  |
+| XP, level   | A quest's XP is fixed when it is made. XP only goes up; each level needs more.    |
 | resident    | An avatar no person controls. It plans with the same offers as players.           |
 | promise     | A latent item or place a quest will create. Other quests may require it first.    |
 
@@ -143,14 +143,22 @@ of players:
   bring the item the forge will make, or carry a key through a doorway that does
   not exist yet. So requirements chain recursively, and the chains deepen with
   level.
-- **A budget follows levels.** Each new item or place needs a set number of
-  levels gained across the world, so the world grows slowly, as its avatars
-  grow, and faster with more players.
+- **XP and levels.** A quest is worth XP for each hand, each item it asks for,
+  and each step of travel, plus a bonus when it asks for an item not yet made or
+  opens a doorway. Its XP is fixed when the quest is made. XP only goes up:
+  nothing takes it away, not a fight and not a season. Level n needs n times a
+  set amount more XP to reach level n + 1, and quests grow with level: from
+  level 4 they go to the farthest places in reach, and from level 5 they carry
+  more items. So early levels come quickly and later ones slowly.
+- **A budget follows XP.** Each new item or place needs a set amount of XP
+  earned across the world, so the world grows slowly, as its avatars grow,
+  faster with more players, and more for bigger quests.
 - **Text.** AI writes bounded descriptions and dialogue through
   `POST /card-game/text`. It never chooses a reward, a goal, or a change of
   custody.
 
 Growth follows the existing constraints:
+
 - play causes every new entity (ADR 0011);
 - background work never changes sanctuary (ENG invariant 7);
 - generated places last for the current world (ADR 0013);
@@ -188,23 +196,23 @@ summary:
 
 ## Disposition of earlier decisions
 
-| ADR  | Disposition                                                                                      |
-| ---- | ------------------------------------------------------------------------------------------------ |
-| 0001 | Keep as superseded. Its surviving rule (a card presents an entity) is restated here.             |
-| 0002 | Superseded for the card table. Remains the `/classic` contract.                                  |
-| 0003 | Keep. Local tables are non-canonical installations. The shared world must satisfy it.            |
-| 0004 | Classic-scoped.                                                                                  |
-| 0005 | Keep. Gates and stocking are general tag rules a site can use, not core requirements.            |
-| 0006 | Keep. A linked avatar enters the world as an avatar with generated goals.                        |
-| 0007 | Keep. Item devices are optional content over tags.                                               |
-| 0008 | Keep. Quests, completions, levels, and growth land as declared-write projection mutations.      |
-| 0009 | Keep. A quest is a solo Venture. "With" proves co-presence, not membership.                      |
-| 0010 | Keep.                                                                                            |
-| 0011 | Keep. Generated quests and growth are deterministic rules output, never batch-minted state.      |
-| 0012 | Keep. Talking to an avatar card is talk, not Notice.                                             |
-| 0013 | Keep. Generated places last for the current world.                                               |
-| 0014 | Keep. A level-up is not a voice refresh trigger until the world is shared.                       |
-| 001  | Superseded as the table's action substrate. Its entity and item model and code rule stand.       |
+| ADR  | Disposition                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------- |
+| 0001 | Keep as superseded. Its surviving rule (a card presents an entity) is restated here.        |
+| 0002 | Superseded for the card table. Remains the `/classic` contract.                             |
+| 0003 | Keep. Local tables are non-canonical installations. The shared world must satisfy it.       |
+| 0004 | Classic-scoped.                                                                             |
+| 0005 | Keep. Gates and stocking are general tag rules a site can use, not core requirements.       |
+| 0006 | Keep. A linked avatar enters the world as an avatar with generated goals.                   |
+| 0007 | Keep. Item devices are optional content over tags.                                          |
+| 0008 | Keep. Quests, completions, levels, and growth land as declared-write projection mutations.  |
+| 0009 | Keep. A quest is a solo Venture. "With" proves co-presence, not membership.                 |
+| 0010 | Keep.                                                                                       |
+| 0011 | Keep. Generated quests and growth are deterministic rules output, never batch-minted state. |
+| 0012 | Keep. Talking to an avatar card is talk, not Notice.                                        |
+| 0013 | Keep. Generated places last for the current world.                                          |
+| 0014 | Keep. A level-up is not a voice refresh trigger until the world is shared.                  |
+| 001  | Superseded as the table's action substrate. Its entity and item model and code rule stand.  |
 
 ## Consequences
 

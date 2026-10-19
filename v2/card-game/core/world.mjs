@@ -44,7 +44,13 @@ export const DEFAULT_RULES = {
   maxSpawns: 128,
   abandonTurns: 96,
   growthStart: 4,
-  levelsPerGrowth: 10,
+  xpPerGrowth: 600,
+  xpPerLevel: 60,
+  xpPerHand: 10,
+  xpPerItem: 5,
+  xpPerHop: 5,
+  xpForMake: 20,
+  xpForDoor: 30,
   offerTurns: 16,
   answerTurns: 12,
 };
@@ -650,20 +656,24 @@ function advanceQuests(s, met, round = newRound()) {
     const door = quest.steps[step].opens;
     if (door) round.opened.push(openPlace(s, door, avatar));
     const complete = progress.step === quest.steps.length;
+    const before = levelOf(s, avatar);
     if (complete) {
       progress.completedHands += quest.steps.length;
       if (quest.generated.item)
         progress.recent = [...progress.recent, quest.generated.item].slice(-4);
       progress.current = null;
       progress.program += 1;
+      progress.xp += quest.xp;
       progress.step = 0;
     }
-    receipts.push({ avatar, quest, step, complete, target });
+    const levelled = levelOf(s, avatar) > before;
+    receipts.push({ avatar, quest, step, complete, target, levelled });
   }
   ensureQuests(s);
-  for (const { avatar, quest, step, complete, target } of receipts) {
+  for (const { avatar, quest, step, complete, target, levelled } of receipts) {
     let text = `${nameOf(s, avatar)} completes hand ${step + 1}/${quest.steps.length} of ${quest.name}.`;
-    if (complete) text += ` Level ${levelOf(s, avatar)}.`;
+    if (complete) text += ` ${quest.xp} XP.`;
+    if (levelled) text += ` Level ${levelOf(s, avatar)}.`;
     text += ` Next: ${handText(s, desireFor(s, avatar))}.`;
     addLog(s, text, {
       kind: "quest",
@@ -673,6 +683,7 @@ function advanceQuests(s, met, round = newRound()) {
       complete,
       target,
       level: levelOf(s, avatar),
+      xp: s.avatars[avatar].progress.xp,
     });
   }
 }
@@ -911,6 +922,8 @@ function validQuest(s, q, avatar) {
       const any = alternatives(step);
       return any.length >= 1 && any.every((h) => validHand(s, h, avatar));
     }) &&
+    Number.isInteger(q.xp) &&
+    q.xp >= 0 &&
     q.generated &&
     Number.isInteger(q.generated.turn) &&
     (q.generated.item === null || Boolean(s.items[q.generated.item])) &&
@@ -982,7 +995,7 @@ export function validateWorld(s) {
     const p = a.progress;
     if (
       !p ||
-      ![p.program, p.step, p.completedHands, p.idle, p.drift].every(
+      ![p.program, p.xp, p.step, p.completedHands, p.idle, p.drift].every(
         (v) => Number.isInteger(v) && v >= 0,
       ) ||
       !Array.isArray(p.marks) ||
