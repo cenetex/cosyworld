@@ -417,14 +417,14 @@ function card(id) {
   el.title =
     world.memories[id].text ||
     (type === "avatar"
-      ? hasMotives(world)
+      ? !hasQuestPrograms(world)
         ? motiveFacts(world, id).join(". ")
         : `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
       : def.text);
   el.append(
     node(
       "span",
-      type === "avatar" && !hasMotives(world)
+      type === "avatar" && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -761,7 +761,7 @@ function renderScene() {
         }),
       );
     }
-    figure.querySelector(".portrait-name").textContent = hasMotives(world)
+    figure.querySelector(".portrait-name").textContent = !hasQuestPrograms(world)
       ? nameOf(id)
       : `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
