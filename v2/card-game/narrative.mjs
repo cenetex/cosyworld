@@ -14,6 +14,60 @@ import {
 } from "./world.mjs";
 import { desireFor } from "./quests.mjs";
 
+// Capture the resolved turn separately from wishes and remembered speech.
+export function turnOutcome(world) {
+  const events = world.log.filter(
+    (entry) => entry.turn === world.turn && !entry.generated,
+  );
+  const played = events.findLast(
+    (entry) => entry.kind === "action" && entry.actorId === "vale",
+  );
+  return {
+    card: {
+      kind: played?.verb || (world.turn ? "wait" : "arrive"),
+      target: played?.targetId || null,
+      item: played?.itemId || null,
+      receive: played?.receiveId || null,
+      destination: played?.destinationId || null,
+      accepted: played?.accepted ?? null,
+    },
+    avatars: Object.entries(world.actors).map(([id, actor]) => {
+      const movement = events.findLast(
+        (entry) =>
+          entry.fromLocationId &&
+          entry.fromLocationId !== entry.locationId &&
+          entry.locationId === actor.place &&
+          (entry.actorId === id ||
+            (entry.verb === "accompany" &&
+              entry.accepted &&
+              entry.targetId === id)),
+      );
+      const shared = movement?.verb === "accompany" && movement.accepted;
+      return {
+        id,
+        location: actor.place,
+        holding: carried(world, id),
+        travel: movement
+          ? {
+              from: movement.fromLocationId,
+              to: movement.locationId,
+              companions: shared
+                ? [movement.actorId, movement.targetId].filter(
+                    (other) => other !== id,
+                  )
+                : [],
+            }
+          : null,
+      };
+    }),
+    items: Object.entries(world.items).map(([id, item]) => ({
+      id,
+      holder: item.holder,
+      location: itemPlace(world, id),
+    })),
+  };
+}
+
 export function narrativeContext(world, action = null) {
   const location = world.actors.vale.place;
   const present = Object.keys(world.actors).filter(
@@ -71,6 +125,7 @@ export function narrativeContext(world, action = null) {
   return {
     revision: world.revision,
     turn: world.turn,
+    outcome: turnOutcome(world),
     location,
     focus,
     speakers,
@@ -91,6 +146,14 @@ export function narrativeContext(world, action = null) {
           [played.actorId, played.targetId].includes(id)
         )
           facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+        const company = Object.keys(world.actors).filter(
+          (other) =>
+            other !== id &&
+            world.actors[other].place === world.actors[id].place,
+        );
+        facts.push(
+          `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
+        );
         const movement = changes.find((change) => change.actorId === id);
         if (movement)
           facts.push(
@@ -144,7 +207,7 @@ export function narrativeContext(world, action = null) {
         );
       }
       facts.push(
-        `Here: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
+        `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,
