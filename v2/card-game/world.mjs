@@ -1146,6 +1146,7 @@ export function plan(s, actor = "vale") {
       opponentOf,
       routeBetween,
       carried,
+      willingToGive,
     });
   const here = s.actors[actor].place;
   const find = (kind, item, target) =>

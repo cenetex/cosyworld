@@ -307,7 +307,7 @@ export function socialPlan(s, actor, actions, api) {
       n =
         (bundleValue(s, actor, a.receive) - bundleValue(s, actor, a.item)) * 3;
     if (a.kind === "ask")
-      n = giftDecision(s, a.target, a.item, actor).accepted
+      n = api.willingToGive(s, a.target, a.item, actor)
         ? valueOf(s, actor, a.item) * 2
         : want.items.includes(a.item)
           ? 5
