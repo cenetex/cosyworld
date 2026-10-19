@@ -253,13 +253,47 @@ export function sceneLines(world) {
       (e) => e.generated === true && (!e.locationId || e.locationId === here),
     );
 }
-export function currentScene(world, lineIndex = null) {
+function visitStart(world, through = world.log.length - 1) {
+  const here = world.actors.vale.place;
+  return Math.max(
+    0,
+    world.log.findLastIndex(
+      (entry, index) =>
+        index <= through &&
+        !entry.generated &&
+        entry.actorId === "vale" &&
+        entry.fromLocationId &&
+        entry.fromLocationId !== here &&
+        entry.locationId === here,
+    ),
+  );
+}
+
+export function sceneMemory(world, id) {
+  const memory = world.memories[id];
+  if (!memory?.text) return null;
+  if (
+    places[id] &&
+    (id !== world.actors.vale.place ||
+      memory.turn < (world.log[visitStart(world)]?.turn || 0))
+  )
+    return null;
+  return memory;
+}
+
+export function currentScene(world, lineIndex = null, { hold = false } = {}) {
   const lines = sceneLines(world);
-  const line = lines.find((e) => e.index === lineIndex) || lines.at(-1) || null;
-  const previous = lines[lines.indexOf(line) - 1] || null;
+  const chosen = lines.find((e) => e.index === lineIndex);
+  const start = visitStart(world, chosen?.index);
+  const line =
+    chosen || (!hold && lines.findLast((e) => e.index >= start)) || null;
+  const previous = line
+    ? lines.findLast((e) => e.index < line.index && e.index >= start) || null
+    : null;
   return {
     locationId: world.actors.vale.place,
     background: backdrop(world.actors.vale.place),
+    visitStart: start,
     slots: sceneCast(
       world,
       line?.index,

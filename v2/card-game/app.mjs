@@ -3,6 +3,7 @@ import {
   createTextReveal,
   createSpeechSounds,
   createExchange,
+  waitForScene,
 } from "./dialogue.mjs";
 import {
   places,
@@ -30,6 +31,7 @@ import {
   sceneCast,
   sceneChanges,
   sceneStaging,
+  sceneMemory,
   portrait,
 } from "./scene.mjs";
 import {
@@ -123,6 +125,7 @@ let storyStatus = "ready",
   pendingCast = null,
   departed = new Set();
 const completedSpeech = new Set();
+const entrances = new Map();
 let shownSceneLine = null;
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
@@ -133,7 +136,18 @@ function updateCardCooldown() {
   }
 }
 const exchange = createExchange({
+  prepare: () =>
+    waitForScene(
+      [
+        ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
+          image.decode(),
+        ),
+        ...entrances.values(),
+      ],
+      10000,
+    ),
   show: (line) => {
+    pendingCast = null;
     reviewing = false;
     lineIndex = world.log.findIndex((entry) => entry.seq === line.seq);
     renderScene();
@@ -283,7 +297,6 @@ const narrator = createNarrator({
   apply: (next) => {
     world = next;
     storyStatus = "ready";
-    pendingCast = null;
     save();
     const lines = world.log.filter(
       (entry) =>
@@ -588,14 +601,14 @@ function card(id) {
   return frame;
 }
 function renderScene() {
-  const scene = currentScene(world, lineIndex);
+  const scene = currentScene(world, lineIndex, { hold: exchange.preparing });
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
   else if (resolvedBeat) scene.slots = sceneCast(world);
   shownSceneLine = scene.line;
   const inspected =
-    !cardsCooling && selected.length === 1 && world.memories[selected[0]]?.text
+    !cardsCooling && selected.length === 1 && sceneMemory(world, selected[0])
       ? selected[0]
       : null;
   if (inspected) shownSceneLine = null;
@@ -663,21 +676,34 @@ function renderScene() {
       actor.movement?.kind === "arrive"
         ? `${world.turn}:${scene.locationId}`
         : "";
-    if (
-      arrivalKey &&
-      figure.dataset.arrival !== arrivalKey &&
-      !reviewing &&
-      !reducedMotion.matches
-    ) {
-      figure.querySelector(".portrait-body").animate(
-        [
-          { opacity: 0, translate: actor.x < 50 ? "-24px 0" : "24px 0" },
-          { opacity: 1, translate: "0 0" },
-        ],
-        { duration: 420, easing: "ease-out" },
-      );
-    }
+    const entering =
+      arrivalKey && figure.dataset.arrival !== arrivalKey && !reviewing;
     figure.dataset.arrival = arrivalKey;
+    if (!arrivalKey) figure.classList.remove("entering");
+    if (entering) {
+      figure.classList.add("entering");
+      const task = waitForScene([image.decode()]).then(async () => {
+        if (!figure.isConnected || figure.dataset.arrival !== arrivalKey)
+          return;
+        figure.classList.remove("entering");
+        if (!reducedMotion.matches) {
+          await figure
+            .querySelector(".portrait-body")
+            .animate(
+              [
+                { opacity: 0, translate: actor.x < 50 ? "-24px 0" : "24px 0" },
+                { opacity: 1, translate: "0 0" },
+              ],
+              { duration: 420, easing: "ease-out" },
+            )
+            .finished.catch(() => {});
+        }
+      });
+      entrances.set(figure, task);
+      void task.finally(() => {
+        if (entrances.get(figure) === task) entrances.delete(figure);
+      });
+    }
     const props = figure.querySelector(".portrait-props");
     const propKey = JSON.stringify(actor.items);
     if (props.dataset.items !== propKey) {
@@ -705,7 +731,9 @@ function renderScene() {
       : scene.line?.kind === "dialogue"
         ? scene.lines.findLast(
             (entry) =>
-              entry.index < scene.line.index && entry.kind === "dialogue",
+              entry.index < scene.line.index &&
+              entry.index >= scene.visitStart &&
+              entry.kind === "dialogue",
           ) || null
         : scene.previous;
   const priorKey = JSON.stringify(previous);
@@ -739,7 +767,7 @@ function renderScene() {
           ? `Arrived from ${nameOf(scene.line.arrivalFrom)}`
           : `Turn ${scene.line.turn}`
       : "";
-  $("story-status").hidden = storyStatus === "ready";
+  $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
     storyStatus === "retry" ? "Words return with your next play" : "···";
   $("story-status").setAttribute(
@@ -1020,8 +1048,7 @@ window.addEventListener("storage", (event) => {
     selected = [];
     saveBlocked = false;
     notice("The world was updated in another tab.");
-    render();
-    if (!hasCurrentWords()) narrator.changed();
+    resumeScene();
   } catch {
     saveBlocked = true;
     notice(
@@ -1031,7 +1058,6 @@ window.addEventListener("storage", (event) => {
   }
 });
 pauseSpeech();
-render();
 function hasCurrentWords() {
   return world.log.some(
     (entry) =>
@@ -1041,4 +1067,16 @@ function hasCurrentWords() {
       entry.locationId === world.actors.vale.place,
   );
 }
-if (!saveBlocked && !hasCurrentWords()) narrator.changed();
+function resumeScene() {
+  if (!saveBlocked && hasCurrentWords()) {
+    const line = currentScene(world).line;
+    lineIndex = null;
+    exchange.begin();
+    render();
+    exchange.load(line ? [line] : []);
+  } else {
+    render();
+    if (!saveBlocked) narrator.changed();
+  }
+}
+resumeScene();
