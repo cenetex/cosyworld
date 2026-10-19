@@ -107,6 +107,36 @@ describe("entity memories and model text", () => {
     expect(currentScene(next).line.actorId).toBe("keeper");
   });
 
+  it("gives each trader their own exchange before their current wants", () => {
+    let s = act(createWorld(), "take", "lamp");
+    s = act(s, "take", "bell");
+    const trade = legalActions(s).find(
+      (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+    );
+    s = play(s, trade).state;
+    const context = narrativeContext(s, trade);
+    const vale = context.entities.find((e) => e.id === "vale");
+    const keeper = context.entities.find((e) => e.id === "keeper");
+    expect(vale.facts[0]).toContain(
+      "you gave Bell to The keeper and received Oil flask",
+    );
+    expect(keeper.facts[0]).toContain(
+      "you gave Oil flask to Vale and received Bell",
+    );
+    expect(keeper.facts[0]).toContain("The item you gained was Bell");
+    expect(context.outcome.card).toMatchObject({
+      kind: "trade",
+      item: "bell",
+      receive: "oil",
+      target: "keeper",
+    });
+    expect(
+      context.entities.every(
+        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+      ),
+    ).toBe(true);
+  });
+
   it("migrates old saves and retains quest progress and item histories", () => {
     const world = act(createWorld(), "take", "lamp");
     const old = structuredClone(world);
