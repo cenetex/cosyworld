@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+afterEach(() => vi.useRealTimers());
 import {
   createWorld,
   legalActions,
@@ -8,6 +9,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   narrativeContext,
+  turnOutcome,
   applyGeneratedText,
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
@@ -166,8 +168,10 @@ describe("entity memories and model text", () => {
     expect(world.turn).toBe(0);
   });
 
-  it("keeps play available after a provider failure and tries the next play", async () => {
+  it("retries a temporary provider failure on the same turn", async () => {
+    vi.useFakeTimers();
     let world = act(createWorld(), "wait");
+    const before = encodeSave(world);
     const status = vi.fn(),
       request = vi
         .fn()
@@ -182,13 +186,105 @@ describe("entity memories and model text", () => {
       request,
     });
     narrator.changed();
-    await flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenLastCalledWith("pending");
+    expect(encodeSave(world)).toBe(before);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls.map(([context]) => context.turn)).toEqual([1, 1]);
+    expect(status).toHaveBeenLastCalledWith("ready");
+    expect(world.turn).toBe(1);
+    expect(world.memories.vale.turn).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("releases the hand when a request is rejected by its input or access rules", async () => {
+    vi.useFakeTimers();
+    const status = vi.fn();
+    const request = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("rejected"), { retryable: false }),
+      );
+    const narrator = createNarrator({
+      getWorld: createWorld,
+      apply: vi.fn(),
+      status,
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith("retry");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("releases a stalled transport within thirty seconds and accepts the next scene", async () => {
+    vi.useFakeTimers();
+    let world = createWorld();
+    const status = vi.fn(),
+      apply = vi.fn((next) => {
+        world = next;
+      });
+    const requests = [];
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply,
+      status,
+      request: (context, signal, progress) =>
+        new Promise((resolve) =>
+          requests.push({ context, signal, progress, resolve }),
+        ),
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(15_750);
+    expect(requests).toHaveLength(2);
+    expect(requests[0].signal.aborted).toBe(true);
+    requests[0].progress([{ id: "vale", text: "Old words" }]);
+    requests[0].resolve(response(requests[0].context));
+    await vi.advanceTimersByTimeAsync(14_250);
+    expect(status).toHaveBeenLastCalledWith("retry");
+    expect(apply).not.toHaveBeenCalled();
+    expect(requests[1].signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
     world = act(world, "wait");
     narrator.changed();
-    await flush();
+    requests[2].resolve(response(requests[2].context));
+    await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith("ready");
-    expect(world.memories.station.turn).toBe(2);
+    expect(world.memories.vale.turn).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels a retry pause when a saved world is replaced", async () => {
+    vi.useFakeTimers();
+    let world = act(createWorld(), "wait");
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementationOnce(async (context) => response(context));
+    const apply = vi.fn((next) => {
+      world = next;
+    });
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply,
+      status: vi.fn(),
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    narrator.invalidate();
+    world = createWorld();
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(world.turn).toBe(0);
+    expect(world.memories.vale.turn).toBe(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
@@ -310,5 +406,162 @@ describe("witnessed departures and conversation continuity", () => {
       Object.assign(bad.log.at(-1), patch);
       expect(() => decodeSave(JSON.stringify(bad))).toThrow();
     }
+  });
+});
+
+describe("speech grounding in resolved card plays", () => {
+  const avatar = (outcome, id) => outcome.avatars.find((a) => a.id === id);
+  const choose = (world, predicate) => {
+    const action = legalActions(world).find(predicate);
+    expect(action).toBeTruthy();
+    const result = play(world, action);
+    expect(result.ok).toBe(true);
+    return result.state;
+  };
+  const together = () => {
+    const world = createWorld();
+    world.actors.moth.place = "station";
+    world.items.lamp.holder = "vale";
+    return world;
+  };
+
+  it("keeps a solo departure separate from a wish and an earlier spoken promise", () => {
+    let world = createWorld();
+    for (let i = 0; i < 3; i++) world = act(world, "wait");
+    const context = narrativeContext(world),
+      generated = response(context);
+    generated.entries.find((e) => e.id === "moth").text =
+      "I will go with you to the pond, Vale.";
+    world = applyGeneratedText(
+      world,
+      { ...context, speakers: ["vale", "moth"] },
+      generated,
+    );
+    world = act(world, "wait");
+    const next = narrativeContext(world),
+      outcome = next.outcome;
+    expect(
+      next.conversation.some((line) => line.text.includes("go with you")),
+    ).toBe(true);
+    expect(outcome.card.kind).toBe("wait");
+    expect(avatar(outcome, "vale")).toMatchObject({
+      location: "station",
+      travel: null,
+    });
+    expect(avatar(outcome, "moth")).toMatchObject({
+      location: "pond",
+      travel: { from: "station", to: "pond", companions: [] },
+    });
+    expect(next.entities.find((e) => e.id === "moth").desire.avatars).toContain(
+      "vale",
+    );
+    expect(
+      next.entities.find((e) => e.id === "moth").facts.join(" "),
+    ).toContain("Location now: Black pond. Company now: alone.");
+    expect(narrativeContext(decodeSave(encodeSave(world))).outcome).toEqual(
+      outcome,
+    );
+  });
+
+  it("records both travellers only when the accompany request was accepted", () => {
+    const world = choose(
+      together(),
+      (a) =>
+        a.kind === "accompany" &&
+        a.target === "moth" &&
+        a.destination === "pond",
+    );
+    const outcome = turnOutcome(world);
+    expect(outcome.card).toMatchObject({
+      kind: "accompany",
+      target: "moth",
+      destination: "pond",
+      accepted: true,
+    });
+    expect(avatar(outcome, "vale").travel).toEqual({
+      from: "station",
+      to: "pond",
+      companions: ["moth"],
+    });
+    expect(avatar(outcome, "moth").travel).toEqual({
+      from: "station",
+      to: "pond",
+      companions: ["vale"],
+    });
+    const later = turnOutcome(act(world, "wait"));
+    expect(later.card.kind).toBe("wait");
+    expect(avatar(later, "vale").travel).toBeNull();
+  });
+
+  it("keeps a declined destination separate from both avatars' actual location", () => {
+    const world = choose(
+      together(),
+      (a) =>
+        a.kind === "accompany" &&
+        a.target === "moth" &&
+        a.destination === "attic",
+    );
+    const outcome = turnOutcome(world);
+    expect(outcome.card).toMatchObject({
+      kind: "accompany",
+      destination: "attic",
+      accepted: false,
+    });
+    for (const id of ["vale", "moth"])
+      expect(avatar(outcome, id)).toMatchObject({
+        location: "station",
+        travel: null,
+      });
+  });
+
+  it("keeps independent trips on the same route separate", () => {
+    const start = together();
+    start.actors.vale.place = start.actors.moth.place = "attic";
+    start.items.lamp.holder = "moth";
+    start.items.lamp.lit = true;
+    const outcome = turnOutcome(act(start, "move", null, "pond"));
+    for (const id of ["vale", "moth"])
+      expect(avatar(outcome, id).travel).toEqual({
+        from: "attic",
+        to: "pond",
+        companions: [],
+      });
+    expect(outcome.card.kind).toBe("move");
+  });
+
+  it("uses final item ownership after a request and the cast's actions", () => {
+    let world = act(createWorld(), "take", "lamp");
+    world = act(world, "ask", "cloth", "moth");
+    const outcome = turnOutcome(world);
+    expect(outcome.card).toMatchObject({
+      kind: "ask",
+      item: "cloth",
+      target: "moth",
+    });
+    for (const item of outcome.items) {
+      expect(item.holder).toBe(world.items[item.id].holder);
+    }
+    for (const actor of outcome.avatars) {
+      expect(actor.holding).toEqual(
+        Object.keys(world.items).filter(
+          (id) => world.items[id].holder === actor.id,
+        ),
+      );
+    }
+  });
+
+  it("gives an opening state and includes actors outside the dialogue scene", () => {
+    const outcome = turnOutcome(createWorld());
+    expect(outcome.card.kind).toBe("arrive");
+    expect(outcome.avatars).toHaveLength(3);
+    expect(outcome.items).toHaveLength(4);
+    expect(avatar(outcome, "moth")).toMatchObject({
+      location: "pond",
+      travel: null,
+    });
+    expect(avatar(outcome, "keeper")).toMatchObject({
+      location: "attic",
+      travel: null,
+    });
   });
 });

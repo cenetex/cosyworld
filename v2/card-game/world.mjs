@@ -206,11 +206,17 @@ const accepts = (s, actor, item) =>
     (id) =>
       desireFor(s, actor).items.includes(id) && rootHolder(s, id) !== actor,
   );
-export function willingToGive(s, owner, item) {
+// The cast gives a spare once its own items are in hand. After Vale has gone
+// a long while without completing a hand, it gives Vale spares sooner, so the
+// player always has a way forward.
+export const valeStalled = (s) =>
+  s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
+export function willingToGive(s, owner, item, recipient = null) {
   return (
     owner !== "vale" &&
     !needed(s, owner, item) &&
-    handStatus(s, owner).items.every((e) => e.met)
+    (handStatus(s, owner).items.every((e) => e.met) ||
+      (recipient === "vale" && valeStalled(s)))
   );
 }
 export function canTrade(s, actor, give, receive) {
@@ -258,8 +264,9 @@ function captureHands(s, met) {
     }
   }
 }
+// Each new program reads the programs chosen before it in the same round, so two
+// actors never pick goals against each other's stale wants.
 function ensurePrograms(s) {
-  const basis = structuredClone(s);
   for (const actor of actorIds) {
     const p = s.actors[actor].progress;
     if (p.program >= questPrograms[actor].length && !p.current) {
@@ -268,14 +275,13 @@ function ensurePrograms(s) {
         0,
       );
       p.recent ??= [];
-      p.current = generateProgram(basis, actor, places, things);
+      p.current = generateProgram(structuredClone(s), actor, places, things);
     }
   }
 }
 // Cast members reconsider an unfinished bargain after twelve turns. Keep the
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
-  const basis = structuredClone(s);
   for (const actor of actorIds.filter((id) => id !== "vale")) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
@@ -284,8 +290,9 @@ function refreshStalledPrograms(s) {
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
     )
       continue;
-    const fresh = generateProgram(basis, actor, places, things, {
+    const fresh = generateProgram(structuredClone(s), actor, places, things, {
       independent: true,
+      solo: s.turn - (p.marks.at(-1) || 0) >= 24,
     });
     const unfinished = fresh.steps.filter(
       (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
@@ -323,9 +330,10 @@ function advancePrograms(s, met) {
     if (complete) {
       if (program.generated) {
         progress.completedHands += program.steps.length;
-        progress.recent = [...progress.recent, program.generated.item].slice(
-          -4,
-        );
+        if (program.generated.item)
+          progress.recent = [...progress.recent, program.generated.item].slice(
+            -4,
+          );
         delete progress.current;
       }
       progress.program += 1;
@@ -927,7 +935,7 @@ function perform(s, a) {
       s.actors[a.actor].lastTalk = s.turn;
       break;
     case "ask": {
-      const willing = willingToGive(s, a.target, a.item);
+      const willing = willingToGive(s, a.target, a.item, a.actor);
       if (willing) {
         text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
@@ -1024,6 +1032,28 @@ export function plan(s, actor = "vale") {
   }
   const missing = hand.items.filter((id) => rootHolder(s, id) !== actor);
   const reason = `Seek this hand: ${handText(hand)}.`;
+  // Another avatar can hold its whole hand somewhere else and wait only for
+  // this one. Going there completes that hand and ends the wait.
+  const waitingHere = (ids) =>
+    ids.find((id) => {
+      const theirs = desireFor(s, id),
+        there = s.actors[id].place;
+      return (
+        id !== actor &&
+        there !== here &&
+        theirs.avatars.includes(actor) &&
+        (theirs.location || there) === there &&
+        handStatus(s, id, theirs).items.every((e) => e.met) &&
+        theirs.avatars.every(
+          (other) => other === actor || s.actors[other].place === there,
+        )
+      );
+    });
+  const goMeet = (id) =>
+    choose(
+      toward(s, actor, s.actors[id].place),
+      `Meet ${nameOf(id)}, who is waiting at ${nameOf(s.actors[id].place)}.`,
+    );
   const acquire = (item, seen = new Set()) => {
     if (seen.has(item) || rootHolder(s, item) === actor) return null;
     seen = new Set([...seen, item]);
@@ -1043,7 +1073,8 @@ export function plan(s, actor = "vale") {
       while (s.items[s.items[heldItem].holder])
         heldItem = s.items[heldItem].holder;
       const ask = find("ask", heldItem);
-      if (ask && willingToGive(s, owner, heldItem)) return choose(ask, reason);
+      if (ask && willingToGive(s, owner, heldItem, actor))
+        return choose(ask, reason);
       if (!hasSpace(s, actor, item)) {
         const drop = acts.find(
           (a) => a.kind === "drop" && !needed(s, actor, a.item),
@@ -1115,7 +1146,14 @@ export function plan(s, actor = "vale") {
     const next = acquire(item);
     if (next) return next;
   }
-  if (missing.length) return idle(reason);
+  if (missing.length) {
+    // Stay while Vale is here holding a wanted item; the player may hand it over.
+    const offered = missing.some(
+      (id) => rootHolder(s, id) === "vale" && s.actors.vale.place === here,
+    );
+    const waiting = !offered && waitingHere(actorIds);
+    return waiting ? goMeet(waiting) : idle(reason);
+  }
   // Item affordances also apply when an avatar carries its target hand.
   if (hand.items.includes("lamp") && rootHolder(s, "lamp") === actor) {
     if (covered(s, "lamp") && !hand.items.includes("cloth"))
@@ -1134,6 +1172,10 @@ export function plan(s, actor = "vale") {
     return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
   if (hand.location && here !== hand.location)
     return choose(toward(s, actor, hand.location), reason);
+  // When both avatars hold their hands and wait, the later one in cast order
+  // goes, so the cast always comes to Vale and two waits cannot face off.
+  const waiting = waitingHere(actorIds.slice(0, actorIds.indexOf(actor)));
+  if (waiting) return goMeet(waiting);
   return idle(
     handStatus(s, actor).met
       ? "Hold the target hand."
@@ -1247,10 +1289,15 @@ function validProgram(p, actor, s) {
       !Number.isSafeInteger(g.level) ||
       g.level < 3 ||
       g.level > s.turn + 1 ||
-      !ids.includes(g.item) ||
       ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
-      !actorIds.includes(g.partner) ||
-      g.partner === actor
+      (g.solo === undefined
+        ? !ids.includes(g.item) ||
+          !actorIds.includes(g.partner) ||
+          g.partner === actor
+        : g.solo !== true ||
+          g.owner !== actor ||
+          g.partner !== null ||
+          (g.item !== null && !ids.includes(g.item)))
     )
       return false;
   }

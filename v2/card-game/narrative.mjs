@@ -14,6 +14,60 @@ import {
 } from "./world.mjs";
 import { desireFor } from "./quests.mjs";
 
+// Capture the resolved turn separately from wishes and remembered speech.
+export function turnOutcome(world) {
+  const events = world.log.filter(
+    (entry) => entry.turn === world.turn && !entry.generated,
+  );
+  const played = events.findLast(
+    (entry) => entry.kind === "action" && entry.actorId === "vale",
+  );
+  return {
+    card: {
+      kind: played?.verb || (world.turn ? "wait" : "arrive"),
+      target: played?.targetId || null,
+      item: played?.itemId || null,
+      receive: played?.receiveId || null,
+      destination: played?.destinationId || null,
+      accepted: played?.accepted ?? null,
+    },
+    avatars: Object.entries(world.actors).map(([id, actor]) => {
+      const movement = events.findLast(
+        (entry) =>
+          entry.fromLocationId &&
+          entry.fromLocationId !== entry.locationId &&
+          entry.locationId === actor.place &&
+          (entry.actorId === id ||
+            (entry.verb === "accompany" &&
+              entry.accepted &&
+              entry.targetId === id)),
+      );
+      const shared = movement?.verb === "accompany" && movement.accepted;
+      return {
+        id,
+        location: actor.place,
+        holding: carried(world, id),
+        travel: movement
+          ? {
+              from: movement.fromLocationId,
+              to: movement.locationId,
+              companions: shared
+                ? [movement.actorId, movement.targetId].filter(
+                    (other) => other !== id,
+                  )
+                : [],
+            }
+          : null,
+      };
+    }),
+    items: Object.entries(world.items).map(([id, item]) => ({
+      id,
+      holder: item.holder,
+      location: itemPlace(world, id),
+    })),
+  };
+}
+
 export function narrativeContext(world, action = null) {
   const location = world.actors.vale.place;
   const present = Object.keys(world.actors).filter(
@@ -71,6 +125,7 @@ export function narrativeContext(world, action = null) {
   return {
     revision: world.revision,
     turn: world.turn,
+    outcome: turnOutcome(world),
     location,
     focus,
     speakers,
@@ -91,6 +146,14 @@ export function narrativeContext(world, action = null) {
           [played.actorId, played.targetId].includes(id)
         )
           facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+        const company = Object.keys(world.actors).filter(
+          (other) =>
+            other !== id &&
+            world.actors[other].place === world.actors[id].place,
+        );
+        facts.push(
+          `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
+        );
         const movement = changes.find((change) => change.actorId === id);
         if (movement)
           facts.push(
@@ -144,7 +207,7 @@ export function narrativeContext(world, action = null) {
         );
       }
       facts.push(
-        `Here: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
+        `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,
@@ -272,7 +335,12 @@ export async function requestNarrative(context, signal, progress = () => {}) {
     signal,
   });
   if (!response.ok)
-    throw new Error(`Story service returned ${response.status}.`);
+    throw Object.assign(
+      new Error(`Story service returned ${response.status}.`),
+      {
+        retryable: response.status === 429 || response.status >= 500,
+      },
+    );
   if (!response.headers.get("content-type")?.includes("text/event-stream"))
     return response.json();
   const reader = response.body.getReader();
@@ -318,11 +386,58 @@ export async function requestNarrative(context, signal, progress = () => {}) {
       }
     }
   } finally {
-    await reader.cancel().catch(() => {});
+    void reader.cancel().catch(() => {});
   }
 }
 
-// Keep one request in flight and coalesce quick plays to the newest world.
+// Bound each transport even when an aborted stream takes time to settle.
+async function boundedRequest(request, context, signal, progress, timeout) {
+  const attempt = new AbortController();
+  const abort = () => attempt.abort(signal.reason);
+  let timer;
+  const stopped = new Promise((_, reject) => {
+    attempt.signal.addEventListener(
+      "abort",
+      () =>
+        reject(attempt.signal.reason || new Error("Story request stopped.")),
+      { once: true },
+    );
+    timer = setTimeout(
+      () => attempt.abort(new Error("Story request timed out.")),
+      timeout,
+    );
+  });
+  signal.addEventListener("abort", abort, { once: true });
+  if (signal.aborted) abort();
+  try {
+    return await Promise.race([
+      stopped,
+      request(context, attempt.signal, (entries) => {
+        if (!attempt.signal.aborted) progress(entries);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", abort);
+    attempt.abort();
+  }
+}
+function retryPause(signal) {
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      if (signal.aborted) reject(signal.reason);
+      else resolve();
+    };
+    const abort = () => finish();
+    const timer = setTimeout(finish, 750);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) finish();
+  });
+}
+
+// Keep one active scene request and coalesce quick plays to the newest world.
 export function createNarrator({
   getWorld,
   apply,
@@ -334,6 +449,41 @@ export function createNarrator({
     pending = null,
     running = false,
     controller;
+  async function write(context, version, signal) {
+    const deadline = Date.now() + 30_000;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await boundedRequest(
+          request,
+          context,
+          signal,
+          (entries) => {
+            if (version === ticket && getWorld().revision === context.revision)
+              preview({ context, entries });
+          },
+          Math.max(0, Math.min(15_000, deadline - Date.now())),
+        );
+        if (version !== ticket) return;
+        const next = applyGeneratedText(getWorld(), context, response);
+        if (!next)
+          throw new Error("The scene changed while its words were written.");
+        preview(null);
+        apply(next);
+        status("ready");
+        return;
+      } catch (error) {
+        if (signal.aborted || version !== ticket) return;
+        preview(null);
+        if (
+          attempt === 1 ||
+          error?.retryable === false ||
+          Date.now() >= deadline
+        )
+          throw error;
+        await retryPause(signal);
+      }
+    }
+  }
   async function drain() {
     if (running) return;
     running = true;
@@ -341,35 +491,16 @@ export function createNarrator({
       while (pending) {
         const { action, version } = pending;
         pending = null;
-        const context = narrativeContext(getWorld(), action);
         controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 30_000);
         status("pending");
         try {
-          const response = await request(
-            context,
-            controller.signal,
-            (entries) => {
-              if (
-                version === ticket &&
-                getWorld().revision === context.revision
-              )
-                preview({ context, entries });
-            },
-          );
-          if (version === ticket) {
-            preview(null);
-            const next = applyGeneratedText(getWorld(), context, response);
-            if (next) apply(next);
-            status("ready");
-          }
+          const context = narrativeContext(getWorld(), action);
+          await write(context, version, controller.signal);
         } catch {
           if (version === ticket) {
             preview(null);
             status("retry");
           }
-        } finally {
-          clearTimeout(timer);
         }
       }
     } finally {

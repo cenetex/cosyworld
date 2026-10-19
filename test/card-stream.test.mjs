@@ -23,7 +23,10 @@ const complete = (context) => ({
     text: "A remembered word.",
   })),
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("live story text", () => {
   it("shows complete characters and escapes as JSON arrives", () => {
@@ -73,6 +76,27 @@ describe("live story text", () => {
     expect(await result).toEqual(full);
   });
 
+  it("accepts a complete reply while stream cleanup is still waiting", async () => {
+    const context = narrativeContext(createWorld());
+    const full = complete(context);
+    const cancel = vi.fn(() => new Promise(() => {}));
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(event(full));
+      },
+      cancel,
+    });
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(body, {
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+    );
+    expect(await requestNarrative(context)).toEqual(full);
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
   it("discards interrupted streams and keeps JSON compatibility", async () => {
     const context = narrativeContext(createWorld());
     for (const frame of [
@@ -94,6 +118,7 @@ describe("live story text", () => {
   });
 
   it("keeps partial words out of saves and cancels the old scene on a new play", async () => {
+    vi.useFakeTimers();
     let world = createWorld();
     const preview = vi.fn(),
       status = vi.fn(),
@@ -123,11 +148,11 @@ describe("live story text", () => {
     expect(preview).toHaveBeenLastCalledWith(null);
     requests[0].progress([{ id: "vale", text: "Stale words" }]);
     expect(preview).toHaveBeenLastCalledWith(null);
-    await tick();
+    await vi.advanceTimersByTimeAsync(0);
     expect(requests).toHaveLength(2);
     requests[1].progress([{ id: "vale", text: "New words" }]);
     requests[1].resolve(complete(requests[1].context));
-    await tick();
+    await vi.advanceTimersByTimeAsync(0);
     expect(world.memories.vale.text).toBe("A remembered word.");
     expect(preview).toHaveBeenLastCalledWith(null);
     expect(status).toHaveBeenLastCalledWith("ready");
@@ -135,8 +160,11 @@ describe("live story text", () => {
     narrator.changed();
     requests[2].progress([{ id: "vale", text: "Interrupted words" }]);
     requests[2].reject(new Error("offline"));
-    await tick();
+    await vi.advanceTimersByTimeAsync(0);
     expect(encodeSave(world)).toBe(saved);
+    await vi.advanceTimersByTimeAsync(750);
+    requests[3].reject(new Error("offline again"));
+    await vi.advanceTimersByTimeAsync(0);
     expect(preview).toHaveBeenLastCalledWith(null);
     expect(status).toHaveBeenLastCalledWith("retry");
   });

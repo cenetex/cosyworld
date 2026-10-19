@@ -18,7 +18,7 @@ const files = [
   "narrative.mjs",
   "dialogue.mjs",
   "entity-profiles.json",
-  ...["station", "attic", "pond", "vale", "moth", "keeper"].map(
+  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
 ];
