@@ -6,13 +6,33 @@ model or agent implementation.
 
 ## Product and authority
 
-CosyWorld V2 is the canonical product and the only product: a shared browser MUD
-backed by a deterministic C kernel and a Rust HTTP/SSE orchestrator. The former
-Node companion under `src/`, which carried inherited Discord, social,
-marketplace, media, and administration integrations, has been removed. All work
-belongs under `v2/`.
+CosyWorld V2 is the only product: one shared world that players live in, built
+from general rules and deterministic generators rather than scripted quests.
+Players see it through the card table in `v2/card-game/`. Both Fly apps serve the
+table at `/`
+(`COSYWORLD_PRIMARY_GAME=cards`). The shared-world MUD runs at `/classic`, and
+named Lonely Forest worlds keep their own pages. The former Node companion under
+`src/` has been removed. All work belongs under `v2/`. See
+`docs/decisions/0015-a-generated-world-seen-through-cards.md`.
 
-Authority is deliberately split:
+The card table is still a prototype that runs in the browser. Its rules,
+residents, and quest generator are a deterministic JavaScript model (`world.mjs`, `quests.mjs`, `cards.mjs`,
+`scene.mjs`). Each browser's localStorage save is the only record of that table.
+Its first site (lamp, oil, cloth, bell, and the attic–pond path) is generated
+scaffolding, not design to extend. The table has no server state, accounts,
+currency, or rewards. The Rust binary serves its files (`card_game.rs`), and
+`POST /card-game/text` (`card_narrative.rs`) writes its descriptions and
+dialogue; that text never changes state.
+
+New card rules land in the JavaScript model with tests in `test/card-*.test.mjs`.
+Rules stay general: no rule names a specific entity, and new content comes from
+generators and pack data.
+A rule may stay client-only while it affects one browser's table. Anything
+shared, multiplayer, persisted on the server, or reward-bearing crosses the C
+kernel and the journal first, with parity tests against the JS model. The plan
+is `docs/backlog/generated-world-core.md`.
+
+The shared runtime keeps its own authority split:
 
 1. Authored packs under `v2/content/*` describe world data.
 2. `v2/scripts/compile-worldpack.mjs` validates and compiles the selected,
@@ -30,6 +50,10 @@ validation and commitment through the normal world-event path.
 
 ## Repository map
 
+- `v2/card-game/`: the card table prototype: a client-only deterministic model,
+  UI, text client, art (`assets/PROVENANCE.md`), and a dev server. A new
+  public file must be listed in `serve.mjs`, `orchestrator-rust/src/card_game.rs`,
+  and `scripts/smoke-deployed-card-game.mjs`.
 - `v2/core-c/`: deterministic rules kernel, public ABI, and C tests.
 - `v2/orchestrator-rust/`: Axum server, C bridge, journal/replay, snapshots,
   browser client, SSE, authentication, moderation, AI, and projections.
@@ -61,7 +85,8 @@ target.
 ```sh
 rustup target add wasm32-unknown-unknown
 npm ci
-npm run dev                 # canonical V2 browser runtime
+npm run play:cards          # card table on http://127.0.0.1:4177/
+npm run dev                 # shared V2 runtime; / is the classic client locally
 ```
 
 Use the narrowest relevant checks while iterating:
@@ -95,6 +120,11 @@ base branch or whose crate version has drifted.
 
 ## Non-negotiable invariants
 
+These govern the shared runtime and any state that leaves a single browser. The
+client-only card table is exempt from the world, kernel, journal, and session
+rules only while it holds no shared, server-persisted, or reward-bearing state.
+It must stay deterministic.
+
 - There is one shared authoritative world per runtime, not a private chat state.
 - Deterministic world mutations cross the C kernel boundary.
 - Accepted actions and their deterministic seeds are append-only and replayable.
@@ -110,13 +140,15 @@ base branch or whose crate version has drifted.
 - Bundle identity is persisted. Never erase a mismatched hash to force a load;
   use the documented fresh-seed or explicit migration path.
 - Content and client copy follow `v2/docs/writing-style.md` and its executable
-  register checks.
+  register checks. Card-table copy is not yet run through those checks; review it
+  by hand until it is.
 - Secrets, bearer tokens, wallet material, runtime databases, logs, and `.env*`
   files never enter commits or diagnostic output.
 
 ## Change a feature end to end
 
 1. Start from the issue's acceptance criteria and identify the authority layer.
+   Card-table play belongs in `v2/card-game/` under the transition rule above.
    Pure presentation belongs in Rust/client projections; deterministic state
    validation or mutation belongs in C; world facts belong in a source pack.
 2. Change authored content under its owning pack. Run

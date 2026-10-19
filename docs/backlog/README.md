@@ -40,10 +40,16 @@ When immediate work lands:
 3. update the relevant planning status or remove the resolved gap; and
 4. promote only the next smallest justified slice.
 
-The current product proof sequence is
-[Seventh-Visit Product Proof Plan](seventh-visit-operating-queue.md). The
+The current product proof is the card table
+([ADR 0015](../decisions/0015-a-generated-world-seen-through-cards.md)). Its
+next sequence is [Generated World Core](generated-world-core.md). A planning
+document that predates ADR 0015 and describes the dealt action hand applies to
+`/classic` until it is rewritten for the table.
+
+The [Seventh-Visit Product Proof Plan](seventh-visit-operating-queue.md) is
+historical: it records the proof waves for the shared-world loop. The
 construction/living-world sequence is
 [Construction, Place Development, and Route Discovery](../worldpacks/construction-and-routing-discovery.md).
 
 [Runtime Maintenance](runtime-maintenance.md) preserves the extraction sequence
-and connection reuse proposals until the product proof makes room for them.
+and connection reuse proposals that the shared card table will need.

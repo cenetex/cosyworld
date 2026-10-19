@@ -1,6 +1,6 @@
 # CosyWorld Engineering Plan
 
-Last major revision: 2026-08-09. This document replaces the CosyWorld 2.0 engineering plan, which was written before the V2 runtime existed. The architecture it proposed is now built and live-tested with simultaneous players; this document describes that architecture as it stands and sets the engineering priorities from here — including the card-composed world, non-consuming arrangement evolution, crafting, and the wallet-optional avatar-link boundary adopted in `PRD.md` and ADR 0006.
+Last major revision: 2026-08-09. Card-table revision: 2026-10-18 (ADR 0015). This document replaces the CosyWorld 2.0 engineering plan, which was written before the V2 runtime existed. The architecture it proposed is now built and live-tested with simultaneous players; this document describes that architecture as it stands and sets the engineering priorities from here — including the card-composed world, non-consuming arrangement evolution, crafting, and the wallet-optional avatar-link boundary adopted in `PRD.md` and ADR 0006.
 
 Companion documents:
 
@@ -8,14 +8,17 @@ Companion documents:
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative RPG mechanics design, phase status, on-fill descriptor spec, claim-key spec, and ADR 0006 ownership-boundary integration.
 - `AI.md` — AI gateway, payer modes, and media pipeline design detail.
 - `ECONOMY.md` — Orb economy, linked-avatar adapter, and legacy NFT migration inventory.
+- `docs/design/avatar-simulation-redesign.md` — the card prototype's design. Its first site is scaffolding.
+- `docs/decisions/0015-a-generated-world-seen-through-cards.md` — the generated-world core, the card table as its interface, and how it relates to earlier decisions.
 - `v2/README.md` — runtime operations guide: run, deploy, endpoints, environment.
 
 ## System Shape
 
-CosyWorld V2 is the canonical runtime. It is a deliberately layered system where authority narrows as you go down:
+CosyWorld V2 is the canonical runtime. Its core is one shared world grown from general rules and generators. Players see it through the card table in `v2/card-game/`, which is still a client-only prototype: a deterministic JavaScript model with localStorage saves, served by `card_game.rs`, with AI text from `card_narrative.rs`. It does not yet use the layers below. The shared runtime is a deliberately layered system where authority narrows as you go down:
 
 ```
-Clients        browser card-hand shell (index.html) · terminal CLI (v2/cli) · smoke/ops scripts
+Card table     v2/card-game (client-only JS model, localStorage; served at / in production)
+Clients        browser card-hand shell (index.html, /classic in production) · terminal CLI (v2/cli) · smoke/ops scripts
                │  HTTP + SSE, actor_session / wallet_session
 Rust           orchestrator (v2/orchestrator-rust): routes, SSE fanout, sessions, rate limits,
 orchestrator   room turns + ping/pong (turns.rs), resident autonomy (desire-driven wander/pickup),
@@ -37,11 +40,11 @@ Persistence is three SQLite-backed layers plus a snapshot accelerator:
 - `actor_sessions` and wallet-avatar links — identity durability.
 - JSON snapshot — a boot accelerator and fallback, never authoritative.
 
-The legacy Node service (`src/`) is a companion for Discord/X/Telegram integrations and a migration reference. No new gameplay code lands there.
+The legacy Node service (`src/`) has been removed.
 
 ## Non-Negotiable Invariants
 
-These are the engineering enforcement of the PRD's pillars. Code review holds this line.
+These are the engineering enforcement of the PRD's pillars. Code review holds this line. They govern the shared runtime and any state that leaves a single browser. The client-only card table is exempt from invariants 1, 4, 6, and 7 only while it holds no shared, server-persisted, or reward-bearing state; its rules must stay deterministic, and AI may write only its text.
 
 1. **All meaningful world mutation passes through the C kernel.** Rust may store, project, schedule, moderate, and call AI; it may not decide whether movement, speech emission, item transfer, evolution, combat, or checks succeed. Projection state (clocks, tags, bonds, ledgers) may lag the kernel but never contradict it.
 2. **World time is played time.** Clocks, fronts, resident mechanical behavior,
@@ -75,7 +78,17 @@ item-materialization rows remain only as replayable operator-audit data.
 
 ## Engineering Priorities
 
-Ordered. Priorities 1–3 are the foundation everything else builds on.
+The card table comes first. The numbered priorities below serve the shared runtime and `/classic`; economy (2), media (4), and crafting (7) are maintenance unless the shared table needs them.
+
+### Card table first
+
+- **Generalize before extending.** The prototype's first site is scaffolding. No rule may name an entity, and new content comes from generators and pack data, not authored puzzles or per-item powers. See ADR 0015.
+- **Make the prototype general.** Entity registries in world state, the site as seed data, the scripted layer removed, any avatar as a player, and property tests over random seeds. This is phase 1 of `docs/backlog/generated-world-core.md`.
+- **Grow the world through quests.** Places make items when their quests are met, doorway steps of avatar quests open places, and long-abandoned players become residents. Every reward is promised first so other quests can require it, and claim keys and a level-based budget bound growth. Keep the world live: every avatar progresses within a bounded number of plays.
+- **Give it gates.** Run `writing-register.mjs` over `v2/card-game/` copy. Add a browser smoke for single cards, pairs, dragging, reload, and phone width to `./v2/mvp.sh check`.
+- **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and growth tables in packs. No multiplayer or reward-bearing card feature ships before its rules cross the kernel.
+
+Priorities 1–3 are the foundation the shared runtime builds on.
 
 ### 1. Decompose the orchestrator
 

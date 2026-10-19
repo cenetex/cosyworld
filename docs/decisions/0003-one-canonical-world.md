@@ -1,6 +1,6 @@
 # ADR 0003: capacity processes serve one canonical world
 
-- Status: Accepted
+- Status: Accepted; amended 2026-10-17 by ADR 0015 (local card tables are non-canonical installations)
 - Date: 2026-07-17
 - Decision owners: CosyWorld maintainers
 - Related: #20, #23, #28, #44, #47

@@ -1,5 +1,8 @@
 # A Traveler's Guide To CosyWorld
 
+This guide covers the shared world at `/classic`. The root page opens the card
+table; see [Avatars, items, and locations](design/avatar-simulation-redesign.md).
+
 CosyWorld is a shared fantasy world played one meaningful action at a time.
 You do not need to learn a command language or optimize a character sheet. Read
 the room, choose what matters, and let the world remember the result.
