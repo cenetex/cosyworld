@@ -1,4 +1,5 @@
 import { createNarrator } from "./narrative.mjs";
+import { conditionText } from "./situations.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -495,6 +496,14 @@ function card(id) {
         ? target.avatars.map((e) => ({ ...e, text: nameOf(e.id) }))
         : [{ met: true, text: "Any company" }],
     );
+    if (target.conditions.length)
+      row(
+        "Use",
+        target.conditions.map((c) => ({
+          ...c,
+          text: conditionText(c, nameOf),
+        })),
+      );
     const choices = targetsFor(world, id);
     if (choices.length > 1)
       info.append(
@@ -947,6 +956,7 @@ $("menu-button").onclick = () => {
         node("h3", `${nameOf(actor)} · ${program.name} · Level ${index + 2}`),
       );
       const steps = node("ol");
+      if (program.purpose) block.append(node("p", program.purpose));
       for (const [i, hand] of program.steps.entries()) {
         const progress = world.actors[actor].progress;
         const done =

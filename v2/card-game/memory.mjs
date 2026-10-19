@@ -6,12 +6,13 @@ export const newMemories = () =>
   Object.fromEntries(
     Object.keys(profiles).map((id) => [
       id,
-      { events: [], text: null, turn: null },
+      { events: [], landmarks: [], text: null, turn: null },
     ]),
   );
 
 // A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
+  if (entry.kind === "quest" || entry.questPlan) return;
   const related = new Set([
     entry.locationId,
     entry.fromLocationId,
@@ -35,6 +36,17 @@ export function rememberEvent(world, entry) {
       text: `${entry.speaker}: ${entry.text}`.slice(0, 650),
     });
     memory.events = memory.events.slice(-MEMORY_LIMIT);
+    if (
+      entry.consequence ||
+      (entry.kind === "action" &&
+        ["give", "trade", "threaten", "attack", "accompany"].includes(
+          entry.verb,
+        ))
+    ) {
+      memory.landmarks ??= [];
+      memory.landmarks.push({ ...memory.events.at(-1) });
+      memory.landmarks = memory.landmarks.slice(-6);
+    }
   }
 }
 
@@ -57,6 +69,25 @@ export function validMemories(world) {
       !memory ||
       !Array.isArray(memory.events) ||
       memory.events.length > MEMORY_LIMIT
+    )
+      return false;
+    if (
+      !Array.isArray(memory.landmarks) ||
+      memory.landmarks.length > 6 ||
+      memory.landmarks.some(
+        (event, index) =>
+          !event ||
+          !Number.isSafeInteger(event.seq) ||
+          event.seq < 1 ||
+          event.seq > world.eventSeq ||
+          (index && event.seq <= memory.landmarks[index - 1].seq) ||
+          !Number.isSafeInteger(event.turn) ||
+          event.turn < 0 ||
+          event.turn > world.turn ||
+          event.kind !== "event" ||
+          typeof event.text !== "string" ||
+          event.text.length > 650,
+      )
     )
       return false;
     if (

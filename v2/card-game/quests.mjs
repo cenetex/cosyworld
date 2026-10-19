@@ -1,3 +1,10 @@
+import {
+  conditionMet,
+  requiredItems,
+  situationPrograms,
+} from "./situations.mjs";
+export { condition } from "./situations.mjs";
+
 // Hand parts combine at one moment. Sequences join reusable steps;
 // either offers several hands that can complete the same step.
 export const hold = (...items) => ({ items });
@@ -12,6 +19,11 @@ export function hand(...parts) {
     items: [...new Set(parts.flatMap((p) => p.items || []))],
     location: locations[0] || null,
     avatars: [...new Set(parts.flatMap((p) => p.avatars || []))],
+    ...(parts.some((p) => p.conditions?.length)
+      ? {
+          conditions: parts.flatMap((p) => p.conditions || []),
+        }
+      : {}),
   };
 }
 export const sequence = (...parts) =>
@@ -117,7 +129,17 @@ const ownerOf = (s, item) => {
 export const desireFor = (s, actor) => {
   const here = s.actors[actor].place;
   const score = (h) =>
-    h.items.filter((id) => ownerOf(s, id) !== actor).length * 20 +
+    requiredItems(s, actor, h).filter((id) => ownerOf(s, id) !== actor).length *
+      20 +
+    (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
+    (h.conditions || []).filter(
+      (c) =>
+        c.kind === "heldBy" &&
+        ownerOf(s, c.item) !== c.avatar &&
+        Object.keys(s.items).filter((id) => ownerOf(s, id) === c.avatar)
+          .length >= 3,
+    ).length *
+      30 +
     (h.location && h.location !== here ? 3 : 0) +
     h.avatars.filter((id) => s.actors[id].place !== (h.location || here))
       .length *
@@ -152,7 +174,9 @@ export function generateProgram(
   const bundle = (item) =>
     ids.filter((id) => id === item || s.items[id].holder === item);
   const needed = (owner, item) =>
-    bundle(item).some((id) => desireFor(s, owner).items.includes(id));
+    bundle(item).some((id) =>
+      requiredItems(s, owner, desireFor(s, owner)).includes(id),
+    );
   // A cast member does not build a new goal around keeping something another
   // avatar wants now. It can then trade or give that item, so wants cannot
   // lock each other out. Vale keeps carried items.
@@ -197,7 +221,7 @@ export function generateProgram(
     if (s.items[s.items[id].holder] || !available(id)) return false;
     if (owner === actor && wantedElsewhere(id)) return false;
     if (!independent || !s.actors[owner] || owner === actor) return true;
-    const payment = desireFor(s, owner).items.filter(
+    const payment = requiredItems(s, owner, desireFor(s, owner)).filter(
       (item) => ownerOf(s, item) !== owner,
     );
     return !payment.length || payment.some(available);
@@ -232,7 +256,7 @@ export function generateProgram(
       : others[(progress.program + actors.indexOf(actor)) % others.length];
   const payment =
     owner !== actor && s.actors[owner]
-      ? desireFor(s, owner).items.find(
+      ? requiredItems(s, owner, desireFor(s, owner)).find(
           (id) => ownerOf(s, id) !== owner && id !== item && available(id),
         )
       : null;
@@ -254,7 +278,7 @@ export function generateProgram(
   const gathering = hand(hold(payment || item));
   const meeting = meet([item], partner, reachable);
   const journey = carryTo(finalItems, destination);
-  return {
+  const base = {
     id: `generated-${actor}-${progress.program + 1}`,
     name: payment
       ? `A trade with ${partner === "moth" ? "Pip" : partner === "keeper" ? "the keeper" : "Vale"}`
@@ -265,4 +289,38 @@ export function generateProgram(
     ),
     generated: { turn: s.turn, level: levelOf(s, actor), item, owner, partner },
   };
+  if (independent || !s.locations) return base;
+  const catalog = situationPrograms(s, actor, base, {
+    hand,
+    hold,
+    at,
+    withAvatars,
+    either,
+    reachable,
+    available: (id) =>
+      available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
+    needed: (id) => requiredItems(s, id, desireFor(s, id)),
+    name: (id) =>
+      things[id]?.name ||
+      places[id]?.name ||
+      { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id],
+  });
+  const preferences = {
+    vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
+    moth: ["delivery", "gathering", "crossing", "answer", "bargain"],
+    keeper: ["answer", "delivery", "crossing", "gathering", "bargain"],
+  }[actor];
+  catalog.push({
+    ...base,
+    purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,
+    generated: { ...base.generated, situation: "bargain" },
+  });
+  const recentKinds = progress.recentKinds || [];
+  const rank = (p) =>
+    preferences.indexOf(p.generated.situation) +
+    recentKinds.reduce(
+      (n, kind, i) => n + (kind === p.generated.situation ? 5 + i * 2 : 0),
+      0,
+    );
+  return catalog.sort((a, b) => rank(a) - rank(b))[0] || base;
 }

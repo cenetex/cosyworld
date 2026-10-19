@@ -12,7 +12,25 @@ import {
   standoffFor,
   opponentOf,
 } from "./world.mjs";
-import { desireFor } from "./quests.mjs";
+import { desireFor, programFor } from "./quests.mjs";
+import { conditionMet, conditionText } from "./situations.mjs";
+
+// Keep a few lasting encounters beside fresh facts. Speech stays secondary to
+// witnessed events; quest counters remain on the cards and in the history.
+export function speechMemories(memory) {
+  const concrete = (e) =>
+    e.kind === "event" &&
+    !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
+  const recent = memory.events.filter(concrete).slice(-4);
+  const lasting = (memory.landmarks || [])
+    .filter(concrete)
+    .filter((e) => !recent.some((r) => r.seq === e.seq))
+    .slice(-2);
+  const said = memory.events.filter((e) => e.kind === "expression").slice(-2);
+  return [...lasting, ...recent, ...said]
+    .sort((a, b) => a.seq - b.seq)
+    .map(({ turn, kind, text }) => ({ turn, kind, text }));
+}
 
 // Capture the resolved turn separately from wishes and remembered speech.
 export function turnOutcome(world) {
@@ -106,6 +124,8 @@ export function narrativeContext(world, action = null) {
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
+        entry.kind !== "quest" &&
+        !entry.questPlan &&
         (entry.locationId === location ||
           entry.fromLocationId === location ||
           entry.witnesses?.includes("vale")),
@@ -166,7 +186,25 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
           );
-        desire = desireFor(world, id);
+        const target = desireFor(world, id);
+        desire = {
+          items: target.items,
+          location: target.location,
+          avatars: target.avatars,
+        };
+        const purpose = programFor(world, id)?.purpose;
+        if (purpose) facts.push(`Reason for the desire: ${purpose}`);
+        for (const c of target.conditions || [])
+          facts.push(
+            `${conditionMet(world, c) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
+          );
+        const helpers = Object.entries(world.actors[id].trust)
+          .filter(([, n]) => n > 0)
+          .map(([other]) => nameOf(other));
+        if (helpers.length)
+          facts.push(
+            `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,
+          );
         for (const item of desire.items)
           facts.push(
             carried(world, id).includes(item)
@@ -205,17 +243,29 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Paths open to: ${exits(world, id).map(nameOf).join(", ")}.`,
         );
+        if (id === "attic" || id === "pond")
+          facts.push(
+            world.locations.attic.anchored
+              ? "The mirror path is fixed open even in darkness."
+              : "The reflection path needs a lit uncovered lamp at the attic or pond.",
+          );
+        if (id === "pond" && world.locations.pond.answer === "hush")
+          facts.push(
+            "The wrapped bell made this shore a refuge. The cast will keep peace here until the bell rings again.",
+          );
+        if (id === "pond" && world.locations.pond.answer === "call")
+          facts.push(
+            "The pond answered the bell with oil. Its shore carries every sound again.",
+          );
       }
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,
-        facts: facts.slice(0, 8),
+        facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
         desire,
-        memories: world.memories[id].events
-          .slice(-8)
-          .map(({ turn, kind, text }) => ({ turn, kind, text })),
+        memories: speechMemories(world.memories[id]),
         previous: world.memories[id].text,
       };
     }),

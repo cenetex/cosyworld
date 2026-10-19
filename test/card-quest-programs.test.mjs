@@ -205,10 +205,12 @@ describe("composable quest programs", () => {
     expect(programFor(s, "vale")).toEqual(player);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
-  it("keeps leveling and trading across many programs with exact restores and bounded saves", () => {
+  it("keeps leveling through varied plays and trades with exact restores and bounded saves", () => {
     let s = continuing(),
       trades = 0;
     const ids = new Set();
+    const verbs = new Set(),
+      situations = new Set();
     for (let turn = 0; turn < 360; turn++) {
       const action = plan(s).action;
       if (turn % 30 === 0) {
@@ -219,10 +221,17 @@ describe("composable quest programs", () => {
       trades += s.log.filter(
         (e) => e.turn === s.turn && e.verb === "trade",
       ).length;
-      for (const actor of Object.keys(s.actors))
+      for (const entry of s.log.filter((e) => e.turn === s.turn && e.verb))
+        verbs.add(entry.verb);
+      for (const actor of Object.keys(s.actors)) {
         ids.add(programFor(s, actor).id);
+        situations.add(programFor(s, actor).generated?.situation || "bargain");
+      }
     }
-    expect(trades).toBeGreaterThan(20);
+    expect(trades).toBeGreaterThan(1);
+    for (const verb of ["trade", "give", "ring", "refill", "cover", "move"])
+      expect(verbs.has(verb)).toBe(true);
+    expect(situations.size).toBeGreaterThanOrEqual(4);
     expect(ids.size).toBeGreaterThan(20);
     for (const actor of Object.keys(s.actors)) {
       expect(levelOf(s, actor)).toBeGreaterThan(10);

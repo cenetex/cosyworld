@@ -1,0 +1,228 @@
+// Target hands can ask for an item's use or its place in someone else's hand.
+// These conditions use the same items and card plays as the rest of the world.
+export const condition = (kind, item, extra = {}) => ({
+  conditions: [{ kind, item, ...extra }],
+});
+export const rootOwner = (s, item) => {
+  let owner = s.items[item].holder;
+  const seen = new Set([item]);
+  while (s.items[owner]) {
+    if (seen.has(owner)) throw new Error("An item holds itself.");
+    seen.add(owner);
+    owner = s.items[owner].holder;
+  }
+  return owner;
+};
+export function conditionMet(s, c) {
+  switch (c.kind) {
+    case "lit":
+      return (
+        s.items.lamp.lit &&
+        s.items.lamp.fuel > 0 &&
+        s.items.cloth.holder !== "lamp"
+      );
+    case "ringing":
+      return s.items.bell.ringing > 0 && s.items.cloth.holder !== "bell";
+    case "covered":
+      return s.items.cloth.holder === c.item;
+    case "heldBy":
+      return rootOwner(s, c.item) === c.avatar;
+    default:
+      return false;
+  }
+}
+export function conditionText(c, name) {
+  return {
+    lit: `${name(c.item)} alight`,
+    ringing: `${name(c.item)} ringing`,
+    covered: `${name(c.item)} under the cloth`,
+    heldBy: `${name(c.avatar)} holds ${name(c.item)}`,
+  }[c.kind];
+}
+export function validCondition(c, actor) {
+  return (
+    c &&
+    ((c.kind === "lit" && c.item === "lamp") ||
+      (c.kind === "ringing" && c.item === "bell") ||
+      (c.kind === "covered" && ["lamp", "bell"].includes(c.item)) ||
+      (c.kind === "heldBy" &&
+        ["lamp", "oil", "bell", "cloth"].includes(c.item) &&
+        ["vale", "moth", "keeper"].includes(c.avatar) &&
+        c.avatar !== actor))
+  );
+}
+export const validConsequence = (c, actor) =>
+  c &&
+  (["anchor", "oil", "hush"].includes(c.kind) ||
+    (c.kind === "trust" &&
+      ["vale", "moth", "keeper"].includes(c.avatar) &&
+      c.avatar !== actor));
+export function requiredItems(s, actor, target) {
+  const items = [...target.items];
+  for (const c of target.conditions || []) {
+    if (conditionMet(s, c)) continue;
+    items.push(c.item);
+    if (c.kind === "covered") items.push("cloth");
+    if (c.kind === "lit" && s.items.lamp.fuel === 0)
+      items.push(s.items.oil.doses ? "oil" : "bell");
+  }
+  return [...new Set(items)];
+}
+
+// Choose a situation from real custody, resources, company and past programs.
+// A stalled resident still uses the short independent errands in quests.mjs.
+export function situationPrograms(s, actor, base, api) {
+  const { hand, hold, at, withAvatars, either, available, needed, reachable } =
+    api;
+  const own = (item) => rootOwner(s, item) === actor;
+  const canGet = (item) => available(item);
+  const partner = base.generated.partner;
+  const result = (h, consequence) => ({ ...h, consequence });
+  const make = (kind, name, purpose, steps, companion = partner) => ({
+    ...base,
+    name,
+    purpose,
+    steps,
+    generated: {
+      ...base.generated,
+      item: steps[0].items[0],
+      owner: rootOwner(s, steps[0].items[0]),
+      partner: companion,
+      situation: kind,
+    },
+  });
+  const choices = [];
+  if (
+    !s.locations?.attic.anchored &&
+    reachable.includes("attic") &&
+    reachable.includes("pond") &&
+    canGet("lamp") &&
+    (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 && canGet("oil")))
+  ) {
+    choices.push(
+      make(
+        "crossing",
+        "A path that remembers",
+        "Fix the mirror path so it stays open when the lamp goes out.",
+        [
+          hand(
+            hold("lamp"),
+            at("attic"),
+            withAvatars(partner),
+            condition("lit", "lamp"),
+          ),
+          result(hand(hold("lamp"), at("pond"), withAvatars(partner)), {
+            kind: "anchor",
+          }),
+        ],
+      ),
+    );
+  }
+  if (reachable.includes("pond") && canGet("bell")) {
+    const call = result(
+      hand(
+        hold("bell"),
+        at("pond"),
+        withAvatars(partner),
+        condition("ringing", "bell"),
+      ),
+      { kind: "oil" },
+    );
+    const hush = result(
+      hand(
+        hold("bell", "cloth"),
+        at("pond"),
+        withAvatars(partner),
+        condition("covered", "bell"),
+      ),
+      { kind: "hush" },
+    );
+    choices.push(
+      make(
+        "answer",
+        "An answer from below",
+        "Ring at the pond to refill the oil flask, or wrap the bell there to make the shore a refuge until it rings again.",
+        [
+          hand(hold("bell"), at("station")),
+          canGet("cloth") ? either(call, hush) : call,
+        ],
+      ),
+    );
+  }
+  const others = Object.keys(s.actors).filter((id) => id !== actor);
+  // Vale chooses handovers through card plays. Residents can arrange care
+  // between themselves while a player decides whether to take an offer.
+  const caretakers = others.filter((id) => actor === "vale" || id !== "vale");
+  const deliveries = caretakers.flatMap((avatar) =>
+    needed(avatar)
+      .filter((item) => own(item))
+      .map((item) => ({ avatar, item })),
+  );
+  // A recent gift supplies a reason to return a useful item to that person.
+  const gift = s.log.findLast(
+    (e) => e.verb === "give" && e.targetId === actor && e.actorId !== actor,
+  );
+  deliveries.sort(
+    (a, b) =>
+      Number(b.avatar === gift?.actorId) - Number(a.avatar === gift?.actorId),
+  );
+  const delivery = deliveries[0];
+  if (delivery) {
+    const { avatar, item } = delivery;
+    const place = s.actors[avatar].place;
+    if (reachable.includes(place))
+      choices.push(
+        make(
+          "delivery",
+          gift?.actorId === avatar ? "Return a kindness" : "A lightened load",
+          `Bring the ${api.name(item)} to ${api.name(avatar)} and let them hold it. They will remember the help when you ask for company or a spare.`,
+          [
+            hand(hold(item), at(place), withAvatars(avatar)),
+            result(
+              hand(
+                at(place),
+                withAvatars(avatar),
+                condition("heldBy", item, { avatar }),
+              ),
+              { kind: "trust", avatar },
+            ),
+          ],
+          avatar,
+        ),
+      );
+  }
+  if (
+    reachable.includes("station") &&
+    canGet("lamp") &&
+    (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 && canGet("oil")))
+  ) {
+    choices.push(
+      make(
+        "gathering",
+        "Keep a light for everyone",
+        "Bring everyone to the station around a lit lamp, then leave it in someone else's care. That person will remember your help.",
+        [
+          hand(
+            hold("lamp"),
+            at("station"),
+            withAvatars(...others),
+            condition("lit", "lamp"),
+          ),
+          either(
+            ...caretakers.map((avatar) =>
+              result(
+                hand(
+                  at("station"),
+                  withAvatars(avatar),
+                  condition("heldBy", "lamp", { avatar }),
+                ),
+                { kind: "trust", avatar },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  return choices;
+}
