@@ -1,4 +1,4 @@
-import { hasMotives, motiveFacts } from "./motives.mjs";
+import { hasMotives, hasQuestPrograms, motiveFacts } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles } from "./memory.mjs";
 import {
@@ -207,9 +207,9 @@ export function narrativeContext(world, action = null) {
           location: target.location,
           avatars: target.avatars,
         };
-        const purpose = hasMotives(world)
-          ? null
-          : programFor(world, id)?.purpose;
+        const purpose = hasQuestPrograms(world)
+          ? programFor(world, id)?.purpose
+          : null;
         if (hasMotives(world)) facts.push(...motiveFacts(world, id, 2));
         if (purpose) facts.push(`Reason for the desire: ${purpose}`);
         for (const c of target.conditions || [])

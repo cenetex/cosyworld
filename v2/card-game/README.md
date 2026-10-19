@@ -24,7 +24,7 @@ Trades compare each character’s value for both objects, including attached clo
 
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. In this experiment the quest records stay at their saved values. `createWorld()` retains the earlier rules for replay and compatibility tests; the browser adds the experiment at every new-game and load entry point. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and chooses a fresh purpose from the current world. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 A first exchange: take the lamp, then the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -49,3 +49,9 @@ Pair a nearby avatar with an open location card to ask them to accompany Vale. E
 The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play.
 
 Requests record the destination and the answer in the scene script. Both places, witnesses, avatars and carried items remember an agreed trip. The same model request writes Vale's invitation and the invited avatar's reply from the completed result, desires, personas and memories.
+
+## Action, travel and fresh goals
+
+The dialogue service gives the model a plain account of every recorded trip and a direction for Vale's chosen action. Threats keep their pressure, attacks keep their commitment, and guards hold a defensive stance. A later player choice can change that stance. Separate trips to the same destination remain separate arrivals in avatar speech, item descriptions and location narration.
+
+New programs rotate recent purposes and consider the purposes already active across the cast. Feasible alternatives take priority over repeated bell quests; scarce worlds retain a reachable fallback. Pond quests restore oil when the flask needs it, or establish a refuge when the shore needs quiet. Current programs and their completed steps remain saved.

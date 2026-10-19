@@ -1,6 +1,6 @@
 import {
   enableMotives,
-  hasMotives,
+  hasQuestPrograms,
   interest,
   motiveFacts,
   tastes,
@@ -61,7 +61,7 @@ const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
   "cosyworld.reflected-shore.v1" +
   (tableName && /^[a-z0-9-]{1,40}$/i.test(tableName) ? `.${tableName}` : "");
-let world = enableMotives(createWorld()),
+let world = enableMotives(createWorld(), { questPrograms: true }),
   selected = [],
   saveBlocked = false,
   lineSeq = null,
@@ -98,7 +98,7 @@ function notice(text) {
 }
 try {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) world = enableMotives(decodeSave(saved));
+  if (saved) world = enableMotives(decodeSave(saved), { questPrograms: true });
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -459,7 +459,7 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (hasMotives(world)) {
+    if (!hasQuestPrograms(world)) {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
@@ -476,7 +476,7 @@ function card(id) {
   el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
-  if (type === "avatar" && hasMotives(world)) {
+  if (type === "avatar" && !hasQuestPrograms(world)) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
     const grudge = world.motives.grievances[id].at(-1);
@@ -961,7 +961,7 @@ $("history-button").onclick = () => {
   $("messages").scrollTop = $("messages").scrollHeight;
 };
 $("menu-button").onclick = () => {
-  if (hasMotives(world)) {
+  if (!hasQuestPrograms(world)) {
     $("quest-guide").replaceChildren(
       ...Object.keys(people).map((id) => {
         const block = node("section", undefined, "quest-guide-program");
@@ -1058,7 +1058,7 @@ $("confirm-reset").onclick = () => {
   departed.clear();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createWorld());
+  world = enableMotives(createWorld(), { questPrograms: true });
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
@@ -1081,7 +1081,7 @@ window.addEventListener("storage", (event) => {
   speechKey = null;
   speechSounds.stop();
   try {
-    world = enableMotives(decodeSave(event.newValue));
+    world = enableMotives(decodeSave(event.newValue), { questPrograms: true });
     renderedHand = "";
     lineSeq = null;
     selected = [];

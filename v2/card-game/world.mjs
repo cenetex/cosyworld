@@ -1,5 +1,7 @@
 import {
   hasMotives,
+  hasQuestPrograms,
+  resentment,
   valueOf,
   tradeDecision,
   giftDecision,
@@ -247,7 +249,9 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
-  if (hasMotives(s))
+  if (hasMotives(s) && recipient && resentment(s, owner, recipient))
+    return false;
+  if (!hasQuestPrograms(s))
     return (
       owner !== "vale" &&
       recipient !== null &&
@@ -273,7 +277,13 @@ export function canTrade(s, actor, give, receive) {
     return false;
   if (
     hasMotives(s)
-      ? !tradeDecision(s, actor, give, receive).accepted
+      ? !tradeDecision(s, actor, give, receive).accepted &&
+        !(
+          hasQuestPrograms(s) &&
+          !resentment(s, other, actor) &&
+          needed(s, other, give) &&
+          !needed(s, other, receive)
+        )
       : !accepts(s, other, give) || needed(s, other, receive)
   )
     return false;
@@ -288,13 +298,15 @@ export function tradeOffers(s, actor) {
   return ids.filter(
     (id) =>
       s.items[id].holder === actor &&
-      (hasMotives(s) ? valueOf(s, actor, id) <= 6 : !needed(s, actor, id)),
+      (hasQuestPrograms(s)
+        ? !needed(s, actor, id)
+        : valueOf(s, actor, id) <= 6),
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
-  if (hasMotives(s)) return;
+  if (!hasQuestPrograms(s)) return;
   for (const actor of actorIds) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
@@ -336,7 +348,7 @@ function ensurePrograms(s) {
 // Cast members reconsider an unfinished bargain after twelve turns. Keep the
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
-  if (hasMotives(s)) return;
+  if (!hasQuestPrograms(s)) return;
   for (const actor of actorIds.filter((id) => id !== "vale")) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
@@ -415,7 +427,7 @@ function applyConsequence(s, actor, target) {
   });
 }
 function advancePrograms(s, met) {
-  if (hasMotives(s)) return;
+  if (!hasQuestPrograms(s)) return;
   const receipts = [];
   for (const [actor, evidence] of met) {
     const progress = s.actors[actor].progress,
@@ -582,7 +594,15 @@ export function accompanyDecision(s, actor, companion, destination) {
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
-  if (hasMotives(s)) return socialTravel(s, actor, companion, destination);
+  if (hasMotives(s)) {
+    const social = socialTravel(s, actor, companion, destination);
+    if (
+      !hasQuestPrograms(s) ||
+      resentment(s, companion, actor) ||
+      social.accepted
+    )
+      return social;
+  }
   const distance = (from, to) => {
     const route = routeBetween(s, from, to);
     return route ? route.length - 1 : Infinity;
@@ -1140,7 +1160,17 @@ function toward(s, actor, target) {
 export function plan(s, actor = "vale") {
   const acts = legalActions(s, actor),
     hand = desireFor(s, actor);
-  if (hasMotives(s))
+  if (
+    hasMotives(s) &&
+    (!hasQuestPrograms(s) ||
+      standoffFor(s, actor) ||
+      s.peaceUntil[actor] > s.turn ||
+      actorIds.some(
+        (other) =>
+          s.actors[other].place === s.actors[actor].place &&
+          resentment(s, actor, other) > 0,
+      ))
+  )
     return socialPlan(s, actor, acts, {
       standoffFor,
       opponentOf,
