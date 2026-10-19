@@ -145,6 +145,7 @@ describe("the first light in the attic", () => {
     s = act(s, "move", { target: "station" });
     expect(s.actors.keeper).toEqual(keeper);
     expect(s.opening.met.keeper).toBe(3);
+    expect(narrativeContext(s).speakers).toEqual(["vale", "keeper", "moth"]);
     expect(knownActors(s)).toEqual(["vale", "moth", "keeper"]);
     expect(availableCards(s)).toContain("keeper");
     expect(levelOf(s, "vale")).toBe(3);

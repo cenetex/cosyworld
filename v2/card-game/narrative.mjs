@@ -108,6 +108,9 @@ export function narrativeContext(world, action = null) {
   const departing = changes
     .filter((change) => change.leaving)
     .map((change) => change.actorId);
+  const introductions = present.filter(
+    (id) => id !== "vale" && world.opening?.met[id] === world.turn,
+  );
   const audience = [...new Set([...present, ...departing])];
   const ids = [location, ...localItems, ...audience];
   const focus = localItems.includes(action?.item) ? action.item : null;
@@ -121,12 +124,15 @@ export function narrativeContext(world, action = null) {
   const partner =
     audience.includes(target) && target !== "vale"
       ? target
-      : departing[0] || present.find((id) => id !== "vale");
+      : introductions[0] || departing[0] || present.find((id) => id !== "vale");
   const speakers = [
     ...new Set(
-      ["vale", partner, ...changes.map((change) => change.actorId)].filter(
-        Boolean,
-      ),
+      [
+        "vale",
+        partner,
+        ...introductions,
+        ...changes.map((change) => change.actorId),
+      ].filter(Boolean),
     ),
   ];
   const events = world.log
