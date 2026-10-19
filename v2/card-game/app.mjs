@@ -431,6 +431,8 @@ function commitAction(action, revision) {
   pendingReplay = replay;
   const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   world = result.state;
+  // A new play ends any review of earlier lines.
+  reviewing = false;
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
   departed.clear();
@@ -706,6 +708,7 @@ function renderScene() {
   const scene = currentScene(world, null, {
     seq: lineSeq,
     hold: exchange.preparing,
+    review: reviewing,
   });
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
@@ -720,6 +723,7 @@ function renderScene() {
     cast: scene.slots,
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
+    review: reviewing && !resolvedBeat,
   });
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);

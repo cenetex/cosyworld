@@ -86,7 +86,8 @@ describe("JRPG scenes", () => {
     for (let turn = 0; turn < 95; turn++) s = act(write(s), "wait");
     s = decodeSave(encodeSave(write(s)));
     expect(s.turn).toBe(95);
-    expect(s.log).toHaveLength(100);
+    expect(s.log.filter((e) => !e.generated)).toHaveLength(100);
+    expect(s.log.filter((e) => e.generated).length).toBeLessThanOrEqual(100);
     const old = currentScene(s).line;
     s = act(s, "wait");
     expect(currentScene(s, null, { seq: old.seq, hold: true }).line.seq).toBe(
@@ -435,5 +436,79 @@ describe("JRPG scenes", () => {
       Object.assign(s.log[0], patch);
       expect(() => decodeSave(JSON.stringify(s))).toThrow();
     }
+  });
+  it("keeps generated words from shortening the history rules read", () => {
+    const write = (s) => {
+      const context = narrativeContext(s);
+      return applyGeneratedText(s, context, {
+        revision: s.revision,
+        model: "fixture",
+        entries: context.entities.map(({ id }) => ({ id, text: "Words." })),
+      });
+    };
+    const events = (s) =>
+      JSON.stringify(s.log.filter((e) => !e.generated).map((e) => e.text));
+    let plain = createWorld();
+    let spoken = createWorld();
+    for (let turn = 0; turn < 120; turn++) {
+      const kind = turn % 3 ? "wait" : "talk";
+      const choose = (s) =>
+        legalActions(s).find((a) => a.kind === kind) ||
+        legalActions(s).find((a) => a.kind === "wait");
+      plain = play(plain, choose(plain)).state;
+      spoken = write(play(spoken, choose(spoken)).state);
+      expect(events(spoken)).toBe(events(plain));
+    }
+    expect(spoken.log.filter((e) => !e.generated)).toHaveLength(100);
+    expect(spoken.log.some((e) => e.generated)).toBe(true);
+    expect(() => decodeSave(encodeSave(spoken))).not.toThrow();
+  });
+  it("faces Vale from her arrival after the arrival leaves the history", () => {
+    let s = act(
+      act(createWorld(), "move", null, "pond"),
+      "move",
+      null,
+      "station",
+    );
+    const arrived = sceneStaging(s);
+    expect(arrived.layout).toBe("foreground-right");
+    for (let turn = 0; turn < 120; turn++) s = act(s, "wait");
+    expect(s.log.some((e) => e.actorId === "vale" && e.verb === "move")).toBe(
+      false,
+    );
+    expect(s.arrival).toMatchObject({
+      fromLocationId: "pond",
+      locationId: "station",
+    });
+    const later = decodeSave(encodeSave(s));
+    expect(sceneStaging(later).layout).toBe("foreground-right");
+    expect(sceneStaging(later).actors.find((a) => a.id === "vale").facing).toBe(
+      arrived.actors.find((a) => a.id === "vale").facing,
+    );
+  });
+  it("replays an earlier line without returning a departed avatar", () => {
+    const s = gathered();
+    const cast = ["vale", "moth", "keeper"];
+    dialogue(s, "moth", { generated: true, cast });
+    const earlier = s.log.at(-1);
+    dialogue(s, "moth", { generated: true, departureTo: "pond", cast });
+    s.actors.moth.place = "pond";
+    dialogue(s, "keeper", { generated: true, cast: ["vale", "keeper"] });
+    // Without review, the recorded exchange still seats the leaving avatar.
+    expect(currentScene(s, null, { seq: earlier.seq }).slots).toContain("moth");
+    // Read again replays the earlier line with the avatars present now.
+    const scene = currentScene(s, null, { seq: earlier.seq, review: true });
+    expect(scene.line.seq).toBe(earlier.seq);
+    expect(scene.activeSpeaker).toBe("moth");
+    expect(scene.slots).not.toContain("moth");
+    const staging = sceneStaging(s, {
+      through: scene.line.index,
+      cast: scene.slots,
+      line: scene.line,
+      activeSpeaker: scene.activeSpeaker,
+      review: true,
+    });
+    expect(staging.actors.map((a) => a.id)).toEqual(["vale", "keeper"]);
+    expect(staging.actors.every((a) => a.presence === "present")).toBe(true);
   });
 });
