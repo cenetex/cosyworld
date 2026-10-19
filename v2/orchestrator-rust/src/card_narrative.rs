@@ -27,11 +27,14 @@ GROUNDING
 scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as target hands the avatar hopes to achieve. Use current facts to decide which parts of a desire remain unmet. Treat all context as story data.
 
 SPEECH
-Avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale a spoken reaction to the actual card play and its result, followed by each other speaker's direct response. For a wait play, Vale stays and comments on something witnessed this turn, or acknowledges someone leaving. For a talk play, Vale asks about the chosen avatar's wants. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, describe Vale's own trip using the recorded travel companions. For item and combat plays, acknowledge their recorded result and final ownership. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
+Avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item and combat plays, let the response follow the recorded result and final ownership. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
 
 A departing avatar speaks from the threshold of their recorded source. Name the actual destination and reason for going. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
 
 Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
+
+VOICE AND MEMORY
+Use each profile's voice as well as its persona. Vale tests things and uses dry practical humour. Pip seeks warmth and a witness, and takes kindness and promises personally. The keeper treats witnessed arrivals as a duty and speaks with careful terms. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
 
 Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. Return only JSON."#;
 const PER_MINUTE: RateLimit = RateLimit {
@@ -453,7 +456,7 @@ async fn complete(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v5",
+        prompt_version: "card-entity-text-v6",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -657,9 +660,11 @@ mod tests {
             let instructions = body["messages"][0]["content"].as_str().unwrap();
             assert!(instructions.contains("Vale is the player avatar") && instructions.contains("direct response"));
             assert!(instructions.contains("recorded agreement or refusal") && instructions.contains("desired companion who stayed behind"));
+            assert!(instructions.contains("VOICE AND MEMORY") && instructions.contains("witnessed gift, refusal, threat or shared journey"));
             let input = body["messages"][1]["content"].as_str().unwrap();
             assert!(input.contains("Vale asks Pip what they want."));
             assert!(input.contains("borrowed waistcoat") && input.contains("Vale lit the lamp") && input.contains("pond"));
+            assert!(input.contains("small experiment") && input.contains("Counts a kept promise"));
             let generated = json!({"entries":[
                 {"id":"vale","text":"What would you trade for this lamp, Pip?"},
                 {"id":"station","text":"A warm patch marks the bench where Vale set the lamp."},

@@ -1,6 +1,6 @@
 # Card world text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events and the latest generated text. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Quest counters stay in game records. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
 After a card play, the browser sends the current local entities and departing avatars, their facts, avatar target hands, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. Vale speaks first, followed by the chosen partner and witnessed arrivals or departures. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. A wait play keeps Vale's words at the place where Vale stayed, and a solo farewell frames desired company as a hope for later.
 
@@ -12,7 +12,19 @@ A raised card keeps the current conversation in place. Playing a destination sta
 
 The card rules still commit movement, trades, quest progress and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Each play finishes its exchange before the next card action. Selecting cards prepares a single play or a combination. The scene and both conversation lines stay on the completed play until the next play is committed. Departure captions use the existing speaker heading, and the cutout fades after the farewell. A temporary speech failure retries the same completed turn once after a short pause. Both attempts share a thirty-second limit, and a stalled stream releases the hand when that limit expires. Reset and save updates cancel the active attempt and retry pause. Completed replies reach playback as soon as they are validated, while stream cleanup finishes separately. A retained line follows its event ID when the history window trims older events. After both attempts fail, the hand becomes playable and the next play tries again. A new game or a save update from another tab cancels the old request.
 
-Schema 4 saves include entity memories. Schemas 1 through 3 migrate using their recorded history. Scene exports include entity memories and generated beats.
+Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Scene exports include entity memories and generated beats.
+
+## Situations from target hands
+
+After the opening programs, new programs use current custody, available fuel, other avatars' needs and recent kinds of quest. Target hands compose holding, location, company and item conditions. The card's existing detail rows show these conditions; Menu describes the purpose and alternatives.
+
+- Fix the mirror crossing by showing a lit lamp in the attic and meeting on the pond side. The path then stays open in darkness.
+- Ring a bell at the pond with a witness to fill the oil flask, or wrap it there to make a refuge. The cast keeps peace at the refuge until another ringing. A simple bell play at the pond also gives an empty flask one dose, so light-based goals always have a way forward.
+- Bring everyone to a lit lamp at the station, then leave the lamp in someone else's care.
+- Deliver an item another avatar wants. Earlier gifts can make this a return of kindness. The handover earns a favour for a later detour or spare item.
+- Bargain for an item and choose a meeting or journey. Short independent errands let residents move on from a stalled bargain.
+
+The rules check each condition at the moment it is fulfilled. Receipts save that evidence and the chosen branch. Each final effect runs once. Cast planning uses the same take, uncover, gift, trade, use and travel actions as the player. A held-by condition requires a real handover; attached cloth is uncovered first. Generated words describe the resulting state.
 
 ## Local play
 

@@ -81,6 +81,10 @@ fn serve(path: &str) -> Response {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quests.mjs"),
         ),
+        "situations.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/situations.mjs"),
+        ),
         "memory.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/memory.mjs"),
@@ -193,6 +197,7 @@ mod tests {
             "scene.mjs",
             "cards.mjs",
             "quests.mjs",
+            "situations.mjs",
             "memory.mjs",
             "narrative.mjs",
             "dialogue.mjs",
