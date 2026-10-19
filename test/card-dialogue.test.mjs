@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   createTextReveal,
   createExchange,
+  waitForScene,
   splitLetters,
   createSpeechSounds,
 } from "../v2/card-game/dialogue.mjs";
@@ -233,6 +234,77 @@ describe("one exchange per card play", () => {
     ];
     return { exchange, lines, show, settled, busy };
   }
+  it("waits for the portrait load and entrance before the first arrival line", async () => {
+    vi.useFakeTimers();
+    let loaded, arrived;
+    const image = new Promise((resolve) => {
+      loaded = resolve;
+    });
+    const entrance = image.then(
+      () =>
+        new Promise((resolve) => {
+          arrived = resolve;
+        }),
+    );
+    const show = vi.fn();
+    const exchange = createExchange({
+      show,
+      prepare: () => waitForScene([entrance]),
+    });
+    exchange.begin();
+    exchange.load([{ seq: 1, text: "Pip has arrived." }]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(exchange.preparing).toBe(true);
+    expect(show).not.toHaveBeenCalled();
+    loaded();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(show).not.toHaveBeenCalled();
+    arrived();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(exchange.preparing).toBe(false);
+    expect(show).toHaveBeenCalledExactlyOnceWith({
+      seq: 1,
+      text: "Pip has arrived.",
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("drops a waiting entrance when the game resets and accepts the next room", async () => {
+    vi.useFakeTimers();
+    const ready = [];
+    const show = vi.fn();
+    const exchange = createExchange({
+      show,
+      prepare: () => new Promise((resolve) => ready.push(resolve)),
+    });
+    exchange.begin();
+    exchange.load([{ seq: 1 }]);
+    await vi.advanceTimersByTimeAsync(0);
+    exchange.cancel();
+    exchange.begin();
+    exchange.load([{ seq: 2 }]);
+    await vi.advanceTimersByTimeAsync(0);
+    ready[0]();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(show).not.toHaveBeenCalled();
+    ready[1]();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(show).toHaveBeenCalledExactlyOnceWith({ seq: 2 });
+  });
+  it("settles broken media and bounds a stalled load", async () => {
+    vi.useFakeTimers();
+    await waitForScene([Promise.reject(new Error("Image unavailable"))]);
+    expect(vi.getTimerCount()).toBe(0);
+    let ready = false;
+    const waiting = waitForScene([new Promise(() => {})]).then(() => {
+      ready = true;
+    });
+    await vi.advanceTimersByTimeAsync(7999);
+    expect(ready).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await waiting;
+    expect(ready).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("holds cards through generation and every reply, then releases them", () => {
     const { exchange, lines, show, settled, busy } = setup();
     exchange.begin();

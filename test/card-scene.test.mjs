@@ -13,6 +13,7 @@ import {
 import {
   sceneCast,
   sceneLines,
+  sceneStaging,
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
@@ -45,6 +46,75 @@ function act(s, kind, item, target) {
   ).state;
 }
 describe("JRPG scenes", () => {
+  it("starts a fresh scene on return and keeps earlier visits available for replay", () => {
+    const write = (s) => {
+      const context = narrativeContext(s);
+      return applyGeneratedText(s, context, {
+        revision: s.revision,
+        model: "fixture",
+        entries: context.entities.map(({ id }) => ({
+          id,
+          text: `${id} speaks on turn ${s.turn}.`,
+        })),
+      });
+    };
+    let s = write(createWorld());
+    const earlier = currentScene(s).line;
+    s = act(s, "move", null, "pond");
+    expect(currentScene(s).line).toBeNull();
+    s = write(s);
+    s = act(s, "move", null, "station");
+    expect(currentScene(s)).toMatchObject({ line: null, previous: null });
+    expect(currentScene(s, earlier.index).line).toEqual(earlier);
+    s = write(s);
+    expect(currentScene(s).line.turn).toBe(2);
+    expect(currentScene(s).previous.turn).toBe(2);
+  });
+  it("holds the same reply when a long saved game trims earlier events", () => {
+    const write = (s) => {
+      const context = narrativeContext(s);
+      return applyGeneratedText(s, context, {
+        revision: s.revision,
+        model: "fixture",
+        entries: context.entities.map(({ id }) => ({
+          id,
+          text: `${id} watches turn ${s.turn}.`,
+        })),
+      });
+    };
+    let s = createWorld();
+    for (let turn = 0; turn < 95; turn++) s = act(write(s), "wait");
+    s = decodeSave(encodeSave(write(s)));
+    expect(s.turn).toBe(95);
+    expect(s.log).toHaveLength(100);
+    const old = currentScene(s).line;
+    s = act(s, "wait");
+    expect(currentScene(s, null, { seq: old.seq, hold: true }).line.seq).toBe(
+      old.seq,
+    );
+    s = write(s);
+    const held = currentScene(s, null, { seq: old.seq, hold: true });
+    expect(held.line.seq).toBe(old.seq);
+    expect(held.line.text).toBe(old.text);
+    expect(held.line.index).not.toBe(old.index);
+    expect(currentScene(s).line.turn).toBe(96);
+  });
+
+  it("holds new words until the entrance is ready while keeping a chosen earlier reply", () => {
+    let s = act(createWorld(), "wait");
+    const context = narrativeContext(s);
+    s = applyGeneratedText(s, context, {
+      revision: s.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: `${id} has arrived.`,
+      })),
+    });
+    const reply = currentScene(s).line;
+    expect(currentScene(s, null, { hold: true }).line).toBeNull();
+    expect(currentScene(s, reply.index, { hold: true }).line).toEqual(reply);
+  });
   it("exports light at the current location", () => {
     let s = createWorld();
     for (let i = 0; i < 4; i++) s = act(s, "wait");
@@ -72,7 +142,7 @@ describe("JRPG scenes", () => {
     );
     s = act(act(s, "wait"), "wait");
     expect(s.actors.moth.place).toBe("pond");
-    expect(currentScene(s, spoken).slots).toEqual(["vale", "moth"]);
+    expect(currentScene(s, spoken).slots).toEqual(["vale", "moth", "keeper"]);
     expect(currentScene(s).slots).toEqual(["vale", null]);
   });
   it("lets an avatar refill its target lamp with reachable oil", () => {
@@ -88,18 +158,18 @@ describe("JRPG scenes", () => {
     );
   });
 
-  it("keeps speaker sides stable and replaces the least recent speaker", () => {
+  it("keeps all three characters in stable seats through each reply", () => {
     const s = gathered();
     dialogue(s, "vale");
     dialogue(s, "moth");
     dialogue(s, "vale");
-    expect(sceneCast(s)).toEqual(["vale", "moth"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "keeper");
-    expect(sceneCast(s)).toEqual(["vale", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "keeper");
-    expect(sceneCast(s)).toEqual(["vale", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
     dialogue(s, "moth");
-    expect(sceneCast(s)).toEqual(["moth", "keeper"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
   });
   it("keeps the cast still through narration, input and actions", () => {
     const s = gathered();
@@ -121,7 +191,130 @@ describe("JRPG scenes", () => {
     expect(sceneCast(s)).toEqual(["vale", "moth"]);
     s.actors.keeper.place = "station";
     dialogue(s, "vale", { kind: "action", verb: "move" });
-    expect(sceneCast(s)).toEqual(["vale", "moth"]);
+    expect(sceneCast(s)).toEqual(["vale", "moth", "keeper"]);
+  });
+  it("faces the addressed actor while keeping seats and depth through the reply", () => {
+    const s = gathered();
+    dialogue(s, "vale", { kind: "action", verb: "talk", targetId: "keeper" });
+    dialogue(s, "vale");
+    const first = sceneStaging(s);
+    dialogue(s, "keeper");
+    const reply = sceneStaging(s);
+    expect(
+      first.actors.map(({ id, x, scale, depth }) => ({ id, x, scale, depth })),
+    ).toEqual(
+      reply.actors.map(({ id, x, scale, depth }) => ({ id, x, scale, depth })),
+    );
+    expect(first.actors.find((a) => a.id === "vale")).toMatchObject({
+      facing: "right",
+      gazeTargetId: "keeper",
+    });
+    expect(reply.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "left",
+      gazeTargetId: "vale",
+    });
+    expect(reply.actors.map((a) => a.scale)).toEqual([1, 0.74, 0.64]);
+  });
+  it("mirrors the whole composition at a scene entrance", () => {
+    const s = gathered();
+    dialogue(s, "vale", {
+      kind: "action",
+      verb: "move",
+      fromLocationId: "pond",
+    });
+    dialogue(s, "keeper");
+    const stage = sceneStaging(s);
+    expect(stage.layout).toBe("foreground-right");
+    expect(stage.actors.map((a) => a.x)).toEqual([78, 41, 19]);
+    expect(stage.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "right",
+      flip: false,
+      cutout: "./assets/keeper-right.png",
+    });
+    expect(stage.actors.find((a) => a.id === "vale").flip).toBe(true);
+  });
+  it("lets the two smaller actors face each other for their own trade", () => {
+    const s = gathered();
+    dialogue(s, "moth", { kind: "action", verb: "trade", targetId: "keeper" });
+    dialogue(s, "moth");
+    const stage = sceneStaging(s);
+    expect(stage.actors.find((a) => a.id === "moth")).toMatchObject({
+      facing: "right",
+      gazeTargetId: "keeper",
+    });
+    expect(stage.actors.find((a) => a.id === "keeper")).toMatchObject({
+      facing: "left",
+      gazeTargetId: "moth",
+    });
+  });
+  it("keeps departure seats for the whole exchange and exports solo travel", () => {
+    const s = gathered();
+    dialogue(s, "moth", {
+      kind: "action",
+      verb: "move",
+      fromLocationId: "station",
+      locationId: "pond",
+    });
+    s.actors.moth.place = "pond";
+    dialogue(s, "moth", {
+      generated: true,
+      departureTo: "pond",
+      cast: ["vale", "moth", "keeper"],
+    });
+    const farewell = s.log.length - 1;
+    dialogue(s, "keeper", { generated: true, cast: ["vale", "keeper"] });
+    expect(currentScene(s, farewell).slots).toEqual(
+      currentScene(s, s.log.length - 1).slots,
+    );
+    expect(
+      sceneScript(s)
+        .beats.at(-1)
+        .performance.staging.actors.find((a) => a.id === "moth").presence,
+    ).toBe("departed");
+    const beat = sceneScript(s).beats[farewell];
+    expect(
+      beat.performance.staging.actors.find((a) => a.id === "moth"),
+    ).toMatchObject({
+      presence: "departing",
+      movement: { kind: "leave", from: "station", to: "pond", companions: [] },
+    });
+  });
+  it("records both partners in a shared entrance and exact item custody", () => {
+    const s = gathered();
+    dialogue(s, "vale", {
+      kind: "action",
+      verb: "accompany",
+      targetId: "moth",
+      accepted: true,
+      fromLocationId: "attic",
+      destinationId: "station",
+      cast: ["vale", "moth", "keeper"],
+      items: [
+        { id: "lamp", holder: "vale", lit: true, fuel: 4 },
+        { id: "cloth", holder: "lamp" },
+        { id: "oil", holder: "keeper" },
+      ],
+    });
+    dialogue(s, "moth", { generated: true, cast: ["vale", "moth", "keeper"] });
+    const stage = sceneStaging(s);
+    expect(
+      sceneStaging(s, { line: null }).actors.find((a) => a.id === "vale")
+        .movement,
+    ).toEqual(stage.actors.find((a) => a.id === "vale").movement);
+    expect(stage.actors.find((a) => a.id === "vale")).toMatchObject({
+      movement: { kind: "arrive", companions: ["moth"] },
+      items: [{ id: "lamp", lit: true, fuel: 4 }, { id: "cloth" }],
+    });
+    expect(stage.actors.find((a) => a.id === "moth")).toMatchObject({
+      movement: { companions: ["vale"] },
+      items: [],
+    });
+    expect(
+      stage.actors.find((a) => a.id === "keeper").items.map((i) => i.id),
+    ).toEqual(["oil"]);
+    expect(
+      sceneScript(decodeSave(encodeSave(s))).beats.at(-1).performance.staging,
+    ).toEqual(stage);
   });
   it("keeps action records in the export while generated dialogue leads the scene", () => {
     let s = createWorld();
@@ -162,7 +355,7 @@ describe("JRPG scenes", () => {
     expect(
       sceneLines(s).some((e) => e.actorId === "moth" && e.kind === "dialogue"),
     ).toBe(true);
-    expect(currentScene(s).slots).toEqual(["vale", "moth"]);
+    expect(currentScene(s).slots).toEqual(["vale", "moth", "keeper"]);
     const scene = currentScene(s);
     expect(scene.previous.actorId).toBe("vale");
     expect(scene.previous.generated).toBe(true);
