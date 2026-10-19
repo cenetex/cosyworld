@@ -16,10 +16,9 @@ const assets = new Map([
   ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
   ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
-  ...["station", "attic", "pond", "vale", "moth", "keeper"].map((id) => [
-    `/assets/${id}.png`,
-    [`assets/${id}.png`, "image/png"],
-  ]),
+  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
+    (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
+  ),
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {

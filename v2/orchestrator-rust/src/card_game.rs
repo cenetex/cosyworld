@@ -121,6 +121,10 @@ fn serve(path: &str) -> Response {
             "image/png",
             include_bytes!("../../card-game/assets/keeper.png"),
         ),
+        "assets/keeper-right.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/keeper-right.png"),
+        ),
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
     (
@@ -199,6 +203,7 @@ mod tests {
             "assets/vale.png",
             "assets/moth.png",
             "assets/keeper.png",
+            "assets/keeper-right.png",
         ] {
             let url = format!("/card-game/{path}");
             let response = request(true, &url, "GET").await;

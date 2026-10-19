@@ -170,17 +170,30 @@ export function createSpeechSounds({
   };
 }
 
+// Image failures and slow networks settle within one bounded entrance beat.
+export function waitForScene(tasks, timeoutMs = 8000) {
+  let timer;
+  return Promise.race([
+    Promise.allSettled(tasks),
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 // A turn owns its exchange until every reply has had a readable beat.
 // Existing dialogue controls can advance it; cards become ready at the end.
 export function createExchange({
   show,
+  prepare,
   settled = () => {},
   busy = () => {},
   now = () => performance.now(),
   setTimer = setTimeout,
   clearTimer = clearTimeout,
 }) {
-  let active = false,
+  let generation = 0,
+    active = false,
     lines = [],
     index = -1,
     timer = null,
@@ -199,6 +212,7 @@ export function createExchange({
     if (!paused) timer = setTimer(advance, delay);
   }
   function finish() {
+    generation++;
     clear();
     remaining = null;
     active = false;
@@ -218,6 +232,7 @@ export function createExchange({
   }
   return {
     begin() {
+      generation++;
       clear();
       remaining = null;
       lines = [];
@@ -229,9 +244,16 @@ export function createExchange({
     load(value) {
       if (!active) return;
       lines = value;
-      index = 0;
-      if (lines.length) show(lines[0]);
-      else finish();
+      index = -1;
+      const version = ++generation;
+      const start = () => {
+        if (!active || version !== generation) return;
+        index = 0;
+        if (lines.length) show(lines[0]);
+        else finish();
+      };
+      if (prepare) void Promise.resolve().then(prepare).then(start, start);
+      else start();
     },
     revealed(seq, text, instant = false) {
       if (!active || seq !== lines[index]?.seq || completed === seq) return;
@@ -255,6 +277,9 @@ export function createExchange({
     },
     get active() {
       return active;
+    },
+    get preparing() {
+      return active && index < 0;
     },
     get current() {
       return active ? lines[index] || null : null;
