@@ -589,7 +589,10 @@ function card(id) {
 }
 function renderScene() {
   const scene = currentScene(world, lineIndex);
+  const resolvedBeat =
+    Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
+  else if (resolvedBeat) scene.slots = sceneCast(world);
   shownSceneLine = scene.line;
   const inspected =
     !cardsCooling && selected.length === 1 && world.memories[selected[0]]?.text
@@ -600,10 +603,10 @@ function renderScene() {
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = places[scene.locationId].text;
   const staging = sceneStaging(world, {
-    through: pendingCast ? world.log.length - 1 : scene.line?.index,
+    through: resolvedBeat ? world.log.length - 1 : scene.line?.index,
     cast: scene.slots,
-    line: pendingCast ? null : scene.line,
-    activeSpeaker: pendingCast || inspected ? null : scene.activeSpeaker,
+    line: resolvedBeat ? null : scene.line,
+    activeSpeaker: resolvedBeat || inspected ? null : scene.activeSpeaker,
   });
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
@@ -649,7 +652,7 @@ function renderScene() {
     image.dataset.flip = String(actor.flip);
     figure.classList.toggle(
       "active",
-      scene.activeSpeaker === id && !pendingCast && !inspected,
+      scene.activeSpeaker === id && !resolvedBeat && !inspected,
     );
     const left =
       actor.presence === "departed" ||
