@@ -96,6 +96,22 @@ button:focus-visible {
 .top-actions button {
   font-size: 12px;
 }
+.music-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.music-controls input {
+  min-height: 44px;
+  width: 150px;
+  accent-color: var(--gold);
+}
+.music-status {
+  color: var(--muted);
+  font-size: 14px;
+}
 .notice {
   padding: 8px 16px;
   margin: 0;

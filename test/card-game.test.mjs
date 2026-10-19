@@ -16,6 +16,7 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
+import { roomTracks } from "../v2/card-game/music.mjs";
 
 function act(s, kind, item, target) {
   const action = legalActions(s).find(
@@ -242,6 +243,7 @@ describe("the reflected shore card game", () => {
         "quests.mjs",
         "scene.mjs",
         "dialogue.mjs",
+        "music.mjs",
         "cards.mjs",
         "assets/station.png",
       ]) {
@@ -260,6 +262,30 @@ describe("the reflected shore card game", () => {
         ]);
       }
       const script = await fetch(`${url}/world.mjs`);
+      for (const { file } of Object.values(roomTracks).flat()) {
+        const path = `${url}/card-game/assets/music/${file}`;
+        const song = await fetch(path);
+        expect(song.headers.get("content-type")).toBe("audio/mpeg");
+        const bytes = Buffer.from(await song.arrayBuffer());
+        expect(bytes.subarray(0, 3).toString()).toBe("ID3");
+        const range = await fetch(path, { headers: { Range: "bytes=0-2" } });
+        expect(range.status).toBe(206);
+        expect(range.headers.get("content-range")).toBe(
+          `bytes 0-2/${bytes.length}`,
+        );
+        expect(await range.text()).toBe("ID3");
+        const tail = await fetch(path, { headers: { Range: "bytes=-32" } });
+        expect(Buffer.from(await tail.arrayBuffer())).toEqual(
+          bytes.subarray(-32),
+        );
+        expect(
+          (await fetch(path, { headers: { Range: "bytes=999999999-" } }))
+            .status,
+        ).toBe(416);
+        const head = await fetch(path, { method: "HEAD" });
+        expect(head.headers.get("content-length")).toBe(String(bytes.length));
+        expect(await head.text()).toBe("");
+      }
       expect(script.headers.get("content-type")).toContain("text/javascript");
       expect((await fetch(`${url}/package.json`)).status).toBe(404);
       expect((await fetch(`${url}/`, { method: "POST" })).status).toBe(404);

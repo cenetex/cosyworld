@@ -2,6 +2,7 @@ import http from "node:http";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { roomTracks } from "./music.mjs";
 
 const assets = new Map([
   ["/", ["index.html", "text/html"]],
@@ -17,6 +18,13 @@ const assets = new Map([
   ["/memory.mjs", ["memory.mjs", "text/javascript"]],
   ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
   ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
+  ["/music.mjs", ["music.mjs", "text/javascript"]],
+  ...Object.values(roomTracks)
+    .flat()
+    .map(({ file }) => [
+      `/assets/music/${file}`,
+      [`assets/music/${file}`, "audio/mpeg"],
+    ]),
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
@@ -95,13 +103,45 @@ export function createServer() {
     }
     try {
       const body = await readFile(new URL(asset[0], import.meta.url));
-      res.writeHead(200, {
-        "Content-Type": `${asset[1]}; charset=utf-8`,
+      const headers = {
+        "Content-Type":
+          asset[1] === "audio/mpeg" ? asset[1] : `${asset[1]}; charset=utf-8`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
           "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'",
-      });
+      };
+      if (asset[1] === "audio/mpeg") {
+        headers["Accept-Ranges"] = "bytes";
+        const range =
+          req.method === "GET" &&
+          /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+        if (range) {
+          const start = range[1]
+            ? Number(range[1])
+            : Math.max(0, body.length - Number(range[2]));
+          const end =
+            range[1] && range[2]
+              ? Math.min(Number(range[2]), body.length - 1)
+              : body.length - 1;
+          if (start > end || (!range[1] && !range[2])) {
+            res.writeHead(416, {
+              ...headers,
+              "Content-Range": `bytes */${body.length}`,
+            });
+            res.end();
+            return;
+          }
+          res.writeHead(206, {
+            ...headers,
+            "Content-Range": `bytes ${start}-${end}/${body.length}`,
+            "Content-Length": end - start + 1,
+          });
+          res.end(body.subarray(start, end + 1));
+          return;
+        }
+      }
+      res.writeHead(200, { ...headers, "Content-Length": body.length });
       res.end(req.method === "HEAD" ? undefined : body);
     } catch {
       res.writeHead(500);
