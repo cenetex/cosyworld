@@ -137,7 +137,7 @@ export function generateProgram(
   actor,
   places,
   things,
-  { independent = false } = {},
+  { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
   const actors = Object.keys(s.actors),
@@ -151,9 +151,17 @@ export function generateProgram(
     s.actors[ownerOf(s, item)]?.place || ownerOf(s, item);
   const bundle = (item) =>
     ids.filter((id) => id === item || s.items[id].holder === item);
-  const held = ids.filter((id) => ownerOf(s, id) === actor);
   const needed = (owner, item) =>
     bundle(item).some((id) => desireFor(s, owner).items.includes(id));
+  // A cast member does not build a new goal around keeping something another
+  // avatar wants now. It can then trade or give that item, so wants cannot
+  // lock each other out. Vale keeps carried items.
+  const wantedElsewhere = (item) =>
+    actor !== "vale" &&
+    actors.some((other) => other !== actor && needed(other, item));
+  const held = ids.filter(
+    (id) => ownerOf(s, id) === actor && !wantedElsewhere(id),
+  );
   const available = (item) => {
     const owner = ownerOf(s, item);
     return (
@@ -162,11 +170,32 @@ export function generateProgram(
       (!s.actors[owner] || owner === actor || !needed(owner, item))
     );
   };
+  // A long stall ends with an errand the actor can finish alone. It keeps only
+  // items no one else wants, so its spares become free to give.
+  if (solo) {
+    const away = reachable.filter((id) => id !== here);
+    const destination =
+      away[(progress.program + actors.indexOf(actor)) % away.length] || here;
+    return {
+      id: `generated-${actor}-${progress.program + 1}`,
+      name: "An errand alone",
+      steps: [carryTo(held.slice(0, 2), destination)],
+      generated: {
+        turn: s.turn,
+        level: levelOf(s, actor),
+        item: held[0] ?? null,
+        owner: actor,
+        partner: null,
+        solo: true,
+      },
+    };
+  }
   const rotation = (progress.program + actors.indexOf(actor)) % ids.length;
   const rotated = [...ids.slice(rotation), ...ids.slice(0, rotation)];
   const candidates = rotated.filter((id) => {
     const owner = ownerOf(s, id);
     if (s.items[s.items[id].holder] || !available(id)) return false;
+    if (owner === actor && wantedElsewhere(id)) return false;
     if (!independent || !s.actors[owner] || owner === actor) return true;
     const payment = desireFor(s, owner).items.filter(
       (item) => ownerOf(s, item) !== owner,
