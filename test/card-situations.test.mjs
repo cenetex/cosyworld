@@ -154,6 +154,21 @@ describe("situations and their consequences", () => {
     expect(() => decodeSave(JSON.stringify(s))).toThrow();
   });
 
+  it("keeps the first sighting in memory while later crossings record fresh movement", () => {
+    let s = continuing();
+    s.actors.vale.place = "attic";
+    s.items.lamp.holder = "vale";
+    s.items.lamp.lit = true;
+    s = use(s, "move", null, "pond");
+    s = use(s, "move", null, "attic");
+    expect(
+      s.log.filter((e) =>
+        e.text.includes("Something on the far shore turns its head"),
+      ),
+    ).toHaveLength(1);
+    expect(s.actors.vale.crossed).toBe(2);
+  });
+
   it("wrapping the bell makes a refuge that a new ringing ends", () => {
     let s = continuing();
     s.actors.vale.place = "pond";

@@ -881,6 +881,7 @@ function travel(s, actor, destination) {
 }
 function perform(s, a) {
   const who = nameOf(a.actor);
+  const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
   const witnesses = [
     ...actorIds.filter((id) => s.actors[id].place === here),
@@ -911,7 +912,8 @@ function perform(s, a) {
         const through = travel(s, a.actor, a.destination);
         travel(s, a.target, a.destination);
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
-        if (through) text += " Something on the far shore turns its head.";
+        if (through && firstCrossing)
+          text += " Something on the far shore turns its head.";
       } else {
         text += ` ${nameOf(a.target)} declines the trip. ${invitation.reason}`;
       }
@@ -984,7 +986,7 @@ function perform(s, a) {
       break;
     }
     case "move":
-      if (travel(s, a.actor, a.target))
+      if (travel(s, a.actor, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
     case "take":
