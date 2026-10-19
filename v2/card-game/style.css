@@ -631,17 +631,6 @@ h2 {
 [hidden] {
   display: none !important;
 }
-/* Keep the two-line stage steady while a first exchange is being written. */
-.prior-response[hidden] {
-  display: flex !important;
-  visibility: hidden;
-}
-.speech-line[hidden],
-.speech-hint[hidden] {
-  display: block !important;
-  visibility: hidden;
-}
-
 @media (min-width: 1400px) {
   .cast {
     inset: 44px 15% 250px;

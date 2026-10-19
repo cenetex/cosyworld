@@ -70,6 +70,36 @@ describe("JRPG scenes", () => {
     expect(currentScene(s).line.turn).toBe(2);
     expect(currentScene(s).previous.turn).toBe(2);
   });
+  it("holds the same reply when a long saved game trims earlier events", () => {
+    const write = (s) => {
+      const context = narrativeContext(s);
+      return applyGeneratedText(s, context, {
+        revision: s.revision,
+        model: "fixture",
+        entries: context.entities.map(({ id }) => ({
+          id,
+          text: `${id} watches turn ${s.turn}.`,
+        })),
+      });
+    };
+    let s = createWorld();
+    for (let turn = 0; turn < 95; turn++) s = act(write(s), "wait");
+    s = decodeSave(encodeSave(write(s)));
+    expect(s.turn).toBe(95);
+    expect(s.log).toHaveLength(100);
+    const old = currentScene(s).line;
+    s = act(s, "wait");
+    expect(currentScene(s, null, { seq: old.seq, hold: true }).line.seq).toBe(
+      old.seq,
+    );
+    s = write(s);
+    const held = currentScene(s, null, { seq: old.seq, hold: true });
+    expect(held.line.seq).toBe(old.seq);
+    expect(held.line.text).toBe(old.text);
+    expect(held.line.index).not.toBe(old.index);
+    expect(currentScene(s).line.turn).toBe(96);
+  });
+
   it("holds new words until the entrance is ready while keeping a chosen earlier reply", () => {
     let s = act(createWorld(), "wait");
     const context = narrativeContext(s);
