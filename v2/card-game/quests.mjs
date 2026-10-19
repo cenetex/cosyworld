@@ -1,3 +1,4 @@
+import { hasMotives, interest } from "./motives.mjs";
 import {
   conditionMet,
   requiredItems,
@@ -114,7 +115,9 @@ export const programFor = (s, actor) =>
   s.actors[actor].progress.current ||
   null;
 export const targetsFor = (s, actor) =>
-  alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]);
+  hasMotives(s)
+    ? [interest(s, actor)]
+    : alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]);
 const ownerOf = (s, item) => {
   let owner = s.items[item].holder;
   const seen = new Set([item]);

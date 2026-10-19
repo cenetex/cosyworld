@@ -1,3 +1,4 @@
+import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
 import {
   places,
@@ -157,6 +158,22 @@ export function cardPlay(world, selected) {
       people[rootHolder(world, id)] &&
       rootHolder(world, id) !== "vale",
   );
+  if (!action && heldByOther && hasMotives(world)) {
+    const give = cards.find(
+      (id) => things[id] && world.items[id].holder === "vale",
+    );
+    const other = rootHolder(world, heldByOther);
+    if (give) {
+      const decision = tradeDecision(world, "vale", give, heldByOther);
+      return result(
+        null,
+        decision.accepted
+          ? "Make room for both sides of the exchange."
+          : decision.reason,
+      );
+    }
+    return result(null, `${nameOf(other)}: ${interest(world, other).text}.`);
+  }
   if (!action && heldByOther)
     return result(
       null,
