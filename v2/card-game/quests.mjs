@@ -112,8 +112,7 @@ export const openingPrograms = {
     {
       id: "first-light",
       name: "Light the lamp",
-      purpose:
-        "Wake the attic mirror with the lamp. Its first light carries you to the shore.",
+      purpose: "Bring light to the attic.",
       steps: [hand(hold("lamp"), at("attic"), condition("lit", "lamp"))],
     },
     {

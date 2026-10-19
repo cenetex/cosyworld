@@ -28,6 +28,9 @@ scene.outcome is the resolved turn. Its card is the card Vale actually played. I
 
 For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
 
+KNOWLEDGE
+Use visible facts and witnessed events as knowledge. A new effect becomes known when a completed event reveals it. Treat an unfamiliar object or place with curiosity; future effects remain uncertain. Desires establish what an avatar wants. React to discoveries when they happen, with surprise, doubt or interest shaped by the speaker's personality. Let the player choose the next card.
+
 SPEECH
 Avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
 
@@ -524,7 +527,7 @@ async fn complete(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v9",
+        prompt_version: "card-entity-text-v10",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -598,6 +601,20 @@ mod tests {
             ]
         })).unwrap()
     }
+    #[test]
+    fn profiles_supply_visible_details_and_discoveries_come_from_events() {
+        let mut c = context();
+        c.location = "attic".into();
+        c.entities[1].id = "attic".into();
+        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        let personas = p["personas"].to_string();
+        assert!(personas.contains("soot-darkened glass"));
+        assert!(personas.contains("tall mirror reflecting a black shore"));
+        assert!(!personas.contains("makes reflections into paths"));
+        assert!(!personas.contains("Lamplight can open a path"));
+        assert!(SYSTEM.contains("A new effect becomes known when a completed event reveals it"));
+    }
+
     #[test]
     fn validates_resolved_turn_and_exact_travel_companions() {
         let mut c = context();

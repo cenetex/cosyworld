@@ -907,7 +907,7 @@ function render() {
   $("place-title").textContent = nameOf(world.actors.vale.place);
   $("path-state").textContent = reflectionOpen(world)
     ? "The reflected path is open"
-    : "Reflections open in lamplight";
+    : "The mirror holds a dark reflection";
   const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
   if (handKey !== renderedHand) {
     renderedHand = handKey;
