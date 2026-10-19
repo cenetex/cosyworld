@@ -15,7 +15,6 @@ import {
   sceneLines,
   sceneStaging,
   currentScene,
-  sceneMemory,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
 function gathered() {
@@ -47,7 +46,7 @@ function act(s, kind, item, target) {
   ).state;
 }
 describe("JRPG scenes", () => {
-  it("keeps destination memories on their own room and starts a fresh visit on return", () => {
+  it("starts a fresh scene on return and keeps earlier visits available for replay", () => {
     const write = (s) => {
       const context = narrativeContext(s);
       return applyGeneratedText(s, context, {
@@ -61,20 +60,15 @@ describe("JRPG scenes", () => {
     };
     let s = write(createWorld());
     const earlier = currentScene(s).line;
-    expect(sceneMemory(s, "station").text).toBe("station speaks on turn 0.");
     s = act(s, "move", null, "pond");
-    expect(sceneMemory(s, "station")).toBeNull();
     expect(currentScene(s).line).toBeNull();
     s = write(s);
     s = act(s, "move", null, "station");
     expect(currentScene(s)).toMatchObject({ line: null, previous: null });
-    expect(sceneMemory(s, "station")).toBeNull();
     expect(currentScene(s, earlier.index).line).toEqual(earlier);
     s = write(s);
     expect(currentScene(s).line.turn).toBe(2);
     expect(currentScene(s).previous.turn).toBe(2);
-    expect(sceneMemory(s, "station").text).toBe("station speaks on turn 2.");
-    expect(sceneMemory(s, "vale").text).toBe("vale speaks on turn 2.");
   });
   it("holds new words until the entrance is ready while keeping a chosen earlier reply", () => {
     let s = act(createWorld(), "wait");
