@@ -807,7 +807,11 @@ h2 {
     --cast-top: 18px;
     --cast-bottom: 242px;
     inset: auto 0 var(--cast-bottom);
-    height: min(580px, calc(100cqh - var(--cast-top) - var(--cast-bottom)));
+    height: min(
+      580px,
+      45vw,
+      calc(100cqh - var(--cast-top) - var(--cast-bottom))
+    );
     margin-inline: auto;
     width: min(
       90%,
