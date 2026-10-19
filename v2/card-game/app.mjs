@@ -15,6 +15,7 @@ import {
 } from "./dialogue.mjs";
 import {
   places,
+  placeText,
   people,
   things,
   nameOf,
@@ -49,7 +50,8 @@ import {
   avatarPlays,
 } from "./cards.mjs";
 import {
-  questPrograms,
+  programsFor,
+  knownActors,
   desireFor,
   programFor,
   levelOf,
@@ -61,7 +63,9 @@ const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
   "cosyworld.reflected-shore.v1" +
   (tableName && /^[a-z0-9-]{1,40}$/i.test(tableName) ? `.${tableName}` : "");
-let world = enableMotives(createWorld(), { questPrograms: true }),
+let world = enableMotives(createWorld({ opening: true }), {
+    questPrograms: true,
+  }),
   selected = [],
   saveBlocked = false,
   lineSeq = null,
@@ -420,7 +424,9 @@ function card(id) {
       ? !hasQuestPrograms(world)
         ? motiveFacts(world, id).join(". ")
         : `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
-      : def.text);
+      : type === "location"
+        ? placeText(world, id)
+        : def.text);
   el.append(
     node(
       "span",
@@ -653,7 +659,7 @@ function renderScene() {
   shownSceneLine = scene.line;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
-  img.alt = places[scene.locationId].text;
+  img.alt = placeText(world, scene.locationId);
   const staging = sceneStaging(world, {
     through: resolvedBeat ? world.log.length - 1 : scene.line?.index,
     cast: scene.slots,
@@ -761,7 +767,9 @@ function renderScene() {
         }),
       );
     }
-    figure.querySelector(".portrait-name").textContent = !hasQuestPrograms(world)
+    figure.querySelector(".portrait-name").textContent = !hasQuestPrograms(
+      world,
+    )
       ? nameOf(id)
       : `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
@@ -963,7 +971,7 @@ $("history-button").onclick = () => {
 $("menu-button").onclick = () => {
   if (!hasQuestPrograms(world)) {
     $("quest-guide").replaceChildren(
-      ...Object.keys(people).map((id) => {
+      ...knownActors(world).map((id) => {
         const block = node("section", undefined, "quest-guide-program");
         block.append(
           node("h3", nameOf(id)),
@@ -978,11 +986,16 @@ $("menu-button").onclick = () => {
   }
   $("quest-guide").replaceChildren(
     ...[
-      ...questPrograms.vale.map((program, index) => ({
-        program,
-        index,
-        actor: "vale",
-      })),
+      ...programsFor(world, "vale")
+        .filter(
+          (_, index) =>
+            !world.opening || index <= world.actors.vale.progress.program,
+        )
+        .map((program, index) => ({
+          program,
+          index,
+          actor: "vale",
+        })),
       ...(world.actors.vale.progress.current
         ? [
             {
@@ -992,7 +1005,7 @@ $("menu-button").onclick = () => {
             },
           ]
         : []),
-      ...Object.keys(people)
+      ...knownActors(world)
         .filter((id) => id !== "vale")
         .map((actor) => ({
           actor,
@@ -1058,7 +1071,9 @@ $("confirm-reset").onclick = () => {
   departed.clear();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createWorld(), { questPrograms: true });
+  world = enableMotives(createWorld({ opening: true }), {
+    questPrograms: true,
+  });
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";

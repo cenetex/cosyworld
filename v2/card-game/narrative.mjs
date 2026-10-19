@@ -13,7 +13,7 @@ import {
   standoffFor,
   opponentOf,
 } from "./world.mjs";
-import { desireFor, programFor } from "./quests.mjs";
+import { desireFor, programFor, knownActors } from "./quests.mjs";
 import { conditionMet, conditionText } from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
@@ -50,40 +50,49 @@ export function turnOutcome(world) {
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
     },
-    avatars: Object.entries(world.actors).map(([id, actor]) => {
-      const movement = events.findLast(
-        (entry) =>
-          entry.fromLocationId &&
-          entry.fromLocationId !== entry.locationId &&
-          entry.locationId === actor.place &&
-          (entry.actorId === id ||
-            (entry.verb === "accompany" &&
-              entry.accepted &&
-              entry.targetId === id)),
-      );
-      const shared = movement?.verb === "accompany" && movement.accepted;
-      return {
+    avatars: Object.entries(world.actors)
+      .filter(([id]) => knownActors(world).includes(id))
+      .map(([id, actor]) => {
+        const movement = events.findLast(
+          (entry) =>
+            entry.fromLocationId &&
+            entry.fromLocationId !== entry.locationId &&
+            entry.locationId === actor.place &&
+            (entry.actorId === id ||
+              (entry.verb === "accompany" &&
+                entry.accepted &&
+                entry.targetId === id)),
+        );
+        const shared = movement?.verb === "accompany" && movement.accepted;
+        return {
+          id,
+          location: actor.place,
+          holding: carried(world, id),
+          travel: movement
+            ? {
+                from: movement.fromLocationId,
+                to: movement.locationId,
+                companions: shared
+                  ? [movement.actorId, movement.targetId].filter(
+                      (other) => other !== id,
+                    )
+                  : [],
+              }
+            : null,
+        };
+      }),
+    items: Object.entries(world.items)
+      .filter(
+        ([id]) =>
+          !world.opening ||
+          knownActors(world).includes(rootHolder(world, id)) ||
+          itemPlace(world, id) === world.actors.vale.place,
+      )
+      .map(([id, item]) => ({
         id,
-        location: actor.place,
-        holding: carried(world, id),
-        travel: movement
-          ? {
-              from: movement.fromLocationId,
-              to: movement.locationId,
-              companions: shared
-                ? [movement.actorId, movement.targetId].filter(
-                    (other) => other !== id,
-                  )
-                : [],
-            }
-          : null,
-      };
-    }),
-    items: Object.entries(world.items).map(([id, item]) => ({
-      id,
-      holder: item.holder,
-      location: itemPlace(world, id),
-    })),
+        holder: item.holder,
+        location: itemPlace(world, id),
+      })),
   };
 }
 
@@ -210,7 +219,18 @@ export function narrativeContext(world, action = null) {
         const purpose = hasQuestPrograms(world)
           ? programFor(world, id)?.purpose
           : null;
-        if (hasMotives(world)) facts.push(...motiveFacts(world, id, 2));
+        if (hasMotives(world)) {
+          const personal = motiveFacts(world, id, 2);
+          facts.push(
+            ...(world.opening && !world.opening.crossed
+              ? personal.slice(0, 1)
+              : personal),
+          );
+        }
+        if (world.opening?.met[id] === world.turn && id !== "vale")
+          facts.push(
+            "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
+          );
         if (purpose) facts.push(`Reason for the desire: ${purpose}`);
         for (const c of target.conditions || [])
           facts.push(
@@ -259,7 +279,7 @@ export function narrativeContext(world, action = null) {
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
         facts.push(
-          `Paths open to: ${exits(world, id).map(nameOf).join(", ")}.`,
+          `Paths open to: ${exits(world, id).map(nameOf).join(", ") || "the mirror is waiting for lamplight"}.`,
         );
         if (id === "attic" || id === "pond")
           facts.push(

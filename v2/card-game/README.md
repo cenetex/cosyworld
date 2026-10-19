@@ -14,9 +14,17 @@ The card rules still commit movement, trades, quest progress and inventory. The 
 
 Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Scene exports include entity memories and generated beats.
 
+## Opening in the attic
+
+New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and carries Vale alone through the mirror to Black pond, where Pip is waiting. The mirror then holds a permanent path between attic and pond, including when the lamp runs dry. The shore path joins the pond and station. The attic and station connect through the pond.
+
+The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The first crossing records the Light play, the fulfilled hand in the attic, and the separate trip to the pond, so the scene and dialogue have the same result.
+
+Existing saves keep their station start, original routes, authored programs, and earned progress. The core's `createWorld()` remains the legacy fixture; the browser explicitly chooses the new opening for fresh tables and New game.
+
 ## Shore experiment
 
-The browser starts and loads worlds with `enableMotives`. Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules, and turn order. Each avatar card shows its current interest, tastes, latest grievance, and possible offers. Menu gives the remembered incidents in full.
+The browser starts and loads worlds with `enableMotives`. Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules, and turn order. Each avatar card shows its target hand, quest progress, and possible offers. Menu shows the programs of the discovered cast.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
 
@@ -26,7 +34,7 @@ Accompany requests use current interests, the items carried by the requester, fa
 
 Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and chooses a fresh purpose from the current world. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
-A first exchange: take the lamp, then the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
+At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
 ## Local play
 
@@ -38,7 +46,7 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Guard and Attack to their cards. Each has four resolve. An attack removes two resolve between equal levels, three against a lower level, and one against a higher level. Guard softens the next hit by one, with a minimum of one damage, until that avatar's next play.
 
-Talk and item trades stay available during a standoff. Travel ends it; releasing the disputed item settles it. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along a normal path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
+Talk and item trades stay available during a standoff. Travel ends it; releasing the disputed item settles it. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along an open path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
 
 The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
