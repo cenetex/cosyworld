@@ -165,30 +165,41 @@ h1 {
 }
 .cast {
   position: absolute;
-  inset: 58px 12% 249px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  inset: 58px 7% 250px;
   pointer-events: none;
 }
 .portrait {
-  height: 100%;
-  width: 40%;
-  max-width: 370px;
-  position: relative;
-  border: 0;
-  background: transparent;
-  padding: 0;
+  position: absolute;
+  left: var(--stage-x);
+  bottom: var(--stage-floor);
+  height: var(--stage-size);
+  aspect-ratio: 2 / 3;
+  transform: translateX(-50%);
   pointer-events: none;
   transition:
-    filter 0.25s,
-    opacity 0.3s,
-    transform 0.3s;
-  filter: brightness(0.85);
-  outline-offset: -4px;
+    opacity 0.36s,
+    translate 0.36s;
 }
-.portrait.active {
-  filter: brightness(1.13);
+.portrait[data-depth="foreground"] {
+  z-index: 3;
+}
+.portrait[data-depth="middle"] {
+  z-index: 2;
+}
+.portrait[data-depth="back"] {
+  z-index: 1;
+}
+.portrait-body {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 99%;
+  transition:
+    filter 0.22s,
+    transform 0.22s;
+}
+.portrait.active .portrait-body {
+  filter: brightness(1.08);
+  transform: translateY(-2px) rotate(var(--lean));
 }
 .portrait img {
   width: 100%;
@@ -197,20 +208,50 @@ h1 {
   object-position: bottom;
   filter: drop-shadow(0 8px 14px #08091390);
 }
+.portrait img[data-flip="true"] {
+  transform: scaleX(-1);
+}
 .portrait .portrait-name {
   position: absolute;
-  bottom: 16px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   background: #181925e8;
-  padding: 5px 12px;
+  padding: 4px 9px;
   border: 1px solid #8e7e65;
   border-radius: 3px;
   font-size: 11px;
   white-space: nowrap;
 }
-.portrait.empty {
-  visibility: hidden;
+.portrait-props {
+  position: absolute;
+  left: 66%;
+  top: 52%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.portrait[data-facing="left"] .portrait-props {
+  left: 18%;
+}
+.portrait-prop {
+  display: block;
+  width: clamp(12px, 2.5vh, 25px);
+  height: clamp(12px, 2.5vh, 25px);
+  color: #efd8a2;
+  filter: drop-shadow(0 1px 2px #000);
+}
+.portrait-prop svg {
+  width: 100%;
+  height: 100%;
+  fill: #29242d;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.portrait-prop.glowing {
+  filter: drop-shadow(0 0 6px #ffd693);
 }
 .dialogue {
   position: absolute;
@@ -603,7 +644,7 @@ h2 {
 
 @media (min-width: 1400px) {
   .cast {
-    inset: 44px 20% 249px;
+    inset: 44px 15% 250px;
   }
   .hand {
     gap: 16px;
@@ -644,14 +685,23 @@ h2 {
     margin: 5px 0;
   }
   .cast {
-    inset: 65px 3% 235px;
+    inset: 65px 4% 235px;
   }
-  .portrait {
-    width: 48%;
+  .cast[data-count="3"] .portrait[data-depth="foreground"] {
+    left: 19%;
+  }
+  .cast[data-count="3"][data-layout="foreground-right"]
+    .portrait[data-depth="foreground"] {
+    left: 81%;
   }
   .portrait .portrait-name {
     bottom: 0;
     font-size: 9px;
+    padding: 3px 5px;
+  }
+  .cast[data-count="3"] .portrait[data-depth="back"] .portrait-name {
+    bottom: 100%;
+    margin-bottom: 3px;
   }
   .dialogue {
     width: calc(100% - 20px);
@@ -848,7 +898,7 @@ h2 {
 /* Let the farewell finish before the cutout leaves its existing slot. */
 .portrait.departed {
   opacity: 0;
-  transform: translateX(18px);
+  translate: var(--exit-x) 0;
 }
 .hand[data-cooling="true"] .card,
 .hand[data-cooling="true"] .card-options button {
@@ -857,4 +907,17 @@ h2 {
 }
 .hand[data-cooling="true"] .card:hover {
   transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portrait,
+  .portrait-body {
+    transition: none;
+  }
+  .portrait.active .portrait-body {
+    transform: none;
+  }
+  .portrait.departed {
+    translate: 0 0;
+  }
 }
