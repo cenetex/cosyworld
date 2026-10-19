@@ -14,7 +14,7 @@ pub(super) fn text_router<S: Clone + Send + Sync + 'static>(
 
 use axum::{
     extract::Path,
-    http::{header, StatusCode},
+    http::{header, HeaderMap, Method, StatusCode},
     response::{IntoResponse, Redirect, Response},
     routing::get,
     Router,
@@ -45,8 +45,75 @@ async fn index() -> Response {
     serve("index.html")
 }
 
-async fn asset(Path(path): Path<String>) -> Response {
-    serve(&path)
+async fn asset(Path(path): Path<String>, method: Method, headers: HeaderMap) -> Response {
+    let response = serve(&path);
+    if path.ends_with(".mp3") && response.status() == StatusCode::OK {
+        return music_range(
+            response,
+            if method == Method::GET {
+                headers
+                    .get(header::RANGE)
+                    .and_then(|value| value.to_str().ok())
+            } else {
+                None
+            },
+        )
+        .await;
+    }
+    response
+}
+
+// Browsers use byte ranges to load MP3 metadata and resume long tracks.
+async fn music_range(response: Response, range: Option<&str>) -> Response {
+    let (mut parts, body) = response.into_parts();
+    let Ok(bytes) = axum::body::to_bytes(body, usize::MAX).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let length = bytes.len();
+    parts
+        .headers
+        .insert(header::ACCEPT_RANGES, "bytes".parse().unwrap());
+    parts.headers.insert(header::CONTENT_LENGTH, length.into());
+    let Some(value) = range.and_then(|value| value.strip_prefix("bytes=")) else {
+        return Response::from_parts(parts, bytes.into());
+    };
+    // A full response also satisfies clients that ask for several ranges.
+    if value.contains(',') {
+        return Response::from_parts(parts, bytes.into());
+    }
+    let bounds = value.split_once('-').and_then(|(start, end)| {
+        if start.is_empty() {
+            let count = end.parse::<usize>().ok()?;
+            (count > 0).then_some((length.saturating_sub(count), length - 1))
+        } else {
+            let start = start.parse::<usize>().ok()?;
+            let end = if end.is_empty() {
+                length - 1
+            } else {
+                end.parse::<usize>().ok()?.min(length - 1)
+            };
+            (start <= end).then_some((start, end))
+        }
+    });
+    if let Some((start, end)) = bounds {
+        parts.status = StatusCode::PARTIAL_CONTENT;
+        parts.headers.insert(
+            header::CONTENT_RANGE,
+            format!("bytes {start}-{end}/{length}").parse().unwrap(),
+        );
+        parts
+            .headers
+            .insert(header::CONTENT_LENGTH, (end - start + 1).into());
+        Response::from_parts(parts, bytes.slice(start..=end).into())
+    } else {
+        parts.status = StatusCode::RANGE_NOT_SATISFIABLE;
+        parts.headers.insert(
+            header::CONTENT_RANGE,
+            format!("bytes */{length}").parse().unwrap(),
+        );
+        parts.headers.insert(header::CONTENT_LENGTH, 0.into());
+        Response::from_parts(parts, axum::body::Body::empty())
+    }
 }
 
 fn serve(path: &str) -> Response {
@@ -100,6 +167,34 @@ fn serve(path: &str) -> Response {
         "narrative.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/narrative.mjs"),
+        ),
+        "music.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/music.mjs"),
+        ),
+        "assets/music/attic-1.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/attic-1.mp3"),
+        ),
+        "assets/music/attic-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/attic-2.mp3"),
+        ),
+        "assets/music/pond-1.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/pond-1.mp3"),
+        ),
+        "assets/music/pond-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/pond-2.mp3"),
+        ),
+        "assets/music/station-1.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/station-1.mp3"),
+        ),
+        "assets/music/station-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/station-2.mp3"),
         ),
         "entity-profiles.json" => (
             "application/json; charset=utf-8",
@@ -206,6 +301,13 @@ mod tests {
             "memory.mjs",
             "narrative.mjs",
             "dialogue.mjs",
+            "music.mjs",
+            "assets/music/attic-1.mp3",
+            "assets/music/attic-2.mp3",
+            "assets/music/pond-1.mp3",
+            "assets/music/pond-2.mp3",
+            "assets/music/station-1.mp3",
+            "assets/music/station-2.mp3",
             "entity-profiles.json",
             "assets/station.png",
             "assets/attic.png",
@@ -227,6 +329,9 @@ mod tests {
             if path.ends_with(".png") {
                 assert_eq!(content_type, "image/png");
                 assert_eq!(&body[..8], b"\x89PNG\r\n\x1a\n");
+            } else if path.ends_with(".mp3") {
+                assert_eq!(content_type, "audio/mpeg");
+                assert_eq!(&body[..3], b"ID3");
             } else if path.ends_with(".mjs") {
                 assert_eq!(content_type, "text/javascript; charset=utf-8");
             }
@@ -251,5 +356,46 @@ mod tests {
             request(true, "/", "POST").await.status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
+    }
+
+    #[tokio::test]
+    async fn music_supports_browser_range_requests() {
+        let song = include_bytes!("../../card-game/assets/music/attic-1.mp3");
+        for (range, expected) in [
+            ("bytes=0-2", Some((0, 2))),
+            ("bytes=100-", Some((100, song.len() - 1))),
+            ("bytes=-32", Some((song.len() - 32, song.len() - 1))),
+            ("bytes=4-999999999", Some((4, song.len() - 1))),
+            ("bytes=999999999-", None),
+            ("bytes=9-2", None),
+            ("bytes=-0", None),
+        ] {
+            let response = router::<()>(true)
+                .oneshot(
+                    Request::builder()
+                        .uri("/card-game/assets/music/attic-1.mp3")
+                        .header(header::RANGE, range)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.headers()[header::ACCEPT_RANGES], "bytes");
+            if let Some((start, end)) = expected {
+                assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT, "{range}");
+                assert_eq!(
+                    response.headers()[header::CONTENT_RANGE],
+                    format!("bytes {start}-{end}/{}", song.len())
+                );
+                let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+                assert_eq!(&body[..], &song[start..=end]);
+            } else {
+                assert_eq!(
+                    response.status(),
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    "{range}"
+                );
+            }
+        }
     }
 }
