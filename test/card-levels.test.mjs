@@ -80,6 +80,23 @@ describe("XP and levels in the card core", () => {
     expect(Math.min(...Object.values(xp))).toBeGreaterThan(0);
   }, 60_000);
 
+  it("pays no XP for quests that ask for what is already true", () => {
+    // One place: every goal the holder could set is met where it stands.
+    let s = createWorld({
+      id: "nook",
+      places: [{ id: "nook", name: "Nook", exits: [] }],
+      avatars: [{ id: "ana", name: "Ana", role: "player", place: "nook" }],
+      items: [{ id: "cup", name: "Cup", holder: "ana" }],
+    });
+    for (let i = 0; i < 200; i++)
+      s = act(
+        s,
+        legalActions(s, "ana").find((a) => a.kind === "wait"),
+      );
+    expect(s.avatars.ana.progress.xp).toBe(0);
+    expect(levelOf(s, "ana")).toBe(1);
+  });
+
   it("levels the shore slowly, with bigger quests at higher levels", () => {
     let s = createWorld(shore);
     const gained = [];

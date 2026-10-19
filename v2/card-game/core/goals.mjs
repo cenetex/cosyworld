@@ -166,18 +166,28 @@ export function choiceHash(...parts) {
 
 // A quest is worth XP for each hand, each item it asks for, and each step of
 // travel between its hands, plus a bonus when it asks for an item not yet made
-// or opens a doorway. It is fixed when the quest is made.
+// or opens a doorway. It is fixed when the quest is made. A hand that would
+// already be met when the avatar reaches it is worth nothing, so a quest that
+// asks for what is already true pays no XP.
 export function questXp(s, avatar, quest) {
   const r = s.rules;
+  const held = new Set(carried(s, avatar));
   let at = s.avatars[avatar].place,
     xp = 0;
+  const met = (h) =>
+    h.items.every((id) => held.has(id)) &&
+    (!h.location || h.location === at) &&
+    h.avatars.every((id) => s.avatars[id].place === (h.location || at));
   for (const step of quest.steps) {
-    const h = alternatives(step)[0];
-    xp += r.xpPerHand + r.xpPerItem * h.items.length;
-    if (h.location) {
-      xp += r.xpPerHop * (distances(s, at).get(h.location) ?? 1);
-      at = h.location;
+    const any = alternatives(step);
+    const h = any[0];
+    if (!any.some(met)) {
+      xp += r.xpPerHand + r.xpPerItem * h.items.length;
+      if (h.location)
+        xp += r.xpPerHop * (distances(s, at).get(h.location) ?? 1);
     }
+    for (const id of h.items) held.add(id);
+    if (h.location) at = h.location;
   }
   const { item, door } = quest.generated;
   if (item && s.items[item].holder === null) xp += r.xpForMake;
