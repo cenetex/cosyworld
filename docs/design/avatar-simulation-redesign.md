@@ -68,6 +68,11 @@ volume control; the browser saves both settings. Music pauses while the tab is
 hidden and resumes when the player returns. Track sources are listed in
 `v2/card-game/assets/music/PROVENANCE.md`.
 
+Room changes fade the current song to silence over one second, then start the
+next song with a one-second fade in. Pausing and resuming use the same fades.
+Each song also fades during its final second. Volume changes ease into the new
+level, and quick room changes follow the latest selected room.
+
 The scene contains Vale, Pip, the keeper, three places, and four items. All world actions come from the cards in the bottom row. Each play gives the cast one act and burns one unit of fuel in a burning lamp.
 
 | Cards                             | Play                                             |

@@ -10,6 +10,25 @@ try {
     viewport: { width: 1280, height: 800 },
   });
   page.setDefaultTimeout(15_000);
+  await page.addInitScript(() => {
+    window.musicStops = [];
+    const connect = MediaElementAudioSourceNode.prototype.connect;
+    MediaElementAudioSourceNode.prototype.connect = function (node, ...args) {
+      window.musicGain = node;
+      return connect.call(this, node, ...args);
+    };
+    for (const method of ["pause", "load"]) {
+      const original = HTMLMediaElement.prototype[method];
+      HTMLMediaElement.prototype[method] = function (...args) {
+        if (this.id === "room-music")
+          window.musicStops.push({
+            method,
+            level: window.musicGain?.gain.value || 0,
+          });
+        return original.apply(this, args);
+      };
+    }
+  });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/card-game/text", (route) =>
@@ -31,6 +50,13 @@ try {
   await page.waitForFunction(
     () => document.querySelector("#room-music").currentTime > 0,
   );
+  let volume = 0.3;
+  const fullVolume = () =>
+    page.waitForFunction(
+      (volume) => Math.abs(window.musicGain.gain.value - volume) < 0.002,
+      volume,
+    );
+  await fullVolume();
 
   async function checkPair(room) {
     for (const number of [1, 2]) {
@@ -46,12 +72,17 @@ try {
         },
         { room, number },
       );
+      await fullVolume();
       const duration = await page.locator("#room-music").evaluate((audio) => {
         const duration = audio.duration;
-        audio.currentTime = duration - 0.1;
+        audio.currentTime = duration - 1.25;
         return duration;
       });
       assert(duration > 30, `${room} track ${number} has a decoded duration`);
+      await page.waitForFunction((volume) => {
+        const level = window.musicGain.gain.value;
+        return level > 0.01 && level < volume - 0.02;
+      }, volume);
     }
     await page.waitForFunction(
       (room) =>
@@ -65,10 +96,8 @@ try {
     input.value = "18";
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  assert.equal(
-    await page.locator("#room-music").evaluate((audio) => audio.volume),
-    0.18,
-  );
+  volume = 0.18;
+  await fullVolume();
   await page.locator('[data-close="menu-dialog"]').click();
 
   async function playCard(card) {
@@ -79,7 +108,18 @@ try {
     await page.locator(`[data-card="${card}"]`).click();
   }
   async function travel(room, card = room) {
+    await fullVolume();
+    const oldSource = await page.locator("#room-music").getAttribute("src");
     await playCard(card);
+    assert.equal(
+      await page.locator("#room-music").getAttribute("src"),
+      oldSource,
+    );
+    assert(await page.evaluate(() => window.musicGain.gain.value > 0));
+    await page.waitForFunction((volume) => {
+      const level = window.musicGain.gain.value;
+      return level > 0.01 && level < volume - 0.02;
+    }, volume);
     await page.waitForFunction(
       (room) =>
         document.querySelector("#room-music").src.endsWith(`${room}-1.mp3`),
@@ -92,15 +132,29 @@ try {
   await playCard("moth");
   await travel("station");
   console.log("Station tracks played");
+  await fullVolume();
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
-  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
+  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  await page.waitForFunction(
+    () => document.querySelector("#room-music").paused,
+  );
   await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
   await page.locator("#menu-button").click();
+  await fullVolume();
   await page.locator("#music-toggle").click();
-  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
+  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  await page.waitForFunction(
+    () => document.querySelector("#room-music").paused,
+  );
+  assert(
+    await page.evaluate(() =>
+      window.musicStops.every(({ level }) => level < 0.003),
+    ),
+    "Track changes and pauses happen after the gain reaches silence",
+  );
   await page.reload();
   await page.locator("#menu-button").click();
   assert.equal(
@@ -117,10 +171,18 @@ try {
   await page.locator("#music-volume").scrollIntoViewIfNeeded();
   assert(await page.locator("#music-volume").isVisible());
   assert(await page.locator("#music-toggle").isVisible());
+  await fullVolume();
+  await page.locator("#music-toggle").click();
+  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  await page.waitForFunction(
+    () => document.querySelector("#room-music").paused,
+  );
+  await page.locator("#music-toggle").click();
+  await fullVolume();
   await page.screenshot({ path: "/private/tmp/shore-room-music-mobile.png" });
   assert.deepEqual(errors, []);
   console.log(
-    "Room music: all six MP3s decoded and played; room travel, two-track loops, saved controls, tab pause/resume, and mobile menu passed.",
+    "Room music: all six MP3s played with fades at track endings, room changes, and pause/resume; saved controls and mobile menu passed.",
   );
 } finally {
   await browser.close();
