@@ -124,7 +124,9 @@ export function sceneStaging(
       mirror ? 100 - positions[i][0] : positions[i][0],
     ]),
   );
-  const events = history.filter((e) => e.turn === line?.turn && !e.generated);
+  const events = history.filter(
+    (e) => e.turn === (line?.turn ?? world.turn) && !e.generated,
+  );
   const played = events.findLast(
     (e) => e.kind === "action" && e.actorId === "vale",
   );

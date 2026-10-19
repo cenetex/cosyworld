@@ -228,6 +228,10 @@ describe("JRPG scenes", () => {
     });
     dialogue(s, "moth", { generated: true, cast: ["vale", "moth", "keeper"] });
     const stage = sceneStaging(s);
+    expect(
+      sceneStaging(s, { line: null }).actors.find((a) => a.id === "vale")
+        .movement,
+    ).toEqual(stage.actors.find((a) => a.id === "vale").movement);
     expect(stage.actors.find((a) => a.id === "vale")).toMatchObject({
       movement: { kind: "arrive", companions: ["moth"] },
       items: [{ id: "lamp", lit: true, fuel: 4 }, { id: "cloth" }],
