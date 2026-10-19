@@ -11,6 +11,7 @@
     <script type="module" src="./app.mjs"></script>
   </head>
   <body>
+    <audio id="room-music" preload="none" hidden></audio>
     <header class="topbar">
       <div class="brand">COSYWORLD <span>The reflected shore</span></div>
       <div class="top-actions">
@@ -148,6 +149,14 @@
       <button id="speech-sound" type="button" aria-pressed="true">
         Voice sounds: on
       </button>
+      <div class="music-controls">
+        <button id="music-toggle" type="button" aria-pressed="true">
+          Music: on
+        </button>
+        <label for="music-volume">Music volume</label>
+        <input id="music-volume" type="range" min="0" max="100" value="30" />
+      </div>
+      <p id="music-status" class="music-status" aria-live="polite"></p>
       <div id="quest-guide" aria-label="Quest programs"></div>
       <p>Your game saves in this browser. History holds the scene script.</p>
       <button id="new-game">New game</button>

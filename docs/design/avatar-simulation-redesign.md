@@ -62,6 +62,12 @@ Use short language on cards. Give an unusual item one clear power. Let its name 
 
 Run `npm run play:cards` from the repository, then open `http://127.0.0.1:4177/`.
 
+Each room has two music tracks that play in turn. Music starts with the first
+tap or key press and follows Vale between rooms. Menu has a music switch and
+volume control; the browser saves both settings. Music pauses while the tab is
+hidden and resumes when the player returns. Track sources are listed in
+`v2/card-game/assets/music/PROVENANCE.md`.
+
 The scene contains Vale, Pip, the keeper, three places, and four items. All world actions come from the cards in the bottom row. Each play gives the cast one act and burns one unit of fuel in a burning lamp.
 
 | Cards                             | Play                                             |

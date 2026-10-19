@@ -6,6 +6,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
+import { createRoomMusic } from "./music.mjs";
 import { conditionText } from "./situations.mjs";
 import {
   createTextReveal,
@@ -303,6 +304,60 @@ $("speech-sound").onclick = () => {
   updateSoundButton();
 };
 updateSoundButton();
+let musicEnabled = true,
+  musicVolume = 0.3;
+try {
+  const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
+  if (typeof saved?.enabled === "boolean") musicEnabled = saved.enabled;
+  if (Number.isFinite(saved?.volume))
+    musicVolume = Math.max(0, Math.min(1, saved.volume));
+} catch {}
+const music = createRoomMusic({
+  audio: $("room-music"),
+  changed: ({ enabled, title, playing, failed }) => {
+    $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
+    $("music-toggle").setAttribute("aria-pressed", String(enabled));
+    $("music-status").textContent = !enabled
+      ? "Music paused"
+      : failed
+        ? "Music is taking a moment. Switch it off and on to retry."
+        : playing
+          ? title
+          : "Tap or press a key to start music.";
+  },
+});
+music.setEnabled(musicEnabled);
+music.setVolume(musicVolume);
+music.setHidden(document.hidden);
+$("music-volume").value = String(Math.round(musicVolume * 100));
+function saveMusicSettings() {
+  try {
+    localStorage.setItem(
+      "cosyworld.room-music",
+      JSON.stringify({ enabled: musicEnabled, volume: musicVolume }),
+    );
+  } catch {}
+}
+$("music-toggle").onclick = () => {
+  musicEnabled = !musicEnabled;
+  music.setEnabled(musicEnabled);
+  if (musicEnabled) music.unlock();
+  saveMusicSettings();
+};
+$("music-volume").oninput = (event) => {
+  musicVolume = Number(event.target.value) / 100;
+  music.setVolume(musicVolume);
+  saveMusicSettings();
+};
+document.addEventListener("pointerdown", () => music.unlock(), {
+  capture: true,
+});
+document.addEventListener("keydown", () => music.unlock(), { capture: true });
+document.addEventListener("visibilitychange", () =>
+  music.setHidden(document.hidden),
+);
+window.addEventListener("pagehide", () => music.setHidden(true));
+window.addEventListener("pageshow", () => music.setHidden(document.hidden));
 const narrator = createNarrator({
   getWorld: () => world,
   apply: (next) => {
@@ -901,6 +956,7 @@ function renderLog() {
 }
 
 function render() {
+  music.setRoom(world.actors.vale.place);
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("turn").textContent = `Turn ${world.turn}`;
