@@ -564,6 +564,8 @@ function takeUnveiled() {
     shown = $("unveil-card").firstElementChild,
     start = shown?.getBoundingClientRect();
   dialog.close();
+  // The showpiece leaves the page, so only the hand holds this card.
+  $("unveil-card").replaceChildren();
   renderedHand = "";
   render();
   const slot = $("hand")
