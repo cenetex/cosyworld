@@ -51,10 +51,6 @@ impl AvatarContextMode {
             Self::Dream | Self::SelfDescription => 5,
         }
     }
-
-    fn includes_recollections(self) -> bool {
-        self != Self::Respond
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -211,6 +207,14 @@ pub(crate) struct AvatarContextPromptOptions {
 }
 
 impl AvatarContextSpine {
+    fn recollection_limit(&self, mode: AvatarContextMode) -> usize {
+        match mode {
+            AvatarContextMode::Respond if self.speaker.control_mode == "direct_input" => 0,
+            AvatarContextMode::Respond => 2,
+            _ => AVATAR_CONTEXT_TOP_RECOLLECTIONS,
+        }
+    }
+
     pub(crate) fn is_current(&self) -> bool {
         self.schema_version == AVATAR_CONTEXT_SPINE_VERSION
             && self.speaker.actor_id != 0
@@ -578,11 +582,11 @@ impl AvatarContextSpine {
                 false,
             );
         }
-        if mode.includes_recollections() {
+        if self.recollection_limit(mode) > 0 {
             for recollection in self
                 .selected_recollections
                 .iter()
-                .take(AVATAR_CONTEXT_TOP_RECOLLECTIONS)
+                .take(self.recollection_limit(mode))
             {
                 prompt = prompt.user(
                     format!(
@@ -731,14 +735,23 @@ impl AvatarContextSpine {
                     true,
                 );
             }
-            let persona = if self.speaker.stable_traits.trim().is_empty() {
-                &self.speaker.description
-            } else {
+            let persona = if self.speaker.description.trim().is_empty() {
                 &self.speaker.stable_traits
+            } else {
+                &self.speaker.description
             };
             let system_awakening = self.reviewed_awakening().unwrap_or_default();
             if !persona.trim().is_empty() && persona.trim() != system_awakening.trim() {
                 add(format!("my character: {}", persona.trim()), 98, true);
+            }
+            if !self.speaker.stable_traits.trim().is_empty()
+                && self.speaker.stable_traits.trim() != persona.trim()
+            {
+                add(
+                    format!("my roots: {}", self.speaker.stable_traits.trim()),
+                    96,
+                    true,
+                );
             }
             if !self.speaker.voice.trim().is_empty()
                 && self.speaker.voice.trim() != persona.trim()
@@ -805,7 +818,12 @@ impl AvatarContextSpine {
                 .filter(|item| at_or_after_floor(item.source_event_seq, floor))
                 .take(FREE_CONTEXT_RECOLLECTIONS)
             {
-                add(recollection.text.clone(), 74, false);
+                let lead = match recollection.kind.as_str() {
+                    "dream" => "i remember dreaming",
+                    "thought" => "i remember thinking",
+                    _ => "i remember",
+                };
+                add(format!("{lead}: {}", recollection.text), 74, false);
             }
         }
         prompt = prompt.evidence(
@@ -917,11 +935,7 @@ impl AvatarContextSpine {
         anchors.extend(
             self.selected_recollections
                 .iter()
-                .take(if mode.includes_recollections() {
-                    AVATAR_CONTEXT_TOP_RECOLLECTIONS
-                } else {
-                    0
-                })
+                .take(self.recollection_limit(mode))
                 .map(|memory| memory.text.clone()),
         );
         anchors
@@ -1752,6 +1766,69 @@ mod tests {
             assert!(rendered.user.contains(text));
             assert!(!rendered.system.contains(text));
         }
+    }
+
+    #[test]
+    fn free_context_keeps_evolved_persona_and_authored_roots() {
+        let spine = AvatarContextSpine {
+            speaker: AvatarContextActor {
+                actor_id: 999_999,
+                description: "I now trust my friends enough to ask for help.".to_string(),
+                stable_traits: "I am a proud and solitary gardener.".to_string(),
+                ..AvatarContextActor::default()
+            },
+            selected_recollections: vec![AvatarContextRecollection {
+                kind: "dream".to_string(),
+                text: "The garden floated above the river.".to_string(),
+                source_event_seq: Some(4),
+                salience: 90,
+            }],
+            ..AvatarContextSpine::default()
+        };
+        let prompt = spine.free_context_prompt_from(0).render_for_test();
+        assert!(prompt.user.contains("my character: I now trust my friends"));
+        assert!(prompt
+            .user
+            .contains("my roots: I am a proud and solitary gardener"));
+        assert!(prompt
+            .user
+            .contains("i remember dreaming: The garden floated"));
+    }
+
+    #[test]
+    fn autonomous_speech_uses_its_own_bounded_recollections() {
+        let mut spine = AvatarContextSpine {
+            speaker: AvatarContextActor {
+                actor_id: 999_999,
+                control_mode: "autonomous".to_string(),
+                ..AvatarContextActor::default()
+            },
+            selected_recollections: (0..3)
+                .map(|index| AvatarContextRecollection {
+                    kind: "thought".to_string(),
+                    text: format!("Private garden memory {index}"),
+                    source_event_seq: Some(index + 1),
+                    salience: 90,
+                })
+                .collect(),
+            ..AvatarContextSpine::default()
+        };
+        let options = || AvatarContextPromptOptions {
+            mode: AvatarContextMode::Respond,
+            speech_mode: SpeechMode::Prose,
+            max_words: 34,
+            response_job: "speak".to_string(),
+        };
+        let prompt = spine.prompt(options()).render_for_test();
+        assert!(prompt.user.contains("Private garden memory 0"));
+        assert!(prompt.user.contains("Private garden memory 1"));
+        assert!(!prompt.user.contains("Private garden memory 2"));
+        assert!(spine
+            .anchors(AvatarContextMode::Respond)
+            .contains(&"Private garden memory 0".to_string()));
+        spine.speaker.control_mode = "direct_input".to_string();
+        let direct = spine.prompt(options()).render_for_test();
+        assert!(!direct.user.contains("RECOLLECTION · thought"));
     }
 
     #[test]
