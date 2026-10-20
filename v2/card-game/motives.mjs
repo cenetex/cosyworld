@@ -1,6 +1,12 @@
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
 export const tastes = {
+  badger: {
+    likes: "Warm moss and an uninterrupted nap",
+    sore: "Being woken and unnecessary noise",
+    home: "clearing",
+    values: { lamp: 3, oil: 1, bell: 1, cloth: 7 },
+  },
   vale: {
     likes: "Interesting routes and a decent bargain",
     sore: "Changed terms",
@@ -23,6 +29,7 @@ export const tastes = {
 const actors = Object.keys(tastes);
 const items = ["lamp", "oil", "bell", "cloth"];
 export const names = {
+  badger: "Grumpy Badger",
   vale: "Vale",
   moth: "Pip",
   keeper: "The Keeper",
@@ -102,6 +109,18 @@ export function giftDecision(s, giver, item, recipient) {
   };
 }
 export function interest(s, actor) {
+  if (actor === "badger")
+    return {
+      items: [],
+      location: "clearing",
+      avatars: [],
+      text: !s.actors.badger.awake
+        ? "An uninterrupted nap"
+        : s.actors.badger.irritation > 1
+          ? "Some quiet after all that noise"
+          : "The warm patch of moss",
+      reason: "Badger considers this patch of moss his own.",
+    };
   const held = items.filter((id) => owner(s, id) === actor);
   let item = items
     .slice()
@@ -207,6 +226,12 @@ export function recordReaction(s, a, witnesses, accepted) {
     } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
     s.motives.grievances[id] = list.slice(-6);
   };
+  if (a.kind === "ring")
+    add(
+      "badger",
+      `${names[a.actor]} rang a bell beside his warm patch of moss.`,
+      "noise",
+    );
   if (a.kind === "ring")
     add(
       "keeper",

@@ -42,6 +42,7 @@ import {
   sceneChanges,
   sceneStaging,
   portrait,
+  backdrop,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -408,6 +409,12 @@ function status(id) {
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
     return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
+  if (
+    id === "bell" &&
+    world.actors.vale.place === "pond" &&
+    world.steamClock.rings === 1
+  )
+    return "The Steam Clock answers. Ring again to find it.";
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
@@ -623,7 +630,7 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && hasQuestPrograms(world)
+      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -633,7 +640,7 @@ function card(id) {
   if (type === "item") graphic.innerHTML = art(id);
   else {
     const img = node("img");
-    img.src = `./assets/${id}.png`;
+    img.src = type === "avatar" ? portrait(id, null, world) : backdrop(id);
     img.alt = "";
     graphic.append(img);
   }
@@ -658,7 +665,7 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world)) {
+    if (!hasQuestPrograms(world) || id === "badger") {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
@@ -675,10 +682,10 @@ function card(id) {
   el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
-  if (type === "avatar" && !hasQuestPrograms(world)) {
+  if (type === "avatar" && (!hasQuestPrograms(world) || id === "badger")) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
-    const grudge = world.motives.grievances[id].at(-1);
+    const grudge = world.motives?.grievances[id]?.at(-1);
     info.append(
       node(
         "span",
@@ -840,12 +847,46 @@ function card(id) {
   }
   return frame;
 }
+function renderClearing(locationId) {
+  const forest = locationId === "clearing";
+  document.body.dataset.world = forest ? "forest" : "shore";
+  document.querySelector(".brand span").textContent = forest
+    ? "The Steam Clock"
+    : "The reflected shore";
+  let picture = $("clearing-picture");
+  if (forest && !picture) {
+    picture = node("div", undefined, "clearing-picture");
+    picture.id = "clearing-picture";
+    const canvas = node("div", undefined, "clearing-canvas");
+    const background = node("img", undefined, "backdrop");
+    background.src = backdrop("clearing");
+    background.alt =
+      "The old Steam Clock stands on mossy stones in a sunlit clearing.";
+    const badger = node("img", undefined, "clearing-badger");
+    badger.id = "badger-sprite";
+    canvas.append(background, badger);
+    picture.append(canvas);
+    $("stage").prepend(picture);
+  }
+  if (picture) picture.hidden = !forest;
+  $("backdrop").hidden = forest;
+  if (forest) {
+    $("badger-sprite").src = portrait("badger", null, world);
+    $("badger-sprite").dataset.state = world.actors.badger.awake
+      ? "grumpy"
+      : "sleeping";
+    $("badger-sprite").alt = world.actors.badger.awake
+      ? "Grumpy Badger, awake and looking put out."
+      : "Grumpy Badger asleep beside the clock.";
+  }
+}
 function renderScene() {
   const scene = currentScene(world, null, {
     seq: lineSeq,
     hold: exchange.preparing,
     review: reviewing,
   });
+  renderClearing(scene.locationId);
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -1207,7 +1248,7 @@ $("menu-button").onclick = () => {
           ]
         : []),
       ...knownActors(world)
-        .filter((id) => id !== "vale")
+        .filter((id) => id !== "vale" && id !== "badger")
         .map((actor) => ({
           actor,
           program: programFor(world, actor),

@@ -1,5 +1,32 @@
 # Card world text and memory
 
+## The bell crossing to the Steam Clock
+
+Ring the Bell twice in a row at Black pond to find the Forest Clearing.
+The first ring gets one reply: **echo** says **bong**. The second folds
+the pond's reflection and unveils a Forest Clearing card; Vale stays at the
+pond until the player plays it, then travels with their belongings. Only
+Vale takes that way, and no one can be asked along. A different successful
+player play resets the sequence; inspecting cards and hearing replies keeps
+it. The first ring also survives a reload. The bell must be uncovered.
+
+Badger starts asleep beside the clock. Playing his avatar card wakes him.
+His mood, wake cause, memories, and generated conversation belong to the
+same world save as the shore cast and items. Ringing beside him annoys him;
+quiet turns ease that irritation. He keeps his warm patch of moss.
+
+The Black pond card in the clearing returns Vale and their belongings to the
+shore. It works even if the bell has been left behind. Each outward crossing
+uses the two-ring rule again. The normal card UI handles travel, inventory,
+conversation, and history throughout. Earlier shore saves gain the clearing
+and its sleeping resident when loaded.
+
+Run `node v2/scripts/check-card-awakening.mjs` for a browser check of the bell
+sequence, waking Badger, returning, reloads, and phone layouts. Screenshots
+are saved in `output/badger-check/`.
+
+## Shore text and memory
+
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
 Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.

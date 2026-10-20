@@ -107,7 +107,8 @@ export function narrativeContext(world, action = null) {
   );
   const known = knownActors(world);
   const present = Object.keys(world.actors).filter(
-    (id) => world.actors[id].place === location,
+    (id) =>
+      knownActors(world).includes(id) && world.actors[id].place === location,
   );
   const localItems = Object.keys(world.items).filter(
     (id) => itemPlace(world, id) === location,
@@ -116,8 +117,9 @@ export function narrativeContext(world, action = null) {
   const departing = changes
     .filter((change) => change.leaving)
     .map((change) => change.actorId);
+  const awake = (id) => id !== "badger" || world.actors.badger.awake;
   const introductions = present.filter(
-    (id) => id !== "vale" && world.opening?.met[id] === world.turn,
+    (id) => id !== "vale" && awake(id) && world.opening?.met[id] === world.turn,
   );
   const audience = [...new Set([...present, ...departing])];
   const ids = [location, ...localItems, ...audience];
@@ -130,9 +132,11 @@ export function narrativeContext(world, action = null) {
   );
   const target = action?.target || played?.targetId;
   const partner =
-    audience.includes(target) && target !== "vale"
+    audience.includes(target) && target !== "vale" && awake(target)
       ? target
-      : introductions[0] || departing[0] || present.find((id) => id !== "vale");
+      : introductions[0] ||
+        departing[0] ||
+        present.find((id) => id !== "vale" && awake(id));
   const speakers = [
     ...new Set(
       [
@@ -140,7 +144,7 @@ export function narrativeContext(world, action = null) {
         partner,
         ...introductions,
         ...changes.map((change) => change.actorId),
-      ].filter(Boolean),
+      ].filter((id) => id && awake(id)),
     ),
   ];
   const events = world.log
@@ -184,6 +188,12 @@ export function narrativeContext(world, action = null) {
       const facts = [];
       let desire = null;
       if (kind === "avatar") {
+        if (id === "badger")
+          facts.push(
+            world.actors.badger.awake
+              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. Speak as your own person.`
+              : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
+          );
         if (
           played?.verb === "trade" &&
           [played.actorId, played.targetId].includes(id)
@@ -293,7 +303,7 @@ export function narrativeContext(world, action = null) {
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
         facts.push(
-          `Paths visible now: ${exits(world, id).map(nameOf).join(", ") || "none"}.`,
+          `Paths visible now: ${exits(world, id, "vale").map(nameOf).join(", ") || "none"}.`,
         );
         if (
           (id === "attic" || id === "pond") &&
@@ -355,6 +365,28 @@ export function applyGeneratedText(world, context, response) {
       turn: next.turn,
       model: response.model,
     });
+  }
+  // The first pond ring gets one small reply from the distant clock.
+  if (
+    context.location === "pond" &&
+    context.outcome?.card.kind === "ring" &&
+    next.steamClock.rings === 1
+  ) {
+    if (
+      !next.log.some(
+        (entry) =>
+          entry.turn === next.turn &&
+          entry.generated &&
+          entry.speaker === "echo",
+      )
+    )
+      addLog(next, "echo", "bong", {
+        kind: "dialogue",
+        entityId: "pond",
+        generated: true,
+        locationId: "pond",
+      });
+    return validateWorld(next);
   }
   const changes = sceneChanges(next);
   const cast = [
