@@ -43,6 +43,11 @@ try {
   });
   const ready = async () => {
     for (let i = 0; i < 250; i++) {
+      // A newly met card is unveiled first; add it to the hand.
+      if (await page.locator("#unveil-dialog").evaluate((d) => d.open)) {
+        await page.locator("#unveil-take").click();
+        continue;
+      }
       if (
         (await page.locator("#hand").getAttribute("data-cooling")) === "false"
       )
@@ -73,6 +78,9 @@ try {
   await page.goto(`${origin}/?table=badger-check`);
   await page.locator('[data-card="lamp"]').waitFor();
   await play("lamp");
+  // The lamp reveals the way; the pond card takes Vale there.
+  assert.equal((await state()).actors.vale.place, "attic");
+  await play("pond");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("station");
   await play("bell");
@@ -102,6 +110,10 @@ try {
   assert.equal(await page.locator("#speaker").textContent(), "echo");
   assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   await play("bell");
+  // The second ring reveals the clearing; its card takes Vale there.
+  assert.equal((await state()).actors.vale.place, "pond");
+  assert.equal((await state()).steamClock.discovered, true);
+  await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
   const sprite = page.locator("#badger-sprite");
@@ -136,6 +148,8 @@ try {
   await play("bell");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   await page.reload();
   await page.locator('[data-card="badger"]').waitFor();
@@ -159,7 +173,7 @@ try {
   assert.equal(await page.evaluate(() => document.body.scrollWidth), 320);
   assert.deepEqual(errors, []);
   console.log(
-    "Steam Clock browser check passed: attic start, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
+    "Steam Clock browser check passed: attic start, revealed paths, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
   );
 } finally {
   await browser?.close();

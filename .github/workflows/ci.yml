@@ -222,6 +222,10 @@ jobs:
         if: matrix.mode == 'baseline'
         run: node v2/scripts/check-card-awakening.mjs
 
+      - name: Check new cards unveil before travel
+        if: matrix.mode == 'baseline'
+        run: node v2/scripts/smoke-card-unveil.mjs
+
       - name: Upload browser images
         if: always()
         uses: actions/upload-artifact@v7

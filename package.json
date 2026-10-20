@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.0.250",
+  "version": "1.0.251",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -75,7 +75,8 @@
     "docs:dm-guide": "node scripts/build-dm-guide.mjs",
     "docs:dm-guide:check": "npm run docs:dm-guide && node scripts/check-dm-guide.mjs",
     "v2:spine:test": "cargo test --manifest-path v2/spine-rust/Cargo.toml && cargo clippy --manifest-path v2/spine-rust/Cargo.toml --all-targets -- -D warnings && cargo fmt --manifest-path v2/spine-rust/Cargo.toml --check",
-    "play:cards": "node v2/card-game/serve.mjs"
+    "play:cards": "node v2/card-game/serve.mjs",
+    "v2:card:unveil:smoke": "node v2/scripts/smoke-card-unveil.mjs"
   },
   "keywords": [
     "ai",
