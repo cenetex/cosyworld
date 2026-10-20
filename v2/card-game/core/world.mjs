@@ -24,6 +24,14 @@ import {
 } from "./goals.mjs";
 import { plan } from "./planner.mjs";
 import {
+  knowsItem,
+  observe,
+  search,
+  share,
+  validKnowledge,
+  visibleTo,
+} from "./knowledge.mjs";
+import {
   growPlaces,
   latentItem,
   latentPlace,
@@ -45,6 +53,9 @@ export const DEFAULT_RULES = {
   maxSpawns: 128,
   abandonTurns: 96,
   growthStart: 4,
+  xpForDiscovery: 10,
+  memoryTurns: 40,
+  xpForFirstFind: 20,
   xpPerGrowth: 600,
   xpPerLevel: 60,
   xpPerHand: 10,
@@ -70,6 +81,7 @@ const VERBS = [
   "attack",
   "offer",
   "accept",
+  "search",
 ];
 
 // Ids from outside are looked up only as own string keys, so an array or an
@@ -110,9 +122,19 @@ export function createWorld(seed) {
   for (const a of seed.avatars)
     s.avatars[a.id] = newAvatar(entity(a), a.role, a.place);
   for (const i of seed.items)
-    s.items[i.id] = { ...entity(i), holder: i.holder, history: [] };
+    s.items[i.id] = {
+      ...entity(i),
+      holder: i.holder,
+      hidden: Boolean(i.hidden) && Boolean(s.places[i.holder]),
+      history: [],
+    };
   for (const id of Object.keys(s.places))
     s.places[id].quest = placeQuest(s, id);
+  // Every avatar starts knowing only where it stands.
+  for (const id of avatarOrder(s)) {
+    observe(s, id);
+    s.places[s.avatars[id].place].foundBy ??= id;
+  }
   ensureQuests(s);
   const players = avatarOrder(s).filter((id) => isPlayer(s, id));
   addLog(
@@ -148,13 +170,33 @@ export function handStatus(s, avatar, h = desireFor(s, avatar)) {
       items.every((e) => e.met) && location.met && avatars.every((e) => e.met),
   };
 }
-export function handText(s, h) {
-  const names = (ids) => ids.map((id) => nameOf(s, id)).join(" + ");
+// A hand read by one avatar names only what that avatar has seen. Anything
+// else is told by its quest's clue: the known place nearest to it.
+export function handText(s, h, viewer = null) {
+  const name = (id) => (viewer ? nameFor(s, viewer, id) : nameOf(s, id));
+  const names = (ids) => ids.map(name).join(" + ");
   return [
     h.items.length ? `hold ${names(h.items)}` : "hold any items",
-    h.location ? `at ${nameOf(s, h.location)}` : "in any place",
+    h.location ? `at ${name(h.location)}` : "in any place",
     h.avatars.length ? `with ${names(h.avatars)}` : "with any company",
   ].join(" · ");
+}
+export function nameFor(s, viewer, id) {
+  const clue = programFor(s, viewer)?.clues?.[id];
+  const near = clue ? ` near ${nameOf(s, clue)}` : "";
+  if (s.items[id]) {
+    if (knowsItem(s, viewer, id)) return nameOf(s, id);
+    if (latentItem(s, id))
+      return `what ${nameOf(s, s.items[id].maker)} makes next`;
+    return `something${near || " unseen"}`;
+  }
+  if (s.places[id])
+    return s.avatars[viewer].known.places[id]
+      ? nameOf(s, id)
+      : `a place${clue ? ` past ${nameOf(s, clue)}` : " no one has named"}`;
+  return id === viewer || s.avatars[viewer].known.avatars[id]
+    ? nameOf(s, id)
+    : `someone${near}`;
 }
 
 // Consent comes from goals. A player accepts any gift and answers asks and
@@ -320,13 +362,18 @@ export function legalActions(s, actor) {
         actor,
         null,
         other,
-        `${n(actor)} asks ${n(other)} what they want.`,
+        `${n(actor)} asks ${n(other)} what they want and what they have seen.`,
         [other],
       ),
     );
   }
+  out.push(
+    offer("search", actor, null, here, `${n(actor)} searches ${n(here)}.`, [
+      here,
+    ]),
+  );
   for (const id of Object.keys(s.items)) {
-    if (itemPlace(s, id) !== here) continue;
+    if (itemPlace(s, id) !== here || !visibleTo(s, actor, id)) continue;
     const holder = holderOf(s, id);
     if (holder === here && hasSpace(s, actor, id))
       out.push(
@@ -448,9 +495,31 @@ function remember(s, item, text) {
     `Turn ${s.turn}: ${text}`,
   ].slice(-12);
 }
+// An item in someone's hands is hidden no longer.
 function transfer(s, item, holder, text) {
   s.items[item].holder = holder;
+  if (s.avatars[holder]) s.items[item].hidden = false;
   remember(s, item, text);
+}
+
+// Avatars at these places look around. A first visit earns discovery XP, and
+// the first avatar ever to stand in a place earns more and is remembered.
+function lookAround(s, places) {
+  for (const id of avatarOrder(s)) {
+    const a = s.avatars[id];
+    if (asleep(s, id) || !places.includes(a.place)) continue;
+    if (!observe(s, id)) continue;
+    const p = s.places[a.place];
+    a.progress.xp += s.rules.xpForDiscovery;
+    if (p.foundBy === null) {
+      p.foundBy = id;
+      a.progress.xp += s.rules.xpForFirstFind;
+      addLog(s, `${nameOf(s, id)} is the first to find ${p.name}.`, {
+        kind: "discovery",
+        actorId: id,
+      });
+    }
+  }
 }
 export function addLog(s, text, detail = {}) {
   const actorId = detail.actorId ?? null;
@@ -569,7 +638,17 @@ function perform(s, a, round = newRound()) {
       break;
     case "talk":
       s.avatars[a.actor].lastTalk = s.turn;
+      share(s, a.actor, a.target);
+      text = `${who} and ${n(a.target)} trade news.`;
       break;
+    case "search": {
+      const found = search(s, a.actor);
+      progress.xp += s.rules.xpForDiscovery * found.length;
+      text = found.length
+        ? `${who} searches ${n(here)} and finds the ${found.map(n).join(" and the ")}.`
+        : `${who} searches ${n(here)} and finds nothing new.`;
+      break;
+    }
     case "offer":
       s.offerSeq += 1;
       s.offers.push({
@@ -611,6 +690,10 @@ function perform(s, a, round = newRound()) {
     const { text: arrivalText, ...details } = arrival;
     addLog(s, arrivalText, details);
   }
+  lookAround(
+    s,
+    [here, a.target, arrival?.locationId].filter((id) => s.places[id]),
+  );
   settleStandoffs(s);
 }
 
@@ -681,7 +764,7 @@ function advanceQuests(s, met, round = newRound()) {
     let text = `${nameOf(s, avatar)} completes hand ${step + 1}/${quest.steps.length} of ${quest.name}.`;
     if (complete) text += ` ${quest.xp} XP.`;
     if (levelled) text += ` Level ${levelOf(s, avatar)}.`;
-    text += ` Next: ${handText(s, desireFor(s, avatar))}.`;
+    text += ` Next: ${handText(s, desireFor(s, avatar), avatar)}.`;
     addLog(s, text, {
       kind: "quest",
       actorId: avatar,
@@ -691,6 +774,7 @@ function advanceQuests(s, met, round = newRound()) {
       target,
       level: levelOf(s, avatar),
       xp: s.avatars[avatar].progress.xp,
+      ...(complete ? { gained: quest.xp } : {}),
     });
   }
 }
@@ -738,7 +822,7 @@ function refreshStalledQuests(s, active) {
     };
     addLog(
       s,
-      `${nameOf(s, avatar)} finds a new purpose: ${handText(s, desireFor(s, avatar))}.`,
+      `${nameOf(s, avatar)} finds a new purpose: ${handText(s, desireFor(s, avatar), avatar)}.`,
       { kind: "quest", actorId: avatar },
     );
   }
@@ -860,6 +944,8 @@ export function play(s, action, expectedRevision = s.revision) {
       itemId: made.item,
       cast: made.makers,
     });
+  // What was made or opened here is seen by whoever stands here.
+  lookAround(next, [...round.touched]);
   abandonSleepers(next);
   ensureQuests(next);
   validateWorld(next);
@@ -891,6 +977,8 @@ export function join(s, { id, name, text = "", place } = {}) {
     };
   const next = copyWorld(s);
   next.avatars[id] = newAvatar(entity({ name, text }), "player", place);
+  observe(next, id);
+  next.places[place].foundBy ??= id;
   next.revision += 1;
   ensureQuests(next);
   addLog(next, `${nameOf(next, id)} arrives at ${nameOf(next, place)}.`, {
@@ -967,7 +1055,14 @@ function validQuest(s, q, avatar) {
     q.generated &&
     Number.isInteger(q.generated.turn) &&
     (q.generated.item === null || Boolean(s.items[q.generated.item])) &&
-    (q.generated.partner === null || Boolean(s.avatars[q.generated.partner]))
+    (q.generated.partner === null || Boolean(s.avatars[q.generated.partner])) &&
+    (q.clues === undefined ||
+      (q.clues &&
+        typeof q.clues === "object" &&
+        Object.entries(q.clues).every(
+          ([id, at]) =>
+            (s.items[id] || s.places[id] || s.avatars[id]) && s.places[at],
+        )))
   );
 }
 const validEntity = (e) =>
@@ -1012,6 +1107,7 @@ export function validateWorld(s) {
       [p.makes, p.beyond].some((t) => t !== null && !s.tables[t]) ||
       !Number.isInteger(p.made) ||
       typeof p.latent !== "boolean" ||
+      (p.foundBy !== null && !s.avatars[p.foundBy]) ||
       (p.latent && (p.exits.length || !s.places[p.opener])) ||
       !validPlaceQuest(s, id, p.quest)
     )
@@ -1029,7 +1125,8 @@ export function validateWorld(s) {
       (a.asleep && a.role !== "player") ||
       a.asleep !== Number.isInteger(a.restedAt) ||
       typeof a.former !== "boolean" ||
-      latentPlace(s, a.place)
+      latentPlace(s, a.place) ||
+      !validKnowledge(s, a.known)
     )
       fail(`avatar ${id} is invalid`);
     const p = a.progress;
@@ -1054,7 +1151,9 @@ export function validateWorld(s) {
         ? !s.places[item.maker]
         : !(s.places[item.holder] || s.avatars[item.holder])) ||
       !Array.isArray(item.history) ||
-      item.history.length > 12
+      item.history.length > 12 ||
+      typeof item.hidden !== "boolean" ||
+      (item.hidden && !s.places[item.holder] && !latentItem(s, id))
     )
       fail(`item ${id} is invalid`);
   for (const c of s.standoffs)

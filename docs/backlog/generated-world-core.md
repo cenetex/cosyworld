@@ -108,6 +108,20 @@ Measure with headless play over many seeds and player mixes:
   10 in 600 plays and level 19 in 2,000, and gains fewer levels in each later
   stretch of play. Before XP, it reached level 62 and level 178.
 
+## Phase 2c: mystery
+
+Built in the card core. The decisions are in ADR 0015, "Every avatar finds the
+world out". Measured on the shore with three players over 900 plays:
+
+- Before, every avatar planned with the whole world. Only 3% of quest targets
+  were unseen when set, and no one ever searched.
+- Now about 47% of quests send an avatar after something it has not seen, with
+  a clue. Residents explore, ask, and search: about 150 searches and 160 talks.
+- Pace and growth hold: a solo player reaches level 9 to 10 in 600 plays.
+
+Still to decide: whether knowing another avatar's wants also needs talk. Today
+residents still read wants directly.
+
 ## Phase 2b: many players
 
 Built in the card core after phase 2. The decisions are in ADR 0015, "Many

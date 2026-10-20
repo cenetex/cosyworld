@@ -74,6 +74,20 @@
       "name": "Black cloth",
       "text": "A square of cloth darker than the room.",
       "holder": "moth"
+    },
+    {
+      "id": "locket",
+      "name": "Shut locket",
+      "text": "Swollen shut. Something rattles inside.",
+      "holder": "attic",
+      "hidden": true
+    },
+    {
+      "id": "coin",
+      "name": "Green coin",
+      "text": "Struck for a ferry that never ran.",
+      "holder": "pond",
+      "hidden": true
     }
   ],
   "tables": {
@@ -118,11 +132,13 @@
       },
       {
         "name": "Glass eye",
-        "text": "It follows the nearest light."
+        "text": "It follows the nearest light.",
+        "hidden": true
       },
       {
         "name": "Wet ticket",
-        "text": "Single, one way, to the pond."
+        "text": "Single, one way, to the pond.",
+        "hidden": true
       },
       {
         "name": "Brass lens",
@@ -138,7 +154,8 @@
       },
       {
         "name": "Ferry token",
-        "text": "Worn smooth on one side."
+        "text": "Worn smooth on one side.",
+        "hidden": true
       }
     ]
   }

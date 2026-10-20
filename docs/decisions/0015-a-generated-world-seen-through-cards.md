@@ -69,30 +69,58 @@ named entity, and no rule special-cases one.
 
 ### The core vocabulary
 
-| Term        | Meaning                                                                           |
-| ----------- | --------------------------------------------------------------------------------- |
-| entity      | A persistent avatar, item, or place with a stable id, tags, and history.          |
-| card        | A view of one entity.                                                             |
-| table       | The row of every card an avatar can reach now.                                    |
-| pair        | Two raised cards that resolve to one offer.                                       |
-| play        | One certified act. It commits, then residents within reach act.                   |
-| target hand | A goal: Hold these items, At this place, With these avatars.                      |
-| quest       | An ordered list of target hands, made by the quest generator or authored content. |
-| XP, level   | A quest's XP is fixed when it is made. XP only goes up; each level needs more.    |
-| resident    | An avatar no person controls. It plans with the same offers as players.           |
-| promise     | A latent item or place a quest will create. Other quests may require it first.    |
+| Term        | Meaning                                                                              |
+| ----------- | ------------------------------------------------------------------------------------ |
+| entity      | A persistent avatar, item, or place with a stable id, tags, and history.             |
+| card        | A view of one entity.                                                                |
+| table       | The row of every card an avatar can reach now.                                       |
+| pair        | Two raised cards that resolve to one offer.                                          |
+| play        | One certified act. It commits, then residents within reach act.                      |
+| target hand | A goal: Hold these items, At this place, With these avatars.                         |
+| quest       | An ordered list of target hands, made by the quest generator or authored content.    |
+| XP, level   | A quest's XP is fixed when it is made. XP only goes up; each level needs more.       |
+| resident    | An avatar no person controls. It plans with the same offers as players.              |
+| promise     | A latent item or place a quest will create. Other quests may require it first.       |
+| knowledge   | What one avatar has seen: places visited, and recent sightings of items and avatars. |
+| clue        | For a goal's unseen target, the known place nearest to it.                           |
 
 "Action hand" names the `/classic` surface only. New documents say "table" for
 the row and "target hand" for a goal.
 
 ### Core verbs
 
-The rules offer travel, take, put down, give, ask, trade, talk, and wait. Any
+The rules offer travel, take, put down, give, ask, trade, talk, search, and
+wait. Talk also trades news, and search finds hidden items. Any
 avatar can threaten another over an item, which opens a standoff with guard and
 attack (#1073). Ask, give, and trade need the other avatar's consent. Consent comes from that
 avatar's current goals: it keeps what its goals need and offers its spares.
 Trades are atomic two-holder swaps. New verbs need a general rule over tags,
 never a rule for one entity.
+
+### Every avatar finds the world out
+
+The world is not an open book to anyone, players or residents:
+
+- **Knowledge.** Each avatar knows only what it has seen: the places it has
+  visited and their ways out, and where it last saw items and avatars. Places
+  are never forgotten. Sightings of items and avatars fade after a while.
+  Knowledge is saved state, so replays agree.
+- **Residents plan from knowledge, not from the world.** A resident routes only
+  over places it knows. It looks for an item where it last saw it. When it does
+  not know, it asks whoever is there, searches, follows its quest's clue, and
+  explores. Residents are fair rivals and can be wrong.
+- **Hidden items.** An item can lie hidden in a place. Only an avatar that
+  searches there sees it, until someone picks it up. Seeds and tables can hide
+  items, and a newly opened place hides one find.
+- **Discovery pays.** A first visit to a place earns XP. The first avatar ever
+  to stand in a place earns more and is remembered as its finder. Each hidden
+  find earns XP.
+- **Quests give clues.** A goal names only what its avatar has seen. Anything
+  else is told by a clue: "something near the pond", "a place past the signal
+  box", "what the forge makes next". Goals lean toward unseen things. From level
+  2, every fourth goal follows a rumor of an unseen item anywhere in the world.
+- **Talk shares news.** Talking shares every place both avatars have been and
+  only recent sightings, so old knowledge stays private.
 
 ### Many players share one world
 

@@ -32,6 +32,7 @@ export const newPlace = (row, extra = {}) => ({
   quest: null,
   latent: false,
   opener: null,
+  foundBy: null,
   ...extra,
 });
 // The world grows as its avatars do: each new place or item needs a set
@@ -66,7 +67,13 @@ function promiseItem(s, place) {
   const table = s.places[place].makes;
   if (!table || !growthLeft(s)) return null;
   const { id, row } = reserve(s, table);
-  s.items[id] = { ...describe(row), holder: null, maker: place, history: [] };
+  s.items[id] = {
+    ...describe(row),
+    holder: null,
+    maker: place,
+    hidden: Boolean(row.hidden),
+    history: [],
+  };
   return id;
 }
 
@@ -92,8 +99,25 @@ export function openPlace(s, id, by) {
   p.exits = [p.opener];
   s.places[p.opener].exits = [...s.places[p.opener].exits, id];
   s.claims[`${p.opener}:door:${id}`] = { turn: s.turn, created: id };
+  hideCache(s, id);
   p.quest = placeQuest(s, id);
   return { place: id, from: p.opener, by };
+}
+
+// A newly opened place hides one find from its table, waiting to be searched
+// for. It counts against the world's growth like any other new item.
+function hideCache(s, place) {
+  const p = s.places[place];
+  const table = p.makes ?? s.places[p.opener].makes;
+  if (!table || !growthLeft(s)) return;
+  const { id, row } = reserve(s, table);
+  s.items[id] = {
+    ...describe(row),
+    holder: place,
+    hidden: true,
+    history: [`Turn ${s.turn}: Hidden in ${p.name}.`],
+  };
+  s.claims[`${place}:cache`] = { turn: s.turn, created: id };
 }
 
 // A place's next quest: put down items found nearby, more as the place makes
@@ -184,6 +208,7 @@ export function validTables(tables) {
               (typeof row.text === "string" && row.text.length <= 400)) &&
             (row.tags === undefined ||
               (Array.isArray(row.tags) && row.tags.every((t) => ID.test(t)))) &&
+            (row.hidden === undefined || typeof row.hidden === "boolean") &&
             [row.makes, row.beyond].every((t) => t === undefined || tables[t]),
         ),
     )
