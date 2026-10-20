@@ -832,8 +832,22 @@ async fn complete_characters(
                 config
                     .capability_models
                     .insert(ModelCapability::WorldContent, model.clone());
-                // Model-native defaults suit the mixed provider pool.
-                config.reasoning_effort = None;
+                // Keep the short speech budget for output on models that accept
+                // reasoning control. Other models use their native request shape.
+                config.reasoning_effort = config
+                    .registry
+                    .as_deref()
+                    .and_then(|registry| {
+                        registry
+                            .pin(
+                                ModelCapability::WorldContent,
+                                Some(model),
+                                config.data_policy_mode,
+                            )
+                            .ok()
+                    })
+                    .filter(|selection| selection.candidate().supported_parameters().reasoning)
+                    .map(|_| "none".to_string());
             }
             let user = character_prompt(context, ids);
             let format = json!({"type":"json_object"});
@@ -1020,6 +1034,9 @@ mod tests {
                 captured.lock().unwrap().push(body.clone());
                 let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
                     let mut entry = json!({"id":id,"text":"I remember the kindness beside the lamp."});
+                    if input["scene"]["revision"] == 5 && id == "station" {
+                        entry["id"] = json!("invented-location");
+                    }
                     if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
                         entry["reflection"] = json!({"thought":"I felt welcome.","persona":"I am still proud, but I am learning to accept help.","dream":"A warm lamp floated through my sleep."});
                     }
@@ -1045,7 +1062,7 @@ mod tests {
         .collect();
         let declared: Vec<_> = models.values().map(String::as_str).chain(["test-entity-model"]).map(|id| json!({
             "requested_model_id":id,"provider":"openrouter","concrete_model":{"model_id":id},
-            "input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"json_mode":true},
+            "input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"json_mode":true,"structured_output":true},
             "capabilities":["world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"}
         })).collect();
         config.registry = Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
@@ -1079,8 +1096,11 @@ mod tests {
                 .filter(|e| e["id"] == "lamp" || e["id"] == "station")
                 .all(|e| e.get("reflection").is_none()));
         }
+        c.revision = 5;
+        let invalid = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
         let requests = seen.lock().unwrap();
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 9);
         for body in requests.iter() {
             let input: Value =
                 serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
@@ -1097,6 +1117,44 @@ mod tests {
             }
         }
         server.abort();
+    }
+
+    #[test]
+    fn both_deployments_pin_every_card_character_to_an_eligible_model() {
+        let mut maps = Vec::new();
+        for file in [
+            include_str!("../../../fly.toml"),
+            include_str!("../../../fly.lonelyforest.toml"),
+        ] {
+            let field = |name: &str| {
+                file.lines()
+                    .find_map(|line| {
+                        line.trim()
+                            .strip_prefix(&format!("{name} = '"))
+                            .and_then(|value| value.strip_suffix('\''))
+                    })
+                    .expect("deployment JSON field")
+            };
+            let models =
+                parse_character_models(field("COSYWORLD_CARD_CHARACTER_MODELS_JSON")).unwrap();
+            assert_eq!(models.values().collect::<BTreeSet<_>>().len(), models.len());
+            let registry = crate::ai_gateway::CapabilityRegistrySnapshot::from_json(field(
+                "COSYWORLD_AI_REGISTRY_JSON",
+            ))
+            .unwrap();
+            for model in models.values() {
+                let pinned = registry
+                    .pin(
+                        ModelCapability::WorldContent,
+                        Some(model),
+                        crate::ai_gateway::DataPolicyMode::Production,
+                    )
+                    .unwrap();
+                assert_eq!(pinned.requested_model_id(), model);
+            }
+            maps.push(models);
+        }
+        assert_eq!(maps[0], maps[1]);
     }
 
     #[test]
