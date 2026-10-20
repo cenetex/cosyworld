@@ -10,7 +10,11 @@ import {
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
-import { narrativeContext, turnOutcome } from "../v2/card-game/narrative.mjs";
+import {
+  narrativeContext,
+  turnOutcome,
+  applyGeneratedText,
+} from "../v2/card-game/narrative.mjs";
 import { knownActors } from "../v2/card-game/quests.mjs";
 
 function pond() {
@@ -37,6 +41,34 @@ function act(s, kind, item, target) {
 const ring = (s) => act(s, "ring", "bell");
 
 describe("the bell crossing to the Steam Clock", () => {
+  it("gives the first ring one reply from echo and preserves it through reload and retries", () => {
+    let s = ring(pond());
+    const context = narrativeContext(s);
+    const response = {
+      revision: context.revision,
+      model: "fixture",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: "The sound fades.",
+      })),
+    };
+    s = applyGeneratedText(s, context, response);
+    const replies = (world) =>
+      world.log.filter((entry) => entry.generated && entry.turn === world.turn);
+    expect(replies(s)).toHaveLength(1);
+    expect(replies(s)[0]).toMatchObject({
+      speaker: "echo",
+      text: "bong",
+      kind: "dialogue",
+    });
+    s = decodeSave(encodeSave(s));
+    s = applyGeneratedText(s, context, response);
+    expect(replies(s)).toHaveLength(1);
+    s = ring(s);
+    expect(s.actors.vale.place).toBe("clearing");
+    expect(replies(s)).toHaveLength(0);
+  });
+
   it("crosses on the second consecutive ring with carried items and a real travel record", () => {
     const start = pond();
     const first = ring(start);

@@ -359,6 +359,28 @@ export function applyGeneratedText(world, context, response) {
       model: response.model,
     });
   }
+  // The first pond ring gets one small reply from the distant clock.
+  if (
+    context.location === "pond" &&
+    context.outcome?.card.kind === "ring" &&
+    next.steamClock.rings === 1
+  ) {
+    if (
+      !next.log.some(
+        (entry) =>
+          entry.turn === next.turn &&
+          entry.generated &&
+          entry.speaker === "echo",
+      )
+    )
+      addLog(next, "echo", "bong", {
+        kind: "dialogue",
+        entityId: "pond",
+        generated: true,
+        locationId: "pond",
+      });
+    return validateWorld(next);
+  }
   const changes = sceneChanges(next);
   const cast = [
     ...new Set([

@@ -3,7 +3,7 @@
 ## The bell crossing to the Steam Clock
 
 Ring the Bell twice in a row at Black pond to warp to the Forest Clearing.
-The first ring draws an answering tick from the old Steam Clock. The second
+The first ring gets one reply: **echo** says **bong**. The second
 carries Vale and their belongings to the clearing. A different successful
 player play resets the sequence; inspecting cards and hearing replies keeps
 it. The first ring also survives a reload. The bell must be uncovered.

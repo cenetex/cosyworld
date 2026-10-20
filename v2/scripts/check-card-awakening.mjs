@@ -81,12 +81,26 @@ try {
   await play("bell");
   assert.equal((await state()).steamClock.rings, 1);
   assert.equal((await state()).actors.vale.place, "pond");
+  assert.equal(await page.locator("#speaker").textContent(), "echo");
+  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
+  const echoTurn = (await state()).turn;
+  const echoRequests = requests.length;
   assert.match(
     await page.locator('[data-card="bell"] .state').textContent(),
     /Ring again/,
   );
   await page.reload();
   await page.locator('[data-card="bell"]').waitFor();
+  await ready();
+  assert.equal(requests.length, echoRequests);
+  assert.equal(
+    (await state()).log.filter(
+      (entry) => entry.generated && entry.turn === echoTurn,
+    ).length,
+    1,
+  );
+  assert.equal(await page.locator("#speaker").textContent(), "echo");
+  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   await play("bell");
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
