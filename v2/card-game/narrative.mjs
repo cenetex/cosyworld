@@ -1,6 +1,6 @@
 import { hasMotives, motiveFacts } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
-import { profiles } from "./memory.mjs";
+import { profiles, validInnerLife } from "./memory.mjs";
 import {
   addLog,
   carried,
@@ -328,9 +328,55 @@ export function narrativeContext(world, action = null) {
           expressions: !beforeFirstLight,
         }),
         previous: beforeFirstLight ? null : world.memories[id].text,
+        ...(kind === "avatar"
+          ? { inner_life: world.memories[id].innerLife || null }
+          : {}),
       };
     }),
   };
+}
+
+function validReflection(entry, world, context) {
+  if (entry.reflection === undefined || entry.reflection === null) return true;
+  if (profiles[entry.id]?.kind !== "avatar") return false;
+  const previous = world.memories[entry.id].innerLife || {
+    persona: null,
+    thoughts: [],
+    dreams: [],
+  };
+  const last = previous.thoughts.at(-1)?.turn;
+  const changed = context.entities
+    .find((e) => e.id === entry.id)
+    ?.memories.some(
+      (m) => m.kind === "event" && (last === undefined || m.turn > last),
+    );
+  if (
+    !changed ||
+    world.turn === 0 ||
+    (last !== undefined && world.turn < last + 6)
+  )
+    return false;
+  const r = entry.reflection;
+  if (
+    !r ||
+    Object.keys(r).some((key) => !["thought", "persona", "dream"].includes(key))
+  )
+    return false;
+  if (
+    r.dream !== undefined &&
+    previous.dreams.length &&
+    world.turn < previous.dreams.at(-1).turn + 12
+  )
+    return false;
+  return validInnerLife(
+    {
+      persona: r.persona,
+      thoughts: [{ turn: world.turn, text: r.thought }],
+      dreams:
+        r.dream === undefined ? [] : [{ turn: world.turn, text: r.dream }],
+    },
+    world.turn,
+  );
 }
 
 export function applyGeneratedText(world, context, response) {
@@ -352,7 +398,12 @@ export function applyGeneratedText(world, context, response) {
         typeof entry.text !== "string" ||
         !entry.text.trim() ||
         entry.text.length > 400 ||
-        /[\u0000-\u001f\u007f]/u.test(entry.text),
+        /[\u0000-\u001f\u007f]/u.test(entry.text) ||
+        (entry.model !== undefined &&
+          (typeof entry.model !== "string" ||
+            !entry.model.trim() ||
+            entry.model.length > 160)) ||
+        !validReflection(entry, world, context),
     ) ||
     typeof response.model !== "string" ||
     response.model.length > 160
@@ -363,8 +414,26 @@ export function applyGeneratedText(world, context, response) {
     Object.assign(next.memories[entry.id], {
       text: entry.text.trim(),
       turn: next.turn,
-      model: response.model,
+      model: entry.model || response.model,
     });
+    if (entry.reflection) {
+      const previous = next.memories[entry.id].innerLife || {
+        persona: null,
+        thoughts: [],
+        dreams: [],
+      };
+      const r = entry.reflection;
+      next.memories[entry.id].innerLife = {
+        persona: r.persona,
+        thoughts: [
+          ...previous.thoughts,
+          { turn: next.turn, text: r.thought },
+        ].slice(-4),
+        dreams: r.dream
+          ? [...previous.dreams, { turn: next.turn, text: r.dream }].slice(-4)
+          : previous.dreams,
+      };
+    }
   }
   // The first pond ring gets one small reply from the distant clock.
   if (

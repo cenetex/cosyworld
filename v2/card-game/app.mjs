@@ -1208,6 +1208,32 @@ document.addEventListener("click", (e) => {
   }
 });
 $("history-button").onclick = () => {
+  const lives = Object.keys(world.actors)
+    .filter((id) => knownActors(world).includes(id))
+    .map((id) => {
+      const memory = world.memories[id];
+      const section = node("section");
+      section.append(node("h3", nameOf(id)));
+      const life = memory.innerLife;
+      if (!life)
+        section.append(
+          node("p", "A story is taking shape through shared moments."),
+        );
+      if (life?.persona) section.append(node("p", life.persona));
+      for (const [label, moments] of [
+        ["Thought", life?.thoughts],
+        ["Dream", life?.dreams],
+      ]) {
+        for (const moment of [...(moments || [])].reverse()) {
+          section.append(
+            node("h4", `${label} · Turn ${moment.turn}`),
+            node("p", moment.text),
+          );
+        }
+      }
+      return section;
+    });
+  $("inner-lives").replaceChildren(...lives);
   $("history-dialog").showModal();
   pauseSpeech();
   $("messages").scrollTop = $("messages").scrollHeight;
