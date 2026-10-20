@@ -855,6 +855,113 @@ h2 {
     min-height: 460px;
   }
 }
+/* Labels for the reveal and the travel veil, shown at every width. */
+.kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* A change of place dips the scene to dark with the destination's name. */
+.travel {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 45%, #1b1c28f2, #06070c);
+  opacity: 0;
+  pointer-events: none;
+}
+.travel.travelling {
+  animation: travel 1.6s ease-in-out forwards;
+}
+.travel-name {
+  margin: 0;
+  font:
+    normal 30px Georgia,
+    serif;
+  color: var(--ink);
+}
+@keyframes travel {
+  0% {
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* A card met for the first time is shown large before it joins the hand. */
+dialog.unveil {
+  width: min(420px, calc(100% - 28px));
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: center;
+  overflow: visible;
+}
+dialog.unveil::backdrop {
+  background: #05060ccc;
+  backdrop-filter: blur(6px);
+}
+.unveil-card {
+  display: grid;
+  place-items: center;
+  height: 400px;
+}
+.unveil-card .card-frame {
+  transform: scale(1.5);
+}
+.unveil-card .card {
+  animation: unveil 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  box-shadow:
+    0 0 0 1px var(--gold),
+    0 0 60px #dfc38d55;
+}
+.unveil-text {
+  margin: 0 auto 16px;
+  max-width: 34ch;
+  color: var(--ink);
+}
+@keyframes unveil {
+  from {
+    opacity: 0;
+    transform: rotateY(90deg) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.unveil-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  margin: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.card.new {
+  border-color: var(--gold);
+  box-shadow: 0 0 18px #dfc38d55;
+}
+.card.new .kind::after {
+  content: " · new";
+  color: var(--gold);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

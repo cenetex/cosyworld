@@ -32,6 +32,10 @@
           </div>
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
+        <div id="travel" class="travel" aria-hidden="true">
+          <p class="kicker">Travelling to</p>
+          <p id="travel-name" class="travel-name"></p>
+        </div>
         <section class="dialogue" aria-label="Conversation">
           <div id="prior-response" class="prior-response" hidden>
             <span
@@ -80,6 +84,12 @@
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>
     </main>
+    <dialog id="unveil-dialog" class="unveil" aria-labelledby="unveil-eyebrow">
+      <p id="unveil-eyebrow" class="kicker"></p>
+      <div id="unveil-card" class="unveil-card"></div>
+      <p id="unveil-text" class="unveil-text"></p>
+      <button id="unveil-take" type="button">Add to hand</button>
+    </dialog>
     <dialog id="history-dialog">
       <div class="modal-heading">
         <h2>Conversation</h2>
@@ -107,9 +117,11 @@
         cards.
       </p>
       <p>
-        A location card travels there. The current location passes a turn. Pair
-        a carried item with the current location to put it down, or with an
-        avatar to give it.
+        A card you meet for the first time is shown large, then joins your hand
+        marked new. A location card travels there; the scene darkens and names
+        the place before you arrive. The current location passes a turn. Pair a
+        carried item with the current location to put it down, or with an avatar
+        to give it.
       </p>
       <p>
         Each card play leaves memories. Avatars, items, and places remember what
