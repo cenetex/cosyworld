@@ -239,6 +239,8 @@ describe("the reflected shore card game", () => {
       for (const file of [
         "",
         "style.css",
+        "entry.mjs",
+        "awakening.css",
         "app.mjs",
         "world.mjs",
         "quests.mjs",
@@ -247,6 +249,9 @@ describe("the reflected shore card game", () => {
         "music.mjs",
         "cards.mjs",
         "assets/station.png",
+        "assets/steam-clock-background.png",
+        "assets/badger-sleeping.png",
+        "assets/badger-grumpy.png",
       ]) {
         expect((await fetch(`${url}/card-game/${file}`)).status).toBe(200);
       }

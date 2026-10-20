@@ -157,7 +157,9 @@ export function situationPrograms(s, actor, base, api) {
         ),
       );
   }
-  const others = Object.keys(s.actors).filter((id) => id !== actor);
+  const others = Object.keys(s.actors).filter(
+    (id) => id !== actor && id !== "badger",
+  );
   // Vale chooses handovers through card plays. Residents can arrange care
   // between themselves while a player decides whether to take an offer.
   const caretakers = others.filter((id) => actor === "vale" || id !== "vale");

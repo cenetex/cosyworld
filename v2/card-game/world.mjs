@@ -38,6 +38,11 @@ import {
 } from "./situations.mjs";
 // The playable slice uses one rule path for the guided avatar and the cast.
 export const places = {
+  clearing: {
+    name: "Forest Clearing",
+    text: "The old Steam Clock ticks among the trees. Badger sleeps on warm moss. A dark reflection between its roots leads back to Black pond.",
+    exits: ["pond"],
+  },
   station: {
     name: "Empty station",
     text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
@@ -45,16 +50,20 @@ export const places = {
   },
   attic: {
     name: "Mirror attic",
-    text: "A tall mirror reflects a black shore. Light opens a path to the pond. The stairs lead to the station.",
+    text: "A tall mirror reflects a black shore. The stairs lead to the station.",
     exits: ["station"],
   },
   pond: {
     name: "Black pond",
-    text: "Something vast breathes beneath the reflection. Light opens a path to the attic. A path leads to the station.",
+    text: "Something vast breathes beneath the reflection. A path leads to the station.",
     exits: ["station"],
   },
 };
 export const people = {
+  badger: {
+    name: "Grumpy Badger",
+    text: "Comically touchy. Very attached to his warm patch of moss.",
+  },
   vale: {
     name: "Vale",
     text: "Your avatar. A traveller with a coat full of empty pockets.",
@@ -71,7 +80,7 @@ export const people = {
 export const things = {
   lamp: {
     name: "Lamp",
-    text: "Light reveals paths through reflections. Burns one fuel each turn, even under a cloth.",
+    text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
   },
   oil: {
     name: "Oil flask",
@@ -79,7 +88,7 @@ export const things = {
   },
   bell: {
     name: "Bell",
-    text: "Rings for three turns. At the pond, its call brings one dose into an empty oil flask. The Black cloth stops its sound.",
+    text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound.",
   },
   cloth: {
     name: "Black cloth",
@@ -87,7 +96,7 @@ export const things = {
   },
 };
 const ids = Object.keys(things);
-const actorIds = Object.keys(people);
+const actorIds = ["vale", "moth", "keeper", "badger"];
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false } = {}) {
@@ -156,11 +165,32 @@ export function createWorld({ opening = false } = {}) {
       ...world.log[0],
       locationId: "attic",
       items: [{ id: "lamp", holder: "vale", fuel: 8, lit: false }],
-      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore. The wick is ready to light.",
+      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore.",
     };
   }
+  addSteamClock(world);
   rememberEvent(world, world.log[0]);
   return world;
+}
+// Add the clearing to earlier shore saves while retaining their state and history.
+function addSteamClock(s) {
+  if (s.steamClock !== undefined) return;
+  s.steamClock = { rings: 0, discovered: false };
+  s.actors.badger = {
+    place: "clearing",
+    progress: newProgress(),
+    crossed: 0,
+    lastTalk: -9,
+    trust: { vale: 0, moth: 0, keeper: 0 },
+    awake: false,
+    irritation: 0,
+    wakeCause: null,
+  };
+  for (const id of ["vale", "moth", "keeper"]) s.actors[id].trust.badger = 0;
+  s.peaceUntil.badger = 0;
+  const fresh = newMemories();
+  for (const id of ["badger", "clearing"]) s.memories[id] = fresh[id];
+  if (s.motives) s.motives.grievances.badger = [];
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -188,11 +218,13 @@ const baseExits = (s, place) =>
     : places[place].exits;
 export const placeText = (s, place) =>
   s.opening && place === "attic"
-    ? "A tall mirror reflects a black shore. The lamp wakes the crossing to the pond."
+    ? reflectionOpen(s)
+      ? "A tall mirror opens onto a black shore. A path leads through the glass."
+      : "A tall mirror reflects a black shore. Dust gathers along its frame."
     : s.opening && place === "station"
       ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
       : places[place].text;
-export function exits(s, place) {
+export function exits(s, place, actor = null) {
   return [
     ...baseExits(s, place),
     ...(reflectionOpen(s) && place === "attic"
@@ -200,6 +232,11 @@ export function exits(s, place) {
       : reflectionOpen(s) && place === "pond"
         ? ["attic"]
         : []),
+    // Once the Steam Clock answers the bell, the pond shows Vale the way to
+    // it. The clearing keeps Badger's company small: no one else follows.
+    ...(s.steamClock?.discovered && place === "pond" && actor === "vale"
+      ? ["clearing"]
+      : []),
   ];
 }
 const programPlaces = (s) =>
@@ -213,6 +250,7 @@ const programPlaces = (s) =>
     : places;
 function meetCast(s) {
   if (!s.opening) return;
+  if (s.actors.vale.place === "pond") s.opening.crossed = true;
   for (const id of actorIds)
     if (
       s.actors[id].place === s.actors.vale.place &&
@@ -350,7 +388,7 @@ export function tradeOffers(s, actor) {
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s)) {
+  for (const actor of knownActors(s).filter((id) => id !== "badger")) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
     );
@@ -360,7 +398,7 @@ function captureHands(s, met) {
         fulfillment: {
           items: carried(s, actor),
           location: s.actors[actor].place,
-          avatars: actorIds.filter(
+          avatars: knownActors(s).filter(
             (id) =>
               id !== actor && s.actors[id].place === s.actors[actor].place,
           ),
@@ -375,7 +413,7 @@ function captureHands(s, met) {
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
 function ensurePrograms(s) {
-  for (const actor of actorIds) {
+  for (const actor of actorIds.filter((id) => id !== "badger")) {
     const p = s.actors[actor].progress;
     if (p.program >= programsFor(s, actor).length && !p.current) {
       p.completedHands ??= programsFor(s, actor).reduce(
@@ -743,10 +781,14 @@ export function legalActions(s, actor = "vale") {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
-  for (const to of exits(s, here)) {
+  for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     for (const other of knownActors(s).filter(
-      (id) => id !== actor && s.actors[id].place === here,
+      (id) =>
+        to !== "clearing" &&
+        id !== actor &&
+        id !== "badger" &&
+        s.actors[id].place === here,
     )) {
       const request = offer(
         "accompany",
@@ -786,6 +828,21 @@ export function legalActions(s, actor = "vale") {
   for (const other of knownActors(s).filter(
     (id) => id !== actor && s.actors[id].place === here,
   )) {
+    if (other === "badger") {
+      out.push(
+        offer(
+          "talk",
+          actor,
+          null,
+          other,
+          s.actors.badger.awake
+            ? `${nameOf(actor)} says hello to Grumpy Badger.`
+            : `${nameOf(actor)} gently wakes Grumpy Badger.`,
+          [other],
+        ),
+      );
+      continue;
+    }
     const conflict = standoffFor(s, actor);
     if (conflict && opponentOf(conflict, actor) === other) {
       out.push(
@@ -946,7 +1003,9 @@ export function legalActions(s, actor = "vale") {
           actor,
           id,
           null,
-          `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
+          here === "pond" && actor === "vale" && s.steamClock.rings === 1
+            ? `${nameOf(actor)} rings the Bell again. The Steam Clock answers through the water.`
+            : `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
           [id],
         ),
       );
@@ -1168,6 +1227,15 @@ function perform(s, a) {
       remember(s, "lamp", a.text);
       break;
     case "ring":
+      if (here === "clearing") {
+        s.actors.badger.awake = true;
+        s.actors.badger.wakeCause ??= "bell";
+        s.actors.badger.irritation = Math.min(
+          3,
+          s.actors.badger.irritation + 2,
+        );
+        text += " Badger opens his eyes and flattens his ears at the noise.";
+      }
       s.locations.pond.answer =
         s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
       s.items.bell.ringing = 3;
@@ -1197,6 +1265,13 @@ function perform(s, a) {
       if (a.target === "bell") s.items.bell.ringing = 0;
       break;
     case "talk":
+      if (a.target === "badger" && !s.actors.badger.awake) {
+        s.actors.badger.awake = true;
+        s.actors.badger.wakeCause = "voice";
+        s.actors.badger.irritation = 1;
+        text +=
+          " Badger wakes from a very satisfactory nap, looking mildly offended.";
+      }
       s.actors[a.actor].lastTalk = s.turn;
       break;
     case "ask": {
@@ -1267,6 +1342,11 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = "vale") {
+  if (actor === "badger")
+    return {
+      action: legalActions(s, actor)[0],
+      reason: "Keep the warm patch of moss.",
+    };
   if (!knownActors(s).includes(actor))
     return {
       action: legalActions(s, actor)[0],
@@ -1562,31 +1642,45 @@ export function play(s, action, expectedRevision = s.revision) {
   const met = new Map();
   captureHands(next, met);
   const active = knownActors(next);
+  const pondRing = exact.kind === "ring" && next.actors.vale.place === "pond";
+  const secondRing = pondRing && next.steamClock.rings === 1;
+  next.steamClock.rings = pondRing && !secondRing ? 1 : 0;
   const respondent = perform(next, exact);
-  captureHands(next, met);
-  if (
-    next.opening &&
-    !next.opening.crossed &&
-    exact.kind === "light" &&
-    next.actors.vale.place === "attic"
-  ) {
-    next.opening.crossed = true;
-    next.locations.attic.anchored = true;
-    travel(next, "vale", "pond");
-    meetCast(next);
+  if (secondRing) {
+    // The second ring reveals the way; Vale stays until the player takes it.
+    next.steamClock.discovered = true;
     addLog(
       next,
       "World",
-      "The first lamplight carries Vale alone through the attic mirror to Black pond. Pip is already waiting by the water. The mirror holds the return path, even when the lamp goes dark.",
-      {
-        kind: "narration",
-        actorId: "vale",
-        verb: "move",
-        fromLocationId: "attic",
-        locationId: "pond",
-        itemId: "lamp",
-      },
+      "The second ring folds the pond's reflection. In the water, a forest clearing and an old Steam Clock come into view.",
+      { locationId: "pond" },
     );
+  } else if (pondRing) {
+    addLog(
+      next,
+      "World",
+      "A distant clock answers the bell. Its echo hangs over the pond, waiting for a second ring.",
+      { locationId: "pond" },
+    );
+  }
+  if (exact.kind === "wait" && next.actors.vale.place === "clearing") {
+    next.actors.badger.irritation = Math.max(
+      0,
+      next.actors.badger.irritation - 1,
+    );
+    if (next.motives)
+      next.motives.grievances.badger = next.motives.grievances.badger
+        .map((g) => (g.other === "vale" ? { ...g, weight: g.weight - 1 } : g))
+        .filter((g) => g.weight > 0);
+  }
+  captureHands(next, met);
+  if (
+    next.opening &&
+    !next.locations.attic.anchored &&
+    exact.kind === "light" &&
+    next.actors.vale.place === "attic"
+  ) {
+    next.locations.attic.anchored = true;
   }
   for (const actor of ["moth", "keeper"]) {
     if (actor === respondent || !active.includes(actor)) continue;
@@ -1615,6 +1709,7 @@ export function play(s, action, expectedRevision = s.revision) {
         ? "The attic mirror and the pond open onto each other. A dark shore waits between them."
         : "The reflected path closes. The paths through the station remain open.",
     );
+  if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
   refreshStalledPrograms(next);
   validateWorld(next);
@@ -1705,6 +1800,13 @@ export function validateWorld(s) {
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
+  )
+    fail();
+  if (
+    !s.steamClock ||
+    ![0, 1].includes(s.steamClock.rings) ||
+    typeof s.steamClock.discovered !== "boolean" ||
+    (s.steamClock.rings === 1 && s.actors?.vale?.place !== "pond")
   )
     fail();
   if (s.opening !== undefined) {
@@ -1813,6 +1915,19 @@ export function validateWorld(s) {
       a.lastTalk > s.turn
     )
       fail();
+    if (id === "badger") {
+      if (
+        typeof a.awake !== "boolean" ||
+        !Number.isInteger(a.irritation) ||
+        a.irritation < 0 ||
+        a.irritation > 3 ||
+        ![null, "voice", "bell"].includes(a.wakeCause) ||
+        a.awake !== (a.wakeCause !== null) ||
+        JSON.stringify(a.progress) !== JSON.stringify(newProgress())
+      )
+        fail();
+      continue;
+    }
     const progress = a.progress,
       programs = programsFor(s, id);
     if (
@@ -1989,7 +2104,7 @@ export function validateWorld(s) {
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
-        e.witnesses.length > 7 ||
+        e.witnesses.length > 8 ||
         e.witnesses.some((id) => ![...actorIds, ...ids].includes(id)))
     )
       fail();
@@ -2103,7 +2218,7 @@ export function validateWorld(s) {
     if (
       e.cast !== undefined &&
       (!Array.isArray(e.cast) ||
-        e.cast.length > 3 ||
+        e.cast.length > 4 ||
         new Set(e.cast).size !== e.cast.length ||
         e.cast.some((id) => !actorIds.includes(id)))
     )
@@ -2139,6 +2254,7 @@ export function decodeSave(text) {
   }
   if (s?.schema === 2) {
     for (const [id, actor] of Object.entries(s.actors || {})) {
+      if (id === "badger") continue;
       const p = actor?.progress,
         programs = questPrograms[id];
       if (
@@ -2171,7 +2287,7 @@ export function decodeSave(text) {
   if (s?.schema === 4) {
     s.schema = 5;
     s.standoffs = [];
-    s.peaceUntil = { vale: 0, moth: 0, keeper: 0 };
+    s.peaceUntil = Object.fromEntries(actorIds.map((id) => [id, 0]));
   }
   if (s?.schema === 5) {
     s.schema = 6;
@@ -2185,5 +2301,6 @@ export function decodeSave(text) {
     for (const [id, memory] of Object.entries(s.memories || {}))
       memory.landmarks = remembered.memories[id]?.landmarks || [];
   }
+  if (s?.schema === 6) addSteamClock(s);
   return validateWorld(s);
 }

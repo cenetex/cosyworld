@@ -1,5 +1,24 @@
 # Scene art
 
+## Steam Clock opening (2026-10-19)
+
+`steam-clock-background.png` (1536 × 1024, RGB), `badger-sleeping.png` and
+`badger-grumpy.png` (both 1254 × 1254, RGBA) were made with the built-in image
+tool for this opening. These files preserve the generated PNGs and alpha.
+
+The references are the original CosyWorld images
+`v2/content/lonely-forest/assets/characters/slices/18-forest-clock-shrine.png`
+and `13-badger-cub.png`. The user identified image 13 as Grumpy Badger.
+
+Background direction: preserve the old dark Steam Clock on its mossy stone
+base, with warm dappled woodland light and a clear patch of ground beside it.
+Character direction: keep Badger's broad striped face, round belly, heavy
+paws, and painted fur. The first pose sleeps sitting up. The second uses
+the sleeping cutout as its reference, with open eyes and comic irritation.
+Both poses use a transparent background and the same framing.
+
+## Reflected shore
+
 Created with the built-in imagegen tool in generation mode on 2026-10-17. Backdrops use opaque backgrounds. Avatar cutouts use transparent backgrounds. Files are the original generated PNGs.
 
 ## station.png

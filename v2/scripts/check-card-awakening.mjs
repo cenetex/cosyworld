@@ -1,0 +1,182 @@
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { chromium } from "playwright";
+import { createServer } from "../card-game/serve.mjs";
+import profiles from "../card-game/entity-profiles.json" with { type: "json" };
+
+const server = createServer();
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const origin = `http://127.0.0.1:${server.address().port}`;
+let browser;
+try {
+  browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  const errors = [];
+  const requests = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/card-game/text", async (route) => {
+    const input = route.request().postDataJSON();
+    requests.push(input);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        revision: input.revision,
+        model: "browser-fixture",
+        entries: input.entities.map(({ id, facts }) => ({
+          id,
+          text:
+            id === "badger"
+              ? facts.some((fact) => fact.startsWith("Asleep"))
+                ? "Badger snores softly on the moss."
+                : "I had almost finished that nap. Almost."
+              : id === "clearing"
+                ? "The old clock ticks above the warm moss."
+                : `${profiles[id].name} notices the echo by the water.`,
+        })),
+      }),
+    });
+  });
+  const ready = async () => {
+    for (let i = 0; i < 250; i++) {
+      // A newly met card is unveiled first; add it to the hand.
+      if (await page.locator("#unveil-dialog").evaluate((d) => d.open)) {
+        await page.locator("#unveil-take").click();
+        continue;
+      }
+      if (
+        (await page.locator("#hand").getAttribute("data-cooling")) === "false"
+      )
+        return;
+      if (await page.locator("#dialogue-advance").isVisible())
+        await page.locator("#dialogue-advance").click();
+      await page.waitForTimeout(40);
+    }
+    throw new Error("The hand stayed busy after the scene response.");
+  };
+  const state = () =>
+    page.evaluate(() =>
+      JSON.parse(
+        localStorage.getItem("cosyworld.reflected-shore.v1.badger-check"),
+      ),
+    );
+  const play = async (id) => {
+    await ready();
+    await page.locator(`[data-card="${id}"]`).click();
+    await page.locator(`[data-card="${id}"]`).click();
+    await ready();
+  };
+  const decode = () =>
+    page.evaluate(() =>
+      Promise.all([...document.images].map((image) => image.decode())),
+    );
+  await mkdir("output/badger-check", { recursive: true });
+  await page.goto(`${origin}/?table=badger-check`);
+  await page.locator('[data-card="lamp"]').waitFor();
+  await play("lamp");
+  // The lamp reveals the way; the pond card takes Vale there.
+  assert.equal((await state()).actors.vale.place, "attic");
+  await play("pond");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("station");
+  await play("bell");
+  assert.equal((await state()).items.bell.holder, "vale");
+  await play("pond");
+  await play("bell");
+  assert.equal((await state()).steamClock.rings, 1);
+  assert.equal((await state()).actors.vale.place, "pond");
+  assert.equal(await page.locator("#speaker").textContent(), "echo");
+  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
+  const echoTurn = (await state()).turn;
+  const echoRequests = requests.length;
+  assert.match(
+    await page.locator('[data-card="bell"] .state').textContent(),
+    /Ring again/,
+  );
+  await page.reload();
+  await page.locator('[data-card="bell"]').waitFor();
+  await ready();
+  assert.equal(requests.length, echoRequests);
+  assert.equal(
+    (await state()).log.filter(
+      (entry) => entry.generated && entry.turn === echoTurn,
+    ).length,
+    1,
+  );
+  assert.equal(await page.locator("#speaker").textContent(), "echo");
+  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
+  await play("bell");
+  // The second ring reveals the clearing; its card takes Vale there.
+  assert.equal((await state()).actors.vale.place, "pond");
+  assert.equal((await state()).steamClock.discovered, true);
+  await play("clearing");
+  assert.equal((await state()).actors.vale.place, "clearing");
+  assert.equal((await state()).items.bell.holder, "vale");
+  const sprite = page.locator("#badger-sprite");
+  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
+  assert.equal(requests.at(-1).location, "clearing");
+  assert.ok(!requests.at(-1).speakers.includes("badger"));
+  await decode();
+  await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
+  const before = (await state()).turn;
+  await page.locator('[data-card="badger"]').focus();
+  await page.keyboard.press("Enter");
+  assert.equal((await state()).turn, before);
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator('[data-card="badger"]').getAttribute("aria-pressed"),
+    "false",
+  );
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await ready();
+  assert.equal((await state()).actors.badger.awake, true);
+  assert.ok(requests.at(-1).speakers.includes("badger"));
+  await decode();
+  await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
+  await page.locator("#menu-button").click();
+  await page.locator('[data-close="menu-dialog"]').click();
+  await play("pond");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("bell");
+  await play("pond"); // Waiting is a real play and breaks the two-ring sequence.
+  assert.equal((await state()).steamClock.rings, 0);
+  await play("bell");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("bell");
+  assert.equal((await state()).actors.vale.place, "pond");
+  await play("clearing");
+  assert.equal((await state()).actors.vale.place, "clearing");
+  await page.reload();
+  await page.locator('[data-card="badger"]').waitFor();
+  await ready();
+  assert.equal(await sprite.getAttribute("data-state"), "grumpy");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await decode();
+  await page.screenshot({ path: "output/badger-check/mobile-awake.png" });
+  assert.equal(await page.evaluate(() => document.body.scrollWidth), 390);
+  const bounds = await sprite.boundingBox();
+  assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390);
+  assert.ok(
+    bounds.y + bounds.height <
+      (await page.locator(".dialogue").boundingBox()).y,
+  );
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.screenshot({
+    path: "output/badger-check/small-phone.png",
+    fullPage: true,
+  });
+  assert.equal(await page.evaluate(() => document.body.scrollWidth), 320);
+  assert.deepEqual(errors, []);
+  console.log(
+    "Steam Clock browser check passed: attic start, revealed paths, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
+  );
+} finally {
+  await browser?.close();
+  server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+}

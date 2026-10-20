@@ -7,8 +7,9 @@
     <meta name="theme-color" content="#14151d" />
     <title>CosyWorld · The reflected shore</title>
     <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./awakening.css" />
     <link rel="preload" as="image" href="./assets/keeper-right.png" />
-    <script type="module" src="./app.mjs"></script>
+    <script type="module" src="./entry.mjs"></script>
   </head>
   <body>
     <audio id="room-music" preload="none" hidden></audio>
@@ -32,6 +33,10 @@
           </div>
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
+        <div id="travel" class="travel" aria-hidden="true">
+          <p class="kicker">Travelling to</p>
+          <p id="travel-name" class="travel-name"></p>
+        </div>
         <section class="dialogue" aria-label="Conversation">
           <div id="prior-response" class="prior-response" hidden>
             <span
@@ -80,6 +85,12 @@
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>
     </main>
+    <dialog id="unveil-dialog" class="unveil" aria-labelledby="unveil-eyebrow">
+      <p id="unveil-eyebrow" class="kicker"></p>
+      <div id="unveil-card" class="unveil-card"></div>
+      <p id="unveil-text" class="unveil-text"></p>
+      <button id="unveil-take" type="button">Add to hand</button>
+    </dialog>
     <dialog id="history-dialog">
       <div class="modal-heading">
         <h2>Conversation</h2>
@@ -107,9 +118,11 @@
         cards.
       </p>
       <p>
-        A location card travels there. The current location passes a turn. Pair
-        a carried item with the current location to put it down, or with an
-        avatar to give it.
+        A card you meet for the first time is shown large, then joins your hand
+        marked new. A location card travels there; the scene darkens and names
+        the place before you arrive. The current location passes a turn. Pair a
+        carried item with the current location to put it down, or with an avatar
+        to give it.
       </p>
       <p>
         Each card play leaves memories. Avatars, items, and places remember what
@@ -145,6 +158,10 @@
         Tap a speaking line to reveal it. Tap again to continue. Each exchange
         also advances at a reading pace. The hand rests until the exchange
         finishes. The arrows let you read earlier lines.
+      </p>
+      <p>
+        At Black pond, ring the uncovered Bell twice in a row to reach the Steam
+        Clock. The clearing has a path back to the pond.
       </p>
       <button id="speech-sound" type="button" aria-pressed="true">
         Voice sounds: on

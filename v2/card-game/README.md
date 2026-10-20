@@ -1,6 +1,35 @@
 # Card world text and memory
 
+## The bell crossing to the Steam Clock
+
+Ring the Bell twice in a row at Black pond to find the Forest Clearing.
+The first ring gets one reply: **echo** says **bong**. The second folds
+the pond's reflection and unveils a Forest Clearing card; Vale stays at the
+pond until the player plays it, then travels with their belongings. Only
+Vale takes that way, and no one can be asked along. A different successful
+player play resets the sequence; inspecting cards and hearing replies keeps
+it. The first ring also survives a reload. The bell must be uncovered.
+
+Badger starts asleep beside the clock. Playing his avatar card wakes him.
+His mood, wake cause, memories, and generated conversation belong to the
+same world save as the shore cast and items. Ringing beside him annoys him;
+quiet turns ease that irritation. He keeps his warm patch of moss.
+
+The Black pond card in the clearing returns Vale and their belongings to the
+shore. It works even if the bell has been left behind. Each outward crossing
+uses the two-ring rule again. The normal card UI handles travel, inventory,
+conversation, and history throughout. Earlier shore saves gain the clearing
+and its sleeping resident when loaded.
+
+Run `node v2/scripts/check-card-awakening.mjs` for a browser check of the bell
+sequence, waking Badger, returning, reloads, and phone layouts. Screenshots
+are saved in `output/badger-check/`.
+
+## Shore text and memory
+
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
+
+Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
 After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. Vale speaks first, followed by the chosen partner and witnessed arrivals or departures. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. A wait play keeps Vale's words at the place where Vale stayed, and a solo farewell frames desired company as a hope for later.
 
@@ -16,9 +45,11 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ## Opening in the attic
 
-New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and carries Vale alone through the mirror to Black pond, where Pip is waiting. The mirror then holds a permanent path between attic and pond, including when the lamp runs dry. The shore path joins the pond and station. The attic and station connect through the pond.
+New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and reveals a Black pond location card. Vale stays in the attic until the player plays that card, then meets Pip at the pond. The mirror holds the revealed path open, including when the lamp runs dry.
 
-The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The first crossing records the Light play, the fulfilled hand in the attic, and the separate trip to the pond, so the scene and dialogue have the same result.
+Every card the player meets for the first time is unveiled: it appears large over the scene with a line about it, then flies into the hand and stays marked new until it is used. Several new cards unveil one at a time, people first, then items, then places. A tap, Escape, or five seconds adds the card to the hand, and the conversation waits meanwhile. The cards on the table when a game starts count as met, and a reload never unveils a card again; the browser stores the met cards beside the save. Any change of Vale's place, by a played card or by retreating from a fight, dips the scene to dark and names the destination before the new place appears. Reduced motion skips the flight and the fade. `npm run v2:card:unveil:smoke` checks the attic flow in a browser. The shore path joins the pond and station. The attic and station connect through the pond.
+
+The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
 
 Existing saves keep their station start, original routes, authored programs, and earned progress. The core's `createWorld()` remains the legacy fixture; the browser explicitly chooses the new opening for fresh tables and New game.
 

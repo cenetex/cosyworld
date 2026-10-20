@@ -42,6 +42,7 @@ import {
   sceneChanges,
   sceneStaging,
   portrait,
+  backdrop,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -107,6 +108,28 @@ try {
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
+}
+// Cards the player has met. A card seen for the first time is unveiled large,
+// then flies into the hand and glows until it is used. The cards on the table
+// when a game starts count as met.
+const SEEN_KEY = `${SAVE_KEY}.seen`;
+let encountered = null;
+try {
+  const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
+  if (Array.isArray(seen)) encountered = new Set(seen);
+} catch {
+  encountered = null;
+}
+encountered ??= new Set(availableCards(world));
+const fresh = new Set(),
+  unveiling = [];
+let unveilTimer = null;
+function saveSeen() {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
+  } catch {
+    // Unveiling is a courtesy; the world itself still saves.
+  }
 }
 function save() {
   if (saveBlocked) return;
@@ -386,6 +409,12 @@ function status(id) {
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
     return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
+  if (
+    id === "bell" &&
+    world.actors.vale.place === "pond" &&
+    world.steamClock.rings === 1
+  )
+    return "The Steam Clock answers. Ring again to find it.";
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
@@ -399,6 +428,7 @@ function status(id) {
 
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
+  fresh.delete(id);
   if (selected.includes(id)) {
     commit(selected, selectionRevision);
     return;
@@ -430,6 +460,7 @@ function commitAction(action, revision) {
   storyStatus = "pending";
   pendingReplay = replay;
   const previousLine = currentScene(world, null, { seq: lineSeq }).line;
+  const from = world.actors.vale.place;
   world = result.state;
   // A new play ends any review of earlier lines.
   reviewing = false;
@@ -455,9 +486,123 @@ function commitAction(action, revision) {
       : null;
   notice("");
   save();
-  render();
+  const arrive = () => {
+    render();
+    unveilNew();
+  };
+  if (world.actors.vale.place !== from) travel(world.actors.vale.place, arrive);
+  else arrive();
   narrator.changed(action);
 }
+
+// Moving between places dips the scene to dark with the destination's name,
+// so a change of place is always seen, whatever caused it.
+const TRAVEL_COVER = 360,
+  TRAVEL_TOTAL = 1600;
+function travel(place, arrive) {
+  const veil = $("travel");
+  $("travel-name").textContent = nameOf(place);
+  if (reducedMotion.matches) {
+    arrive();
+    return;
+  }
+  veil.classList.remove("travelling");
+  void veil.offsetWidth;
+  veil.classList.add("travelling");
+  setTimeout(arrive, TRAVEL_COVER);
+  setTimeout(() => veil.classList.remove("travelling"), TRAVEL_TOTAL);
+}
+
+function unveilNew() {
+  if (saveBlocked) return;
+  // People first, then what they carry, then the ways onward.
+  const rank = { avatar: 0, item: 1, location: 2 };
+  const found = availableCards(world)
+    .filter((id) => !encountered.has(id))
+    .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
+  if (!found.length) return;
+  for (const id of found) {
+    encountered.add(id);
+    fresh.add(id);
+    unveiling.push(id);
+  }
+  saveSeen();
+  showUnveil();
+}
+function showUnveil() {
+  const dialog = $("unveil-dialog");
+  if (dialog.open || !unveiling.length) return;
+  const id = unveiling[0],
+    type = cardType(id);
+  $("unveil-eyebrow").textContent =
+    type === "location"
+      ? "A new place"
+      : type === "avatar"
+        ? "Someone new"
+        : "Something new";
+  // A showpiece, not a control: it cannot be clicked, so it need not look idle.
+  const shown = card(id);
+  shown.inert = true;
+  for (const button of shown.querySelectorAll("button"))
+    button.disabled = false;
+  $("unveil-card").replaceChildren(shown);
+  $("unveil-text").textContent =
+    type === "location"
+      ? placeText(world, id)
+      : (people[id] || things[id]).text;
+  dialog.showModal();
+  pauseSpeech();
+  clearTimeout(unveilTimer);
+  unveilTimer = setTimeout(takeUnveiled, 5000);
+}
+// The unveiled card flies from the middle of the screen into its slot.
+function takeUnveiled() {
+  clearTimeout(unveilTimer);
+  const dialog = $("unveil-dialog");
+  if (!dialog.open) return;
+  const id = unveiling.shift(),
+    shown = $("unveil-card").firstElementChild,
+    start = shown?.getBoundingClientRect();
+  dialog.close();
+  // The showpiece leaves the page, so only the hand holds this card.
+  $("unveil-card").replaceChildren();
+  renderedHand = "";
+  render();
+  const slot = $("hand")
+    .querySelector(`[data-card="${id}"]`)
+    ?.closest(".card-frame");
+  if (!slot || !start || reducedMotion.matches) {
+    showUnveil();
+    return;
+  }
+  slot.scrollIntoView({ block: "nearest", inline: "center" });
+  const end = slot.getBoundingClientRect(),
+    ghost = shown.cloneNode(true),
+    size = slot.offsetWidth;
+  ghost.classList.add("unveil-ghost");
+  document.body.append(ghost);
+  slot.style.visibility = "hidden";
+  const at = (r) =>
+    `translate(${r.left}px, ${r.top}px) scale(${r.width / size})`;
+  ghost
+    .animate([{ transform: at(start) }, { transform: at(end) }], {
+      duration: 560,
+      easing: "cubic-bezier(.2,.7,.2,1)",
+    })
+    .finished.finally(() => {
+      ghost.remove();
+      slot.style.visibility = "";
+      showUnveil();
+    });
+}
+$("unveil-take").onclick = takeUnveiled;
+$("unveil-dialog").addEventListener("click", (e) => {
+  if (e.target === $("unveil-dialog")) takeUnveiled();
+});
+$("unveil-dialog").addEventListener("cancel", (e) => {
+  e.preventDefault();
+  takeUnveiled();
+});
 function card(id) {
   const type = cardType(id),
     def = places[id] || people[id] || things[id];
@@ -467,7 +612,7 @@ function card(id) {
   const el = node(
     "button",
     undefined,
-    `card ${type} ${id === "lamp" && shining(world) ? "lit" : ""}`,
+    `card ${type} ${id === "lamp" && shining(world) ? "lit" : ""} ${fresh.has(id) ? "new" : ""}`,
   );
   el.type = "button";
   el.dataset.card = id;
@@ -487,7 +632,7 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && hasQuestPrograms(world)
+      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -497,7 +642,7 @@ function card(id) {
   if (type === "item") graphic.innerHTML = art(id);
   else {
     const img = node("img");
-    img.src = `./assets/${id}.png`;
+    img.src = type === "avatar" ? portrait(id, null, world) : backdrop(id);
     img.alt = "";
     graphic.append(img);
   }
@@ -522,7 +667,7 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world)) {
+    if (!hasQuestPrograms(world) || id === "badger") {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
@@ -539,10 +684,10 @@ function card(id) {
   el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
-  if (type === "avatar" && !hasQuestPrograms(world)) {
+  if (type === "avatar" && (!hasQuestPrograms(world) || id === "badger")) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
-    const grudge = world.motives.grievances[id].at(-1);
+    const grudge = world.motives?.grievances[id]?.at(-1);
     info.append(
       node(
         "span",
@@ -704,12 +849,46 @@ function card(id) {
   }
   return frame;
 }
+function renderClearing(locationId) {
+  const forest = locationId === "clearing";
+  document.body.dataset.world = forest ? "forest" : "shore";
+  document.querySelector(".brand span").textContent = forest
+    ? "The Steam Clock"
+    : "The reflected shore";
+  let picture = $("clearing-picture");
+  if (forest && !picture) {
+    picture = node("div", undefined, "clearing-picture");
+    picture.id = "clearing-picture";
+    const canvas = node("div", undefined, "clearing-canvas");
+    const background = node("img", undefined, "backdrop");
+    background.src = backdrop("clearing");
+    background.alt =
+      "The old Steam Clock stands on mossy stones in a sunlit clearing.";
+    const badger = node("img", undefined, "clearing-badger");
+    badger.id = "badger-sprite";
+    canvas.append(background, badger);
+    picture.append(canvas);
+    $("stage").prepend(picture);
+  }
+  if (picture) picture.hidden = !forest;
+  $("backdrop").hidden = forest;
+  if (forest) {
+    $("badger-sprite").src = portrait("badger", null, world);
+    $("badger-sprite").dataset.state = world.actors.badger.awake
+      ? "grumpy"
+      : "sleeping";
+    $("badger-sprite").alt = world.actors.badger.awake
+      ? "Grumpy Badger, awake and looking put out."
+      : "Grumpy Badger asleep beside the clock.";
+  }
+}
 function renderScene() {
   const scene = currentScene(world, null, {
     seq: lineSeq,
     hold: exchange.preparing,
     review: reviewing,
   });
+  renderClearing(scene.locationId);
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -967,8 +1146,13 @@ function render() {
   $("place-title").textContent = nameOf(world.actors.vale.place);
   $("path-state").textContent = reflectionOpen(world)
     ? "The reflected path is open"
-    : "Reflections open in lamplight";
-  const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
+    : "The mirror holds a dark reflection";
+  const handKey = JSON.stringify([
+    world.revision,
+    selected,
+    saveBlocked,
+    [...fresh],
+  ]);
   if (handKey !== renderedHand) {
     renderedHand = handKey;
     $("hand").replaceChildren(...availableCards(world).map(card));
@@ -1066,7 +1250,7 @@ $("menu-button").onclick = () => {
           ]
         : []),
       ...knownActors(world)
-        .filter((id) => id !== "vale")
+        .filter((id) => id !== "vale" && id !== "badger")
         .map((actor) => ({
           actor,
           program: programFor(world, actor),
@@ -1135,6 +1319,10 @@ $("confirm-reset").onclick = () => {
     questPrograms: true,
   });
   completedSpeech.clear();
+  encountered = new Set(availableCards(world));
+  fresh.clear();
+  unveiling.length = 0;
+  saveSeen();
   reviewing = false;
   renderedHand = "";
   replay = pendingReplay = 0;
