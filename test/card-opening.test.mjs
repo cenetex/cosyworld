@@ -18,7 +18,11 @@ import {
   levelOf,
 } from "../v2/card-game/quests.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
-import { narrativeContext, turnOutcome } from "../v2/card-game/narrative.mjs";
+import {
+  narrativeContext,
+  turnOutcome,
+  applyGeneratedText,
+} from "../v2/card-game/narrative.mjs";
 import { sceneCast, currentScene } from "../v2/card-game/scene.mjs";
 
 const fresh = () =>
@@ -39,7 +43,7 @@ const act = (s, kind, fields) => {
   return result.state;
 };
 const meetEveryone = () =>
-  act(act(act(fresh(), "light"), "talk", { target: "moth" }), "move", {
+  act(act(act(fresh(), "light"), "move", { target: "pond" }), "move", {
     target: "station",
   });
 
@@ -60,7 +64,7 @@ describe("the first light in the attic", () => {
       avatars: [],
       conditions: [{ kind: "lit", item: "lamp" }],
     });
-    expect(placeText(s, "attic")).toContain("lamp wakes the crossing");
+    expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
       /keeper|moth|Pip|Oil flask|bell|cloth/,
     );
@@ -86,21 +90,31 @@ describe("the first light in the attic", () => {
     expect(s.memories.keeper.events).toEqual([]);
     expect(levelOf(s, "vale")).toBe(1);
     s = act(s, "light");
-    expect(s.actors.vale.place).toBe("pond");
+    expect(s.actors.vale.place).toBe("attic");
+    expect(knownActors(s)).toEqual(["vale"]);
   });
 
-  it("carries the first light to Pip and records the light card and solo crossing separately", () => {
-    const s = act(fresh(), "light");
-    expect(s.actors.vale.place).toBe("pond");
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 7 });
-    expect(s.opening).toEqual({
-      version: 1,
-      crossed: true,
-      met: { vale: 0, moth: 1 },
+  it("reveals a path card while Vale stays in the attic, then travels when it is played", () => {
+    const before = fresh();
+    const lit = act(before, "light");
+    expect(lit.actors.vale.place).toBe("attic");
+    expect(lit.items.lamp).toMatchObject({
+      holder: "vale",
+      lit: true,
+      fuel: 7,
     });
-    expect(s.locations.attic.anchored).toBe(true);
-    expect(levelOf(s, "vale")).toBe(2);
-    const receipt = s.log.find(
+    expect(lit.opening).toEqual({
+      version: 1,
+      crossed: false,
+      met: { vale: 0 },
+    });
+    expect(lit.locations.attic.anchored).toBe(true);
+    expect(
+      availableCards(lit).filter((id) => !availableCards(before).includes(id)),
+    ).toEqual(["pond"]);
+    expect(exits(lit, "attic")).toEqual(["pond"]);
+    expect(levelOf(lit, "vale")).toBe(2);
+    const receipt = lit.log.find(
       (e) => e.kind === "quest" && e.actorId === "vale",
     );
     expect(receipt.fulfillment).toMatchObject({
@@ -108,21 +122,43 @@ describe("the first light in the attic", () => {
       items: ["lamp"],
       conditions: [{ kind: "lit", item: "lamp", met: true }],
     });
+    expect(turnOutcome(lit)).toMatchObject({
+      card: { kind: "light" },
+      avatars: [{ id: "vale", location: "attic", travel: null }],
+    });
+    expect(turnOutcome(lit).items.map((i) => i.id)).toEqual(["lamp"]);
+    expect(currentScene(lit).locationId).toBe("attic");
+    expect(sceneCast(lit)).toEqual(["vale", null]);
+    expect(narrativeContext(lit).events.join(" ")).toContain(
+      "open onto each other",
+    );
+    expect(JSON.stringify(narrativeContext(lit))).not.toMatch(
+      /keeper|moth|Pip/,
+    );
+    const saved = encodeSave(lit);
+    const path = cardPlay(lit, ["pond"]);
+    expect(path.action.kind).toBe("move");
+    expect(encodeSave(lit)).toBe(saved);
+    const s = act(lit, "move", { target: "pond" });
+    expect(s.opening).toEqual({
+      version: 1,
+      crossed: true,
+      met: { vale: 0, moth: 2 },
+    });
     expect(
       s.log.some(
-        (e) => e.kind === "action" && ["moth", "keeper"].includes(e.actorId),
+        (e) =>
+          e.turn === 2 &&
+          e.kind === "action" &&
+          ["moth", "keeper"].includes(e.actorId),
       ),
     ).toBe(false);
-    const outcome = turnOutcome(s);
-    expect(outcome.card.kind).toBe("light");
-    expect(outcome.avatars).toHaveLength(2);
-    expect(outcome.avatars[0].travel).toEqual({
+    expect(turnOutcome(s).card.kind).toBe("move");
+    expect(turnOutcome(s).avatars[0].travel).toEqual({
       from: "attic",
       to: "pond",
       companions: [],
     });
-    expect(outcome.avatars[1].travel).toBeNull();
-    expect(outcome.items.map((i) => i.id)).toEqual(["lamp", "cloth"]);
     expect(
       narrativeContext(s)
         .entities.find((e) => e.id === "moth")
@@ -132,9 +168,41 @@ describe("the first light in the attic", () => {
     expect(sceneCast(s)).toEqual(["vale", "moth"]);
   });
 
+  it("grounds the unrevealed opening in observations, including after older speech was saved", () => {
+    let s = fresh();
+    const context = narrativeContext(s);
+    const spoiler =
+      "I know the hidden solution: light the lamp and the mirror opens the path.";
+    s = applyGeneratedText(s, context, {
+      revision: context.revision,
+      model: "fixture-model",
+      entries: context.entities.map(({ id }) => ({ id, text: spoiler })),
+    });
+    s = act(s, "wait");
+    const next = narrativeContext(s);
+    expect(JSON.stringify(next)).not.toMatch(
+      /hidden solution|mirror opens|waiting for lamplight|needs a lit|Wake the attic|Reason for the desire/,
+    );
+    expect(next.conversation).toEqual([]);
+    expect(
+      next.entities.every(
+        (e) =>
+          e.previous === null && e.memories.every((m) => m.kind === "event"),
+      ),
+    ).toBe(true);
+    expect(s.memories.vale.text).toBe(spoiler);
+    expect(next.entities.find((e) => e.id === "attic").facts).toContain(
+      "Paths visible now: none.",
+    );
+    const lit = act(s, "light");
+    expect(
+      narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
+    ).toContain("An open passage is visible in the reflection.");
+  });
+
   it("meets the keeper on reaching the station, then grows a new program from the discovered world", () => {
     let s = act(fresh(), "light");
-    s = act(s, "talk", { target: "moth" });
+    s = act(s, "move", { target: "pond" });
     expect(desireFor(s, "vale")).toEqual({
       items: ["lamp"],
       location: "station",
@@ -173,10 +241,13 @@ describe("the first light in the attic", () => {
     let dropped = act(fresh(), "drop", { item: "lamp" });
     dropped = act(dropped, "light");
     expect(dropped.items.lamp.holder).toBe("vale");
-    expect(dropped.actors.vale.place).toBe("pond");
-    let s = act(act(fresh(), "light"), "move", { target: "attic" });
+    expect(dropped.actors.vale.place).toBe("attic");
+    let s = act(fresh(), "light");
     for (let i = 0; i < 9; i++) s = act(s, "wait");
     expect(s.items.lamp.fuel).toBe(0);
+    expect(s.opening.crossed).toBe(false);
+    expect(knownActors(s)).toEqual(["vale"]);
+    s = decodeSave(encodeSave(s));
     expect(exits(s, "attic")).toEqual(["pond"]);
     expect(exits(s, "station")).toEqual(["pond"]);
     s = act(s, "move", { target: "pond" });

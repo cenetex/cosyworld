@@ -1,4 +1,4 @@
-import { hasMotives, hasQuestPrograms, motiveFacts } from "./motives.mjs";
+import { hasMotives, motiveFacts } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles } from "./memory.mjs";
 import {
@@ -13,12 +13,12 @@ import {
   standoffFor,
   opponentOf,
 } from "./world.mjs";
-import { desireFor, programFor, knownActors } from "./quests.mjs";
+import { desireFor, knownActors } from "./quests.mjs";
 import { conditionMet, conditionText } from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events; quest counters remain on the cards and in the history.
-export function speechMemories(memory) {
+export function speechMemories(memory, { expressions = true } = {}) {
   const concrete = (e) =>
     e.kind === "event" &&
     !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
@@ -27,7 +27,9 @@ export function speechMemories(memory) {
     .filter(concrete)
     .filter((e) => !recent.some((r) => r.seq === e.seq))
     .slice(-2);
-  const said = memory.events.filter((e) => e.kind === "expression").slice(-2);
+  const said = expressions
+    ? memory.events.filter((e) => e.kind === "expression").slice(-2)
+    : [];
   return [...lasting, ...recent, ...said]
     .sort((a, b) => a.seq - b.seq)
     .map(({ turn, kind, text }) => ({ turn, kind, text }));
@@ -98,6 +100,12 @@ export function turnOutcome(world) {
 
 export function narrativeContext(world, action = null) {
   const location = world.actors.vale.place;
+  // Earlier opening text could include the authored solution. Keep those lines
+  // in the save while grounding this unrevealed scene in observations.
+  const beforeFirstLight = Boolean(
+    world.opening && !world.locations.attic.anchored,
+  );
+  const known = knownActors(world);
   const present = Object.keys(world.actors).filter(
     (id) => world.actors[id].place === location,
   );
@@ -148,16 +156,18 @@ export function narrativeContext(world, action = null) {
     )
     .slice(-8)
     .map((entry) => entry.text);
-  const conversation = world.log
-    .filter(
-      (entry) =>
-        entry.generated &&
-        entry.kind === "dialogue" &&
-        entry.locationId === location &&
-        entry.turn < world.turn,
-    )
-    .slice(-4)
-    .map(({ actorId, text }) => ({ actorId, text }));
+  const conversation = beforeFirstLight
+    ? []
+    : world.log
+        .filter(
+          (entry) =>
+            entry.generated &&
+            entry.kind === "dialogue" &&
+            entry.locationId === location &&
+            entry.turn < world.turn,
+        )
+        .slice(-4)
+        .map(({ actorId, text }) => ({ actorId, text }));
   return {
     revision: world.revision,
     turn: world.turn,
@@ -220,11 +230,8 @@ export function narrativeContext(world, action = null) {
         desire = {
           items: target.items,
           location: target.location,
-          avatars: target.avatars,
+          avatars: target.avatars.filter((other) => known.includes(other)),
         };
-        const purpose = hasQuestPrograms(world)
-          ? programFor(world, id)?.purpose
-          : null;
         if (hasMotives(world)) {
           const personal = motiveFacts(world, id, 2);
           facts.push(
@@ -237,7 +244,6 @@ export function narrativeContext(world, action = null) {
           facts.push(
             "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
           );
-        if (purpose) facts.push(`Reason for the desire: ${purpose}`);
         for (const c of target.conditions || [])
           facts.push(
             `${conditionMet(world, c) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
@@ -253,7 +259,9 @@ export function narrativeContext(world, action = null) {
           facts.push(
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
-              : `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`,
+              : itemPlace(world, item) === world.actors[id].place
+                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
+                : `Wants ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(
@@ -285,18 +293,15 @@ export function narrativeContext(world, action = null) {
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
         facts.push(
-          `Paths open to: ${exits(world, id).map(nameOf).join(", ") || "the mirror is waiting for lamplight"}.`,
+          `Paths visible now: ${exits(world, id).map(nameOf).join(", ") || "none"}.`,
         );
-        if (id === "attic" || id === "pond")
-          facts.push(
-            world.locations.attic.anchored
-              ? "The mirror path is fixed open even in darkness."
-              : "The reflection path needs a lit uncovered lamp at the attic or pond.",
-          );
+        if (
+          (id === "attic" || id === "pond") &&
+          exits(world, id).includes(id === "attic" ? "pond" : "attic")
+        )
+          facts.push("An open passage is visible in the reflection.");
         if (id === "pond" && world.locations.pond.answer === "hush")
-          facts.push(
-            "The wrapped bell made this shore a refuge. The cast will keep peace here until the bell rings again.",
-          );
+          facts.push("The wrapped bell rests beside the quiet water.");
         if (id === "pond" && world.locations.pond.answer === "call")
           facts.push(
             "The pond answered the bell with oil. Its shore carries every sound again.",
@@ -309,8 +314,10 @@ export function narrativeContext(world, action = null) {
         id,
         facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
         desire,
-        memories: speechMemories(world.memories[id]),
-        previous: world.memories[id].text,
+        memories: speechMemories(world.memories[id], {
+          expressions: !beforeFirstLight,
+        }),
+        previous: beforeFirstLight ? null : world.memories[id].text,
       };
     }),
   };
