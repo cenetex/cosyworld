@@ -27,7 +27,7 @@ export function availableCards(world) {
     ...Object.keys(people).filter(
       (id) => id !== "vale" && world.actors[id].place === here,
     ),
-    ...exits(world, here),
+    ...exits(world, here, "vale"),
     here,
   ];
 }

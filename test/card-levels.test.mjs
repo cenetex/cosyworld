@@ -62,11 +62,13 @@ describe("XP and levels in the card core", () => {
         if (e.kind !== "quest" || !e.complete) continue;
         const quest = worth[e.actorId];
         expect(e.questId).toBe(quest.id);
-        expect(e.xp - xp[e.actorId]).toBe(quest.xp);
+        // Discoveries add XP between quests, so the total can grow by more.
+        expect(e.gained).toBe(quest.xp);
+        expect(e.xp - xp[e.actorId]).toBeGreaterThanOrEqual(quest.xp);
         expect(e.text).toContain(` ${quest.xp} XP.`);
         expect(e.text.includes(" Level ")).toBe(
           levelForXp(e.xp, s.rules.xpPerLevel) >
-            levelForXp(xp[e.actorId], s.rules.xpPerLevel),
+            levelForXp(e.xp - quest.xp, s.rules.xpPerLevel),
         );
         xp[e.actorId] = e.xp;
         checked += 1;

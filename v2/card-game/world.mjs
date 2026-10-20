@@ -50,12 +50,12 @@ export const places = {
   },
   attic: {
     name: "Mirror attic",
-    text: "A tall mirror reflects a black shore. Light opens a path to the pond. The stairs lead to the station.",
+    text: "A tall mirror reflects a black shore. The stairs lead to the station.",
     exits: ["station"],
   },
   pond: {
     name: "Black pond",
-    text: "Something vast breathes beneath the reflection. Light opens a path to the attic. A path leads to the station.",
+    text: "Something vast breathes beneath the reflection. A path leads to the station.",
     exits: ["station"],
   },
 };
@@ -80,7 +80,7 @@ export const people = {
 export const things = {
   lamp: {
     name: "Lamp",
-    text: "Light reveals paths through reflections. Burns one fuel each turn, even under a cloth.",
+    text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
   },
   oil: {
     name: "Oil flask",
@@ -88,7 +88,7 @@ export const things = {
   },
   bell: {
     name: "Bell",
-    text: "Two rings in a row at Black pond carry you to the Steam Clock. Its call also brings one dose into an empty oil flask. The Black cloth stops its sound.",
+    text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound.",
   },
   cloth: {
     name: "Black cloth",
@@ -165,7 +165,7 @@ export function createWorld({ opening = false } = {}) {
       ...world.log[0],
       locationId: "attic",
       items: [{ id: "lamp", holder: "vale", fuel: 8, lit: false }],
-      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore. The wick is ready to light.",
+      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore.",
     };
   }
   addSteamClock(world);
@@ -218,11 +218,13 @@ const baseExits = (s, place) =>
     : places[place].exits;
 export const placeText = (s, place) =>
   s.opening && place === "attic"
-    ? "A tall mirror reflects a black shore. The lamp wakes the crossing to the pond."
+    ? reflectionOpen(s)
+      ? "A tall mirror opens onto a black shore. A path leads through the glass."
+      : "A tall mirror reflects a black shore. Dust gathers along its frame."
     : s.opening && place === "station"
       ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
       : places[place].text;
-export function exits(s, place) {
+export function exits(s, place, actor = null) {
   return [
     ...baseExits(s, place),
     ...(reflectionOpen(s) && place === "attic"
@@ -230,6 +232,11 @@ export function exits(s, place) {
       : reflectionOpen(s) && place === "pond"
         ? ["attic"]
         : []),
+    // Once the Steam Clock answers the bell, the pond shows Vale the way to
+    // it. The clearing keeps Badger's company small: no one else follows.
+    ...(s.steamClock?.discovered && place === "pond" && actor === "vale"
+      ? ["clearing"]
+      : []),
   ];
 }
 const programPlaces = (s) =>
@@ -243,6 +250,7 @@ const programPlaces = (s) =>
     : places;
 function meetCast(s) {
   if (!s.opening) return;
+  if (s.actors.vale.place === "pond") s.opening.crossed = true;
   for (const id of actorIds)
     if (
       s.actors[id].place === s.actors.vale.place &&
@@ -773,10 +781,14 @@ export function legalActions(s, actor = "vale") {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
-  for (const to of exits(s, here)) {
+  for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     for (const other of knownActors(s).filter(
-      (id) => id !== actor && id !== "badger" && s.actors[id].place === here,
+      (id) =>
+        to !== "clearing" &&
+        id !== actor &&
+        id !== "badger" &&
+        s.actors[id].place === here,
     )) {
       const request = offer(
         "accompany",
@@ -1635,20 +1647,13 @@ export function play(s, action, expectedRevision = s.revision) {
   next.steamClock.rings = pondRing && !secondRing ? 1 : 0;
   const respondent = perform(next, exact);
   if (secondRing) {
+    // The second ring reveals the way; Vale stays until the player takes it.
     next.steamClock.discovered = true;
-    travel(next, "vale", "clearing");
-    meetCast(next);
     addLog(
       next,
       "World",
-      "The second ring folds the pond into a forest clearing. Vale arrives beside the old Steam Clock with their belongings. A reflection between the roots leads back to Black pond.",
-      {
-        kind: "narration",
-        actorId: "vale",
-        verb: "move",
-        fromLocationId: "pond",
-        locationId: "clearing",
-      },
+      "The second ring folds the pond's reflection. In the water, a forest clearing and an old Steam Clock come into view.",
+      { locationId: "pond" },
     );
   } else if (pondRing) {
     addLog(
@@ -1671,27 +1676,11 @@ export function play(s, action, expectedRevision = s.revision) {
   captureHands(next, met);
   if (
     next.opening &&
-    !next.opening.crossed &&
+    !next.locations.attic.anchored &&
     exact.kind === "light" &&
     next.actors.vale.place === "attic"
   ) {
-    next.opening.crossed = true;
     next.locations.attic.anchored = true;
-    travel(next, "vale", "pond");
-    meetCast(next);
-    addLog(
-      next,
-      "World",
-      "The first lamplight carries Vale alone through the attic mirror to Black pond. Pip is already waiting by the water. The mirror holds the return path, even when the lamp goes dark.",
-      {
-        kind: "narration",
-        actorId: "vale",
-        verb: "move",
-        fromLocationId: "attic",
-        locationId: "pond",
-        itemId: "lamp",
-      },
-    );
   }
   for (const actor of ["moth", "keeper"]) {
     if (actor === respondent || !active.includes(actor)) continue;

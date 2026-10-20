@@ -20,7 +20,7 @@
   "lamp": {
     "kind": "item",
     "name": "Lamp",
-    "persona": "A small oil lamp that makes reflections into paths. Its flame seems to recognise former carriers. Describe soot, warmth, light, coverings and remembered journeys in concrete terms."
+    "persona": "A small oil lamp with soot-darkened glass and a worn handle. Describe its warmth, wick, light, coverings and witnessed use in concrete terms."
   },
   "oil": {
     "kind": "item",
@@ -35,7 +35,7 @@
   "cloth": {
     "kind": "item",
     "name": "Black cloth",
-    "persona": "A dark cloth that smothers light and sound. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands."
+    "persona": "A dark cloth with dense fibres and frayed edges. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands."
   },
   "station": {
     "kind": "location",
@@ -45,12 +45,12 @@
   "attic": {
     "kind": "location",
     "name": "Mirror attic",
-    "persona": "An attic above the station with a tall mirror. Lamplight can open a path through its reflection. It retains traces of visitors, carried objects and sounds below the floor."
+    "persona": "A dusty attic with a tall mirror reflecting a black shore. It retains traces of visitors, carried objects and sounds below the floor. Describe visible changes and witnessed events."
   },
   "pond": {
     "kind": "location",
     "name": "Black pond",
-    "persona": "A still pond beside the station. Something vast listens below its reflection. Respond to visitors, light and sound through ripples, reflected shapes and small unsettling details."
+    "persona": "A still pond beside the station. Deep shapes and faint ripples disturb its reflection. Describe visitors, light, sound and witnessed changes through small unsettling details."
   },
   "badger": {
     "kind": "avatar",
@@ -61,6 +61,6 @@
   "clearing": {
     "kind": "location",
     "name": "Forest Clearing",
-    "persona": "A sunlit woodland clearing around an old steam clock on mossy stones. A reflection between its roots leads back to Black pond. Two consecutive clear bell rings at Black pond bring the visitor here with their belongings. Badger has a favourite patch of moss."
+    "persona": "A sunlit woodland clearing around an old steam clock on mossy stones. A reflection between its roots leads back to Black pond. Badger has a favourite patch of moss."
   }
 }

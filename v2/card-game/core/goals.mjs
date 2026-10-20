@@ -1,6 +1,7 @@
 // Target hands and the quest generator for the general card core. Nothing here
 // names an entity: every choice reads the world's own registries.
 import { latentPlace, promisePlace } from "./growth.mjs";
+import { clueFor, knowsItem, knowsPlace, newKnowledge } from "./knowledge.mjs";
 
 // A place opens no doorway once it has this many exits.
 const MAX_EXITS = 3;
@@ -68,6 +69,7 @@ export const newAvatar = (entity, role, place) => ({
   lastTalk: -9,
   peaceUntil: 0,
   heard: 0,
+  known: newKnowledge(),
   asleep: false,
   restedAt: null,
   former: false,
@@ -199,7 +201,42 @@ export function questXp(s, avatar, quest) {
 // result is plain saved data, so reloads keep the same bargain.
 export function generateQuest(s, avatar, options) {
   const quest = buildQuest(s, avatar, options);
-  return { ...quest, xp: questXp(s, avatar, quest) };
+  const clues = questClues(s, avatar, quest);
+  // A quest about something the avatar has not seen is named by its clue.
+  const item = quest.generated.item;
+  const name =
+    item && clues[item] && !quest.generated.door && s.items[item].holder
+      ? `A search near ${nameOf(s, clues[item])}`
+      : quest.name;
+  return { ...quest, name, clues, xp: questXp(s, avatar, quest) };
+}
+// Each thing a quest names that the avatar has not seen gets a clue: the
+// known place nearest to where it is. A promised item points to its maker and
+// a promised place to the place it will open from.
+function questClues(s, avatar, quest) {
+  const clues = {};
+  const add = (id, place) => {
+    const clue = id in clues ? null : clueFor(s, avatar, place);
+    if (clue) clues[id] = clue;
+  };
+  const met = s.avatars[avatar].known.avatars;
+  for (const step of quest.steps)
+    for (const h of alternatives(step)) {
+      for (const id of h.items)
+        if (!knowsItem(s, avatar, id))
+          add(
+            id,
+            s.items[id].holder === null ? s.items[id].maker : itemPlace(s, id),
+          );
+      if (h.location && !knowsPlace(s, avatar, h.location))
+        add(
+          h.location,
+          latentPlace(s, h.location) ? s.places[h.location].opener : h.location,
+        );
+      for (const id of h.avatars)
+        if (id !== avatar && !met[id]) add(id, s.avatars[id].place);
+    }
+  return clues;
 }
 function buildQuest(s, avatar, { independent = false, solo = false } = {}) {
   const progress = s.avatars[avatar].progress;
@@ -286,6 +323,8 @@ function buildQuest(s, avatar, { independent = false, solo = false } = {}) {
     // then choose items residents hold, leaving the player's answer voluntary.
     if (!isPlayer(s, avatar) && isPlayer(s, owner))
       value = progress.program % 3 === 0 ? 10 : -2;
+    // Goals lean toward what the avatar has not seen, so it keeps searching.
+    if (!knowsItem(s, avatar, item)) value += 5;
     return value - (recent.includes(item) ? 3 : 0);
   };
   const item = candidates
@@ -366,6 +405,30 @@ function buildQuest(s, avatar, { independent = false, solo = false } = {}) {
   ];
   const gathering = hand(hold(payment || item));
   const journey = carryTo(finalItems, destination);
+  // From level 2, every fourth goal follows a rumor: an item anywhere in the
+  // world the avatar has not seen, hidden ones first, to bring back here. Its
+  // clue is the known place nearest to it.
+  const rumors = Object.keys(s.items).filter(
+    (id) =>
+      s.items[id].holder !== null &&
+      !knowsItem(s, avatar, id) &&
+      !asleep(s, holderOf(s, id)) &&
+      !isPlayer(s, holderOf(s, id)),
+  );
+  if (level >= 2 && progress.program % 4 === 3 && rumors.length) {
+    const hidden = rumors.filter((id) => s.items[id].hidden);
+    const rumor = pick(hidden.length ? hidden : rumors, "rumor");
+    return {
+      id,
+      name: `A rumor of ${nameOf(s, rumor)}`,
+      steps: sequence(hand(hold(rumor)), carryTo([rumor], here)),
+      generated: meta({
+        item: rumor,
+        owner: holderOf(s, rumor),
+        partner: null,
+      }),
+    };
+  }
   // From level 3, every third goal is a place's next make: an item that does
   // not exist until someone completes that place's quest.
   const works = reachable.filter((place) =>

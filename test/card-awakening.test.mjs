@@ -39,6 +39,8 @@ function act(s, kind, item, target) {
   return result.state;
 }
 const ring = (s) => act(s, "ring", "bell");
+// The second ring reveals the clearing; playing its card takes Vale there.
+const reach = (s) => act(s, "move", null, "clearing");
 
 describe("the bell crossing to the Steam Clock", () => {
   it("gives the first ring one reply from echo and preserves it through reload and retries", () => {
@@ -65,11 +67,14 @@ describe("the bell crossing to the Steam Clock", () => {
     s = applyGeneratedText(s, context, response);
     expect(replies(s)).toHaveLength(1);
     s = ring(s);
+    expect(s.actors.vale.place).toBe("pond");
+    expect(availableCards(s)).toContain("clearing");
+    s = reach(s);
     expect(s.actors.vale.place).toBe("clearing");
     expect(replies(s)).toHaveLength(0);
   });
 
-  it("crosses on the second consecutive ring with carried items and a real travel record", () => {
+  it("reveals the way on the second consecutive ring, then crosses with carried items", () => {
     const start = pond();
     const first = ring(start);
     expect(first.actors.vale.place).toBe("pond");
@@ -79,21 +84,32 @@ describe("the bell crossing to the Steam Clock", () => {
     availableCards(first);
     cardPlay(first, ["bell"]);
     expect(encodeSave(first)).toBe(before);
-    const next = ring(decodeSave(before));
+    const heard = ring(decodeSave(before));
+    expect(heard.actors.vale.place).toBe("pond");
+    expect(heard.steamClock).toEqual({ rings: 0, discovered: true });
+    expect(turnOutcome(heard).card.kind).toBe("ring");
+    expect(
+      heard.memories.pond.events.some((e) => e.text.includes("second ring")),
+    ).toBe(true);
+    // Only Vale sees the way, and no one can be asked along it.
+    expect(exits(heard, "pond", "vale")).toContain("clearing");
+    expect(exits(heard, "pond")).not.toContain("clearing");
+    expect(
+      legalActions(heard).some(
+        (a) => a.kind === "accompany" && a.destination === "clearing",
+      ),
+    ).toBe(false);
+    expect(decodeSave(encodeSave(heard))).toEqual(heard);
+    const next = reach(heard);
     expect(next.actors.vale.place).toBe("clearing");
-    expect(next.steamClock).toEqual({ rings: 0, discovered: true });
     expect(rootHolder(next, "bell")).toBe("vale");
     expect(rootHolder(next, "lamp")).toBe("vale");
     expect(next.actors.badger.awake).toBe(false);
     expect(availableCards(next)).toContain("badger");
     expect(exits(next, "clearing")).toEqual(["pond"]);
-    expect(turnOutcome(next).card.kind).toBe("ring");
     expect(
       turnOutcome(next).avatars.find((a) => a.id === "vale").travel,
     ).toEqual({ from: "pond", to: "clearing", companions: [] });
-    expect(
-      next.memories.clearing.events.some((e) => e.text.includes("second ring")),
-    ).toBe(true);
     expect(decodeSave(encodeSave(next))).toEqual(next);
   });
 
@@ -123,7 +139,7 @@ describe("the bell crossing to the Steam Clock", () => {
   });
 
   it("keeps Badger asleep on arrival, then remembers waking him across return trips", () => {
-    let s = ring(ring(pond()));
+    let s = reach(ring(ring(pond())));
     expect(narrativeContext(s).speakers).not.toContain("badger");
     expect(
       narrativeContext(s)
@@ -135,7 +151,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(s.actors.badger.wakeCause).toBe("voice");
     expect(narrativeContext(s).speakers).toContain("badger");
     s = act(s, "move", null, "pond");
-    s = ring(ring(decodeSave(encodeSave(s))));
+    s = reach(decodeSave(encodeSave(s)));
     expect(s.actors.badger.awake).toBe(true);
     expect(s.actors.badger.progress).toEqual({
       program: 0,
@@ -146,7 +162,7 @@ describe("the bell crossing to the Steam Clock", () => {
   });
 
   it("allows a return after leaving the bell behind and reacts to local ringing", () => {
-    let s = ring(ring(pond()));
+    let s = reach(ring(ring(pond())));
     s = ring(s);
     expect(s.actors.badger).toMatchObject({
       awake: true,
@@ -175,7 +191,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(restored.log).toEqual(old.log);
     expect(restored.actors.vale.place).toBe("pond");
     expect(restored.actors.badger.awake).toBe(false);
-    expect(ring(ring(restored)).actors.vale.place).toBe("clearing");
+    expect(reach(ring(ring(restored))).actors.vale.place).toBe("clearing");
     restored.steamClock.rings = 2;
     expect(() => decodeSave(JSON.stringify(restored))).toThrow();
   });
