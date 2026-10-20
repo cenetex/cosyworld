@@ -70,8 +70,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Only main saves the Cargo cache; pull requests restore it. Saving a
+      # new commit-keyed cache on every run cost about 45 seconds each.
       - name: Restore Cargo build cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -85,6 +87,46 @@ jobs:
 
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
+
+      - name: Save Cargo build cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+
+  # The browser and composition checks need only the debug binary, so it is
+  # built beside the Rust tests instead of after them.
+  smoke-binary:
+    name: Smoke-test binary
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-orchestrator-
 
       - name: Build V2 binary
         run: bash v2/scripts/check-rust.sh build
@@ -124,7 +166,7 @@ jobs:
 
   composition:
     name: Composition checks (${{ matrix.suite }})
-    needs: runtime
+    needs: smoke-binary
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -164,7 +206,7 @@ jobs:
 
   browser:
     name: Browser checks (${{ matrix.mode }})
-    needs: runtime
+    needs: smoke-binary
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -306,7 +348,16 @@ jobs:
   build:
     name: build
     if: ${{ always() }}
-    needs: [node, runtime, rust-quality, composition, browser, publication]
+    needs:
+      [
+        node,
+        runtime,
+        smoke-binary,
+        rust-quality,
+        composition,
+        browser,
+        publication,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all CI jobs passed
@@ -316,6 +367,7 @@ jobs:
           NODE_RESULT: ${{ needs.node.result }}
           PUBLICATION_RESULT: ${{ needs.publication.result }}
           RUNTIME_RESULT: ${{ needs.runtime.result }}
+          SMOKE_BINARY_RESULT: ${{ needs.smoke-binary.result }}
           RUST_QUALITY_RESULT: ${{ needs.rust-quality.result }}
         run: |
           test "$BROWSER_RESULT" = success
@@ -323,4 +375,5 @@ jobs:
           test "$NODE_RESULT" = success
           test "$PUBLICATION_RESULT" = success
           test "$RUNTIME_RESULT" = success
+          test "$SMOKE_BINARY_RESULT" = success
           test "$RUST_QUALITY_RESULT" = success
