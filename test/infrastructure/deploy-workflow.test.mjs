@@ -172,6 +172,9 @@ describe('deploy workflow', () => {
       'npx vitest run test/infrastructure/deploy-workflow.test.mjs'
     );
     expect(nodeGate).not.toContain('npm test');
+    expect(rustGate).toContain('node scripts/await-ci-rust.mjs');
+    expect(rustGate).toContain('checks: read');
+    expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain('bash v2/scripts/check-rust.sh test');
     expect(rustGate).toContain('bash v2/scripts/check-main-size.sh');
     expect(rustGate).toContain('bash v2/scripts/check-rust-lint.sh');
@@ -180,15 +183,37 @@ describe('deploy workflow', () => {
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
-    expect(job('primary-fly', 'lonelyforest-fly')).toContain(
+    expect(job('primary-backup', 'primary-fly')).toContain(
       'needs: [deployment-impact, release-owner, production-gate]'
     );
-    expect(job('lonelyforest-fly', 'github-release')).toContain(
+    expect(job('primary-fly', 'lonelyforest-image')).toContain(
+      'needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]'
+    );
+    expect(job('lonelyforest-backup', 'lonelyforest-fly')).toContain(
       'needs: [deployment-impact, release-owner, production-gate]'
+    );
+    expect(job('lonelyforest-fly', 'deploy-outcome')).toContain(
+      'needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]'
     );
     expect(
       workflow.indexOf('Guard primary worldpack bundle compatibility')
     ).toBeLessThan(workflow.indexOf('Create rollback backup'));
+  });
+
+  it('builds each image beside the gates without touching the running app', () => {
+    for (const [name, next, config, token] of [
+      ['primary-image', 'primary-backup', 'fly.toml', 'FLY_API_TOKEN'],
+      ['lonelyforest-image', 'lonelyforest-backup', 'fly.lonelyforest.toml', 'FLY_LONELYFOREST_API_TOKEN']
+    ]) {
+      const image = job(name, next);
+      expect(image).toContain('needs: [deployment-impact, release-owner]');
+      expect(image).not.toContain('production-gate');
+      expect(image).toContain(
+        `flyctl deploy --remote-only --config ${config} --build-only --push --image-label "deploy-\${GITHUB_SHA}"`
+      );
+      expect(image).toContain(`FLY_API_TOKEN: \${{ secrets.${token} }}`);
+      expect(image).not.toContain('backup-fly-v2.sh');
+    }
   });
 
   it('runs the long CI smoke suites in parallel from one shared binary', () => {
@@ -213,7 +238,7 @@ describe('deploy workflow', () => {
 
   it('skips docs-only deploys and reuses release compilation work', () => {
     const impact = job('deployment-impact', 'production-node-gate');
-    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+    const primaryFly = job('primary-fly', 'lonelyforest-image');
 
     expect(impact).toContain('scripts/check-deployment-impact.mjs');
     expect(primaryFly).toContain(
@@ -245,23 +270,37 @@ describe('deploy workflow', () => {
   });
 
   it('uses separate app-scoped release jobs before publishing a release', () => {
-    const primaryFly = job('primary-fly', 'lonelyforest-fly');
-    const lonelyForestFly = job('lonelyforest-fly', 'github-release');
-    const primaryDeploy = 'flyctl deploy --remote-only --config fly.toml';
-    const lonelyForestDeploy =
-      'flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false';
-    expect(primaryFly).toContain(primaryDeploy);
-    expect(primaryFly).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
-    expect(primaryFly).not.toContain('FLY_LONELYFOREST_API_TOKEN');
-    expect(lonelyForestFly).toContain(lonelyForestDeploy);
+    const primaryJobs = job('primary-image', 'lonelyforest-image');
+    const lonelyForestJobs = job('lonelyforest-image', 'deploy-outcome');
+    const primaryFly = job('primary-fly', 'lonelyforest-image');
+    const lonelyForestFly = job('lonelyforest-fly', 'deploy-outcome');
+    expect(primaryFly).toContain(
+      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${GITHUB_SHA}"'
+    );
+    expect(primaryJobs).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
+    expect(primaryJobs).not.toContain('FLY_LONELYFOREST_API_TOKEN');
     expect(lonelyForestFly).toContain(
+      'flyctl deploy --config fly.lonelyforest.toml --image "registry.fly.io/cosyworld-lonelyforest:deploy-${GITHUB_SHA}" --ha=false'
+    );
+    expect(lonelyForestJobs).toContain(
       'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
     );
-    expect(lonelyForestFly).toContain("startsWith(github.ref, 'refs/tags/v')");
-    expect(lonelyForestFly).toContain("github.event_name == 'workflow_dispatch'");
-    expect(lonelyForestFly).not.toContain("github.ref == 'refs/heads/main'");
+    expect(lonelyForestJobs).not.toContain('secrets.FLY_API_TOKEN');
+    for (const [name, next] of [
+      ['lonelyforest-image', 'lonelyforest-backup'],
+      ['lonelyforest-backup', 'lonelyforest-fly'],
+      ['lonelyforest-fly', 'deploy-outcome']
+    ]) {
+      const lonelyForestJob = job(name, next);
+      expect(lonelyForestJob).toContain("startsWith(github.ref, 'refs/tags/v')");
+      expect(lonelyForestJob).toContain("github.event_name == 'workflow_dispatch'");
+      expect(lonelyForestJob).not.toContain("github.ref == 'refs/heads/main'");
+    }
+    // An app-scoped token cannot deploy the other app's image (#172), so each
+    // app deploys only the image it built in its own registry.
     expect(workflow).not.toContain('flyctl image show');
-    expect(workflow).not.toContain('--image');
+    expect(primaryJobs).not.toContain('registry.fly.io/cosyworld-lonelyforest');
+    expect(lonelyForestJobs).not.toContain('registry.fly.io/cosyworld:');
     expect(workflow).not.toContain('\n  aws:');
     expect(job('github-release')).toContain(
       'needs: [production-gate, primary-fly, lonelyforest-fly]'
@@ -269,7 +308,7 @@ describe('deploy workflow', () => {
   });
 
   it('allows the primary ownership feed one scheduled refresh before failing readiness', () => {
-    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+    const primaryFly = job('primary-fly', 'lonelyforest-image');
     expect(primaryFly).toContain('for attempt in {1..13}');
     expect(primaryFly).toContain(
       'node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev'
@@ -279,11 +318,9 @@ describe('deploy workflow', () => {
   });
 
   it('retries a Lonely Forest rolling deploy after a transient Fly polling failure', () => {
-    const lonelyForestFly = job('lonelyforest-fly', 'github-release');
+    const lonelyForestFly = job('lonelyforest-fly', 'deploy-outcome');
     expect(lonelyForestFly).toContain('for attempt in 1 2');
-    expect(lonelyForestFly).toContain(
-      'flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false --strategy rolling'
-    );
+    expect(lonelyForestFly).toContain('--ha=false --strategy rolling');
     expect(lonelyForestFly).toContain('retrying once in 15 seconds');
   });
 
@@ -294,16 +331,16 @@ describe('deploy workflow', () => {
       expect(config).toContain('auto_extend_size_limit = "5GB"');
     }
 
-    const primaryFly = job('primary-fly', 'lonelyforest-fly');
-    const lonelyForestFly = job('lonelyforest-fly', 'github-release');
-    expect(primaryFly).toContain('check-fly-volume-space.sh cosyworld /data 85');
-    expect(primaryFly).toMatch(
+    const primaryBackup = job('primary-backup', 'primary-fly');
+    const lonelyForestBackup = job('lonelyforest-backup', 'lonelyforest-fly');
+    expect(primaryBackup).toContain('check-fly-volume-space.sh cosyworld /data 85');
+    expect(primaryBackup).toMatch(
       /- name: Guard primary volume free space\s+timeout-minutes: 2\s+run:/
     );
-    expect(lonelyForestFly).toContain(
+    expect(lonelyForestBackup).toContain(
       'check-fly-volume-space.sh cosyworld-lonelyforest /data 85'
     );
-    expect(lonelyForestFly).toMatch(
+    expect(lonelyForestBackup).toMatch(
       /- name: Guard Lonely Forest volume free space\s+timeout-minutes: 2\s+run:/
     );
     expect(80).toBeLessThan(85);
