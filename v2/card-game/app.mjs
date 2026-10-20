@@ -486,31 +486,52 @@ function commitAction(action, revision) {
       : null;
   notice("");
   save();
-  const arrive = () => {
+  if (world.actors.vale.place !== from)
+    travel(world.actors.vale.place, render, unveilNew);
+  else {
     render();
     unveilNew();
-  };
-  if (world.actors.vale.place !== from) travel(world.actors.vale.place, arrive);
-  else arrive();
+  }
   narrator.changed(action);
 }
 
 // Moving between places dips the scene to dark with the destination's name,
-// so a change of place is always seen, whatever caused it.
-const TRAVEL_COVER = 360,
-  TRAVEL_TOTAL = 1600;
-function travel(place, arrive) {
+// so a change of place is always seen, whatever caused it. The new place is
+// drawn only once the veil is fully down, and the veil lifts only once the new
+// backdrop and portraits have loaded, so the swap is never seen.
+const TRAVEL_COVER = 400,
+  TRAVEL_HOLD = 700,
+  TRAVEL_WAIT = 4000;
+let covering = false,
+  trip = 0;
+// Cards met at the new place are unveiled once the veil has fully lifted.
+function travel(place, arrive, landed) {
   const veil = $("travel");
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
     arrive();
+    landed();
     return;
   }
-  veil.classList.remove("travelling");
-  void veil.offsetWidth;
+  const mine = ++trip;
+  covering = true;
   veil.classList.add("travelling");
-  setTimeout(arrive, TRAVEL_COVER);
-  setTimeout(() => veil.classList.remove("travelling"), TRAVEL_TOTAL);
+  setTimeout(async () => {
+    if (mine !== trip) return;
+    covering = false;
+    arrive();
+    const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
+    await Promise.race([
+      Promise.all([
+        new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
+        ...images.map((img) => img.decode().catch(() => {})),
+      ]),
+      new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
+    ]);
+    if (mine !== trip) return;
+    veil.classList.remove("travelling");
+    setTimeout(() => mine === trip && landed(), TRAVEL_COVER);
+  }, TRAVEL_COVER);
 }
 
 function unveilNew() {
@@ -1139,6 +1160,8 @@ function renderLog() {
 }
 
 function render() {
+  // While the travel veil comes down, the old place stays drawn.
+  if (covering) return;
   music.setRoom(world.actors.vale.place);
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;

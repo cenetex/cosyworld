@@ -1,6 +1,7 @@
 // Browser check for meeting new cards: lighting the lamp unveils the Black pond
 // card large, it flies into the hand, and playing it dips the scene to dark
-// with the destination's name before the pond appears.
+// with the destination's name. The pond is drawn only under the full veil,
+// and the veil lifts once the pond has loaded.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -63,12 +64,39 @@ try {
     document.querySelector("#travel").classList.contains("travelling"),
   );
   assert.equal(await page.textContent("#travel-name"), "Black pond");
-  await page.waitForFunction(
-    () => document.querySelector("#place-title").textContent === "Black pond",
+  // The attic stays drawn until the veil is fully down; the pond is drawn
+  // under the veil, and the veil lifts only once its backdrop has loaded.
+  const swap = await page.waitForFunction(
+    () => {
+      if (document.querySelector("#place-title").textContent !== "Black pond")
+        return false;
+      return {
+        opacity: Number(
+          getComputedStyle(document.querySelector("#travel")).opacity,
+        ),
+      };
+    },
+    null,
+    { polling: "raf" },
   );
-  // Arriving meets Pip and what Pip carries; each is unveiled in turn.
+  assert.ok((await swap.jsonValue()).opacity > 0.99);
+  await page.waitForFunction(
+    () => !document.querySelector("#travel").classList.contains("travelling"),
+  );
+  assert.equal(await page.$eval("#unveil-dialog", (d) => d.open), false);
+  const backdrop = await page.$eval("#backdrop", (img) => ({
+    complete: img.complete,
+    src: img.getAttribute("src"),
+  }));
+  assert.ok(backdrop.complete, `backdrop ${backdrop.src} still loading`);
+  // Arriving meets Pip and what Pip carries; each is unveiled in turn, once
+  // the veil has fully lifted.
   await page.waitForFunction(
     () => document.querySelector("#unveil-dialog").open,
+  );
+  assert.equal(
+    await page.$eval("#travel", (v) => getComputedStyle(v).opacity),
+    "0",
   );
   const met = [];
   while (await page.$eval("#unveil-dialog", (d) => d.open)) {

@@ -919,30 +919,10 @@ h2 {
   background: radial-gradient(circle at 50% 45%, #1b1c28f2, #06070c);
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.36s ease-in-out;
 }
 .travel.travelling {
-  animation: travel 1.6s ease-in-out forwards;
-}
-.travel-name {
-  margin: 0;
-  font:
-    normal 30px Georgia,
-    serif;
-  color: var(--ink);
-}
-@keyframes travel {
-  0% {
-    opacity: 0;
-  }
-  22% {
-    opacity: 1;
-  }
-  62% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+  opacity: 1;
 }
 
 /* A card met for the first time is shown large before it joins the hand. */
