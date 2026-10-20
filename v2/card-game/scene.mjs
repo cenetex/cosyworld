@@ -7,10 +7,11 @@ import {
   shining,
 } from "./world.mjs";
 
-export const backdrop = (id) => `./assets/${id}.png`;
-export const portrait = (id, facing = null) =>
-  `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
-import { desireFor, programFor, levelOf } from "./quests.mjs";
+export const backdrop = (id) =>
+  `./assets/${id === "clearing" ? "steam-clock-background" : id}.png`;
+export const portrait = (id, facing = null, world = null) =>
+  `./assets/${id === "badger" ? (world?.actors.badger.awake === false ? "badger-sleeping" : "badger-grumpy") : id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
+import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 const personIds = Object.keys(people);
 const speakerId = (entry) =>
   entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
@@ -53,7 +54,11 @@ export function sceneCast(
 ) {
   const here = world.actors.vale.place;
   const present =
-    recordedCast || personIds.filter((id) => world.actors[id].place === here);
+    recordedCast ||
+    personIds.filter(
+      (id) =>
+        knownActors(world).includes(id) && world.actors[id].place === here,
+    );
   const slots = personIds.filter((id) => present.includes(id));
   while (slots.length < 2) slots.push(null);
   return slots;
@@ -224,7 +229,7 @@ export function sceneStaging(
         floor: positions[index][2],
         facing,
         gazeTargetId,
-        cutout: portrait(id, facing),
+        cutout: portrait(id, facing, world),
         flip: id !== "keeper" && facing !== (id === "vale" ? "right" : "left"),
         pose: movement
           ? "walk"
@@ -339,7 +344,7 @@ export function sceneScript(world) {
     avatars: Object.entries(people).map(([id, p]) => ({
       id,
       name: p.name,
-      cutout: portrait(id),
+      cutout: portrait(id, null, world),
       facingCutouts: {
         left: portrait(id, "left"),
         right: portrait(id, "right"),

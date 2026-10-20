@@ -156,7 +156,9 @@ describe("card standoffs", () => {
     const old = meeting();
     old.schema = 2;
     old.turn = old.revision = 8;
-    for (const [id, actor] of Object.entries(old.actors)) {
+    for (const [id, actor] of Object.entries(old.actors).filter(
+      ([id]) => id !== "badger",
+    )) {
       actor.place = "station";
       actor.progress = {
         program: 2,

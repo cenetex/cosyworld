@@ -1,5 +1,30 @@
 # Card world text and memory
 
+## The bell crossing to the Steam Clock
+
+Ring the Bell twice in a row at Black pond to warp to the Forest Clearing.
+The first ring gets one reply: **echo** says **bong**. The second
+carries Vale and their belongings to the clearing. A different successful
+player play resets the sequence; inspecting cards and hearing replies keeps
+it. The first ring also survives a reload. The bell must be uncovered.
+
+Badger starts asleep beside the clock. Playing his avatar card wakes him.
+His mood, wake cause, memories, and generated conversation belong to the
+same world save as the shore cast and items. Ringing beside him annoys him;
+quiet turns ease that irritation. He keeps his warm patch of moss.
+
+The Black pond card in the clearing returns Vale and their belongings to the
+shore. It works even if the bell has been left behind. Each outward crossing
+uses the two-ring rule again. The normal card UI handles travel, inventory,
+conversation, and history throughout. Earlier shore saves gain the clearing
+and its sleeping resident when loaded.
+
+Run `node v2/scripts/check-card-awakening.mjs` for a browser check of the bell
+sequence, waking Badger, returning, reloads, and phone layouts. Screenshots
+are saved in `output/badger-check/`.
+
+## Shore text and memory
+
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
 After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. Vale speaks first, followed by the chosen partner and witnessed arrivals or departures. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. A wait play keeps Vale's words at the place where Vale stayed, and a solo farewell frames desired company as a hope for later.

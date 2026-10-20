@@ -148,10 +148,14 @@ export const openingPrograms = {
     questPrograms.keeper[1],
   ],
 };
-export const knownActors = (s) => Object.keys(s.opening?.met || s.actors);
+export const knownActors = (s) =>
+  Object.keys(s.opening?.met || s.actors).filter(
+    (id) => id !== "badger" || s.steamClock?.discovered,
+  );
 export const programsFor = (s, actor) =>
-  (s.opening ? openingPrograms : questPrograms)[actor];
+  (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
+  badger: { items: [], location: "clearing", avatars: [] },
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
   keeper: { items: [], location: "attic", avatars: [] },
@@ -162,7 +166,7 @@ export const programFor = (s, actor) =>
   s.actors[actor].progress.current ||
   null;
 export const targetsFor = (s, actor) =>
-  hasQuestPrograms(s)
+  hasQuestPrograms(s) && actor !== "badger"
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
 const ownerOf = (s, item) => {
@@ -212,7 +216,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = knownActors(s),
+  const actors = knownActors(s).filter((id) => id !== "badger"),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
   const reachable = [here];

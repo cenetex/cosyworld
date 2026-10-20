@@ -10,6 +10,11 @@ const { version } = JSON.parse(
 const files = [
   "index.html",
   "style.css",
+  "entry.mjs",
+  "awakening.css",
+  "assets/steam-clock-background.png",
+  "assets/badger-sleeping.png",
+  "assets/badger-grumpy.png",
   "app.mjs",
   "world.mjs",
   "scene.mjs",
