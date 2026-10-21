@@ -268,6 +268,10 @@ jobs:
         if: matrix.mode == 'baseline'
         run: node v2/scripts/smoke-card-unveil.mjs
 
+      - name: Check hand scrolling and pairing tips
+        if: matrix.mode == 'baseline'
+        run: node v2/scripts/smoke-card-hand.mjs
+
       - name: Check dynamic routes and dialogue recovery
         if: matrix.mode == 'baseline'
         run: |

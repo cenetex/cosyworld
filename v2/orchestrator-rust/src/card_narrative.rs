@@ -38,6 +38,10 @@ A departing avatar speaks from the threshold of their recorded source. Name the 
 
 Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
 
+FRESH LINES
+The player has just watched the card and its result. Never narrate the play back: no line describes handing over, taking, trading, lighting, travelling or waiting as news, and no speaker announces what they or Vale just did. Begin after the action. Each spoken line does one of these: reacts to a consequence (a cost, a relief, a new debt or a changed opinion), reveals something new about the speaker or the place, or pushes against another speaker's want. Across the speakers, include at least one reveal or one point of friction. Do not reuse the wording, offer or question of a line in scene.conversation.
+A complaint needs a recorded cause: a remembered grievance in the speaker's facts or an event in scene.events. A disliked thing in a persona is a taste, not something that happened. When no recorded event made a noise, spoiled a light or threatened someone, no one complains about it, including a noise someone nearly made or might make.
+
 VOICE AND MEMORY
 Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
 
@@ -439,7 +443,7 @@ fn direction(context: &Context) -> Value {
         "threaten" => format!("Vale chose to threaten {target}. Deliver the demand with pressure and resolve. Keep that intent through the target's recorded response."),
         "attack" => format!("Vale chose to attack {target}. Speak with commitment to that attack and its actual result. A blocked blow or a retreat changes the result; the chosen intent remains an attack."),
         "guard" => format!("Vale chose to guard against {target}. Hold a firm defensive stance and react to the recorded response."),
-        _ => format!("Vale chose {}. Express that choice and its recorded result in Vale's own voice.", outcome.card.kind),
+        _ => format!("Vale chose {}. The player already saw this play and its result, so Vale does not describe it. Vale speaks to what it changes: a cost, a hope, a question or a doubt about the person involved.", outcome.card.kind),
     }
     };
     let journeys: Vec<_> = outcome
@@ -716,6 +720,23 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("Vale chose wait"));
+    }
+
+    #[test]
+    fn ordinary_plays_ask_for_consequences_rather_than_a_recap() {
+        let mut c = context();
+        let mut outcome = solo_departure();
+        outcome.card.kind = "give".into();
+        c.outcome = Some(outcome);
+        let intent = direction(&c)["vale_intent"].as_str().unwrap().to_string();
+        assert!(intent.contains("Vale chose give"));
+        assert!(intent.contains("does not describe it"));
+        assert!(!intent.contains("Express that choice"));
+        assert!(SYSTEM.contains("Never narrate the play back"));
+        assert!(SYSTEM.contains("include at least one reveal or one point of friction"));
+        // A persona's dislike is not an event: complaints need a recorded cause.
+        assert!(SYSTEM.contains("A complaint needs a recorded cause"));
+        assert!(SYSTEM.contains("a noise someone nearly made"));
     }
 
     #[test]

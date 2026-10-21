@@ -201,6 +201,51 @@ main {
 .portrait img[data-flip="true"] {
   transform: scaleX(-1);
 }
+/* This turn's account, from the world log: always there, whatever the words. */
+.turn-receipt {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 14px;
+  max-width: min(420px, calc(100% - 28px));
+  margin: 0;
+  padding: 7px 12px 7px 11px;
+  list-style: none;
+  border-left: 2px solid #a38b64;
+  border-radius: 0 6px 6px 0;
+  background: #12131bd9;
+  backdrop-filter: blur(8px);
+  font-size: 13px;
+  line-height: 1.4;
+  color: #d9d1c4;
+  /* It steps aside after a while so it does not keep covering the cast;
+     History holds every line. */
+  animation:
+    receipt 0.3s ease-out,
+    receipt-done 0.6s ease-in 7s forwards;
+}
+.turn-receipt li + li {
+  margin-top: 3px;
+}
+/* An item changing hands is the line to notice. */
+.turn-receipt .moved {
+  color: var(--gold);
+}
+.turn-receipt .moved::before {
+  content: "⇄ ";
+}
+@keyframes receipt {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+@keyframes receipt-done {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
 .dialogue {
   position: absolute;
   z-index: 4;
@@ -379,6 +424,111 @@ main {
   scrollbar-width: thin;
   scroll-snap-type: x proximity;
   scroll-padding-inline: 5px;
+}
+/* More cards than fit: arrows at either end over fades hinting the rest. */
+.hand-wrap {
+  position: relative;
+}
+.hand-wrap::before,
+.hand-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.hand-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, #15161f, #15161f00);
+}
+.hand-wrap::after {
+  right: 0;
+  background: linear-gradient(270deg, #15161f, #15161f00);
+}
+.hand-wrap[data-overflow="true"][data-start="false"]::before,
+.hand-wrap[data-overflow="true"][data-end="false"]::after {
+  opacity: 1;
+}
+/* Level with the card art, clear of the card's text. */
+.hand-scroll {
+  min-height: 0;
+  position: absolute;
+  top: 30%;
+  z-index: 2;
+  translate: 0 -50%;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #89765d;
+  border-radius: 50%;
+  background: #25232ee6;
+  color: var(--gold);
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: 0 2px 10px #000a;
+}
+.hand-scroll.prev {
+  left: 2px;
+}
+.hand-scroll.next {
+  right: 2px;
+}
+.hand-scroll:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.hand-scroll:hover:not(:disabled) {
+  background: #463a3c;
+}
+/* A one-time pairing tip, straddling the top edge of the dock. */
+.hand-tip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 3;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid #89765d;
+  border-radius: 16px;
+  background: #25232e;
+  color: #ecdfc4;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px #000a;
+}
+.hand-tip[hidden] {
+  display: none;
+}
+#hand-tip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#hand-tip-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #bcb5c4;
+  font-size: 15px;
+}
+#hand-tip-close:hover {
+  color: var(--gold);
+}
+.card-frame[data-tip="true"] .card {
+  border-color: #dfc38daa;
 }
 .card-frame:first-child {
   margin-left: auto;
@@ -683,6 +833,14 @@ h2 {
   .cast[data-count="3"][data-layout="foreground-right"]
     .portrait[data-depth="foreground"] {
     left: 81%;
+  }
+  .turn-receipt {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    padding: 5px 10px 5px 9px;
+    font-size: 11.5px;
+    line-height: 1.3;
   }
   .dialogue {
     width: calc(100% - 20px);

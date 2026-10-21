@@ -43,6 +43,8 @@ import {
   sceneStaging,
   portrait,
   backdrop,
+  turnReceipt,
+  witnessed,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -51,6 +53,7 @@ import {
   playLabel,
   avatarPlays,
 } from "./cards.mjs";
+import { LESSONS, nextLesson } from "./lessons.mjs";
 import {
   programsFor,
   knownActors,
@@ -131,6 +134,23 @@ function saveSeen() {
     // Unveiling is a courtesy; the world itself still saves.
   }
 }
+// Pairing tips the player has already used or dismissed, kept per browser.
+const LESSONS_KEY = "cosyworld.reflected-shore.lessons";
+let learned;
+try {
+  learned = new Set(JSON.parse(localStorage.getItem(LESSONS_KEY) || "[]"));
+} catch {
+  learned = new Set();
+}
+function learn(kind) {
+  if (learned.has(kind)) return;
+  learned.add(kind);
+  try {
+    localStorage.setItem(LESSONS_KEY, JSON.stringify([...learned]));
+  } catch {
+    // A tip that shows again is harmless.
+  }
+}
 function save() {
   if (saveBlocked) return;
   try {
@@ -160,6 +180,19 @@ let storyStatus = "ready",
   reviewing = false,
   pendingCast = null,
   departed = new Set();
+// The turn's receipt shows at once, so the hand need not wait long for words.
+// If they are still on the way after this, the hand is released; a new play
+// replaces the request, and words that arrive still play.
+const HAND_WAIT = 2500;
+let handTimer = null;
+function releaseHand() {
+  if (!cardsCooling || storyStatus !== "pending") return;
+  cardsCooling = false;
+  // The scene shows who is really here once the hand is free.
+  pendingCast = null;
+  updateCardCooldown();
+  renderScene();
+}
 const completedSpeech = new Set();
 const entrances = new Map();
 let shownSceneLine = null;
@@ -193,8 +226,10 @@ const exchange = createExchange({
     renderScene();
   },
   busy: (value) => {
+    clearTimeout(handTimer);
     cardsCooling = value;
     updateCardCooldown();
+    if (value) handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
       pendingCast = null;
@@ -458,6 +493,8 @@ function commitAction(action, revision) {
     render();
     return;
   }
+  if (action.actor === "vale" && LESSONS.includes(action.kind))
+    learn(action.kind);
   reveal.finish();
   speechSounds.stop();
   storyStatus = "pending";
@@ -1183,11 +1220,28 @@ function renderScene() {
   $("dialogue-advance").onclick = advance;
   $("next-line").onclick = advance;
 }
+let renderedReceipt = "";
+function renderReceipt() {
+  const receipt = world.turn ? turnReceipt(world) : [];
+  const key = JSON.stringify(receipt.map((entry) => entry.seq));
+  if (key === renderedReceipt) return;
+  renderedReceipt = key;
+  $("turn-receipt").replaceChildren(
+    ...receipt.map((entry) =>
+      node("li", entry.text, entry.moved ? "moved" : ""),
+    ),
+  );
+  $("turn-receipt").hidden = !receipt.length;
+}
 let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  const conversation = world.log.filter((entry) => entry.generated === true);
+  // Words and the world's own account, so every turn is recorded even when
+  // its words fail or are still on the way.
+  const conversation = world.log.filter(
+    (entry) => entry.generated === true || witnessed(entry),
+  );
   let common = 0;
   while (
     common < renderedLog.length &&
@@ -1201,7 +1255,7 @@ function renderLog() {
     const item = node(
       "div",
       undefined,
-      `message ${entry.speaker === "World" ? "world" : entry.speaker === "You" ? "you" : ""}`,
+      `message ${entry.speaker === "World" || !entry.generated ? "world" : entry.speaker === "You" ? "you" : ""}`,
     );
     const by = node("div", entry.speaker, "speaker");
     by.append(node("span", `Turn ${entry.turn}`));
@@ -1241,6 +1295,9 @@ function render() {
   $("play-readout").textContent = selected.length
     ? cardPlay(world, selected).hint
     : "";
+  renderReceipt();
+  renderTip();
+  updateHandScroll();
   renderScene();
   renderLog();
   updateCardCooldown();
@@ -1249,6 +1306,72 @@ function render() {
       .querySelector(`[data-card="${focused}"]`)
       ?.focus({ preventScroll: true });
 }
+// The first gift, trade, and shared journey are named once, over the hand.
+let tip = null;
+function renderTip() {
+  tip = saveBlocked ? null : nextLesson(world, learned);
+  $("hand-tip").hidden = !tip;
+  $("hand-tip-text").textContent = tip?.text ?? "";
+  for (const frame of $("hand").querySelectorAll(".card-frame")) {
+    const id = frame.querySelector("[data-card]")?.dataset.card;
+    if (tip?.cards.includes(id)) frame.dataset.tip = "true";
+    else delete frame.dataset.tip;
+  }
+}
+$("hand-tip-close").onclick = () => {
+  if (tip) learn(tip.kind);
+  renderTip();
+};
+// A hand wider than the dock scrolls; the arrows and edge fades show there
+// is more, and the wheel and arrow keys move along it.
+function updateHandScroll() {
+  const hand = $("hand"),
+    wrap = hand.parentElement,
+    over = hand.scrollWidth > hand.clientWidth + 1,
+    atStart = hand.scrollLeft <= 1,
+    atEnd = hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 1;
+  wrap.dataset.overflow = String(over);
+  wrap.dataset.start = String(atStart);
+  wrap.dataset.end = String(atEnd);
+  $("hand-prev").hidden = $("hand-next").hidden = !over;
+  $("hand-prev").disabled = atStart;
+  $("hand-next").disabled = atEnd;
+}
+function scrollHand(direction) {
+  const hand = $("hand");
+  hand.scrollBy({
+    left: direction * Math.max(160, hand.clientWidth - 120),
+    behavior: reducedMotion.matches ? "auto" : "smooth",
+  });
+}
+$("hand-prev").onclick = () => scrollHand(-1);
+$("hand-next").onclick = () => scrollHand(1);
+$("hand").addEventListener("scroll", updateHandScroll, { passive: true });
+new ResizeObserver(updateHandScroll).observe($("hand"));
+$("hand").addEventListener(
+  "wheel",
+  (e) => {
+    const hand = $("hand");
+    if (
+      hand.scrollWidth <= hand.clientWidth + 1 ||
+      Math.abs(e.deltaY) <= Math.abs(e.deltaX)
+    )
+      return;
+    e.preventDefault();
+    hand.scrollLeft += e.deltaY;
+  },
+  { passive: false },
+);
+$("hand").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const cards = [...$("hand").querySelectorAll(".card")],
+    at = cards.indexOf(document.activeElement),
+    next = cards[at + (e.key === "ArrowRight" ? 1 : -1)];
+  if (at < 0 || !next) return;
+  e.preventDefault();
+  next.focus({ preventScroll: true });
+  next.scrollIntoView({ block: "nearest", inline: "nearest" });
+});
 $("stage").addEventListener("dragover", (e) => {
   if (dragging.length) {
     e.preventDefault();
