@@ -185,6 +185,8 @@ export function narrativeContext(world, action = null) {
       ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
+  // Authored sounds such as the clock's echo stay in the scene/history, but
+  // the speech API's conversation contains only registered avatar voices.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -192,6 +194,7 @@ export function narrativeContext(world, action = null) {
           (entry) =>
             entry.generated &&
             entry.kind === "dialogue" &&
+            profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
             entry.turn < world.turn,
         )
