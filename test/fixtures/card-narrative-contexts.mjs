@@ -1,0 +1,79 @@
+import {
+  createWorld,
+  legalActions,
+  play,
+  encodeSave,
+  decodeSave,
+} from "../../v2/card-game/world.mjs";
+import { enableMotives } from "../../v2/card-game/motives.mjs";
+import {
+  narrativeContext,
+  applyGeneratedText,
+} from "../../v2/card-game/narrative.mjs";
+
+export function playCard(world, kind, item, target) {
+  const action = legalActions(world).find(
+    (candidate) =>
+      candidate.kind === kind &&
+      (!item || candidate.item === item) &&
+      (!target || candidate.target === target),
+  );
+  if (!action)
+    throw new Error(`Missing fixture action: ${kind} ${item} ${target}`);
+  const result = play(world, action);
+  if (!result.ok) throw new Error(`Rejected fixture action: ${kind}`);
+  return result.state;
+}
+
+export function hearFirstEcho() {
+  let world = enableMotives(createWorld());
+  world.actors.vale.place = "pond";
+  world.actors.moth.place = "attic";
+  world.actors.keeper.place = "pond";
+  world.items.bell.holder = "vale";
+  world.items.cloth.holder = "vale";
+  world.turn = 7;
+  world.revision = 7;
+  world = playCard(world, "ring", "bell");
+  const context = narrativeContext(world);
+  return applyGeneratedText(world, context, {
+    revision: context.revision,
+    model: "contract-fixture",
+    entries: context.entities.map(({ id }) => ({
+      id,
+      text: "A fixture response.",
+    })),
+  });
+}
+
+// These use the real rules, save codec and browser request builder. They are
+// also sent through the Rust HTTP route by the contract smoke.
+export function narrativeContractCases() {
+  const echoed = hearFirstEcho();
+  const covered = playCard(echoed, "cover", "cloth", "bell");
+  const secondRing = playCard(echoed, "ring", "bell");
+  const clearing = playCard(secondRing, "move", null, "clearing");
+  const opening = enableMotives(createWorld({ opening: true }), {
+    questPrograms: true,
+  });
+  const lit = playCard(opening, "light", "lamp");
+  const pond = playCard(lit, "move", null, "pond");
+  const worlds = [
+    ["opening", opening],
+    ["first light", lit],
+    ["arrival at pond", pond],
+    ["first ring", echoed],
+    ["cover bell after echo", covered],
+    ["reload covered bell", decodeSave(encodeSave(covered))],
+    ["wait after echo", playCard(echoed, "wait")],
+    ["second ring after echo", secondRing],
+    ["enter clearing", clearing],
+    ["return to echo's location", playCard(clearing, "move", null, "pond")],
+    ["uncover bell", playCard(covered, "take", "cloth")],
+  ];
+  return worlds.map(([name, world]) => ({
+    name,
+    world,
+    context: narrativeContext(world),
+  }));
+}
