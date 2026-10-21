@@ -759,7 +759,7 @@ function card(id) {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
     detail =
       id === world.actors.vale.place
-        ? "Pass a turn · pair to put down"
+        ? "Wait a turn · leave items here"
         : "Travel · carry your items";
   }
   const conflict = type === "avatar" ? standoffFor(world, id) : null;
@@ -869,7 +869,8 @@ function card(id) {
         ? label
           ? `${label} · tap to play`
           : chosen.hint
-        : playLabel(ownPlay.action) || "Combine",
+        : playLabel(ownPlay.action) ||
+            (id === "vale" ? "Pair with a place" : "Combine"),
       "card-play",
     ),
   );
@@ -917,11 +918,12 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  if (type === "avatar" && !(raised && selected.length === 2)) {
+  const plays = type === "avatar" ? avatarPlays(world, id) : [];
+  if (plays.length && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
     const revision = world.revision;
-    for (const action of avatarPlays(world, id)) {
+    for (const action of plays) {
       const button = node("button", playLabel(action));
       button.type = "button";
       button.disabled = saveBlocked || cardsCooling;
