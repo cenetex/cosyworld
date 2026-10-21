@@ -177,6 +177,25 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(s.items.bell.holder).toBe("clearing");
   });
 
+  it("keeps Badger grumpy after quiet and sharpens his voice with recorded irritation", () => {
+    let s = reach(ring(ring(pond())));
+    s = act(s, "talk", null, "badger");
+    const facts = (world) =>
+      narrativeContext(world)
+        .entities.find((e) => e.id === "badger")
+        .facts.join(" ");
+    s = act(s, "wait");
+    expect(s.actors.badger.irritation).toBe(0);
+    expect(facts(s)).toContain("Still grumpy");
+    expect(facts(s)).toContain("answer grudgingly");
+    s = ring(s);
+    expect(s.actors.badger.irritation).toBeGreaterThan(1);
+    expect(facts(s)).toContain("Furious at the noise");
+    expect(facts(decodeSave(encodeSave(s)))).toContain(
+      "blunt demand for quiet",
+    );
+  });
+
   it("adds the clearing to an older shore save while keeping existing belongings and memories", () => {
     const old = pond();
     delete old.steamClock;

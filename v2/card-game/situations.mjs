@@ -103,7 +103,7 @@ export function situationPrograms(s, actor, base, api) {
       make(
         "crossing",
         "A path that remembers",
-        "Fix the mirror path so it stays open when the lamp goes out.",
+        "Keep the way out of the attic open when the lamp goes out.",
         [
           hand(
             hold("lamp"),

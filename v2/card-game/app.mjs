@@ -1145,7 +1145,7 @@ function render() {
     scroll = $("hand").scrollLeft;
   $("turn").textContent = `Turn ${world.turn}`;
   $("place-title").textContent = nameOf(world.actors.vale.place);
-  $("path-state").textContent = reflectionOpen(world)
+  $("path-state").textContent = reflectionOpen(world, world.actors.vale.place)
     ? "The reflected path is open"
     : "The mirror holds a dark reflection";
   const handKey = JSON.stringify([

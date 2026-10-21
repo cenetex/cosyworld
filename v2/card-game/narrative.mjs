@@ -131,20 +131,32 @@ export function narrativeContext(world, action = null) {
       entry.actorId === "vale",
   );
   const target = action?.target || played?.targetId;
-  const partner =
-    audience.includes(target) && target !== "vale" && awake(target)
-      ? target
-      : introductions[0] ||
-        departing[0] ||
-        present.find((id) => id !== "vale" && awake(id));
+  const directPartner =
+    audience.includes(target) && target !== "vale" && awake(target);
+  const partner = directPartner
+    ? target
+    : introductions[0] ||
+      departing[0] ||
+      present.find((id) => id !== "vale" && awake(id));
+  // A quiet turn's farewell belongs to the departing cast. Keep Vale's voice
+  // for a chosen interaction, a new meeting, or a Stay without a departure.
+  const farewell =
+    departing.length &&
+    !played &&
+    !directPartner &&
+    (!action?.kind || action.kind === "wait") &&
+    !introductions.length;
   const speakers = [
     ...new Set(
-      [
-        "vale",
-        partner,
-        ...introductions,
-        ...changes.map((change) => change.actorId),
-      ].filter((id) => id && awake(id)),
+      (farewell
+        ? changes.map((change) => change.actorId)
+        : [
+            "vale",
+            partner,
+            ...introductions,
+            ...changes.map((change) => change.actorId),
+          ]
+      ).filter((id) => id && awake(id)),
     ),
   ];
   const events = world.log
@@ -191,7 +203,7 @@ export function narrativeContext(world, action = null) {
         if (id === "badger")
           facts.push(
             world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. Speak as your own person.`
+              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
               : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
           );
         if (

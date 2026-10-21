@@ -320,12 +320,24 @@ describe("entity memories and model text", () => {
 });
 
 describe("witnessed departures and conversation continuity", () => {
+  it("lets Vale speak on Stay when nobody departs", () => {
+    const world = act(createWorld({ opening: true }), "wait");
+    const context = narrativeContext(world);
+    expect(context.speakers).toEqual(["vale"]);
+    const next = applyGeneratedText(world, context, response(context));
+    expect(
+      next.log
+        .filter((e) => e.generated && e.kind === "dialogue")
+        .map((e) => e.actorId),
+    ).toEqual(["vale"]);
+  });
+
   it("keeps a departing avatar's farewell in the source scene and in memory", () => {
     let world = createWorld();
     for (let i = 0; i < 4; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("pond");
     const context = narrativeContext(world);
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.speakers).toEqual(["moth"]);
     expect(
       context.events.some((text) => text.includes("Pip goes to Black pond")),
     ).toBe(true);
@@ -335,6 +347,13 @@ describe("witnessed departures and conversation continuity", () => {
     );
     expect(pip.facts.join(" ")).toContain("currently at Black pond");
     const next = applyGeneratedText(world, context, response(context));
+    expect(
+      next.log
+        .filter(
+          (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
+        )
+        .map((e) => e.actorId),
+    ).toEqual(["moth"]);
     const farewell = next.log.at(-1);
     expect(farewell).toMatchObject({
       actorId: "moth",
@@ -437,7 +456,7 @@ describe("witnessed departures and conversation continuity", () => {
     for (let i = 0; i < 3; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("station");
     expect(world.actors.keeper.place).toBe("attic");
-    expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
+    expect(narrativeContext(world).speakers).toEqual(["keeper"]);
     expect(narrativeContext(world, { target: "moth" }).speakers).toEqual([
       "vale",
       "moth",
@@ -451,7 +470,7 @@ describe("witnessed departures and conversation continuity", () => {
     world.items.bell.holder = "keeper";
     world = act(world, "wait");
     const context = narrativeContext(world);
-    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    expect(context.speakers).toEqual(["moth", "keeper"]);
     const next = applyGeneratedText(world, context, response(context));
     const farewells = next.log.filter((e) => e.departureTo);
     expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "attic"]);
@@ -467,6 +486,7 @@ describe("witnessed departures and conversation continuity", () => {
     world.standoffs[0].resolve.moth = 1;
     world = act(world, "attack", null, "moth");
     const context = narrativeContext(world);
+    expect(context.speakers[0]).toBe("vale");
     expect(context.speakers).toContain("moth");
     expect(context.action).toContain("retreats");
     const next = applyGeneratedText(world, context, response(context));
