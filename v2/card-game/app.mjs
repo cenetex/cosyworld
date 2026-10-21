@@ -596,7 +596,7 @@ function takeUnveiled() {
     showUnveil();
     return;
   }
-  slot.scrollIntoView({ block: "nearest", inline: "center" });
+  slot.scrollIntoView({ block: "nearest", inline: "nearest" });
   const end = slot.getBoundingClientRect(),
     ghost = shown.cloneNode(true),
     size = slot.offsetWidth;
@@ -943,8 +943,8 @@ function renderScene() {
         const image = node("img");
         image.alt = "";
         image.draggable = false;
-        body.append(image, node("div", undefined, "portrait-props"));
-        figure.append(body, node("span", "", "portrait-name"));
+        body.append(image);
+        figure.append(body);
         return figure;
       }),
     );
@@ -1008,29 +1008,6 @@ function renderScene() {
         if (entrances.get(figure) === task) entrances.delete(figure);
       });
     }
-    const props = figure.querySelector(".portrait-props");
-    const propKey = JSON.stringify(actor.items);
-    if (props.dataset.items !== propKey) {
-      props.dataset.items = propKey;
-      props.replaceChildren(
-        ...actor.items.map((item) => {
-          const prop = node(
-            "span",
-            undefined,
-            `portrait-prop${item.lit && item.fuel > 0 && !item.covered ? " glowing" : ""}`,
-          );
-          prop.dataset.item = item.id;
-          prop.setAttribute("aria-label", nameOf(item.id));
-          prop.innerHTML = art(item.id);
-          return prop;
-        }),
-      );
-    }
-    figure.querySelector(".portrait-name").textContent = !hasQuestPrograms(
-      world,
-    )
-      ? nameOf(id)
-      : `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
   const previous =
     scene.line?.kind === "dialogue"
@@ -1086,8 +1063,9 @@ function renderScene() {
   nextSceneSeq =
     at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
+  // The speech panel shows only when there are words, or words on the way.
   document.querySelector(".dialogue").hidden =
-    !text && storyStatus === "ready" && !exchange.preparing;
+    !text && storyStatus !== "pending" && !exchange.preparing;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = !text;
