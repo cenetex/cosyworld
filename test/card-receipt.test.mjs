@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { turnReceipt, witnessed } from "../v2/card-game/scene.mjs";
+import { witnessed } from "../v2/card-game/scene.mjs";
 
 function act(s, kind, target) {
   const action = legalActions(s).find(
@@ -30,8 +30,8 @@ function stationTrade() {
   return s;
 }
 
-describe("turn receipts", () => {
-  it("gives every turn a plain account before any words arrive", () => {
+describe("witnessed History events", () => {
+  it("keeps a visible event for every turn before generated words arrive", () => {
     let s = enableMotives(createWorld({ opening: true }), {
       questPrograms: true,
     });
@@ -39,35 +39,46 @@ describe("turn receipts", () => {
       const action = legalActions(s).find((a) => a.kind === "wait");
       s = play(s, action).state;
       expect(s.log.some((e) => e.generated && e.turn === s.turn)).toBe(false);
-      expect(turnReceipt(s).length, `turn ${s.turn}`).toBeGreaterThan(0);
+      expect(
+        s.log.some((entry) => entry.turn === s.turn && witnessed(entry)),
+        `turn ${s.turn}`,
+      ).toBe(true);
     }
   });
 
-  it("marks a cast trade Vale watched as an item changing hands", () => {
+  it("includes a cast trade and departure Vale watched", () => {
     const s = stationTrade();
-    const receipt = turnReceipt(s);
-    const trade = receipt.find((entry) => entry.moved);
+    const trade = s.log.findLast((entry) => entry.verb === "trade");
     expect(trade.text).toMatch(
       /^Pip trades the Black cloth for .*Oil flask\.$/,
     );
-    expect(receipt.filter((entry) => entry.moved)).toHaveLength(1);
+    expect(witnessed(trade)).toBe(true);
     // The keeper's departure is seen from where it started.
-    expect(receipt.map((entry) => entry.text)).toContain(
-      "The keeper goes to Black pond.",
+    const departure = s.log.findLast(
+      (entry) => entry.actorId === "keeper" && entry.verb === "move",
     );
+    expect(departure.text).toBe("The keeper goes to Black pond.");
+    expect(departure.cast).not.toContain("vale");
+    expect(witnessed(departure)).toBe(true);
   });
 
-  it("leaves out what happened where Vale was not", () => {
+  it("hides offscreen events from History while preserving the world log", () => {
     let s = stationTrade();
     s = act(s, "wait");
+    const savedLog = structuredClone(s.log);
     const elsewhere = s.log.filter(
-      (e) => e.turn === s.turn && !e.generated && !witnessed(e),
+      (entry) =>
+        entry.turn === s.turn &&
+        entry.locationId !== s.actors.vale.place &&
+        ["narration", "quest"].includes(entry.kind),
     );
-    expect(elsewhere.length).toBeGreaterThan(0);
-    for (const entry of elsewhere) expect(entry.cast).not.toContain("vale");
-    expect(turnReceipt(s).map((e) => e.seq)).not.toEqual(
-      expect.arrayContaining(elsewhere.map((e) => e.seq)),
-    );
+    expect(elsewhere.map((entry) => entry.kind)).toEqual(["narration", "quest"]);
+    const visible = s.log.filter(witnessed);
+    for (const entry of elsewhere) {
+      expect(entry.cast).not.toContain("vale");
+      expect(visible).not.toContain(entry);
+    }
+    expect(s.log).toEqual(savedLog);
   });
 
   it("never treats generated words as the world's account", () => {

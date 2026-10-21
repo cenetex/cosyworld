@@ -423,13 +423,7 @@ export function sceneScript(world) {
   };
 }
 
-// What Vale saw happen. The world log records every play and every cast turn
-// as plain, deterministic text; these helpers pick out the entries Vale
-// witnessed, so a turn reads the same whether or not dialogue arrives.
-
-// Plays that move an item from one holder to another.
-const ITEM_MOVES = new Set(["give", "take", "drop", "trade", "cover"]);
-
+// Pick the deterministic events Vale witnessed for History.
 export function witnessed(entry) {
   if (entry.generated) return false;
   if (!["action", "narration", "quest"].includes(entry.kind)) return false;
@@ -438,20 +432,4 @@ export function witnessed(entry) {
   if (entry.kind === "action")
     return Boolean(entry.witnesses?.includes("vale"));
   return Boolean(entry.cast?.includes("vale"));
-}
-
-export const movesItem = (entry) =>
-  entry.kind === "action" &&
-  (ITEM_MOVES.has(entry.verb) || (entry.verb === "ask" && entry.accepted));
-
-// This turn's account: what Vale did, what the cast did in view, and what
-// the world changed where Vale stands.
-export function turnReceipt(world) {
-  return world.log
-    .filter((entry) => entry.turn === world.turn && witnessed(entry))
-    .map((entry) => ({
-      seq: entry.seq,
-      text: entry.text,
-      moved: movesItem(entry),
-    }));
 }
