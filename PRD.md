@@ -43,9 +43,16 @@ The product should feel like living in a small fantasy world that remembers you 
 
 The root table supports physical custody, fuel and coverings, trading and
 consent, accompanying, conflict, autonomous cast turns, quest programs,
-discovered routes, and generated dialogue. The Steam Clock clearing and
+dynamic routes, and generated dialogue. A destination's discovery survives
+when its entrance closes: the pond needs local lamplight to reach the attic,
+and two consecutive local bell rings open the clearing for three following
+turns. Another local ring refreshes that active window; expiry or the bell
+leaving or being muffled closes entry, while the way back stays usable.
+These item/location interactions are a core part of the game's direction.
+The Steam Clock clearing and
 Badger belong to the same saved world as the shore. Regression coverage checks
-pond lamp access and stale choices, departure speakers, Badger's wake/mood
+pond lamp access, bell-window expiry/refresh/reload and stale choices,
+departure speakers, Badger's wake/mood
 context, and visible dialogue failure/retry at desktop and phone widths.
 Prompt tests establish the supplied characterization; they do not certify
 every generated line's quality.

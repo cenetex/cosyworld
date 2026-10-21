@@ -86,7 +86,11 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(encodeSave(first)).toBe(before);
     const heard = ring(decodeSave(before));
     expect(heard.actors.vale.place).toBe("pond");
-    expect(heard.steamClock).toEqual({ rings: 0, discovered: true });
+    expect(heard.steamClock).toEqual({
+      rings: 0,
+      discovered: true,
+      openUntil: heard.turn + 3,
+    });
     expect(turnOutcome(heard).card.kind).toBe("ring");
     expect(
       heard.memories.pond.events.some((e) => e.text.includes("second ring")),
@@ -151,7 +155,8 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(s.actors.badger.wakeCause).toBe("voice");
     expect(narrativeContext(s).speakers).toContain("badger");
     s = act(s, "move", null, "pond");
-    s = reach(decodeSave(encodeSave(s)));
+    expect(availableCards(s)).not.toContain("clearing");
+    s = reach(ring(ring(decodeSave(encodeSave(s)))));
     expect(s.actors.badger.awake).toBe(true);
     expect(s.actors.badger.progress).toEqual({
       program: 0,

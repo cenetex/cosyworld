@@ -99,7 +99,7 @@ describe("playing the world through cards", () => {
     expect(s.items.bell.holder).toBe("station");
     expect(cardPlay(s, ["bell"]).action.kind).toBe("take");
     s = cards(s, "bell", "station");
-    expect(s.items.bell).toMatchObject({ holder: "station", ringing: 2 });
+    expect(s.items.bell).toMatchObject({ holder: "station", ringing: 3 });
     s.items.lamp.holder = "station";
     expect(cardPlay(s, ["station", "lamp"]).action.kind).toBe("light");
     cards(s, "station", "lamp");
@@ -113,7 +113,7 @@ describe("playing the world through cards", () => {
     start.items.cloth.holder = "pond";
     let s = cards(start, "bell");
     s = cards(s, "bell");
-    expect(s.items.bell.ringing).toBe(2);
+    expect(s.items.bell.ringing).toBe(3);
     expect(s.actors.keeper.place).toBe("station");
     s = cards(s, "pond");
     s = cards(s, "bell", "cloth");

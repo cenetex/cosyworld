@@ -10,6 +10,13 @@ Vale takes that way, and no one can be asked along. A different successful
 player play resets the sequence; inspecting cards and hearing replies keeps
 it. The first ring also survives a reload. The bell must be uncovered.
 
+The second ring opens entry for three following player turns. Another ring
+at the pond refreshes that active window to three turns. The ringing bell
+must remain physically at the pond, either carried or on the ground; taking
+it away or muffling it closes entry. Discovery remains remembered, but the
+clearing card disappears when its entrance closes. Reload retains the exact
+remaining window. Inspecting cards and retrying dialogue consume no turns.
+
 Badger starts asleep beside the clock. Playing his avatar card wakes him.
 His mood, wake cause, memories, and generated conversation belong to the
 same world save as the shore cast and items. Ringing beside him annoys him;
@@ -19,8 +26,9 @@ patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
 The Black pond card in the clearing returns Vale and their belongings to the
-shore. It works even if the bell has been left behind. Each outward crossing
-uses the two-ring rule again. The normal card UI handles travel, inventory,
+shore. It works even if the bell has been left behind or stopped ringing.
+Once the entrance closes, two consecutive rings at the pond open it again.
+The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing
 and its sleeping resident when loaded.
 
