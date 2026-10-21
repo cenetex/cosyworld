@@ -380,6 +380,110 @@ main {
   scroll-snap-type: x proximity;
   scroll-padding-inline: 5px;
 }
+/* More cards than fit: arrows at either end over fades hinting the rest. */
+.hand-wrap {
+  position: relative;
+}
+.hand-wrap::before,
+.hand-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.hand-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, #15161f, #15161f00);
+}
+.hand-wrap::after {
+  right: 0;
+  background: linear-gradient(270deg, #15161f, #15161f00);
+}
+.hand-wrap[data-overflow="true"][data-start="false"]::before,
+.hand-wrap[data-overflow="true"][data-end="false"]::after {
+  opacity: 1;
+}
+.hand-scroll {
+  min-height: 0;
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  translate: 0 -50%;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #89765d;
+  border-radius: 50%;
+  background: #25232ee6;
+  color: var(--gold);
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: 0 2px 10px #000a;
+}
+.hand-scroll.prev {
+  left: 2px;
+}
+.hand-scroll.next {
+  right: 2px;
+}
+.hand-scroll:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.hand-scroll:hover:not(:disabled) {
+  background: #463a3c;
+}
+/* A one-time pairing tip, straddling the top edge of the dock. */
+.hand-tip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 3;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid #89765d;
+  border-radius: 16px;
+  background: #25232e;
+  color: #ecdfc4;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px #000a;
+}
+.hand-tip[hidden] {
+  display: none;
+}
+#hand-tip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#hand-tip-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #bcb5c4;
+  font-size: 15px;
+}
+#hand-tip-close:hover {
+  color: var(--gold);
+}
+.card-frame[data-tip="true"] .card {
+  border-color: #dfc38daa;
+}
 .card-frame:first-child {
   margin-left: auto;
 }
