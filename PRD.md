@@ -2,7 +2,14 @@
 
 Last major revision: 2026-08-12. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, the card-composed world, and the accepted wallet-optional ownership boundary in ADR 0006.
 
-The production root is the card table in `v2/card-game/`, the interface to the world this document describes. ADR 0015 sets its direction: the core is a world players live in, grown from general rules and generators, and story is an optional layer. The table's first site is prototype scaffolding. The shared world remains live at `/classic` and is the foundation the table will run on. Where this document describes the dealt action hand, ADR 0015 governs the card table.
+Card-table playtest update: **2026-10-21**. The root at `cosyworld.fly.dev` is
+the card table in `v2/card-game/`. Its current authority is a deterministic
+JavaScript model and a browser-local save; Rust supplies validated dialogue.
+It does not yet share the `/classic` runtime's world state, accounts, or rewards.
+ADR 0015 sets the shared-world direction, with story as an optional layer.
+The existing shore, cast, and item interactions are the working prototype to
+preserve while that architecture develops. Where this document describes
+exactly two dealt action cards, it describes `/classic`, not the root table.
 
 Companion documents:
 
@@ -16,13 +23,35 @@ Companion documents:
 
 ## What CosyWorld Is
 
-CosyWorld is a shared AI MUD played like a cozy tabletop: one persistent world that everyone enters together. A player becomes a generated avatar, keeps a home that is a true sanctuary, follows a Calling that says who they are, builds Bonds with residents and other players, and chooses when to walk out to a frontier with real stakes. Play happens through a transcript-first surface where the server deals a small hand of labeled action cards — playing one is a deliberate turn, and every AI output, resident reply, dice roll, and world change is a public room event that everyone present sees.
+The vision is a world worth inhabiting: people with distinct personalities,
+objects that stay where someone put them, journeys that really happen, and
+enough quiet to enjoy what has been achieved. Cards make those people, things,
+and places easy to act on. Dialogue expresses the simulation's consequences;
+it does not establish possession, consent, shared travel, or a new goal by
+itself.
+
+The shared-world destination is a persistent AI MUD played like a cozy
+tabletop. Players develop avatars, homes, Callings, and Bonds, and choose when
+to leave sanctuary for a frontier with stakes. Its existing `/classic` surface
+uses server-dealt action cards and public room events. The root prototype
+currently offers a smaller personal world with Vale, Pip, the keeper, and
+Badger, rather than all of those shared-runtime systems.
 
 The product should feel like living in a small fantasy world that remembers you — not like a dashboard, a wallet app, a quiz, or a one-on-one chatbot.
 
 ## Where the Product Stands
 
-CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
+The root table supports physical custody, fuel and coverings, trading and
+consent, accompanying, conflict, autonomous cast turns, quest programs,
+discovered routes, and generated dialogue. The Steam Clock clearing and
+Badger belong to the same saved world as the shore. Regression coverage checks
+pond lamp access and stale choices, departure speakers, Badger's wake/mood
+context, and visible dialogue failure/retry at desktop and phone widths.
+Prompt tests establish the supplied characterization; they do not certify
+every generated line's quality.
+
+The shared V2 runtime at `/classic` is separately playable and has been tested
+with simultaneous human and agent players. Its implemented systems include:
 
 - CosyWorld Core and Ruby High: First Bell, with compiled cards and complete room sheets validated by the content gate. Every mounted place is independent of wallet possession. Release counts are generated from the compiled worldpack rather than maintained in this prose.
 - The full verb surface: advancement-backed Chat (begin a friendship), Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
@@ -36,9 +65,62 @@ CosyWorld V2 is a playable, production-deployable game, live-tested with simulta
 
 The question this PRD answers is no longer "can the loop exist?" It is: **why does a player come back on day seven, and what do they tell a friend?**
 
+## Card-table Direction Under Review
+
+These are playtest proposals, not approved mechanics or claims about deployed
+features. Keep the current core intact while choosing and testing a small next
+slice.
+
+- **Give achievement a fulfilled phase.** Pip's opening quest advances from
+  receiving the lamp to seeking oil immediately, even when the lamp has ample
+  fuel. The existing motive model can already prefer enjoying its warmth at
+  the pond; quest planning overrides it. A saved content phase should let an
+  avatar enjoy a possession and interact socially without a standing demand.
+  Preserve unfinished goals and distinguish physical maintenance from issuing
+  or repeatedly soliciting a quest. The duration and exit conditions remain open.
+- **Reward meaningful novelty for each avatar.** First-ever action types alone
+  are too coarse; every new actor/item combination alone invites item-swapping
+  grind. Prefer recorded discoveries and consequential new combinations: a
+  first witnessed card, a completed shared journey, a changed relationship, or
+  a resolved conflict. Repeated clicks, reversible toggles, repeated blows,
+  and passing an item back and forth should not mint new XP. Exact reward
+  amounts and novelty keys need design review and persistence tests.
+- **Choose a quest cadence.** An avatar level-up could make a new ambition
+  available; an optional daily quest granting avatar XP is another proposal.
+  Neither is a requirement to replace a satisfied avatar's desire immediately.
+  Do not overwrite an active quest or silently turn this into player-level
+  grinding. The current table has quest-count levels, not this XP system.
+- **Make selected world rhythms real.** A train could dwell at the station,
+  travel to Paris, dwell there, and return on a persisted server schedule.
+  The current station has no train simulation or Paris destination. Travel
+  and dwell durations, boarding rules, and the world's timezone are undecided.
+- **Give the Steam Clock one daily prophecy.** A proposed mechanical
+  memento-mori message changes at one chosen hour per world calendar day.
+  Persist a deterministic choice shared by everyone, its activation instant,
+  and its text. The previous message remains until the next activation;
+  restarts, offline passage, multiple clients, and daylight-saving boundaries
+  must not reroll it or repeat its effects. The clock currently implements
+  the bell discovery puzzle, not calendar time.
+- **Keep model choice measurable.** Small avatar models, including an 8B
+  candidate, can be evaluated for distinct voice, state accuracy, valid
+  structured output, and latency. The current table sends one request for the
+  whole scene. Per-avatar routing and a provider change are not implemented.
+
+A first time-based slice would establish server-owned time and a persisted
+prophecy snapshot before adding transport. Server time must decide legal
+boarding and committed journeys; a browser countdown is only a display.
+Shared or reward-bearing rules still cross the kernel and journal boundary.
+Real-time schedules would be an explicit, limited revision to the played-time
+principle below and ADR 0015, not permission for unattended item decay,
+combat, or automatic quest churn. Major feature choices require review before
+implementation.
+
 ## Product Pillars
 
 Every feature must serve at least one of these; a feature that serves none does not ship.
+These describe the shared-runtime destination and its current rules. The
+proposals above do not yet amend them; the browser-local prototype remains
+under the authority transition described in ADR 0015.
 
 1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. ADR 0009 permits a later Company conversation only as an authoritative shared event with explicit membership, audience, and communication capability—not as a private chatbot. Wallet or card ownership never unlocks, owns, or controls a shared place.
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
@@ -127,7 +209,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 1. **Crafting.** The item-meets-room verb, recipes-as-worldpack, tag-keyed combination, AI-decorated names within kernel rails, and craft-created items that unlock or anchor new world capacity. Ships with its moderation surface (names are sanitized, authored fallbacks exist) and its economy role: creating provenance, tags, doorways, locations, resident hooks, and collection value without deleting the physical ingredients.
 2. **Covenants.** The shared home base: a named cottage/guild with its own sheet, boons, resources, projects, reputation, and per-member loyalty — and the renewable sanctuary verbs (tend, brew, keep a promise) driven by room-sheet resources that make *home* the richest room instead of the first exhausted one. (RPG Bible Phase 5.)
 3. **A living frontier.** The first slice is live: every sixth committed player tick drives deterministic ambient weather and opportunity-level route trade, faction movement, and conflict pressure. Stakes remain local and consensual: only a recorded action at the affected frontier can let pressure advance its danger clock, while sanctuary and unrelated players remain untouched. Next, let those audited consequences create new Jobs so the Wanderer returns to fresh work produced by play. Spent encounters reset through the same played-time seasons.
-4. **Evolution as arrangement.** Placement-pattern evolution tracks with generated per-level quest lists, replacing the fixed two-item gift: patterns compile through the same fail-closed descriptor seam as clock effects, the kernel checks satisfaction against real world state, and ceremonies pay witness credit. This is the renewable quest engine — every resident level mints a fresh constellation of things to find, carry, place, and guard.
+4. **Evolution as arrangement.** Placement-pattern evolution tracks with generated per-level quest lists, replacing the fixed two-item gift: patterns compile through the same fail-closed descriptor seam as clock effects, the kernel checks satisfaction against real world state, and ceremonies pay witness credit. The automatic replacement cadence is under review alongside avatar contentment and optional daily quests; a new level need not immediately become another request to the player.
 5. **Conflict with objectives.** Objective clocks in danger rooms, nonlethal outcomes, gear durability that breaks to absorb harm, and Flee as a first-class success path. Combat stays one risk mode among many, never the default verb. (RPG Bible Phase 6.)
 6. **Linked-avatar bridge.** Productize allowlisted avatar profiles, exactly-once asset-to-actor binding, safe offstage presence, custody transfer, cosmetic metadata allowlisting, and recovery of the same actor across retries and restarts. Direct control remains a separate decision.
 7. **Companies and shared Ventures.** Replace the provisional actor-scoped travelling-party presentation with authoritative consensual Company membership, a shared Venture and chronicle, Formation and readiness state, atomic departure for the ready subset, honest progress profiles, and vehicle/dungeon composition. A vehicle never creates membership, an absent member never holds the room hostage, and unknown or branching geography never receives a false completion percentage. (ADR 0009.)
