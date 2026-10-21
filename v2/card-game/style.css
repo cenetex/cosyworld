@@ -218,7 +218,11 @@ main {
   font-size: 13px;
   line-height: 1.4;
   color: #d9d1c4;
-  animation: receipt 0.3s ease-out;
+  /* It steps aside after a while so it does not keep covering the cast;
+     History holds every line. */
+  animation:
+    receipt 0.3s ease-out,
+    receipt-done 0.6s ease-in 7s forwards;
 }
 .turn-receipt li + li {
   margin-top: 3px;
@@ -234,6 +238,12 @@ main {
   from {
     opacity: 0;
     translate: 0 -6px;
+  }
+}
+@keyframes receipt-done {
+  to {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 .dialogue {
@@ -443,10 +453,11 @@ main {
 .hand-wrap[data-overflow="true"][data-end="false"]::after {
   opacity: 1;
 }
+/* Level with the card art, clear of the card's text. */
 .hand-scroll {
   min-height: 0;
   position: absolute;
-  top: 50%;
+  top: 30%;
   z-index: 2;
   translate: 0 -50%;
   width: 38px;
