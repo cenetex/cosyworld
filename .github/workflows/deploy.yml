@@ -139,7 +139,10 @@ jobs:
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: read
     env:
       CI: true
     steps:
@@ -148,10 +151,21 @@ jobs:
         with:
           fetch-depth: 1
 
+      # CI runs the same Rust tests and lint on every main commit. Reuse its
+      # result for this exact commit; run the checks here only when CI did not
+      # run them, was cancelled, or failed.
+      - name: Reuse CI Rust checks for this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/await-ci-rust.mjs >> "$GITHUB_OUTPUT"
+
       - name: Setup Rust
+        if: steps.ci.outputs.reuse != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Restore Cargo build cache
+        if: steps.ci.outputs.reuse != 'true'
         uses: actions/cache@v6
         with:
           path: |
@@ -165,9 +179,11 @@ jobs:
             ${{ runner.os }}-cargo-orchestrator-
 
       - name: Verify Rust orchestrator tests
+        if: steps.ci.outputs.reuse != 'true'
         run: bash v2/scripts/check-rust.sh test
 
       - name: Check Rust architecture
+        if: steps.ci.outputs.reuse != 'true'
         run: |
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
@@ -198,8 +214,35 @@ jobs:
           test "$NODE_RESULT" = success
           test "$RUST_RESULT" = success
 
-  primary-fly:
-    name: Deploy primary to Fly
+  # The image builds while the gates run. Building does not touch the running
+  # app; only primary-fly replaces it, and only after the gates pass.
+  primary-image:
+    name: Build primary image
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name == 'push' ||
+       inputs.target == 'both' ||
+       inputs.target == 'primary')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Build and push primary image
+        run: flyctl deploy --remote-only --config fly.toml --build-only --push --image-label "deploy-${GITHUB_SHA}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # The guards and the rollback snapshot run once the gates pass, while the
+  # image may still be building.
+  primary-backup:
+    name: Guard and back up primary
     needs: [deployment-impact, release-owner, production-gate]
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
@@ -246,8 +289,30 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+  primary-fly:
+    name: Deploy primary to Fly
+    needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name == 'push' ||
+       inputs.target == 'both' ||
+       inputs.target == 'primary')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy primary Fly app
-        run: flyctl deploy --remote-only --config fly.toml --strategy rolling
+        run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${GITHUB_SHA}" --strategy rolling
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -271,8 +336,37 @@ jobs:
       - name: Verify primary card game
         run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
 
-  lonelyforest-fly:
-    name: Deploy Lonely Forest to Fly
+  # Lonely Forest builds its own image with its own app-scoped token: a token
+  # scoped to one app cannot deploy the other app's image (#172). The build
+  # runs while the gates run, beside the primary build.
+  lonelyforest-image:
+    name: Build Lonely Forest image
+    needs: [deployment-impact, release-owner]
+    # Ordinary main pushes must never replace an intentional Lonely Forest
+    # release. Tags are committed releases; workflow_dispatch is an explicit
+    # operator action against the selected GitHub ref.
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'both' || inputs.target == 'lonelyforest')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Build and push Lonely Forest image
+        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --build-only --push --image-label "deploy-${GITHUB_SHA}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
+
+  lonelyforest-backup:
+    name: Guard and back up Lonely Forest
     needs: [deployment-impact, release-owner, production-gate]
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
@@ -285,9 +379,6 @@ jobs:
         (inputs.target == 'both' || inputs.target == 'lonelyforest')))
     runs-on: ubuntu-latest
     environment: lonelyforest-production
-    concurrency:
-      group: deploy-lonelyforest-production
-      cancel-in-progress: false
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
@@ -340,10 +431,39 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
-      - name: Build and deploy Lonely Forest
+  lonelyforest-fly:
+    name: Deploy Lonely Forest to Fly
+    needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]
+    # Ordinary main pushes must never replace an intentional Lonely Forest
+    # release. Tags are committed releases; workflow_dispatch is an explicit
+    # operator action against the selected GitHub ref.
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'both' || inputs.target == 'lonelyforest')))
+    runs-on: ubuntu-latest
+    environment: lonelyforest-production
+    concurrency:
+      group: deploy-lonelyforest-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy Lonely Forest
         run: |
           for attempt in 1 2; do
-            if flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false --strategy rolling; then
+            if flyctl deploy --config fly.lonelyforest.toml --image "registry.fly.io/cosyworld-lonelyforest:deploy-${GITHUB_SHA}" --ha=false --strategy rolling; then
               exit 0
             fi
             if [ "$attempt" -eq 2 ]; then
@@ -364,7 +484,16 @@ jobs:
   deploy-outcome:
     name: Report production deployment outcome
     runs-on: ubuntu-latest
-    needs: [deployment-impact, release-owner, production-gate, primary-fly, lonelyforest-fly]
+    needs:
+      - deployment-impact
+      - release-owner
+      - production-gate
+      - primary-image
+      - primary-backup
+      - primary-fly
+      - lonelyforest-image
+      - lonelyforest-backup
+      - lonelyforest-fly
     if: always()
     permissions:
       issues: write
@@ -376,14 +505,22 @@ jobs:
           needs.deployment-impact.outputs.deploy == 'true' &&
           (needs.release-owner.result == 'failure' ||
            needs.production-gate.result != 'success' ||
+           contains(fromJSON('["failure","cancelled"]'), needs.primary-image.result) ||
+           contains(fromJSON('["failure","cancelled"]'), needs.primary-backup.result) ||
            needs.primary-fly.result == 'failure' ||
+           contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-image.result) ||
+           contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-backup.result) ||
            needs.lonelyforest-fly.result == 'failure')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           OWNER_RESULT: ${{ needs.release-owner.result }}
           GATE_RESULT: ${{ needs.production-gate.result }}
+          PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
+          PRIMARY_BACKUP_RESULT: ${{ needs.primary-backup.result }}
           PRIMARY_RESULT: ${{ needs.primary-fly.result }}
+          LONELYFOREST_IMAGE_RESULT: ${{ needs.lonelyforest-image.result }}
+          LONELYFOREST_BACKUP_RESULT: ${{ needs.lonelyforest-backup.result }}
           LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
         run: |
           title="Production did not deploy ${GITHUB_SHA:0:7}"
@@ -392,7 +529,11 @@ jobs:
 
           - Release ownership check: ${OWNER_RESULT}
           - Deployment gate: ${GATE_RESULT}
+          - Primary image build: ${PRIMARY_IMAGE_RESULT}
+          - Primary guards and backup: ${PRIMARY_BACKUP_RESULT}
           - Primary Fly deploy: ${PRIMARY_RESULT}
+          - Lonely Forest image build: ${LONELYFOREST_IMAGE_RESULT}
+          - Lonely Forest guards and backup: ${LONELYFOREST_BACKUP_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
           - Run log: ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}
 
