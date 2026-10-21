@@ -108,6 +108,31 @@ describe("entity memories and model text", () => {
     expect(currentScene(next).line.actorId).toBe("keeper");
   });
 
+  it("tells a noise-averse speaker when a handled bell stayed silent", () => {
+    let s = act(createWorld(), "take", "lamp");
+    s = act(s, "take", "bell");
+    const trade = legalActions(s).find(
+      (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+    );
+    s = play(s, trade).state;
+    const quiet = "The Bell made no sound this turn";
+    const facts = (context, id) =>
+      context.entities.find((e) => e.id === id).facts.join(" ");
+    let context = narrativeContext(s, trade);
+    expect(facts(context, "keeper")).toContain(quiet);
+    expect(facts(context, "vale")).not.toContain(quiet);
+
+    // A real ring keeps its noise, and so does its ringing afterwards.
+    let rung = act(createWorld(), "take", "lamp");
+    rung = act(rung, "take", "bell");
+    rung = act(rung, "ring", "bell");
+    context = narrativeContext(rung);
+    expect(facts(context, "keeper")).not.toContain(quiet);
+    rung = act(rung, "wait");
+    expect(rung.items.bell.ringing).toBeGreaterThan(0);
+    expect(facts(narrativeContext(rung), "keeper")).not.toContain(quiet);
+  });
+
   it("gives each trader their own exchange before their current wants", () => {
     let s = act(createWorld(), "take", "lamp");
     s = act(s, "take", "bell");

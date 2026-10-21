@@ -1,4 +1,4 @@
-import { hasMotives, motiveFacts } from "./motives.mjs";
+import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles } from "./memory.mjs";
 import {
@@ -172,6 +172,20 @@ export function narrativeContext(world, action = null) {
     )
     .slice(-8)
     .map((entry) => entry.text);
+  // A persona that minds noise reads a handled bell as a ring unless told
+  // otherwise. Name the silence for those speakers when nothing rang.
+  const bellHandled =
+    localItems.includes("bell") ||
+    [played?.itemId, played?.receiveId].includes("bell");
+  const bellRang = world.log.some(
+    (entry) =>
+      entry.turn === world.turn && !entry.generated && entry.verb === "ring",
+  );
+  const quietFact =
+    bellHandled && !bellRang && !world.items.bell.ringing
+      ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.`
+      : null;
+  const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -223,6 +237,7 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
+        if (quietFact && mindsNoise(id)) facts.push(quietFact);
         if (
           played?.verb === "accompany" &&
           [played.actorId, played.targetId].includes(id)
