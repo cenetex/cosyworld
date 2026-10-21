@@ -28,12 +28,6 @@
 !v2/orchestrator-rust/build.rs
 !v2/orchestrator-rust/src/
 !v2/orchestrator-rust/src/**
-!src/
-!src/services/
-!src/services/web/
-!src/services/web/public/
-!src/services/web/public/images/
-!src/services/web/public/images/cosy-cottage.png
 
 v2/orchestrator-rust/target/
 v2/orchestrator-rust/.runtime/

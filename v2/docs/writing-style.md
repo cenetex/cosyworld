@@ -81,7 +81,9 @@ The three Journal regions have different jobs:
 - **Story so far** records meaningful committed outcomes in chronological
   order. One entry may group several canonical events. The chapter recap names
   the dominant themes and latest turn using only those curated beats; it does
-  not call a language model or invent connective lore.
+  not call a language model or invent connective lore. A recap ends on the
+durable change the chapter left behind — a room, relationship, route, or
+project the next visitor can meet — not on a completion count.
 
 History headlines use named third-person past tense, an explicit subject, and
 a meaningful verb: "Elsie discovered a path to the Old Oak Tree." They never
@@ -195,6 +197,9 @@ arithmetic. See issue #464.
       generic fallback? Replace it with a semantic outcome or omit it.
 - [ ] Does every Journal disclosure add information absent from its headline?
       If not, remove the disclosure affordance.
+- [ ] Does it read like the world, or like a ticket? Say: "The bell moved to
+      Skull, and the doorway remembered." Avoid: "The user completed the
+      item-transfer objective."
 
 ## Governance
 

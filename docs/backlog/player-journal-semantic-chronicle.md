@@ -85,6 +85,9 @@ language.
 - One non-chronological summary, visually separate from history.
 - Derived from room memory and current authoritative state.
 - Never duplicated as the newest history row.
+- Names inherited changes a later visitor can meet without having seen them
+  happen, such as "the bell hangs by Skull's doorway." A gift or finished
+  project is part of the place's durable state.
 
 ### Open threads
 
@@ -121,6 +124,11 @@ language.
    missing presentation coverage. Their type name is never the fallback copy.
 8. The room-header ticker reuses the exact headline of the latest visible
    story beat. It does not run a second formatter.
+9. When an item is found, traded, used, or given, the beat says where it was
+   and where it is now. An item has one home at a time, and its custody chain
+   is part of the story.
+10. A contested outcome is told as contested. Residents can win races to
+    items, so copy never implies the player was guaranteed the result.
 
 ## Disclosure contract
 
@@ -383,6 +391,32 @@ The epic is complete when:
 - Rewriting canonical historical events or breaking old replay records.
 - Building a portable all-world avatar journal.
 - A broad visual redesign of the room, transcript, or action cards.
+
+## World chronicle
+
+**Planning**: A later horizon beyond the per-avatar Journal. It was first
+sketched by the retired Node companion's story archive and the storybook
+explainer (#936); both were removed in favor of this section.
+
+- **Public archive.** Anyone can read the world's chronicle without an
+  account. Committed outcomes group into arcs; an arc has a title, theme,
+  status (ongoing or concluded), summary, and thumbnail, and holds numbered
+  chapters of ordered `JournalBeatView` beats with place and participants.
+  Arcs are projected from the journal and replay. A language model may propose
+  a title or summary for beats that already exist; it never writes the facts.
+- **Recurring cast.** The chronicle lists the avatars and residents who appear
+  most often across beats, each linked to the beats they appear in. The list
+  is computed from participation, never curated or bought, so a resident
+  becomes notable only by taking part in events.
+- **Read-aloud retelling.** A shareable picture-book recap of one epoch or
+  route pairs each meaningful beat with one community-art image and a
+  one-sentence caption. It is distinct from the private daily page. The facts
+  come from the journal; only the telling is stylized, and a stand-in narrator
+  or illustrated character is disclosed openly. Retellings are written only
+  from runs whose proof report passed.
+
+The storybook's watercolor plates of the live cast are kept under
+`docs/design/assets/storybook/` as reference art for this surface.
 
 ## Generated page presentation
 
