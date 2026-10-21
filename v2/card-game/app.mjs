@@ -43,6 +43,8 @@ import {
   sceneStaging,
   portrait,
   backdrop,
+  turnReceipt,
+  witnessed,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -160,6 +162,19 @@ let storyStatus = "ready",
   reviewing = false,
   pendingCast = null,
   departed = new Set();
+// The turn's receipt shows at once, so the hand need not wait long for words.
+// If they are still on the way after this, the hand is released; a new play
+// replaces the request, and words that arrive still play.
+const HAND_WAIT = 2500;
+let handTimer = null;
+function releaseHand() {
+  if (!cardsCooling || storyStatus !== "pending") return;
+  cardsCooling = false;
+  // The scene shows who is really here once the hand is free.
+  pendingCast = null;
+  updateCardCooldown();
+  renderScene();
+}
 const completedSpeech = new Set();
 const entrances = new Map();
 let shownSceneLine = null;
@@ -193,8 +208,10 @@ const exchange = createExchange({
     renderScene();
   },
   busy: (value) => {
+    clearTimeout(handTimer);
     cardsCooling = value;
     updateCardCooldown();
+    if (value) handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
       pendingCast = null;
@@ -1183,11 +1200,28 @@ function renderScene() {
   $("dialogue-advance").onclick = advance;
   $("next-line").onclick = advance;
 }
+let renderedReceipt = "";
+function renderReceipt() {
+  const receipt = world.turn ? turnReceipt(world) : [];
+  const key = JSON.stringify(receipt.map((entry) => entry.seq));
+  if (key === renderedReceipt) return;
+  renderedReceipt = key;
+  $("turn-receipt").replaceChildren(
+    ...receipt.map((entry) =>
+      node("li", entry.text, entry.moved ? "moved" : ""),
+    ),
+  );
+  $("turn-receipt").hidden = !receipt.length;
+}
 let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  const conversation = world.log.filter((entry) => entry.generated === true);
+  // Words and the world's own account, so every turn is recorded even when
+  // its words fail or are still on the way.
+  const conversation = world.log.filter(
+    (entry) => entry.generated === true || witnessed(entry),
+  );
   let common = 0;
   while (
     common < renderedLog.length &&
@@ -1201,7 +1235,7 @@ function renderLog() {
     const item = node(
       "div",
       undefined,
-      `message ${entry.speaker === "World" ? "world" : entry.speaker === "You" ? "you" : ""}`,
+      `message ${entry.speaker === "World" || !entry.generated ? "world" : entry.speaker === "You" ? "you" : ""}`,
     );
     const by = node("div", entry.speaker, "speaker");
     by.append(node("span", `Turn ${entry.turn}`));
@@ -1241,6 +1275,7 @@ function render() {
   $("play-readout").textContent = selected.length
     ? cardPlay(world, selected).hint
     : "";
+  renderReceipt();
   renderScene();
   renderLog();
   updateCardCooldown();

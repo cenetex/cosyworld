@@ -63,6 +63,8 @@ try {
     await page.route("**/card-game/text", async (route) => {
       const input = route.request().postDataJSON();
       requests.push(input);
+      // Slow words: the request stays open until a later play replaces it.
+      if (mode === "hang") return;
       await route.fulfill(
         mode === "unavailable"
           ? {
@@ -147,15 +149,36 @@ try {
       failed.log.some((e) => e.turn === failed.turn && e.generated),
       false,
     );
+    // The world's own account of the turn shows and is kept without words.
+    assert.equal(await page.locator("#turn-receipt").isVisible(), true);
+    assert.match(await page.textContent("#turn-receipt"), /Vale/);
+    assert.match(
+      await page.$eval("#messages", (box) => box.textContent),
+      new RegExp(`Turn ${failed.turn}`),
+    );
+    // Slow words release the hand rather than holding it.
+    mode = "hang";
+    await pond.click();
+    await pond.click();
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+      null,
+      { timeout: 6000 },
+    );
+    assert.equal((await state()).turn, before.turn + 2);
+    assert.match(
+      await page.$eval("#messages", (box) => box.textContent),
+      new RegExp(`Turn ${before.turn + 2}`),
+    );
     mode = "ready";
     await pond.click();
     await pond.click();
     await ready();
-    assert.equal((await state()).turn, before.turn + 2);
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 4/);
+    assert.equal((await state()).turn, before.turn + 3);
+    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 5/);
     await page.reload();
     await ready();
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 4/);
+    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 5/);
     assert.deepEqual(errors, []);
     console.log(
       `Visible failure, same-turn retry, later play and reload passed at ${width}px.`,
