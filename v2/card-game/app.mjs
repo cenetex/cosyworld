@@ -663,10 +663,14 @@ function card(id) {
     ),
   );
   const graphic = node("span", undefined, "art");
-  if (type === "item") graphic.innerHTML = art(id);
-  else {
+  {
     const img = node("img");
-    img.src = type === "avatar" ? portrait(id, null, world) : backdrop(id);
+    img.src =
+      type === "item"
+        ? `./assets/${id}-card.jpg`
+        : type === "avatar"
+          ? portrait(id, null, world)
+          : backdrop(id);
     img.alt = "";
     graphic.append(img);
   }

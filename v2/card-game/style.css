@@ -998,3 +998,10 @@ dialog.unveil::backdrop {
 .portrait.entering {
   visibility: hidden;
 }
+
+.card.item {
+  grid-template-rows: auto 96px auto auto 1fr auto;
+}
+.card.item .art img {
+  object-fit: contain;
+}

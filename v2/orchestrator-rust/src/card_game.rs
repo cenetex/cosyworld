@@ -220,6 +220,22 @@ fn serve(path: &str) -> Response {
             "application/json; charset=utf-8",
             include_bytes!("../../card-game/entity-profiles.json"),
         ),
+        "assets/lamp-card.jpg" => (
+            "image/jpeg",
+            include_bytes!("../../card-game/assets/lamp-card.jpg"),
+        ),
+        "assets/oil-card.jpg" => (
+            "image/jpeg",
+            include_bytes!("../../card-game/assets/oil-card.jpg"),
+        ),
+        "assets/bell-card.jpg" => (
+            "image/jpeg",
+            include_bytes!("../../card-game/assets/bell-card.jpg"),
+        ),
+        "assets/cloth-card.jpg" => (
+            "image/jpeg",
+            include_bytes!("../../card-game/assets/cloth-card.jpg"),
+        ),
         "assets/station.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/station.png"),
@@ -334,6 +350,10 @@ mod tests {
             "assets/music/station-1.mp3",
             "assets/music/station-2.mp3",
             "entity-profiles.json",
+            "assets/lamp-card.jpg",
+            "assets/oil-card.jpg",
+            "assets/bell-card.jpg",
+            "assets/cloth-card.jpg",
             "assets/station.png",
             "assets/attic.png",
             "assets/pond.png",
@@ -354,6 +374,9 @@ mod tests {
             if path.ends_with(".png") {
                 assert_eq!(content_type, "image/png");
                 assert_eq!(&body[..8], b"\x89PNG\r\n\x1a\n");
+            } else if path.ends_with(".jpg") {
+                assert_eq!(content_type, "image/jpeg");
+                assert_eq!(&body[..3], b"\xff\xd8\xff");
             } else if path.ends_with(".mp3") {
                 assert_eq!(content_type, "audio/mpeg");
                 assert_eq!(&body[..3], b"ID3");
