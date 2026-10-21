@@ -149,9 +149,8 @@ try {
       failed.log.some((e) => e.turn === failed.turn && e.generated),
       false,
     );
-    // The world's own account of the turn shows and is kept without words.
-    assert.equal(await page.locator("#turn-receipt").isVisible(), true);
-    assert.match(await page.textContent("#turn-receipt"), /Vale/);
+    // Keep the existing history, without an extra status banner over the cast.
+    assert.equal(await page.locator("#turn-receipt").count(), 0);
     assert.match(
       await page.$eval("#messages", (box) => box.textContent),
       new RegExp(`Turn ${failed.turn}`),
