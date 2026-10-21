@@ -721,7 +721,7 @@ function card(id) {
     const img = node("img");
     img.src =
       type === "item"
-        ? `./assets/${id}-card.jpg`
+        ? `./assets/${id}-card.png`
         : type === "avatar"
           ? portrait(id, null, world)
           : backdrop(id);
