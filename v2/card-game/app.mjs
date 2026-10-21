@@ -570,10 +570,8 @@ function showUnveil() {
   for (const button of shown.querySelectorAll("button"))
     button.disabled = false;
   $("unveil-card").replaceChildren(shown);
-  $("unveil-text").textContent =
-    type === "location"
-      ? placeText(world, id)
-      : (people[id] || things[id]).text;
+  // Places and things carry their text on the card; people's goes beneath.
+  $("unveil-text").textContent = type === "avatar" ? people[id].text : "";
   dialog.showModal();
   pauseSpeech();
   clearTimeout(unveilTimer);
@@ -627,6 +625,62 @@ $("unveil-dialog").addEventListener("cancel", (e) => {
   e.preventDefault();
   takeUnveiled();
 });
+// Where a cutout's figure stands: the top and height of its outline and the
+// middle of its head, as fractions of the image. The card banner uses them to
+// frame the head and shoulders of any portrait the same way.
+const figures = new Map();
+function frameFigure(img) {
+  const apply = (f) => {
+    img.style.setProperty("--figure-top", f.top);
+    img.style.setProperty("--figure-height", f.height);
+    img.style.setProperty("--head-x", f.headX);
+  };
+  const measure = () => {
+    if (!figures.has(img.src)) {
+      const w = 48,
+        h = Math.round((w * img.naturalHeight) / img.naturalWidth) || w;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(img, 0, 0, w, h);
+      let alpha;
+      try {
+        alpha = context.getImageData(0, 0, w, h).data;
+      } catch {
+        return;
+      }
+      const solid = (x, y) => alpha[(y * w + x) * 4 + 3] > 40;
+      const rows = [];
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++)
+          if (solid(x, y)) {
+            rows.push(y);
+            break;
+          }
+      if (!rows.length) return;
+      const top = rows[0],
+        bottom = rows.at(-1) + 1,
+        head = top + Math.max(1, Math.round((bottom - top) * 0.15));
+      let left = w,
+        right = 0;
+      for (let y = top; y < head; y++)
+        for (let x = 0; x < w; x++)
+          if (solid(x, y)) {
+            left = Math.min(left, x);
+            right = Math.max(right, x + 1);
+          }
+      figures.set(img.src, {
+        top: top / h,
+        height: (bottom - top) / h,
+        headX: (left + right) / 2 / w,
+      });
+    }
+    apply(figures.get(img.src));
+  };
+  if (img.complete && img.naturalWidth) measure();
+  else img.addEventListener("load", measure, { once: true });
+}
 function card(id) {
   const type = cardType(id),
     def = places[id] || people[id] || things[id];
@@ -672,6 +726,7 @@ function card(id) {
           ? portrait(id, null, world)
           : backdrop(id);
     img.alt = "";
+    if (type === "avatar") frameFigure(img);
     graphic.append(img);
   }
   el.append(graphic, node("span", def.name, "name"));
@@ -703,7 +758,7 @@ function card(id) {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
     detail =
       id === world.actors.vale.place
-        ? "Pass a turn · pair to put down"
+        ? "Wait a turn · leave items here"
         : "Travel · carry your items";
   }
   const conflict = type === "avatar" ? standoffFor(world, id) : null;
@@ -712,6 +767,14 @@ function card(id) {
   el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
   const info = node("span", detail, "state");
   info.id = `card-detail-${id}`;
+  if (type !== "avatar")
+    info.append(
+      node(
+        "span",
+        type === "location" ? placeText(world, id) : def.text,
+        "flavor",
+      ),
+    );
   if (type === "avatar" && (!hasQuestPrograms(world) || id === "badger")) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
@@ -805,7 +868,8 @@ function card(id) {
         ? label
           ? `${label} · tap to play`
           : chosen.hint
-        : playLabel(ownPlay.action) || "Combine",
+        : playLabel(ownPlay.action) ||
+            (id === "vale" ? "Pair with a place" : "Combine"),
       "card-play",
     ),
   );
@@ -853,11 +917,12 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  if (type === "avatar" && !(raised && selected.length === 2)) {
+  const plays = type === "avatar" ? avatarPlays(world, id) : [];
+  if (plays.length && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
     const revision = world.revision;
-    for (const action of avatarPlays(world, id)) {
+    for (const action of plays) {
       const button = node("button", playLabel(action));
       button.type = "button";
       button.disabled = saveBlocked || cardsCooling;

@@ -40,7 +40,7 @@ export function avatarPlays(world, id) {
   return legalActions(world)
     .filter((a) =>
       id === "vale"
-        ? a.kind === "wait" || a.kind === "guard"
+        ? a.kind === "guard"
         : a.target === id &&
           ["talk", "threaten", "guard", "attack"].includes(a.kind),
     )
@@ -82,11 +82,10 @@ export function cardPlay(world, selected) {
         id === here ? find("wait") : find("move", null, id),
         `Travel to ${nameOf(id)}.`,
       );
+    // Staying put belongs to the place card; Vale's card travels in a pair.
+    if (id === "vale") return result(null, "Pair Vale with a place to travel.");
     if (people[id])
-      return result(
-        id === "vale" ? find("wait") : find("talk", null, id),
-        `Meet ${nameOf(id)} here.`,
-      );
+      return result(find("talk", null, id), `Meet ${nameOf(id)} here.`);
     const holder = world.items[id].holder;
     if (people[rootHolder(world, id)] && rootHolder(world, id) !== "vale")
       return result(

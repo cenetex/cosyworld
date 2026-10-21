@@ -27,6 +27,8 @@ function cards(s, ...ids) {
   expect(result.ok).toBe(true);
   return result.state;
 }
+// Playing the place Vale stands in waits a turn.
+const wait = (s) => cards(s, s.actors.vale.place);
 const firstProgram = [
   ["lamp"],
   ["bell"],
@@ -169,11 +171,11 @@ describe("target hands and quest programs", () => {
     }
     const restored = decodeSave(encodeSave(s));
     expect(restored).toEqual(s);
-    expect(cards(restored, "vale")).toEqual(cards(s, "vale"));
+    expect(wait(restored)).toEqual(wait(s));
   });
   it("moves the cast toward its target items and place while Vale waits", () => {
     let s = createWorld();
-    for (let i = 0; i < 5; i++) s = cards(s, "vale");
+    for (let i = 0; i < 5; i++) s = wait(s);
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.actors.moth.place).toBe("pond");
     expect(s.items.bell.holder).toBe("keeper");
@@ -262,7 +264,7 @@ describe("card trade rules", () => {
         (a) => a.kind === "trade" && a.target === "vale",
       ),
     ).toBe(false);
-    const next = cards(s, "vale");
+    const next = wait(s);
     expect(next.items.lamp.holder).toBe("vale");
     expect(next.log.some((e) => e.actorId === "moth" && e.verb === "ask")).toBe(
       true,
@@ -280,7 +282,7 @@ describe("card trade rules", () => {
       receive: "lamp",
       target: "keeper",
     });
-    s = cards(s, "vale");
+    s = wait(s);
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.items.bell.holder).toBe("keeper");
   });
