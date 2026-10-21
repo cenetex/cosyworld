@@ -96,14 +96,22 @@ to inspect an offer, then play it. Cast members take their turns after yours.
   the other avatar's interests. An accepted accompany play records shared
   travel; independent journeys stay independent.
 - Ringing an uncovered bell twice consecutively at the pond reveals the Forest
-  Clearing and its Steam Clock. Badger sleeps there; a greeting wakes him.
+  Clearing and its Steam Clock for the next three turns. A ring at the pond
+  refreshes an active window; after it closes, two rings reopen it. Entry needs
+  the ringing bell physically at the pond, whether carried or on the ground.
+  Leaving the clearing remains possible after the sound fades. Badger sleeps
+  there; a greeting wakes him.
   His speech remains grumpy even after the immediate irritation eases.
 - Dialogue follows completed actions. Quiet departures let the moving cast
   speak for themselves; direct exchanges and a Stay without departures retain
   their relevant speakers. History and scene export retain the actual lines.
-- Reload preserves inventory, quest steps, discovered routes, moods, and
+- Reload preserves inventory, quest steps, route discoveries and remaining
+  ringing turns, moods, and
   validated dialogue. Slow or failed text generation does not roll back an
   action, invent a response, or require another world turn to retry.
+
+Dynamic routes arise from items and places together: knowing a destination
+does not keep its entrance open when its light or sound has gone away.
 
 Quest steps currently advance immediately, and completing a program earns a
 level and supplies another program. This can override an avatar's natural

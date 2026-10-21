@@ -174,8 +174,13 @@ export function createWorld({ opening = false } = {}) {
 }
 // Add the clearing to earlier shore saves while retaining their state and history.
 function addSteamClock(s) {
-  if (s.steamClock !== undefined) return;
-  s.steamClock = { rings: 0, discovered: false };
+  if (s.steamClock !== undefined) {
+    // Earlier saves remember discovery, but have no temporary access receipt.
+    if (s.steamClock && s.steamClock.openUntil === undefined)
+      s.steamClock.openUntil = 0;
+    return;
+  }
+  s.steamClock = { rings: 0, discovered: false, openUntil: 0 };
   s.actors.badger = {
     place: "clearing",
     progress: newProgress(),
@@ -216,6 +221,12 @@ export const reflectionOpen = (s, from = null) =>
     ? shining(s) && itemPlace(s, "lamp") === "pond"
     : Boolean(s.locations?.attic.anchored) ||
       (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+export const clearingOpen = (s) =>
+  s.steamClock?.discovered &&
+  s.turn < s.steamClock.openUntil &&
+  s.items.bell.ringing > 0 &&
+  !covered(s, "bell") &&
+  itemPlace(s, "bell") === "pond";
 const baseExits = (s, place) =>
   s.opening
     ? places[place].exits.filter((to) => ![place, to].includes("attic"))
@@ -236,9 +247,9 @@ export function exits(s, place, actor = null) {
       : reflectionOpen(s, place) && place === "pond"
         ? ["attic"]
         : []),
-    // Once the Steam Clock answers the bell, the pond shows Vale the way to
-    // it. The clearing keeps Badger's company small: no one else follows.
-    ...(s.steamClock?.discovered && place === "pond" && actor === "vale"
+    // Discovery lasts; entry needs the bell's current local ringing window.
+    // The clearing keeps Badger's company small: no one else follows.
+    ...(clearingOpen(s) && place === "pond" && actor === "vale"
       ? ["clearing"]
       : []),
   ];
@@ -1007,7 +1018,9 @@ export function legalActions(s, actor = "vale") {
           actor,
           id,
           null,
-          here === "pond" && actor === "vale" && s.steamClock.rings === 1
+          here === "pond" &&
+            actor === "vale" &&
+            (s.steamClock.rings === 1 || clearingOpen(s))
             ? `${nameOf(actor)} rings the Bell again. The Steam Clock answers through the water.`
             : `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
           [id],
@@ -1638,6 +1651,7 @@ export function play(s, action, expectedRevision = s.revision) {
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  const clearingWasOpen = clearingOpen(s);
   next.turn += 1;
   next.revision += 1;
   const reflectionSource = next.actors.vale.place;
@@ -1649,7 +1663,7 @@ export function play(s, action, expectedRevision = s.revision) {
   const active = knownActors(next);
   const pondRing = exact.kind === "ring" && next.actors.vale.place === "pond";
   const secondRing = pondRing && next.steamClock.rings === 1;
-  next.steamClock.rings = pondRing && !secondRing ? 1 : 0;
+  next.steamClock.rings = pondRing && !secondRing && !clearingWasOpen ? 1 : 0;
   const respondent = perform(next, exact);
   if (secondRing) {
     // The second ring reveals the way; Vale stays until the player takes it.
@@ -1660,7 +1674,7 @@ export function play(s, action, expectedRevision = s.revision) {
       "The second ring folds the pond's reflection. In the water, a forest clearing and an old Steam Clock come into view.",
       { locationId: "pond" },
     );
-  } else if (pondRing) {
+  } else if (pondRing && !clearingWasOpen) {
     addLog(
       next,
       "World",
@@ -1704,7 +1718,23 @@ export function play(s, action, expectedRevision = s.revision) {
       );
     }
   }
-  next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
+  const rings = next.log.filter(
+    (entry) =>
+      entry.turn === next.turn && entry.verb === "ring" && !entry.generated,
+  );
+  // A fresh ring lasts for three following plays. Covering the bell can still
+  // silence it during this round, and a distant ring cannot extend the path.
+  if (!rings.length)
+    next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
+  if (
+    secondRing ||
+    (clearingWasOpen && rings.some((entry) => entry.fromLocationId === "pond"))
+  )
+    next.steamClock.openUntil = next.turn + 3;
+  if (clearingWasOpen && !clearingOpen(next))
+    addLog(next, "World", "The reflected clearing fades from the pond.", {
+      locationId: "pond",
+    });
   const isOpen = reflectionOpen(next, reflectionSource);
   if (wasOpen !== isOpen)
     addLog(
@@ -1816,6 +1846,10 @@ export function validateWorld(s) {
     !s.steamClock ||
     ![0, 1].includes(s.steamClock.rings) ||
     typeof s.steamClock.discovered !== "boolean" ||
+    !Number.isSafeInteger(s.steamClock.openUntil) ||
+    s.steamClock.openUntil < 0 ||
+    s.steamClock.openUntil > s.turn + 3 ||
+    (s.steamClock.openUntil > 0 && !s.steamClock.discovered) ||
     (s.steamClock.rings === 1 && s.actors?.vale?.place !== "pond")
   )
     fail();
