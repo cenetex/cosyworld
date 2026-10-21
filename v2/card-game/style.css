@@ -390,7 +390,7 @@ main {
   position: relative;
   flex: 0 0 190px;
   width: 190px;
-  height: 258px;
+  height: 282px;
   scroll-snap-align: start;
   transition: transform 0.15s;
 }
@@ -404,7 +404,7 @@ main {
      no longer labels. */
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto 58px auto auto 1fr auto;
+  grid-template-rows: auto 80px auto auto 1fr auto;
   gap: 0;
   text-align: left;
   padding: 8px 10px 9px;
@@ -423,13 +423,14 @@ main {
   border-color: var(--gold);
 }
 .card .kind {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: #c0b6c3;
   margin-bottom: 6px;
 }
 .card .art {
+  position: relative;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -447,17 +448,47 @@ main {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* The art row has a fixed height, but a percentage height inside it does
+   not resolve the same way in every browser, so the image is pinned to the
+   box rather than sized by the row. */
 .card .art img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-/* An avatar's banner shows the top half of the whole figure. */
+/* An avatar's banner frames the head and shoulders. frameFigure measures
+   where the figure stands in its cutout, so every portrait crops alike. */
 .card.avatar .art img {
-  object-fit: contain;
-  object-position: 50% 0;
-  height: 190%;
-  align-self: start;
+  --shown: calc(var(--figure-height, 1) * 0.32);
+  inset: auto;
+  top: calc(4% - 100% * var(--figure-top, 0) / var(--shown));
+  left: 50%;
+  width: auto;
+  height: calc(100% / var(--shown));
+  translate: calc(-100% * var(--head-x, 0.5)) 0;
+  object-fit: fill;
+}
+/* An item's painting is shown whole over a blurred copy of itself. */
+.card.item .art::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  background: var(--art) center / cover;
+  filter: blur(10px) brightness(0.7);
+}
+.card.item .art img {
+  left: 50%;
+  width: auto;
+  translate: -50% 0;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 18%,
+    #000 82%,
+    transparent
+  );
 }
 .card .name {
   font:
@@ -469,7 +500,7 @@ main {
   text-overflow: ellipsis;
 }
 .card .caption {
-  font-size: 9px;
+  font-size: 11px;
   color: #bcb5c4;
   margin-top: 2px;
 }
@@ -477,20 +508,47 @@ main {
   border-top: 1px solid #ffffff19;
   margin-top: 6px;
   padding-top: 5px;
-  font-size: 10px;
+  font-size: 11.5px;
   color: #d7cdbd;
   overflow: hidden;
+}
+/* What a place or thing is like, in the space the card would otherwise
+   leave empty. The unveil has room for all of it. */
+.card .flavor {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 6px;
+  font:
+    italic 12px/1.35 Georgia,
+    serif;
+  color: #b9b0bd;
+}
+.unveil-card .flavor {
+  display: block;
+}
+.unveil-text:empty {
+  display: none;
+}
+/* Every card action, single or one of several, is the same button. */
+.card-play,
+.card-options button {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  padding: 4px;
+  border: 1px solid #89765d;
+  border-radius: 6px;
+  background: #00000026;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--gold);
 }
 .card-play {
   align-self: end;
   margin-top: 6px;
-  padding: 5px 4px;
-  border: 1px solid #89765d88;
-  border-radius: 5px;
-  text-align: center;
-  font-size: 11px;
-  line-height: 1.2;
-  color: var(--gold);
 }
 .card[aria-pressed="true"] .card-play {
   color: #fff1ce;
@@ -661,10 +719,10 @@ h2 {
   .card-frame {
     flex-basis: 174px;
     width: 174px;
-    height: 238px;
+    height: 262px;
   }
   .card {
-    grid-template-rows: auto 52px auto auto 1fr auto;
+    grid-template-rows: auto 66px auto auto 1fr auto;
     padding: 7px 8px;
   }
   .card .art svg {
@@ -675,10 +733,7 @@ h2 {
     font-size: 15px;
   }
   .card .state {
-    font-size: 9px;
-  }
-  .card-play {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 @media (max-height: 740px) {
@@ -841,7 +896,7 @@ dialog.unveil::backdrop {
 .unveil-card {
   display: grid;
   place-items: center;
-  height: 400px;
+  height: 440px;
 }
 .unveil-card .card-frame {
   transform: scale(1.5);
@@ -853,9 +908,25 @@ dialog.unveil::backdrop {
     0 0 60px #dfc38d55;
 }
 .unveil-text {
-  margin: 0 auto 16px;
-  max-width: 34ch;
-  color: var(--ink);
+  margin: 0 auto 18px;
+  max-width: 32ch;
+  font:
+    italic 17px/1.45 Georgia,
+    serif;
+  color: #ecdfc4;
+  text-shadow: 0 1px 8px #000;
+}
+#unveil-take {
+  min-height: 44px;
+  padding: 8px 22px;
+  border: 1px solid var(--gold);
+  border-radius: 22px;
+  background: #2a2430;
+  color: var(--gold);
+  font-size: 15px;
+}
+#unveil-take:hover {
+  background: #463a3c;
 }
 @keyframes unveil {
   from {
@@ -913,14 +984,13 @@ dialog.unveil::backdrop {
   display: block;
   margin-top: 5px;
   color: #dfc38d;
-  font-size: 9px;
+  font-size: 11px;
 }
 .card .state {
   line-height: 1.25;
 }
 .card.avatar .caption {
   color: #e6d9c5;
-  font-size: 9px;
 }
 .quest-guide-program {
   border-top: 1px solid var(--edge);
@@ -940,7 +1010,6 @@ dialog.unveil::backdrop {
 
 .card.has-options .card-play {
   visibility: hidden;
-  min-height: 44px;
 }
 .card .caption.conflict {
   color: #f0ba95;
@@ -956,13 +1025,7 @@ dialog.unveil::backdrop {
 .card-options button {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  padding: 4px 2px;
-  font-size: 11px;
-  color: var(--gold);
-  border: 1px solid #89765d;
   background: #25232e;
-  border-radius: 5px;
 }
 .card-options button:hover {
   background: #463a3c;
@@ -997,16 +1060,4 @@ dialog.unveil::backdrop {
 
 .portrait.entering {
   visibility: hidden;
-}
-
-.card.item {
-  grid-template-rows: auto 96px auto auto 1fr auto;
-}
-.card.item .art {
-  height: 96px;
-  min-height: 0;
-}
-.card.item .art img {
-  height: 96px;
-  object-fit: contain;
 }
