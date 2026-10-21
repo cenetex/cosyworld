@@ -595,6 +595,13 @@ describe("witnessed departures and conversation continuity", () => {
     world = act(world, "wait");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["moth", "keeper"]);
+    // A partner who left after another avatar speaks after that departure,
+    // so it never mentions someone gone who is still on screen.
+    expect(narrativeContext(world, { target: "keeper" }).speakers).toEqual([
+      "vale",
+      "moth",
+      "keeper",
+    ]);
     const next = applyGeneratedText(world, context, response(context));
     const farewells = next.log.filter((e) => e.departureTo);
     expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "attic"]);

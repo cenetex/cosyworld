@@ -146,18 +146,17 @@ export function narrativeContext(world, action = null) {
     !directPartner &&
     (!action?.kind || action.kind === "wait") &&
     !introductions.length;
-  const speakers = [
-    ...new Set(
-      (farewell
-        ? changes.map((change) => change.actorId)
-        : [
-            "vale",
-            partner,
-            ...introductions,
-            ...changes.map((change) => change.actorId),
-          ]
-      ).filter((id) => id && awake(id)),
+  const movers = changes.map((change) => change.actorId);
+  const chosen = new Set(
+    (farewell ? movers : ["vale", partner, ...introductions, ...movers]).filter(
+      (id) => id && awake(id),
     ),
+  );
+  // Those who stayed speak first; those who moved speak in the order they
+  // moved, so no one mentions a departure before it is seen.
+  const speakers = [
+    ...[...chosen].filter((id) => !movers.includes(id)),
+    ...movers.filter((id) => chosen.has(id)),
   ];
   const events = world.log
     .filter(
