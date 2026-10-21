@@ -429,6 +429,7 @@ main {
   margin-bottom: 6px;
 }
 .card .art {
+  position: relative;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -446,17 +447,20 @@ main {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* The art row has a fixed height, but a percentage height inside it does
+   not resolve the same way in every browser, so the image is pinned to the
+   box rather than sized by the row. */
 .card .art img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-/* An avatar's banner shows the top half of the whole figure. */
+/* An avatar's banner shows the top of the whole figure. */
 .card.avatar .art img {
-  object-fit: contain;
-  object-position: 50% 0;
-  height: 190%;
-  align-self: start;
+  bottom: auto;
+  height: auto;
 }
 .card .name {
   font:
