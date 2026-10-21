@@ -25,12 +25,11 @@
       <section id="stage" class="stage" aria-label="Current scene">
         <img id="backdrop" class="backdrop" alt="" />
         <div class="scene-shade"></div>
-        <div class="scene-heading">
-          <div>
-            <p class="eyebrow">THE PLACE</p>
-            <h1 id="place-title"></h1>
-            <p id="path-state"></p>
-          </div>
+        <!-- The place card carries what the scene once labelled; the heading
+             stays for screen readers. -->
+        <div class="sr-only">
+          <h1 id="place-title"></h1>
+          <p id="path-state"></p>
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
         <div id="travel" class="travel" aria-hidden="true">

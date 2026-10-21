@@ -100,7 +100,17 @@ try {
   await fullVolume();
   await page.locator('[data-close="menu-dialog"]').click();
 
+  // Cards met for the first time are unveiled; take each into the hand.
+  async function takeUnveiled() {
+    while (await page.$eval("#unveil-dialog", (d) => d.open)) {
+      await page.click("#unveil-take");
+      await page.waitForFunction(
+        () => !document.querySelector(".unveil-ghost"),
+      );
+    }
+  }
   async function playCard(card) {
+    await takeUnveiled();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
@@ -127,7 +137,12 @@ try {
     );
     await checkPair(room);
   }
-  await travel("pond", "lamp");
+  // Lighting the lamp opens the way to the pond; playing the pond goes there.
+  await playCard("lamp");
+  await page.waitForFunction(
+    () => document.querySelector("#unveil-dialog").open,
+  );
+  await travel("pond");
   console.log("Pond tracks played");
   await playCard("moth");
   await travel("station");

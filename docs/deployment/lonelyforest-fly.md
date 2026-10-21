@@ -74,10 +74,21 @@ manual production dispatches receive an approval gate.
 The separate jobs and app-scoped tokens prevent a primary-app release from
 implicitly touching Lonely Forest. Both jobs first pass the real v2 Node,
 worldpack, C-kernel, Rust, and routing-contract checks in the shared
-production gate. The Lonely Forest job validates its multitenant contract
-again before it invokes Fly.
+production gate. The Rust gate reuses CI's `Rust build and tests` and
+`Rust architecture and lint` results for the same commit through
+`scripts/await-ci-rust.mjs`: it waits while they run, and runs the checks
+itself when CI did not run them, was cancelled, or failed. The Lonely Forest
+job validates its multitenant contract again before it invokes Fly.
 
-Immediately before each deploy, `scripts/backup-fly-v2.sh` resolves the exact
+Each app's release runs as three jobs. The image job builds and pushes
+`registry.fly.io/<app>:deploy-<sha>` with `--build-only` while the gates run;
+it never touches the running app. Each app builds its own image with its own
+token, because an app-scoped token cannot deploy the other app's image. Once
+the gates pass, the backup job runs the volume and worldpack guards and takes
+the rollback snapshot, while the image may still be building. The deploy job
+waits for both and then rolls out the pushed image with `--image`.
+
+After the gates pass, and before each deploy, `scripts/backup-fly-v2.sh` resolves the exact
 configured volume (`cosyworld_data` or `lonelyforest_data`), requires one
 attached volume, requests an on-demand Fly snapshot, and waits for that
 specific snapshot to reach `created`. The script is fail-closed and does not

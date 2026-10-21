@@ -486,31 +486,52 @@ function commitAction(action, revision) {
       : null;
   notice("");
   save();
-  const arrive = () => {
+  if (world.actors.vale.place !== from)
+    travel(world.actors.vale.place, render, unveilNew);
+  else {
     render();
     unveilNew();
-  };
-  if (world.actors.vale.place !== from) travel(world.actors.vale.place, arrive);
-  else arrive();
+  }
   narrator.changed(action);
 }
 
 // Moving between places dips the scene to dark with the destination's name,
-// so a change of place is always seen, whatever caused it.
-const TRAVEL_COVER = 360,
-  TRAVEL_TOTAL = 1600;
-function travel(place, arrive) {
+// so a change of place is always seen, whatever caused it. The new place is
+// drawn only once the veil is fully down, and the veil lifts only once the new
+// backdrop and portraits have loaded, so the swap is never seen.
+const TRAVEL_COVER = 400,
+  TRAVEL_HOLD = 700,
+  TRAVEL_WAIT = 4000;
+let covering = false,
+  trip = 0;
+// Cards met at the new place are unveiled once the veil has fully lifted.
+function travel(place, arrive, landed) {
   const veil = $("travel");
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
     arrive();
+    landed();
     return;
   }
-  veil.classList.remove("travelling");
-  void veil.offsetWidth;
+  const mine = ++trip;
+  covering = true;
   veil.classList.add("travelling");
-  setTimeout(arrive, TRAVEL_COVER);
-  setTimeout(() => veil.classList.remove("travelling"), TRAVEL_TOTAL);
+  setTimeout(async () => {
+    if (mine !== trip) return;
+    covering = false;
+    arrive();
+    const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
+    await Promise.race([
+      Promise.all([
+        new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
+        ...images.map((img) => img.decode().catch(() => {})),
+      ]),
+      new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
+    ]);
+    if (mine !== trip) return;
+    veil.classList.remove("travelling");
+    setTimeout(() => mine === trip && landed(), TRAVEL_COVER);
+  }, TRAVEL_COVER);
 }
 
 function unveilNew() {
@@ -575,7 +596,7 @@ function takeUnveiled() {
     showUnveil();
     return;
   }
-  slot.scrollIntoView({ block: "nearest", inline: "center" });
+  slot.scrollIntoView({ block: "nearest", inline: "nearest" });
   const end = slot.getBoundingClientRect(),
     ghost = shown.cloneNode(true),
     size = slot.offsetWidth;
@@ -922,8 +943,8 @@ function renderScene() {
         const image = node("img");
         image.alt = "";
         image.draggable = false;
-        body.append(image, node("div", undefined, "portrait-props"));
-        figure.append(body, node("span", "", "portrait-name"));
+        body.append(image);
+        figure.append(body);
         return figure;
       }),
     );
@@ -987,29 +1008,6 @@ function renderScene() {
         if (entrances.get(figure) === task) entrances.delete(figure);
       });
     }
-    const props = figure.querySelector(".portrait-props");
-    const propKey = JSON.stringify(actor.items);
-    if (props.dataset.items !== propKey) {
-      props.dataset.items = propKey;
-      props.replaceChildren(
-        ...actor.items.map((item) => {
-          const prop = node(
-            "span",
-            undefined,
-            `portrait-prop${item.lit && item.fuel > 0 && !item.covered ? " glowing" : ""}`,
-          );
-          prop.dataset.item = item.id;
-          prop.setAttribute("aria-label", nameOf(item.id));
-          prop.innerHTML = art(item.id);
-          return prop;
-        }),
-      );
-    }
-    figure.querySelector(".portrait-name").textContent = !hasQuestPrograms(
-      world,
-    )
-      ? nameOf(id)
-      : `${nameOf(id)} · Lv ${levelOf(world, id)}`;
   });
   const previous =
     scene.line?.kind === "dialogue"
@@ -1065,8 +1063,9 @@ function renderScene() {
   nextSceneSeq =
     at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
+  // The speech panel shows only when there are words, or words on the way.
   document.querySelector(".dialogue").hidden =
-    !text && storyStatus === "ready" && !exchange.preparing;
+    !text && storyStatus !== "pending" && !exchange.preparing;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = !text;
@@ -1139,6 +1138,8 @@ function renderLog() {
 }
 
 function render() {
+  // While the travel veil comes down, the old place stays drawn.
+  if (covering) return;
   music.setRoom(world.actors.vale.place);
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
