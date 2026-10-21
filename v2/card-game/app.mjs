@@ -726,7 +726,6 @@ function card(id) {
           ? portrait(id, null, world)
           : backdrop(id);
     img.alt = "";
-    if (type === "item") graphic.style.setProperty("--art", `url(${img.src})`);
     if (type === "avatar") frameFigure(img);
     graphic.append(img);
   }
