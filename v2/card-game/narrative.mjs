@@ -592,6 +592,7 @@ export function createNarrator({
 }) {
   let ticket = 0,
     pending = null,
+    failed = null,
     running = false,
     controller;
   async function write(context, version, signal) {
@@ -606,12 +607,14 @@ export function createNarrator({
             if (version === ticket && getWorld().revision === context.revision)
               preview({ context, entries });
           },
-          Math.max(0, Math.min(15_000, deadline - Date.now())),
+          // The server can take 25 seconds. Keep its response alive inside the
+          // shared 30-second budget; retry only with the time still remaining.
+          Math.max(0, deadline - Date.now()),
         );
         if (version !== ticket) return;
         const next = applyGeneratedText(getWorld(), context, response);
         if (!next)
-          throw new Error("The scene changed while its words were written.");
+          throw new Error("The story response did not match this scene.");
         preview(null);
         apply(next);
         status("ready");
@@ -638,13 +641,15 @@ export function createNarrator({
         pending = null;
         controller = new AbortController();
         status("pending");
+        const revision = getWorld().revision;
         try {
           const context = narrativeContext(getWorld(), action);
           await write(context, version, controller.signal);
-        } catch {
+        } catch (error) {
           if (version === ticket) {
             preview(null);
-            status("retry");
+            if (revision === getWorld().revision) failed = { action, revision };
+            status("retry", error);
           }
         }
       }
@@ -652,16 +657,24 @@ export function createNarrator({
       running = false;
     }
   }
+  function changed(action = null) {
+    failed = null;
+    pending = { action, version: ++ticket };
+    preview(null);
+    controller?.abort();
+    void drain();
+  }
   return {
-    changed(action = null) {
-      pending = { action, version: ++ticket };
-      preview(null);
-      controller?.abort();
-      void drain();
+    changed,
+    retry() {
+      if (!failed || failed.revision !== getWorld().revision) return false;
+      changed(failed.action);
+      return true;
     },
     invalidate() {
       ticket += 1;
       pending = null;
+      failed = null;
       controller?.abort();
       preview(null);
       status("ready");
