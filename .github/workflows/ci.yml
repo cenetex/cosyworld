@@ -268,6 +268,12 @@ jobs:
         if: matrix.mode == 'baseline'
         run: node v2/scripts/smoke-card-unveil.mjs
 
+      - name: Check pond access and dialogue recovery
+        if: matrix.mode == 'baseline'
+        run: |
+          node v2/scripts/smoke-card-pond-access.mjs
+          node v2/scripts/smoke-card-dialogue-recovery.mjs
+
       - name: Upload browser images
         if: always()
         uses: actions/upload-artifact@v7
@@ -277,6 +283,7 @@ jobs:
             v2/orchestrator-rust/.runtime/visual-smoke/*.png
             v2/orchestrator-rust/.runtime/visual-smoke/*.json
             output/badger-check/*.png
+            output/dialogue-recovery/*.png
           if-no-files-found: ignore
           retention-days: 7
 

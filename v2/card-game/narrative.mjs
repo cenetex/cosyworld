@@ -131,20 +131,32 @@ export function narrativeContext(world, action = null) {
       entry.actorId === "vale",
   );
   const target = action?.target || played?.targetId;
-  const partner =
-    audience.includes(target) && target !== "vale" && awake(target)
-      ? target
-      : introductions[0] ||
-        departing[0] ||
-        present.find((id) => id !== "vale" && awake(id));
+  const directPartner =
+    audience.includes(target) && target !== "vale" && awake(target);
+  const partner = directPartner
+    ? target
+    : introductions[0] ||
+      departing[0] ||
+      present.find((id) => id !== "vale" && awake(id));
+  // A quiet turn's farewell belongs to the departing cast. Keep Vale's voice
+  // for a chosen interaction, a new meeting, or a Stay without a departure.
+  const farewell =
+    departing.length &&
+    !played &&
+    !directPartner &&
+    (!action?.kind || action.kind === "wait") &&
+    !introductions.length;
   const speakers = [
     ...new Set(
-      [
-        "vale",
-        partner,
-        ...introductions,
-        ...changes.map((change) => change.actorId),
-      ].filter((id) => id && awake(id)),
+      (farewell
+        ? changes.map((change) => change.actorId)
+        : [
+            "vale",
+            partner,
+            ...introductions,
+            ...changes.map((change) => change.actorId),
+          ]
+      ).filter((id) => id && awake(id)),
     ),
   ];
   const events = world.log
@@ -191,7 +203,7 @@ export function narrativeContext(world, action = null) {
         if (id === "badger")
           facts.push(
             world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. Speak as your own person.`
+              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
               : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
           );
         if (
@@ -580,6 +592,7 @@ export function createNarrator({
 }) {
   let ticket = 0,
     pending = null,
+    failed = null,
     running = false,
     controller;
   async function write(context, version, signal) {
@@ -594,12 +607,14 @@ export function createNarrator({
             if (version === ticket && getWorld().revision === context.revision)
               preview({ context, entries });
           },
-          Math.max(0, Math.min(15_000, deadline - Date.now())),
+          // The server can take 25 seconds. Keep its response alive inside the
+          // shared 30-second budget; retry only with the time still remaining.
+          Math.max(0, deadline - Date.now()),
         );
         if (version !== ticket) return;
         const next = applyGeneratedText(getWorld(), context, response);
         if (!next)
-          throw new Error("The scene changed while its words were written.");
+          throw new Error("The story response did not match this scene.");
         preview(null);
         apply(next);
         status("ready");
@@ -626,13 +641,15 @@ export function createNarrator({
         pending = null;
         controller = new AbortController();
         status("pending");
+        const revision = getWorld().revision;
         try {
           const context = narrativeContext(getWorld(), action);
           await write(context, version, controller.signal);
-        } catch {
+        } catch (error) {
           if (version === ticket) {
             preview(null);
-            status("retry");
+            if (revision === getWorld().revision) failed = { action, revision };
+            status("retry", error);
           }
         }
       }
@@ -640,16 +657,24 @@ export function createNarrator({
       running = false;
     }
   }
+  function changed(action = null) {
+    failed = null;
+    pending = { action, version: ++ticket };
+    preview(null);
+    controller?.abort();
+    void drain();
+  }
   return {
-    changed(action = null) {
-      pending = { action, version: ++ticket };
-      preview(null);
-      controller?.abort();
-      void drain();
+    changed,
+    retry() {
+      if (!failed || failed.revision !== getWorld().revision) return false;
+      changed(failed.action);
+      return true;
     },
     invalidate() {
       ticket += 1;
       pending = null;
+      failed = null;
       controller?.abort();
       preview(null);
       status("ready");

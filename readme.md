@@ -1,11 +1,17 @@
 # CosyWorld
 
-CosyWorld is a shared AI MUD that players live in. You act through a row of
-avatar, item, and location cards while residents pursue their own goals by the
-same rules. The world grows from general rules and generators, not scripted
-quests. The production root serves the card table prototype. The shared-world
-runtime, a deterministic C rules kernel and a Rust HTTP/SSE orchestrator, runs
-at `/classic` and is the foundation the table will run on.
+CosyWorld is a small, strange world played through avatar, item, and location
+cards. Carry a lamp, bargain with a moth, travel with a companion, or wake a
+badger who would rather be left alone. Residents act by the same rules as the
+player. Their wants, belongings, journeys, and disagreements make the story;
+generated dialogue gives those events a voice.
+
+Play the current development site at [cosyworld.fly.dev](https://cosyworld.fly.dev/).
+Its root serves the card table prototype: one browser's deterministic world,
+saved in localStorage. The longer-term direction is a shared, persistent world
+built from general rules and generators. The existing shared runtime, with a C
+rules kernel and Rust HTTP/SSE orchestrator, runs at `/classic`; the table is
+not yet connected to that runtime's state, accounts, or rewards.
 
 CosyWorld V2 is the canonical product and runtime. Gameplay, world content,
 browser behavior, and deployment work live under `v2/`.
@@ -29,7 +35,13 @@ npm run play:cards
 ```
 
 Open [http://127.0.0.1:4177/](http://127.0.0.1:4177/). Saves stay in that
-browser. To run the shared-world runtime instead:
+browser. The rules work locally; generated dialogue needs a configured Rust
+text service. Point the lightweight server at it with
+`COSYWORLD_CARD_TEXT_ORIGIN`, as described in the
+[card table guide](v2/card-game/README.md#local-play). Text-service failures
+remain visible and can be retried without spending a turn.
+
+To run the shared-world runtime instead:
 
 ```sh
 npm run dev
@@ -69,7 +81,43 @@ npm run check:local
 - `infra/`: infrastructure and operational support for deployed services.
 - `docs/`, `AI.md`, `ECONOMY.md`, `PRD.md`: product and system notes.
 
-## Current Product Shape
+## The Current Card Table
+
+Vale begins in Mirror attic holding an unlit lamp. Light it, discover Black
+pond, meet Pip, and find the station and its keeper. Raise one card or a pair
+to inspect an offer, then play it. Cast members take their turns after yours.
+
+- Items have real holders and locations. A lamp carried away by Pip leaves
+  with him; mentioning it in dialogue does not put it in Vale's hand.
+- Entering Mirror attic from Black pond requires a lit, fueled, uncovered lamp
+  physically at the pond. A departed carrier removes that route, including
+  previously selected travel offers. Discovery preserves the way out of the attic.
+- Gifts, trades, requests, company, and conflict use the recorded state and
+  the other avatar's interests. An accepted accompany play records shared
+  travel; independent journeys stay independent.
+- Ringing an uncovered bell twice consecutively at the pond reveals the Forest
+  Clearing and its Steam Clock. Badger sleeps there; a greeting wakes him.
+  His speech remains grumpy even after the immediate irritation eases.
+- Dialogue follows completed actions. Quiet departures let the moving cast
+  speak for themselves; direct exchanges and a Stay without departures retain
+  their relevant speakers. History and scene export retain the actual lines.
+- Reload preserves inventory, quest steps, discovered routes, moods, and
+  validated dialogue. Slow or failed text generation does not roll back an
+  action, invent a response, or require another world turn to retry.
+
+Quest steps currently advance immediately, and completing a program earns a
+level and supplies another program. This can override an avatar's natural
+contentment: Pip can receive a well-fueled lamp and immediately pursue oil.
+Avatar downtime, novelty-based XP, optional daily quests, a real-time Paris
+train, and a daily Steam Clock prophecy are **proposals**, not implemented
+features. Their scope and open decisions are in the
+[product direction](PRD.md#card-table-direction-under-review).
+
+The prototype still includes authored opening quests and item rules. The
+generalized model under `v2/card-game/core/` is separate from the deployed
+table; features there must not be described as already playable at the root.
+
+## Shared Runtime at `/classic`
 
 The official service is one canonical, persistent world. Today one V2
 orchestrator process owns its authoritative state, SQLite event/action
@@ -106,6 +154,11 @@ Failed checks are ordinary deterministic game events and make no AI request.
 
 The root `Dockerfile` builds the V2 Rust orchestrator. `fly.toml` runs it on the
 production profile with `/data` mounted for generated assets and SQLite state.
+The `cosyworld` Fly app is the development publication target. An ordinary
+merge to `main` runs the deployment gates and deploys only that primary app.
+Release tags or explicit workflow selections can also deploy Lonely Forest;
+those are separate publication decisions. Deployment keeps volume-space,
+worldpack-compatibility, backup, and readiness checks in place.
 
 Production profile rejects dev shortcuts. It requires:
 
@@ -134,11 +187,19 @@ npm run v2:worldpack
 npm run v2:kernel
 npm run v2:rust:test
 npm run v2:syntax
+npm test
+node v2/scripts/smoke-card-pond-access.mjs
+node v2/scripts/smoke-card-dialogue-recovery.mjs
+node v2/scripts/check-card-awakening.mjs
 ```
+
+The three card-table browser checks use local fixture dialogue and exercise
+desktop and phone layouts without calling a paid text model.
 
 ## More Detail
 
 - [V2 runtime guide](v2/README.md)
+- [Card table rules, dialogue, and local play](v2/card-game/README.md)
 - [Product requirements](PRD.md)
 - [Economy and NFT model](ECONOMY.md)
 - [AI model and provider notes](AI.md)

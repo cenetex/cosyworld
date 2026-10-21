@@ -166,6 +166,9 @@ describe("live story text", () => {
     requests[3].reject(new Error("offline again"));
     await vi.advanceTimersByTimeAsync(0);
     expect(preview).toHaveBeenLastCalledWith(null);
-    expect(status).toHaveBeenLastCalledWith("retry");
+    expect(status).toHaveBeenLastCalledWith(
+      "retry",
+      expect.objectContaining({ message: "offline again" }),
+    );
   });
 });

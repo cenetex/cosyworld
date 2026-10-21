@@ -142,6 +142,7 @@ function save() {
   }
 }
 let storyStatus = "ready",
+  storyError = "",
   renderedCast = "",
   renderedPrior = "",
   renderedHand = "",
@@ -397,13 +398,15 @@ const narrator = createNarrator({
     exchange.load(lines);
     render();
   },
-  status: (value) => {
+  status: (value, error) => {
     storyStatus = value;
+    storyError = error?.message || "Dialogue is unavailable.";
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") exchange.cancel();
     renderScene();
   },
 });
+$("story-retry").onclick = () => narrator.retry();
 function status(id) {
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
@@ -1047,11 +1050,14 @@ function renderScene() {
     : "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
-    storyStatus === "retry" ? "Words return with your next play" : "···";
+    storyStatus === "retry"
+      ? `${storyError} Retry this scene or keep playing.`
+      : "···";
+  $("story-retry").hidden = storyStatus !== "retry";
   $("story-status").setAttribute(
     "aria-label",
     storyStatus === "retry"
-      ? "Words return with your next play"
+      ? $("story-status").textContent
       : "New words are on the way",
   );
   const text = scene.line?.text || "";
@@ -1063,9 +1069,9 @@ function renderScene() {
   nextSceneSeq =
     at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
-  // The speech panel shows only when there are words, or words on the way.
+  // Keep failures visible even when this scene has no earlier words.
   document.querySelector(".dialogue").hidden =
-    !text && storyStatus !== "pending" && !exchange.preparing;
+    !text && storyStatus === "ready" && !exchange.preparing;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = !text;
@@ -1145,7 +1151,7 @@ function render() {
     scroll = $("hand").scrollLeft;
   $("turn").textContent = `Turn ${world.turn}`;
   $("place-title").textContent = nameOf(world.actors.vale.place);
-  $("path-state").textContent = reflectionOpen(world)
+  $("path-state").textContent = reflectionOpen(world, world.actors.vale.place)
     ? "The reflected path is open"
     : "The mirror holds a dark reflection";
   const handKey = JSON.stringify([

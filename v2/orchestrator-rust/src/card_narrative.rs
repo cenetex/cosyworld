@@ -32,7 +32,7 @@ KNOWLEDGE
 Use visible facts and witnessed events as knowledge. A new effect becomes known when a completed event reveals it. Treat an unfamiliar object or place with curiosity; future effects remain uncertain. Desires establish what an avatar wants. React to discoveries when they happen, with surprise, doubt or interest shaped by the speaker's personality. Let the player choose the next card.
 
 SPEECH
-Sleeping avatars receive a short third-person sleeping description for their card. Their speech begins after the recorded wake event. Awake avatars speak in first person to the other scene.speakers. A lone speaker reflects on the recorded scene. Vale is the player avatar. Give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
+Sleeping avatars receive a short third-person sleeping description for their card. Their speech begins after the recorded wake event. Awake avatars speak in first person to the other scene.speakers. Only scene.speakers take spoken turns. Other avatar entries are quiet reflections on their cards, not replies in the scene. A lone departing speaker addresses those staying behind; other lone speakers reflect on the recorded scene. Vale is the player avatar. When Vale is in scene.speakers, give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. When Vale is absent from scene.speakers, let the departing avatars speak for themselves without a Vale farewell or departure recap. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
 
 A departing avatar speaks from the threshold of their recorded source. Name the actual destination and reason for going. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
 
@@ -42,7 +42,7 @@ VOICE AND MEMORY
 Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
 
 STAGING
-direction.vale_intent gives the performance of the chosen action. Convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
+direction.vale_intent gives the performance of the chosen action. When Vale is a scene speaker, convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
 
 Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. Return only JSON."#;
 const PER_MINUTE: RateLimit = RateLimit {
@@ -432,11 +432,15 @@ fn direction(context: &Context) -> Value {
     };
     let name = |id: &str| profiles()[id]["name"].as_str().unwrap_or(id).to_string();
     let target = outcome.card.target.as_deref().map(name).unwrap_or_default();
-    let intent = match outcome.card.kind.as_str() {
+    let intent = if !context.speakers.iter().any(|id| id == "vale") {
+        "Vale listens silently. Keep Vale's entry as a quiet card reflection; the listed speakers carry this exchange.".to_string()
+    } else {
+        match outcome.card.kind.as_str() {
         "threaten" => format!("Vale chose to threaten {target}. Deliver the demand with pressure and resolve. Keep that intent through the target's recorded response."),
         "attack" => format!("Vale chose to attack {target}. Speak with commitment to that attack and its actual result. A blocked blow or a retreat changes the result; the chosen intent remains an attack."),
         "guard" => format!("Vale chose to guard against {target}. Hold a firm defensive stance and react to the recorded response."),
         _ => format!("Vale chose {}. Express that choice and its recorded result in Vale's own voice.", outcome.card.kind),
+    }
     };
     let journeys: Vec<_> = outcome
         .avatars
@@ -615,7 +619,7 @@ async fn complete(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v10",
+        prompt_version: "card-entity-text-v11",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -689,6 +693,31 @@ mod tests {
             ]
         })).unwrap()
     }
+    #[test]
+    fn farewell_speakers_do_not_require_a_vale_reply() {
+        let mut c = context();
+        c.outcome = Some(solo_departure());
+        c.speakers = vec!["moth".into()];
+        assert!(valid(&c));
+        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        assert_eq!(p["scene"]["speakers"], json!(["moth"]));
+        assert!(p["direction"]["vale_intent"]
+            .as_str()
+            .unwrap()
+            .contains("Vale listens silently"));
+        assert!(p["requested_ids"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("vale")));
+        assert!(SYSTEM.contains("Only scene.speakers take spoken turns"));
+        // A later Stay or a direct interaction can still request Vale's voice.
+        c.speakers.insert(0, "vale".into());
+        assert!(direction(&c)["vale_intent"]
+            .as_str()
+            .unwrap()
+            .contains("Vale chose wait"));
+    }
+
     #[test]
     fn profiles_supply_visible_details_and_discoveries_come_from_events() {
         let mut c = context();
@@ -806,7 +835,8 @@ mod tests {
         assert_eq!(p["scene"]["speakers"], json!(["vale"]));
         assert_eq!(p["personas"][2]["profile"]["name"], "Grumpy Badger");
         c.speakers.push("badger".into());
-        c.entities[2].facts = vec!["Awake after Vale spoke. Mildly offended.".into()];
+        c.entities[2].facts =
+            vec!["Awake after Vale spoke. Still grumpy about the interruption.".into()];
         let o = c.outcome.as_mut().unwrap();
         o.card.kind = "talk".into();
         o.card.item = None;
@@ -815,6 +845,19 @@ mod tests {
         assert!(valid(&c));
         let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
         assert_eq!(p["scene"]["speakers"], json!(["vale", "badger"]));
+        let badger = &p["personas"][2]["profile"];
+        assert!(badger["voice"]
+            .as_str()
+            .unwrap()
+            .contains("Clipped, gravelly complaints"));
+        assert!(badger["voice"]
+            .as_str()
+            .unwrap()
+            .contains("Answer a direct question"));
+        assert!(badger["persona"]
+            .as_str()
+            .unwrap()
+            .contains("does not turn him into a welcoming guide"));
     }
     #[test]
     fn chosen_combat_sets_intent_even_after_an_earlier_apology() {

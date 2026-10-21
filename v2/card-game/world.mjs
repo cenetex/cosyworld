@@ -209,9 +209,13 @@ export const carried = (s, actor) =>
 export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
   s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-export const reflectionOpen = (s) =>
-  Boolean(s.locations?.attic.anchored) ||
-  (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+export const reflectionOpen = (s, from = null) =>
+  // Discovery keeps the attic's escape open. Entry from the pond still needs
+  // light here, resolved through the lamp's current holder and their location.
+  from === "pond"
+    ? shining(s) && itemPlace(s, "lamp") === "pond"
+    : Boolean(s.locations?.attic.anchored) ||
+      (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
 const baseExits = (s, place) =>
   s.opening
     ? places[place].exits.filter((to) => ![place, to].includes("attic"))
@@ -227,9 +231,9 @@ export const placeText = (s, place) =>
 export function exits(s, place, actor = null) {
   return [
     ...baseExits(s, place),
-    ...(reflectionOpen(s) && place === "attic"
+    ...(reflectionOpen(s, place) && place === "attic"
       ? ["pond"]
-      : reflectionOpen(s) && place === "pond"
+      : reflectionOpen(s, place) && place === "pond"
         ? ["attic"]
         : []),
     // Once the Steam Clock answers the bell, the pond shows Vale the way to
@@ -483,7 +487,7 @@ function applyConsequence(s, actor, target) {
     case "anchor":
       s.locations.attic.anchored = true;
       text =
-        "The mirror holds the crossing. The attic and pond stay joined when the lamp goes dark.";
+        "The mirror remembers the crossing. The way out of the attic stays open when the lamp goes dark.";
       break;
     case "oil":
       s.items.oil.doses = 3;
@@ -1636,7 +1640,8 @@ export function play(s, action, expectedRevision = s.revision) {
   const next = structuredClone(s);
   next.turn += 1;
   next.revision += 1;
-  const wasOpen = reflectionOpen(next);
+  const reflectionSource = next.actors.vale.place;
+  const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
     addLog(next, "World", "Vale waits. The cast takes a turn.");
   const met = new Map();
@@ -1700,14 +1705,19 @@ export function play(s, action, expectedRevision = s.revision) {
     }
   }
   next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-  const isOpen = reflectionOpen(next);
+  const isOpen = reflectionOpen(next, reflectionSource);
   if (wasOpen !== isOpen)
     addLog(
       next,
       "World",
       isOpen
-        ? "The attic mirror and the pond open onto each other. A dark shore waits between them."
-        : "The reflected path closes. The paths through the station remain open.",
+        ? reflectionSource === "pond"
+          ? "The pond's reflection opens a path to the attic."
+          : "The attic mirror and the pond open onto each other. A dark shore waits between them."
+        : reflectionSource === "pond"
+          ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
+          : "The reflected path closes. The paths through the station remain open.",
+      { locationId: reflectionSource },
     );
   if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
