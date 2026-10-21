@@ -220,6 +220,22 @@ fn serve(path: &str) -> Response {
             "application/json; charset=utf-8",
             include_bytes!("../../card-game/entity-profiles.json"),
         ),
+        "assets/lamp-card.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lamp-card.png"),
+        ),
+        "assets/oil-card.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/oil-card.png"),
+        ),
+        "assets/bell-card.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/bell-card.png"),
+        ),
+        "assets/cloth-card.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/cloth-card.png"),
+        ),
         "assets/lamp-card.jpg" => (
             "image/jpeg",
             include_bytes!("../../card-game/assets/lamp-card.jpg"),
@@ -350,6 +366,10 @@ mod tests {
             "assets/music/station-1.mp3",
             "assets/music/station-2.mp3",
             "entity-profiles.json",
+            "assets/lamp-card.png",
+            "assets/oil-card.png",
+            "assets/bell-card.png",
+            "assets/cloth-card.png",
             "assets/lamp-card.jpg",
             "assets/oil-card.jpg",
             "assets/bell-card.jpg",
