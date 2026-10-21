@@ -28,6 +28,10 @@ const assets = new Map([
       [`assets/music/${file}`, "audio/mpeg"],
     ]),
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
+  ...["lamp", "oil", "bell", "cloth"].map((id) => [
+    `/assets/${id}-card.jpg`,
+    [`assets/${id}-card.jpg`, "image/jpeg"],
+  ]),
   ...[
     "station",
     "attic",
