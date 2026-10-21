@@ -259,18 +259,33 @@ async function waitForMeta(baseUrl, proc, output) {
   );
 }
 
-function stopServer(proc) {
+export function stopServer(proc, { timeoutMs = 6_000 } = {}) {
   if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve();
-  proc.kill("SIGTERM");
-  return new Promise((resolveStop) => {
+  return new Promise((resolveStop, rejectStop) => {
+    let forced = false;
+    // The runtime may drain requests for up to four seconds before flushing
+    // its final checkpoint. Leave time for that flush before escalating.
     const timeout = setTimeout(() => {
-      if (proc.exitCode === null && proc.signalCode === null) proc.kill("SIGKILL");
-      resolveStop();
-    }, 2_000);
-    proc.once("exit", () => {
+      forced = true;
+      proc.kill("SIGKILL");
+    }, timeoutMs);
+    proc.once("exit", (code, signal) => {
       clearTimeout(timeout);
+      if (forced) {
+        rejectStop(new Error(
+          `standalone composition server exceeded ${timeoutMs}ms for graceful shutdown and required SIGKILL; its checkpoint may be incomplete`,
+        ));
+        return;
+      }
+      if (code !== 0) {
+        rejectStop(new Error(
+          `standalone composition server exited during shutdown with ${signal || `code ${code}`}; its checkpoint may be incomplete`,
+        ));
+        return;
+      }
       resolveStop();
     });
+    proc.kill("SIGTERM");
   });
 }
 
@@ -2188,7 +2203,9 @@ async function main() {
   console.log(JSON.stringify({ ok: true, matrix }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message || String(error));
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.stack || error.message || String(error));
+    process.exit(1);
+  });
+}
