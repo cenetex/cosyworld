@@ -184,7 +184,11 @@ let storyStatus = "ready",
 const HAND_WAIT = 2500;
 let handTimer = null;
 function releaseHand() {
-  if (!cardsCooling || storyStatus !== "pending") return;
+  // The cooldown is a courtesy pause, not a lock: if the story request has
+  // failed or wedged (status "retry"/error) the hand must still release,
+  // because no busy(false) will arrive. The revision guard rejects any
+  // stale play, so releasing early cannot corrupt the world.
+  if (!cardsCooling) return;
   cardsCooling = false;
   // The scene shows who is really here once the hand is free.
   pendingCast = null;
