@@ -1,4 +1,5 @@
 import { hasQuestPrograms, interest } from "./motives.mjs";
+import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
 import {
   condition,
   conditionMet,
@@ -160,10 +161,12 @@ export const restingHands = {
   keeper: { items: [], location: "attic", avatars: [] },
 };
 export const newProgress = () => ({ program: 0, step: 0, marks: [] });
-export const programFor = (s, actor) =>
+export const savedProgramFor = (s, actor) =>
   programsFor(s, actor)[s.actors[actor].progress.program] ||
   s.actors[actor].progress.current ||
   null;
+export const programFor = (s, actor) =>
+  questActive(s, actor) ? savedProgramFor(s, actor) : null;
 export const targetsFor = (s, actor) =>
   hasQuestPrograms(s) && actor !== "badger"
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
@@ -198,7 +201,7 @@ export const desireFor = (s, actor) => {
       .length *
       5;
   return (
-    targetsFor(s, actor)
+    (!questActive(s, actor) ? [interest(s, actor)] : targetsFor(s, actor))
       .slice()
       .sort((a, b) => score(a) - score(b))[0] || restingHands[actor]
   );
@@ -387,13 +390,25 @@ export function generateProgram(
   const distinct = fresh.filter(
     (p) => !active.some((other) => kindOf(other) === kindOf(p)),
   );
-  const choices = distinct.length ? distinct : fresh;
+  const choices = lifeOf(s, actor)
+    ? catalog
+    : distinct.length
+      ? distinct
+      : fresh;
   const rank = (p) =>
+    personalQuestRank(s, actor, p) +
     preferences.indexOf(kindOf(p)) +
     recentKinds.reduce(
       (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
       0,
     ) +
     (recent.includes(p.generated.item) ? 2 : 0);
-  return choices.sort((a, b) => rank(a) - rank(b))[0] || base;
+  const chosen = choices.sort((a, b) => rank(a) - rank(b))[0] || base;
+  if (lifeOf(s, actor))
+    chosen.purpose =
+      `${hopes[actor].title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
+        0,
+        240,
+      );
+  return chosen;
 }
