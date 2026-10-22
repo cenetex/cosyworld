@@ -67,6 +67,11 @@ const htmlTemplate = (title, content, navigation) => `
     }
     main {
       flex-grow: 1;
+      min-width: 0;
+    }
+    main img {
+      max-width: 100%;
+      height: auto;
     }
     code {
       background: #f5f5f5;
@@ -123,6 +128,7 @@ function getRelativeBasePath(filePath) {
 async function buildNavigation(currentFilePath = null) {
   // Define the sections and their directories
   const sections = [
+    { title: 'Art direction', dir: 'art-direction' },
     { title: 'Overview', dir: 'overview' },
     { title: 'Worldpacks', dir: 'worldpacks' },
     { title: 'Systems', dir: 'systems' },
@@ -242,12 +248,12 @@ async function generateCombinedMarkdown(markdownFiles) {
   combinedContent += '## Table of Contents\n\n';
   
   // Create a table of contents
-  for (const section of ['Overview', 'Worldpacks', 'Systems', 'Services', 'Deployment']) {
+  for (const section of ['Art direction', 'Overview', 'Worldpacks', 'Systems', 'Services', 'Deployment']) {
     combinedContent += `### ${section}\n\n`;
     
     const sectionFiles = markdownFiles.filter(file => {
       const relativePath = path.relative(docsDir, file);
-      return relativePath.startsWith(section.toLowerCase() + '/') || 
+      return relativePath.startsWith(section.toLowerCase().replaceAll(' ', '-') + '/') ||
              (section === 'Services' && relativePath.startsWith('services/'));
     });
     
@@ -290,6 +296,14 @@ async function buildDocs() {
   
   // Process all markdown files in docs directory and subdirectories
   const markdownFiles = glob.sync(`${docsDir}/**/*.md`);
+
+  // Keep local illustrations beside the pages that reference them.
+  const imageFiles = glob.sync(`${docsDir}/**/*.{png,jpg,jpeg,webp,gif,svg,avif}`);
+  for (const file of imageFiles) {
+    const outputPath = path.join(buildDir, path.relative(docsDir, file));
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.copyFile(file, outputPath);
+  }
   
   // Generate the combined markdown file for LLM ingestion
   await generateCombinedMarkdown(markdownFiles);

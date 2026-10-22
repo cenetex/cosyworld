@@ -21,6 +21,9 @@ do not define V2 behavior.
 The documents below describe the shared world and `/classic`. Where they
 describe the dealt action hand, ADR 0015 governs the card table.
 
+- **[Visual Language and World Map](art-direction/README.md)** — the first
+  dreaming oak art proposal, with a style guide, character studies, an
+  illustrated atlas, and the flow of dreams through the founding trio.
 - **[The CosyWorld Pact](cosyworld-pact.md)** — the promises CosyWorld makes
   about shared truth, sanctuary, honest choices, discovery, return, AI
   authority, progression, and player boundaries.
