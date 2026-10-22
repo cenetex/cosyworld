@@ -80,7 +80,7 @@ Every avatar, item, and location has a profile in `entity-profiles.json` and a s
 
 Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
-After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, item plays, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. A separate narrator call covers items and places. These calls run together inside one bounded scene request, which requests JSON-object output and validates every entry before publication. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, item plays, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 The conversation shows generated text, with the prior spoken line and speaker portrait above the current line. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand cools down during generation and playback, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Each speaker has a soft, pitched voice sound; the menu toggles it. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A card play holds the current spoken line while the next exchange is written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading a turn whose words are still pending requests that turn again. Action records remain in the saved world and scene export.
 
@@ -153,3 +153,47 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, departur
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
 Room music starts with the first accepted card play in a new game. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
+
+## Character models and inner life
+
+Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
+
+| Character     | Stable OpenRouter model                    |
+| ------------- | ------------------------------------------ |
+| Vale          | `openai/gpt-4.1-mini`                      |
+| Pip           | `google/gemini-2.5-flash`                  |
+| The keeper    | `anthropic/claude-haiku-4.5`               |
+| Grumpy Badger | `mistralai/mistral-small-3.2-24b-instruct` |
+
+The map covers the authored cast. Each model also has an explicit world-content
+entry in the operator registry. The narrator keeps `COSYWORLD_CARD_TEXT_MODEL`.
+Assignments depend on the character ID, so they survive turns, saves, reloads,
+restarts and changes in who is present. Operators can change an assignment by
+editing the map and its registry entry together. Hosts with the character map
+unset use the shared narrator route for local development.
+
+Each avatar call receives the public scene plus that avatar's own witnessed
+memories, current persona, thoughts and dreams. Other avatars' inner lives stay
+with their own calls. Authored personas and voice profiles remain the roots of
+identity; current actions, possessions, travel and relationships come from the
+resolved simulation.
+
+A character can reflect after a new witnessed event. The first reflection is
+available after the first turn; later reflections are at least six turns apart.
+A reflection supplies a thought and an evolved persona. The first reflection
+also supplies a symbolic dream or daydream; later dreams are at least twelve
+turns apart. Sleeping and waking state still comes from game facts. The model
+writes these fields in the same call as the character's speech.
+
+The browser saves the current persona and the latest four thoughts and four
+dreams per avatar beside the existing witnessed memories and landmarks.
+`History` → `Inner life` shows them for discovered characters. Existing saves
+start with their authored personas and gain inner lives as play continues.
+Dreams and thoughts are marked as private impressions. They are separate from
+witnessed events and public conversation.
+
+The scene remains one publication unit. Provider calls have a twelve-second
+limit and the complete group has a fourteen-second limit. Each avatar gets one
+call and the narrator gets one call, for at most five calls per scene. The
+existing scene admission, concurrency and retry limits still apply. Provider
+failure, incomplete output or invalid reflection keeps the last saved scene.

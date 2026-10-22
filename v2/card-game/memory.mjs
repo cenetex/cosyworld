@@ -57,6 +57,37 @@ export function migrateMemories(world) {
   }
 }
 
+export function validInnerLife(life, turn) {
+  if (life === undefined || life === null) return true;
+  const text = (value, limit) =>
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.length <= limit &&
+    !/[\u0000-\u001f\u007f]/u.test(value);
+  return (
+    typeof life === "object" &&
+    !Array.isArray(life) &&
+    Object.keys(life).every((key) =>
+      ["persona", "thoughts", "dreams"].includes(key),
+    ) &&
+    (life.persona === null || text(life.persona, 600)) &&
+    [life.thoughts, life.dreams].every(
+      (moments) =>
+        Array.isArray(moments) &&
+        moments.length <= 4 &&
+        moments.every(
+          (m, index) =>
+            m &&
+            Number.isSafeInteger(m.turn) &&
+            m.turn >= 0 &&
+            m.turn <= turn &&
+            text(m.text, 400) &&
+            (index === 0 || moments[index - 1].turn < m.turn),
+        ),
+    )
+  );
+}
+
 export function validMemories(world) {
   if (
     !world.memories ||
@@ -64,7 +95,12 @@ export function validMemories(world) {
       Object.keys(profiles).sort().join()
   )
     return false;
-  return Object.values(world.memories).every((memory) => {
+  return Object.entries(world.memories).every(([id, memory]) => {
+    if (
+      !validInnerLife(memory?.innerLife, world.turn) ||
+      (profiles[id].kind !== "avatar" && memory?.innerLife != null)
+    )
+      return false;
     if (
       !memory ||
       !Array.isArray(memory.events) ||

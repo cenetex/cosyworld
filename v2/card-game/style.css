@@ -1174,3 +1174,15 @@ dialog.unveil::backdrop {
   color: #dccca7;
   white-space: normal;
 }
+
+#inner-life-panel {
+  margin-top: 1rem;
+}
+#inner-life-panel summary {
+  cursor: pointer;
+}
+#inner-lives section {
+  border-top: 1px solid var(--border, #45424d);
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+}
