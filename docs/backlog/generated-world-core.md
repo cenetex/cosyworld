@@ -199,125 +199,160 @@ at one place.
 
 ## Living between quests
 
-Status: **Planning**, proposed 2026-10-21 from a design review. Nothing here
-is built. It answers three proposals under "Card-table Direction Under Review"
-in the [PRD](../../PRD.md): a fulfilled phase, rewards for meaningful novelty,
-and a quest cadence.
+Status: **First slice built** in the shore card table (`v2/card-game/life.mjs`).
+PR #1130 shipped a visible Inspiration meter. The rework described here
+replaces it. It answers three proposals under "Card-table Direction Under
+Review" in the [PRD](../../PRD.md): a fulfilled phase, rewards for meaningful
+novelty, and a quest cadence.
 
-Today a finished quest is replaced at once: `advanceQuests` clears the quest
-and `ensureQuests` generates the next one in the same round. Avatars never sit
-with what they won. The proposal is a rhythm of **living, finding a purpose,
-pursuing it, and enjoying the result**, so a quest becomes a purpose the avatar
-finds through play: "I helped you, we spent time together, and now I know what
-I want to do next."
+The rhythm is **living, finding a purpose, pursuing it, and enjoying the
+result**. A quest becomes a purpose the avatar finds through play: "I helped
+you, we spent time together, and now I know what I want to do next."
+
+### Why the meter went
+
+The first version showed a 0/5 bar. Gifts scored 2, talks 1 and lamp care 2.
+A six-turn repeat lockout and a two-per-turn cap kept it from filling too
+fast. Three problems followed:
+
+- Kindness read as a currency to grind. Players talked to the same avatar until
+  the bar filled.
+- Experiences counted only after the rest ended, so a gift during rest was
+  lost.
+- `life.mjs` named the cast, the items and three handwritten hopes. A
+  generated avatar had no hope at all.
 
 ### Stages
 
-Each avatar is always in one stage, saved in its progress record and shown on
-its card:
+Each avatar is in one stage, saved in its `life` record:
 
-| Stage | Card line (example) | Leaves when |
+| Stage | Card (third person) | Leaves when |
 | --- | --- | --- |
-| Settling in | "Pip enjoys the Lamp." | `rules.restActs` own acts pass (about 3) |
-| Growing curious | "Pip is thinking about a place to gather. Inspiration 3/5." | Inspiration fills |
-| Ready | "Pip wants to make a warm corner at Empty station." | The avatar commits, on its next own act |
-| Pursuing a wish | The quest's checklist, as today | The quest completes |
-| Content | "Pip likes what you made together." | Settling in follows |
+| Pursuing (`active`) | The quest's checklist | The quest completes |
+| Heading to rest (`returning`) | "Wants to rest at Empty station." | The avatar reaches a sanctuary |
+| Resting (`content`) | "Enjoying what the last quest made." or "Restless since Vale's gift." | `REST_TURNS` (3) rounds pass in a sanctuary |
+| Restless (`seeking`) | "Looking for something worth doing." | A meaningful experience, or `STALL_TURNS` (6) quiet rounds |
 
-During Settling in and Content the avatar has no standing demand. It still acts
-through the existing motives: it uses and keeps what it likes, talks, and
-answers asks and trades. Physical upkeep is not a quest.
+During rest the avatar has no standing demand. It still acts through motives:
+it keeps what it likes, talks, and answers asks and trades.
 
-### Inspiration
+### Rest needs a sanctuary
 
-A per-avatar meter, separate from XP. Inspiration never becomes XP, and XP
-still only goes up. Each experience is a key recorded once, so repeating an act
-or passing an item back and forth never refills the meter.
+A place is a sanctuary when its data says so: `sanctuary: true` on the place
+record. No rule names a place. In the shore, Empty station and Mirror attic
+are sanctuaries; Black pond and the clearing are not. A world that declares
+none lets avatars rest anywhere.
 
-| Experience | Points | Key (once per) |
+An avatar that finishes a quest away from a sanctuary heads for one: its home
+when home is a sanctuary, otherwise the first one declared. Its interest
+becomes "Rest at Empty station", and its speech knows "I want to go home and
+rest." The walk is itself a seed for play: Vale can accompany it, and that
+shared journey is an experience that can seed the next purpose. Rest rounds
+count only while the avatar stays in a sanctuary. Leaving sends it back to
+Heading to rest with its remaining rest kept.
+
+### Experiences seed purposes
+
+Every meaningful act is remembered as a short record of kind, turn, other
+avatar, item and place. The record holds no points. Kinds come from a closed
+list:
+
+| Kind | Comes from | Shapes the next quest toward |
 | --- | --- | --- |
-| Help another avatar complete a hand | 2 | helper, helped, quest, step |
-| Talk that shares something the listener did not know | 1 | speakers, fact |
-| A trade or gift that meets a want | 1 | giver, receiver, item, quest |
-| Travel somewhere with another avatar | 1 | companions, destination |
-| Enjoy a liked item at rest | 1 | item, rest period |
+| `help` | Giving a useful gift | delivery |
+| `gift` | Receiving a useful gift | delivery |
+| `journey` | An accepted shared trip | crossing |
+| `care` | Tending an item (refilling the lamp) | gathering |
+| `talk` | A conversation | gathering |
+| `trade` | A completed trade | bargain |
 
-The first version fills at 5 (`rules.inspirationToWish`). Both sides of an
-exchange can gain: giving the Lamp inspires the giver for helping and the
-receiver for a want met.
+Experiences count during rest too. When rest ends, the strongest experience
+since the last quest becomes its **spark**. The earliest experience wins a
+tie. The spark seeds the next purpose at the end of that round, and the
+generator ranks quests toward its kind. A restless avatar with no spark takes
+up the next experience the same way. After `STALL_TURNS` with none, a purpose
+comes from the hope alone, so no avatar stalls for lack of company.
 
-The talk row reuses the knowledge model: a fact counts when `share` moves
-something new to the listener. The keys are the same novelty keys the PRD asks
-for, so one recorded-experience log serves both proposals.
+A repeated exchange refreshes its memory rather than adding a second one.
+Nothing accumulates, so there is nothing to grind. The rest length and stall
+limit are internal. The card and speech show prose only, never a count.
 
-### Wishes
+The spark is saved as `origin` on the active quest. The log says where the
+purpose came from: "Pip finds a new purpose: … It began with Vale's gift."
 
-When the meter fills, `generateQuest` runs with **anchors** drawn from the
-experiences that filled it: the avatar who helped most, a place visited
-together, an item enjoyed. The generator already picks items, places, and
-partners. Anchors bias those picks; they add no new verbs and no item rules.
+### Hopes come from a generator
 
-The wish's name comes from a closed template over its anchors, for example
-"Gather at Empty station with Vale". The text service may voice it as dialogue
-("I'd like to make a warm place where we can sit together.") but never chooses
-it. The checklist appears when the avatar commits.
+`generateHope(world, avatar, profile)` builds one long hope from profile data
+(`tastes` in the shore: `home` and `values`):
 
-### Lasting preferences, hopes, and attachments
+- **Place:** the profile's home, else the avatar's current place.
+- **Favourite:** the item with the highest value, else none. It is kept with
+  the reason "Pip's favourite." and weighs in gifts and prices.
+- **Milestones:** a fixed order of situations (delivery, gathering, an answer
+  or crossing), rotated by a stable hash of the avatar's id.
 
-These live in generic data, never in rules that name an entity:
+The hope is saved with the avatar, so it survives reloads and replays exactly.
+Titles come from closed templates over the place name, such as "Make Black
+pond a place to gather". The next milestone outranks the spark when the
+generator picks a quest. A milestone counts by quest kind alone, never by a
+named item or effect. A profile with `quests: false` (the badger) gets no
+personal quests.
 
-- **Preference.** One tag the avatar likes, such as `warm`, from its seed
-  entry. An item that shares the tag is enjoyed at rest and counts as an
-  experience. Pip likes warmth; the Lamp is tagged `warm`. No rule names
-  either.
-- **Hope.** One long goal per avatar, such as "make Empty station a home": a
-  place plus a hope kind from a closed list. Hopes change slowly. Wish anchors
-  favour the hope's place, and a major experience may replace the hope, with a
-  conversation saying why.
-- **Attachment.** A record per held item listing reasons from a closed set:
-  needed, liked, a gift from another avatar, or carried through a completed
-  quest. Attachment feeds `willingToGive` and `canTrade`: an attached item is
-  not a spare. "This is the lamp we brought through the mirror" is the quest
-  reason, voiced.
-- **Mark.** Each completed wish leaves a lasting fact on its place, shown on the
-  place card, such as "Pip's lamp sits here". A mark is presentation and
-  memory. It is not new state that other rules read.
+### Gifts and company
 
-Lending and setting an item aside for another avatar (the keeper keeps spare
-oil because Pip visits) are later: they need an offer form the core does not
-have.
+Unchanged from the first slice. A received gift is an attachment that names
+its giver; the receiver keeps it and values it more. Talking, giving, trading
+and accepted trips promise three rounds of company. A grievance still lets an
+avatar seek space.
+
+### Two registers
+
+- **Card and Menu prose** is third person and shown to the player:
+  "Restless since the keeper's gift."
+- **Speech facts** (`lifeFacts`, read by the dialogue context) are the
+  avatar's own first-person awareness, short and plain, never labels or
+  directives: "I want Black pond to be a place where we gather." / "I'm
+  resting after my last quest. I keep thinking about Vale's gift." / "Vale
+  gave me this Lamp. I'm keeping it." These lines suit small local models.
+
+### Saves
+
+`life` is version 2. Loading a version 1 save keeps phases, remaining
+rest, attachments, company and milestones. It drops the Inspiration number, turns
+each old experience key into a record, and generates the hope. A restless
+avatar with points keeps its experiences, so its strongest one seeds a purpose
+at the next round. One with zero points keeps only memories from before its
+rest, so it starts restless with no spark. A resting avatar keeps everything,
+because rest experiences now count. A resting avatar away from a sanctuary
+starts heading to one at the next round.
 
 ### Rules that still hold
 
-- All of this is saved and validated, survives a save round trip, and replays
+- All of this is saved, validated, survives a save round trip, and replays
   exactly. No randomness, clock, or network.
-- Experience keys are claim keys: each event is counted once.
+- XP only goes up. Experiences never become XP.
 - A quiet world stays still: experiences come only from plays and resident acts
   within reach of a player.
-- Players are a role. A player avatar gets the same stages, but its wish waits
-  for the player to take it up.
-- Liveness wins. An avatar left in Growing curious for `rules.stallActs` own
-  acts gets a wish anyway, from the anchors it has, so no one stalls for lack
-  of company.
+- No rule in `life.mjs` names an avatar, item or place.
 
-### First slice
+### The simulation decides; models only write
 
-1. Stages, with a Settling-in rest after each completion and the card lines.
-2. Inspiration from the help, trade-or-gift, and shared-travel rows, with
-   experience keys.
-3. Wishes: generator anchors from those experiences.
+Purposes, sparks, rest, sanctuaries, hopes, milestones, attachments and
+company are all decided by this deterministic code. Language models only turn
+these facts into speech or narration. No decision reads model output, and a
+model failure changes nothing in the world.
 
-Talk-learned facts, preferences, hopes, attachments, and marks follow once the
-slice plays well.
+### Open questions
 
-Measure with headless play over many seeds:
-
-- The gap between quests is short: 3 to 8 own acts for most avatars.
-- Most quests come from a filled meter, not the liveness fallback.
-- Wish anchors repeat partners and places more than today's quests, a sign of
-  relationships forming.
-- A solo player's level pace changes by under 15%.
-- No freezes, and replays are exact.
+- Should a spark anchor the quest's partner, place or item (the avatar who
+  helped, the place visited together), not just its kind?
+- Should a strong experience replace a hope, with a conversation saying why?
+- Should players see their own avatar's spark, or only residents'?
+- Which places should be sanctuaries? The shore marks the station and the
+  attic, so Pip, whose home is the pond, rests at the station.
+- Measure with headless play over many seeds: the gap between quests, the share
+  of purposes from sparks against the stall fallback, and a solo player's level
+  pace.
 
 ## Story mode
 

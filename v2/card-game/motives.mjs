@@ -5,6 +5,7 @@ import {
   keepReason,
   stayingWith,
   lifeFacts,
+  nameIn,
 } from "./life.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
@@ -14,6 +15,7 @@ export const tastes = {
     sore: "Being woken and unnecessary noise",
     home: "clearing",
     values: { lamp: 3, oil: 1, bell: 1, cloth: 7 },
+    quests: false,
   },
   vale: {
     likes: "Interesting routes and a decent bargain",
@@ -59,7 +61,7 @@ export function enableMotives(
       grievances: Object.fromEntries(actors.map((id) => [id, []])),
     };
   if (questPrograms || personalQuests) s.motives.questPrograms = true;
-  if (personalQuests) enablePersonalQuests(s);
+  if (personalQuests) enablePersonalQuests(s, (id) => tastes[id]);
   return s;
 }
 export function owner(s, item) {
@@ -168,6 +170,14 @@ export function interest(s, actor) {
   }
   if (actor === "keeper" && held.includes("bell"))
     item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
+  if (lifeOf(s, actor)?.phase === "returning")
+    return {
+      items: [],
+      location: lifeOf(s, actor).restAt,
+      avatars: [],
+      text: `Rest at ${nameIn(s, lifeOf(s, actor).restAt)}`,
+      reason: "Rest in a sanctuary after the last quest",
+    };
   const company = stayingWith(s, actor);
   if (company)
     return {
@@ -422,6 +432,7 @@ export function socialPlan(s, actor, actions, api) {
     if (
       lifeOf(s, actor) &&
       a.kind === "move" &&
+      lifeOf(s, actor).phase !== "returning" &&
       (stayingWith(s, actor) || lifeOf(s, actor).phase === "content")
     )
       n -= 50;

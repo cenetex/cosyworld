@@ -9,6 +9,7 @@ import {
   socialPlan,
   recordReaction,
   validMotives,
+  tastes,
 } from "./motives.mjs";
 import {
   newMemories,
@@ -38,8 +39,10 @@ import {
   recordLifeAction,
   finishPersonalQuest,
   validLife,
-  INSPIRATION_MAX,
-  hopes,
+  hopeOf,
+  settleLife,
+  migrateLife,
+  purposeOrigin,
 } from "./life.mjs";
 import {
   conditionMet,
@@ -57,11 +60,13 @@ export const places = {
   },
   station: {
     name: "Empty station",
+    sanctuary: true,
     text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
     exits: ["attic", "pond"],
   },
   attic: {
     name: "Mirror attic",
+    sanctuary: true,
     text: "A tall mirror reflects a black shore. The stairs lead to the station.",
     exits: ["station"],
   },
@@ -108,6 +113,11 @@ export const things = {
   },
 };
 const ids = Object.keys(things);
+// Places whose data declares them a sanctuary, in declared order. Avatars
+// rest only there after a quest.
+export const sanctuaries = Object.keys(places).filter(
+  (id) => places[id].sanctuary === true,
+);
 const actorIds = ["vale", "moth", "keeper", "badger"];
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
@@ -562,7 +572,7 @@ function advancePrograms(s, met) {
     progress.step += 1;
     const complete = progress.step === program.steps.length;
     if (complete) {
-      finishPersonalQuest(s, actor, program, evidence.target);
+      finishPersonalQuest(s, actor, program, sanctuaries);
       applyConsequence(s, actor, evidence.target);
       if (program.generated) {
         progress.completedHands += program.steps.length;
@@ -602,10 +612,12 @@ function advancePrograms(s, met) {
     if (complete) text += ` Level ${levelOf(s, actor)}.`;
     const life = lifeOf(s, actor);
     if (complete && life?.milestones.at(-1) === s.turn)
-      text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
+      text += ` Hope milestone: ${hopeOf(s, actor).milestones[life.milestones.length - 1].title}.`;
     text += questActive(s, actor)
       ? ` Next: ${handText(desireFor(s, actor))}.`
-      : " Take time to enjoy this. Helpful actions will grow a new purpose.";
+      : lifeOf(s, actor)?.phase === "returning"
+        ? ` Next: rest at ${nameOf(lifeOf(s, actor).restAt)}.`
+        : " Time to rest and enjoy it.";
     addLog(s, "World", text, {
       kind: "quest",
       actorId: actor,
@@ -1698,11 +1710,6 @@ export function play(s, action, expectedRevision = s.revision) {
   const clearingWasOpen = clearingOpen(s);
   next.turn += 1;
   next.revision += 1;
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life?.phase === "content" && next.turn > life.restUntil)
-      life.phase = "seeking";
-  }
   const reflectionSource = next.actors.vale.place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
@@ -1800,19 +1807,15 @@ export function play(s, action, expectedRevision = s.revision) {
     );
   if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {
-      life.phase = "active";
-      life.inspiration = 0;
-      ensurePrograms(next);
-      addLog(
-        next,
-        "World",
-        `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}. Hope: ${hopes[actor].title}.`,
-        { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
-      );
-    }
+  for (const actor of settleLife(next, knownActors(next), sanctuaries)) {
+    ensurePrograms(next);
+    const origin = purposeOrigin(next, actor);
+    addLog(
+      next,
+      "World",
+      `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}.${origin ? ` It began with ${origin}.` : ""}`,
+      { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+    );
   }
   refreshStalledPrograms(next);
   validateWorld(next);
@@ -1945,7 +1948,12 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
+  if (
+    !validMemories(s) ||
+    !validMotives(s) ||
+    !validLife(s, Object.keys(places))
+  )
+    fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
@@ -2417,5 +2425,6 @@ export function decodeSave(text) {
       memory.landmarks = remembered.memories[id]?.landmarks || [];
   }
   if (s?.schema === 6) addSteamClock(s);
+  migrateLife(s, (id) => tastes[id]);
   return validateWorld(s);
 }
