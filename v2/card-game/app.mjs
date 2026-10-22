@@ -745,6 +745,7 @@ function card(id) {
   );
   el.type = "button";
   el.dataset.card = id;
+  if (type === "avatar" && lifeOf(world, id)) el.dataset.personal = "true";
   el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
@@ -951,7 +952,7 @@ function card(id) {
     info.append(
       node(
         "span",
-        `Hope: ${hope.title} · ${life.milestones.length}/${hope.milestones.length}`,
+        `Hope ${life.milestones.length}/${hope.milestones.length} · Menu`,
         "personal-hope",
       ),
     );
@@ -964,7 +965,11 @@ function card(id) {
   }
   if (type === "item" && people[rootHolder(world, id)]) {
     const reason = keepReason(world, rootHolder(world, id), id);
-    if (reason) info.append(node("span", reason, "item-attachment"));
+    if (reason) {
+      info.querySelector(".flavor")?.remove();
+      info.append(node("span", reason, "item-attachment"));
+      info.title = `${def.text} ${reason}`;
+    }
   }
   el.append(info);
   const label = playLabel(chosen.action);

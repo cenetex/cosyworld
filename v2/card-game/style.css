@@ -1216,7 +1216,11 @@ dialog.unveil::backdrop {
   display: block;
   margin: 0.2rem 0 0.35rem;
 }
-.personal-hope, .item-attachment {
+.card.avatar[data-personal="true"] {
+  grid-template-rows: auto 48px auto auto 1fr auto;
+}
+.personal-hope,
+.item-attachment {
   display: block;
   margin-top: 0.35rem;
   line-height: 1.3;

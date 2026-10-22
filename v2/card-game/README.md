@@ -1,5 +1,43 @@
 # Card world text and memory
 
+## Personal quests and lasting hopes
+
+The browser enables `personalQuests` alongside motives. The first quest gives
+each avatar a starting purpose. A completed quest earns a level and starts
+three quiet turns. Its checklist leaves the card. After this rest, useful
+gifts and lamp care earn two Inspiration points; conversations, trades and
+accepted shared trips earn one. Both people in a social action can earn points.
+Each person earns at most two points per round. The same exchange earns again
+after six turns. Failed requests, solo waiting and inspecting cards leave the
+meter unchanged. Five points unlock one new personal quest at the end of the
+round. The new quest can first advance on the following turn.
+
+Each avatar has a lasting hope and three milestones. Generated quests favour
+the next feasible milestone, then recent experiences and variety. A quest
+that fulfils the next milestone records its completion turn. The hope and its
+completed milestones stay with the avatar through later quests. Earlier
+authored quests keep their order as the opening story.
+
+Favourite belongings have lasting value. A received gift gains a saved
+attachment to its giver. These reasons affect gifts, prices and autonomous
+handover choices. An explicit delivery quest can give an attached item a new
+purpose. Talking, giving, trading and accepted invitations create three turns
+of shared time. Residents can tend items or talk during this time. A grievance
+still lets them seek space. The player chooses Vale's actions throughout.
+
+Avatar cards show Inspiration during the quiet and seeking phases. The Menu
+shows each hope, its milestones, and the current quest when one is active.
+Item cards explain attachments. Personal facts also enter the story context.
+
+Schema 6 saves gain optional, validated `life` state. Loading an earlier save
+adds this state while keeping its active quest, earned steps, items, memories
+and levels. New-game and cross-tab save updates use the same setup. The action
+history is bounded independently from the saved Inspiration and attachments.
+
+Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
+repeat limits, attachment and company rules, hope selection, save migration,
+validation and deterministic mixed-play checks.
+
 ## The bell crossing to the Steam Clock
 
 Ring the Bell twice in a row at Black pond to find the Forest Clearing.

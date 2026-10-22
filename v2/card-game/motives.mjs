@@ -100,7 +100,10 @@ export function tradeDecision(s, requester, give, receive) {
   const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
   const accepted =
     bundleValue(s, seller, give) >=
-    bundleValue(s, seller, receive) + 1 + premium - favour;
+    bundleValue(s, seller, receive) +
+      (lifeOf(s, seller) ? 0 : 1) +
+      premium -
+      favour;
   return {
     accepted,
     reason: premium
@@ -303,7 +306,12 @@ export function motiveFacts(s, actor, limit = 6) {
   return [
     tastes[actor].likes,
     `Current interest: ${interest(s, actor).text}.`,
-    ...lifeFacts(s, actor),
+    ...(lifeOf(s, actor)
+      ? [
+          lifeFacts(s, actor).slice(0, 3).join(" ").slice(0, 240),
+          lifeFacts(s, actor).slice(3).join(" ").slice(0, 240),
+        ].filter(Boolean)
+      : []),
     ...(s.motives?.grievances[actor] || [])
       .slice(-limit)
       .reverse()

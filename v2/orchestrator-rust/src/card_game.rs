@@ -169,7 +169,7 @@ fn serve(path: &str) -> Response {
             include_bytes!("../../card-game/lessons.mjs"),
         ),
         "life.mjs" => (
-            "text/javascript",
+            "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/life.mjs"),
         ),
         "motives.mjs" => (

@@ -122,6 +122,38 @@ describe("personal quests grow from life", () => {
     expect(lifeOf(s, "vale").inspiration).toBe(3);
   });
 
+  it("keeps the bell-for-oil bargain useful despite the keeper's attachment", () => {
+    let s = together();
+    s.items.bell.holder = "vale";
+    s = act(s, "trade", { item: "bell", receive: "oil" });
+    expect(s.items.oil.holder).toBe("vale");
+    expect(s.items.bell.holder).toBe("keeper");
+    expect(lifeOf(s, "vale").inspiration).toBeGreaterThan(0);
+  });
+
+  it("saves a quiet gap after the authored quests and generates a quest at unlock time", () => {
+    let s = together();
+    s.turn = s.revision = 10;
+    s.actors.vale.progress = { program: 1, step: 1, marks: [1, 2, 3, 4] };
+    lifeOf(s, "vale").phase = "active";
+    s.items.lamp.holder = s.items.bell.holder = "vale";
+    s = act(s, "wait");
+    expect(s.actors.vale.progress.program).toBe(2);
+    expect(s.actors.vale.progress.current).toBeUndefined();
+    expect(s.actors.vale.progress.completedHands).toBe(5);
+    expect(programFor(s, "vale")).toBeNull();
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+    for (let i = 0; i < 3; i++) s = act(s, "wait");
+    s = act(s, "talk", { target: "moth" });
+    for (let i = 0; i < 16 && !programFor(s, "vale"); i++) {
+      s = act(s, "talk", { target: "moth" });
+    }
+    expect(programFor(s, "vale")?.generated.turn).toBe(s.turn);
+    expect(s.actors.vale.progress.step).toBe(0);
+    expect(programFor(s, "vale").purpose).toContain(hopes.vale.title);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
   it("keeps failed requests, unused gifts and invalid plays out of Inspiration", () => {
     const s = together();
     for (const a of [

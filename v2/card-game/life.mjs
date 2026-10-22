@@ -233,9 +233,9 @@ export function validLife(s) {
         (p.phase === "seeking" || p.inspiration === 0) &&
         Array.isArray(p.milestones) &&
         p.milestones.length <= 3 &&
+        p.milestones.length <= s.actors[id].progress.program &&
         p.milestones.every(
-          (turn, i) =>
-            whole(turn, s.turn) && turn > (p.milestones[i - 1] ?? -1),
+          (turn, i) => whole(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0),
         ) &&
         p.attachments &&
         Object.keys(p.attachments).length <= 4 &&
