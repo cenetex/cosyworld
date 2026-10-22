@@ -180,7 +180,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
                 "generation": 7,
                 "entries": [{
                     "slot": "story",
-                    "offer_id": "srd5.2.1:9:move:move Rain-Soft Garden",
+                    "offer_ids": ["srd5.2.1:9:move:move Rain-Soft Garden"],
                     "think": {"available": False},
                 }],
             },
@@ -221,7 +221,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         game.state = lambda: {  # type: ignore[method-assign]
             "action_hand": {"entries": [{
                 "slot": "story",
-                "offer_id": "move-garden",
+                "offer_ids": ["move-garden"],
                 "think": {"available": True, "offer_id": "think:42:9:story:7:Moonlit Garden"},
             }]}
         }
@@ -239,7 +239,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         first_state = {
             "action_hand": {"entries": [{
                 "slot": "story",
-                "offer_id": "first",
+                "offer_ids": ["first"],
                 "think": {"available": True, "offer_id": "think:42:1:story:0:first"},
             }]},
             "world_seq": 10,
@@ -247,7 +247,7 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         changed_state = {
             "action_hand": {"entries": [{
                 "slot": "story",
-                "offer_id": "next",
+                "offer_ids": ["next"],
                 "think": {"available": True, "offer_id": "think:42:2:story:1:next"},
             }]},
             "world_seq": 11,
@@ -318,27 +318,27 @@ class ExactOfferSelectionTests(unittest.TestCase):
         }
         game.state = lambda: state  # type: ignore[method-assign]
 
-        state["action_hand"] = {"entries": [{"offer_id": "gift-b"}]}
+        state["action_hand"] = {"entries": [{"offer_ids": ["gift-b"]}]}
         self.assertEqual(
             game.current_offer("/actions/give-item", {"item_id": 101, "target_actor_id": 8}),
             state["action_offers"][1],
         )
-        state["action_hand"] = {"entries": [{"offer_id": "trade-b"}]}
+        state["action_hand"] = {"entries": [{"offer_ids": ["trade-b"]}]}
         self.assertEqual(
             game.current_offer("/actions/trade-item", {"item_id": 101, "target_actor_id": 8, "target_item_id": 901}),
             state["action_offers"][3],
         )
-        state["action_hand"] = {"entries": [{"offer_id": "use-b"}]}
+        state["action_hand"] = {"entries": [{"offer_ids": ["use-b"]}]}
         self.assertEqual(
             game.current_offer("/actions/use-item", {"item_id": 101}),
             state["action_offers"][5],
         )
-        state["action_hand"] = {"entries": [{"offer_id": "work-b"}]}
+        state["action_hand"] = {"entries": [{"offer_ids": ["work-b"]}]}
         self.assertEqual(
             game.current_offer("/actions/contribute", {"job_id": "job-b", "strategy_id": "bold"}),
             state["action_offers"][7],
         )
-        state["action_hand"] = {"entries": [{"offer_id": "gift-b"}]}
+        state["action_hand"] = {"entries": [{"offer_ids": ["gift-b"]}]}
         self.assertIsNone(game.current_offer("/actions/give-item", {"item_id": 100, "target_actor_id": 8}))
 
     def test_button_game_exposes_each_exact_dealt_use_card(self) -> None:
@@ -350,10 +350,9 @@ class ExactOfferSelectionTests(unittest.TestCase):
                     "id": 42,
                     "name": "Moss Stitch",
                     "hp": 1,
-                    "canonical_ref": "actor://cosyworld/42",
                 }
             ],
-            "action_hand": {"entries": [{"offer_id": "use-a"}, {"offer_id": "use-b"}]},
+            "action_hand": {"entries": [{"offer_ids": ["use-a"]}, {"offer_ids": ["use-b"]}]},
             "action_offers": [
                 {
                     "offer_id": "use-a",
@@ -392,8 +391,9 @@ class ExactOfferSelectionTests(unittest.TestCase):
         state = {
             "world_id": "world://cosyworld/official",
             "world_seq": 73,
-            "actors": [{"id": 42, "canonical_ref": "actor://cosyworld/42"}],
-            "action_hand": {"entries": [{"offer_id": "craft-17"}, {"offer_id": "rest-5"}]},
+            "actors": [{"id": 42}],
+            "command_context": {"actor_ref": "actor://cosyworld/42", "actor_version": 9, "location_version": 0},
+            "action_hand": {"entries": [{"offer_ids": ["craft-17"]}, {"offer_ids": ["rest-5"]}]},
             "action_offers": [
                 {
                     "offer_id": "craft-17",
@@ -437,6 +437,60 @@ class ExactOfferSelectionTests(unittest.TestCase):
             [offer_intent_id(42, "craft-17"), offer_intent_id(42, "rest-5")],
         )
         self.assertEqual(game.last_seq, 74)
+        self.assertEqual(payloads[0][1]["envelope"]["actor_ref"], "actor://cosyworld/42")
+        self.assertEqual(payloads[0][1]["envelope"]["observed"], {"actor_version": 9})
+
+    def test_cli_plays_every_offer_a_live_hand_entry_carries(self) -> None:
+        # Live /state deals one entry per card with offer_ids, and the envelope's
+        # actor_ref comes from command_context rather than the public actor row.
+        game = Game(CosyClient("http://127.0.0.1:3102"), 8405, "session")
+        state = {
+            "world_id": "world://cosyworld/official",
+            "world_seq": 26432,
+            "command_context": {"actor_ref": "actor://cosyworld/8405", "actor_version": 14, "location_version": 3},
+            "actors": [{"id": 8405, "name": "Lantern Walker"}],
+            "action_hand": {"entries": [{
+                "slot": "anchor",
+                "card_id": "actor:1001",
+                "offer_ids": ["notice-rati", "chat-rati"],
+                "think": {"available": False},
+            }]},
+            "action_offers": [
+                {"offer_id": "notice-rati", "kind": "notice_actor", "label": "Notice", "command": "notice Rati",
+                 "target": {"kind": "actor", "id": 1001, "label": "Rati"}},
+                {"offer_id": "chat-rati", "kind": "chat", "label": "Chat with Rati", "command": "chat Rati",
+                 "target": {"kind": "actor", "id": 1001, "label": "Rati"}},
+                {"offer_id": "undealt", "kind": "chat", "label": "Chat with Gust", "command": "chat Gust",
+                 "target": {"kind": "actor", "id": 1002, "label": "Gust"}},
+            ],
+        }
+        game.state = lambda: state  # type: ignore[method-assign]
+        payloads: list[tuple[str, dict[str, object]]] = []
+        game.client.post = lambda path, payload: (  # type: ignore[method-assign]
+            payloads.append((path, payload)) or {"ok": True, "events": []}
+        )
+
+        entries, offers = game.dealt_action_offers(state)
+        self.assertEqual([offer["offer_id"] for offer in offers], ["notice-rati", "chat-rati"])
+        self.assertEqual(
+            game.current_offer("/actions/chat", {"actor_id": 8405, "target_actor_id": 1001}),
+            state["action_offers"][1],
+        )
+        self.assertIsNone(game.current_offer("/actions/chat", {"actor_id": 8405, "target_actor_id": 1002}))
+        with patch("builtins.input", return_value="2"):
+            game.act()
+
+        self.assertEqual(payloads[0][1]["offer_id"], "chat-rati")
+        self.assertEqual(
+            payloads[0][1]["envelope"],
+            {
+                "world_id": "world://cosyworld/official",
+                "intent_id": offer_intent_id(8405, "chat-rati"),
+                "actor_ref": "actor://cosyworld/8405",
+                "observed": {"actor_version": 14, "location_version": 3},
+                "last_world_seq": 26432,
+            },
+        )
 
     def test_button_game_uses_the_story_card_think_certificate_in_render_and_errors(self) -> None:
         game = ButtonGame(CosyClient("http://127.0.0.1:3102"), 42, "session")
@@ -446,13 +500,12 @@ class ExactOfferSelectionTests(unittest.TestCase):
                     "id": 42,
                     "name": "Moss Stitch",
                     "hp": 1,
-                    "canonical_ref": "actor://cosyworld/42",
                 }
             ],
             "action_hand": {
                 "entries": [{
                     "slot": "story",
-                    "offer_id": "move-7",
+                    "offer_ids": ["move-7"],
                     "think": {
                         "available": True,
                         "free": False,

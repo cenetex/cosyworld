@@ -291,7 +291,7 @@ PY
 }
 
 run_cli_smoke() {
-  local actor_info actor_id actor_session button_output heartbeat_output command_output
+  local actor_info actor_id actor_session button_output heartbeat_output card_output command_output
   actor_info="$(create_cli_smoke_actor "Terminal Button Smoke")"
   read -r actor_id actor_session <<<"$actor_info"
 
@@ -311,6 +311,16 @@ run_cli_smoke() {
     return 1
   fi
   grep -q "Presence: active\." <<<"$heartbeat_output"
+
+  # Play a dealt card end to end so the client stays on the live hand and envelope contract.
+  actor_info="$(create_cli_smoke_actor "Terminal Card Smoke")"
+  read -r actor_id actor_session <<<"$actor_info"
+  card_output="$(printf 'act\n1\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
+  if ! grep -q "  1\\. \\[" <<<"$card_output" \
+    || grep -q "^! \\|Command failed\\|Action failed\\|does not match\\|not in your Story Hand" <<<"$card_output"; then
+    echo "$card_output" >&2
+    return 1
+  fi
 
   actor_info="$(create_cli_smoke_actor "Terminal Command Smoke")"
   read -r actor_id actor_session <<<"$actor_info"

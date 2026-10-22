@@ -633,18 +633,8 @@ class Game:
         payload = self.with_actor_session({"actor_id": self.actor_id, "command": command})
         if offer_id:
             view = state or self.state()
-            actor = next(
-                (candidate for candidate in view.get("actors") or [] if candidate.get("id") == self.actor_id),
-                {},
-            )
             payload["offer_id"] = offer_id
-            payload["envelope"] = {
-                "world_id": view.get("world_id") or "world://cosyworld/official",
-                "intent_id": offer_intent_id(self.actor_id, offer_id),
-                "actor_ref": actor.get("canonical_ref") or "",
-                "observed": {},
-                "last_world_seq": int(view.get("world_seq") or 0),
-            }
+            payload["envelope"] = canonical_envelope(view, offer_intent_id(self.actor_id, offer_id))
         response = self.client.post(
             "/commands",
             payload,
@@ -693,11 +683,7 @@ class Game:
 
     def current_offer(self, path: str, payload: dict[str, object]) -> dict[str, object] | None:
         state = self.state()
-        dealt_ids = {
-            str(entry.get("offer_id") or "")
-            for entry in ((state.get("action_hand") or {}).get("entries") or [])
-            if isinstance(entry, dict)
-        }
+        dealt_ids = set(dealt_offer_ids(state))
         return next(
             (
                 offer
@@ -722,9 +708,10 @@ class Game:
             if isinstance(offer, dict) and not offer.get("disabled")
         }
         paired = [
-            (entry, offered_by_id[str(entry.get("offer_id") or "")])
+            (entry, offered_by_id[offer_id])
             for entry in entries
-            if str(entry.get("offer_id") or "") in offered_by_id
+            for offer_id in entry_offer_ids(entry)
+            if offer_id in offered_by_id
         ]
         return [entry for entry, _ in paired], [offer for _, offer in paired]
 
@@ -741,21 +728,11 @@ class Game:
         if not isinstance(think, dict) or not think.get("available") or not think.get("offer_id"):
             raise ClientError("That Story Hand card has no other possibility to reveal.")
         self._pending_pass_label = "Think"
-        actor = next(
-            (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
-            {},
-        )
         self._pending_pass_payload = self.with_actor_session({
             "actor_id": self.actor_id,
             "command": "think",
             "offer_id": think["offer_id"],
-            "envelope": {
-                "world_id": state.get("world_id") or "world://cosyworld/official",
-                "intent_id": offer_intent_id(self.actor_id, str(think["offer_id"])),
-                "actor_ref": actor.get("canonical_ref") or "",
-                "observed": {},
-                "last_world_seq": int(state.get("world_seq") or 0),
-            },
+            "envelope": canonical_envelope(state, offer_intent_id(self.actor_id, str(think["offer_id"]))),
         })
         return self._pending_pass_payload
 
@@ -847,7 +824,10 @@ class Game:
 
     @staticmethod
     def hand_offer_label(entry: dict[str, object], offered_by_id: dict[str, dict[str, object]]) -> str:
-        offer = offered_by_id.get(str(entry.get("offer_id") or ""), entry)
+        offer = next(
+            (offered_by_id[offer_id] for offer_id in entry_offer_ids(entry) if offer_id in offered_by_id),
+            entry,
+        )
         label = str(offer.get("label") or offer.get("kind") or "action")
         target = offer.get("target") or offer.get("project") or {}
         target_label = str(target.get("label") or "").strip() if isinstance(target, dict) else ""
@@ -1254,10 +1234,11 @@ class ButtonGame(Game):
             if isinstance(offer, dict) and offer.get("offer_id")
         }
         dealt = [
-            offered_by_id[str(entry.get("offer_id") or "")]
+            offered_by_id[offer_id]
             for entry in entries
             if isinstance(entry, dict)
-            and str(entry.get("offer_id") or "") in offered_by_id
+            for offer_id in entry_offer_ids(entry)
+            if offer_id in offered_by_id
         ]
         return [
             ButtonAction(
@@ -1294,23 +1275,13 @@ class ButtonGame(Game):
         command = str(offer.get("command") or "").strip()
         if not offer_id or not command:
             raise ClientError("the dealt card is missing its authoritative command or certificate")
-        actor = next(
-            (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
-            {},
-        )
         response = self.client.post(
             "/commands",
             self.with_actor_session({
                 "actor_id": self.actor_id,
                 "command": command,
                 "offer_id": offer_id,
-                "envelope": {
-                    "world_id": state.get("world_id") or "world://cosyworld/official",
-                    "intent_id": offer_intent_id(self.actor_id, offer_id),
-                    "actor_ref": actor.get("canonical_ref") or "",
-                    "observed": {},
-                    "last_world_seq": int(state.get("world_seq") or 0),
-                },
+                "envelope": canonical_envelope(state, offer_intent_id(self.actor_id, offer_id)),
             }),
         )
         if not isinstance(response, dict):
@@ -1453,6 +1424,41 @@ class ButtonGame(Game):
             if world_beat_is_renderable(event):
                 self.pending_world_beat_events.append(event)
         self.message_log = self.message_log[-20:]
+
+
+def entry_offer_ids(entry: dict[str, object]) -> list[str]:
+    """Return the certified offers a dealt hand entry exposes."""
+    offer_ids = entry.get("offer_ids") or []
+    return [str(offer_id) for offer_id in offer_ids if offer_id] if isinstance(offer_ids, list) else []
+
+
+def dealt_offer_ids(state: dict[str, object]) -> list[str]:
+    hand = state.get("action_hand") or {}
+    entries = hand.get("entries") if isinstance(hand, dict) else []
+    return [
+        offer_id
+        for entry in entries or []
+        if isinstance(entry, dict)
+        for offer_id in entry_offer_ids(entry)
+    ]
+
+
+def canonical_envelope(state: dict[str, object], intent_id: str) -> dict[str, object]:
+    """Build the command envelope from the server-issued command context, as the browser does."""
+    context = state.get("command_context") or {}
+    context = context if isinstance(context, dict) else {}
+    observed = {
+        key: int(context[key])
+        for key in ("actor_version", "location_version")
+        if int(context.get(key) or 0) > 0
+    }
+    return {
+        "world_id": state.get("world_id") or "world://cosyworld/official",
+        "intent_id": intent_id,
+        "actor_ref": str(context.get("actor_ref") or ""),
+        "observed": observed,
+        "last_world_seq": int(state.get("world_seq") or 0),
+    }
 
 
 def offer_intent_id(actor_id: int, offer_id: str) -> str:
