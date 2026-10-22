@@ -892,3 +892,64 @@ describe("speech grounding in resolved card plays", () => {
     });
   });
 });
+
+describe("saved character inner lives", () => {
+  it("saves separate model attribution, dreams and evolving personas and recalls them after reload", () => {
+    const world = act(createWorld(), "take", "lamp");
+    const context = narrativeContext(world);
+    const generated = response(context);
+    const vale = generated.entries.find((entry) => entry.id === "vale");
+    vale.model = "vale-specific-model";
+    vale.reflection = {
+      thought: "Someone trusted me with their light.",
+      persona: "I remain curious and proud, but gifts make me more patient.",
+      dream: "A lamp became a tiny sun above the shore.",
+    };
+    const next = applyGeneratedText(world, context, generated);
+    const restored = decodeSave(encodeSave(next));
+    expect(restored.memories.vale.model).toBe("vale-specific-model");
+    expect(restored.memories.vale.innerLife.persona).toContain(
+      "gifts make me more patient",
+    );
+    expect(restored.memories.vale.innerLife.dreams).toEqual([
+      { turn: world.turn, text: vale.reflection.dream },
+    ]);
+    expect(restored.memories.keeper.innerLife).toBeUndefined();
+    const recalled = narrativeContext(restored).entities.find(
+      (e) => e.id === "vale",
+    );
+    expect(recalled.inner_life).toEqual(restored.memories.vale.innerLife);
+    expect(
+      restored.memories.vale.events.some((event) =>
+        event.text.includes("tiny sun"),
+      ),
+    ).toBe(false);
+    expect(restored.log.some((entry) => entry.text.includes("tiny sun"))).toBe(
+      false,
+    );
+  });
+
+  it("rejects early repeated growth, invalid private text and reflections on scenery", () => {
+    let world = act(createWorld(), "take", "lamp");
+    let context = narrativeContext(world);
+    let generated = response(context);
+    const reflection = {
+      thought: "I felt welcome.",
+      persona: "I am learning to share.",
+      dream: "A lamp floated above the pond.",
+    };
+    generated.entries.find((e) => e.id === "vale").reflection = reflection;
+    world = applyGeneratedText(world, context, generated);
+    context = narrativeContext(world);
+    generated = response(context);
+    generated.entries.find((e) => e.id === "vale").reflection = reflection;
+    expect(() => applyGeneratedText(world, context, generated)).toThrow();
+    generated = response(context);
+    generated.entries.find((e) => profiles[e.id].kind !== "avatar").reflection =
+      reflection;
+    expect(() => applyGeneratedText(world, context, generated)).toThrow();
+    const corrupt = structuredClone(world);
+    corrupt.memories.vale.innerLife.dreams[0].turn = world.turn + 1;
+    expect(() => decodeSave(JSON.stringify(corrupt))).toThrow();
+  });
+});

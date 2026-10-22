@@ -1,5 +1,43 @@
 # Card world text and memory
 
+## Personal quests and lasting hopes
+
+The browser enables `personalQuests` alongside motives. The first quest gives
+each avatar a starting purpose. A completed quest earns a level and starts
+three quiet turns. Its checklist leaves the card. After this rest, useful
+gifts and lamp care earn two Inspiration points; conversations, trades and
+accepted shared trips earn one. Both people in a social action can earn points.
+Each person earns at most two points per round. The same exchange earns again
+after six turns. Failed requests, solo waiting and inspecting cards leave the
+meter unchanged. Five points unlock one new personal quest at the end of the
+round. The new quest can first advance on the following turn.
+
+Each avatar has a lasting hope and three milestones. Generated quests favour
+the next feasible milestone, then recent experiences and variety. A quest
+that fulfils the next milestone records its completion turn. The hope and its
+completed milestones stay with the avatar through later quests. Earlier
+authored quests keep their order as the opening story.
+
+Favourite belongings have lasting value. A received gift gains a saved
+attachment to its giver. These reasons affect gifts, prices and autonomous
+handover choices. An explicit delivery quest can give an attached item a new
+purpose. Talking, giving, trading and accepted invitations create three turns
+of shared time. Residents can tend items or talk during this time. A grievance
+still lets them seek space. The player chooses Vale's actions throughout.
+
+Avatar cards show Inspiration during the quiet and seeking phases. The Menu
+shows each hope, its milestones, and the current quest when one is active.
+Item cards explain attachments. Personal facts also enter the story context.
+
+Schema 6 saves gain optional, validated `life` state. Loading an earlier save
+adds this state while keeping its active quest, earned steps, items, memories
+and levels. New-game and cross-tab save updates use the same setup. The action
+history is bounded independently from the saved Inspiration and attachments.
+
+Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
+repeat limits, attachment and company rules, hope selection, save migration,
+validation and deterministic mixed-play checks.
+
 ## The bell crossing to the Steam Clock
 
 Ring the Bell twice in a row at Black pond to find the Forest Clearing.
@@ -42,7 +80,7 @@ Every avatar, item, and location has a profile in `entity-profiles.json` and a s
 
 Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
-After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the shared profiles and calls the configured world-content model through the existing AI gateway. One request covers the scene. It requests JSON-object output and validates one entry for each local entity. It returns one text for each local entity. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, item plays, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. A separate narrator call covers items and places. These calls run together inside one bounded scene request, which requests JSON-object output and validates every entry before publication. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, item plays, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 The conversation shows generated text, with the prior spoken line and speaker portrait above the current line. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand cools down during generation and playback, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Each speaker has a soft, pitched voice sound; the menu toggles it. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A card play holds the current spoken line while the next exchange is written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading a turn whose words are still pending requests that turn again. Action records remain in the saved world and scene export.
 
@@ -66,7 +104,11 @@ Existing saves keep their station start, original routes, authored programs, and
 
 ## Shore experiment
 
-The browser starts and loads worlds with `enableMotives`. Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules, and turn order. Each avatar card shows its target hand, quest progress, and possible offers. Menu shows the programs of the discovered cast.
+The browser starts and loads worlds with `enableMotives` and `personalQuests`.
+Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules,
+and turn order. During a personal quest, an avatar card shows its target hand
+and progress. Between quests it shows Inspiration. Menu shows lasting hopes,
+milestones, and the active quests of the discovered cast.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
 
@@ -74,7 +116,7 @@ Trades compare each character’s value for both objects, including attached clo
 
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and chooses a fresh purpose from the current world. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Shared actions then fill Inspiration and unlock a fresh purpose from the current world and the avatar’s lasting hope. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -109,3 +151,49 @@ New programs rotate recent purposes and consider the purposes already active acr
 Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, departure speech, stale hand removal, reload and return travel at desktop and phone widths. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
+
+Room music starts with the first accepted card play in a new game. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
+
+## Character models and inner life
+
+Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
+
+| Character     | Stable OpenRouter model                    |
+| ------------- | ------------------------------------------ |
+| Vale          | `openai/gpt-4.1-mini`                      |
+| Pip           | `google/gemini-2.5-flash`                  |
+| The keeper    | `anthropic/claude-haiku-4.5`               |
+| Grumpy Badger | `mistralai/mistral-small-3.2-24b-instruct` |
+
+The map covers the authored cast. Each model also has an explicit world-content
+entry in the operator registry. The narrator keeps `COSYWORLD_CARD_TEXT_MODEL`.
+Assignments depend on the character ID, so they survive turns, saves, reloads,
+restarts and changes in who is present. Operators can change an assignment by
+editing the map and its registry entry together. Hosts with the character map
+unset use the shared narrator route for local development.
+
+Each avatar call receives the public scene plus that avatar's own witnessed
+memories, current persona, thoughts and dreams. Other avatars' inner lives stay
+with their own calls. Authored personas and voice profiles remain the roots of
+identity; current actions, possessions, travel and relationships come from the
+resolved simulation.
+
+A character can reflect after a new witnessed event. The first reflection is
+available after the first turn; later reflections are at least six turns apart.
+A reflection supplies a thought and an evolved persona. The first reflection
+also supplies a symbolic dream or daydream; later dreams are at least twelve
+turns apart. Sleeping and waking state still comes from game facts. The model
+writes these fields in the same call as the character's speech.
+
+The browser saves the current persona and the latest four thoughts and four
+dreams per avatar beside the existing witnessed memories and landmarks.
+`History` → `Inner life` shows them for discovered characters. Existing saves
+start with their authored personas and gain inner lives as play continues.
+Dreams and thoughts are marked as private impressions. They are separate from
+witnessed events and public conversation.
+
+The scene remains one publication unit. Provider calls have a twelve-second
+limit and the complete group has a fourteen-second limit. Each avatar gets one
+call and the narrator gets one call, for at most five calls per scene. The
+existing scene admission, concurrency and retry limits still apply. Provider
+failure, incomplete output or invalid reflection keeps the last saved scene.

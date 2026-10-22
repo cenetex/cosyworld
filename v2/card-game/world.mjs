@@ -22,6 +22,7 @@ import {
   knownActors,
   newProgress,
   programFor,
+  savedProgramFor,
   desireFor,
   levelOf,
   targetsFor,
@@ -29,6 +30,17 @@ import {
   generateProgram,
   sequence,
 } from "./quests.mjs";
+import {
+  lifeOf,
+  questActive,
+  keepReason,
+  stayingWith,
+  recordLifeAction,
+  finishPersonalQuest,
+  validLife,
+  INSPIRATION_MAX,
+  hopes,
+} from "./life.mjs";
 import {
   conditionMet,
   conditionText,
@@ -346,7 +358,7 @@ export const valeStalled = (s) =>
 export function willingToGive(s, owner, item, recipient = null) {
   if (hasMotives(s) && recipient && resentment(s, owner, recipient))
     return false;
-  if (!hasQuestPrograms(s))
+  if (!hasQuestPrograms(s) || lifeOf(s, owner))
     return (
       owner !== "vale" &&
       recipient !== null &&
@@ -376,6 +388,7 @@ export function canTrade(s, actor, give, receive) {
       ? !tradeDecision(s, actor, give, receive).accepted &&
         !(
           hasQuestPrograms(s) &&
+          !s.life &&
           !resentment(s, other, actor) &&
           needed(s, other, give) &&
           !needed(s, other, receive)
@@ -394,9 +407,11 @@ export function tradeOffers(s, actor) {
   return ids.filter(
     (id) =>
       s.items[id].holder === actor &&
-      (hasQuestPrograms(s)
-        ? !needed(s, actor, id)
-        : valueOf(s, actor, id) <= 6),
+      (s.life
+        ? !keepReason(s, actor, id)
+        : hasQuestPrograms(s)
+          ? !needed(s, actor, id)
+          : valueOf(s, actor, id) <= 6),
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
@@ -437,6 +452,7 @@ function ensurePrograms(s) {
       );
       p.recent ??= [];
       p.recentKinds ??= [];
+      if (!questActive(s, actor)) continue;
       p.current = generateProgram(
         structuredClone(s),
         actor,
@@ -546,6 +562,7 @@ function advancePrograms(s, met) {
     progress.step += 1;
     const complete = progress.step === program.steps.length;
     if (complete) {
+      finishPersonalQuest(s, actor, program, evidence.target);
       applyConsequence(s, actor, evidence.target);
       if (program.generated) {
         progress.completedHands += program.steps.length;
@@ -583,7 +600,12 @@ function advancePrograms(s, met) {
   } of receipts) {
     let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
     if (complete) text += ` Level ${levelOf(s, actor)}.`;
-    text += ` Next: ${handText(desireFor(s, actor))}.`;
+    const life = lifeOf(s, actor);
+    if (complete && life?.milestones.at(-1) === s.turn)
+      text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
+    text += questActive(s, actor)
+      ? ` Next: ${handText(desireFor(s, actor))}.`
+      : " Take time to enjoy this. Helpful actions will grow a new purpose.";
     addLog(s, "World", text, {
       kind: "quest",
       actorId: actor,
@@ -1112,6 +1134,9 @@ function perform(s, a) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") return;
+  const usefulGift =
+    a.kind === "give" &&
+    (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
   let text = a.text;
   let requestAccepted = false;
   let affected = null,
@@ -1315,6 +1340,7 @@ function perform(s, a) {
   }
   meetCast(s);
   recordReaction(s, a, witnesses, requestAccepted);
+  recordLifeAction(s, a, invitation?.accepted ?? requestAccepted, usefulGift);
   addLog(s, "World", text, {
     kind: "action",
     actorId: a.actor,
@@ -1369,11 +1395,29 @@ export function plan(s, actor = "vale") {
       action: legalActions(s, actor)[0],
       reason: "Wait for a first meeting.",
     };
-  const acts = legalActions(s, actor),
+  const acts = legalActions(s, actor).filter((a) => {
+      if (
+        !lifeOf(s, actor) ||
+        !["give", "drop"].includes(a.kind) ||
+        !keepReason(s, actor, a.item)
+      )
+        return true;
+      return (
+        a.kind === "give" &&
+        targetsFor(s, actor).some((h) =>
+          h.conditions?.some(
+            (c) =>
+              c.kind === "heldBy" && c.item === a.item && c.avatar === a.target,
+          ),
+        )
+      );
+    }),
     hand = desireFor(s, actor);
   if (
     hasMotives(s) &&
     (!hasQuestPrograms(s) ||
+      !questActive(s, actor) ||
+      stayingWith(s, actor) ||
       standoffFor(s, actor) ||
       s.peaceUntil[actor] > s.turn ||
       actorIds.some(
@@ -1654,6 +1698,11 @@ export function play(s, action, expectedRevision = s.revision) {
   const clearingWasOpen = clearingOpen(s);
   next.turn += 1;
   next.revision += 1;
+  for (const actor of knownActors(next)) {
+    const life = lifeOf(next, actor);
+    if (life?.phase === "content" && next.turn > life.restUntil)
+      life.phase = "seeking";
+  }
   const reflectionSource = next.actors.vale.place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
@@ -1751,6 +1800,20 @@ export function play(s, action, expectedRevision = s.revision) {
     );
   if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
+  for (const actor of knownActors(next)) {
+    const life = lifeOf(next, actor);
+    if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {
+      life.phase = "active";
+      life.inspiration = 0;
+      ensurePrograms(next);
+      addLog(
+        next,
+        "World",
+        `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}. Hope: ${hopes[actor].title}.`,
+        { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+      );
+    }
+  }
   refreshStalledPrograms(next);
   validateWorld(next);
   return { ok: true, state: next };
@@ -1882,7 +1945,7 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validMemories(s) || !validMotives(s)) fail();
+  if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
@@ -1983,8 +2046,15 @@ export function validateWorld(s) {
       progress.step < 0
     )
       fail();
-    const program = programFor(s, id);
-    if (!validProgram(program, id, s) || progress.step >= program.steps.length)
+    const program = savedProgramFor(s, id);
+    const resting = !questActive(s, id) && progress.step === 0;
+    if (
+      (!program && !resting) ||
+      (program &&
+        (!validProgram(program, id, s) ||
+          progress.step >= program.steps.length)) ||
+      (!questActive(s, id) && !resting)
+    )
       fail();
     let completed = programs
       .slice(0, progress.program)
@@ -1996,8 +2066,9 @@ export function validateWorld(s) {
           completed + (progress.program - programs.length) ||
         progress.completedHands >
           completed + 12 * (progress.program - programs.length) ||
-        program.id !== `generated-${id}-${levelOf(s, id)}` ||
-        program.generated?.level !== levelOf(s, id) ||
+        (program &&
+          (program.id !== `generated-${id}-${levelOf(s, id)}` ||
+            program.generated?.level !== levelOf(s, id))) ||
         !Array.isArray(progress.recent) ||
         progress.recent.length > 4 ||
         progress.recent.some((item) => !ids.includes(item))

@@ -251,11 +251,22 @@ impl RuntimeWorld {
         actor_id: u64,
         scene_key: &str,
     ) -> StoryHandActorState {
-        let legacy_generation = self
-            .hand_generations
-            .get(&actor_id)
-            .copied()
-            .unwrap_or_default();
+        // The return journey starts with its current card. Legacy shuffle
+        // counts came from the earlier story; explicit Think choices keep
+        // their saved scene and continue to rotate that scene's hand.
+        let fresh_journey_hand = active_first_tale()
+            .and_then(|tale| tale.continuation.as_ref())
+            .is_some_and(|continuation| continuation.return_to_requester)
+            && self.first_tale_trace_event_seq(actor_id).is_some()
+            && self.first_tale_stage(actor_id) != Some(FirstTaleStage::JourneyComplete);
+        let legacy_generation = if fresh_journey_hand {
+            0
+        } else {
+            self.hand_generations
+                .get(&actor_id)
+                .copied()
+                .unwrap_or_default()
+        };
         if let Some(state) = self.story_hand_states.get(&actor_id) {
             if state.scene_key == scene_key {
                 return state.clone();
@@ -263,7 +274,9 @@ impl RuntimeWorld {
             if state.scene_key.is_empty() {
                 return StoryHandActorState {
                     scene_key: scene_key.to_string(),
-                    slot_generations: if state.slot_generations == [0; 3] && legacy_generation > 0 {
+                    slot_generations: if fresh_journey_hand {
+                        [0; 3]
+                    } else if state.slot_generations == [0; 3] && legacy_generation > 0 {
                         [legacy_generation; 3]
                     } else {
                         state.slot_generations

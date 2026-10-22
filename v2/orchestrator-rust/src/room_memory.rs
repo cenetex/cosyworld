@@ -361,7 +361,9 @@ pub(super) fn room_memory_label(event: &EventView) -> String {
         "advancement.spent" => "growth",
         "skill.stepped" => "skill",
         "calling.set" | "calling.revised" => "purpose",
-        "first_tale.public_trace" => "trace",
+        "first_tale.public_trace"
+        | "first_tale.journey_reported"
+        | "first_tale.journey_returned" => "trace",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "friendship",
         "clock.updated" => "clock",
         "tag.applied" | "tag.cleared" => "tag",
@@ -402,7 +404,9 @@ pub(super) fn room_memory_kind(event: &EventView) -> String {
         | "quest.loot_allocated"
         | "world.logistics.completed"
         | "avatar.evolved" => "world",
-        "first_tale.public_trace" => "world",
+        "first_tale.public_trace"
+        | "first_tale.journey_reported"
+        | "first_tale.journey_returned" => "world",
         "feature.searched" | "location.searched" | "exit.discovered" => "search",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "bond",
         "calling.set" | "calling.revised" => "calling",
@@ -495,6 +499,9 @@ pub(super) fn room_memory_log_text_at_location(
         | "pathway.familiarized" => event.content.clone().unwrap_or_else(|| {
             format!("{actor_name} carries the path a little farther into the world")
         }),
+        "first_tale.journey_reported" | "first_tale.journey_returned" => {
+            event.content.clone().unwrap_or_default()
+        }
         "first_tale.public_trace" => {
             // The trace copy is authored per worldpack (project89 records a
             // covenant, not a garden stone). Render the authored content so

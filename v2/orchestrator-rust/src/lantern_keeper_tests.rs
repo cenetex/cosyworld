@@ -551,7 +551,7 @@ pub(super) fn install_lantern_finale_evidence(
     evidence
 }
 
-fn runtime_ready_for_lantern_finale() -> (RuntimeWorld, Vec<u64>) {
+pub(super) fn runtime_ready_for_lantern_finale() -> (RuntimeWorld, Vec<u64>) {
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(&mut runtime, FINAL_ACTOR_ID, 804, "Final Lantern Tender");
     let evidence = install_lantern_finale_evidence(&mut runtime, FINAL_ACTOR_ID);

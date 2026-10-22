@@ -16,6 +16,7 @@ const firstTaleContinuationFields = [
   "travel_instruction",
   "arrival_instruction",
   "accepted_instruction",
+  "return_to_requester",
 ];
 
 const firstTaleCopyFields = [
@@ -97,6 +98,12 @@ export function firstTaleValidationErrors(value, label = "first tale") {
     if (!isObject(value.continuation)) {
       errors.push(`${label} continuation must contain an object`);
     } else {
+      if (value.continuation.return_to_requester !== undefined && typeof value.continuation.return_to_requester !== "boolean") {
+        errors.push(`${label} continuation.return_to_requester must be a boolean`);
+      }
+      if (value.continuation.return_to_requester === true && !value.presentation) {
+        errors.push(`${label} continuation.return_to_requester requires a presentation requester`);
+      }
       const extraContinuationFields = unknownFields(
         value.continuation,
         firstTaleContinuationFields,
@@ -156,6 +163,9 @@ export function normalizeFirstTaleConfig(value) {
       arrival_instruction: value.continuation.arrival_instruction.trim(),
       accepted_instruction: value.continuation.accepted_instruction.trim(),
     };
+  }
+  if (value.continuation?.return_to_requester !== undefined) {
+    normalized.continuation.return_to_requester = value.continuation.return_to_requester;
   }
   if (value.presentation !== undefined) {
     normalized.presentation = { ...value.presentation };

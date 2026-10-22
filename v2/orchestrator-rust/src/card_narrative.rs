@@ -152,6 +152,7 @@ fn bounded(text: &str, limit: usize) -> bool {
 #[derive(Clone)]
 struct TextState {
     ai: Arc<Option<AiConfig>>,
+    character_models: Arc<Result<BTreeMap<String, String>, String>>,
     limits: Arc<Mutex<RateLimiter>>,
     in_flight: Arc<InFlight>,
     capacity: Arc<Semaphore>,
@@ -173,11 +174,42 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>
         }
         config
     }));
+    let models = std::env::var("COSYWORLD_CARD_CHARACTER_MODELS_JSON")
+        .ok()
+        .map(|text| parse_character_models(&text))
+        .unwrap_or_else(|| Ok(BTreeMap::new()));
+    router_with_models(ai, models)
+}
+
+fn parse_character_models(text: &str) -> Result<BTreeMap<String, String>, String> {
+    let models: BTreeMap<String, String> = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    let avatars: BTreeSet<_> = profiles()
+        .as_object()
+        .expect("profiles")
+        .iter()
+        .filter(|(_, p)| p["kind"] == "avatar")
+        .map(|(id, _)| id.clone())
+        .collect();
+    if models.keys().cloned().collect::<BTreeSet<_>>() != avatars
+        || models
+            .values()
+            .any(|id| !bounded(id, 160) || id.trim() != id)
+    {
+        return Err("character models must cover the authored avatars with exact model IDs".into());
+    }
+    Ok(models)
+}
+
+fn router_with_models<S: Clone + Send + Sync + 'static>(
+    ai: Arc<Option<AiConfig>>,
+    models: Result<BTreeMap<String, String>, String>,
+) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
+            character_models: Arc::new(models),
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
@@ -206,6 +238,35 @@ struct Entity {
     desire: Option<Desire>,
     memories: Vec<Memory>,
     previous: Option<String>,
+    #[serde(default)]
+    inner_life: Option<InnerLife>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct InnerLife {
+    #[serde(default)]
+    persona: Option<String>,
+    #[serde(default)]
+    thoughts: Vec<InnerMoment>,
+    #[serde(default)]
+    dreams: Vec<InnerMoment>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct InnerMoment {
+    turn: u64,
+    text: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Reflection {
+    thought: String,
+    persona: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dream: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -276,6 +337,10 @@ struct Context {
 struct Entry {
     id: String,
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reflection: Option<Reflection>,
 }
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -318,6 +383,18 @@ fn valid(context: &Context) -> bool {
                 && e.facts.len() <= 8
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
+                && e.inner_life.as_ref().is_none_or(|life| {
+                    kind(&e.id, "avatar")
+                        && life.persona.as_ref().is_none_or(|text| bounded(text, 600))
+                        && [&life.thoughts, &life.dreams].iter().all(|moments| {
+                            moments.len() <= 4
+                                && moments.iter().enumerate().all(|(index, m)| {
+                                    m.turn <= context.turn
+                                        && bounded(&m.text, 400)
+                                        && (index == 0 || moments[index - 1].turn < m.turn)
+                                })
+                        })
+                })
                 && e.memories.len() <= 8
                 && e.memories.iter().all(|m| {
                     m.turn <= context.turn
@@ -494,7 +571,10 @@ fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
     let returned: BTreeSet<_> = result.entries.iter().map(|e| e.id.as_str()).collect();
     (result.entries.len() == expected.len()
         && returned == expected
-        && result.entries.iter().all(|e| bounded(&e.text, 400)))
+        && result
+            .entries
+            .iter()
+            .all(|e| bounded(&e.text, 400) && e.reflection.is_none() && e.model.is_none()))
     .then_some(result.entries)
 }
 fn error(status: StatusCode, message: &str) -> Response {
@@ -545,6 +625,12 @@ async fn generate(
             "Story generation is waiting for its model connection.",
         );
     };
+    let Ok(character_models) = state.character_models.as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Character voices are waiting for their model settings.",
+        );
+    };
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
     // touching shared capacity, so one client can neither hold every permit
@@ -578,6 +664,7 @@ async fn generate(
         .is_some_and(|value| value == "text/event-stream")
     {
         let config = config.clone();
+        let character_models = character_models.clone();
         let (sender, receiver) = mpsc::unbounded_channel::<Event>();
         tokio::spawn(async move {
             let _permit = _permit;
@@ -590,7 +677,7 @@ async fn generate(
             };
             tokio::select! {
                 _ = sender.closed() => {},
-                result = complete(&config, &context, Some(&emit)) => {
+                result = complete(&config, &context, &character_models, Some(&emit)) => {
                     let event = match result {
                         Ok(mut value) => { value["type"] = json!("complete"); value },
                         Err(_) => json!({"type":"error","message":"Story text will try again with your next play"}),
@@ -608,13 +695,25 @@ async fn generate(
         )
             .into_response();
     }
-    match complete(config, &context, None).await {
+    match complete(config, &context, character_models, None).await {
         Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
         Err(response) => response,
     }
 }
 
 async fn complete(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Response> {
+    if character_models.is_empty() {
+        return complete_shared(config, context, on_delta).await;
+    }
+    complete_characters(config, context, character_models, on_delta).await
+}
+
+async fn complete_shared(
     config: &AiConfig,
     context: &Context,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
@@ -662,6 +761,203 @@ async fn complete(
         ));
     };
     Ok(json!({"revision":context.revision,"entries":entries,"model":completion.resolved_model_id}))
+}
+
+fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
+    if !kind(&entity.id, "avatar") || context.turn == 0 {
+        return (false, false);
+    }
+    let life = entity.inner_life.as_ref();
+    let last = life.and_then(|l| l.thoughts.last()).map(|m| m.turn);
+    let changed = entity
+        .memories
+        .iter()
+        .any(|m| m.kind == "event" && last.is_none_or(|turn| m.turn > turn));
+    let reflect = changed && last.is_none_or(|turn| context.turn >= turn.saturating_add(6));
+    let dream = reflect
+        && life
+            .and_then(|l| l.dreams.last())
+            .is_none_or(|m| context.turn >= m.turn.saturating_add(12));
+    (reflect, dream)
+}
+
+fn character_prompt(context: &Context, ids: &[String]) -> String {
+    let mut input: Value = serde_json::from_str(&prompt(context)).expect("scene prompt");
+    input["requested_ids"] = json!(ids);
+    // Each model sees the public scene and the selected character's own inner life.
+    for entity in input["scene"]["entities"].as_array_mut().expect("entities") {
+        if !ids.iter().any(|id| entity["id"] == id.as_str()) {
+            entity["memories"] = json!([]);
+            entity["inner_life"] = Value::Null;
+            entity["previous"] = Value::Null;
+        }
+    }
+    input["reflection_requests"] = json!(context
+        .entities
+        .iter()
+        .filter(|e| ids.contains(&e.id))
+        .filter_map(|e| {
+            let (reflect, dream) = reflection_due(context, e);
+            reflect.then(|| json!({"id":e.id,"dream":dream}))
+        })
+        .collect::<Vec<_>>());
+    input.to_string()
+}
+
+async fn complete_characters(
+    config: &AiConfig,
+    context: &Context,
+    models: &BTreeMap<String, String>,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Response> {
+    let mut groups = Vec::new();
+    for entity in &context.entities {
+        if kind(&entity.id, "avatar") {
+            let Some(model) = models.get(&entity.id) else {
+                return Err(error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "A character voice is waiting for its model.",
+                ));
+            };
+            groups.push((vec![entity.id.clone()], Some(model.clone())));
+        }
+    }
+    let scenery: Vec<_> = context
+        .entities
+        .iter()
+        .filter(|e| !kind(&e.id, "avatar"))
+        .map(|e| e.id.clone())
+        .collect();
+    if !scenery.is_empty() {
+        groups.push((scenery, None));
+    }
+    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Other entries contain only id and text.");
+    let jobs = groups.iter().map(|(ids, model)| {
+        let system = &system;
+        async move {
+            let mut config = config.clone();
+            if let Some(model) = model {
+                config
+                    .capability_models
+                    .insert(ModelCapability::WorldContent, model.clone());
+                // Keep the short speech budget for output on models that accept
+                // reasoning control. Other models use their native request shape.
+                config.reasoning_effort = config
+                    .registry
+                    .as_deref()
+                    .and_then(|registry| {
+                        registry
+                            .pin(
+                                ModelCapability::WorldContent,
+                                Some(model),
+                                config.data_policy_mode,
+                            )
+                            .ok()
+                    })
+                    .filter(|selection| selection.candidate().supported_parameters().reasoning)
+                    .map(|_| "none".to_string());
+            }
+            let user = character_prompt(context, ids);
+            let format = json!({"type":"json_object"});
+            let request = ChatCompletionRequest {
+                feature: "card_character_text",
+                prompt_version: "card-character-text-v1",
+                capability: ModelCapability::WorldContent,
+                system,
+                user: &user,
+                temperature: 0.8,
+                max_tokens: 900,
+                timeout: Duration::from_secs(12),
+                max_attempts: 1,
+                referer: "https://cosyworld.fly.dev",
+                response_format: Some(&format),
+                room_id: None,
+            };
+            let completion = request_chat_completion(&config, request)
+                .await
+                .map_err(|_| ())?;
+            if completion.finish_reason == "length" {
+                return Err(());
+            }
+            let mut generated: Generated =
+                serde_json::from_str(completion.text.trim()).map_err(|_| ())?;
+            let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
+            if generated.entries.len() != ids.len()
+                || generated
+                    .entries
+                    .iter()
+                    .map(|e| e.id.as_str())
+                    .collect::<BTreeSet<_>>()
+                    != expected
+            {
+                return Err(());
+            }
+            for entry in &mut generated.entries {
+                if !bounded(&entry.text, 400) {
+                    return Err(());
+                }
+                let entity = context
+                    .entities
+                    .iter()
+                    .find(|e| e.id == entry.id)
+                    .ok_or(())?;
+                let (reflect, dream) = reflection_due(context, entity);
+                match entry.reflection.as_ref() {
+                    Some(r)
+                        if reflect
+                            && bounded(&r.thought, 400)
+                            && bounded(&r.persona, 600)
+                            && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
+                            && (!dream || r.dream.is_some()) => {}
+                    None if !reflect => {}
+                    _ => return Err(()),
+                }
+                entry.model = Some(completion.resolved_model_id.clone());
+            }
+            Ok::<_, ()>(generated.entries)
+        }
+    });
+    let results = tokio::time::timeout(
+        Duration::from_secs(14),
+        futures_util::future::join_all(jobs),
+    )
+    .await
+    .map_err(|_| {
+        error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "A character is still finding their words.",
+        )
+    })?;
+    let mut entries = Vec::new();
+    for result in results {
+        entries.extend(result.map_err(|_| {
+            error(
+                StatusCode::BAD_GATEWAY,
+                "A character's words need another try.",
+            )
+        })?);
+    }
+    // Publish one validated scene, with speaker order independent of provider speed.
+    entries.sort_by_key(|e| {
+        context
+            .speakers
+            .iter()
+            .position(|id| id == &e.id)
+            .unwrap_or(usize::MAX)
+    });
+    if let Some(emit) = on_delta {
+        let visible: Vec<_> = entries
+            .iter()
+            .map(|e| json!({"id":e.id,"text":e.text}))
+            .collect();
+        if !emit(&json!({"entries":visible}).to_string()) {
+            return Err(error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "The scene has closed.",
+            ));
+        }
+    }
+    Ok(json!({"revision":context.revision,"entries":entries,"model":"character-models-v1"}))
 }
 
 #[cfg(test)]
@@ -737,6 +1033,187 @@ mod tests {
         // A persona's dislike is not an event: complaints need a recorded cause.
         assert!(SYSTEM.contains("A complaint needs a recorded cause"));
         assert!(SYSTEM.contains("a noise someone nearly made"));
+    }
+
+    #[test]
+    fn reflections_follow_witnessed_experience_and_keep_a_bounded_cadence() {
+        let mut c = context();
+        assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
+        c.entities[0].memories.push(Memory {
+            turn: 1,
+            kind: "event".into(),
+            text: "Vale received a gift.".into(),
+        });
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        c.entities[0].inner_life = Some(InnerLife {
+            persona: Some("I am learning to trust gifts.".into()),
+            thoughts: vec![InnerMoment {
+                turn: 4,
+                text: "That was generous.".into(),
+            }],
+            dreams: vec![InnerMoment {
+                turn: 4,
+                text: "A lamp became a small sun.".into(),
+            }],
+        });
+        assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
+        c.turn = 10;
+        c.revision = 10;
+        c.entities[0].memories.push(Memory {
+            turn: 9,
+            kind: "event".into(),
+            text: "Vale shared the lamp.".into(),
+        });
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
+        c.turn = 16;
+        c.revision = 16;
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        assert!(valid(&c));
+        c.entities[0].inner_life.as_mut().unwrap().dreams[0].turn = 99;
+        assert!(!valid(&c));
+    }
+
+    #[tokio::test]
+    async fn character_models_keep_their_own_memories_and_return_private_growth() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let captured = seen.clone();
+        let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
+            let captured = captured.clone();
+            async move {
+                let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+                captured.lock().unwrap().push(body.clone());
+                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
+                    let mut entry = json!({"id":id,"text":"I remember the kindness beside the lamp."});
+                    if input["scene"]["revision"] == 5 && id == "station" {
+                        entry["id"] = json!("invented-location");
+                    }
+                    if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
+                        entry["reflection"] = json!({"thought":"I felt welcome.","persona":"I am still proud, but I am learning to accept help.","dream":"A warm lamp floated through my sleep."});
+                    }
+                    entry
+                }).collect();
+                Json(json!({"model":body["model"],"choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let mut config = test_config(address);
+        let models: BTreeMap<String, String> = [
+            ("vale", "vale-model"),
+            ("moth", "moth-model"),
+            ("keeper", "keeper-model"),
+            ("badger", "badger-model"),
+        ]
+        .into_iter()
+        .map(|(id, m)| (id.into(), m.into()))
+        .collect();
+        let declared: Vec<_> = models.values().map(String::as_str).chain(["test-entity-model"]).map(|id| json!({
+            "requested_model_id":id,"provider":"openrouter","concrete_model":{"model_id":id},
+            "input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"json_mode":true,"structured_output":true},
+            "capabilities":["world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"}
+        })).collect();
+        config.registry = Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+            &json!({"schema_version":1,"snapshot_version":"character-test","declared":declared,"discovered":[]}).to_string()).unwrap()));
+        let app = router_with_models::<()>(Arc::new(Some(config)), Ok(models));
+        let mut c = context();
+        c.entities[0].memories.push(Memory {
+            turn: 1,
+            kind: "event".into(),
+            text: "Vale private kindness memory.".into(),
+        });
+        c.entities[3].inner_life = Some(InnerLife {
+            persona: Some("Moth private persona sentinel.".into()),
+            thoughts: vec![],
+            dreams: vec![],
+        });
+        for _ in 0..2 {
+            let response = app.clone().oneshot(request(&c)).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+            let result: Value = serde_json::from_slice(&bytes).unwrap();
+            let entries = result["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 4);
+            assert_eq!(entries[0]["id"], "vale");
+            assert_eq!(entries[0]["model"], "vale-model");
+            assert_eq!(entries[1]["id"], "moth");
+            assert_eq!(entries[1]["model"], "moth-model");
+            assert_eq!(entries[0]["reflection"]["thought"], "I felt welcome.");
+            assert!(entries
+                .iter()
+                .filter(|e| e["id"] == "lamp" || e["id"] == "station")
+                .all(|e| e.get("reflection").is_none()));
+        }
+        c.revision = 5;
+        let invalid = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
+        let requests = seen.lock().unwrap();
+        assert_eq!(requests.len(), 9);
+        for body in requests.iter() {
+            let input: Value =
+                serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+            let text = input.to_string();
+            if body["model"] == "vale-model" {
+                assert!(text.contains("Vale private kindness memory"));
+                assert!(!text.contains("Moth private persona sentinel"));
+            } else if body["model"] == "moth-model" {
+                assert!(text.contains("Moth private persona sentinel"));
+                assert!(!text.contains("Vale private kindness memory"));
+            } else {
+                assert!(!text.contains("Moth private persona sentinel"));
+                assert!(!text.contains("Vale private kindness memory"));
+            }
+        }
+        server.abort();
+    }
+
+    #[test]
+    fn both_deployments_pin_every_card_character_to_an_eligible_model() {
+        let mut maps = Vec::new();
+        for file in [
+            include_str!("../../../fly.toml"),
+            include_str!("../../../fly.lonelyforest.toml"),
+        ] {
+            let field = |name: &str| {
+                file.lines()
+                    .find_map(|line| {
+                        line.trim()
+                            .strip_prefix(&format!("{name} = '"))
+                            .and_then(|value| value.strip_suffix('\''))
+                    })
+                    .expect("deployment JSON field")
+            };
+            let models =
+                parse_character_models(field("COSYWORLD_CARD_CHARACTER_MODELS_JSON")).unwrap();
+            assert_eq!(models.values().collect::<BTreeSet<_>>().len(), models.len());
+            let registry = crate::ai_gateway::CapabilityRegistrySnapshot::from_json(field(
+                "COSYWORLD_AI_REGISTRY_JSON",
+            ))
+            .unwrap();
+            for model in models.values() {
+                let pinned = registry
+                    .pin(
+                        ModelCapability::WorldContent,
+                        Some(model),
+                        crate::ai_gateway::DataPolicyMode::Production,
+                    )
+                    .unwrap();
+                assert_eq!(pinned.requested_model_id(), model);
+            }
+            maps.push(models);
+        }
+        assert_eq!(maps[0], maps[1]);
+    }
+
+    #[test]
+    fn character_model_config_covers_every_avatar_with_exact_ids() {
+        assert!(parse_character_models(r#"{"vale":"one"}"#).is_err());
+        assert!(parse_character_models(
+            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four"}"#
+        )
+        .is_ok());
     }
 
     #[test]

@@ -91,8 +91,10 @@ flight. Old serialized jobs remain readable and receive a bounded compatibility 
 One spine has four projections:
 
 - `respond` is light: four dialogue turns, two recent events, five continuity lines, a
-  small evidence window, and no private recollection text. The system awakening may know
-  only that memory is near. It always names the current speaker and addressee. Directly
+  small evidence window, and up to two relevant recollections for autonomous speakers.
+  Each recollection keeps its thought, dream, or memory label. Directly controlled
+  replies use the chosen action and current scene. It always names the current speaker
+  and addressee. Directly
   controlled avatars are speech proxies and may
   not acquire invented controller intent or actions. Native model avatars keep their
   model identity, but remain in-world participants rather than falling into generic
@@ -267,3 +269,15 @@ Prompt changes should be checked with fixed context fixtures, not intuition alon
 Publication gates remain the enforcement layer for speech mode, length, grounding,
 repetition, safety, and committed-world truth. Those rules should not be duplicated into
 every character's prompt.
+
+Everyday speech carries character growth forward. The free-context projection uses
+the latest committed persona as `my character` and keeps the authored traits as
+`my roots`. Its recalled dreams use `i remember dreaming`; recalled thoughts use
+`i remember thinking`. These labels preserve the character's subjective history.
+
+The legacy implementation saved a model on each avatar and supplied both base and
+dynamic personality alongside recalled memories. V2 has keyed voice pools for
+stable per-actor model choices. A pack selects that policy through
+`x-cosyworld-voice-pool`; the operator registry supplies its eligible models.
+The main Fly configuration currently supplies one general voice model. Model
+variety therefore also requires a reviewed pool with several voice models.

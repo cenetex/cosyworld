@@ -511,6 +511,7 @@ pub(super) struct FirstTaleView {
     pub(super) shared_goal: u8,
     pub(super) trace_event_seq: Option<u64>,
     pub(super) continuation: Option<FirstTaleContinuationView>,
+    pub(super) journey: Option<FirstTaleJourneyView>,
 }
 
 impl Serialize for FirstTaleView {
@@ -538,6 +539,9 @@ impl Serialize for FirstTaleView {
         out.serialize_field("completion_memory", &self.completion_memory)?;
         out.serialize_field("next_invitation", &self.next_invitation)?;
         out.serialize_field("trace_event_seq", &self.trace_event_seq)?;
+        if let Some(journey) = &self.journey {
+            out.serialize_field("journey", journey)?;
+        }
         if let Some(continuation) = &self.continuation {
             out.serialize_field("continuation", continuation)?;
         }
@@ -591,6 +595,8 @@ const JOURNAL_BEAT_POLICIES: &[(&str, JournalBeatCategory)] = &[
     ("actor.created", JournalBeatCategory::Story),
     ("actor.entered_location", JournalBeatCategory::Story),
     ("first_tale.public_trace", JournalBeatCategory::Story),
+    ("first_tale.journey_reported", JournalBeatCategory::Story),
+    ("first_tale.journey_returned", JournalBeatCategory::Story),
     ("governance.selected", JournalBeatCategory::Story),
     ("actor.moved", JournalBeatCategory::Travel),
     ("combat.flee.success", JournalBeatCategory::Travel),
@@ -2865,6 +2871,7 @@ impl RuntimeWorld {
                         .any(|entry| entry.offer_ids.contains(offer_id))
                 })
             });
+        let journey_destination = self.first_tale_journey_destination(actor_id, stage);
         let required_location_id = match stage {
             FirstTaleStage::ReturnToLead => Some(first_tale.lead_location_id),
             FirstTaleStage::FollowLead | FirstTaleStage::ReturnToDestination => {
@@ -2874,7 +2881,7 @@ impl RuntimeWorld {
                 .continuation
                 .as_ref()
                 .map(|continuation| continuation.destination_location_id),
-            _ => None,
+            _ => journey_destination,
         };
         let instruction = match stage {
             FirstTaleStage::Notice => first_tale.copy.notice_instruction.clone(),
@@ -2905,8 +2912,21 @@ impl RuntimeWorld {
             FirstTaleStage::Contribute => first_tale.copy.contribute_instruction.clone(),
             _ => first_tale.copy.complete_instruction.clone(),
         };
-        let phase_source_event_seq =
-            self.first_tale_phase_source_event_seq(actor_id, stage, trace_event_seq, first_tale);
+        let journey = self.first_tale_journey_view(
+            actor_id,
+            stage,
+            advancing_offer_id
+                .as_ref()
+                .and_then(|id| action_offers.iter().find(|offer| &offer.offer_id == id)),
+        );
+        let phase_source_event_seq = self
+            .first_tale_phase_source_event_seq(actor_id, stage, trace_event_seq, first_tale)
+            .max(self.first_tale_journey_source_event_seq(actor_id));
+        let next_job_key = journey
+            .as_ref()
+            .and_then(|journey| journey.next_request.as_ref())
+            .map(|request| request.job_id.as_str())
+            .unwrap_or_default();
         let actor_key = actor_id.to_string();
         let schema_key = first_tale.schema_version.to_string();
         let source_key = phase_source_event_seq.to_string();
@@ -2920,24 +2940,45 @@ impl RuntimeWorld {
                 phase,
                 continuation_phase,
                 &source_key,
+                next_job_key,
             ])
         );
         let continuation = first_tale.continuation.as_ref().and_then(|continuation| {
             let continuation_phase = stage.continuation_phase()?;
             Some(FirstTaleContinuationView {
-                destination_location_id: continuation.destination_location_id,
-                target_actor_id: continuation.target_actor_id,
+                destination_location_id: journey_destination
+                    .unwrap_or(continuation.destination_location_id),
+                target_actor_id: if matches!(
+                    stage,
+                    FirstTaleStage::ReturnTravel
+                        | FirstTaleStage::ReturnArrived
+                        | FirstTaleStage::NextRequest
+                        | FirstTaleStage::JourneyComplete
+                ) {
+                    first_tale
+                        .presentation
+                        .as_ref()
+                        .map_or(continuation.target_actor_id, |presentation| {
+                            presentation.requester_actor_id
+                        })
+                } else {
+                    continuation.target_actor_id
+                },
                 job_id: continuation.job_id.clone(),
                 phase: continuation_phase.to_string(),
-                instruction: match stage {
-                    FirstTaleStage::ContinuationTravel => continuation.travel_instruction.clone(),
-                    FirstTaleStage::ContinuationAccepted => {
-                        continuation.accepted_instruction.clone()
-                    }
-                    _ => continuation.arrival_instruction.clone(),
-                },
-                required_location_id: (stage == FirstTaleStage::ContinuationTravel)
-                    .then_some(continuation.destination_location_id),
+                instruction: journey
+                    .as_ref()
+                    .map(|journey| journey.instruction.clone())
+                    .unwrap_or_else(|| match stage {
+                        FirstTaleStage::ContinuationTravel => {
+                            continuation.travel_instruction.clone()
+                        }
+                        FirstTaleStage::ContinuationAccepted => {
+                            continuation.accepted_instruction.clone()
+                        }
+                        _ => continuation.arrival_instruction.clone(),
+                    }),
+                required_location_id,
                 advancing_offer_id: advancing_offer_id.clone(),
             })
         });
@@ -2981,6 +3022,7 @@ impl RuntimeWorld {
                 .map_or(0, |clock| clock.segments),
             trace_event_seq,
             continuation,
+            journey,
         })
     }
 

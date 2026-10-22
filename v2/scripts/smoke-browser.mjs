@@ -16279,11 +16279,13 @@ async function main() {
     return {
       text: row?.textContent?.trim().replace(/\s+/g, " ") || "",
       phase: row?.dataset.firstTalePresentation || "",
+      instruction: String(state?.first_tale?.continuation?.instruction || ""),
     };
   });
   assert(
     acceptedLanternPayoff.phase === "accepted"
-      && /Mara entrusts you with the dark-road lead/i.test(acceptedLanternPayoff.text),
+      && acceptedLanternPayoff.instruction.includes("Next:")
+      && acceptedLanternPayoff.text.includes(acceptedLanternPayoff.instruction),
     `accepting Mara's invitation should leave the authored Lantern payoff visible: ${JSON.stringify(acceptedLanternPayoff)}`,
   );
   steps.push({ label: "durable Lantern continuation accepted", destination: "Wayside Lantern Inn" });

@@ -197,6 +197,128 @@ The table reads server offers and SSE, and the local save retires. `world.mjs`
 keeps projection and offer helpers only. An end-to-end smoke covers two players
 at one place.
 
+## Living between quests
+
+Status: **Planning**, proposed 2026-10-21 from a design review. Nothing here
+is built. It answers three proposals under "Card-table Direction Under Review"
+in the [PRD](../../PRD.md): a fulfilled phase, rewards for meaningful novelty,
+and a quest cadence.
+
+Today a finished quest is replaced at once: `advanceQuests` clears the quest
+and `ensureQuests` generates the next one in the same round. Avatars never sit
+with what they won. The proposal is a rhythm of **living, finding a purpose,
+pursuing it, and enjoying the result**, so a quest becomes a purpose the avatar
+finds through play: "I helped you, we spent time together, and now I know what
+I want to do next."
+
+### Stages
+
+Each avatar is always in one stage, saved in its progress record and shown on
+its card:
+
+| Stage | Card line (example) | Leaves when |
+| --- | --- | --- |
+| Settling in | "Pip enjoys the Lamp." | `rules.restActs` own acts pass (about 3) |
+| Growing curious | "Pip is thinking about a place to gather. Inspiration 3/5." | Inspiration fills |
+| Ready | "Pip wants to make a warm corner at Empty station." | The avatar commits, on its next own act |
+| Pursuing a wish | The quest's checklist, as today | The quest completes |
+| Content | "Pip likes what you made together." | Settling in follows |
+
+During Settling in and Content the avatar has no standing demand. It still acts
+through the existing motives: it uses and keeps what it likes, talks, and
+answers asks and trades. Physical upkeep is not a quest.
+
+### Inspiration
+
+A per-avatar meter, separate from XP. Inspiration never becomes XP, and XP
+still only goes up. Each experience is a key recorded once, so repeating an act
+or passing an item back and forth never refills the meter.
+
+| Experience | Points | Key (once per) |
+| --- | --- | --- |
+| Help another avatar complete a hand | 2 | helper, helped, quest, step |
+| Talk that shares something the listener did not know | 1 | speakers, fact |
+| A trade or gift that meets a want | 1 | giver, receiver, item, quest |
+| Travel somewhere with another avatar | 1 | companions, destination |
+| Enjoy a liked item at rest | 1 | item, rest period |
+
+The first version fills at 5 (`rules.inspirationToWish`). Both sides of an
+exchange can gain: giving the Lamp inspires the giver for helping and the
+receiver for a want met.
+
+The talk row reuses the knowledge model: a fact counts when `share` moves
+something new to the listener. The keys are the same novelty keys the PRD asks
+for, so one recorded-experience log serves both proposals.
+
+### Wishes
+
+When the meter fills, `generateQuest` runs with **anchors** drawn from the
+experiences that filled it: the avatar who helped most, a place visited
+together, an item enjoyed. The generator already picks items, places, and
+partners. Anchors bias those picks; they add no new verbs and no item rules.
+
+The wish's name comes from a closed template over its anchors, for example
+"Gather at Empty station with Vale". The text service may voice it as dialogue
+("I'd like to make a warm place where we can sit together.") but never chooses
+it. The checklist appears when the avatar commits.
+
+### Lasting preferences, hopes, and attachments
+
+These live in generic data, never in rules that name an entity:
+
+- **Preference.** One tag the avatar likes, such as `warm`, from its seed
+  entry. An item that shares the tag is enjoyed at rest and counts as an
+  experience. Pip likes warmth; the Lamp is tagged `warm`. No rule names
+  either.
+- **Hope.** One long goal per avatar, such as "make Empty station a home": a
+  place plus a hope kind from a closed list. Hopes change slowly. Wish anchors
+  favour the hope's place, and a major experience may replace the hope, with a
+  conversation saying why.
+- **Attachment.** A record per held item listing reasons from a closed set:
+  needed, liked, a gift from another avatar, or carried through a completed
+  quest. Attachment feeds `willingToGive` and `canTrade`: an attached item is
+  not a spare. "This is the lamp we brought through the mirror" is the quest
+  reason, voiced.
+- **Mark.** Each completed wish leaves a lasting fact on its place, shown on the
+  place card, such as "Pip's lamp sits here". A mark is presentation and
+  memory. It is not new state that other rules read.
+
+Lending and setting an item aside for another avatar (the keeper keeps spare
+oil because Pip visits) are later: they need an offer form the core does not
+have.
+
+### Rules that still hold
+
+- All of this is saved and validated, survives a save round trip, and replays
+  exactly. No randomness, clock, or network.
+- Experience keys are claim keys: each event is counted once.
+- A quiet world stays still: experiences come only from plays and resident acts
+  within reach of a player.
+- Players are a role. A player avatar gets the same stages, but its wish waits
+  for the player to take it up.
+- Liveness wins. An avatar left in Growing curious for `rules.stallActs` own
+  acts gets a wish anyway, from the anchors it has, so no one stalls for lack
+  of company.
+
+### First slice
+
+1. Stages, with a Settling-in rest after each completion and the card lines.
+2. Inspiration from the help, trade-or-gift, and shared-travel rows, with
+   experience keys.
+3. Wishes: generator anchors from those experiences.
+
+Talk-learned facts, preferences, hopes, attachments, and marks follow once the
+slice plays well.
+
+Measure with headless play over many seeds:
+
+- The gap between quests is short: 3 to 8 own acts for most avatars.
+- Most quests come from a filled meter, not the liveness fallback.
+- Wish anchors repeat partners and places more than today's quests, a sign of
+  relationships forming.
+- A solo player's level pace changes by under 15%.
+- No freezes, and replays are exact.
+
 ## Story mode
 
 Authored quests, item powers, and set-piece sites can return as an optional pack

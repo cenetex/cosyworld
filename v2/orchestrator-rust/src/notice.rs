@@ -24,6 +24,9 @@ impl RuntimeWorld {
         viewer_actor_id: u64,
         target_actor_id: u64,
     ) -> Option<NoticeActorFact> {
+        if let Some(fact) = self.first_tale_journey_notice_fact(viewer_actor_id, target_actor_id) {
+            return Some(fact);
+        }
         if !self.economy_notice_target_is_valid(viewer_actor_id, target_actor_id)
             || self.economy_known_by(viewer_actor_id, target_actor_id)
         {
