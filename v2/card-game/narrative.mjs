@@ -185,6 +185,8 @@ export function narrativeContext(world, action = null) {
       ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
+  // Authored sounds such as the clock's echo stay in the scene/history, but
+  // the speech API's conversation contains only registered avatar voices.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -192,6 +194,7 @@ export function narrativeContext(world, action = null) {
           (entry) =>
             entry.generated &&
             entry.kind === "dialogue" &&
+            profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
             entry.turn < world.turn,
         )
@@ -551,6 +554,8 @@ export async function requestNarrative(context, signal, progress = () => {}) {
 
 // Bound each transport even when an aborted stream takes time to settle.
 async function boundedRequest(request, context, signal, progress, timeout) {
+  const timeoutError = new Error("Story request timed out.");
+  if (timeout <= 0) throw timeoutError;
   const attempt = new AbortController();
   const abort = () => attempt.abort(signal.reason);
   let timer;
@@ -561,10 +566,7 @@ async function boundedRequest(request, context, signal, progress, timeout) {
         reject(attempt.signal.reason || new Error("Story request stopped.")),
       { once: true },
     );
-    timer = setTimeout(
-      () => attempt.abort(new Error("Story request timed out.")),
-      timeout,
-    );
+    timer = setTimeout(() => attempt.abort(timeoutError), timeout);
   });
   signal.addEventListener("abort", abort, { once: true });
   if (signal.aborted) abort();
@@ -581,6 +583,7 @@ async function boundedRequest(request, context, signal, progress, timeout) {
     attempt.abort();
   }
 }
+const RETRY_DELAY = 750;
 function retryPause(signal) {
   return new Promise((resolve, reject) => {
     const finish = () => {
@@ -590,7 +593,7 @@ function retryPause(signal) {
       else resolve();
     };
     const abort = () => finish();
-    const timer = setTimeout(finish, 750);
+    const timer = setTimeout(finish, RETRY_DELAY);
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) finish();
   });
@@ -639,7 +642,7 @@ export function createNarrator({
         if (
           attempt === 1 ||
           error?.retryable === false ||
-          Date.now() >= deadline
+          deadline - Date.now() <= RETRY_DELAY
         )
           throw error;
         await retryPause(signal);
