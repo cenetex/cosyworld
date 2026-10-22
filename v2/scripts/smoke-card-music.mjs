@@ -42,14 +42,39 @@ try {
     `http://127.0.0.1:${server.address().port}/?table=music-smoke`,
   );
   console.log("Loaded card table");
-  await page.waitForFunction(() =>
-    document.querySelector("#room-music").src.endsWith("attic-1.mp3"),
-  );
-  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
+  // Cards met for the first time are unveiled; take each into the hand.
+  async function takeUnveiled() {
+    while (await page.$eval("#unveil-dialog", (d) => d.open)) {
+      await page.click("#unveil-take");
+      await page.waitForFunction(
+        () => !document.querySelector(".unveil-ghost"),
+      );
+    }
+  }
+  async function playCard(card) {
+    await takeUnveiled();
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+    );
+    await page.locator(`#hand [data-card="${card}"]`).click();
+    await page.locator(`#hand [data-card="${card}"]`).click();
+  }
+  // A new game stays quiet, menu included, until its first accepted card play.
   await page.locator("#menu-button").click();
+  await page.waitForTimeout(500);
+  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
+  await page.locator('[data-close="menu-dialog"]').click();
+  // Lighting the lamp opens the way to the pond and starts the attic music.
+  await playCard("lamp");
   await page.waitForFunction(
-    () => document.querySelector("#room-music").currentTime > 0,
+    () => document.querySelector("#unveil-dialog").open,
   );
+  await takeUnveiled();
+  await page.waitForFunction(() => {
+    const audio = document.querySelector("#room-music");
+    return audio.src.endsWith("attic-1.mp3") && audio.currentTime > 0;
+  });
+  await page.locator("#menu-button").click();
   let volume = 0.3;
   const fullVolume = () =>
     page.waitForFunction(
@@ -100,23 +125,6 @@ try {
   await fullVolume();
   await page.locator('[data-close="menu-dialog"]').click();
 
-  // Cards met for the first time are unveiled; take each into the hand.
-  async function takeUnveiled() {
-    while (await page.$eval("#unveil-dialog", (d) => d.open)) {
-      await page.click("#unveil-take");
-      await page.waitForFunction(
-        () => !document.querySelector(".unveil-ghost"),
-      );
-    }
-  }
-  async function playCard(card) {
-    await takeUnveiled();
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
-    await page.locator(`[data-card="${card}"]`).click();
-    await page.locator(`[data-card="${card}"]`).click();
-  }
   async function travel(room, card = room) {
     await fullVolume();
     const oldSource = await page.locator("#room-music").getAttribute("src");
@@ -137,11 +145,7 @@ try {
     );
     await checkPair(room);
   }
-  // Lighting the lamp opens the way to the pond; playing the pond goes there.
-  await playCard("lamp");
-  await page.waitForFunction(
-    () => document.querySelector("#unveil-dialog").open,
-  );
+  // Playing the pond goes there.
   await travel("pond");
   console.log("Pond tracks played");
   await playCard("moth");
