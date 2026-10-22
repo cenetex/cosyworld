@@ -280,6 +280,10 @@ jobs:
           node v2/scripts/smoke-card-clearing-access.mjs
           node v2/scripts/smoke-card-dialogue-recovery.mjs
 
+      - name: Check music fades between rooms and on pause
+        if: matrix.mode == 'baseline'
+        run: node v2/scripts/smoke-card-music.mjs
+
       - name: Upload browser images
         if: always()
         uses: actions/upload-artifact@v7

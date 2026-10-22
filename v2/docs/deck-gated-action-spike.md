@@ -34,8 +34,8 @@ identities remain free.
 
 ## Scripted playtest
 
-Run `npm run v2:spike:deck-gated`. The deterministic simulator executes 10,000
-scene intents across all twelve actions. Its historical three-card projection
+The deterministic simulator, removed after this result (see `6fa34690`),
+executed 10,000 scene intents across all twelve actions. Its historical three-card projection
 baseline had a 0% initial miss rate and 0 selection delay. The current fixture's
 gated prototype has a 74.47% initial miss/fallback rate, 0.745 mean additional
 selection steps, and 0% lockout because of the mandatory free fallback.

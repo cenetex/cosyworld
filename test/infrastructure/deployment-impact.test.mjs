@@ -81,7 +81,7 @@ describe('deployment impact check', () => {
 
   it('normalizes only the declared release version fields', () => {
     const file = 'package.json';
-    const changedDependency = current[file].replace('"axios"', '"other"');
+    const changedDependency = current[file].replace('"ajv"', '"other"');
     expect(normalizeVersionFile(file, current[file])).not.toBe(
       normalizeVersionFile(file, changedDependency)
     );

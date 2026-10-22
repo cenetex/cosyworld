@@ -56,6 +56,9 @@ spell, or item without becoming a privately owned token.
 - Disconnect/unlink can move an actor offstage only through an explicit safe-
   boundary policy. It does not delete the actor or evade consequences.
 - The default composition and golden journey pass with the adapter absent.
+- Wherever a linked avatar appears, players see the actor's name and portrait.
+  A shortened wallet address appears only on the owner's own link screen,
+  never in shared world text, the Journal, or the chronicle.
 
 ## Groomed issue map
 
@@ -81,6 +84,10 @@ spell, or item without becoming a privately owned token.
 - Fix only correctness, data-safety, and compatibility defects in the item
   bridge while the decision is open.
 - Continue focused avatar-NFT work only through the actor materialization seam.
+- Do not revive the retired companion's wallet personas, which minted a
+  character for any wallet from its holdings and ranked "top traders". Custody
+  would create actors and holdings would confer standing, both of which ADR
+  0006 rules out.
 
 ### 1. Boundary accepted — 2026-08-09
 

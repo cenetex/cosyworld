@@ -50,6 +50,12 @@ validation and commitment through the normal world-event path.
 
 ## Repository map
 
+What the production image builds and serves is canonical: the card table at
+`/`, the shared world at `/classic`, and the Rust and C code behind them. Other
+clients follow the contract those surfaces use; when they disagree, fix the
+client, not the server. Retired prototypes leave the tree, and any idea worth
+keeping moves into `docs/backlog/` first.
+
 - `v2/card-game/`: the card table prototype: a client-only deterministic model,
   UI, text client, art (`assets/PROVENANCE.md`), and a dev server. A new
   public file must be listed in `serve.mjs`, `orchestrator-rust/src/card_game.rs`,
@@ -63,7 +69,8 @@ validation and commitment through the normal world-event path.
 - `v2/worlds/official/`: selected pack set and integrity lock.
 - `v2/content/official/`: generated runtime bundle; never edit it by hand.
 - `v2/scripts/`: worldpack compiler/validator and deployment smoke tests.
-- `v2/cli/`: terminal client.
+- `v2/cli/`: terminal client for `/classic`; it plays the same dealt offers
+  and command envelope as the browser, and CI smokes a card play.
 - `test/`: cross-surface Vitest coverage.
 - `.github/workflows/`: CI, dual-app production Fly deployment, and tagged
   GitHub release notes.

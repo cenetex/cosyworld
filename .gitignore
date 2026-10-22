@@ -3,12 +3,10 @@
 .keys/
 .env
 .env.*
-rati/keys/*
 *-wallet.json
 
 # Dependencies
 node_modules/
-bun.lock
 
 # Build outputs
 dist/
@@ -39,15 +37,6 @@ v2/orchestrator-rust/.runtime/
 v2/content/imports/
 
 # Terraform
-infra/terraform/.terraform/
-infra/terraform/.terraform.lock.hcl
-infra/terraform/terraform.tfstate
-infra/terraform/terraform.tfstate.backup
-infra/terraform/terraform.tfvars
-infra/terraform/terraform.tfvars.json
-infra/terraform/build/*.zip
-infra/terraform/*.auto.tfvars
-infra/terraform/*.auto.tfvars.json
 infra/aws-lonely-forest/.terraform/
 infra/aws-lonely-forest/terraform.tfstate
 infra/aws-lonely-forest/terraform.tfstate.backup

@@ -41,16 +41,11 @@ export function normalizeVersionFile(file, source) {
 export function isKnownNonProductionPath(file) {
   return (
     file.endsWith('.md') ||
-    file.startsWith('artifacts/') ||
     file.startsWith('docs/') ||
-    file.startsWith('examples/') ||
-    file.startsWith('public/') ||
-    file.startsWith('reference-library/crpg-mud/') ||
     file.startsWith('sites/') ||
     file.startsWith('test/') ||
     file.startsWith('v2/cli/') ||
     file.startsWith('v2/docs/') ||
-    file.startsWith('v2/spine-rust/') ||
     file.startsWith('v2/tests/') ||
     file === '.github/AGENT.md' ||
     file === '.github/PULL_REQUEST_TEMPLATE.md' ||

@@ -28,7 +28,6 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'dist/',
-        'public/',
         'docs/',
         'infra/',
         'scripts/',

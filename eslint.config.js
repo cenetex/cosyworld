@@ -7,11 +7,9 @@ export default [
       'dist/**',
       'node_modules/**',
       'images/**',
-      'public/**',
       'docs/**',
       'reference-library/**',
       'coverage/**',
-      'data/**/*.json',
       '**/*.min.js'
     ]
   },

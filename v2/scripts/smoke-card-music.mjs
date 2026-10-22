@@ -194,7 +194,7 @@ try {
   );
   await page.locator("#music-toggle").click();
   await fullVolume();
-  await page.screenshot({ path: "/private/tmp/shore-room-music-mobile.png" });
+  await page.screenshot({ path: "output/music/shore-room-mobile.png" });
   assert.deepEqual(errors, []);
   console.log(
     "Room music: all six MP3s played with fades at track endings, room changes, and pause/resume; saved controls and mobile menu passed.",
