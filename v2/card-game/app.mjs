@@ -384,21 +384,24 @@ try {
 } catch {}
 const music = createRoomMusic({
   audio: $("room-music"),
-  changed: ({ enabled, title, playing, failed }) => {
+  changed: ({ enabled, started, title, playing, failed }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
     $("music-status").textContent = !enabled
       ? "Music paused"
-      : failed
-        ? "Music is taking a moment. Switch it off and on to retry."
-        : playing
-          ? title
-          : "Tap or press a key to start music.";
+      : !started
+        ? "Play your first card to start music."
+        : failed
+          ? "Music is taking a moment. Switch it off and on to retry."
+          : playing
+            ? title
+            : "Tap or press a key to start music.";
   },
 });
 music.setEnabled(musicEnabled);
 music.setVolume(musicVolume);
 music.setHidden(document.hidden);
+music.setStarted(world.turn > 0);
 $("music-volume").value = String(Math.round(musicVolume * 100));
 function saveMusicSettings() {
   try {
@@ -513,6 +516,9 @@ function commitAction(action, revision) {
   const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   const from = world.actors.vale.place;
   world = result.state;
+  music.setRoom(world.actors.vale.place);
+  music.setStarted(world.turn > 0);
+  music.unlock();
   // A new play ends any review of earlier lines.
   reviewing = false;
   dragging = [];
@@ -851,7 +857,9 @@ function card(id) {
       node(
         "span",
         life.phase === "content"
-          ? `Resting · ${Math.max(0, life.restUntil - world.turn)} turns left`
+          ? world.turn >= life.restUntil
+            ? "Inspiration next turn"
+            : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
           : "Talk · trade · help",
         "trade-offers",
       ),
@@ -1321,6 +1329,7 @@ function renderLog() {
 }
 
 function render() {
+  music.setStarted(world.turn > 0);
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   music.setRoom(world.actors.vale.place);

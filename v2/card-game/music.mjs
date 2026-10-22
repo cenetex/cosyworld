@@ -26,6 +26,7 @@ export function createRoomMusic({
   let room = null,
     loadedFile = null,
     unlocked = false,
+    started = false,
     enabled = true,
     hidden = false,
     pending = false,
@@ -91,6 +92,7 @@ export function createRoomMusic({
   }
   function wanted() {
     return (
+      started &&
       unlocked &&
       enabled &&
       !hidden &&
@@ -101,6 +103,7 @@ export function createRoomMusic({
   function report() {
     changed({
       enabled,
+      started,
       title: track()?.title || "",
       playing: !audio.paused,
       failed: failures >= (roomTracks[room]?.length || 1),
@@ -218,6 +221,17 @@ export function createRoomMusic({
     sync();
   });
   return {
+    setStarted(value) {
+      if (started === Boolean(value)) return;
+      started = Boolean(value);
+      if (!started) {
+        unlocked = false;
+        clearTimeout(transitionTimer);
+        transitionTimer = null;
+        pause();
+      } else sync();
+      report();
+    },
     setRoom(value) {
       if (room === value) return;
       room = value;
@@ -225,6 +239,7 @@ export function createRoomMusic({
       sync();
     },
     unlock() {
+      if (!started) return;
       unlocked = true;
       if (enabled && !hidden) unlockGraph();
       start();
