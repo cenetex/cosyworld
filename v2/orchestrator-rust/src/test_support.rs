@@ -188,6 +188,7 @@ pub(super) fn complete_guided_story_for_test(runtime: &mut RuntimeWorld, actor_i
     };
     runtime.rpg_claims.insert(claim_key);
     runtime.journeys.remove(&actor_id);
+    runtime.complete_return_journey_for_test(actor_id);
     if let Some(continuation) = first_tale.continuation.as_ref() {
         let id = bond_id(actor_id, continuation.target_actor_id);
         runtime.bonds.insert(

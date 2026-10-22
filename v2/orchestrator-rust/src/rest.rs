@@ -66,19 +66,27 @@ impl RuntimeWorld {
     }
 
     pub(super) fn rest_entitlement(&self, actor_id: u64) -> RestEntitlement {
-        let Some(actor) = self
+        let location_id = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_can_act(*actor))
-        else {
+            .map(|actor| actor.location_id)
+            .unwrap_or_default();
+        self.rest_entitlement_at(actor_id, location_id)
+    }
+
+    pub(super) fn rest_entitlement_at(&self, actor_id: u64, location_id: u64) -> RestEntitlement {
+        if self
+            .actor_by_id(actor_id)
+            .is_none_or(|actor| !Self::actor_can_act(actor))
+        {
             return RestEntitlement {
                 grade: CW_REST_GRADE_NONE,
                 unavailable_reason: Some("Rest requires an active avatar.".to_string()),
             };
-        };
+        }
         let place = RestPlaceEligibility {
-            sanctuary: self.location_is_rest_sanctuary(actor.location_id),
-            lodging: self.location_has_lodging_feature(actor.location_id),
-            frontier: self.location_is_frontier(actor.location_id),
+            sanctuary: self.location_is_rest_sanctuary(location_id),
+            lodging: self.location_has_lodging_feature(location_id),
+            frontier: self.location_is_frontier(location_id),
         };
         let grade = derive_rest_grade(
             place,
