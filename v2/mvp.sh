@@ -386,6 +386,7 @@ check_all() {
   run_js_checks
   run_cli_checks
   run_composition_smoke
+  node "$ROOT/scripts/smoke-card-narrative-contract.mjs"
   run_production_profile_smoke
   start_deterministic_smoke_server
   run_smoke

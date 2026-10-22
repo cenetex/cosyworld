@@ -280,6 +280,100 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it.each([29_250, 29_750])(
+    "keeps a failure at %ims from retrying after the scene deadline",
+    async (failedAt) => {
+      vi.useFakeTimers();
+      let world = act(createWorld(), "take", "lamp");
+      const before = structuredClone(world);
+      const error = new Error("Late transport failure.");
+      const status = vi.fn();
+      const request = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((_, reject) =>
+              setTimeout(() => reject(error), failedAt),
+            ),
+        )
+        .mockImplementationOnce(async (context) => response(context));
+      const narrator = createNarrator({
+        getWorld: () => world,
+        apply: (next) => {
+          world = next;
+        },
+        status,
+        request,
+      });
+      narrator.changed({ kind: "take", item: "lamp" });
+      await vi.advanceTimersByTimeAsync(failedAt);
+      expect(status).toHaveBeenLastCalledWith("retry", error);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(30_001 - failedAt);
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(world).toEqual(before);
+
+      expect(narrator.retry()).toBe(true);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(
+        request.mock.calls.map(([context]) => [context.turn, context.focus]),
+      ).toEqual([
+        [1, "lamp"],
+        [1, "lamp"],
+      ]);
+      expect(world.actors).toEqual(before.actors);
+      expect(world.items).toEqual(before.items);
+      expect(world.revision).toBe(before.revision);
+      expect(status).toHaveBeenLastCalledWith("ready");
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
+  it("does not start a transport when its retry pause resumes past the deadline", async () => {
+    vi.useFakeTimers();
+    let world = act(createWorld(), "wait");
+    const before = structuredClone(world);
+    const status = vi.fn();
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Offline."))
+      .mockImplementationOnce(async (context) => response(context));
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: (next) => {
+        world = next;
+      },
+      status,
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenLastCalledWith("pending");
+    expect(vi.getTimerCount()).toBe(1);
+
+    // The browser can suspend while a still-affordable retry pause is pending.
+    vi.setSystemTime(Date.now() + 30_000);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenLastCalledWith(
+      "retry",
+      expect.objectContaining({ message: "Story request timed out." }),
+    );
+    expect(world).toEqual(before);
+    expect(vi.getTimerCount()).toBe(0);
+
+    expect(narrator.retry()).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls.map(([context]) => context.turn)).toEqual([1, 1]);
+    expect(world.actors).toEqual(before.actors);
+    expect(world.items).toEqual(before.items);
+    expect(world.revision).toBe(before.revision);
+    expect(status).toHaveBeenLastCalledWith("ready");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("releases the hand when a request is rejected by its input or access rules", async () => {
     vi.useFakeTimers();
     const status = vi.fn();
@@ -595,6 +689,13 @@ describe("witnessed departures and conversation continuity", () => {
     world = act(world, "wait");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["moth", "keeper"]);
+    // A partner who left after another avatar speaks after that departure,
+    // so it never mentions someone gone who is still on screen.
+    expect(narrativeContext(world, { target: "keeper" }).speakers).toEqual([
+      "vale",
+      "moth",
+      "keeper",
+    ]);
     const next = applyGeneratedText(world, context, response(context));
     const farewells = next.log.filter((e) => e.departureTo);
     expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "attic"]);
