@@ -113,6 +113,10 @@ slice.
   structured output, and latency. The current table sends one request for the
   whole scene. Per-avatar routing and a provider change are not implemented.
 
+A combined design for the first three, a rhythm of rest, inspiration, wishes,
+and lasting attachments, is planned in
+[Living between quests](docs/backlog/generated-world-core.md#living-between-quests).
+
 A first time-based slice would establish server-owned time and a persisted
 prophecy snapshot before adding transport. Server time must decide legal
 boarding and committed journeys; a browser countdown is only a display.
