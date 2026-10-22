@@ -43,7 +43,6 @@ import {
   sceneStaging,
   portrait,
   backdrop,
-  turnReceipt,
   witnessed,
 } from "./scene.mjs";
 import {
@@ -180,8 +179,7 @@ let storyStatus = "ready",
   reviewing = false,
   pendingCast = null,
   departed = new Set();
-// The turn's receipt shows at once, so the hand need not wait long for words.
-// If they are still on the way after this, the hand is released; a new play
+// Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
 let handTimer = null;
@@ -1220,19 +1218,6 @@ function renderScene() {
   $("dialogue-advance").onclick = advance;
   $("next-line").onclick = advance;
 }
-let renderedReceipt = "";
-function renderReceipt() {
-  const receipt = world.turn ? turnReceipt(world) : [];
-  const key = JSON.stringify(receipt.map((entry) => entry.seq));
-  if (key === renderedReceipt) return;
-  renderedReceipt = key;
-  $("turn-receipt").replaceChildren(
-    ...receipt.map((entry) =>
-      node("li", entry.text, entry.moved ? "moved" : ""),
-    ),
-  );
-  $("turn-receipt").hidden = !receipt.length;
-}
 let renderedLog = [];
 function renderLog() {
   const box = $("messages");
@@ -1295,7 +1280,6 @@ function render() {
   $("play-readout").textContent = selected.length
     ? cardPlay(world, selected).hint
     : "";
-  renderReceipt();
   renderTip();
   updateHandScroll();
   renderScene();

@@ -275,6 +275,7 @@ jobs:
       - name: Check dynamic routes and dialogue recovery
         if: matrix.mode == 'baseline'
         run: |
+          node v2/scripts/smoke-card-narrative-contract.mjs
           node v2/scripts/smoke-card-pond-access.mjs
           node v2/scripts/smoke-card-clearing-access.mjs
           node v2/scripts/smoke-card-dialogue-recovery.mjs
