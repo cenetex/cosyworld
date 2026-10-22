@@ -104,7 +104,11 @@ Existing saves keep their station start, original routes, authored programs, and
 
 ## Shore experiment
 
-The browser starts and loads worlds with `enableMotives`. Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules, and turn order. Each avatar card shows its target hand, quest progress, and possible offers. Menu shows the programs of the discovered cast.
+The browser starts and loads worlds with `enableMotives` and `personalQuests`.
+Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules,
+and turn order. During a personal quest, an avatar card shows its target hand
+and progress. Between quests it shows Inspiration. Menu shows lasting hopes,
+milestones, and the active quests of the discovered cast.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
 

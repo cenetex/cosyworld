@@ -562,7 +562,7 @@ function advancePrograms(s, met) {
     progress.step += 1;
     const complete = progress.step === program.steps.length;
     if (complete) {
-      finishPersonalQuest(s, actor, program);
+      finishPersonalQuest(s, actor, program, evidence.target);
       applyConsequence(s, actor, evidence.target);
       if (program.generated) {
         progress.completedHands += program.steps.length;
@@ -600,6 +600,9 @@ function advancePrograms(s, met) {
   } of receipts) {
     let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
     if (complete) text += ` Level ${levelOf(s, actor)}.`;
+    const life = lifeOf(s, actor);
+    if (complete && life?.milestones.at(-1) === s.turn)
+      text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
     text += questActive(s, actor)
       ? ` Next: ${handText(desireFor(s, actor))}.`
       : " Take time to enjoy this. Helpful actions will grow a new purpose.";

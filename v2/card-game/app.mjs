@@ -12,7 +12,6 @@ import {
   hopes,
   lifeFacts,
   INSPIRATION_MAX,
-  stayingWith,
   keepReason,
 } from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
@@ -852,8 +851,8 @@ function card(id) {
       node(
         "span",
         life.phase === "content"
-          ? "A few quiet turns to enjoy the result"
-          : "Talk · trade · help · travel together",
+          ? `Resting · ${Math.max(0, life.restUntil - world.turn)} turns left`
+          : "Talk · trade · help",
         "trade-offers",
       ),
     );
@@ -954,11 +953,6 @@ function card(id) {
         "personal-hope",
       ),
     );
-    const company = stayingWith(world, id);
-    if (company)
-      info.append(
-        node("span", `Staying with ${nameOf(company)}`, "trade-offers"),
-      );
     info.title = lifeFacts(world, id).join("\n");
   }
   if (type === "item" && people[rootHolder(world, id)]) {

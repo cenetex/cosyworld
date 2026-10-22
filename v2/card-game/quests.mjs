@@ -404,11 +404,30 @@ export function generateProgram(
     ) +
     (recent.includes(p.generated.item) ? 2 : 0);
   const chosen = choices.sort((a, b) => rank(a) - rank(b))[0] || base;
-  if (lifeOf(s, actor))
+  if (lifeOf(s, actor)) {
+    const milestone =
+      hopes[actor].milestones[lifeOf(s, actor).milestones.length];
+    if (
+      milestone?.effects &&
+      milestone.kinds.includes(chosen.generated.situation)
+    ) {
+      chosen.steps = chosen.steps.map((step) => {
+        const outcomes = step.any?.filter((h) =>
+          milestone.effects.includes(h.consequence?.kind),
+        );
+        if (outcomes?.length && outcomes.length < step.any.length) {
+          chosen.name = milestone.title;
+          chosen.purpose =
+            "Wrap the bell at Black pond with company to make the shore a quiet refuge.";
+        }
+        return outcomes?.length ? { any: outcomes } : step;
+      });
+    }
     chosen.purpose =
       `${hopes[actor].title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
         0,
         240,
       );
+  }
   return chosen;
 }

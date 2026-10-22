@@ -31,7 +31,11 @@ export const hopes = {
     milestones: [
       { title: "Share a warm evening", kinds: ["gathering"] },
       { title: "Care for a friend", kinds: ["delivery"] },
-      { title: "Help the shore feel safe", kinds: ["answer", "crossing"] },
+      {
+        title: "Help the shore feel safe",
+        kinds: ["answer", "crossing"],
+        effects: ["hush", "anchor"],
+      },
     ],
   },
   keeper: {
@@ -41,7 +45,7 @@ export const hopes = {
       oil: "Save oil for visitors who need light.",
     },
     milestones: [
-      { title: "Prepare a quiet shore", kinds: ["answer"] },
+      { title: "Prepare a quiet shore", kinds: ["answer"], effects: ["hush"] },
       { title: "Provide for a visitor", kinds: ["delivery"] },
       { title: "Welcome a gathering", kinds: ["gathering"] },
     ],
@@ -91,7 +95,7 @@ export function stayingWith(s, actor) {
   return (
     Object.keys(life.company).find(
       (other) =>
-        life.company[other] > s.turn &&
+        life.company[other] >= s.turn &&
         s.actors[other].place === s.actors[actor].place &&
         !(s.motives?.grievances[actor] || []).some((g) => g.other === other),
     ) || null
@@ -185,12 +189,19 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
   }
 }
 
-export function finishPersonalQuest(s, actor, program) {
+function fitsMilestone(milestone, program, target = null) {
+  if (!milestone?.kinds.includes(program.generated?.situation)) return false;
+  if (!milestone.effects) return true;
+  const targets = target
+    ? [target]
+    : program.steps.flatMap((step) => step.any || [step]);
+  return targets.some((h) => milestone.effects.includes(h.consequence?.kind));
+}
+export function finishPersonalQuest(s, actor, program, target = null) {
   const life = lifeOf(s, actor);
   if (!life) return;
   const next = hopes[actor].milestones[life.milestones.length];
-  if (next?.kinds.includes(program.generated?.situation))
-    life.milestones.push(s.turn);
+  if (fitsMilestone(next, program, target)) life.milestones.push(s.turn);
   life.phase = "content";
   life.inspiration = 0;
   life.restUntil = s.turn + REST_TURNS;
@@ -209,7 +220,8 @@ export function personalQuestRank(s, actor, program) {
     trade: "bargain",
   }[last];
   return (
-    (milestone?.kinds.includes(kind) ? -100 : 0) + (kind === affinity ? -8 : 0)
+    (fitsMilestone(milestone, program) ? -100 : 0) +
+    (kind === affinity ? -8 : 0)
   );
 }
 

@@ -248,6 +248,30 @@ describe("personal quests grow from life", () => {
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
+  it("earns the keeper's quiet milestone only through the quiet outcome", () => {
+    const s = together();
+    s.turn = s.revision = 1;
+    const program = { generated: { situation: "answer" } };
+    finishPersonalQuest(s, "keeper", program, { consequence: { kind: "oil" } });
+    expect(lifeOf(s, "keeper").milestones).toEqual([]);
+    finishPersonalQuest(s, "keeper", program, {
+      consequence: { kind: "hush" },
+    });
+    expect(lifeOf(s, "keeper").milestones).toEqual([1]);
+  });
+
+  it("chooses the quiet branch when both pond answers are available", () => {
+    const s = together();
+    s.items.bell.holder = "keeper";
+    s.items.oil.doses = 0;
+    s.items.cloth.holder = "station";
+    const program = generateProgram(s, "keeper", places, things);
+    expect(program.generated.situation).toBe("answer");
+    expect(program.steps.at(-1).any.map((h) => h.consequence.kind)).toEqual([
+      "hush",
+    ]);
+  });
+
   it("supplies hopes and attachments to the story without exposing unmet cast", () => {
     const s = fresh();
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(/Pip|keeper|moth/);
