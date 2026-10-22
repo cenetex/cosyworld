@@ -1156,3 +1156,21 @@ dialog.unveil::backdrop {
 .portrait.entering {
   visibility: hidden;
 }
+.inspiration-meter {
+  width: 100%;
+  height: 0.45rem;
+  accent-color: #e5c983;
+  display: block;
+  margin: 0.2rem 0 0.35rem;
+}
+.card.avatar[data-personal="true"] {
+  grid-template-rows: auto 48px auto auto 1fr auto;
+}
+.personal-hope,
+.item-attachment {
+  display: block;
+  margin-top: 0.35rem;
+  line-height: 1.3;
+  color: #dccca7;
+  white-space: normal;
+}

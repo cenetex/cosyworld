@@ -1,3 +1,11 @@
+import {
+  enablePersonalQuests,
+  lifeOf,
+  attachmentValue,
+  keepReason,
+  stayingWith,
+  lifeFacts,
+} from "./life.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
 export const tastes = {
@@ -41,13 +49,17 @@ export const names = {
 export const hasMotives = (s) => s.motives?.version === 1;
 export const hasQuestPrograms = (s) =>
   !hasMotives(s) || s.motives.questPrograms === true;
-export function enableMotives(s, { questPrograms = false } = {}) {
+export function enableMotives(
+  s,
+  { questPrograms = false, personalQuests = false } = {},
+) {
   if (!s.motives)
     s.motives = {
       version: 1,
       grievances: Object.fromEntries(actors.map((id) => [id, []])),
     };
-  if (questPrograms) s.motives.questPrograms = true;
+  if (questPrograms || personalQuests) s.motives.questPrograms = true;
+  if (personalQuests) enablePersonalQuests(s);
   return s;
 }
 export function owner(s, item) {
@@ -74,7 +86,7 @@ export function valueOf(s, actor, item) {
     value += 12;
   if (item === "cloth" && actor === "keeper" && s.items.bell.ringing)
     value += 9;
-  return Math.max(1, value);
+  return Math.max(1, value) + attachmentValue(s, actor, item);
 }
 export function bundleValue(s, actor, item) {
   return (
@@ -88,7 +100,10 @@ export function tradeDecision(s, requester, give, receive) {
   const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
   const accepted =
     bundleValue(s, seller, give) >=
-    bundleValue(s, seller, receive) + 1 + premium - favour;
+    bundleValue(s, seller, receive) +
+      (lifeOf(s, seller) ? 0 : 1) +
+      premium -
+      favour;
   return {
     accepted,
     reason: premium
@@ -102,10 +117,11 @@ export function giftDecision(s, giver, item, recipient) {
   const favour =
     s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
   return {
-    accepted: !annoyed && (spare || favour),
+    accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
     reason: annoyed
       ? `${names[giver]} is still annoyed with ${names[recipient]}.`
-      : `${names[giver]} wants to keep the ${names[item]}.`,
+      : keepReason(s, giver, item) ||
+        `${names[giver]} wants to keep the ${names[item]}.`,
   };
 }
 export function interest(s, actor) {
@@ -152,6 +168,23 @@ export function interest(s, actor) {
   }
   if (actor === "keeper" && held.includes("bell"))
     item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
+  const company = stayingWith(s, actor);
+  if (company)
+    return {
+      items: item && placeOf(s, item) === s.actors[actor].place ? [item] : [],
+      location: s.actors[actor].place,
+      avatars: [company],
+      text: `Time with ${names[company]}`,
+      reason: "Stay together after a shared moment",
+    };
+  if (lifeOf(s, actor)?.phase === "content")
+    return {
+      items: [],
+      location: s.actors[actor].place,
+      avatars: [],
+      text: "Enjoying what we achieved",
+      reason: "Take time to enjoy the last quest",
+    };
   if (item && actors.includes(owner(s, item)) && owner(s, item) !== actor) {
     const holder = owner(s, item);
     const refusal = s.log.findLast(
@@ -273,6 +306,12 @@ export function motiveFacts(s, actor, limit = 6) {
   return [
     tastes[actor].likes,
     `Current interest: ${interest(s, actor).text}.`,
+    ...(lifeOf(s, actor)
+      ? [
+          lifeFacts(s, actor).slice(0, 3).join(" ").slice(0, 240),
+          lifeFacts(s, actor).slice(3).join(" ").slice(0, 240),
+        ].filter(Boolean)
+      : []),
     ...(s.motives?.grievances[actor] || [])
       .slice(-limit)
       .reverse()
@@ -330,7 +369,9 @@ export function socialPlan(s, actor, actions, api) {
       if (a.kind === "move") return 60;
     }
     let n = -30;
-    if (a.kind === "wait") n = 0;
+    if (a.kind === "wait")
+      n =
+        stayingWith(s, actor) || lifeOf(s, actor)?.phase === "content" ? 20 : 0;
     if (a.kind === "take") n = valueOf(s, actor, a.item) * 2;
     if (a.kind === "trade")
       n =
@@ -372,6 +413,18 @@ export function socialPlan(s, actor, actions, api) {
     )
       n = 25;
     if (a.kind === "talk" && s.turn - s.actors[actor].lastTalk >= 4) n = 2;
+    if (
+      lifeOf(s, actor) &&
+      a.kind === "talk" &&
+      s.turn - s.actors[actor].lastTalk >= 4
+    )
+      n = 24;
+    if (
+      lifeOf(s, actor) &&
+      a.kind === "move" &&
+      (stayingWith(s, actor) || lifeOf(s, actor).phase === "content")
+    )
+      n -= 50;
     if (a.kind === "drop")
       n =
         api.carried(s, actor).length >= 3 && valueOf(s, actor, a.item) <= 3

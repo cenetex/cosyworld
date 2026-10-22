@@ -6,6 +6,14 @@ import {
   tastes,
 } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
+import {
+  lifeOf,
+  questActive,
+  hopes,
+  lifeFacts,
+  INSPIRATION_MAX,
+  keepReason,
+} from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { conditionText } from "./situations.mjs";
 import {
@@ -69,6 +77,7 @@ const SAVE_KEY =
   (tableName && /^[a-z0-9-]{1,40}$/i.test(tableName) ? `.${tableName}` : "");
 let world = enableMotives(createWorld({ opening: true }), {
     questPrograms: true,
+    personalQuests: true,
   }),
   selected = [],
   saveBlocked = false,
@@ -106,7 +115,11 @@ function notice(text) {
 }
 try {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) world = enableMotives(decodeSave(saved), { questPrograms: true });
+  if (saved)
+    world = enableMotives(decodeSave(saved), {
+      questPrograms: true,
+      personalQuests: true,
+    });
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -371,21 +384,24 @@ try {
 } catch {}
 const music = createRoomMusic({
   audio: $("room-music"),
-  changed: ({ enabled, title, playing, failed }) => {
+  changed: ({ enabled, started, title, playing, failed }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
     $("music-status").textContent = !enabled
       ? "Music paused"
-      : failed
-        ? "Music is taking a moment. Switch it off and on to retry."
-        : playing
-          ? title
-          : "Tap or press a key to start music.";
+      : !started
+        ? "Play your first card to start music."
+        : failed
+          ? "Music is taking a moment. Switch it off and on to retry."
+          : playing
+            ? title
+            : "Tap or press a key to start music.";
   },
 });
 music.setEnabled(musicEnabled);
 music.setVolume(musicVolume);
 music.setHidden(document.hidden);
+music.setStarted(world.turn > 0);
 $("music-volume").value = String(Math.round(musicVolume * 100));
 function saveMusicSettings() {
   try {
@@ -500,6 +516,9 @@ function commitAction(action, revision) {
   const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   const from = world.actors.vale.place;
   world = result.state;
+  music.setRoom(world.actors.vale.place);
+  music.setStarted(world.turn > 0);
+  music.unlock();
   // A new play ends any review of earlier lines.
   reviewing = false;
   dragging = [];
@@ -729,6 +748,7 @@ function card(id) {
   );
   el.type = "button";
   el.dataset.card = id;
+  if (type === "avatar" && lifeOf(world, id)) el.dataset.personal = "true";
   el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
@@ -789,6 +809,12 @@ function card(id) {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
+    const life = lifeOf(world, id);
+    if (life && !questActive(world, id)) {
+      caption =
+        life.phase === "content" ? "Enjoying this moment" : "Finding a purpose";
+      detail = interest(world, id).text;
+    }
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
     detail =
@@ -810,7 +836,38 @@ function card(id) {
         "flavor",
       ),
     );
-  if (type === "avatar" && (!hasQuestPrograms(world) || id === "badger")) {
+  if (type === "avatar" && lifeOf(world, id) && !questActive(world, id)) {
+    const life = lifeOf(world, id);
+    info.replaceChildren(
+      node("span", interest(world, id).text, "hand-condition"),
+    );
+    const meter = node("progress", undefined, "inspiration-meter");
+    meter.max = INSPIRATION_MAX;
+    meter.value = life.inspiration;
+    meter.setAttribute("aria-label", `${def.name} inspiration`);
+    info.append(
+      node(
+        "span",
+        `Inspiration ${life.inspiration}/${INSPIRATION_MAX}`,
+        "hand-condition",
+      ),
+      meter,
+    );
+    info.append(
+      node(
+        "span",
+        life.phase === "content"
+          ? world.turn >= life.restUntil
+            ? "Inspiration next turn"
+            : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
+          : "Talk · trade · help",
+        "trade-offers",
+      ),
+    );
+  } else if (
+    type === "avatar" &&
+    (!hasQuestPrograms(world) || id === "badger")
+  ) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
     const grudge = world.motives?.grievances[id]?.at(-1);
@@ -893,6 +950,26 @@ function card(id) {
           "trade-offers",
         ),
       );
+  }
+  if (type === "avatar" && lifeOf(world, id)) {
+    const life = lifeOf(world, id),
+      hope = hopes[id];
+    info.append(
+      node(
+        "span",
+        `Hope ${life.milestones.length}/${hope.milestones.length} · Menu`,
+        "personal-hope",
+      ),
+    );
+    info.title = lifeFacts(world, id).join("\n");
+  }
+  if (type === "item" && people[rootHolder(world, id)]) {
+    const reason = keepReason(world, rootHolder(world, id), id);
+    if (reason) {
+      info.querySelector(".flavor")?.remove();
+      info.append(node("span", reason, "item-attachment"));
+      info.title = `${def.text} ${reason}`;
+    }
   }
   el.append(info);
   const label = playLabel(chosen.action);
@@ -1252,6 +1329,7 @@ function renderLog() {
 }
 
 function render() {
+  music.setStarted(world.turn > 0);
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   music.setRoom(world.actors.vale.place);
@@ -1396,6 +1474,55 @@ $("history-button").onclick = () => {
   $("messages").scrollTop = $("messages").scrollHeight;
 };
 $("menu-button").onclick = () => {
+  if (world.life) {
+    $("quest-guide").replaceChildren(
+      ...knownActors(world)
+        .filter((id) => lifeOf(world, id))
+        .map((id) => {
+          const block = node("section", undefined, "quest-guide-program");
+          const life = lifeOf(world, id),
+            hope = hopes[id],
+            program = programFor(world, id);
+          block.append(node("h3", `${nameOf(id)} · ${hope.title}`));
+          block.append(
+            node(
+              "p",
+              `Inspiration ${life.inspiration}/${INSPIRATION_MAX} · ${life.phase === "active" ? "Personal quest active" : life.phase === "content" ? "Enjoying the result" : "Finding a purpose"}`,
+            ),
+          );
+          const milestones = node("ol");
+          hope.milestones.forEach((step, i) =>
+            milestones.append(
+              node(
+                "li",
+                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}`,
+              ),
+            ),
+          );
+          block.append(milestones);
+          if (program) {
+            block.append(node("h4", program.name));
+            if (program.purpose) block.append(node("p", program.purpose));
+            const steps = node("ol");
+            program.steps.forEach((step, i) =>
+              steps.append(
+                node(
+                  "li",
+                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(step).map(handText).join(" OR ")}`,
+                ),
+              ),
+            );
+            block.append(steps);
+          }
+          for (const fact of lifeFacts(world, id).slice(3))
+            block.append(node("p", fact));
+          return block;
+        }),
+    );
+    $("menu-dialog").showModal();
+    pauseSpeech();
+    return;
+  }
   if (!hasQuestPrograms(world)) {
     $("quest-guide").replaceChildren(
       ...knownActors(world).map((id) => {
@@ -1500,6 +1627,7 @@ $("confirm-reset").onclick = () => {
   speechSounds.stop();
   world = enableMotives(createWorld({ opening: true }), {
     questPrograms: true,
+    personalQuests: true,
   });
   completedSpeech.clear();
   encountered = new Set(availableCards(world));
@@ -1527,7 +1655,10 @@ window.addEventListener("storage", (event) => {
   speechKey = null;
   speechSounds.stop();
   try {
-    world = enableMotives(decodeSave(event.newValue), { questPrograms: true });
+    world = enableMotives(decodeSave(event.newValue), {
+      questPrograms: true,
+      personalQuests: true,
+    });
     renderedHand = "";
     lineSeq = null;
     selected = [];

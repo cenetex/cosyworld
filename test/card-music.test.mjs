@@ -87,6 +87,7 @@ function player({ fallback = false } = {}) {
     music.unlock();
     await advance(1000);
   };
+  music.setStarted(true);
   const ended = () => {
     audio.paused = true;
     audio.dispatchEvent(new Event("ended"));
@@ -105,6 +106,39 @@ function player({ fallback = false } = {}) {
 }
 
 describe("room music fades", () => {
+  it("waits for the first play in each new game and keeps the music setting", async () => {
+    const { audio, music, changed } = player();
+    music.setStarted(false);
+    music.setRoom("attic");
+    music.unlock();
+    music.setEnabled(false);
+    music.setEnabled(true);
+    music.setVolume(0.4);
+    music.setHidden(true);
+    music.setHidden(false);
+    await advance(1000);
+    expect(audio.play).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenLastCalledWith(
+      expect.objectContaining({ started: false }),
+    );
+    music.setStarted(true);
+    music.unlock();
+    await advance(1000);
+    expect(audio.paused).toBe(false);
+    music.setStarted(false);
+    expect(audio.paused).toBe(true);
+    music.unlock();
+    await advance(1000);
+    expect(audio.play).toHaveBeenCalledTimes(1);
+    music.setEnabled(false);
+    music.setStarted(true);
+    music.unlock();
+    expect(audio.paused).toBe(true);
+    music.setEnabled(true);
+    await advance(1000);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+
   it("waits for a gesture, fades in, and keeps the song through scene updates", async () => {
     const { audio, music, level } = player();
     music.setRoom("attic");
