@@ -75,7 +75,7 @@ describe("personal quests grow from life", () => {
     expect(targetsFor(s, "vale")).toEqual([]);
     expect(lifeLine(s, "vale")).toEqual({
       caption: "Resting",
-      detail: "Enjoying what the last quest made.",
+      detail: "Resting. Enjoying what the last quest made.",
     });
     // The attic is a sanctuary, so rest starts at once.
     for (let i = 1; i < REST_TURNS; i++) {
@@ -118,9 +118,11 @@ describe("personal quests grow from life", () => {
     expect(sparkOf(s, "moth").kind).toBe("gift");
     expect(lifeLine(s, "moth")).toEqual({
       caption: "Resting",
-      detail: "Restless since Vale's gift.",
+      detail: "Resting. Thinking about Vale's gift.",
     });
-    expect(lifeLine(s, "vale").detail).toBe("Restless since helping Pip.");
+    expect(lifeLine(s, "vale").detail).toBe(
+      "Resting. Thinking about helping Pip.",
+    );
     expect(lifeFacts(s, "moth")).toContain(
       "I'm resting after my last quest. I keep thinking about Vale's gift.",
     );
@@ -160,12 +162,59 @@ describe("personal quests grow from life", () => {
     s = act(s, "wait");
     expect(lifeOf(s, "moth").phase).toBe("content");
     expect(lifeLine(s, "moth").detail).toBe(
-      "Restless since the walk to Empty station with Vale.",
+      "Resting. Thinking about the walk to Empty station with Vale.",
     );
     s.actors.moth.place = "pond";
     s.actors.keeper.place = "attic";
     s = act(s, "wait");
     expect(lifeOf(s, "moth").phase).toBe("returning");
+  });
+
+  it("keeps card lines third person and in agreement with their state", () => {
+    const s = together();
+    s.actors.keeper.place = "pond";
+    s.items.lamp.holder = "vale";
+    const firstPerson = /\b(I|I'm|I've|me|my|we|our|us)\b/;
+    const seen = [];
+    const check = (id) => {
+      const line = lifeLine(s, id);
+      seen.push(line.detail);
+      for (const text of [line.caption, line.detail, interest(s, id).text]) {
+        expect(text).not.toMatch(firstPerson);
+        noNumbers(text);
+      }
+      // "Restless" belongs to the restless state only.
+      if (line.caption === "Resting") expect(line.detail).toMatch(/^Resting\./);
+      if (line.caption !== "Restless")
+        expect(line.detail).not.toMatch(/Restless/);
+    };
+    for (const id of ["vale", "moth", "keeper"]) check(id);
+    s.turn = s.revision = 1;
+    finishPersonalQuest(s, "keeper", {}, sanctuaries);
+    check("keeper");
+    s.actors.keeper.place = "station";
+    finishPersonalQuest(s, "keeper", {}, sanctuaries);
+    check("keeper");
+    finishPersonalQuest(s, "moth", {}, sanctuaries);
+    s.turn = s.revision = 2;
+    recordLifeAction(
+      s,
+      { kind: "give", actor: "vale", target: "moth", item: "lamp" },
+      true,
+      true,
+    );
+    check("moth");
+    lifeOf(s, "moth").phase = "seeking";
+    check("moth");
+    expect(seen).toEqual([
+      "Looking for something worth doing.",
+      "Looking for something worth doing.",
+      "Looking for something worth doing.",
+      "Wants to rest at Empty station.",
+      "Resting. Enjoying what the last quest made.",
+      "Resting. Thinking about Vale's gift.",
+      "Restless since Vale's gift.",
+    ]);
   });
 
   it("keeps pacing out of sight and gives a quiet avatar a purpose in time", () => {
@@ -408,7 +457,7 @@ describe("personal quests grow from life", () => {
     expect(settleLife(s, undefined, sanctuaries)).toEqual([]);
     expect(lifeLine(s, "bo")).toEqual({
       caption: "Resting",
-      detail: "Restless since talking with Ana.",
+      detail: "Resting. Thinking about talking with Ana.",
     });
     expect(validLife(s)).toBe(true);
     let ready = [];

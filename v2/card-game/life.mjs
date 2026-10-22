@@ -213,7 +213,8 @@ export function purposeOrigin(s, actor) {
   const e = originOf(s, actor);
   return e ? sparkPhrase(s, e) : null;
 }
-// Third-person card prose. Pacing numbers never appear here.
+// Third-person card prose: a state caption and one calm line that agrees
+// with it. No first person and no pacing numbers appear here.
 export function lifeLine(s, actor) {
   const life = lifeOf(s, actor);
   if (!life || life.phase === "active") return null;
@@ -227,8 +228,8 @@ export function lifeLine(s, actor) {
     return {
       caption: "Resting",
       detail: spark
-        ? `Restless since ${sparkPhrase(s, spark)}.`
-        : "Enjoying what the last quest made.",
+        ? `Resting. Thinking about ${sparkPhrase(s, spark)}.`
+        : "Resting. Enjoying what the last quest made.",
     };
   return {
     caption: "Restless",

@@ -192,7 +192,7 @@ export function interest(s, actor) {
       items: [],
       location: s.actors[actor].place,
       avatars: [],
-      text: "Enjoying what we achieved",
+      text: "Content after the last quest",
       reason: "Take time to enjoy the last quest",
     };
   if (item && actors.includes(owner(s, item)) && owner(s, item) !== actor) {

@@ -230,8 +230,12 @@ Each avatar is in one stage, saved in its `life` record:
 | --- | --- | --- |
 | Pursuing (`active`) | The quest's checklist | The quest completes |
 | Heading to rest (`returning`) | "Wants to rest at Empty station." | The avatar reaches a sanctuary |
-| Resting (`content`) | "Enjoying what the last quest made." or "Restless since Vale's gift." | `REST_TURNS` (3) rounds pass in a sanctuary |
-| Restless (`seeking`) | "Looking for something worth doing." | A meaningful experience, or `STALL_TURNS` (6) quiet rounds |
+| Resting (`content`) | "Resting. Enjoying what the last quest made." or "Resting. Thinking about Vale's gift." | `REST_TURNS` (3) rounds pass in a sanctuary |
+| Restless (`seeking`) | "Looking for something worth doing." or "Restless since Vale's gift." | A meaningful experience, or `STALL_TURNS` (6) quiet rounds |
+
+The card's state and its line agree: a resting avatar is never called
+restless. Card lines never use first person; that register belongs to the
+speech facts alone.
 
 During rest the avatar has no standing demand. It still acts through motives:
 it keeps what it likes, talks, and answers asks and trades.
@@ -334,6 +338,30 @@ starts heading to one at the next round.
 - A quiet world stays still: experiences come only from plays and resident acts
   within reach of a player.
 - No rule in `life.mjs` names an avatar, item or place.
+
+### Lineage
+
+The rework follows three lessons from the cozy and social-sim survey kept
+outside the repository at `research_notes/CosyWorld design
+lineages/cozy_social_sim.md` (section "Lessons for CosyWorld"):
+
+1. **Hidden, banded pacing** (Animal Crossing's friendship integer with
+   behaviour bands; Versu's "strongly marked" long-term changes). The visible
+   sum is gone. Rest and stall counts stay internal; what the player sees is
+   the band: resting, heading to rest, restless, pursuing. A band change is an
+   event with a line ("Pip finds a new purpose …"), never a number.
+2. **Favours and gifts are cozy; obligation and neediness are not** (the
+   Cozy Games report). Company promises and hopes are never maintenance. A
+   promise of company expires as old news after three rounds; a hope never
+   weakens; nothing decays through the player's absence. The table is
+   turn-based, so time moves only when the player plays, and the only count
+   that runs while an avatar waits is the quiet spell that ends by giving it a
+   purpose.
+3. **Gifts as journaled provenance with a remembered reason** (Versu;
+   Animal Crossing's displayed gifts). "Vale gave me this Lamp. I'm keeping
+   it." is a memory with a cause, kept on the item as long as the receiver
+   holds it. Giving the same thing again creates no new memory; a repeated
+   exchange refreshes one record instead of adding another.
 
 ### The simulation decides; models only write
 
