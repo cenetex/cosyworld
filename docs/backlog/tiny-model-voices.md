@@ -149,7 +149,8 @@ calls; a quiet later turn: 2 to 3.
 
 ## Sampling
 
-- temperature 1.0, cooled to 0.9 on the single regeneration;
+- temperature 1.0, cooled to 0.9 on the single regeneration and to 0.8 on an
+  escalation (see Tiers below);
 - `max_tokens` 96 for a line, thought or dream, 160 for a persona;
 - no `response_format`;
 - `min_p`, `top_k`, repetition penalty and stop sequences are **not** sent
@@ -275,6 +276,31 @@ shortlisted model that also runs locally), `google/gemma-4-31b-it`,
 `google/gemma-3-4b-it`. Prefer providers that list `min_p` under
 `supported_parameters` once it is sent. Places and items still use the
 world-content model in `COSYWORLD_CARD_TEXT_MODEL`.
+
+## Tiers
+
+Lines stay on the tiny model. Two optional tiers sit above it, and the route
+chooses the tier from the part and the attempt count; the model never does.
+
+- **Reflection.** A persona reflection outlives the scene: it is folded into
+  every later call for that character. `COSYWORLD_CARD_REFLECTION_MODEL`
+  takes every persona part instead of the character's line model (or instead
+  of the world-content model when the character map is unset). Thoughts and
+  dreams stay on the line model.
+- **Escalation.** After the configured attempts on a voice's own model have
+  all failed, whether rejected or unanswered,
+  `COSYWORLD_CARD_ESCALATION_MODEL` gets exactly one more attempt at the
+  coolest temperature (0.1 below the last attempt), inside the same call
+  timeout and scene deadline and through the same validator. It is generation
+  through the validator, not a fallback text: a voice that fails there too
+  stays silent under `omitted`. An escalation to the model a voice already
+  used is skipped, so a persona on the reflection model is not sent to it
+  twice when both tiers name the same model.
+
+Both production sites set both tiers to `openai/gpt-6-luna`. A tier must be a
+registered world-content model; one that reasons by default declares
+`reasoning` in the registry so the route sends effort `none` there too. An
+unset tier changes nothing.
 
 ## Deferred
 
