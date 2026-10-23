@@ -607,6 +607,13 @@ async fn generate(
 /// reflection calls when an avatar is due one. The simulation chooses who
 /// is voiced and what each one is aware of; this validator decides what is
 /// published. Prompts carry only the entity's own words and awareness.
+///
+/// Every voice stands on its own. An entity whose words fail twice, or that
+/// is still waiting when the scene deadline passes, stays silent and is listed
+/// under `omitted`; the others are published. The scene fails only when none
+/// of its speakers (or, with no speakers, none of its voices) has words, so
+/// the browser retries once and otherwise keeps its last scene. Nothing is
+/// invented.
 async fn complete(
     config: &AiConfig,
     context: &Context,
@@ -641,10 +648,9 @@ async fn complete(
     let mut failed_reflection = BTreeSet::new();
     let collected = tokio::time::timeout(settings.scene_timeout, async {
         while let Some((id, part, result)) = futures_util::StreamExt::next(&mut results).await {
-            let speaker = context.speakers.contains(&id);
             match (part, result) {
                 (Part::Line, Ok((text, model))) => {
-                    if speaker {
+                    if context.speakers.contains(&id) {
                         if let Some(emit) = on_delta {
                             if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
                                 return Err(error(
@@ -656,21 +662,9 @@ async fn complete(
                     }
                     lines.insert(id, (text, model));
                 }
-                (Part::Line, Err(())) if speaker || !settings.optional_scenery => {
-                    return Err(error(
-                        StatusCode::BAD_GATEWAY,
-                        "A character's words need another try.",
-                    ));
-                }
                 (Part::Line, Err(())) => {}
                 (part, Ok((text, _))) => {
                     private.insert((id, part), text);
-                }
-                (_, Err(())) if !settings.optional_scenery => {
-                    return Err(error(
-                        StatusCode::BAD_GATEWAY,
-                        "A character's words need another try.",
-                    ));
                 }
                 (_, Err(())) => {
                     failed_reflection.insert(id);
@@ -680,15 +674,11 @@ async fn complete(
         Ok(())
     })
     .await;
-    match collected {
-        Err(_) => {
-            return Err(error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "A character is still finding their words.",
-            ))
-        }
-        Ok(Err(response)) => return Err(response),
-        Ok(Ok(())) => {}
+    // Past the scene deadline, what has been validated is published and the
+    // rest stay silent; dropping the stream cancels their provider requests.
+    drop(results);
+    if let Ok(Err(response)) = collected {
+        return Err(response);
     }
     let mut entries = Vec::new();
     for id in &voiced {
@@ -712,6 +702,19 @@ async fn complete(
             model: Some(model),
             reflection,
         });
+    }
+    // Someone the scene needed has to have words, or there is nothing to
+    // publish and the browser's one retry is the right answer.
+    let needed: &[String] = if context.speakers.is_empty() {
+        &voiced
+    } else {
+        &context.speakers
+    };
+    if !entries.iter().any(|entry| needed.contains(&entry.id)) {
+        return Err(error(
+            StatusCode::BAD_GATEWAY,
+            "A character's words need another try.",
+        ));
     }
     let omitted: Vec<_> = context
         .entities
@@ -753,16 +756,15 @@ impl Part {
 }
 
 /// How the card voices reach their models. `hosted` keeps the deployed
-/// deadlines; `local` gives on-device models room and runs one call at a time.
+/// deadlines and runs calls side by side; `local` gives on-device models room
+/// and runs one call at a time. Both regenerate a rejected reply once, and
+/// both leave a voice that still fails silent rather than failing the scene.
 #[derive(Clone, Debug, PartialEq)]
 struct VoiceSettings {
     call_timeout: Duration,
     scene_timeout: Duration,
     parallel: usize,
     attempts: u8,
-    /// A place or item line, or a private reflection, may be left out when
-    /// its model cannot produce a valid one. Speakers are always required.
-    optional_scenery: bool,
 }
 
 impl VoiceSettings {
@@ -771,8 +773,7 @@ impl VoiceSettings {
             call_timeout: Duration::from_secs(12),
             scene_timeout: Duration::from_secs(22),
             parallel: 8,
-            attempts: 1,
-            optional_scenery: false,
+            attempts: 2,
         }
     }
 
@@ -782,7 +783,6 @@ impl VoiceSettings {
             scene_timeout: Duration::from_secs(240),
             parallel: 1,
             attempts: 2,
-            optional_scenery: true,
         }
     }
 
@@ -922,17 +922,29 @@ fn idiolect(entity: &Entity) -> String {
 
 /// Up to five authored lines in the entity's voice, rotated by turn so no
 /// single example dominates the reply.
-fn voice_lines(context: &Context, id: &str) -> Vec<String> {
-    let lines: Vec<_> = profiles()[id]["lines"]
+/// Every authored line for one entity; the copy check reads the whole pool.
+fn profile_lines(id: &str) -> Vec<String> {
+    profiles()[id]["lines"]
         .as_array()
-        .map(|lines| lines.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
+        .map(|lines| {
+            lines
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Five of the entity's authored lines, rotated by turn, for the transcript.
+fn voice_lines(context: &Context, id: &str) -> Vec<String> {
+    let lines = profile_lines(id);
     if lines.is_empty() {
         return Vec::new();
     }
     let start = (context.turn % lines.len() as u64) as usize;
     (0..lines.len().min(5))
-        .map(|offset| lines[(start + offset) % lines.len()].to_string())
+        .map(|offset| lines[(start + offset) % lines.len()].clone())
         .collect()
 }
 
@@ -1285,7 +1297,7 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            examples: voice_lines(context, &entity.id),
+            examples: profile_lines(&entity.id),
         }
     }
 
@@ -1522,7 +1534,7 @@ mod tests {
                 "{id}: kind, name, idiolect, lines"
             );
             let lines = profile["lines"].as_array().unwrap();
-            assert!((3..=8).contains(&lines.len()), "{id}");
+            assert!((3..=12).contains(&lines.len()), "{id}");
             // Examples never address the player by name.
             if id != "vale" {
                 assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Vale")));
@@ -1764,10 +1776,14 @@ mod tests {
                 assert!(!text.contains("Vale private kindness memory"));
             }
         }
-        // A hosted scene publishes every voiced line or none of them.
+        // A place that fails twice stays silent; the speakers are still published.
         c.entities[1].facts.push("Fail this place.".into());
-        let invalid = app.clone().oneshot(request(&c)).await.unwrap();
-        assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
+        let partial = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(partial.status(), StatusCode::OK);
+        let bytes = to_bytes(partial.into_body(), 64 * 1024).await.unwrap();
+        let result: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(result["omitted"], json!(["station"]));
+        assert_eq!(result["entries"].as_array().unwrap().len(), 3);
         server.abort();
     }
 
@@ -1795,7 +1811,8 @@ mod tests {
                     now.fetch_sub(1, SeqCst);
                     let user = body["messages"][1]["content"].as_str().unwrap();
                     let stem = user.lines().last().unwrap();
-                    let mute = (user.contains("Mute speaker") && stem == "Vale:")
+                    let mute = (user.contains("Mute speaker")
+                        && (stem == "Vale:" || stem == "Pip:"))
                         || (stem == "Empty station:" && user.contains("Paths visible"));
                     let text = if mute {
                         String::new()
@@ -1838,8 +1855,15 @@ mod tests {
         // Vale's first, empty reply was retried; the place had two tries.
         assert_eq!(seen.lock().unwrap().len(), 6);
         assert_eq!(most.load(std::sync::atomic::Ordering::SeqCst), 1);
-        // A speaker without valid words fails the scene; nothing is invented.
+        // A speaker without valid words stays silent while the other speaks.
         c.entities[0].facts.push("Mute speaker.".into());
+        let quiet = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(quiet.status(), StatusCode::OK);
+        let bytes = to_bytes(quiet.into_body(), 64 * 1024).await.unwrap();
+        let result: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(result["omitted"], json!(["vale", "station"]));
+        // With no speaker's words at all the scene fails; nothing is invented.
+        c.entities[3].facts.push("Mute speaker.".into());
         let failed = app.oneshot(request(&c)).await.unwrap();
         assert_eq!(failed.status(), StatusCode::BAD_GATEWAY);
         server.abort();
@@ -1861,7 +1885,7 @@ mod tests {
         let local =
             VoiceSettings::from_lookup(env(&[("COSYWORLD_CARD_TEXT_PROFILE", "local")])).unwrap();
         assert_eq!(local, VoiceSettings::local());
-        assert!(local.optional_scenery && local.parallel == 1 && local.attempts == 2);
+        assert!(local.parallel == 1 && local.attempts == 2 && hosted.attempts == 2);
         assert_eq!(local.client_budget(), Duration::from_secs(248));
         let tuned = VoiceSettings::from_lookup(env(&[
             ("COSYWORLD_CARD_TEXT_PROFILE", "local"),
@@ -1909,7 +1933,6 @@ mod tests {
             };
             let models =
                 parse_character_models(field("COSYWORLD_CARD_CHARACTER_MODELS_JSON")).unwrap();
-            assert_eq!(models.values().collect::<BTreeSet<_>>().len(), models.len());
             let registry = crate::ai_gateway::CapabilityRegistrySnapshot::from_json(field(
                 "COSYWORLD_AI_REGISTRY_JSON",
             ))

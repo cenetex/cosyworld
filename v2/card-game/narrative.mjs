@@ -416,15 +416,18 @@ export function applyGeneratedText(world, context, response) {
   const ids = context.entities.map((entity) => entity.id);
   const entries = response.entries;
   // Entities the scene did not voice keep the words already on their card.
-  // Every speaker still needs a fresh line.
+  // A speaker left out stays silent this turn; the scene still needs words
+  // from at least one of its speakers.
   const omitted = response.omitted ?? [];
+  const spoke = (id) => entries.some((entry) => entry?.id === id);
   if (
     !Array.isArray(entries) ||
     !Array.isArray(omitted) ||
     entries.length + omitted.length !== ids.length ||
     new Set([...entries.map((entry) => entry?.id), ...omitted]).size !==
       ids.length ||
-    omitted.some((id) => !ids.includes(id) || context.speakers.includes(id)) ||
+    omitted.some((id) => !ids.includes(id)) ||
+    (context.speakers.length > 0 && !context.speakers.some(spoke)) ||
     entries.some(
       (entry) =>
         !ids.includes(entry?.id) ||

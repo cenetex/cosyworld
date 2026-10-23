@@ -108,7 +108,7 @@ describe("entity memories and model text", () => {
     expect(currentScene(next).line.actorId).toBe("keeper");
   });
 
-  it("keeps unvoiced cards and requires a fresh line from every speaker", () => {
+  it("keeps unvoiced cards and needs words from at least one speaker", () => {
     let world = act(createWorld(), "take", "lamp");
     world = act(world, "talk", null, "keeper");
     const context = narrativeContext(world, { target: "keeper" });
@@ -132,11 +132,32 @@ describe("entity memories and model text", () => {
         .filter((entry) => entry.turn === next.turn && entry.generated)
         .map((entry) => entry.entityId),
     ).toEqual([context.location, "vale", "keeper"]);
-    // A speaker cannot be left out, and every entity is accounted for once.
+    // A speaker whose words failed stays silent: its card keeps its last
+    // words and it adds no beat, while the scene still lands.
+    const silent = {
+      ...partial,
+      entries: partial.entries.filter((e) => e.id !== "keeper"),
+      omitted: [...omitted, "keeper"],
+    };
+    const quiet = applyGeneratedText(world, context, silent);
+    expect(quiet.memories.keeper.text).toBe(world.memories.keeper.text);
+    expect(
+      quiet.log
+        .filter((entry) => entry.turn === quiet.turn && entry.generated)
+        .map((entry) => entry.entityId),
+    ).toEqual([context.location, "vale"]);
+    // Every entity is accounted for once, and somebody has to have spoken.
     for (const bad of [
       { ...partial, omitted: [...omitted, "keeper"] },
       { ...partial, omitted: omitted.slice(1) },
       { ...partial, omitted: [...omitted, omitted[0]] },
+      {
+        ...partial,
+        entries: partial.entries.filter(
+          (e) => !context.speakers.includes(e.id),
+        ),
+        omitted: [...omitted, ...context.speakers],
+      },
     ])
       expect(() => applyGeneratedText(world, context, bad)).toThrow();
   });

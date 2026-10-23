@@ -10,7 +10,11 @@
       "I'll trade, but not on those terms.",
       "You changed the deal. I noticed.",
       "Saw it first. Just saying.",
-      "Empty pockets travel light."
+      "Empty pockets travel light.",
+      "I heard the price the first time.",
+      "Whatever's behind that door, I'm finding out.",
+      "I'm not haggling. I'm waiting.",
+      "Fair's fair. That wasn't."
     ]
   },
   "moth": {
@@ -24,7 +28,11 @@
       "Mind the light. Please. Mind it.",
       "Warm.",
       "I'd look splendid beside that lamp, I think.",
-      "Someone put the light out once. I was very polite about it."
+      "Someone put the light out once. I was very polite about it.",
+      "A waistcoat this fine deserves better company. Present company excepted, possibly.",
+      "Too dark here. Nobody can admire a sleeve in the dark.",
+      "I only want to sit near it. That's all. Nearly all.",
+      "How kind. How terribly, terribly kind. No."
     ]
   },
   "keeper": {
@@ -38,7 +46,11 @@
       "An exception. Officially, once.",
       "Noted.",
       "The bell is for departures, not amusement.",
-      "I have kept worse visitors. Not many."
+      "I have kept worse visitors. Not many.",
+      "The next train is listed for a year I have not reached.",
+      "My face says half past. It has said so for some time.",
+      "Lost property is held until the owner is found. The owner is never found.",
+      "I do not run late. The years do."
     ]
   },
   "lamp": {
@@ -122,7 +134,11 @@
       "Black pond? Through the roots. There. Now go.",
       "Ring that again and see what happens.",
       "Not interested.",
-      "Quiet is all I asked for. All."
+      "Quiet is all I asked for. All.",
+      "Three winters I slept through. One visitor and I'm up.",
+      "The clock hisses. I hiss back. We get along.",
+      "You've had your answer. The moss hasn't had its badger.",
+      "Warm patch, right there. Mine. Still mine."
     ]
   },
   "clearing": {

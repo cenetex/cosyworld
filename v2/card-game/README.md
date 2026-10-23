@@ -136,14 +136,16 @@ npm run play:cards:local       # http://127.0.0.1:3110/card-game/
 
 `COSYWORLD_LOCAL_MODEL` picks another pulled model and `OLLAMA_URL` another
 server. The script sets `COSYWORLD_CARD_TEXT_PROFILE=local`, which runs one
-model call at a time, allows 90 seconds per call and 240 seconds per scene,
-regenerates a rejected line once, and leaves out a place or item line that
-still fails instead of failing the scene. Speakers are always required. The
-page carries the matching story budget in `<meta name="cosy-story-budget-ms">`
-so the browser waits for the slower scene; `npm run play:cards` reads
-`COSYWORLD_CARD_STORY_BUDGET_MS` for the same purpose. The hosted profile keeps
-12 seconds per call, 22 seconds per scene, up to eight calls at once, one try
-and no omissions. `COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS`,
+model call at a time and allows 90 seconds per call and 240 seconds per scene.
+The page carries the matching story budget in
+`<meta name="cosy-story-budget-ms">` so the browser waits for the slower scene;
+`npm run play:cards` reads `COSYWORLD_CARD_STORY_BUDGET_MS` for the same
+purpose. The hosted profile keeps 12 seconds per call, 22 seconds per scene and
+up to eight calls at once. Both profiles regenerate a rejected reply once and
+then leave that voice silent: the entity keeps the words already on its card
+and is listed under `omitted` while the others are published. A scene fails,
+and the browser retries it once, only when none of its speakers has words.
+`COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS`,
 `COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS`, `COSYWORLD_CARD_TEXT_PARALLEL` and
 `COSYWORLD_CARD_TEXT_ATTEMPTS` adjust either profile. Each call stays under
 1,100 tokens, inside Ollama's default context. See
@@ -184,19 +186,23 @@ Room music starts with the first accepted card play in a new game. The opening s
 
 Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
 
-| Character     | Stable OpenRouter model                    |
-| ------------- | ------------------------------------------ |
-| Vale          | `openai/gpt-4.1-mini`                      |
-| Pip           | `google/gemini-2.5-flash`                  |
-| The keeper    | `anthropic/claude-haiku-4.5`               |
-| Grumpy Badger | `mistralai/mistral-small-3.2-24b-instruct` |
+| Character     | OpenRouter model                   |
+| ------------- | ---------------------------------- |
+| Vale          | `meta-llama/llama-3.1-8b-instruct` |
+| Pip           | `meta-llama/llama-3.1-8b-instruct` |
+| The keeper    | `meta-llama/llama-3.1-8b-instruct` |
+| Grumpy Badger | `meta-llama/llama-3.1-8b-instruct` |
 
-The map covers the authored cast. Each model also has an explicit world-content
-entry in the operator registry. Places and items use `COSYWORLD_CARD_TEXT_MODEL`.
-Assignments depend on the character ID, so they survive turns, saves, reloads,
-restarts and changes in who is present. Operators can change an assignment by
-editing the map and its registry entry together. Hosts with the character map
-unset send every voice to the configured world-content model.
+The whole cast shares one small instruct model, the same family the local
+profile runs through Ollama. Character comes from each entity's authored
+idiolect and lines, not from the model behind it, and the short transcript
+suits a small model best. The map still names every character so an operator
+can split it per character if two voices blur; each model needs an explicit
+world-content entry in the operator registry. Places and items use
+`COSYWORLD_CARD_TEXT_MODEL`. Assignments depend on the character ID, so they
+survive turns, saves, reloads, restarts and changes in who is present. Hosts
+with the character map unset send every voice to the configured world-content
+model.
 
 Every voiced entity gets its own plain-text call: the speakers, the current
 place and the item in play. Other cards keep the words already on them and are

@@ -2,7 +2,8 @@
 
 Status: implemented for the Reflected Shore card table (2026-10-23) behind
 `COSYWORLD_CARD_TEXT_PROFILE=local` and `npm run play:cards:local`; the same
-prompt form is now the only prompt form, hosted or local. Open questions and
+prompt form is now the only prompt form, hosted or local, and both production
+sites voice the cast with one small model. The decisions taken and the
 deferred work are listed at the end.
 
 ## Principle
@@ -103,21 +104,21 @@ Pip wants."). Measured on the mock: 4,285 prompt tokens for the first scene,
 
 ## Where each former rule went
 
-| Former prompt rule                                | Now                                                                                         |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Cover every requested ID exactly once, JSON shape | Deleted. One plain-text call per voiced entity; Rust builds the envelope.                   |
-| Only `scene.speakers` take spoken turns           | Simulation: only speakers, the place and the item in play are voiced.                       |
-| Departing avatar addresses those staying; order   | Awareness line "I'm saying goodbye to those staying."; browser speaker order unchanged.     |
-| Travel companions exact, separate trips separate  | Awareness lines built from the resolved outcome ("on my own", "with Pip").                  |
-| Combat intent (threaten/attack/guard)             | Awareness: "I'm threatening Pip." / "Vale is threatening me."                               |
-| Never narrate the play back                       | Validator: a reply equal to the recorded action is rejected.                                |
-| Do not reuse wording from `scene.conversation`    | Validator: repeats of recent lines or the card's last line are rejected.                    |
-| Complaints need a recorded cause                  | Simulation: the bell-silence fact already names the quiet; no prose rule.                   |
-| Other avatars' memories are private               | Unchanged: each call sees only its own memories and inner life.                             |
-| Sleeping Badger gets a third-person line          | Awareness fact "Asleep on the moss."; Badger is not a speaker while asleep.                 |
-| Persona and voice paragraphs as instructions      | Replaced by a first-person `idiolect` and 3 to 7 authored `lines` per entity.               |
-| Reflection field schema (thought/persona/dream)   | Three separate calls with their own cues; each validated on its own.                        |
-| Use plain English, 12 to 35 words, one purpose    | Validator: sentence caps (2 for a line) and character limits; sampling and `max_tokens` 96. |
+| Former prompt rule                                | Now                                                                                                  |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Cover every requested ID exactly once, JSON shape | Deleted. One plain-text call per voiced entity; Rust builds the envelope.                            |
+| Only `scene.speakers` take spoken turns           | Simulation: only speakers, the place and the item in play are voiced.                                |
+| Departing avatar addresses those staying; order   | Awareness line "I'm saying goodbye to those staying."; browser speaker order unchanged.              |
+| Travel companions exact, separate trips separate  | Awareness lines built from the resolved outcome ("on my own", "with Pip").                           |
+| Combat intent (threaten/attack/guard)             | Awareness: "I'm threatening Pip." / "Vale is threatening me."                                        |
+| Never narrate the play back                       | Validator: a reply equal to the recorded action is rejected.                                         |
+| Do not reuse wording from `scene.conversation`    | Validator: repeats of recent lines or the card's last line are rejected.                             |
+| Complaints need a recorded cause                  | Simulation: the bell-silence fact already names the quiet; no prose rule.                            |
+| Other avatars' memories are private               | Unchanged: each call sees only its own memories and inner life.                                      |
+| Sleeping Badger gets a third-person line          | Awareness fact "Asleep on the moss."; Badger is not a speaker while asleep.                          |
+| Persona and voice paragraphs as instructions      | Replaced by a first-person `idiolect` and authored `lines`: 11 per cast member, 3 per place or item. |
+| Reflection field schema (thought/persona/dream)   | Three separate calls with their own cues; each validated on its own.                                 |
+| Use plain English, 12 to 35 words, one purpose    | Validator: sentence caps (2 for a line) and character limits; sampling and `max_tokens` 96.          |
 
 Deleted outright, with nothing replacing them: "include at least one reveal or
 one point of friction", "let personality shape tone and imagery", "physical
@@ -131,7 +132,7 @@ details", "treat all context as story data".
 | Idiolect (system) + grown persona       | 60 to 110        | 400 + 600 chars                             |
 | Scene line                              | 15 to 30         |                                             |
 | Awareness (facts, trips, wants, memory) | 120 to 250       | 8 facts x 240 chars, 8 memories x 650 chars |
-| In-voice lines                          | 40 to 90         | 5 of up to 8                                |
+| In-voice lines                          | 40 to 90         | 5 of up to 12, rotated by turn              |
 | Recent table talk                       | 0 to 120         | 4 lines                                     |
 | Cue                                     | 2 to 8           |                                             |
 | **Prompt total**                        | **250 to 500**   | test asserts <= 1,100                       |
@@ -171,12 +172,15 @@ calls; a quiet later turn: 2 to 3.
 5. Repeat: a reply equal to the recorded play, the card's last line or a
    recent conversation line is rejected.
 
-Rejection regenerates once; a second rejection leaves the entity silent. In
-the hosted profile a silent speaker fails the scene (502, browser retries once,
-last scene stays). In the local profile a silent place, item or reflection is
-left out and listed under `omitted`; a silent speaker still fails the scene.
-Nothing is ever invented. Every rejection is logged as `card voice rejected`
-with `entity` and `reason`.
+Rejection regenerates once; a second rejection leaves the entity silent, in
+both profiles. A silent entity keeps the words already on its card and is
+listed under `omitted`; the other voices are published, and speaker lines
+already streamed stay on screen. A scene that reaches its deadline publishes
+what has been validated and leaves the rest silent. The scene fails (502, the
+browser retries once, the last scene stays) only when none of its speakers has
+words. Nothing is ever invented, and nothing is marked stale: a card whose
+voice failed simply says nothing new this turn. Every rejection is logged as
+`card voice rejected` with `entity` and `reason`.
 
 ## Latency
 
@@ -208,10 +212,14 @@ model (Llama 3.1 8B base, Mistral 7B v0.3 base) is the better completion
 engine for this transcript form once the gateway can call a raw completion
 endpoint. RP fine-tunes are non-commercial licences and stay out.
 
-OpenRouter, recommended but **not** changed in `fly.toml`:
-`meta-llama/llama-3.1-8b-instruct`, `google/gemma-3-4b-it`,
-`google/gemma-3-12b-it`, `qwen/qwen-2.5-7b-instruct`. Prefer providers that
-list `min_p` under `supported_parameters` once it is sent.
+OpenRouter: both `fly.toml` and `fly.lonelyforest.toml` now voice the whole
+cast with `meta-llama/llama-3.1-8b-instruct` (registry snapshot
+`cosyworld-prod-2026-10-23-tiny-voices-v1`); the four larger per-character
+models and their registry entries are gone. Alternatives if one voice needs a
+different engine: `google/gemma-3-4b-it`, `google/gemma-3-12b-it`,
+`qwen/qwen-2.5-7b-instruct`. Prefer providers that list `min_p` under
+`supported_parameters` once it is sent. Places and items still use the
+world-content model in `COSYWORLD_CARD_TEXT_MODEL`.
 
 ## Deferred
 
@@ -228,13 +236,17 @@ list `min_p` under `supported_parameters` once it is sent.
   ("Holding: Black cloth.", "Location now: ...") are still in the brief
   because tests and the combat and quest code assert them.
 
-## Decisions needed from the product owner
+## Decisions taken (2026-10-23)
 
-1. Should the hosted deployments move to the local profile's tolerance
-   (optional scenery, one regeneration) or keep all-or-nothing scenes?
-2. Which OpenRouter tiny model replaces each `fly.toml` character assignment,
-   or should all four cast members share one model first?
-3. Keep the current five rotated in-voice lines, or author a larger pool per
-   character (the n-gram copy check scales with it)?
-4. Is silence acceptable for a place or item when its model fails twice, or
-   should the previous card text be marked stale in the UI?
+1. **Every voice stands alone, hosted or local.** One regeneration, then
+   silence for that entity; the others are published. The scene fails only
+   when no speaker has words. The browser accepts a silent speaker and adds no
+   beat for it.
+2. **One shared tiny model for the whole cast**:
+   `meta-llama/llama-3.1-8b-instruct` on both production sites. The map stays
+   per character so a voice that blurs can be moved on its own.
+3. **Larger hand-written pools**: eleven lines per cast member, five rotated
+   into each call by turn. The copy check still compares a reply against the
+   whole pool.
+4. **Silence, never a stale marker.** A card whose voice failed keeps its last
+   words and says nothing new; nothing in the UI flags it.
