@@ -47,6 +47,11 @@ primary_region = "sjc"
   COSYWORLD_AI_DECISION_MODEL = "typesafe/jev-1.13"
   COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"
   COSYWORLD_CARD_TEXT_REASONING_EFFORT = "none"
+  # A character's persona reflections outlive the scene, so they run here.
+  COSYWORLD_CARD_REFLECTION_MODEL = "openai/gpt-6-luna"
+  # One more attempt here, through the same validator, after a voice's own
+  # attempts all fail.
+  COSYWORLD_CARD_ESCALATION_MODEL = "openai/gpt-6-luna"
   # Every authored card-world character shares one cheap, fast OpenRouter
   # model (Inception's Mercury 2.5, chosen on 2026-10-23 from a scan of about
   # forty small models); the map splits per character only if the voices blur.

@@ -209,6 +209,18 @@ Assignments depend on the character ID, so they survive turns, saves, reloads,
 restarts and changes in who is present. Hosts with the character map unset
 send every voice to the configured world-content model.
 
+Two optional tiers sit above those models. The route picks the tier from the
+part and the attempt count; the model never does.
+`COSYWORLD_CARD_REFLECTION_MODEL` takes every persona reflection, whose words
+outlive the scene, instead of the character's line model.
+`COSYWORLD_CARD_ESCALATION_MODEL` gives a voice whose own attempts all failed
+one more attempt, at the coolest temperature, through the same validator; a
+voice that fails there too stays silent under `omitted`. An escalation to the
+model a voice already used is skipped, so a reflection on the escalation
+model is not sent there twice. Both production sites set both tiers to
+`openai/gpt-6-luna`. A tier is an exact registered world-content model ID; a
+blank value leaves that tier unset and the route unchanged.
+
 Every voiced entity gets its own plain-text call: the speakers, the current
 place and the item in play. Other cards keep the words already on them and are
 listed under `omitted`. A call contains no instructions. The system turn is
