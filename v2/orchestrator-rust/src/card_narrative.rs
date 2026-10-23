@@ -813,6 +813,17 @@ fn character_prompt(context: &Context, ids: &[String]) -> String {
             reflect.then(|| json!({"id":e.id,"dream":dream}))
         })
         .collect::<Vec<_>>());
+    input["response_example"] = json!({"entries": context.entities.iter()
+        .filter(|e| ids.contains(&e.id))
+        .map(|e| {
+            let mut entry = json!({"id": e.id, "text": "Write this character's words for the resolved scene."});
+            let (reflect, dream) = reflection_due(context, e);
+            if reflect {
+                entry["reflection"] = json!({"thought": "Write a private thought.", "persona": "Write the current persona."});
+                if dream { entry["reflection"]["dream"] = json!("Write a symbolic dream."); }
+            }
+            entry
+        }).collect::<Vec<_>>()});
     input.to_string()
 }
 
@@ -953,8 +964,9 @@ async fn complete_characters(
                     .filter(|selection| selection.candidate().supported_parameters().reasoning)
                     .map(|_| "none".to_string());
             }
-            let user = character_prompt(context, ids);
+            let mut user = character_prompt(context, ids);
             let format = json!({"type":"json_object"});
+            for attempt in 0..2 {
             let request = ChatCompletionRequest {
                 feature: "card_character_text",
                 prompt_version: "card-character-text-v1",
@@ -974,20 +986,27 @@ async fn complete_characters(
                 .map_err(|error| {
                     tracing::warn!(stage = "provider", failure = error.code(), entities = ?ids, "Card dialogue failed");
                 })?;
-            let entries = validate_character_entries(
+            match validate_character_entries(
                 &completion.text,
                 &completion.finish_reason,
                 &completion.resolved_model_id,
                 context,
                 ids,
-            ).map_err(|reason| {
-                tracing::warn!(stage = "validation", reason, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue failed");
-            })?;
-            Ok::<_, ()>(entries)
+            ) {
+                Ok(entries) => return Ok::<_, ()>(entries),
+                Err(reason) => {
+                    tracing::warn!(stage = "validation", reason, attempt, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue needs repair");
+                    let mut input: Value = serde_json::from_str(&user).expect("character prompt");
+                    input["repair"] = json!({"reason": reason, "instruction": "Write a fresh response using the exact response_example keys and IDs. Replace each example value with original words grounded in this scene. Include every requested reflection field, including dream when shown."});
+                    user = input.to_string();
+                }
+            }
+            }
+            Err(())
         }
     });
     let results = tokio::time::timeout(
-        Duration::from_secs(14),
+        Duration::from_secs(26),
         futures_util::future::join_all(jobs),
     )
     .await
@@ -1278,6 +1297,9 @@ mod tests {
                     }
                     if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
                         entry["reflection"] = json!({"thought":"I felt welcome.","persona":"I am still proud, but I am learning to accept help.","dream":"A warm lamp floated through my sleep."});
+                        if id == "vale" && input["repair"].is_null() {
+                            entry["reflection"].as_object_mut().unwrap().remove("dream");
+                        }
                     }
                     entry
                 }).collect();
@@ -1342,7 +1364,14 @@ mod tests {
         let invalid = app.clone().oneshot(request(&c)).await.unwrap();
         assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
         let requests = seen.lock().unwrap();
-        assert_eq!(requests.len(), 9);
+        assert_eq!(requests.len(), 13);
+        let repairs = requests.iter().filter(|body| {
+            body["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("\"repair\"")
+        });
+        assert_eq!(repairs.count(), 4);
         for body in requests.iter() {
             let input: Value =
                 serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
