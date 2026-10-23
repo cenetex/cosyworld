@@ -21,7 +21,7 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
-const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
+const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
 scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
@@ -817,16 +817,19 @@ fn validate_character_entries(
     let mut generated: Generated =
         serde_json::from_str(text.trim()).map_err(|_| "response_shape")?;
     let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
-    if generated.entries.len() != ids.len()
-        || generated
-            .entries
-            .iter()
-            .map(|e| e.id.as_str())
-            .collect::<BTreeSet<_>>()
-            != expected
+    let scene_ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
+    let returned: BTreeSet<_> = generated.entries.iter().map(|e| e.id.as_str()).collect();
+    if returned.len() != generated.entries.len()
+        || !returned.is_subset(&scene_ids)
+        || !expected.is_subset(&returned)
     {
         return Err("entity_ids");
     }
+    // Models can echo another visible card while describing the scene. Each
+    // group owns only its assigned cards; their own models supply the rest.
+    generated
+        .entries
+        .retain(|entry| expected.contains(entry.id.as_str()));
     for entry in &mut generated.entries {
         if !bounded(&entry.text, 400) {
             return Err("text_bounds");
@@ -1117,6 +1120,39 @@ mod tests {
         assert_eq!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap_err(), "reflection");
     }
 
+    #[test]
+    fn each_voice_keeps_only_its_assigned_cards() {
+        let c = context();
+        let scene = r#"{"entries":[{"id":"vale","text":"The scenery model echoed Vale."},{"id":"station","text":"Dust gathers along the rails."},{"id":"lamp","text":"A small flame warms the glass."}]}"#;
+        let scenery = vec!["station".to_string(), "lamp".to_string()];
+        let entries =
+            validate_character_entries(scene, "stop", "scenery-model", &c, &scenery).unwrap();
+        assert_eq!(
+            entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            vec!["station", "lamp"]
+        );
+        assert!(entries
+            .iter()
+            .all(|e| e.model.as_deref() == Some("scenery-model")));
+        let avatar = r#"{"entries":[{"id":"vale","text":"Vale's own words."},{"id":"moth","text":"An echoed reply."}]}"#;
+        let entries =
+            validate_character_entries(avatar, "stop", "vale-model", &c, &["vale".into()]).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, "Vale's own words.");
+        assert_eq!(entries[0].model.as_deref(), Some("vale-model"));
+        for invalid in [
+            scene.replace("station", "invented-location"),
+            scene.replace("station", "vale"),
+            r#"{"entries":[{"id":"vale","text":"Only the unassigned card."}]}"#.to_string(),
+        ] {
+            assert_eq!(
+                validate_character_entries(&invalid, "stop", "scenery-model", &c, &scenery)
+                    .unwrap_err(),
+                "entity_ids"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -1126,7 +1162,7 @@ mod tests {
             async move {
                 let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
                 captured.lock().unwrap().push(body.clone());
-                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
+                let mut entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
                     let mut entry = json!({"id":id,"text":"I remember the kindness beside the lamp."});
                     if input["scene"]["revision"] == 5 && id == "station" {
                         entry["id"] = json!("invented-location");
@@ -1136,6 +1172,9 @@ mod tests {
                     }
                     entry
                 }).collect();
+                if body["model"] == "test-entity-model" {
+                    entries.push(json!({"id":"vale","text":"An extra line from the scenery model."}));
+                }
                 Json(json!({"model":body["model"],"choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
             }
         }));
