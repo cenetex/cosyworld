@@ -9,9 +9,9 @@ import { createNarrator } from "./narrative.mjs";
 import {
   lifeOf,
   questActive,
-  hopes,
-  lifeFacts,
-  INSPIRATION_MAX,
+  hopeOf,
+  lifeLine,
+  purposeOrigin,
   keepReason,
 } from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
@@ -811,9 +811,7 @@ function card(id) {
     }
     const life = lifeOf(world, id);
     if (life && !questActive(world, id)) {
-      caption =
-        life.phase === "content" ? "Enjoying this moment" : "Finding a purpose";
-      detail = interest(world, id).text;
+      ({ caption, detail } = lifeLine(world, id));
     }
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
@@ -837,33 +835,12 @@ function card(id) {
       ),
     );
   if (type === "avatar" && lifeOf(world, id) && !questActive(world, id)) {
-    const life = lifeOf(world, id);
     info.replaceChildren(
-      node("span", interest(world, id).text, "hand-condition"),
+      node("span", lifeLine(world, id).detail, "hand-condition life-line"),
     );
-    const meter = node("progress", undefined, "inspiration-meter");
-    meter.max = INSPIRATION_MAX;
-    meter.value = life.inspiration;
-    meter.setAttribute("aria-label", `${def.name} inspiration`);
-    info.append(
-      node(
-        "span",
-        `Inspiration ${life.inspiration}/${INSPIRATION_MAX}`,
-        "hand-condition",
-      ),
-      meter,
-    );
-    info.append(
-      node(
-        "span",
-        life.phase === "content"
-          ? world.turn >= life.restUntil
-            ? "Inspiration next turn"
-            : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
-          : "Talk · trade · help",
-        "trade-offers",
-      ),
-    );
+    // Heading to rest already names the place the avatar wants.
+    if (lifeOf(world, id).phase !== "returning")
+      info.append(node("span", interest(world, id).text, "hand-condition"));
   } else if (
     type === "avatar" &&
     (!hasQuestPrograms(world) || id === "badger")
@@ -952,16 +929,9 @@ function card(id) {
       );
   }
   if (type === "avatar" && lifeOf(world, id)) {
-    const life = lifeOf(world, id),
-      hope = hopes[id];
-    info.append(
-      node(
-        "span",
-        `Hope ${life.milestones.length}/${hope.milestones.length} · Menu`,
-        "personal-hope",
-      ),
-    );
-    info.title = lifeFacts(world, id).join("\n");
+    const hope = hopeOf(world, id);
+    info.append(node("span", `Hope: ${hope.title}`, "personal-hope"));
+    info.title = `${hope.title}. Menu shows the milestones.`;
   }
   if (type === "item" && people[rootHolder(world, id)]) {
     const reason = keepReason(world, rootHolder(world, id), id);
@@ -1507,13 +1477,16 @@ $("menu-button").onclick = () => {
         .map((id) => {
           const block = node("section", undefined, "quest-guide-program");
           const life = lifeOf(world, id),
-            hope = hopes[id],
+            hope = hopeOf(world, id),
             program = programFor(world, id);
           block.append(node("h3", `${nameOf(id)} · ${hope.title}`));
           block.append(
             node(
               "p",
-              `Inspiration ${life.inspiration}/${INSPIRATION_MAX} · ${life.phase === "active" ? "Personal quest active" : life.phase === "content" ? "Enjoying the result" : "Finding a purpose"}`,
+              lifeLine(world, id)?.detail ||
+                (purposeOrigin(world, id)
+                  ? `Pursuing a personal quest. It began with ${purposeOrigin(world, id)}.`
+                  : "Pursuing a personal quest."),
             ),
           );
           const milestones = node("ol");
@@ -1540,8 +1513,10 @@ $("menu-button").onclick = () => {
             );
             block.append(steps);
           }
-          for (const fact of lifeFacts(world, id).slice(3))
-            block.append(node("p", fact));
+          for (const item of Object.keys(world.items)) {
+            const reason = keepReason(world, id, item);
+            if (reason) block.append(node("p", `${nameOf(item)}: ${reason}`));
+          }
           return block;
         }),
     );
