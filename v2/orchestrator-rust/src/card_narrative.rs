@@ -819,18 +819,32 @@ fn validate_character_entries(
         .get_mut("entries")
         .and_then(Value::as_array_mut)
         .ok_or("response_shape")?;
+    let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
+    let scene_ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
+    let returned: BTreeSet<_> = rows
+        .iter()
+        .filter_map(|row| row.get("id").and_then(Value::as_str))
+        .collect();
+    if returned.len() != rows.len()
+        || !returned.is_subset(&scene_ids)
+        || !expected.is_subset(&returned)
+    {
+        return Err("entity_ids");
+    }
+    // Each model owns only its assigned cards. Other visible cards can be
+    // echoed in a reply; their own models supply their published entries.
+    rows.retain(|row| {
+        row.get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|id| expected.contains(id))
+    });
     // Some providers place reflection fields beside speech. Move this exact
     // alternate shape into the shared contract before its usual validation.
     for row in rows {
         let row = row.as_object_mut().ok_or("response_shape")?;
-        let assigned = row
-            .get("id")
-            .and_then(Value::as_str)
-            .is_some_and(|id| ids.iter().any(|expected| expected == id));
-        if assigned
-            && ["thought", "persona", "dream"]
-                .iter()
-                .any(|key| row.contains_key(*key))
+        if ["thought", "persona", "dream"]
+            .iter()
+            .any(|key| row.contains_key(*key))
         {
             if row.contains_key("reflection")
                 || !row.contains_key("thought")
@@ -845,27 +859,9 @@ fn validate_character_entries(
                 }
             }
             row.insert("reflection".to_string(), Value::Object(reflection));
-        } else if !assigned {
-            // Only the card ID is used from another model's echoed card.
-            row.retain(|key, _| key == "id");
-            row.insert("text".to_string(), json!("echo"));
         }
     }
     let mut generated: Generated = serde_json::from_value(value).map_err(|_| "response_shape")?;
-    let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
-    let scene_ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
-    let returned: BTreeSet<_> = generated.entries.iter().map(|e| e.id.as_str()).collect();
-    if returned.len() != generated.entries.len()
-        || !returned.is_subset(&scene_ids)
-        || !expected.is_subset(&returned)
-    {
-        return Err("entity_ids");
-    }
-    // Models can echo another visible card while describing the scene. Each
-    // group owns only its assigned cards; their own models supply the rest.
-    generated
-        .entries
-        .retain(|entry| expected.contains(entry.id.as_str()));
     for entry in &mut generated.entries {
         if !bounded(&entry.text, 400) {
             return Err("text_bounds");
@@ -918,7 +914,7 @@ async fn complete_characters(
     if !scenery.is_empty() {
         groups.push((scenery, None));
     }
-    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Use the exact entry shape {\"id\":\"requested-id\",\"text\":\"spoken words\",\"reflection\":{\"thought\":\"private thought\",\"persona\":\"current persona\",\"dream\":\"symbolic dream\"}} when a dream is requested. Keep thought, persona and dream inside reflection. Other entries contain only id and text.");
+    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Use the exact entry shape {{\"id\":\"requested-id\",\"text\":\"spoken words\",\"reflection\":{{\"thought\":\"private thought\",\"persona\":\"current persona\",\"dream\":\"symbolic dream\"}}}} when a dream is requested. Keep thought, persona and dream inside reflection. Other entries contain only id and text.");
     let jobs = groups.iter().map(|(ids, model)| {
         let system = &system;
         async move {
