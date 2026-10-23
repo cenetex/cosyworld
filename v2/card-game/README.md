@@ -237,9 +237,12 @@ The validator decides what is published. It keeps the first paragraph, strips
 speaker labels, quotes, stage directions and markup, cuts at a second speaker
 tag, and keeps whole sentences: two for a line or thought, three for a dream,
 four for a persona, within the character limits. It rejects an empty reply,
-assistant speech, a reply naming an entity the scene does not know, a reply
-that copies an authored line or shares a six-word run with one, and a repeat of
-the play, the card's last line or recent conversation. A rejected call is
+assistant speech (including the openings small models use when they analyse
+the scene instead of speaking in it), a reply naming an entity the scene does
+not know, a reply that copies an authored line or shares a six-word run with
+one, a repeat of the play, the card's last line or recent conversation, a
+character naming itself in the third person, and a read-back of the brief's
+labels or lines. A rejected call is
 regenerated once at a slightly lower temperature; a second rejection leaves the
 entity silent and is logged as `card voice rejected` with its reason.
 
