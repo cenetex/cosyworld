@@ -1262,7 +1262,10 @@ async fn speak(
     Err(())
 }
 
-/// Phrases that belong to an assistant, not to anyone at this table.
+/// Phrases that belong to an assistant, not to anyone at this table. The
+/// second group was collected from forty small models answering the real
+/// transcript on 2026-10-23: a model that analyses the scene instead of
+/// speaking in it opens with these.
 const ASSISTANT_SPEAK: &[&str] = &[
     "as an ai",
     "language model",
@@ -1275,7 +1278,51 @@ const ASSISTANT_SPEAK: &[&str] = &[
     "prompt",
     "the user",
     "roleplay",
+    "role-play",
     "in character",
+    "it seems",
+    "it appears",
+    "it looks like you",
+    "here is the",
+    "here's the",
+    "here is a",
+    "here's a",
+    "let's break",
+    "let's analy",
+    "let's build on",
+    "let's flesh",
+    "let's solidif",
+    "let's navigate",
+    "let's dive",
+    "let's continue",
+    "let's play this out",
+    "okay, let",
+    "okay, this",
+    "continue the",
+    "continue this",
+    "scenario",
+    "narrative",
+    "continuation",
+    "breakdown",
+    "text-based",
+    "choose-your-own",
+    "short story",
+    "what do you do?",
+    "to do next",
+    "or something else?",
+    "dialogue scene",
+    "i'd be delighted",
+    "i'll do my best",
+    "i can help",
+    "i can provide",
+    "i'll provide",
+    "this scene",
+    "the scene",
+    "your character",
+    "your objective",
+    "in this setting",
+    "sure thing",
+    "of course!",
 ];
 
 /// What a reply is checked against before it is published.
@@ -1286,11 +1333,34 @@ struct Check<'a> {
     sentences: usize,
     known: BTreeSet<String>,
     examples: Vec<String>,
+    /// The transcript's own lines (scene, awareness, recent talk), minus the
+    /// entity's authored lines and cue. A reply that repeats a run of them,
+    /// or one of their labels ("I remember:", "Holding:"), is a read-back of
+    /// the brief, not speech.
+    brief: Vec<String>,
+    labels: Vec<String>,
 }
 
 impl<'a> Check<'a> {
     fn new(context: &'a Context, entity: &'a Entity, part: Part) -> Self {
         let (limit, sentences) = part.limits();
+        let own = name(&entity.id);
+        let brief: Vec<String> = transcript(context, entity, part)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with(&format!("{own}:")))
+            .map(str::to_string)
+            .collect();
+        let labels = brief
+            .iter()
+            .flat_map(|line| line.split(". "))
+            .filter_map(|sentence| sentence.split_once(':'))
+            .map(|(head, _)| head.trim())
+            .filter(|head| !head.is_empty() && head.split_whitespace().count() <= 4)
+            .map(|head| format!("{head}:"))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
         Self {
             context,
             entity,
@@ -1298,6 +1368,8 @@ impl<'a> Check<'a> {
             sentences,
             known: known(context),
             examples: profile_lines(&entity.id),
+            brief,
+            labels,
         }
     }
 
@@ -1313,16 +1385,38 @@ impl<'a> Check<'a> {
             .find(|l| !l.is_empty())
             .ok_or("empty")?;
         let mut text = line.split_whitespace().collect::<Vec<_>>().join(" ");
-        // Stage directions such as *shrugs* or (quietly) are not speech.
+        // Stage directions such as *shrugs* or (quietly) are not speech. A
+        // word or two emphasised in the middle of a sentence (*click*), or a
+        // span glued to a word (the *pond*'s edge), is speech, so it keeps
+        // its words rather than leaving a hole.
         for (open, close) in [('*', '*'), ('(', ')'), ('[', ']')] {
-            while let Some(start) = text.find(open) {
-                let Some(len) = text[start + open.len_utf8()..].find(close) else {
+            let mut from = 0;
+            while let Some(start) = text[from..].find(open).map(|at| at + from) {
+                let inner_start = start + open.len_utf8();
+                let Some(len) = text[inner_start..].find(close) else {
                     break;
                 };
-                text.replace_range(start..start + open.len_utf8() + len + close.len_utf8(), "");
+                let end = inner_start + len + close.len_utf8();
+                let inner = text[inner_start..inner_start + len].trim().to_string();
+                let glued = |c: char| c.is_alphanumeric() || c == '\'' || c == '\u{2019}';
+                let emphasis = !inner.is_empty()
+                    && (text[..start].chars().next_back().is_some_and(glued)
+                        || text[end..].chars().next().is_some_and(glued)
+                        || (open == '*'
+                            && start > 0
+                            && end < text.len()
+                            && inner.split_whitespace().count() <= 2));
+                if emphasis {
+                    text.replace_range(start..end, &inner);
+                    from = start + inner.len();
+                } else {
+                    text.replace_range(start..end, "");
+                    from = start;
+                }
             }
         }
         text = text.replace(['*', '_', '#'], "");
+        text = text.split_whitespace().collect::<Vec<_>>().join(" ");
         loop {
             let trimmed = text.trim_start();
             let label = trimmed.split_once(':').filter(|(head, _)| {
@@ -1376,7 +1470,9 @@ impl<'a> Check<'a> {
                 }
             }
         }
-        if kept.is_empty() && finished {
+        // An unpunctuated reply stands only when the model finished it and
+        // it is more than a fragment left by a cut ("The").
+        if kept.is_empty() && finished && text.split_whitespace().count() >= 2 {
             kept = text.trim_matches(quotes).to_string();
         }
         if !bounded(&kept, self.limit) {
@@ -1432,6 +1528,22 @@ impl<'a> Check<'a> {
                 .any(|line| words(&line.text).concat() == key);
         if repeats {
             return Err("repeat");
+        }
+        // A character speaks as "I"; a line that names its speaker in the
+        // third person ("Vale's eyes flick to Pip") is narration.
+        if kind(&self.entity.id, "avatar") && mentions(&kept, &own) {
+            return Err("self-narration");
+        }
+        let spoken = words(&kept);
+        if self.labels.iter().any(|label| kept.contains(label))
+            || self.brief.iter().any(|line| {
+                let brief = words(line);
+                spoken
+                    .windows(6)
+                    .any(|run| brief.windows(6).any(|other| other == run))
+            })
+        {
+            return Err("echoed brief");
         }
         Ok(kept)
     }
@@ -1567,6 +1679,11 @@ mod tests {
             text: "Bring that lamp to the pond.".into(),
         });
         c.entities[3].previous = Some("My sleeves are dry.".into());
+        c.entities[3].memories.push(Memory {
+            turn: 2,
+            kind: "event".into(),
+            text: "The keeper polished the brass bell twice.".into(),
+        });
         let pip = &c.entities[3];
         let check = Check::new(&c, pip, Part::Line);
         let clean = |raw: &str| check.clean(raw, true);
@@ -1612,6 +1729,44 @@ mod tests {
         // Known names pass as whole words; a word that contains one is not a name.
         assert!(clean("The keeper will want that oil.").is_ok());
         assert!(!mentions("Pipes rattle.", "Pip") && mentions("Pip's lamp.", "Pip"));
+        // Observed on OpenRouter, 2026-10-23: analysis instead of speech,
+        // third-person narration of oneself, and read-backs of the brief.
+        for (raw, reason) in [
+            ("It seems like you're creating a short story.", "assistant"),
+            ("Here is the completion for Pip's dialogue:", "assistant"),
+            (
+                "Okay, let's break down what Pip might say next.",
+                "assistant",
+            ),
+            ("What do you do? You could speak with Vale.", "assistant"),
+            ("What do you want the lamp to do next?", "assistant"),
+            (
+                "Pip adjusts the borrowed waistcoat and smiles.",
+                "self-narration",
+            ),
+            ("I remember: the lamp moved.", "echoed brief"),
+            (
+                "Yes, the keeper polished the brass bell twice.",
+                "echoed brief",
+            ),
+        ] {
+            assert_eq!(clean(raw), Err(reason), "{raw}");
+        }
+        // A word emphasised mid-sentence keeps its word; directions still go.
+        assert_eq!(
+            clean("The rhythmic *click* of boots reaches my sleeves."),
+            Ok("The rhythmic click of boots reaches my sleeves.".into())
+        );
+        assert_eq!(clean("Fine. *walks away slowly*"), Ok("Fine.".into()));
+        assert_eq!(
+            clean("At the *black still pond*'s edge, I wait."),
+            Ok("At the black still pond's edge, I wait.".into())
+        );
+        assert_eq!(clean("The"), Err("shape"));
+        assert_eq!(
+            clean("Yes. *She folds the cloth and looks away.* No."),
+            Ok("Yes. No.".into())
+        );
     }
 
     #[test]

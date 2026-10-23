@@ -162,15 +162,29 @@ calls; a quiet later turn: 2 to 3.
 1. Shape: first paragraph; labels, quotes, stage directions and markup
    stripped; cut at another entity's `Name:`; whole sentences only (2 / 3 / 4);
    non-empty, under the character limit, no control characters. An
-   unpunctuated reply counts as one sentence only when the model finished it.
-2. Assistant speech: a short phrase list ("as an AI", "language model",
-   "how can I assist", "Certainly!", "the user", "prompt", "roleplay").
+   unpunctuated reply counts as one sentence only when the model finished it
+   and it has at least two words. A `*span*` is a stage direction and goes,
+   except a word or two emphasised mid-sentence (`*click*`) or a span glued to
+   a word (`the *pond*'s edge`), which keep their words so no hole is left.
+2. Assistant speech: a phrase list. The original dozen ("as an AI", "language
+   model", "how can I assist", "Certainly!", "the user", "prompt", "roleplay")
+   plus the openings forty small models used when they analysed the scene
+   instead of speaking in it ("it seems", "here is the", "okay, let's",
+   "scenario", "narrative", "what do you do?", "this scene", and so on).
 3. World: a reply that names an entity outside the scene's known set
    (present, held, travelled, wanted or mentioned in facts) is rejected.
 4. Copy: a reply equal to an authored line, or sharing a six-word run with
    one, is rejected.
 5. Repeat: a reply equal to the recorded play, the card's last line or a
    recent conversation line is rejected.
+6. Self-narration: a character's reply that names the character in the third
+   person ("Vale's eyes flick to Pip", "Pip adjusts the borrowed waistcoat")
+   is narration, not speech, and is rejected. Places and items are exempt,
+   since their names are ordinary nouns.
+7. Brief: a reply that carries one of the transcript's labels ("I remember:",
+   "Holding:", "Just now:") or shares a six-word run with a transcript line
+   other than the entity's own authored lines is a read-back of the brief and
+   is rejected.
 
 Rejection regenerates once; a second rejection leaves the entity silent, in
 both profiles. A silent entity keeps the words already on its card and is
@@ -245,15 +259,19 @@ poorly when it's ignored." / "Composition is fine for a gallery, Pip, but it
 doesn't light the way out of a hole.") but reached the scene deadline on three
 of five scenes.
 
-Two findings are about the route, not the models. First, the validator passes
+Two findings were about the route, not the models. First, the validator passed
 assistant commentary beyond its dozen phrases, third-person self-narration
-("Vale's eyes flick to Pip"), and echoed awareness lines ("I remember: Vale
-gives the Lamp to Pip."), and it deletes inline `*emphasis*` whole, leaving
-"the rhythmic of Vale's boots". Second, the gateway's per-call latency was
-three to six times the provider's own (eight parallel direct calls finish in 1
-to 4 s; the route logged p50 3 to 8 s): a scene issues more calls than the
-parallel budget of eight, so calls queue and scenes reach the deadline. Both
-are open work; the model choice does not fix them.
+("Vale's eyes flick to Pip"), echoed awareness lines ("I remember: Vale gives
+the Lamp to Pip.") and one-word fragments left by a cut ("The"), and it
+deleted inline `*emphasis*` whole, leaving "the rhythmic of Vale's boots" and
+"the's edge". Layers 2, 6 and 7 above and the shape rules now reject or repair
+each of these; a replay of the fly.toml configuration on Mercury after the
+change still published five of five scenes with one silent speaker. Second,
+the gateway's per-call latency was three to six times the provider's own
+(eight parallel direct calls finish in 1 to 4 s; the route logged p50 3 to 8
+s): a scene issues more calls than the parallel budget of eight, so calls
+queue and scenes reach the deadline. That one is open work; the model choice
+does not fix it.
 
 ## Recommended models
 
