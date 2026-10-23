@@ -21,7 +21,7 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
-const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
+const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
 scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
@@ -804,6 +804,89 @@ fn character_prompt(context: &Context, ids: &[String]) -> String {
     input.to_string()
 }
 
+fn validate_character_entries(
+    text: &str,
+    finish_reason: &str,
+    model: &str,
+    context: &Context,
+    ids: &[String],
+) -> Result<Vec<Entry>, &'static str> {
+    if finish_reason == "length" {
+        return Err("output_limit");
+    }
+    let mut value: Value = serde_json::from_str(text.trim()).map_err(|_| "response_shape")?;
+    let rows = value
+        .get_mut("entries")
+        .and_then(Value::as_array_mut)
+        .ok_or("response_shape")?;
+    let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
+    let scene_ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
+    let returned: BTreeSet<_> = rows
+        .iter()
+        .filter_map(|row| row.get("id").and_then(Value::as_str))
+        .collect();
+    if returned.len() != rows.len()
+        || !returned.is_subset(&scene_ids)
+        || !expected.is_subset(&returned)
+    {
+        return Err("entity_ids");
+    }
+    // Each model owns only its assigned cards. Other visible cards can be
+    // echoed in a reply; their own models supply their published entries.
+    rows.retain(|row| {
+        row.get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|id| expected.contains(id))
+    });
+    // Some providers place reflection fields beside speech. Move this exact
+    // alternate shape into the shared contract before its usual validation.
+    for row in rows {
+        let row = row.as_object_mut().ok_or("response_shape")?;
+        if ["thought", "persona", "dream"]
+            .iter()
+            .any(|key| row.contains_key(*key))
+        {
+            if row.contains_key("reflection")
+                || !row.contains_key("thought")
+                || !row.contains_key("persona")
+            {
+                return Err("response_shape");
+            }
+            let mut reflection = serde_json::Map::new();
+            for key in ["thought", "persona", "dream"] {
+                if let Some(value) = row.remove(key) {
+                    reflection.insert(key.to_string(), value);
+                }
+            }
+            row.insert("reflection".to_string(), Value::Object(reflection));
+        }
+    }
+    let mut generated: Generated = serde_json::from_value(value).map_err(|_| "response_shape")?;
+    for entry in &mut generated.entries {
+        if !bounded(&entry.text, 400) {
+            return Err("text_bounds");
+        }
+        let entity = context
+            .entities
+            .iter()
+            .find(|e| e.id == entry.id)
+            .ok_or("entity_ids")?;
+        let (reflect, dream) = reflection_due(context, entity);
+        match entry.reflection.as_ref() {
+            Some(r)
+                if reflect
+                    && bounded(&r.thought, 400)
+                    && bounded(&r.persona, 600)
+                    && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
+                    && (!dream || r.dream.is_some()) => {}
+            None if !reflect => {}
+            _ => return Err("reflection"),
+        }
+        entry.model = Some(model.to_string());
+    }
+    Ok(generated.entries)
+}
+
 async fn complete_characters(
     config: &AiConfig,
     context: &Context,
@@ -831,7 +914,7 @@ async fn complete_characters(
     if !scenery.is_empty() {
         groups.push((scenery, None));
     }
-    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Other entries contain only id and text.");
+    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Use the exact entry shape {{\"id\":\"requested-id\",\"text\":\"spoken words\",\"reflection\":{{\"thought\":\"private thought\",\"persona\":\"current persona\",\"dream\":\"symbolic dream\"}}}} when a dream is requested. Keep thought, persona and dream inside reflection. Other entries contain only id and text.");
     let jobs = groups.iter().map(|(ids, model)| {
         let system = &system;
         async move {
@@ -875,46 +958,19 @@ async fn complete_characters(
             };
             let completion = request_chat_completion(&config, request)
                 .await
-                .map_err(|_| ())?;
-            if completion.finish_reason == "length" {
-                return Err(());
-            }
-            let mut generated: Generated =
-                serde_json::from_str(completion.text.trim()).map_err(|_| ())?;
-            let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
-            if generated.entries.len() != ids.len()
-                || generated
-                    .entries
-                    .iter()
-                    .map(|e| e.id.as_str())
-                    .collect::<BTreeSet<_>>()
-                    != expected
-            {
-                return Err(());
-            }
-            for entry in &mut generated.entries {
-                if !bounded(&entry.text, 400) {
-                    return Err(());
-                }
-                let entity = context
-                    .entities
-                    .iter()
-                    .find(|e| e.id == entry.id)
-                    .ok_or(())?;
-                let (reflect, dream) = reflection_due(context, entity);
-                match entry.reflection.as_ref() {
-                    Some(r)
-                        if reflect
-                            && bounded(&r.thought, 400)
-                            && bounded(&r.persona, 600)
-                            && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
-                            && (!dream || r.dream.is_some()) => {}
-                    None if !reflect => {}
-                    _ => return Err(()),
-                }
-                entry.model = Some(completion.resolved_model_id.clone());
-            }
-            Ok::<_, ()>(generated.entries)
+                .map_err(|error| {
+                    tracing::warn!(stage = "provider", failure = error.code(), entities = ?ids, "Card dialogue failed");
+                })?;
+            let entries = validate_character_entries(
+                &completion.text,
+                &completion.finish_reason,
+                &completion.resolved_model_id,
+                context,
+                ids,
+            ).map_err(|reason| {
+                tracing::warn!(stage = "validation", reason, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue failed");
+            })?;
+            Ok::<_, ()>(entries)
         }
     });
     let results = tokio::time::timeout(
@@ -1073,6 +1129,102 @@ mod tests {
         assert!(!valid(&c));
     }
 
+    #[test]
+    fn character_response_diagnostics_name_the_failed_check() {
+        let c = context();
+        let ids = vec!["vale".to_string()];
+        let check = |text, finish| validate_character_entries(text, finish, "test-model", &c, &ids);
+        let valid = r#"{"entries":[{"id":"vale","text":"I wonder what the mirror holds."}]}"#;
+        assert_eq!(
+            check(valid, "stop").unwrap()[0].model.as_deref(),
+            Some("test-model")
+        );
+        assert_eq!(check(valid, "length").unwrap_err(), "output_limit");
+        assert_eq!(check("{}", "stop").unwrap_err(), "response_shape");
+        assert_eq!(
+            check(r#"{"entries":[]}"#, "stop").unwrap_err(),
+            "entity_ids"
+        );
+        assert_eq!(
+            check(r#"{"entries":[{"id":"vale","text":""}]}"#, "stop").unwrap_err(),
+            "text_bounds"
+        );
+        assert_eq!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap_err(), "reflection");
+    }
+
+    #[test]
+    fn each_voice_keeps_only_its_assigned_cards() {
+        let c = context();
+        let scene = r#"{"entries":[{"id":"vale","text":"The scenery model echoed Vale."},{"id":"station","text":"Dust gathers along the rails."},{"id":"lamp","text":"A small flame warms the glass."}]}"#;
+        let scenery = vec!["station".to_string(), "lamp".to_string()];
+        let entries =
+            validate_character_entries(scene, "stop", "scenery-model", &c, &scenery).unwrap();
+        assert_eq!(
+            entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            vec!["station", "lamp"]
+        );
+        assert!(entries
+            .iter()
+            .all(|e| e.model.as_deref() == Some("scenery-model")));
+        let avatar = r#"{"entries":[{"id":"vale","text":"Vale's own words."},{"id":"moth","text":"An echoed reply."}]}"#;
+        let entries =
+            validate_character_entries(avatar, "stop", "vale-model", &c, &["vale".into()]).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, "Vale's own words.");
+        assert_eq!(entries[0].model.as_deref(), Some("vale-model"));
+        for invalid in [
+            scene.replace("station", "invented-location"),
+            scene.replace("station", "vale"),
+            r#"{"entries":[{"id":"vale","text":"Only the unassigned card."}]}"#.to_string(),
+        ] {
+            assert_eq!(
+                validate_character_entries(&invalid, "stop", "scenery-model", &c, &scenery)
+                    .unwrap_err(),
+                "entity_ids"
+            );
+        }
+    }
+
+    #[test]
+    fn flat_reflection_fields_use_the_same_growth_checks() {
+        let mut c = context();
+        c.entities[0].memories.push(Memory {
+            turn: 1,
+            kind: "event".into(),
+            text: "Vale found a light.".into(),
+        });
+        let ids = vec!["vale".to_string()];
+        let flat = r#"{"entries":[{"id":"vale","text":"The light feels warm.","thought":"I feel welcome.","persona":"I am curious about this place.","dream":"A lamp floated above a pond."},{"id":"moth","text":"An echoed line.","persona":"An echoed persona."}]}"#;
+        let entries = validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0].reflection.as_ref().unwrap().thought,
+            "I feel welcome."
+        );
+        assert_eq!(
+            entries[0].reflection.as_ref().unwrap().dream.as_deref(),
+            Some("A lamp floated above a pond.")
+        );
+        let mixed = flat.replace(
+            r#""thought":"I feel welcome.""#,
+            r#""reflection":null,"thought":"I feel welcome.""#,
+        );
+        assert_eq!(
+            validate_character_entries(&mixed, "stop", "vale-model", &c, &ids).unwrap_err(),
+            "response_shape"
+        );
+        let long = flat.replace("I feel welcome.", &"x".repeat(401));
+        assert_eq!(
+            validate_character_entries(&long, "stop", "vale-model", &c, &ids).unwrap_err(),
+            "reflection"
+        );
+        c.turn = 0;
+        assert_eq!(
+            validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap_err(),
+            "reflection"
+        );
+    }
+
     #[tokio::test]
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -1082,7 +1234,7 @@ mod tests {
             async move {
                 let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
                 captured.lock().unwrap().push(body.clone());
-                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
+                let mut entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
                     let mut entry = json!({"id":id,"text":"I remember the kindness beside the lamp."});
                     if input["scene"]["revision"] == 5 && id == "station" {
                         entry["id"] = json!("invented-location");
@@ -1092,6 +1244,9 @@ mod tests {
                     }
                     entry
                 }).collect();
+                if body["model"] == "test-entity-model" {
+                    entries.push(json!({"id":"vale","text":"An extra line from the scenery model."}));
+                }
                 Json(json!({"model":body["model"],"choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
             }
         }));
