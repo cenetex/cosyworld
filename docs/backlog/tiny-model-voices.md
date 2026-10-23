@@ -198,9 +198,62 @@ cache, serial calls), which is roughly gemma3:4b Q4 on an M-series laptop:
 Expect roughly 3x these numbers for gemma3:12b and 2x for llama3.1:8b on the
 same hardware. Speaker lines stream to the browser as each one is validated,
 so the first words appear after one call. Ollama is not installed on the
-development machine, so no real model lines were observed; the mock exercised
+development machine, so no local model lines were observed; the mock exercised
 the quirks the validator exists for (speaker labels, quotes, asterisks,
 markdown, trailing "I hope that helps", a second speaker, assistant refusal).
+Hosted lines were observed the same day; see the next section.
+
+## Observed on OpenRouter (2026-10-23)
+
+The route was played for six turns (take, talk, give, move, wait, talk) on
+the hosted profile with every voice on the model under test, for about forty
+cheap models, after raw sampling of the Vale and Pip prompts on each. The
+columns are published lines, lines that were assistant commentary ("It seems
+like you're creating a short story"), scenes that reached the 22 s deadline,
+and the price of a thousand scenes at eight calls of 350 input and 45 output
+tokens.
+
+| Model                              | Lines | Meta | Deadline | $/1000 scenes |
+| ---------------------------------- | ----- | ---- | -------- | ------------- |
+| `inception/mercury-2.5`            | 18    | 0    | 0/5      | 0.17          |
+| `google/gemma-4-26b-a4b-it`        | 10    | 0    | 3/5      | 0.27          |
+| `google/gemma-4-31b-it`            | 11    | 0    | 3/5      | 0.70          |
+| `google/gemma-3-4b-it`             | 13    | 1    | 0/5      | 0.13          |
+| `meta-llama/llama-3.3-70b`         | 13    | 1    | 2/5      | 0.40          |
+| `meta-llama/llama-3.1-8b-instruct` | 11    | 4    | 1/5      | 0.17          |
+
+Llama 3.1 8B can produce the table talk this design wants ("Vale, I wasn't
+rude, was I?" / "I didn't say you were rude, Pip. I asked a question." /
+keeper: "No."), but in two runs it published assistant commentary as speech in
+four of eleven and nine of seventeen lines, and in raw sampling it answered a
+"Vale:" cue as Pip half the time. Gemma 3 12B and Phi-4 produced almost
+nothing but commentary. Reasoning-only models (gpt-oss-20b, gpt-5-nano,
+qwen3-14b, step-3.5-flash) return empty content inside 96 tokens. Markdown
+roleplay models (Ministral, MythoMax, UnslopNemo) fail every shape check.
+
+Mercury 2.5 (a diffusion model from Inception, one provider, hosted only)
+answered raw prompts in under a second, published every scene with no silent
+speaker and no commentary, and kept to short lines: "Keep your cloth. Keep
+your silence." / "You see that? The light catches just so on the cuff." /
+keeper: "Bell stays. Vale and Pip must depart together." / station: "The
+clock ticks backward into a room no one has named." Its main rejection was
+copying an authored line. It thinks by default, so its registry entry must
+declare `reasoning` support for the route to send effort `none`. Gemma 4
+26B-A4B (open weights, 3.8B active, so also a local candidate) and Gemma 4 31B
+gave the funniest Pip and Vale ("It's a fickle thing, oil. It behaves so
+poorly when it's ignored." / "Composition is fine for a gallery, Pip, but it
+doesn't light the way out of a hole.") but reached the scene deadline on three
+of five scenes.
+
+Two findings are about the route, not the models. First, the validator passes
+assistant commentary beyond its dozen phrases, third-person self-narration
+("Vale's eyes flick to Pip"), and echoed awareness lines ("I remember: Vale
+gives the Lamp to Pip."), and it deletes inline `*emphasis*` whole, leaving
+"the rhythmic of Vale's boots". Second, the gateway's per-call latency was
+three to six times the provider's own (eight parallel direct calls finish in 1
+to 4 s; the route logged p50 3 to 8 s): a scene issues more calls than the
+parallel budget of eight, so calls queue and scenes reach the deadline. Both
+are open work; the model choice does not fix them.
 
 ## Recommended models
 
@@ -213,11 +266,13 @@ engine for this transcript form once the gateway can call a raw completion
 endpoint. RP fine-tunes are non-commercial licences and stay out.
 
 OpenRouter: both `fly.toml` and `fly.lonelyforest.toml` now voice the whole
-cast with `meta-llama/llama-3.1-8b-instruct` (registry snapshot
-`cosyworld-prod-2026-10-23-tiny-voices-v1`); the four larger per-character
-models and their registry entries are gone. Alternatives if one voice needs a
-different engine: `google/gemma-3-4b-it`, `google/gemma-3-12b-it`,
-`qwen/qwen-2.5-7b-instruct`. Prefer providers that list `min_p` under
+cast with `inception/mercury-2.5` (registry snapshot
+`cosyworld-prod-2026-10-23-mercury-voices-v1`, `reasoning: true` so the route
+turns reasoning off, zero-data-retention routing verified); the four larger
+per-character models and their registry entries are gone. Alternatives if one
+voice needs a different engine: `google/gemma-4-26b-a4b-it` (the one
+shortlisted model that also runs locally), `google/gemma-4-31b-it`,
+`google/gemma-3-4b-it`. Prefer providers that list `min_p` under
 `supported_parameters` once it is sent. Places and items still use the
 world-content model in `COSYWORLD_CARD_TEXT_MODEL`.
 
@@ -242,9 +297,11 @@ world-content model in `COSYWORLD_CARD_TEXT_MODEL`.
    silence for that entity; the others are published. The scene fails only
    when no speaker has words. The browser accepts a silent speaker and adds no
    beat for it.
-2. **One shared tiny model for the whole cast**:
-   `meta-llama/llama-3.1-8b-instruct` on both production sites. The map stays
-   per character so a voice that blurs can be moved on its own.
+2. **One shared cheap, fast model for the whole cast**:
+   `inception/mercury-2.5` on both production sites, chosen from the scan
+   above after `meta-llama/llama-3.1-8b-instruct` published assistant
+   commentary as speech. The map stays per character so a voice that blurs
+   can be moved on its own.
 3. **Larger hand-written pools**: eleven lines per cast member, five rotated
    into each call by turn. The copy check still compares a reply against the
    whole pool.

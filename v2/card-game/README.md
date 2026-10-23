@@ -186,23 +186,28 @@ Room music starts with the first accepted card play in a new game. The opening s
 
 Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
 
-| Character     | OpenRouter model                   |
-| ------------- | ---------------------------------- |
-| Vale          | `meta-llama/llama-3.1-8b-instruct` |
-| Pip           | `meta-llama/llama-3.1-8b-instruct` |
-| The keeper    | `meta-llama/llama-3.1-8b-instruct` |
-| Grumpy Badger | `meta-llama/llama-3.1-8b-instruct` |
+| Character     | OpenRouter model        |
+| ------------- | ----------------------- |
+| Vale          | `inception/mercury-2.5` |
+| Pip           | `inception/mercury-2.5` |
+| The keeper    | `inception/mercury-2.5` |
+| Grumpy Badger | `inception/mercury-2.5` |
 
-The whole cast shares one small instruct model, the same family the local
-profile runs through Ollama. Character comes from each entity's authored
-idiolect and lines, not from the model behind it, and the short transcript
-suits a small model best. The map still names every character so an operator
-can split it per character if two voices blur; each model needs an explicit
-world-content entry in the operator registry. Places and items use
-`COSYWORLD_CARD_TEXT_MODEL`. Assignments depend on the character ID, so they
-survive turns, saves, reloads, restarts and changes in who is present. Hosts
-with the character map unset send every voice to the configured world-content
-model.
+The whole cast shares one cheap, fast model. Mercury 2.5 was chosen on
+2026-10-23 from a scan of about forty small OpenRouter models played through
+this route: it answered in under a second, never slipped into assistant
+commentary, and kept to short lines in each voice (see
+`docs/backlog/tiny-model-voices.md`). Character comes from each entity's
+authored idiolect and lines, not from the model behind it, and the short
+transcript suits a small model best. Mercury is a reasoning model, so its
+registry entry declares `reasoning` support and the route turns reasoning off
+per call; without that it thinks for hundreds of tokens before speaking. The
+map still names every character so an operator can split it per character if
+two voices blur; each model needs an explicit world-content entry in the
+operator registry. Places and items use `COSYWORLD_CARD_TEXT_MODEL`.
+Assignments depend on the character ID, so they survive turns, saves, reloads,
+restarts and changes in who is present. Hosts with the character map unset
+send every voice to the configured world-content model.
 
 Every voiced entity gets its own plain-text call: the speakers, the current
 place and the item in play. Other cards keep the words already on them and are
