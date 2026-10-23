@@ -84,6 +84,15 @@ let world = enableMotives(createWorld({ opening: true }), {
   lineSeq = null,
   selectionRevision = 0,
   dragging = [];
+// Name the save slot: table saves are keyed off the URL param, so a player
+// landing through a different link silently lands in a different slot.
+{
+  const slotLabel = $("table-slot");
+  if (slotLabel && tableName) {
+    slotLabel.hidden = false;
+    slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
+  }
+}
 const paths = {
   lamp: '<path d="M18 25h28l4 29H14zM23 25v-9a9 9 0 0 1 18 0v9M12 55h40M24 47c-5-7 7-9 6-17 9 8 13 16 3 18"/>',
   oil: '<path d="M24 8h16v12l8 10v24H16V30l8-10zM24 14h16M17 35h30M32 38c-12 12-2 17 2 12 3-4-2-9-2-12z"/>',
@@ -197,7 +206,11 @@ let storyStatus = "ready",
 const HAND_WAIT = 2500;
 let handTimer = null;
 function releaseHand() {
-  if (!cardsCooling || storyStatus !== "pending") return;
+  // The cooldown is a courtesy pause, not a lock: if the story request has
+  // failed or wedged (status "retry"/error) the hand must still release,
+  // because no busy(false) will arrive. The revision guard rejects any
+  // stale play, so releasing early cannot corrupt the world.
+  if (!cardsCooling) return;
   cardsCooling = false;
   // The scene shows who is really here once the hand is free.
   pendingCast = null;
@@ -1646,6 +1659,12 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
+  // Archive the outgoing save: starting fresh must be reversible, because
+  // a confirm click is not enough consent to destroy a whole run.
+  try {
+    const previous = localStorage.getItem(SAVE_KEY);
+    if (previous) localStorage.setItem(`${SAVE_KEY}.bak`, previous);
+  } catch {}
   narrator.invalidate();
   exchange.cancel();
   departed.clear();
