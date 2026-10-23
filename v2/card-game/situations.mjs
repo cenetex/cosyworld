@@ -13,6 +13,23 @@ export const rootOwner = (s, item) => {
   }
   return owner;
 };
+// A friendly companion can keep an item while it serves a shared quest.
+// Custody rules for card plays and explicit deliveries still use rootOwner.
+export function questItemAvailable(s, actor, item) {
+  const owner = rootOwner(s, item);
+  if (owner === actor) return true;
+  return Boolean(
+    s.life &&
+      s.actors[owner] &&
+      (!s.opening || s.opening.met[owner] !== undefined) &&
+      s.actors[owner].place === s.actors[actor].place &&
+      ![actor, owner].some((id) =>
+        (s.motives?.grievances[id] || []).some(
+          (g) => g.other === (id === actor ? owner : actor) && g.weight > 0,
+        ),
+      ),
+  );
+}
 export function conditionMet(s, c) {
   switch (c.kind) {
     case "lit":

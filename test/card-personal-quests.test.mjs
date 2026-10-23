@@ -10,6 +10,7 @@ import {
   willingToGive,
   places,
   things,
+  handStatus,
 } from "../v2/card-game/world.mjs";
 import {
   enableMotives,
@@ -28,6 +29,7 @@ import {
   hopes,
   stayingWith,
   finishPersonalQuest,
+  hopeProgress,
 } from "../v2/card-game/life.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
@@ -54,6 +56,72 @@ function together() {
 }
 
 describe("personal quests grow from life", () => {
+  it("finishes the shore journey while Pip keeps Vale's gifted lamp", () => {
+    let s = fresh();
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "move", { target: "pond" });
+    s = act(s, "give", { item: "lamp", target: "moth" });
+    lifeOf(s, "vale").phase = "active";
+    expect(handStatus(s, "vale").items).toContainEqual({
+      id: "lamp",
+      met: true,
+      sharedBy: "moth",
+    });
+    s = act(s, "talk", { target: "moth" });
+    expect(s.actors.vale.progress.step).toBe(1);
+    s = act(s, "accompany", { target: "moth", destination: "station" });
+    expect(s.actors.vale.progress.program).toBe(2);
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(keepReason(s, "moth", "lamp")).toContain("gift from Vale");
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("shares only nearby friendly items and keeps delivery ownership explicit", () => {
+    const s = together();
+    s.items.lamp.holder = "moth";
+    const target = { items: ["lamp"], avatars: ["moth"], location: "station" };
+    expect(handStatus(s, "vale", target).met).toBe(true);
+    expect(
+      handStatus(s, "vale", {
+        ...target,
+        conditions: [{ kind: "heldBy", item: "lamp", avatar: "keeper" }],
+      }).met,
+    ).toBe(false);
+    s.actors.moth.place = "pond";
+    expect(handStatus(s, "vale", target).met).toBe(false);
+    s.actors.moth.place = "station";
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "vale", target: "moth" },
+      ["moth"],
+      false,
+    );
+    expect(handStatus(s, "vale", target).met).toBe(false);
+  });
+
+  it("shows hope earned through gifts and warmth before a later quest", () => {
+    let s = fresh();
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "move", { target: "pond" });
+    s = act(s, "give", { item: "lamp", target: "moth" });
+    expect(hopeProgress(s, "vale")).toMatchObject({
+      done: 1,
+      next: "Gather in warm light",
+    });
+    expect(
+      s.log.some((e) => e.text.includes("hope milestone: Return a kindness")),
+    ).toBe(true);
+    s = act(s, "talk", { target: "moth" });
+    expect(hopeProgress(s, "vale")).toMatchObject({
+      done: 2,
+      next: "Care for the shore",
+    });
+    expect(hopeProgress(s, "moth").done).toBeGreaterThanOrEqual(1);
+    const restored = decodeSave(encodeSave(s));
+    expect(restored.life).toEqual(s.life);
+    s = act(restored, "talk", { target: "moth" });
+    expect(hopeProgress(s, "vale").done).toBe(2);
+  });
   it("keeps the first light, then hides the next checklist through three quiet turns", () => {
     let s = fresh();
     expect(programFor(s, "vale").id).toBe("first-light");

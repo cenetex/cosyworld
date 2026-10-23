@@ -14,7 +14,11 @@ import {
   opponentOf,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
-import { conditionMet, conditionText } from "./situations.mjs";
+import {
+  conditionMet,
+  conditionText,
+  questItemAvailable,
+} from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events; quest counters remain on the cards and in the history.
@@ -298,9 +302,11 @@ export function narrativeContext(world, action = null) {
           facts.push(
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
-              : itemPlace(world, item) === world.actors[id].place
-                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
-                : `Wants ${nameOf(item)}.`,
+              : questItemAvailable(world, id, item)
+                ? `Shared use of ${nameOf(item)} with ${nameOf(rootHolder(world, item))} here satisfies this quest item. Its owner keeps it.`
+                : itemPlace(world, item) === world.actors[id].place
+                  ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
+                  : `Wants ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(

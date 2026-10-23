@@ -565,8 +565,20 @@ fn direction(context: &Context) -> Value {
 fn prompt(context: &Context) -> String {
     json!({"scene": context, "direction": direction(context), "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
+fn response_json(text: &str) -> &str {
+    let text = text.trim();
+    // Some chat providers wrap their JSON object in one Markdown fence.
+    // Unwrap that envelope; the same strict schema still validates its body.
+    text.strip_prefix("```json\n")
+        .or_else(|| text.strip_prefix("```json\r\n"))
+        .or_else(|| text.strip_prefix("```\n"))
+        .and_then(|body| body.strip_suffix("```"))
+        .map(str::trim)
+        .unwrap_or(text)
+}
+
 fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
-    let result: Generated = serde_json::from_str(text.trim()).ok()?;
+    let result: Generated = serde_json::from_str(response_json(text)).ok()?;
     let expected: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
     let returned: BTreeSet<_> = result.entries.iter().map(|e| e.id.as_str()).collect();
     (result.entries.len() == expected.len()
@@ -814,7 +826,8 @@ fn validate_character_entries(
     if finish_reason == "length" {
         return Err("output_limit");
     }
-    let mut value: Value = serde_json::from_str(text.trim()).map_err(|_| "response_shape")?;
+    let mut value: Value =
+        serde_json::from_str(response_json(text)).map_err(|_| "response_shape")?;
     let rows = value
         .get_mut("entries")
         .and_then(Value::as_array_mut)
@@ -1127,6 +1140,30 @@ mod tests {
         assert!(valid(&c));
         c.entities[0].inner_life.as_mut().unwrap().dreams[0].turn = 99;
         assert!(!valid(&c));
+    }
+
+    #[test]
+    fn fenced_provider_json_keeps_the_same_validation() {
+        let c = context();
+        let ids = vec!["vale".into()];
+        let body = r#"{"entries":[{"id":"vale","text":"I will keep the light ready."}]}"#;
+        for wrapped in [
+            format!("```json\n{body}\n```"),
+            format!("```\n{body}\n```"),
+            format!("```json\r\n{body}\r\n```\n"),
+        ] {
+            assert_eq!(
+                validate_character_entries(&wrapped, "stop", "test", &c, &ids).unwrap()[0].text,
+                "I will keep the light ready."
+            );
+        }
+        for invalid in [
+            format!("Here is the answer: ```json\n{body}\n```"),
+            format!("```json\n{body}\n``` trailing"),
+            format!("```json\n{}\n```", body.replace("vale", "invented")),
+        ] {
+            assert!(validate_character_entries(&invalid, "stop", "test", &c, &ids).is_err());
+        }
     }
 
     #[test]

@@ -43,6 +43,7 @@ import {
 } from "./life.mjs";
 import {
   conditionMet,
+  questItemAvailable,
   conditionText,
   requiredItems,
   validCondition,
@@ -297,7 +298,13 @@ const hasSpace = (s, actor, id) =>
 export function handStatus(s, actor, hand = desireFor(s, actor)) {
   const held = carried(s, actor),
     here = s.actors[actor].place;
-  const items = hand.items.map((id) => ({ id, met: held.includes(id) }));
+  const items = hand.items.map((id) => ({
+    id,
+    met: questItemAvailable(s, actor, id),
+    ...(!held.includes(id) && questItemAvailable(s, actor, id)
+      ? { sharedBy: rootHolder(s, id) }
+      : {}),
+  }));
   const location = {
     id: hand.location,
     met: !hand.location || here === hand.location,
@@ -426,7 +433,7 @@ function captureHands(s, met) {
       met.set(actor, {
         target: structuredClone(target),
         fulfillment: {
-          items: carried(s, actor),
+          items: [...target.items],
           location: s.actors[actor].place,
           avatars: knownActors(s).filter(
             (id) =>
@@ -775,6 +782,19 @@ export function accompanyDecision(s, actor, companion, destination) {
   const closer = (place) =>
     distance(destination, place) < distance(here, place);
   const agree = (reason) => ({ accepted: true, reason });
+  if (
+    s.life &&
+    targetsFor(s, actor).some(
+      (hand) =>
+        hand.location &&
+        closer(hand.location) &&
+        hand.items.some(
+          (id) =>
+            rootHolder(s, id) === companion && questItemAvailable(s, actor, id),
+        ),
+    )
+  )
+    return agree("Keep our shared belongings with us for this journey.");
   for (const hand of targetsFor(s, companion)) {
     const missing = requiredItems(s, companion, hand).filter(
       (id) => rootHolder(s, id) !== companion,
@@ -1472,7 +1492,11 @@ export function plan(s, actor = "vale") {
       );
   }
   const resources = requiredItems(s, actor, hand);
-  const missing = resources.filter((id) => rootHolder(s, id) !== actor);
+  const missing = resources.filter((id) =>
+    hand.items.includes(id)
+      ? !questItemAvailable(s, actor, id)
+      : rootHolder(s, id) !== actor,
+  );
   const reason = `Seek this hand: ${handText(hand)}.`;
   // Another avatar can hold its whole hand somewhere else and wait only for
   // this one. Going there completes that hand and ends the wait.
@@ -1695,6 +1719,9 @@ export function play(s, action, expectedRevision = s.revision) {
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  const previousHopes = Object.fromEntries(
+    knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
+  );
   const clearingWasOpen = clearingOpen(s);
   next.turn += 1;
   next.revision += 1;
@@ -1800,6 +1827,16 @@ export function play(s, action, expectedRevision = s.revision) {
     );
   if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
+  for (const actor of knownActors(next)) {
+    const life = lifeOf(next, actor);
+    if (life && life.milestones.length > (previousHopes[actor] || 0))
+      addLog(
+        next,
+        "World",
+        `${nameOf(actor)} reaches a hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/3.`,
+        { actorId: actor },
+      );
+  }
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
     if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {

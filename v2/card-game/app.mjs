@@ -13,6 +13,8 @@ import {
   lifeFacts,
   INSPIRATION_MAX,
   keepReason,
+  hopeProgress,
+  recentInspiration,
 } from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { conditionText } from "./situations.mjs";
@@ -873,7 +875,7 @@ function card(id) {
           ? world.turn >= life.restUntil
             ? "Inspiration next turn"
             : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
-          : "Talk · trade · help",
+          : recentInspiration(world, id),
         "trade-offers",
       ),
     );
@@ -920,9 +922,12 @@ function card(id) {
       info.append(line);
     };
     row(
-      "Hold",
+      world.life ? "Use" : "Hold",
       target.items.length
-        ? target.items.map((e) => ({ ...e, text: nameOf(e.id) }))
+        ? target.items.map((e) => ({
+            ...e,
+            text: `${nameOf(e.id)}${e.sharedBy ? ` · with ${nameOf(e.sharedBy)}` : ""}`,
+          }))
         : [{ met: true, text: "Any items" }],
     );
     row("At", [
@@ -974,7 +979,9 @@ function card(id) {
         "personal-hope",
       ),
     );
-    info.title = lifeFacts(world, id).join("\n");
+    const progress = hopeProgress(world, id);
+    info.append(node("span", progress.next, "hope-next"));
+    info.title = `${lifeFacts(world, id).join("\n")}\n${progress.hint}`;
   }
   if (type === "item" && people[rootHolder(world, id)]) {
     const reason = keepReason(world, rootHolder(world, id), id);
@@ -1523,6 +1530,14 @@ $("menu-button").onclick = () => {
             hope = hopes[id],
             program = programFor(world, id);
           block.append(node("h3", `${nameOf(id)} · ${hope.title}`));
+          const hopeState = hopeProgress(world, id);
+          block.append(
+            node(
+              "p",
+              `Hope ${hopeState.done}/${hopeState.total} · ${hopeState.hint}`,
+            ),
+          );
+          block.append(node("p", recentInspiration(world, id)));
           block.append(
             node(
               "p",
@@ -1534,7 +1549,7 @@ $("menu-button").onclick = () => {
             milestones.append(
               node(
                 "li",
-                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}`,
+                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}${i < life.milestones.length ? ` · turn ${life.milestones[i]}` : ""}`,
               ),
             ),
           );
@@ -1547,7 +1562,11 @@ $("menu-button").onclick = () => {
               steps.append(
                 node(
                   "li",
-                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(step).map(handText).join(" OR ")}`,
+                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(
+                    step,
+                  )
+                    .map((h) => handText(h).replace(/^hold /u, "use "))
+                    .join(" OR ")}`,
                 ),
               ),
             );

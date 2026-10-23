@@ -1,5 +1,5 @@
 // Personal quests grow from shared actions. This state belongs to the save.
-import { rootOwner } from "./situations.mjs";
+import { rootOwner, questItemAvailable, conditionMet } from "./situations.mjs";
 
 export const INSPIRATION_MAX = 5;
 export const REST_TURNS = 3;
@@ -55,6 +55,54 @@ export const lifeOf = (s, actor) => s.life?.actors?.[actor];
 export const questActive = (s, actor) =>
   !lifeOf(s, actor) || lifeOf(s, actor).phase === "active";
 
+const hopeHints = {
+  vale: [
+    "Give a useful gift or tend a friend's light.",
+    "Talk together beside a lit lamp.",
+    "Complete a quest that opens or cares for a place.",
+  ],
+  moth: [
+    "Talk with a friend beside a lit lamp.",
+    "Give a useful gift or tend a friend's light.",
+    "Complete a quest that quiets or anchors the shore.",
+  ],
+  keeper: [
+    "Complete a quest that quiets the pond.",
+    "Give a useful gift or tend a visitor's light.",
+    "Talk with a visitor beside a lit lamp.",
+  ],
+};
+export function hopeProgress(s, actor) {
+  const done = lifeOf(s, actor)?.milestones.length || 0;
+  return {
+    done,
+    total: hopes[actor].milestones.length,
+    next: hopes[actor].milestones[done]?.title || "A hope fulfilled",
+    hint: hopeHints[actor][done] || "Keep caring for the home you made.",
+  };
+}
+export function recentInspiration(s, actor) {
+  const e = lifeOf(s, actor)?.experiences.at(-1);
+  if (!e) return "Talk, trade, help or travel together.";
+  const label = {
+    help: "A useful gift",
+    trade: "A fair trade",
+    talk: "A conversation",
+    journey: "A shared journey",
+    care: "Care for the lamp",
+  }[e.kind];
+  return `${label} · turn ${e.turn}`;
+}
+function earnHope(s, actor, kind, target = null) {
+  const life = lifeOf(s, actor);
+  if (!life || life.milestones.at(-1) === s.turn) return;
+  const next = hopes[actor].milestones[life.milestones.length];
+  if (
+    fitsMilestone(next, { generated: { situation: kind }, steps: [] }, target)
+  )
+    life.milestones.push(s.turn);
+}
+
 export function enablePersonalQuests(s) {
   if (s.life === undefined)
     s.life = {
@@ -109,7 +157,7 @@ export function lifeFacts(s, actor) {
   return [
     `Long-term hope: ${hope.title}.`,
     next
-      ? `Next milestone: ${next.title}.`
+      ? `Next milestone: ${next.title}. ${hopeProgress(s, actor).hint}`
       : `This hope is fulfilled; keep caring for it.`,
     life.phase === "active"
       ? "Pursuing a personal quest."
@@ -168,6 +216,26 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
   const participants = [
     ...new Set([a.actor, ...(social ? [a.target] : [])]),
   ].filter(participant);
+  if (
+    (a.kind === "give" && usefulGift) ||
+    (a.kind === "refill" &&
+      actors.some(
+        (id) =>
+          id !== a.actor &&
+          participant(id) &&
+          s.actors[id].place === s.actors[a.actor].place &&
+          questItemAvailable(s, id, "lamp"),
+      ))
+  )
+    earnHope(s, a.actor, "delivery");
+  if (
+    a.kind === "talk" &&
+    s.actors[a.target] &&
+    s.actors[a.target].place === s.actors[a.actor].place &&
+    conditionMet(s, { kind: "lit" }) &&
+    participants.every((id) => questItemAvailable(s, id, "lamp"))
+  )
+    for (const id of participants) earnHope(s, id, "gathering");
   for (const id of participants) {
     const life = lifeOf(s, id);
     const other = id === a.actor ? a.target : a.actor;
@@ -201,7 +269,8 @@ export function finishPersonalQuest(s, actor, program, target = null) {
   const life = lifeOf(s, actor);
   if (!life) return;
   const next = hopes[actor].milestones[life.milestones.length];
-  if (fitsMilestone(next, program, target)) life.milestones.push(s.turn);
+  if (fitsMilestone(next, program, target) && life.milestones.at(-1) !== s.turn)
+    life.milestones.push(s.turn);
   life.phase = "content";
   life.inspiration = 0;
   life.restUntil = s.turn + REST_TURNS;
@@ -245,7 +314,6 @@ export function validLife(s) {
         (p.phase === "seeking" || p.inspiration === 0) &&
         Array.isArray(p.milestones) &&
         p.milestones.length <= 3 &&
-        p.milestones.length <= s.actors[id].progress.program &&
         p.milestones.every(
           (turn, i) => whole(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0),
         ) &&
