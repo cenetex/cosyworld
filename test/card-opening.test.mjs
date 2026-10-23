@@ -228,7 +228,7 @@ describe("the first light in the attic", () => {
       narrativeContext(s)
         .entities.find((e) => e.id === "keeper")
         .facts.join(" "),
-    ).toContain("You were already here");
+    ).toContain("I was already here");
     s = act(s, "wait");
     expect(
       s.log.some(

@@ -192,13 +192,11 @@ describe("the bell crossing to the Steam Clock", () => {
     s = act(s, "wait");
     expect(s.actors.badger.irritation).toBe(0);
     expect(facts(s)).toContain("Still grumpy");
-    expect(facts(s)).toContain("answer grudgingly");
+    expect(facts(s)).toContain("interrupted nap");
     s = ring(s);
     expect(s.actors.badger.irritation).toBeGreaterThan(1);
     expect(facts(s)).toContain("Furious at the noise");
-    expect(facts(decodeSave(encodeSave(s)))).toContain(
-      "blunt demand for quiet",
-    );
+    expect(facts(decodeSave(encodeSave(s)))).toContain("I want quiet, now.");
   });
 
   it("adds the clearing to an older shore save while keeping existing belongings and memories", () => {

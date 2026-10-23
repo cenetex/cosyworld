@@ -1,7 +1,5 @@
 use crate::ai_gateway::ModelCapability;
-use crate::ai_gateway::{
-    request_chat_completion, request_chat_completion_stream, AiConfig, ChatCompletionRequest,
-};
+use crate::ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest};
 use crate::rate_limit::{RateLimit, RateLimiter};
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, State},
@@ -21,34 +19,6 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
-const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Write scene.speakers first in that order, then every remaining requested ID. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
-
-GROUNDING
-scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
-
-For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
-
-KNOWLEDGE
-Use visible facts and witnessed events as knowledge. A new effect becomes known when a completed event reveals it. Treat an unfamiliar object or place with curiosity; future effects remain uncertain. Desires establish what an avatar wants. React to discoveries when they happen, with surprise, doubt or interest shaped by the speaker's personality. Let the player choose the next card.
-
-SPEECH
-Sleeping avatars receive a short third-person sleeping description for their card. Their speech begins after the recorded wake event. Awake avatars speak in first person to the other scene.speakers. Only scene.speakers take spoken turns. Other avatar entries are quiet reflections on their cards, not replies in the scene. A lone departing speaker addresses those staying behind; other lone speakers reflect on the recorded scene. Vale is the player avatar. When Vale is in scene.speakers, give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. When Vale is absent from scene.speakers, let the departing avatars speak for themselves without a Vale farewell or departure recap. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
-
-A departing avatar speaks from the threshold of their recorded source. Name the actual destination and reason for going. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
-
-Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
-
-FRESH LINES
-The player has just watched the card and its result. Never narrate the play back: no line describes handing over, taking, trading, lighting, travelling or waiting as news, and no speaker announces what they or Vale just did. Begin after the action. Each spoken line does one of these: reacts to a consequence (a cost, a relief, a new debt or a changed opinion), reveals something new about the speaker or the place, or pushes against another speaker's want. Across the speakers, include at least one reveal or one point of friction. Do not reuse the wording, offer or question of a line in scene.conversation.
-A complaint needs a recorded cause: a remembered grievance in the speaker's facts or an event in scene.events. A disliked thing in a persona is a taste, not something that happened. When no recorded event made a noise, spoiled a light or threatened someone, no one complains about it, including a noise someone nearly made or might make.
-
-VOICE AND MEMORY
-Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
-
-STAGING
-direction.vale_intent gives the performance of the chosen action. When Vale is a scene speaker, convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
-
-Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. Return only JSON."#;
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
@@ -153,6 +123,7 @@ fn bounded(text: &str, limit: usize) -> bool {
 struct TextState {
     ai: Arc<Option<AiConfig>>,
     character_models: Arc<Result<BTreeMap<String, String>, String>>,
+    settings: Arc<Result<VoiceSettings, String>>,
     limits: Arc<Mutex<RateLimiter>>,
     in_flight: Arc<InFlight>,
     capacity: Arc<Semaphore>,
@@ -178,7 +149,7 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>
         .ok()
         .map(|text| parse_character_models(&text))
         .unwrap_or_else(|| Ok(BTreeMap::new()));
-    router_with_models(ai, models)
+    router_with_models(ai, models, voice_settings().clone())
 }
 
 fn parse_character_models(text: &str) -> Result<BTreeMap<String, String>, String> {
@@ -203,6 +174,7 @@ fn parse_character_models(text: &str) -> Result<BTreeMap<String, String>, String
 fn router_with_models<S: Clone + Send + Sync + 'static>(
     ai: Arc<Option<AiConfig>>,
     models: Result<BTreeMap<String, String>, String>,
+    settings: Result<VoiceSettings, String>,
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
@@ -210,6 +182,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
         .with_state(TextState {
             ai,
             character_models: Arc::new(models),
+            settings: Arc::new(settings),
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
@@ -342,12 +315,6 @@ struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reflection: Option<Reflection>,
 }
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Generated {
-    entries: Vec<Entry>,
-}
-
 fn valid(context: &Context) -> bool {
     let ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
     context.turn <= context.revision
@@ -505,78 +472,6 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         })
 }
 
-// Restate the resolved action and each trip for every voice, including places.
-// The model can then keep a character's style while following the player's play.
-fn direction(context: &Context) -> Value {
-    let Some(outcome) = &context.outcome else {
-        return json!({"vale_intent": context.action, "journeys": []});
-    };
-    let name = |id: &str| profiles()[id]["name"].as_str().unwrap_or(id).to_string();
-    let target = outcome.card.target.as_deref().map(name).unwrap_or_default();
-    let intent = if !context.speakers.iter().any(|id| id == "vale") {
-        "Vale listens silently. Keep Vale's entry as a quiet card reflection; the listed speakers carry this exchange.".to_string()
-    } else {
-        match outcome.card.kind.as_str() {
-        "threaten" => format!("Vale chose to threaten {target}. Deliver the demand with pressure and resolve. Keep that intent through the target's recorded response."),
-        "attack" => format!("Vale chose to attack {target}. Speak with commitment to that attack and its actual result. A blocked blow or a retreat changes the result; the chosen intent remains an attack."),
-        "guard" => format!("Vale chose to guard against {target}. Hold a firm defensive stance and react to the recorded response."),
-        _ => format!("Vale chose {}. The player already saw this play and its result, so Vale does not describe it. Vale speaks to what it changes: a cost, a hope, a question or a doubt about the person involved.", outcome.card.kind),
-    }
-    };
-    let journeys: Vec<_> = outcome
-        .avatars
-        .iter()
-        .map(|avatar| {
-            let who = name(&avatar.id);
-            match &avatar.travel {
-                Some(trip) if trip.companions.is_empty() => format!(
-                    "{who} travelled alone from {} to {}. This was a separate trip.",
-                    name(&trip.from),
-                    name(&trip.to)
-                ),
-                Some(trip) => format!(
-                    "{who} travelled together with {} from {} to {} on one shared trip.",
-                    trip.companions
-                        .iter()
-                        .map(|id| name(id))
-                        .collect::<Vec<_>>()
-                        .join(" and "),
-                    name(&trip.from),
-                    name(&trip.to)
-                ),
-                None => format!("{who} stayed at {} this turn.", name(&avatar.location)),
-            }
-        })
-        .collect();
-    let present = outcome
-        .avatars
-        .iter()
-        .filter(|avatar| avatar.location == context.location)
-        .map(|avatar| name(&avatar.id))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let setting = format!(
-        "The scene is {}. Present after this turn: {present}.",
-        name(&context.location)
-    );
-    json!({"vale_intent": intent, "setting": setting, "journeys": journeys})
-}
-
-fn prompt(context: &Context) -> String {
-    json!({"scene": context, "direction": direction(context), "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
-}
-fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
-    let result: Generated = serde_json::from_str(text.trim()).ok()?;
-    let expected: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
-    let returned: BTreeSet<_> = result.entries.iter().map(|e| e.id.as_str()).collect();
-    (result.entries.len() == expected.len()
-        && returned == expected
-        && result
-            .entries
-            .iter()
-            .all(|e| bounded(&e.text, 400) && e.reflection.is_none() && e.model.is_none()))
-    .then_some(result.entries)
-}
 fn error(status: StatusCode, message: &str) -> Response {
     (
         status,
@@ -631,6 +526,12 @@ async fn generate(
             "Character voices are waiting for their model settings.",
         );
     };
+    let Ok(settings) = state.settings.as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Character voices are waiting for valid timing settings.",
+        );
+    };
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
     // touching shared capacity, so one client can neither hold every permit
@@ -665,6 +566,7 @@ async fn generate(
     {
         let config = config.clone();
         let character_models = character_models.clone();
+        let settings = settings.clone();
         let (sender, receiver) = mpsc::unbounded_channel::<Event>();
         tokio::spawn(async move {
             let _permit = _permit;
@@ -677,7 +579,7 @@ async fn generate(
             };
             tokio::select! {
                 _ = sender.closed() => {},
-                result = complete(&config, &context, &character_models, Some(&emit)) => {
+                result = complete(&config, &context, &character_models, &settings, Some(&emit)) => {
                     let event = match result {
                         Ok(mut value) => { value["type"] = json!("complete"); value },
                         Err(_) => json!({"type":"error","message":"Story text will try again with your next play"}),
@@ -695,72 +597,256 @@ async fn generate(
         )
             .into_response();
     }
-    match complete(config, &context, character_models, None).await {
+    match complete(config, &context, character_models, settings, None).await {
         Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
         Err(response) => response,
     }
 }
 
+/// One scene: a separate plain-text call for each voiced entity, plus private
+/// reflection calls when an avatar is due one. The simulation chooses who
+/// is voiced and what each one is aware of; this validator decides what is
+/// published. Prompts carry only the entity's own words and awareness.
 async fn complete(
     config: &AiConfig,
     context: &Context,
     character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
-    if character_models.is_empty() {
-        return complete_shared(config, context, on_delta).await;
+    let voiced = voiced(context);
+    let mut calls = Vec::new();
+    for id in &voiced {
+        calls.push((id.clone(), Part::Line));
+        let entity = entity(context, id);
+        let (reflect, dream) = reflection_due(context, entity);
+        if reflect {
+            calls.push((id.clone(), Part::Thought));
+            calls.push((id.clone(), Part::Persona));
+            if dream {
+                calls.push((id.clone(), Part::Dream));
+            }
+        }
     }
-    complete_characters(config, context, character_models, on_delta).await
+    let jobs = calls.into_iter().map(|(id, part)| async move {
+        let result = speak(config, context, character_models, settings, &id, part).await;
+        (id, part, result)
+    });
+    let mut results = futures_util::StreamExt::buffered(
+        futures_util::stream::iter(jobs),
+        settings.parallel.max(1),
+    );
+    let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
+    let mut private: BTreeMap<(String, Part), String> = BTreeMap::new();
+    let mut failed_reflection = BTreeSet::new();
+    let collected = tokio::time::timeout(settings.scene_timeout, async {
+        while let Some((id, part, result)) = futures_util::StreamExt::next(&mut results).await {
+            let speaker = context.speakers.contains(&id);
+            match (part, result) {
+                (Part::Line, Ok((text, model))) => {
+                    if speaker {
+                        if let Some(emit) = on_delta {
+                            if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
+                                return Err(error(
+                                    StatusCode::SERVICE_UNAVAILABLE,
+                                    "The scene has closed.",
+                                ));
+                            }
+                        }
+                    }
+                    lines.insert(id, (text, model));
+                }
+                (Part::Line, Err(())) if speaker || !settings.optional_scenery => {
+                    return Err(error(
+                        StatusCode::BAD_GATEWAY,
+                        "A character's words need another try.",
+                    ));
+                }
+                (Part::Line, Err(())) => {}
+                (part, Ok((text, _))) => {
+                    private.insert((id, part), text);
+                }
+                (_, Err(())) if !settings.optional_scenery => {
+                    return Err(error(
+                        StatusCode::BAD_GATEWAY,
+                        "A character's words need another try.",
+                    ));
+                }
+                (_, Err(())) => {
+                    failed_reflection.insert(id);
+                }
+            }
+        }
+        Ok(())
+    })
+    .await;
+    match collected {
+        Err(_) => {
+            return Err(error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "A character is still finding their words.",
+            ))
+        }
+        Ok(Err(response)) => return Err(response),
+        Ok(Ok(())) => {}
+    }
+    let mut entries = Vec::new();
+    for id in &voiced {
+        let Some((text, model)) = lines.remove(id) else {
+            continue;
+        };
+        let reflection = (!failed_reflection.contains(id))
+            .then(|| {
+                let thought = private.remove(&(id.clone(), Part::Thought))?;
+                let persona = private.remove(&(id.clone(), Part::Persona))?;
+                Some(Reflection {
+                    thought,
+                    persona,
+                    dream: private.remove(&(id.clone(), Part::Dream)),
+                })
+            })
+            .flatten();
+        entries.push(Entry {
+            id: id.clone(),
+            text,
+            model: Some(model),
+            reflection,
+        });
+    }
+    let omitted: Vec<_> = context
+        .entities
+        .iter()
+        .filter(|e| !entries.iter().any(|entry| entry.id == e.id))
+        .map(|e| e.id.clone())
+        .collect();
+    let models: BTreeSet<_> = entries.iter().filter_map(|e| e.model.as_deref()).collect();
+    let model = if models.len() == 1 {
+        models
+            .into_iter()
+            .next()
+            .unwrap_or("card-voices-v1")
+            .to_string()
+    } else {
+        "card-voices-v1".to_string()
+    };
+    Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
 }
 
-async fn complete_shared(
-    config: &AiConfig,
-    context: &Context,
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-) -> Result<Value, Response> {
-    let user = prompt(context);
-    let format = json!({"type": "json_object"});
-    let request = ChatCompletionRequest {
-        feature: "card_entity_text",
-        prompt_version: "card-entity-text-v11",
-        capability: ModelCapability::WorldContent,
-        system: SYSTEM,
-        user: &user,
-        temperature: 0.4,
-        max_tokens: 1200,
-        timeout: Duration::from_secs(22),
-        max_attempts: 1,
-        referer: "https://cosyworld.fly.dev",
-        response_format: Some(&format),
-        room_id: None,
-    };
-    let Ok(Ok(completion)) = tokio::time::timeout(Duration::from_secs(25), async {
-        if let Some(on_delta) = on_delta {
-            request_chat_completion_stream(config, request, on_delta).await
-        } else {
-            request_chat_completion(config, request).await
+/// What one call asks an entity to say or keep privately.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Part {
+    Line,
+    Thought,
+    Persona,
+    Dream,
+}
+
+impl Part {
+    /// Character and sentence limits applied after the model answers.
+    fn limits(self) -> (usize, usize) {
+        match self {
+            Part::Line | Part::Thought => (400, 2),
+            Part::Dream => (400, 3),
+            Part::Persona => (600, 4),
         }
-    })
-    .await
-    else {
-        return Err(error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "The story service is waiting for its model.",
-        ));
-    };
-    if completion.finish_reason == "length" {
-        return Err(error(
-            StatusCode::BAD_GATEWAY,
-            "The story response needs another try.",
-        ));
     }
-    let Some(entries) = parse(&completion.text, context) else {
-        return Err(error(
-            StatusCode::BAD_GATEWAY,
-            "The story response needs another try.",
-        ));
-    };
-    Ok(json!({"revision":context.revision,"entries":entries,"model":completion.resolved_model_id}))
+}
+
+/// How the card voices reach their models. `hosted` keeps the deployed
+/// deadlines; `local` gives on-device models room and runs one call at a time.
+#[derive(Clone, Debug, PartialEq)]
+struct VoiceSettings {
+    call_timeout: Duration,
+    scene_timeout: Duration,
+    parallel: usize,
+    attempts: u8,
+    /// A place or item line, or a private reflection, may be left out when
+    /// its model cannot produce a valid one. Speakers are always required.
+    optional_scenery: bool,
+}
+
+impl VoiceSettings {
+    fn hosted() -> Self {
+        Self {
+            call_timeout: Duration::from_secs(12),
+            scene_timeout: Duration::from_secs(22),
+            parallel: 8,
+            attempts: 1,
+            optional_scenery: false,
+        }
+    }
+
+    fn local() -> Self {
+        Self {
+            call_timeout: Duration::from_secs(90),
+            scene_timeout: Duration::from_secs(240),
+            parallel: 1,
+            attempts: 2,
+            optional_scenery: true,
+        }
+    }
+
+    fn from_lookup(get: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
+        let mut settings = match get("COSYWORLD_CARD_TEXT_PROFILE").as_deref().map(str::trim) {
+            None | Some("") | Some("hosted") => Self::hosted(),
+            Some("local") => Self::local(),
+            Some(other) => {
+                return Err(format!(
+                    "COSYWORLD_CARD_TEXT_PROFILE must be hosted or local, not {other}"
+                ))
+            }
+        };
+        let number = |name: &str, max: u64| -> Result<Option<u64>, String> {
+            get(name)
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| {
+                    value
+                        .trim()
+                        .parse::<u64>()
+                        .ok()
+                        .filter(|n| (1..=max).contains(n))
+                        .ok_or_else(|| format!("{name} must be a whole number from 1 to {max}"))
+                })
+                .transpose()
+        };
+        if let Some(secs) = number("COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS", 600)? {
+            settings.call_timeout = Duration::from_secs(secs);
+        }
+        if let Some(secs) = number("COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS", 1800)? {
+            settings.scene_timeout = Duration::from_secs(secs);
+        }
+        if let Some(parallel) = number("COSYWORLD_CARD_TEXT_PARALLEL", 16)? {
+            settings.parallel = parallel as usize;
+        }
+        if let Some(attempts) = number("COSYWORLD_CARD_TEXT_ATTEMPTS", 3)? {
+            settings.attempts = attempts as u8;
+        }
+        if settings.call_timeout > settings.scene_timeout {
+            return Err(
+                "COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS must not exceed the scene timeout".into(),
+            );
+        }
+        Ok(settings)
+    }
+
+    /// The browser's budget for one scene, including its own single retry.
+    fn client_budget(&self) -> Duration {
+        (self.scene_timeout + Duration::from_secs(8)).max(Duration::from_secs(30))
+    }
+}
+
+fn voice_settings() -> &'static Result<VoiceSettings, String> {
+    static SETTINGS: OnceLock<Result<VoiceSettings, String>> = OnceLock::new();
+    SETTINGS.get_or_init(|| VoiceSettings::from_lookup(|name| std::env::var(name).ok()))
+}
+
+/// The browser's scene budget in milliseconds, served in the card table page.
+pub(super) fn client_budget_ms() -> u128 {
+    voice_settings()
+        .as_ref()
+        .unwrap_or(&VoiceSettings::hosted())
+        .client_budget()
+        .as_millis()
 }
 
 fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
@@ -781,183 +867,571 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
     (reflect, dream)
 }
 
-fn character_prompt(context: &Context, ids: &[String]) -> String {
-    let mut input: Value = serde_json::from_str(&prompt(context)).expect("scene prompt");
-    input["requested_ids"] = json!(ids);
-    // Each model sees the public scene and the selected character's own inner life.
-    for entity in input["scene"]["entities"].as_array_mut().expect("entities") {
-        if !ids.iter().any(|id| entity["id"] == id.as_str()) {
-            entity["memories"] = json!([]);
-            entity["inner_life"] = Value::Null;
-            entity["previous"] = Value::Null;
+/// The speakers, then the place, then the item in play. Everyone else keeps
+/// the words already on their card.
+fn voiced(context: &Context) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for id in context
+        .speakers
+        .iter()
+        .chain(std::iter::once(&context.location))
+        .chain(context.focus.iter())
+    {
+        if !ids.contains(id) && context.entities.iter().any(|e| &e.id == id) {
+            ids.push(id.clone());
         }
     }
-    input["reflection_requests"] = json!(context
-        .entities
-        .iter()
-        .filter(|e| ids.contains(&e.id))
-        .filter_map(|e| {
-            let (reflect, dream) = reflection_due(context, e);
-            reflect.then(|| json!({"id":e.id,"dream":dream}))
-        })
-        .collect::<Vec<_>>());
-    input.to_string()
+    ids
 }
 
-async fn complete_characters(
-    config: &AiConfig,
-    context: &Context,
-    models: &BTreeMap<String, String>,
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-) -> Result<Value, Response> {
-    let mut groups = Vec::new();
-    for entity in &context.entities {
-        if kind(&entity.id, "avatar") {
-            let Some(model) = models.get(&entity.id) else {
-                return Err(error(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "A character voice is waiting for its model.",
-                ));
-            };
-            groups.push((vec![entity.id.clone()], Some(model.clone())));
-        }
-    }
-    let scenery: Vec<_> = context
+fn entity<'a>(context: &'a Context, id: &str) -> &'a Entity {
+    context
         .entities
         .iter()
-        .filter(|e| !kind(&e.id, "avatar"))
-        .map(|e| e.id.clone())
-        .collect();
-    if !scenery.is_empty() {
-        groups.push((scenery, None));
+        .find(|e| e.id == id)
+        .expect("voiced entities come from the scene")
+}
+
+fn name(id: &str) -> String {
+    profiles()[id]["name"].as_str().unwrap_or(id).to_string()
+}
+
+fn names(ids: &[String]) -> String {
+    ids.iter()
+        .map(|id| name(id))
+        .collect::<Vec<_>>()
+        .join(" and ")
+}
+
+/// The entity's own first-person words, with the persona its reflections grew.
+fn idiolect(entity: &Entity) -> String {
+    let mut text = profiles()[&entity.id]["idiolect"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    if let Some(persona) = entity
+        .inner_life
+        .as_ref()
+        .and_then(|l| l.persona.as_deref())
+    {
+        text.push_str("\n\n");
+        text.push_str(persona);
     }
-    let system = format!("{SYSTEM}\n\nINDIVIDUAL VOICE\nWrite entries only for requested_ids. Speak as that character from their supplied authored profile, current inner_life.persona, own memories, thoughts and dreams. Other characters' private memories belong to them. A remembered dream is symbolic imagination; waking facts come from the resolved scene. Keep the authored identity and voice as roots while allowing experience to change trust, tastes, fears and social habits.\nFor each reflection_requests row, add reflection to that character's entry with thought (one first-person thought, at most 400 characters) and persona (a current first-person persona, at most 600 characters). Ground growth in that character's witnessed events and retain established traits. Add dream (one symbolic dream or daydream, at most 400 characters) only when that row asks for it. Private reflection stays on the character's card. Use the dream and thought as subjective impressions. Keep possessions, actions, relationships and world events grounded in the supplied facts. For Vale, keep player choices as the source of actions and commitments. Other entries contain only id and text.");
-    let jobs = groups.iter().map(|(ids, model)| {
-        let system = &system;
-        async move {
-            let mut config = config.clone();
-            if let Some(model) = model {
-                config
-                    .capability_models
-                    .insert(ModelCapability::WorldContent, model.clone());
-                // Keep the short speech budget for output on models that accept
-                // reasoning control. Other models use their native request shape.
-                config.reasoning_effort = config
-                    .registry
-                    .as_deref()
-                    .and_then(|registry| {
-                        registry
-                            .pin(
-                                ModelCapability::WorldContent,
-                                Some(model),
-                                config.data_policy_mode,
-                            )
-                            .ok()
-                    })
-                    .filter(|selection| selection.candidate().supported_parameters().reasoning)
-                    .map(|_| "none".to_string());
-            }
-            let user = character_prompt(context, ids);
-            let format = json!({"type":"json_object"});
-            let request = ChatCompletionRequest {
-                feature: "card_character_text",
-                prompt_version: "card-character-text-v1",
-                capability: ModelCapability::WorldContent,
-                system,
-                user: &user,
-                temperature: 0.8,
-                max_tokens: 900,
-                timeout: Duration::from_secs(12),
-                max_attempts: 1,
-                referer: "https://cosyworld.fly.dev",
-                response_format: Some(&format),
-                room_id: None,
-            };
-            let completion = request_chat_completion(&config, request)
-                .await
-                .map_err(|_| ())?;
-            if completion.finish_reason == "length" {
-                return Err(());
-            }
-            let mut generated: Generated =
-                serde_json::from_str(completion.text.trim()).map_err(|_| ())?;
-            let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
-            if generated.entries.len() != ids.len()
-                || generated
-                    .entries
-                    .iter()
-                    .map(|e| e.id.as_str())
-                    .collect::<BTreeSet<_>>()
-                    != expected
-            {
-                return Err(());
-            }
-            for entry in &mut generated.entries {
-                if !bounded(&entry.text, 400) {
-                    return Err(());
-                }
-                let entity = context
-                    .entities
-                    .iter()
-                    .find(|e| e.id == entry.id)
-                    .ok_or(())?;
-                let (reflect, dream) = reflection_due(context, entity);
-                match entry.reflection.as_ref() {
-                    Some(r)
-                        if reflect
-                            && bounded(&r.thought, 400)
-                            && bounded(&r.persona, 600)
-                            && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
-                            && (!dream || r.dream.is_some()) => {}
-                    None if !reflect => {}
-                    _ => return Err(()),
-                }
-                entry.model = Some(completion.resolved_model_id.clone());
-            }
-            Ok::<_, ()>(generated.entries)
+    text
+}
+
+/// Up to five authored lines in the entity's voice, rotated by turn so no
+/// single example dominates the reply.
+fn voice_lines(context: &Context, id: &str) -> Vec<String> {
+    let lines: Vec<_> = profiles()[id]["lines"]
+        .as_array()
+        .map(|lines| lines.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    if lines.is_empty() {
+        return Vec::new();
+    }
+    let start = (context.turn % lines.len() as u64) as usize;
+    (0..lines.len().min(5))
+        .map(|offset| lines[(start + offset) % lines.len()].to_string())
+        .collect()
+}
+
+/// Every entity this scene knows of: those present, their belongings, their
+/// trips and their wants. A reply that names anyone else is rejected.
+fn known(context: &Context) -> BTreeSet<String> {
+    let mut ids: BTreeSet<String> = context.entities.iter().map(|e| e.id.clone()).collect();
+    ids.insert(context.location.clone());
+    for line in &context.conversation {
+        ids.insert(line.actor_id.clone());
+    }
+    for e in &context.entities {
+        if let Some(desire) = &e.desire {
+            ids.extend(desire.items.iter().cloned());
+            ids.extend(desire.avatars.iter().cloned());
+            ids.extend(desire.location.iter().cloned());
         }
-    });
-    let results = tokio::time::timeout(
-        Duration::from_secs(14),
-        futures_util::future::join_all(jobs),
-    )
-    .await
-    .map_err(|_| {
-        error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "A character is still finding their words.",
-        )
-    })?;
-    let mut entries = Vec::new();
-    for result in results {
-        entries.extend(result.map_err(|_| {
-            error(
-                StatusCode::BAD_GATEWAY,
-                "A character's words need another try.",
-            )
-        })?);
     }
-    // Publish one validated scene, with speaker order independent of provider speed.
-    entries.sort_by_key(|e| {
-        context
-            .speakers
+    if let Some(outcome) = &context.outcome {
+        for avatar in &outcome.avatars {
+            ids.insert(avatar.id.clone());
+            ids.insert(avatar.location.clone());
+            ids.extend(avatar.holding.iter().cloned());
+            if let Some(trip) = &avatar.travel {
+                ids.insert(trip.from.clone());
+                ids.insert(trip.to.clone());
+            }
+        }
+        for item in &outcome.items {
+            ids.insert(item.id.clone());
+            ids.insert(item.location.clone());
+        }
+        let card = &outcome.card;
+        ids.extend(
+            [&card.target, &card.item, &card.receive, &card.destination]
+                .into_iter()
+                .flatten()
+                .cloned(),
+        );
+    }
+    let text = [
+        context.action.iter().collect::<Vec<_>>(),
+        context.events.iter().collect(),
+    ]
+    .concat()
+    .into_iter()
+    .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
+    .map(String::as_str)
+    .collect::<Vec<_>>()
+    .join(" ");
+    for (id, profile) in profiles().as_object().expect("profiles") {
+        if profile["name"]
+            .as_str()
+            .is_some_and(|name| mentions(&text, name))
+        {
+            ids.insert(id.clone());
+        }
+    }
+    ids
+}
+
+/// The call's transcript: a third-person scene line, the entity's own
+/// first-person awareness, lines in its voice, recent table talk, and its
+/// name as the cue. Other characters' private memories never appear here.
+fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
+    let id = entity.id.as_str();
+    let own = name(id);
+    let avatar = kind(id, "avatar");
+    let mut scene = name(&context.location);
+    let mut lines = Vec::new();
+    let company = |companions: &[String]| {
+        if companions.is_empty() {
+            " on my own".to_string()
+        } else {
+            format!(" with {}", names(companions))
+        }
+    };
+    let theirs = |companions: &[String]| {
+        if companions.is_empty() {
+            ", alone".to_string()
+        } else {
+            format!(", with {}", names(companions))
+        }
+    };
+    if let Some(outcome) = &context.outcome {
+        let present: Vec<_> = outcome
+            .avatars
             .iter()
-            .position(|id| id == &e.id)
-            .unwrap_or(usize::MAX)
-    });
-    if let Some(emit) = on_delta {
-        let visible: Vec<_> = entries
-            .iter()
-            .map(|e| json!({"id":e.id,"text":e.text}))
+            .filter(|a| a.location == context.location)
+            .map(|a| name(&a.id))
             .collect();
-        if !emit(&json!({"entries":visible}).to_string()) {
-            return Err(error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "The scene has closed.",
-            ));
+        let ground: Vec<_> = outcome
+            .items
+            .iter()
+            .filter(|i| i.holder == context.location)
+            .map(|i| name(&i.id))
+            .collect();
+        if !present.is_empty() {
+            scene.push_str(&format!(". Present: {}", present.join(", ")));
+        }
+        if !ground.is_empty() {
+            scene.push_str(&format!(". On the ground: {}", ground.join(", ")));
+        }
+        for other in &outcome.avatars {
+            let trip = other.travel.as_ref();
+            if other.id == id {
+                lines.push(match trip {
+                    Some(t) if t.from == context.location => format!(
+                        "I'm leaving {} for {}{}.",
+                        name(&t.from),
+                        name(&t.to),
+                        company(&t.companions)
+                    ),
+                    Some(t) => format!(
+                        "I've just come to {} from {}{}.",
+                        name(&t.to),
+                        name(&t.from),
+                        company(&t.companions)
+                    ),
+                    None => format!("I'm at {}.", name(&other.location)),
+                });
+                continue;
+            }
+            match trip {
+                Some(t) if t.from == context.location && t.to != context.location => {
+                    lines.push(format!(
+                        "{} is leaving for {}{}.",
+                        name(&other.id),
+                        name(&t.to),
+                        theirs(&t.companions)
+                    ))
+                }
+                Some(t) if t.to == context.location => lines.push(format!(
+                    "{} has just come from {}{}.",
+                    name(&other.id),
+                    name(&t.from),
+                    theirs(&t.companions)
+                )),
+                _ => {}
+            }
+        }
+        let card = &outcome.card;
+        let stance = match card.kind.as_str() {
+            "threaten" => Some("threatening"),
+            "attack" => Some("attacking"),
+            "guard" => Some("guarding against"),
+            _ => None,
+        };
+        if let (Some(stance), Some(target)) = (stance, card.target.as_deref()) {
+            if id == "vale" {
+                lines.push(format!("I'm {stance} {}.", name(target)));
+            } else if id == target {
+                lines.push(format!("Vale is {stance} me."));
+            }
         }
     }
-    Ok(json!({"revision":context.revision,"entries":entries,"model":"character-models-v1"}))
+    scene.push('.');
+    if let Some(action) = &context.action {
+        lines.push(format!("Just now: {action}"));
+    }
+    lines.extend(
+        context
+            .events
+            .iter()
+            .filter(|event| context.action.as_ref() != Some(event))
+            .cloned(),
+    );
+    // The resolved turn above already covers this entity's own trip.
+    let restated = |fact: &String| {
+        context.outcome.is_some()
+            && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
+    };
+    lines.extend(entity.facts.iter().filter(|f| !restated(f)).cloned());
+    for memory in &entity.memories {
+        let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
+        lines.push(match memory.kind.as_str() {
+            "expression" => format!("Earlier: {text}"),
+            _ => format!("I remember: {text}"),
+        });
+    }
+    if let Some(life) = &entity.inner_life {
+        if let Some(thought) = life.thoughts.last() {
+            lines.push(format!("On my mind: {}", thought.text));
+        }
+        if let Some(dream) = life.dreams.last() {
+            lines.push(format!("I dreamed: {}", dream.text));
+        }
+    }
+    if avatar && part == Part::Line {
+        if let Some(listener) = listener(context, id) {
+            lines.push(format!("I'm talking with {}.", name(&listener)));
+        } else if leaving(context, id) {
+            lines.push("I'm saying goodbye to those staying.".into());
+        }
+    }
+    let mut out = vec![scene, String::new(), lines.join("\n"), String::new()];
+    for line in voice_lines(context, id) {
+        out.push(format!("{own}: {line}"));
+    }
+    for line in &context.conversation {
+        out.push(format!("{}: {}", name(&line.actor_id), line.text));
+    }
+    out.push(cue(&own, part));
+    out.join("\n")
+}
+
+/// The transcript tag the reply continues from.
+fn cue(own: &str, part: Part) -> String {
+    match part {
+        Part::Line => format!("{own}:"),
+        Part::Thought => format!("{own}, to myself:"),
+        Part::Persona => format!("{own}, who I am now:"),
+        Part::Dream => format!("{own}, last night's dream:"),
+    }
+}
+
+/// Who a speaker addresses: Vale answers the first other speaker; everyone
+/// else answers Vale when Vale speaks, or the first other speaker.
+fn listener(context: &Context, id: &str) -> Option<String> {
+    if !context.speakers.iter().any(|s| s == id) {
+        return None;
+    }
+    let others: Vec<_> = context.speakers.iter().filter(|s| *s != id).collect();
+    if id != "vale" && others.iter().any(|s| *s == "vale") {
+        Some("vale".to_string())
+    } else {
+        others.first().map(|s| s.to_string())
+    }
+}
+
+fn leaving(context: &Context, id: &str) -> bool {
+    context.outcome.as_ref().is_some_and(|o| {
+        o.avatars.iter().any(|a| {
+            a.id == id
+                && a.travel
+                    .as_ref()
+                    .is_some_and(|t| t.from == context.location && t.to != context.location)
+        })
+    })
+}
+
+/// One voiced call, with one regeneration, returning validated text and the
+/// model. A second rejection leaves the entity silent; nothing is invented.
+async fn speak(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    id: &str,
+    part: Part,
+) -> Result<(String, String), ()> {
+    let entity = entity(context, id);
+    let mut config = config.clone();
+    if let Some(model) = character_models.get(id) {
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, model.clone());
+        // Keep the short speech budget for output on models that accept
+        // reasoning control. Other models use their native request shape.
+        config.reasoning_effort = config
+            .registry
+            .as_deref()
+            .and_then(|registry| {
+                registry
+                    .pin(
+                        ModelCapability::WorldContent,
+                        Some(model),
+                        config.data_policy_mode,
+                    )
+                    .ok()
+            })
+            .filter(|selection| selection.candidate().supported_parameters().reasoning)
+            .map(|_| "none".to_string());
+    }
+    let system = idiolect(entity);
+    let user = transcript(context, entity, part);
+    let check = Check::new(context, entity, part);
+    for attempt in 0..settings.attempts.max(1) {
+        let request = ChatCompletionRequest {
+            feature: "card_voice",
+            prompt_version: "card-voice-v2",
+            capability: ModelCapability::WorldContent,
+            system: &system,
+            user: &user,
+            // Hot sampling keeps small models varied; a retry cools slightly.
+            temperature: 1.0 - 0.1 * f64::from(attempt),
+            max_tokens: if part == Part::Persona { 160 } else { 96 },
+            timeout: settings.call_timeout,
+            max_attempts: 1,
+            referer: "https://cosyworld.fly.dev",
+            response_format: None,
+            room_id: None,
+        };
+        let Ok(completion) = request_chat_completion(&config, request).await else {
+            tracing::info!(
+                feature = "card_voice",
+                entity = id,
+                reason = "provider",
+                "card voice rejected"
+            );
+            continue;
+        };
+        match check.clean(&completion.text, completion.finish_reason != "length") {
+            Ok(text) => return Ok((text, completion.resolved_model_id)),
+            Err(reason) => {
+                tracing::info!(
+                    feature = "card_voice",
+                    entity = id,
+                    reason,
+                    "card voice rejected"
+                )
+            }
+        }
+    }
+    Err(())
+}
+
+/// Phrases that belong to an assistant, not to anyone at this table.
+const ASSISTANT_SPEAK: &[&str] = &[
+    "as an ai",
+    "language model",
+    "i'm here to help",
+    "i am here to help",
+    "how can i assist",
+    "certainly!",
+    "i cannot",
+    "i can't help",
+    "prompt",
+    "the user",
+    "roleplay",
+    "in character",
+];
+
+/// What a reply is checked against before it is published.
+struct Check<'a> {
+    context: &'a Context,
+    entity: &'a Entity,
+    limit: usize,
+    sentences: usize,
+    known: BTreeSet<String>,
+    examples: Vec<String>,
+}
+
+impl<'a> Check<'a> {
+    fn new(context: &'a Context, entity: &'a Entity, part: Part) -> Self {
+        let (limit, sentences) = part.limits();
+        Self {
+            context,
+            entity,
+            limit,
+            sentences,
+            known: known(context),
+            examples: voice_lines(context, &entity.id),
+        }
+    }
+
+    /// Reduce a plain reply to the words themselves, then reject it when it
+    /// breaks shape, speaks as an assistant, names someone the scene does not
+    /// know, copies an example, or repeats the play or a recent line.
+    fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
+        let own = name(&self.entity.id);
+        let line = raw
+            .trim()
+            .lines()
+            .map(str::trim)
+            .find(|l| !l.is_empty())
+            .ok_or("empty")?;
+        let mut text = line.split_whitespace().collect::<Vec<_>>().join(" ");
+        // Stage directions such as *shrugs* or (quietly) are not speech.
+        for (open, close) in [('*', '*'), ('(', ')'), ('[', ']')] {
+            while let Some(start) = text.find(open) {
+                let Some(len) = text[start + open.len_utf8()..].find(close) else {
+                    break;
+                };
+                text.replace_range(start..start + open.len_utf8() + len + close.len_utf8(), "");
+            }
+        }
+        text = text.replace(['*', '_', '#'], "");
+        loop {
+            let trimmed = text.trim_start();
+            let label = trimmed.split_once(':').filter(|(head, _)| {
+                let head = head.trim();
+                head.len() <= own.len() + 24
+                    && (head.starts_with(&own)
+                        || head.eq_ignore_ascii_case(&self.entity.id)
+                        || head.eq_ignore_ascii_case("me"))
+            });
+            match label {
+                Some((_, rest)) => text = rest.to_string(),
+                None => break,
+            }
+        }
+        // A second speaker tag ends this entity's turn.
+        for profile in profiles().as_object().expect("profiles").values() {
+            if let Some(other) = profile["name"].as_str().filter(|n| *n != own) {
+                if let Some(at) = text.find(&format!("{other}:")) {
+                    text.truncate(at);
+                }
+            }
+        }
+        let quotes: &[char] = &[
+            '"', '\'', '\u{201c}', '\u{201d}', '\u{2018}', '\u{2019}', ' ',
+        ];
+        let text = text.trim().trim_matches(quotes);
+        let mut kept = String::new();
+        let mut count = 0;
+        let mut chars = text.char_indices().peekable();
+        let mut start = 0;
+        while let Some((i, c)) = chars.next() {
+            if matches!(c, '.' | '!' | '?' | '\u{2026}') {
+                let next = chars.peek().map(|(_, n)| *n);
+                if next.is_none_or(|n| n.is_whitespace() || quotes.contains(&n)) {
+                    let end = i + c.len_utf8();
+                    let sentence = text[start..end].trim().trim_matches(quotes);
+                    if !sentence.is_empty() {
+                        if kept.chars().count() + sentence.chars().count() + 1 > self.limit {
+                            break;
+                        }
+                        if !kept.is_empty() {
+                            kept.push(' ');
+                        }
+                        kept.push_str(sentence);
+                        count += 1;
+                    }
+                    start = end;
+                    if count == self.sentences {
+                        break;
+                    }
+                }
+            }
+        }
+        if kept.is_empty() && finished {
+            kept = text.trim_matches(quotes).to_string();
+        }
+        if !bounded(&kept, self.limit) {
+            return Err("shape");
+        }
+        let lower = kept.to_lowercase();
+        if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {
+            return Err("assistant");
+        }
+        for (id, profile) in profiles().as_object().expect("profiles") {
+            let named = profile["name"].as_str().is_some_and(|n| mentions(&kept, n));
+            if named && !self.known.contains(id) {
+                return Err("unknown entity");
+            }
+        }
+        let normal = |s: &str| {
+            s.chars()
+                .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        };
+        let words = |s: &str| {
+            normal(s)
+                .split_whitespace()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        };
+        let key = words(&kept).concat();
+        if self.examples.iter().any(|line| {
+            let example = words(line);
+            words(line).concat() == key
+                || words(&kept)
+                    .windows(6)
+                    .any(|run| example.windows(6).any(|other| other == run))
+        }) {
+            return Err("copied example");
+        }
+        let repeats = key.is_empty()
+            || self
+                .context
+                .action
+                .as_deref()
+                .is_some_and(|a| words(a).concat() == key)
+            || self
+                .entity
+                .previous
+                .as_deref()
+                .is_some_and(|p| words(p).concat() == key)
+            || self
+                .context
+                .conversation
+                .iter()
+                .any(|line| words(&line.text).concat() == key);
+        if repeats {
+            return Err("repeat");
+        }
+        Ok(kept)
+    }
+}
+
+/// Whether `text` names `name` as a whole word.
+fn mentions(text: &str, name: &str) -> bool {
+    text.match_indices(name).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + name.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
 }
 
 #[cfg(test)]
@@ -999,40 +1473,133 @@ mod tests {
         c.outcome = Some(solo_departure());
         c.speakers = vec!["moth".into()];
         assert!(valid(&c));
-        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-        assert_eq!(p["scene"]["speakers"], json!(["moth"]));
-        assert!(p["direction"]["vale_intent"]
-            .as_str()
-            .unwrap()
-            .contains("Vale listens silently"));
-        assert!(p["requested_ids"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("vale")));
-        assert!(SYSTEM.contains("Only scene.speakers take spoken turns"));
+        // Vale listens: only the speaker, the place and the item in play are voiced.
+        assert_eq!(voiced(&c), ["moth", "station", "lamp"]);
+        let pip = transcript(&c, &c.entities[3], Part::Line);
+        assert!(pip.contains("I'm leaving Empty station for Black pond on my own."));
+        assert!(pip.contains("I'm saying goodbye to those staying."));
+        assert!(pip.ends_with("\nPip:"));
         // A later Stay or a direct interaction can still request Vale's voice.
         c.speakers.insert(0, "vale".into());
-        assert!(direction(&c)["vale_intent"]
-            .as_str()
-            .unwrap()
-            .contains("Vale chose wait"));
+        assert_eq!(voiced(&c)[..2], ["vale", "moth"]);
+        assert!(transcript(&c, &c.entities[3], Part::Line).contains("I'm talking with Vale."));
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("Pip is leaving for Black pond, alone."));
+        assert!(vale.contains("I'm talking with Pip."));
+        assert!(vale.ends_with("\nVale:"));
+    }
+
+    /// Sentence-initial words that would turn a prompt into an instruction.
+    const IMPERATIVES: &[&str] = &[
+        "Write", "Return", "Use", "Keep", "Describe", "Speak", "Give", "Let", "Make", "Avoid",
+        "Never", "Always", "Do", "Don't", "Answer", "Respond", "Treat", "Include", "Say", "Greet",
+        "Ask", "Remember", "Stay", "Be",
+    ];
+
+    fn assert_no_instructions(text: &str) {
+        for marker in ["you are", "You are", "JSON", "must ", "should "] {
+            assert!(!text.contains(marker), "{marker:?} in {text}");
+        }
+        for sentence in text.split(['\n', '.', '!', '?', ':']) {
+            let first = sentence.split_whitespace().next().unwrap_or("");
+            assert!(
+                !IMPERATIVES.contains(&first),
+                "{first:?} opens {sentence:?}"
+            );
+        }
     }
 
     #[test]
-    fn ordinary_plays_ask_for_consequences_rather_than_a_recap() {
+    fn prompts_hold_only_first_person_idiolect_and_transcript() {
+        for (id, profile) in profiles().as_object().unwrap() {
+            let words = profile["idiolect"].as_str().unwrap();
+            assert!(bounded(words, 400), "{id}");
+            assert!(words.contains("I'm") || words.contains("I am") || words.contains("me"));
+            assert_no_instructions(words);
+            assert_eq!(
+                profile.as_object().unwrap().len(),
+                4,
+                "{id}: kind, name, idiolect, lines"
+            );
+            let lines = profile["lines"].as_array().unwrap();
+            assert!((3..=8).contains(&lines.len()), "{id}");
+            // Examples never address the player by name.
+            if id != "vale" {
+                assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Vale")));
+            }
+        }
         let mut c = context();
-        let mut outcome = solo_departure();
-        outcome.card.kind = "give".into();
-        c.outcome = Some(outcome);
-        let intent = direction(&c)["vale_intent"].as_str().unwrap().to_string();
-        assert!(intent.contains("Vale chose give"));
-        assert!(intent.contains("does not describe it"));
-        assert!(!intent.contains("Express that choice"));
-        assert!(SYSTEM.contains("Never narrate the play back"));
-        assert!(SYSTEM.contains("include at least one reveal or one point of friction"));
-        // A persona's dislike is not an event: complaints need a recorded cause.
-        assert!(SYSTEM.contains("A complaint needs a recorded cause"));
-        assert!(SYSTEM.contains("a noise someone nearly made"));
+        c.outcome = Some(solo_departure());
+        c.entities[0].memories.push(Memory {
+            turn: 1,
+            kind: "event".into(),
+            text: "Vale received a gift.".into(),
+        });
+        for id in voiced(&c) {
+            let e = entity(&c, &id);
+            for part in [Part::Line, Part::Thought, Part::Persona, Part::Dream] {
+                assert_no_instructions(&idiolect(e));
+                assert_no_instructions(&transcript(&c, e, part));
+                // Each call stays well inside a small model's context.
+                let tokens = (idiolect(e).len() + transcript(&c, e, part).len()) / 4;
+                assert!(tokens <= 1_100, "{id}: {tokens} tokens");
+            }
+        }
+    }
+
+    #[test]
+    fn plain_replies_keep_the_words_and_drop_labels_quotes_and_directions() {
+        let mut c = context();
+        c.conversation.push(SpokenLine {
+            actor_id: "moth".into(),
+            text: "Bring that lamp to the pond.".into(),
+        });
+        c.entities[3].previous = Some("My sleeves are dry.".into());
+        let pip = &c.entities[3];
+        let check = Check::new(&c, pip, Part::Line);
+        let clean = |raw: &str| check.clean(raw, true);
+        let line = "Hold it higher, then. The light reaches my sleeves.";
+        for raw in [
+            line.to_string(),
+            format!("Pip: {line}"),
+            format!("\"{line}\""),
+            format!("*shifts a little* {line}"),
+            format!("{line} And another thing. And on."),
+            format!("**Pip:** {line}\n\nI hope that helps!"),
+            format!("{line}\nVale: Sure."),
+            format!("{line} Vale: Sure."),
+            format!("Pip, to myself: \u{201c}{line}\u{201d}"),
+        ] {
+            assert_eq!(clean(&raw).as_deref(), Ok(line), "{raw}");
+        }
+        assert_eq!(clean("Hold it higher").as_deref(), Ok("Hold it higher"));
+        assert!(check.clean("Hold it higher", false).is_err());
+        for (raw, reason) in [
+            ("", "empty"),
+            ("   ", "empty"),
+            ("Vale asks Pip what they want.", "repeat"),
+            ("\"Bring that lamp to the pond!\"", "repeat"),
+            ("My sleeves are dry.", "repeat"),
+            ("Line one.\u{7}", "shape"),
+            ("As an AI, I love lamps.", "assistant"),
+            ("Certainly! Here is Pip's line.", "assistant"),
+            // Badger is nowhere in this scene, so no one can mention him.
+            ("Grumpy Badger would hate this noise.", "unknown entity"),
+            (
+                "Oh, that's a lovely warm glow. Is it spoken for?",
+                "copied example",
+            ),
+            (
+                "My sleeves are borrowed, my opinions are not, you see.",
+                "copied example",
+            ),
+        ] {
+            assert_eq!(clean(raw), Err(reason), "{raw}");
+        }
+        assert_eq!(clean(&format!("{}.", "a".repeat(400))), Err("shape"));
+        // Known names pass as whole words; a word that contains one is not a name.
+        assert!(clean("The keeper will want that oil.").is_ok());
+        assert!(!mentions("Pipes rattle.", "Pip") && mentions("Pip's lamp.", "Pip"));
     }
 
     #[test]
@@ -1073,28 +1640,51 @@ mod tests {
         assert!(!valid(&c));
     }
 
+    /// A provider that answers each stem with plain text and records requests.
+    fn plain_provider(
+        seen: Arc<Mutex<Vec<Value>>>,
+        reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
+    ) -> Router {
+        Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let seen = seen.clone();
+                let reply = reply.clone();
+                async move {
+                    seen.lock().unwrap().push(body.clone());
+                    let user = body["messages"][1]["content"].as_str().unwrap();
+                    let stem = user.lines().last().unwrap().to_string();
+                    let text = reply(&body, &stem);
+                    Json(json!({"model":body["model"],"choices":[{"message":{"content":text},"finish_reason":"stop"}]}))
+                }
+            }),
+        )
+    }
+
+    fn stem_reply(stem: &str) -> String {
+        if stem.ends_with(", to myself:") {
+            "I felt welcome.".into()
+        } else if stem.ends_with(", who I am now:") {
+            "I am still proud, but I am learning to accept help.".into()
+        } else if stem.ends_with(", last night's dream:") {
+            "A warm lamp floated through my sleep.".into()
+        } else if ["Empty station:", "Lamp:", "Black pond:"].contains(&stem) {
+            "Dust settles where the lamp stood.".into()
+        } else {
+            "I remember the kindness beside the lamp.".into()
+        }
+    }
+
     #[tokio::test]
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
-        let captured = seen.clone();
-        let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
-            let captured = captured.clone();
-            async move {
-                let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
-                captured.lock().unwrap().push(body.clone());
-                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
-                    let mut entry = json!({"id":id,"text":"I remember the kindness beside the lamp."});
-                    if input["scene"]["revision"] == 5 && id == "station" {
-                        entry["id"] = json!("invented-location");
-                    }
-                    if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
-                        entry["reflection"] = json!({"thought":"I felt welcome.","persona":"I am still proud, but I am learning to accept help.","dream":"A warm lamp floated through my sleep."});
-                    }
-                    entry
-                }).collect();
-                Json(json!({"model":body["model"],"choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
+        let provider = plain_provider(seen.clone(), |body, stem| {
+            let user = body["messages"][1]["content"].as_str().unwrap();
+            if user.contains("Fail this place") && stem == "Empty station:" {
+                return String::new();
             }
-        }));
+            stem_reply(stem)
+        });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
@@ -1117,7 +1707,11 @@ mod tests {
         })).collect();
         config.registry = Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
             &json!({"schema_version":1,"snapshot_version":"character-test","declared":declared,"discovered":[]}).to_string()).unwrap()));
-        let app = router_with_models::<()>(Arc::new(Some(config)), Ok(models));
+        let app = router_with_models::<()>(
+            Arc::new(Some(config)),
+            Ok(models),
+            Ok(VoiceSettings::hosted()),
+        );
         let mut c = context();
         c.entities[0].memories.push(Memory {
             turn: 1,
@@ -1136,25 +1730,29 @@ mod tests {
             let result: Value = serde_json::from_slice(&bytes).unwrap();
             let entries = result["entries"].as_array().unwrap();
             assert_eq!(entries.len(), 4);
+            assert_eq!(result["omitted"], json!([]));
             assert_eq!(entries[0]["id"], "vale");
             assert_eq!(entries[0]["model"], "vale-model");
             assert_eq!(entries[1]["id"], "moth");
             assert_eq!(entries[1]["model"], "moth-model");
+            assert!(entries[2]["model"].is_string());
             assert_eq!(entries[0]["reflection"]["thought"], "I felt welcome.");
+            assert_eq!(
+                entries[0]["reflection"]["dream"],
+                "A warm lamp floated through my sleep."
+            );
+            assert!(entries[1].get("reflection").is_none());
             assert!(entries
                 .iter()
                 .filter(|e| e["id"] == "lamp" || e["id"] == "station")
                 .all(|e| e.get("reflection").is_none()));
         }
-        c.revision = 5;
-        let invalid = app.clone().oneshot(request(&c)).await.unwrap();
-        assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
-        let requests = seen.lock().unwrap();
-        assert_eq!(requests.len(), 9);
-        for body in requests.iter() {
-            let input: Value =
-                serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
-            let text = input.to_string();
+        // Each scene: four lines, then Vale's thought, persona and dream.
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 14);
+        for body in &requests {
+            assert!(body.get("response_format").is_none());
+            let text = body["messages"].to_string();
             if body["model"] == "vale-model" {
                 assert!(text.contains("Vale private kindness memory"));
                 assert!(!text.contains("Moth private persona sentinel"));
@@ -1166,7 +1764,131 @@ mod tests {
                 assert!(!text.contains("Vale private kindness memory"));
             }
         }
+        // A hosted scene publishes every voiced line or none of them.
+        c.entities[1].facts.push("Fail this place.".into());
+        let invalid = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn local_profile_retries_runs_one_call_at_a_time_and_leaves_failed_scenery_out() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let in_flight = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let most = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (now, peak) = (in_flight.clone(), most.clone());
+        let captured = seen.clone();
+        let provider = Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let (now, peak, captured) = (now.clone(), peak.clone(), captured.clone());
+                async move {
+                    use std::sync::atomic::Ordering::SeqCst;
+                    let count = now.fetch_add(1, SeqCst) + 1;
+                    peak.fetch_max(count, SeqCst);
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                    let tries = {
+                        let mut seen = captured.lock().unwrap();
+                        seen.push(body.clone());
+                        seen.iter().filter(|b| b["messages"] == body["messages"]).count()
+                    };
+                    now.fetch_sub(1, SeqCst);
+                    let user = body["messages"][1]["content"].as_str().unwrap();
+                    let stem = user.lines().last().unwrap();
+                    let mute = (user.contains("Mute speaker") && stem == "Vale:")
+                        || (stem == "Empty station:" && user.contains("Paths visible"));
+                    let text = if mute {
+                        String::new()
+                    } else if stem == "Vale:" && tries == 1 {
+                        "Vale:".into()
+                    } else {
+                        stem_reply(stem)
+                    };
+                    Json(json!({"model":body["model"],"choices":[{"message":{"content":text},"finish_reason":"stop"}]}))
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let app = router_with_models::<()>(
+            Arc::new(Some(test_config(address))),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::local()),
+        );
+        let mut c = context();
+        c.entities[1]
+            .facts
+            .push("Paths visible now: Black pond.".into());
+        let response = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+        let result: Value = serde_json::from_slice(&bytes).unwrap();
+        let ids: Vec<_> = result["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["vale", "moth", "lamp"]);
+        assert_eq!(result["omitted"], json!(["station"]));
+        assert_eq!(result["model"], "test-entity-model");
+        // Vale's first, empty reply was retried; the place had two tries.
+        assert_eq!(seen.lock().unwrap().len(), 6);
+        assert_eq!(most.load(std::sync::atomic::Ordering::SeqCst), 1);
+        // A speaker without valid words fails the scene; nothing is invented.
+        c.entities[0].facts.push("Mute speaker.".into());
+        let failed = app.oneshot(request(&c)).await.unwrap();
+        assert_eq!(failed.status(), StatusCode::BAD_GATEWAY);
+        server.abort();
+    }
+
+    #[test]
+    fn voice_settings_come_from_the_profile_and_validated_overrides() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| value.to_string())
+            }
+        };
+        let hosted = VoiceSettings::from_lookup(env(&[])).unwrap();
+        assert_eq!(hosted, VoiceSettings::hosted());
+        assert_eq!(hosted.client_budget(), Duration::from_secs(30));
+        let local =
+            VoiceSettings::from_lookup(env(&[("COSYWORLD_CARD_TEXT_PROFILE", "local")])).unwrap();
+        assert_eq!(local, VoiceSettings::local());
+        assert!(local.optional_scenery && local.parallel == 1 && local.attempts == 2);
+        assert_eq!(local.client_budget(), Duration::from_secs(248));
+        let tuned = VoiceSettings::from_lookup(env(&[
+            ("COSYWORLD_CARD_TEXT_PROFILE", "local"),
+            ("COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS", "30"),
+            ("COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS", "120"),
+            ("COSYWORLD_CARD_TEXT_PARALLEL", "2"),
+            ("COSYWORLD_CARD_TEXT_ATTEMPTS", "1"),
+        ]))
+        .unwrap();
+        assert_eq!(
+            (
+                tuned.call_timeout,
+                tuned.scene_timeout,
+                tuned.parallel,
+                tuned.attempts
+            ),
+            (Duration::from_secs(30), Duration::from_secs(120), 2, 1)
+        );
+        for bad in [
+            &[("COSYWORLD_CARD_TEXT_PROFILE", "fast")][..],
+            &[("COSYWORLD_CARD_TEXT_PARALLEL", "0")],
+            &[("COSYWORLD_CARD_TEXT_ATTEMPTS", "lots")],
+            &[("COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS", "30")],
+        ] {
+            let pairs: &'static [(&'static str, &'static str)] = bad;
+            assert!(VoiceSettings::from_lookup(env(pairs)).is_err(), "{bad:?}");
+        }
     }
 
     #[test]
@@ -1221,13 +1943,13 @@ mod tests {
         let mut c = context();
         c.location = "attic".into();
         c.entities[1].id = "attic".into();
-        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-        let personas = p["personas"].to_string();
-        assert!(personas.contains("soot-darkened glass"));
-        assert!(personas.contains("tall mirror reflecting a black shore"));
-        assert!(!personas.contains("makes reflections into paths"));
-        assert!(!personas.contains("Lamplight can open a path"));
-        assert!(SYSTEM.contains("A new effect becomes known when a completed event reveals it"));
+        let attic = idiolect(&c.entities[1]);
+        assert!(attic.contains("tall mirror shows a black shore"));
+        assert!(idiolect(&c.entities[2]).contains("soot-dark"));
+        let all = profiles().to_string();
+        assert!(!all.contains("makes reflections into paths"));
+        assert!(!all.contains("Lamplight can open a path"));
+        assert!(transcript(&c, &c.entities[1], Part::Line).contains("I remember: Vale arrived."));
     }
 
     #[test]
@@ -1235,17 +1957,10 @@ mod tests {
         let mut c = context();
         c.outcome = Some(solo_departure());
         assert!(valid(&c));
-        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-        assert_eq!(
-            p["requested_ids"],
-            json!(["vale", "station", "lamp", "moth"])
-        );
-        assert_eq!(p["scene"]["outcome"]["card"]["kind"], "wait");
-        assert!(p["scene"]["outcome"]["avatars"][0]["travel"].is_null());
-        assert_eq!(
-            p["scene"]["outcome"]["avatars"][1]["travel"]["companions"],
-            json!([])
-        );
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("I'm at Empty station."));
+        assert!(vale.contains("Pip is leaving for Black pond, alone."));
+        assert!(!vale.contains("The keeper"));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[1]
             .travel
@@ -1266,6 +1981,9 @@ mod tests {
         o.card.destination = Some("pond".into());
         o.card.accepted = Some(true);
         assert!(valid(&c));
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("I'm leaving Empty station for Black pond with Pip."));
+        assert!(vale.contains("Pip is leaving for Black pond, with Vale."));
         c.outcome.as_mut().unwrap().avatars[1]
             .travel
             .as_mut()
@@ -1329,9 +2047,10 @@ mod tests {
         });
         c.outcome = Some(o);
         assert!(valid(&c));
-        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-        assert_eq!(p["scene"]["speakers"], json!(["vale"]));
-        assert_eq!(p["personas"][2]["profile"]["name"], "Grumpy Badger");
+        assert_eq!(voiced(&c), ["vale", "clearing"]);
+        let badger = transcript(&c, &c.entities[2], Part::Line);
+        assert!(badger.contains("Asleep on warm moss."));
+        assert!(badger.contains("Vale has just come from Black pond, alone."));
         c.speakers.push("badger".into());
         c.entities[2].facts =
             vec!["Awake after Vale spoke. Still grumpy about the interruption.".into()];
@@ -1341,21 +2060,16 @@ mod tests {
         o.card.target = Some("badger".into());
         o.avatars[0].travel = None;
         assert!(valid(&c));
-        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-        assert_eq!(p["scene"]["speakers"], json!(["vale", "badger"]));
-        let badger = &p["personas"][2]["profile"];
-        assert!(badger["voice"]
-            .as_str()
-            .unwrap()
-            .contains("Clipped, gravelly complaints"));
-        assert!(badger["voice"]
-            .as_str()
-            .unwrap()
-            .contains("Answer a direct question"));
-        assert!(badger["persona"]
-            .as_str()
-            .unwrap()
-            .contains("does not turn him into a welcoming guide"));
+        assert_eq!(voiced(&c), ["vale", "badger", "clearing"]);
+        let badger = &c.entities[2];
+        assert!(idiolect(badger).contains("This warm moss is mine"));
+        let heard = transcript(&c, badger, Part::Line);
+        assert!(heard.contains("Awake after Vale spoke. Still grumpy about the interruption."));
+        assert!(heard.contains("I'm talking with Vale."));
+        assert!(heard.ends_with("\nGrumpy Badger:"));
+        assert!(
+            transcript(&c, &c.entities[0], Part::Line).contains("I'm talking with Grumpy Badger.")
+        );
     }
     #[test]
     fn chosen_combat_sets_intent_even_after_an_earlier_apology() {
@@ -1365,24 +2079,28 @@ mod tests {
             text: "I am sorry. I will ask gently.".into(),
         });
         c.outcome = Some(solo_departure());
-        for (verb, intent) in [
-            ("threaten", "Deliver the demand with pressure and resolve"),
-            ("attack", "Speak with commitment to that attack"),
-            ("guard", "Hold a firm defensive stance"),
+        for (verb, mine, theirs) in [
+            (
+                "threaten",
+                "I'm threatening Pip.",
+                "Vale is threatening me.",
+            ),
+            ("attack", "I'm attacking Pip.", "Vale is attacking me."),
+            (
+                "guard",
+                "I'm guarding against Pip.",
+                "Vale is guarding against me.",
+            ),
         ] {
             let card = &mut c.outcome.as_mut().unwrap().card;
             card.kind = verb.into();
             card.target = Some("moth".into());
-            let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
-            assert!(p["direction"]["vale_intent"]
-                .as_str()
-                .unwrap()
-                .contains(intent));
-            assert_eq!(p["scene"]["outcome"]["card"]["kind"], verb);
-            assert_eq!(
-                p["scene"]["conversation"][0]["text"],
-                "I am sorry. I will ask gently."
-            );
+            let vale = transcript(&c, &c.entities[0], Part::Line);
+            assert!(vale.contains(mine));
+            assert!(vale.contains("\nVale: I am sorry. I will ask gently.\nVale:"));
+            let pip = transcript(&c, &c.entities[3], Part::Line);
+            assert!(pip.contains(theirs));
+            assert!(pip.contains("\nVale: I am sorry. I will ask gently.\nPip:"));
         }
     }
 
@@ -1399,24 +2117,16 @@ mod tests {
         o.card.kind = "move".into();
         o.card.target = Some("pond".into());
         c.location = "pond".into();
+        c.entities[1].id = "pond".into();
         c.outcome = Some(o);
-        let d = direction(&c);
-        assert_eq!(
-            d["setting"],
-            "The scene is Black pond. Present after this turn: Vale, Pip."
-        );
-        assert_eq!(
-            d["journeys"][0],
-            "Vale travelled alone from Empty station to Black pond. This was a separate trip."
-        );
-        assert_eq!(
-            d["journeys"][1],
-            "Pip travelled alone from Empty station to Black pond. This was a separate trip."
-        );
-        assert_eq!(
-            d["journeys"][2],
-            "The keeper stayed at Mirror attic this turn."
-        );
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("I've just come to Black pond from Empty station on my own."));
+        assert!(vale.contains("Pip has just come from Empty station, alone."));
+        assert!(!vale.contains("The keeper"));
+        let pond = transcript(&c, &c.entities[1], Part::Line);
+        assert!(pond.contains("Vale has just come from Empty station, alone."));
+        assert!(pond.starts_with("Black pond. Present: Vale, Pip."));
+        assert!(pond.ends_with("\nBlack pond:"));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[0]
             .travel
@@ -1430,15 +2140,9 @@ mod tests {
             .unwrap()
             .companions
             .push("vale".into());
-        let d = direction(&c);
-        assert_eq!(
-            d["journeys"][0],
-            "Vale travelled together with Pip from Empty station to Black pond on one shared trip."
-        );
-        assert_eq!(
-            d["journeys"][1],
-            "Pip travelled together with Vale from Empty station to Black pond on one shared trip."
-        );
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("I've just come to Black pond from Empty station with Pip."));
+        assert!(vale.contains("Pip has just come from Empty station, with Vale."));
     }
 
     #[test]
@@ -1486,21 +2190,15 @@ mod tests {
     fn validates_entity_memory_and_model_output() {
         let mut c = context();
         assert!(valid(&c));
-        let p = prompt(&c);
-        for text in [
-            "borrowed waistcoat",
-            "Vale asks Pip what they want.",
-            "Vale lit the lamp",
-            "I offered my cloth",
-            "pond",
-        ] {
-            assert!(p.contains(text));
-        }
-        assert!(parse(
-            r#"{"entries":[{"id":"station","text":"Dust settles."}]}"#,
-            &c
-        )
-        .is_none());
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("Just now: Vale asks Pip what they want."));
+        assert!(vale.contains("Holding the lamp."));
+        assert!(
+            transcript(&c, &c.entities[2], Part::Line).contains("I remember: Vale lit the lamp.")
+        );
+        let pip = transcript(&c, &c.entities[3], Part::Line);
+        assert!(pip.contains("Earlier: Pip: I offered my cloth."));
+        assert!(idiolect(&c.entities[3]).contains("borrowed"));
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
         c = context();
@@ -1526,8 +2224,10 @@ mod tests {
         c.entities.push(keeper);
         c.speakers.push("keeper".into());
         assert!(valid(&c));
-        let p = prompt(&c);
-        assert!(p.contains("Pip leaves for Black pond") && p.contains("Where are you going?"));
+        let keeper = transcript(&c, &c.entities[4], Part::Line);
+        assert!(keeper.contains("Pip leaves for Black pond.\n"));
+        assert!(keeper.contains("\nVale: Where are you going?\nThe keeper:"));
+        assert!(keeper.contains("I'm talking with Vale."));
         c.conversation[0].actor_id = "pond".into();
         assert!(!valid(&c));
         c.conversation.clear();
@@ -1538,36 +2238,26 @@ mod tests {
     }
     #[tokio::test]
     async fn route_uses_personas_desires_and_memories_with_the_configured_model() {
-        let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |body, stem| {
             assert_eq!(body["model"], "test-entity-model");
-            assert_eq!(body["response_format"]["type"], "json_object");
-            let instructions = body["messages"][0]["content"].as_str().unwrap();
-            assert!(instructions.contains("Vale is the player avatar") && instructions.contains("direct response"));
-            assert!(instructions.contains("recorded agreement or refusal") && instructions.contains("desired companion who stayed behind"));
-            assert!(instructions.contains("VOICE AND MEMORY") && instructions.contains("witnessed gift, refusal, threat or shared journey"));
-            let input = body["messages"][1]["content"].as_str().unwrap();
-            assert!(input.contains("Vale asks Pip what they want."));
-            assert!(input.contains("borrowed waistcoat") && input.contains("Vale lit the lamp") && input.contains("pond"));
-            assert!(input.contains("decent bargain") && input.contains("splendid clothes"));
-            assert!(instructions.contains("petty grievances"));
-            let generated = json!({"entries":[
-                {"id":"vale","text":"What would you trade for this lamp, Pip?"},
-                {"id":"station","text":"A warm patch marks the bench where Vale set the lamp."},
-                {"id":"lamp","text":"Soot marks the handle Vale gripped."},
-                {"id":"moth","text":"Bring that lamp to the pond, Vale. I will carry the cloth."}
-            ]}).to_string();
-            if body["stream"] == true {
-                assert_eq!(body["stream_options"]["include_usage"], true);
-                let first = format!("data: {}\n\n", json!({"model":"test-entity-model","choices":[{"delta":{"content": &generated[..35]}}]}));
-                let last = format!("data: {}\n\ndata: [DONE]\n\n", json!({"model":"test-entity-model","choices":[{"delta":{"content": &generated[35..]},"finish_reason":"stop"}],"usage":{"total_tokens":80}}));
-                let chunks = tokio_stream::iter([first, last]).then(|chunk| async {
-                    tokio::time::sleep(Duration::from_millis(20)).await;
-                    Ok::<_, std::convert::Infallible>(chunk)
-                });
-                return ([("content-type", "text/event-stream")], Body::from_stream(chunks)).into_response();
+            assert!(body.get("response_format").is_none());
+            let system = body["messages"][0]["content"].as_str().unwrap();
+            let user = body["messages"][1]["content"].as_str().unwrap();
+            assert!(user.contains("Just now: Vale asks Pip what they want."));
+            match stem {
+                "Vale:" => {
+                    assert!(system.starts_with("I'm Vale."));
+                    assert!(user.contains("Holding the lamp."));
+                    "Vale: What would you trade for this lamp, Pip?".into()
+                }
+                "Pip:" => {
+                    assert!(system.contains("borrowed"));
+                    "\"Bring that lamp to the pond, Vale. I will carry the cloth.\"".into()
+                }
+                _ => stem_reply(stem),
             }
-            Json(json!({"model":"test-entity-model","choices":[{"message":{"content":generated},"finish_reason":"stop"}]})).into_response()
-        }));
+        });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
@@ -1579,8 +2269,18 @@ mod tests {
         let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
         let body: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(body["entries"].as_array().unwrap().len(), 4);
+        assert_eq!(
+            body["entries"][0]["text"],
+            "What would you trade for this lamp, Pip?"
+        );
+        assert_eq!(
+            body["entries"][1]["text"],
+            "Bring that lamp to the pond, Vale. I will carry the cloth."
+        );
         assert_eq!(body["revision"], 4);
+        assert_eq!(body["model"], "test-entity-model");
         assert!(!String::from_utf8_lossy(&bytes).contains("test-secret"));
+        assert_eq!(seen.lock().unwrap().len(), 4);
         let mut streamed = request(&context());
         streamed
             .headers_mut()
@@ -1590,14 +2290,14 @@ mod tests {
         let mut chunks = response.into_body().into_data_stream();
         let first = chunks.next().await.unwrap().unwrap();
         let first = std::str::from_utf8(&first).unwrap();
-        assert!(first.contains("delta"));
+        assert!(first.contains("delta") && first.contains("What would you trade"));
         assert!(!first.contains("complete"));
         let mut rest = Vec::new();
         while let Some(chunk) = chunks.next().await {
             rest.extend_from_slice(&chunk.unwrap());
         }
         let text = String::from_utf8(rest).unwrap();
-        assert!(text.contains("complete") && text.contains("What would you trade"));
+        assert!(text.contains("complete") && text.contains("I will carry the cloth"));
         assert!(!text.contains("test-secret"));
         for _ in 2..30 {
             assert_eq!(

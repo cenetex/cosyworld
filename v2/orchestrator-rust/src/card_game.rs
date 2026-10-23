@@ -42,10 +42,24 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<
 }
 
 async fn index() -> Response {
-    serve("index.html")
+    // The page carries the story budget, so a slow local model keeps its
+    // scene instead of the browser abandoning it at the hosted deadline.
+    let budget = narrative::client_budget_ms();
+    let page = String::from_utf8_lossy(include_bytes!("../../card-game/index.html")).replacen(
+        r#"name="cosy-story-budget-ms" content="30000""#,
+        &format!(r#"name="cosy-story-budget-ms" content="{budget}""#),
+        1,
+    );
+    let mut response = serve("index.html");
+    *response.body_mut() = page.into();
+    response.headers_mut().remove(header::CONTENT_LENGTH);
+    response
 }
 
 async fn asset(Path(path): Path<String>, method: Method, headers: HeaderMap) -> Response {
+    if path == "index.html" {
+        return index().await;
+    }
     let response = serve(&path);
     if path.ends_with(".mp3") && response.status() == StatusCode::OK {
         return music_range(

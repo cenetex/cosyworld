@@ -124,7 +124,33 @@ At the station, Vale can take the bell. The Keeper values the bell more than the
 
 Run the Rust server with `COSYWORLD_PRIMARY_GAME=cards` and the normal AI provider configuration. It serves both the game and the text route. For the lightweight card server, set `COSYWORLD_CARD_TEXT_ORIGIN` to the Rust server's origin before running `npm run play:cards`. Provider credentials stay in the Rust service. `COSYWORLD_CARD_TEXT_MODEL` selects a registered world-content model for this card table. Both production sites use `openai/gpt-6-luna` with `COSYWORLD_CARD_TEXT_REASONING_EFFORT=none` for short scene text.
 
-The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and bounded facts and memories. It allows two model requests at once, 30 requests per peer per minute, and 1,200 requests per process per hour. Same-site browser requests pass the origin check. Model calls have a 25-second deadline. Clients send `Accept: text/event-stream` for live text deltas followed by a validated `complete` event with all entries and the resolved model name. Other clients receive the full JSON response. Disconnects cancel the provider request and release its capacity.
+### Local small models
+
+`npm run play:cards:local` runs the whole table on a model served by Ollama,
+with no provider key:
+
+```sh
+ollama pull gemma3:4b          # or gemma3:12b, llama3.1:8b
+npm run play:cards:local       # http://127.0.0.1:3110/card-game/
+```
+
+`COSYWORLD_LOCAL_MODEL` picks another pulled model and `OLLAMA_URL` another
+server. The script sets `COSYWORLD_CARD_TEXT_PROFILE=local`, which runs one
+model call at a time, allows 90 seconds per call and 240 seconds per scene,
+regenerates a rejected line once, and leaves out a place or item line that
+still fails instead of failing the scene. Speakers are always required. The
+page carries the matching story budget in `<meta name="cosy-story-budget-ms">`
+so the browser waits for the slower scene; `npm run play:cards` reads
+`COSYWORLD_CARD_STORY_BUDGET_MS` for the same purpose. The hosted profile keeps
+12 seconds per call, 22 seconds per scene, up to eight calls at once, one try
+and no omissions. `COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS`,
+`COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS`, `COSYWORLD_CARD_TEXT_PARALLEL` and
+`COSYWORLD_CARD_TEXT_ATTEMPTS` adjust either profile. Each call stays under
+1,100 tokens, inside Ollama's default context. See
+`docs/backlog/tiny-model-voices.md` for the prompt budget, sampling and
+model recommendations.
+
+The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and bounded facts and memories. It allows two scene requests at once, 30 requests per peer per minute, and 1,200 requests per process per hour. Same-site browser requests pass the origin check. Clients send `Accept: text/event-stream` for each validated speaker line as it arrives, followed by a `complete` event with all entries, the `omitted` IDs and the resolved model name. Other clients receive the full JSON response. Disconnects cancel the provider requests and release their capacity.
 
 ## Threats and standoffs
 
@@ -166,17 +192,33 @@ Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
 | Grumpy Badger | `mistralai/mistral-small-3.2-24b-instruct` |
 
 The map covers the authored cast. Each model also has an explicit world-content
-entry in the operator registry. The narrator keeps `COSYWORLD_CARD_TEXT_MODEL`.
+entry in the operator registry. Places and items use `COSYWORLD_CARD_TEXT_MODEL`.
 Assignments depend on the character ID, so they survive turns, saves, reloads,
 restarts and changes in who is present. Operators can change an assignment by
 editing the map and its registry entry together. Hosts with the character map
-unset use the shared narrator route for local development.
+unset send every voice to the configured world-content model.
 
-Each avatar call receives the public scene plus that avatar's own witnessed
-memories, current persona, thoughts and dreams. Other avatars' inner lives stay
-with their own calls. Authored personas and voice profiles remain the roots of
-identity; current actions, possessions, travel and relationships come from the
-resolved simulation.
+Every voiced entity gets its own plain-text call: the speakers, the current
+place and the item in play. Other cards keep the words already on them and are
+listed under `omitted`. A call contains no instructions. The system turn is
+the entity's own first-person idiolect from `entity-profiles.json` plus the
+persona its reflections have grown. The user turn is a transcript: one
+third-person scene line, the entity's first-person awareness built from the
+resolved turn, its facts, its own memories and inner life, up to five authored
+lines in its voice rotated by turn, the recent table talk, and its name as the
+cue. Other avatars' memories and inner lives never appear. A reflection is three
+further calls with the cues `Name, to myself:`, `Name, who I am now:` and
+`Name, last night's dream:`.
+
+The validator decides what is published. It keeps the first paragraph, strips
+speaker labels, quotes, stage directions and markup, cuts at a second speaker
+tag, and keeps whole sentences: two for a line or thought, three for a dream,
+four for a persona, within the character limits. It rejects an empty reply,
+assistant speech, a reply naming an entity the scene does not know, a reply
+that copies an authored line or shares a six-word run with one, and a repeat of
+the play, the card's last line or recent conversation. A rejected call is
+regenerated once at a slightly lower temperature; a second rejection leaves the
+entity silent and is logged as `card voice rejected` with its reason.
 
 A character can reflect after a new witnessed event. The first reflection is
 available after the first turn; later reflections are at least six turns apart.
@@ -192,8 +234,9 @@ start with their authored personas and gain inner lives as play continues.
 Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.
 
-The scene remains one publication unit. Provider calls have a twelve-second
-limit and the complete group has a fourteen-second limit. Each avatar gets one
-call and the narrator gets one call, for at most five calls per scene. The
-existing scene admission, concurrency and retry limits still apply. Provider
-failure, incomplete output or invalid reflection keeps the last saved scene.
+The scene remains one publication unit. The hosted profile gives each call
+twelve seconds and the scene twenty-two. A scene needs at most three speaker
+lines, a place line, an item line and three reflection calls per speaker. The
+existing scene admission, concurrency and retry limits still apply. A failed
+speaker line keeps the last saved scene; a failed reflection publishes the line
+without it.

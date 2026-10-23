@@ -219,8 +219,8 @@ export function narrativeContext(world, action = null) {
         if (id === "badger")
           facts.push(
             world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
-              : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
+              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise. I want quiet, now." : "Still grumpy about my interrupted nap."}`
+              : "Asleep on the moss. A direct greeting would wake me.",
           );
         if (
           played?.verb === "trade" &&
@@ -233,7 +233,7 @@ export function narrativeContext(world, action = null) {
           const other =
             id === played.actorId ? played.targetId : played.actorId;
           facts.push(
-            `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`,
+            `I gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them.`,
           );
         }
         facts.push(
@@ -244,7 +244,7 @@ export function narrativeContext(world, action = null) {
           played?.verb === "accompany" &&
           [played.actorId, played.targetId].includes(id)
         )
-          facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+          facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}.`;
         const company = Object.keys(world.actors).filter(
           (other) =>
             other !== id &&
@@ -257,13 +257,13 @@ export function narrativeContext(world, action = null) {
         if (movement)
           facts.push(
             movement.leaving
-              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to Vale and name your destination and reason as you leave.`
-              : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`,
+              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now.`
+              : `Just arrived from ${nameOf(movement.from)}.`,
           );
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
-            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
+            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}.`,
           );
         const target = desireFor(world, id);
         desire = {
@@ -281,7 +281,7 @@ export function narrativeContext(world, action = null) {
         }
         if (world.opening?.met[id] === world.turn && id !== "vale")
           facts.push(
-            "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
+            "This is my first meeting with Vale. I was already here when Vale arrived.",
           );
         for (const c of target.conditions || [])
           facts.push(
@@ -291,24 +291,22 @@ export function narrativeContext(world, action = null) {
           .filter(([, n]) => n > 0)
           .map(([other]) => nameOf(other));
         if (helpers.length)
-          facts.push(
-            `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,
-          );
+          facts.push(`I owe ${helpers.join(" and ")} a favour.`);
         for (const item of desire.items)
           facts.push(
             carried(world, id).includes(item)
-              ? `Already holds the wanted ${nameOf(item)}.`
+              ? `I have the ${nameOf(item)} I wanted.`
               : itemPlace(world, item) === world.actors[id].place
-                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
-                : `Wants ${nameOf(item)}.`,
+                ? `I want the ${nameOf(item)}; ${nameOf(rootHolder(world, item))} has it.`
+                : `I want the ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(
-            `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(world.actors[id].place)}.`,
+            `I want to be at ${nameOf(desire.location)}; I'm at ${nameOf(world.actors[id].place)}.`,
           );
         if (desire.avatars.length)
           facts.push(
-            `Wants the company of ${desire.avatars.map(nameOf).join(", ")}.`,
+            `I want the company of ${desire.avatars.map(nameOf).join(", ")}.`,
           );
       } else if (kind === "item") {
         const item = world.items[id];
@@ -417,10 +415,16 @@ export function applyGeneratedText(world, context, response) {
     return null;
   const ids = context.entities.map((entity) => entity.id);
   const entries = response.entries;
+  // Entities the scene did not voice keep the words already on their card.
+  // Every speaker still needs a fresh line.
+  const omitted = response.omitted ?? [];
   if (
     !Array.isArray(entries) ||
-    entries.length !== ids.length ||
-    new Set(entries.map((entry) => entry?.id)).size !== ids.length ||
+    !Array.isArray(omitted) ||
+    entries.length + omitted.length !== ids.length ||
+    new Set([...entries.map((entry) => entry?.id), ...omitted]).size !==
+      ids.length ||
+    omitted.some((id) => !ids.includes(id) || context.speakers.includes(id)) ||
     entries.some(
       (entry) =>
         !ids.includes(entry?.id) ||
@@ -503,7 +507,7 @@ export function applyGeneratedText(world, context, response) {
     context.location,
     context.focus,
     ...context.speakers,
-  ].filter(Boolean)) {
+  ].filter((id) => id && !omitted.includes(id))) {
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
     const movement = changes.find((change) => change.actorId === id);
@@ -675,6 +679,7 @@ export function createNarrator({
   status,
   request = requestNarrative,
   preview = () => {},
+  budget = 30_000,
 }) {
   let ticket = 0,
     pending = null,
@@ -682,7 +687,7 @@ export function createNarrator({
     running = false,
     controller;
   async function write(context, version, signal) {
-    const deadline = Date.now() + 30_000;
+    const deadline = Date.now() + budget;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const response = await boundedRequest(
@@ -693,8 +698,8 @@ export function createNarrator({
             if (version === ticket && getWorld().revision === context.revision)
               preview({ context, entries });
           },
-          // The server can take 25 seconds. Keep its response alive inside the
-          // shared 30-second budget; retry only with the time still remaining.
+          // The page's story budget covers the server's scene deadline. Keep
+          // its response alive inside it; retry only with the time remaining.
           Math.max(0, deadline - Date.now()),
         );
         if (version !== ticket) return;

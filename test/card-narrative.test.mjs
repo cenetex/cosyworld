@@ -76,7 +76,7 @@ describe("entity memories and model text", () => {
     ).toBe(true);
     const vale = context.entities.find((e) => e.id === "vale");
     expect(vale.facts.join(" ")).toContain(
-      "Wants Oil flask, currently with The keeper",
+      "I want the Oil flask; The keeper has it.",
     );
     expect(context.entities.every((e) => e.facts.length <= 8)).toBe(true);
     const next = applyGeneratedText(world, context, response(context));
@@ -106,6 +106,39 @@ describe("entity memories and model text", () => {
     ]);
     expect(currentScene(next).previous.actorId).toBe("vale");
     expect(currentScene(next).line.actorId).toBe("keeper");
+  });
+
+  it("keeps unvoiced cards and requires a fresh line from every speaker", () => {
+    let world = act(createWorld(), "take", "lamp");
+    world = act(world, "talk", null, "keeper");
+    const context = narrativeContext(world, { target: "keeper" });
+    const voiced = ["vale", "keeper", context.location];
+    const omitted = context.entities
+      .map((e) => e.id)
+      .filter((id) => !voiced.includes(id));
+    const partial = {
+      ...response(context),
+      entries: response(context).entries.filter((e) => voiced.includes(e.id)),
+      omitted,
+    };
+    const before = world.memories.bell.text;
+    const next = applyGeneratedText(world, context, partial);
+    expect(next.memories.bell.text).toBe(before);
+    expect(next.memories.keeper.text).toBe(
+      "The keeper remembers the warm lamp.",
+    );
+    expect(
+      next.log
+        .filter((entry) => entry.turn === next.turn && entry.generated)
+        .map((entry) => entry.entityId),
+    ).toEqual([context.location, "vale", "keeper"]);
+    // A speaker cannot be left out, and every entity is accounted for once.
+    for (const bad of [
+      { ...partial, omitted: [...omitted, "keeper"] },
+      { ...partial, omitted: omitted.slice(1) },
+      { ...partial, omitted: [...omitted, omitted[0]] },
+    ])
+      expect(() => applyGeneratedText(world, context, bad)).toThrow();
   });
 
   it("tells a noise-averse speaker when a handled bell stayed silent", () => {
@@ -144,12 +177,12 @@ describe("entity memories and model text", () => {
     const vale = context.entities.find((e) => e.id === "vale");
     const keeper = context.entities.find((e) => e.id === "keeper");
     expect(vale.facts[0]).toContain(
-      "you gave Bell to The keeper and received Oil flask",
+      "I gave Bell to The keeper and received Oil flask",
     );
     expect(keeper.facts[0]).toContain(
-      "you gave Oil flask to Vale and received Bell",
+      "I gave Oil flask to Vale and received Bell",
     );
-    expect(keeper.facts[0]).toContain("The item you gained was Bell");
+
     expect(context.outcome.card).toMatchObject({
       kind: "trade",
       item: "bell",
@@ -563,7 +596,7 @@ describe("witnessed departures and conversation continuity", () => {
     expect(pip.facts.join(" ")).toContain(
       "Leaving Empty station for Black pond",
     );
-    expect(pip.facts.join(" ")).toContain("currently at Black pond");
+    expect(pip.facts.join(" ")).toContain("I'm at Black pond");
     const next = applyGeneratedText(world, context, response(context));
     expect(
       next.log

@@ -34,6 +34,14 @@ npm install
 npm run play:cards
 ```
 
+To play with dialogue on a small model running on this machine, pull one
+with [Ollama](https://ollama.com) and start the full table instead:
+
+```sh
+ollama pull gemma3:4b
+npm run play:cards:local   # http://127.0.0.1:3110/card-game/
+```
+
 Open [http://127.0.0.1:4177/](http://127.0.0.1:4177/). Saves stay in that
 browser. The rules work locally; generated dialogue needs a configured Rust
 text service. Point the lightweight server at it with
