@@ -51,6 +51,12 @@ const assets = new Map([
     "badger-grumpy",
   ].map((id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]]),
 ]);
+// The browser's scene budget. Match the Rust server's budget when it runs a
+// slower local model profile.
+function storyBudget() {
+  const budget = Number(process.env.COSYWORLD_CARD_STORY_BUDGET_MS || 30_000);
+  return Number.isFinite(budget) && budget >= 30_000 ? budget : 30_000;
+}
 export function createServer() {
   return http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
@@ -90,7 +96,10 @@ export function createServer() {
             Accept: req.headers.accept || "application/json",
           },
           body: Buffer.concat(chunks),
-          signal: AbortSignal.any([abort.signal, AbortSignal.timeout(28_000)]),
+          signal: AbortSignal.any([
+            abort.signal,
+            AbortSignal.timeout(storyBudget() - 2_000),
+          ]),
         });
         res.writeHead(response.status, {
           "Content-Type":
@@ -123,7 +132,16 @@ export function createServer() {
       return;
     }
     try {
-      const body = await readFile(new URL(asset[0], import.meta.url));
+      let body = await readFile(new URL(asset[0], import.meta.url));
+      if (asset[0] === "index.html")
+        body = Buffer.from(
+          body
+            .toString("utf8")
+            .replace(
+              'name="cosy-story-budget-ms" content="30000"',
+              `name="cosy-story-budget-ms" content="${storyBudget()}"`,
+            ),
+        );
       const headers = {
         "Content-Type":
           asset[1] === "audio/mpeg" ? asset[1] : `${asset[1]}; charset=utf-8`,

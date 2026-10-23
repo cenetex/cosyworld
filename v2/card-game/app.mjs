@@ -444,7 +444,15 @@ document.addEventListener("visibilitychange", () =>
 );
 window.addEventListener("pagehide", () => music.setHidden(true));
 window.addEventListener("pageshow", () => music.setHidden(document.hidden));
+// A local model's server sets a longer story budget in the page.
+const storyBudget = Number(
+  document.querySelector('meta[name="cosy-story-budget-ms"]')?.content,
+);
 const narrator = createNarrator({
+  budget:
+    Number.isFinite(storyBudget) && storyBudget >= 30_000
+      ? Math.min(storyBudget, 1_900_000)
+      : 30_000,
   getWorld: () => world,
   apply: (next) => {
     world = next;
