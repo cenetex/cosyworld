@@ -804,6 +804,54 @@ fn character_prompt(context: &Context, ids: &[String]) -> String {
     input.to_string()
 }
 
+fn validate_character_entries(
+    text: &str,
+    finish_reason: &str,
+    model: &str,
+    context: &Context,
+    ids: &[String],
+) -> Result<Vec<Entry>, &'static str> {
+    if finish_reason == "length" {
+        return Err("output_limit");
+    }
+    let mut generated: Generated =
+        serde_json::from_str(text.trim()).map_err(|_| "response_shape")?;
+    let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
+    if generated.entries.len() != ids.len()
+        || generated
+            .entries
+            .iter()
+            .map(|e| e.id.as_str())
+            .collect::<BTreeSet<_>>()
+            != expected
+    {
+        return Err("entity_ids");
+    }
+    for entry in &mut generated.entries {
+        if !bounded(&entry.text, 400) {
+            return Err("text_bounds");
+        }
+        let entity = context
+            .entities
+            .iter()
+            .find(|e| e.id == entry.id)
+            .ok_or("entity_ids")?;
+        let (reflect, dream) = reflection_due(context, entity);
+        match entry.reflection.as_ref() {
+            Some(r)
+                if reflect
+                    && bounded(&r.thought, 400)
+                    && bounded(&r.persona, 600)
+                    && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
+                    && (!dream || r.dream.is_some()) => {}
+            None if !reflect => {}
+            _ => return Err("reflection"),
+        }
+        entry.model = Some(model.to_string());
+    }
+    Ok(generated.entries)
+}
+
 async fn complete_characters(
     config: &AiConfig,
     context: &Context,
@@ -875,46 +923,19 @@ async fn complete_characters(
             };
             let completion = request_chat_completion(&config, request)
                 .await
-                .map_err(|_| ())?;
-            if completion.finish_reason == "length" {
-                return Err(());
-            }
-            let mut generated: Generated =
-                serde_json::from_str(completion.text.trim()).map_err(|_| ())?;
-            let expected: BTreeSet<_> = ids.iter().map(String::as_str).collect();
-            if generated.entries.len() != ids.len()
-                || generated
-                    .entries
-                    .iter()
-                    .map(|e| e.id.as_str())
-                    .collect::<BTreeSet<_>>()
-                    != expected
-            {
-                return Err(());
-            }
-            for entry in &mut generated.entries {
-                if !bounded(&entry.text, 400) {
-                    return Err(());
-                }
-                let entity = context
-                    .entities
-                    .iter()
-                    .find(|e| e.id == entry.id)
-                    .ok_or(())?;
-                let (reflect, dream) = reflection_due(context, entity);
-                match entry.reflection.as_ref() {
-                    Some(r)
-                        if reflect
-                            && bounded(&r.thought, 400)
-                            && bounded(&r.persona, 600)
-                            && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
-                            && (!dream || r.dream.is_some()) => {}
-                    None if !reflect => {}
-                    _ => return Err(()),
-                }
-                entry.model = Some(completion.resolved_model_id.clone());
-            }
-            Ok::<_, ()>(generated.entries)
+                .map_err(|error| {
+                    tracing::warn!(stage = "provider", failure = ?error.kind, entities = ?ids, "Card dialogue failed");
+                })?;
+            let entries = validate_character_entries(
+                &completion.text,
+                &completion.finish_reason,
+                &completion.resolved_model_id,
+                context,
+                ids,
+            ).map_err(|reason| {
+                tracing::warn!(stage = "validation", reason, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue failed");
+            })?;
+            Ok::<_, ()>(entries)
         }
     });
     let results = tokio::time::timeout(
@@ -1071,6 +1092,29 @@ mod tests {
         assert!(valid(&c));
         c.entities[0].inner_life.as_mut().unwrap().dreams[0].turn = 99;
         assert!(!valid(&c));
+    }
+
+    #[test]
+    fn character_response_diagnostics_name_the_failed_check() {
+        let c = context();
+        let ids = vec!["vale".to_string()];
+        let check = |text, finish| validate_character_entries(text, finish, "test-model", &c, &ids);
+        let valid = r#"{"entries":[{"id":"vale","text":"I wonder what the mirror holds."}]}"#;
+        assert_eq!(
+            check(valid, "stop").unwrap()[0].model.as_deref(),
+            Some("test-model")
+        );
+        assert_eq!(check(valid, "length").unwrap_err(), "output_limit");
+        assert_eq!(check("{}", "stop").unwrap_err(), "response_shape");
+        assert_eq!(
+            check(r#"{"entries":[]}"#, "stop").unwrap_err(),
+            "entity_ids"
+        );
+        assert_eq!(
+            check(r#"{"entries":[{"id":"vale","text":""}]}"#, "stop").unwrap_err(),
+            "text_bounds"
+        );
+        assert_eq!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap_err(), "reflection");
     }
 
     #[tokio::test]
