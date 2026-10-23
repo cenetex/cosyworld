@@ -924,7 +924,7 @@ async fn complete_characters(
             let completion = request_chat_completion(&config, request)
                 .await
                 .map_err(|error| {
-                    tracing::warn!(stage = "provider", failure = ?error.kind, entities = ?ids, "Card dialogue failed");
+                    tracing::warn!(stage = "provider", failure = error.code(), entities = ?ids, "Card dialogue failed");
                 })?;
             let entries = validate_character_entries(
                 &completion.text,
