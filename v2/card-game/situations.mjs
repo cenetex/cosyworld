@@ -89,8 +89,17 @@ export function requiredItems(s, actor, target) {
 // Choose a situation from real custody, resources, company and past programs.
 // A stalled resident still uses the short independent errands in quests.mjs.
 export function situationPrograms(s, actor, base, api) {
-  const { hand, hold, at, withAvatars, either, available, needed, reachable } =
-    api;
+  const {
+    hand,
+    hold,
+    at,
+    withAvatars,
+    either,
+    available,
+    needed,
+    reachable,
+    mayGive = () => true,
+  } = api;
   const own = (item) => rootOwner(s, item) === actor;
   const canGet = (item) => available(item);
   const partner = base.generated.partner;
@@ -182,7 +191,7 @@ export function situationPrograms(s, actor, base, api) {
   const caretakers = others.filter((id) => actor === "vale" || id !== "vale");
   const deliveries = caretakers.flatMap((avatar) =>
     needed(avatar)
-      .filter((item) => own(item))
+      .filter((item) => own(item) && mayGive(item))
       .map((item) => ({ avatar, item })),
   );
   // A recent gift supplies a reason to return a useful item to that person.
@@ -220,6 +229,7 @@ export function situationPrograms(s, actor, base, api) {
   if (
     reachable.includes("station") &&
     canGet("lamp") &&
+    (!own("lamp") || mayGive("lamp")) &&
     (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 && canGet("oil")))
   ) {
     choices.push(

@@ -300,6 +300,30 @@ describe("personal quests grow from life", () => {
     expect(p.generated.situation).toBe("gathering");
   });
 
+  it("shapes later quests around a shared lamp while Pip keeps the gift", () => {
+    const s = together();
+    s.turn = s.revision = 3;
+    s.items.lamp.holder = "moth";
+    s.items.lamp.lit = true;
+    lifeOf(s, "moth").attachments.lamp = { from: "vale", turn: 1 };
+    lifeOf(s, "vale").milestones = [1, 2];
+    lifeOf(s, "vale").phase = "active";
+    const next = generateProgram(s, "vale", places, things);
+    expect(next.generated.situation).toBe("crossing");
+    expect(next.steps.some((step) => step.items?.includes("lamp"))).toBe(true);
+    for (let i = 0; i < 12; i += 1) {
+      s.actors.moth.progress.program = i;
+      const p = generateProgram(s, "moth", places, things);
+      const conditions = p.steps.flatMap((step) =>
+        (step.any || [step]).flatMap((h) => h.conditions || []),
+      );
+      expect(
+        conditions.some((c) => c.kind === "heldBy" && c.item === "lamp"),
+      ).toBe(false);
+    }
+    expect(s.items.lamp.holder).toBe("moth");
+  });
+
   it("retains old progress, possessions and memories when enabled on an earlier save", () => {
     let old = enableMotives(createWorld({ opening: true }), {
       questPrograms: true,

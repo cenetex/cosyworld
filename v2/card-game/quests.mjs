@@ -369,7 +369,9 @@ export function generateProgram(
     either,
     reachable,
     available: (id) =>
-      available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
+      (s.life && questItemAvailable(s, actor, id)) ||
+      (available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id))),
+    mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
     needed: (id) => requiredItems(s, id, desireFor(s, id)),
     name: (id) =>
       things[id]?.name ||
