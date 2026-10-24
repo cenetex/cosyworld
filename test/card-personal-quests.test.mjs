@@ -32,6 +32,7 @@ import {
   hopeProgress,
 } from "../v2/card-game/life.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { cardPlay } from "../v2/card-game/cards.mjs";
 
 const fresh = () =>
   enableMotives(createWorld({ opening: true }), { personalQuests: true });
@@ -56,6 +57,36 @@ function together() {
 }
 
 describe("personal quests grow from life", () => {
+  it("uses shared light and sound in place while gifts keep their owners", () => {
+    let s = together();
+    s.items.lamp.holder = "moth";
+    s.items.oil.holder = "moth";
+    s.items.bell.holder = "keeper";
+    lifeOf(s, "moth").attachments.lamp = { from: "vale", turn: 0 };
+    lifeOf(s, "moth").attachments.oil = { from: "vale", turn: 0 };
+    for (const id of ["moth", "keeper"]) lifeOf(s, id).company.vale = 3;
+    expect(cardPlay(s, ["lamp"]).action.kind).toBe("ask");
+    expect(cardPlay(s, ["lamp", "station"]).action.kind).toBe("light");
+    expect(cardPlay(s, ["bell", "station"]).action.kind).toBe("ring");
+    expect(cardPlay(s, ["oil", "lamp"]).action.kind).toBe("refill");
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "refill", { item: "oil", target: "lamp" });
+    s = act(s, "ring", { item: "bell" });
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(s.items.oil.holder).toBe("moth");
+    expect(s.items.bell.holder).toBe("keeper");
+    expect(keepReason(s, "moth", "lamp")).toContain("gift from Vale");
+    s.actors.moth.place = "pond";
+    expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "vale", target: "keeper" },
+      ["keeper"],
+      false,
+    );
+    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
   it("finishes the shore journey while Pip keeps Vale's gifted lamp", () => {
     let s = fresh();
     s = act(s, "light", { item: "lamp" });

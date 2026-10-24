@@ -990,6 +990,19 @@ function card(id) {
       info.append(node("span", reason, "item-attachment"));
       info.title = `${def.text} ${reason}`;
     }
+    if (
+      rootHolder(world, id) !== "vale" &&
+      ["light", "snuff", "ring"].includes(
+        cardPlay(world, [id, world.actors.vale.place]).action?.kind,
+      )
+    )
+      info.append(
+        node(
+          "span",
+          `Use here: pair with ${nameOf(world.actors.vale.place)}.`,
+          "item-attachment",
+        ),
+      );
   }
   el.append(info);
   const label = playLabel(chosen.action);

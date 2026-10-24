@@ -290,6 +290,8 @@ const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
     !actorIds.includes(rootHolder(s, item))) ||
   rootHolder(s, item) === actor;
+const canUse = (s, actor, item) =>
+  canReach(s, actor, item) || questItemAvailable(s, actor, item);
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
@@ -1028,7 +1030,7 @@ export function legalActions(s, actor = "vale") {
         ),
       );
     }
-    if (!canReach(s, actor, id)) continue;
+    if (!canUse(s, actor, id)) continue;
     if (id === "lamp") {
       if (item.lit)
         out.push(
@@ -1072,7 +1074,7 @@ export function legalActions(s, actor = "vale") {
       id === "oil" &&
       item.doses > 0 &&
       s.items.lamp.fuel < 12 &&
-      canReach(s, actor, "lamp") &&
+      canUse(s, actor, "lamp") &&
       itemPlace(s, "lamp") === here
     ) {
       out.push(
@@ -1086,7 +1088,12 @@ export function legalActions(s, actor = "vale") {
         ),
       );
     }
-    if (id === "cloth" && item.holder !== "lamp" && item.holder !== "bell") {
+    if (
+      id === "cloth" &&
+      canReach(s, actor, id) &&
+      item.holder !== "lamp" &&
+      item.holder !== "bell"
+    ) {
       for (const target of ["lamp", "bell"].filter(
         (t) =>
           itemPlace(s, t) === here &&
