@@ -136,7 +136,7 @@ export function cardPlay(world, selected) {
     return result(
       location === here
         ? find("drop", item, here) ||
-            (rootHolder(world, item) === here ? use(item) : undefined)
+            (rootHolder(world, item) !== "vale" ? use(item) : undefined)
         : find("move", item, location),
       "Carry this item to play it with a location.",
     );

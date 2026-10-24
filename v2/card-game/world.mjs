@@ -43,6 +43,7 @@ import {
 } from "./life.mjs";
 import {
   conditionMet,
+  questItemAvailable,
   conditionText,
   requiredItems,
   validCondition,
@@ -289,6 +290,8 @@ const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
     !actorIds.includes(rootHolder(s, item))) ||
   rootHolder(s, item) === actor;
+const canUse = (s, actor, item) =>
+  canReach(s, actor, item) || questItemAvailable(s, actor, item);
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
@@ -297,7 +300,13 @@ const hasSpace = (s, actor, id) =>
 export function handStatus(s, actor, hand = desireFor(s, actor)) {
   const held = carried(s, actor),
     here = s.actors[actor].place;
-  const items = hand.items.map((id) => ({ id, met: held.includes(id) }));
+  const items = hand.items.map((id) => ({
+    id,
+    met: questItemAvailable(s, actor, id),
+    ...(!held.includes(id) && questItemAvailable(s, actor, id)
+      ? { sharedBy: rootHolder(s, id) }
+      : {}),
+  }));
   const location = {
     id: hand.location,
     met: !hand.location || here === hand.location,
@@ -426,7 +435,7 @@ function captureHands(s, met) {
       met.set(actor, {
         target: structuredClone(target),
         fulfillment: {
-          items: carried(s, actor),
+          items: [...target.items],
           location: s.actors[actor].place,
           avatars: knownActors(s).filter(
             (id) =>
@@ -775,6 +784,19 @@ export function accompanyDecision(s, actor, companion, destination) {
   const closer = (place) =>
     distance(destination, place) < distance(here, place);
   const agree = (reason) => ({ accepted: true, reason });
+  if (
+    s.life &&
+    targetsFor(s, actor).some(
+      (hand) =>
+        hand.location &&
+        closer(hand.location) &&
+        hand.items.some(
+          (id) =>
+            rootHolder(s, id) === companion && questItemAvailable(s, actor, id),
+        ),
+    )
+  )
+    return agree("Keep our shared belongings with us for this journey.");
   for (const hand of targetsFor(s, companion)) {
     const missing = requiredItems(s, companion, hand).filter(
       (id) => rootHolder(s, id) !== companion,
@@ -1008,7 +1030,7 @@ export function legalActions(s, actor = "vale") {
         ),
       );
     }
-    if (!canReach(s, actor, id)) continue;
+    if (!canUse(s, actor, id)) continue;
     if (id === "lamp") {
       if (item.lit)
         out.push(
@@ -1052,7 +1074,7 @@ export function legalActions(s, actor = "vale") {
       id === "oil" &&
       item.doses > 0 &&
       s.items.lamp.fuel < 12 &&
-      canReach(s, actor, "lamp") &&
+      canUse(s, actor, "lamp") &&
       itemPlace(s, "lamp") === here
     ) {
       out.push(
@@ -1066,7 +1088,12 @@ export function legalActions(s, actor = "vale") {
         ),
       );
     }
-    if (id === "cloth" && item.holder !== "lamp" && item.holder !== "bell") {
+    if (
+      id === "cloth" &&
+      canReach(s, actor, id) &&
+      item.holder !== "lamp" &&
+      item.holder !== "bell"
+    ) {
       for (const target of ["lamp", "bell"].filter(
         (t) =>
           itemPlace(s, t) === here &&
@@ -1120,7 +1147,7 @@ function travel(s, actor, destination) {
     remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
 }
-function perform(s, a) {
+function perform(s, a, capture = () => {}) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -1339,6 +1366,9 @@ function perform(s, a) {
       throw new Error("Unknown act.");
   }
   meetCast(s);
+  // Record the completed physical act while its shared use is still agreed.
+  // Reactions can change who is willing to share on the following play.
+  capture();
   recordReaction(s, a, witnesses, requestAccepted);
   recordLifeAction(s, a, invitation?.accepted ?? requestAccepted, usefulGift);
   addLog(s, "World", text, {
@@ -1472,7 +1502,11 @@ export function plan(s, actor = "vale") {
       );
   }
   const resources = requiredItems(s, actor, hand);
-  const missing = resources.filter((id) => rootHolder(s, id) !== actor);
+  const missing = resources.filter((id) =>
+    hand.items.includes(id)
+      ? !questItemAvailable(s, actor, id)
+      : rootHolder(s, id) !== actor,
+  );
   const reason = `Seek this hand: ${handText(hand)}.`;
   // Another avatar can hold its whole hand somewhere else and wait only for
   // this one. Going there completes that hand and ends the wait.
@@ -1695,6 +1729,9 @@ export function play(s, action, expectedRevision = s.revision) {
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  const previousHopes = Object.fromEntries(
+    knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
+  );
   const clearingWasOpen = clearingOpen(s);
   next.turn += 1;
   next.revision += 1;
@@ -1713,7 +1750,7 @@ export function play(s, action, expectedRevision = s.revision) {
   const pondRing = exact.kind === "ring" && next.actors.vale.place === "pond";
   const secondRing = pondRing && next.steamClock.rings === 1;
   next.steamClock.rings = pondRing && !secondRing && !clearingWasOpen ? 1 : 0;
-  const respondent = perform(next, exact);
+  const respondent = perform(next, exact, () => captureHands(next, met));
   if (secondRing) {
     // The second ring reveals the way; Vale stays until the player takes it.
     next.steamClock.discovered = true;
@@ -1752,7 +1789,7 @@ export function play(s, action, expectedRevision = s.revision) {
   }
   for (const actor of ["moth", "keeper"]) {
     if (actor === respondent || !active.includes(actor)) continue;
-    perform(next, plan(next, actor).action);
+    perform(next, plan(next, actor).action, () => captureHands(next, met));
     captureHands(next, met);
   }
   if (next.items.lamp.lit) {
@@ -1800,6 +1837,16 @@ export function play(s, action, expectedRevision = s.revision) {
     );
   if (next.actors.vale.place !== "pond") next.steamClock.rings = 0;
   advancePrograms(next, met);
+  for (const actor of knownActors(next)) {
+    const life = lifeOf(next, actor);
+    if (life && life.milestones.length > (previousHopes[actor] || 0))
+      addLog(
+        next,
+        "World",
+        `${nameOf(actor)} reaches a hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/3.`,
+        { actorId: actor },
+      );
+  }
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
     if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {

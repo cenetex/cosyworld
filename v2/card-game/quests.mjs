@@ -3,6 +3,7 @@ import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
 import {
   condition,
   conditionMet,
+  questItemAvailable,
   requiredItems,
   situationPrograms,
 } from "./situations.mjs";
@@ -185,7 +186,11 @@ const ownerOf = (s, item) => {
 export const desireFor = (s, actor) => {
   const here = s.actors[actor].place;
   const score = (h) =>
-    requiredItems(s, actor, h).filter((id) => ownerOf(s, id) !== actor).length *
+    requiredItems(s, actor, h).filter((id) =>
+      h.items.includes(id)
+        ? !questItemAvailable(s, actor, id)
+        : ownerOf(s, id) !== actor,
+    ).length *
       20 +
     (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
     (h.conditions || []).filter(
@@ -364,7 +369,9 @@ export function generateProgram(
     either,
     reachable,
     available: (id) =>
-      available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
+      (s.life && questItemAvailable(s, actor, id)) ||
+      (available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id))),
+    mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
     needed: (id) => requiredItems(s, id, desireFor(s, id)),
     name: (id) =>
       things[id]?.name ||

@@ -565,8 +565,20 @@ fn direction(context: &Context) -> Value {
 fn prompt(context: &Context) -> String {
     json!({"scene": context, "direction": direction(context), "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
+fn response_json(text: &str) -> &str {
+    let text = text.trim();
+    // Some chat providers wrap their JSON object in one Markdown fence.
+    // Unwrap that envelope; the same strict schema still validates its body.
+    text.strip_prefix("```json\n")
+        .or_else(|| text.strip_prefix("```json\r\n"))
+        .or_else(|| text.strip_prefix("```\n"))
+        .and_then(|body| body.strip_suffix("```"))
+        .map(str::trim)
+        .unwrap_or(text)
+}
+
 fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
-    let result: Generated = serde_json::from_str(text.trim()).ok()?;
+    let result: Generated = serde_json::from_str(response_json(text)).ok()?;
     let expected: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
     let returned: BTreeSet<_> = result.entries.iter().map(|e| e.id.as_str()).collect();
     (result.entries.len() == expected.len()
@@ -801,6 +813,17 @@ fn character_prompt(context: &Context, ids: &[String]) -> String {
             reflect.then(|| json!({"id":e.id,"dream":dream}))
         })
         .collect::<Vec<_>>());
+    input["response_example"] = json!({"entries": context.entities.iter()
+        .filter(|e| ids.contains(&e.id))
+        .map(|e| {
+            let mut entry = json!({"id": e.id, "text": "Write this character's words for the resolved scene."});
+            let (reflect, dream) = reflection_due(context, e);
+            if reflect {
+                entry["reflection"] = json!({"thought": "Write a private thought.", "persona": "Write the current persona."});
+                if dream { entry["reflection"]["dream"] = json!("Write a symbolic dream."); }
+            }
+            entry
+        }).collect::<Vec<_>>()});
     input.to_string()
 }
 
@@ -814,7 +837,8 @@ fn validate_character_entries(
     if finish_reason == "length" {
         return Err("output_limit");
     }
-    let mut value: Value = serde_json::from_str(text.trim()).map_err(|_| "response_shape")?;
+    let mut value: Value =
+        serde_json::from_str(response_json(text)).map_err(|_| "response_shape")?;
     let rows = value
         .get_mut("entries")
         .and_then(Value::as_array_mut)
@@ -872,13 +896,21 @@ fn validate_character_entries(
             .find(|e| e.id == entry.id)
             .ok_or("entity_ids")?;
         let (reflect, dream) = reflection_due(context, entity);
-        match entry.reflection.as_ref() {
+        match entry.reflection.as_mut() {
             Some(r)
-                if reflect
-                    && bounded(&r.thought, 400)
+                if bounded(&r.thought, 400)
                     && bounded(&r.persona, 600)
-                    && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
-                    && (!dream || r.dream.is_some()) => {}
+                    && r.dream.as_ref().is_none_or(|s| bounded(s, 400))
+                    && (!dream || r.dream.is_some()) =>
+            {
+                // A provider may echo an earlier private reflection.
+                // Keep growth on its cadence while preserving valid speech.
+                if !reflect {
+                    entry.reflection = None;
+                } else if !dream {
+                    r.dream = None;
+                }
+            }
             None if !reflect => {}
             _ => return Err("reflection"),
         }
@@ -940,8 +972,9 @@ async fn complete_characters(
                     .filter(|selection| selection.candidate().supported_parameters().reasoning)
                     .map(|_| "none".to_string());
             }
-            let user = character_prompt(context, ids);
+            let mut user = character_prompt(context, ids);
             let format = json!({"type":"json_object"});
+            for attempt in 0..2 {
             let request = ChatCompletionRequest {
                 feature: "card_character_text",
                 prompt_version: "card-character-text-v1",
@@ -961,20 +994,27 @@ async fn complete_characters(
                 .map_err(|error| {
                     tracing::warn!(stage = "provider", failure = error.code(), entities = ?ids, "Card dialogue failed");
                 })?;
-            let entries = validate_character_entries(
+            match validate_character_entries(
                 &completion.text,
                 &completion.finish_reason,
                 &completion.resolved_model_id,
                 context,
                 ids,
-            ).map_err(|reason| {
-                tracing::warn!(stage = "validation", reason, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue failed");
-            })?;
-            Ok::<_, ()>(entries)
+            ) {
+                Ok(entries) => return Ok::<_, ()>(entries),
+                Err(reason) => {
+                    tracing::warn!(stage = "validation", reason, attempt, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue needs repair");
+                    let mut input: Value = serde_json::from_str(&user).expect("character prompt");
+                    input["repair"] = json!({"reason": reason, "instruction": "Write a fresh response using the exact response_example keys and IDs. Replace each example value with original words grounded in this scene. Include every requested reflection field, including dream when shown."});
+                    user = input.to_string();
+                }
+            }
+            }
+            Err(())
         }
     });
     let results = tokio::time::timeout(
-        Duration::from_secs(14),
+        Duration::from_secs(26),
         futures_util::future::join_all(jobs),
     )
     .await
@@ -1130,6 +1170,30 @@ mod tests {
     }
 
     #[test]
+    fn fenced_provider_json_keeps_the_same_validation() {
+        let c = context();
+        let ids = vec!["vale".into()];
+        let body = r#"{"entries":[{"id":"vale","text":"I will keep the light ready."}]}"#;
+        for wrapped in [
+            format!("```json\n{body}\n```"),
+            format!("```\n{body}\n```"),
+            format!("```json\r\n{body}\r\n```\n"),
+        ] {
+            assert_eq!(
+                validate_character_entries(&wrapped, "stop", "test", &c, &ids).unwrap()[0].text,
+                "I will keep the light ready."
+            );
+        }
+        for invalid in [
+            format!("Here is the answer: ```json\n{body}\n```"),
+            format!("```json\n{body}\n``` trailing"),
+            format!("```json\n{}\n```", body.replace("vale", "invented")),
+        ] {
+            assert!(validate_character_entries(&invalid, "stop", "test", &c, &ids).is_err());
+        }
+    }
+
+    #[test]
     fn character_response_diagnostics_name_the_failed_check() {
         let c = context();
         let ids = vec!["vale".to_string()];
@@ -1149,7 +1213,7 @@ mod tests {
             check(r#"{"entries":[{"id":"vale","text":""}]}"#, "stop").unwrap_err(),
             "text_bounds"
         );
-        assert_eq!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap_err(), "reflection");
+        assert!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap()[0].reflection.is_none());
     }
 
     #[test]
@@ -1219,9 +1283,25 @@ mod tests {
             "reflection"
         );
         c.turn = 0;
+        assert!(
+            validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap()[0]
+                .reflection
+                .is_none()
+        );
+        c.turn = 2;
+        c.entities[0].inner_life = Some(InnerLife {
+            persona: None,
+            thoughts: vec![],
+            dreams: vec![InnerMoment {
+                turn: 1,
+                text: "An earlier dream.".into(),
+            }],
+        });
+        let entries = validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap();
+        assert!(entries[0].reflection.as_ref().unwrap().dream.is_none());
         assert_eq!(
-            validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap_err(),
-            "reflection"
+            entries[0].reflection.as_ref().unwrap().thought,
+            "I feel welcome."
         );
     }
 
@@ -1241,6 +1321,9 @@ mod tests {
                     }
                     if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
                         entry["reflection"] = json!({"thought":"I felt welcome.","persona":"I am still proud, but I am learning to accept help.","dream":"A warm lamp floated through my sleep."});
+                        if id == "vale" && input["repair"].is_null() {
+                            entry["reflection"].as_object_mut().unwrap().remove("dream");
+                        }
                     }
                     entry
                 }).collect();
@@ -1305,7 +1388,14 @@ mod tests {
         let invalid = app.clone().oneshot(request(&c)).await.unwrap();
         assert_eq!(invalid.status(), StatusCode::BAD_GATEWAY);
         let requests = seen.lock().unwrap();
-        assert_eq!(requests.len(), 9);
+        assert_eq!(requests.len(), 13);
+        let repairs = requests.iter().filter(|body| {
+            body["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("\"repair\"")
+        });
+        assert_eq!(repairs.count(), 4);
         for body in requests.iter() {
             let input: Value =
                 serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();

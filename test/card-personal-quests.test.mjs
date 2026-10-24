@@ -10,6 +10,7 @@ import {
   willingToGive,
   places,
   things,
+  handStatus,
 } from "../v2/card-game/world.mjs";
 import {
   enableMotives,
@@ -28,8 +29,10 @@ import {
   hopes,
   stayingWith,
   finishPersonalQuest,
+  hopeProgress,
 } from "../v2/card-game/life.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { cardPlay } from "../v2/card-game/cards.mjs";
 
 const fresh = () =>
   enableMotives(createWorld({ opening: true }), { personalQuests: true });
@@ -54,6 +57,124 @@ function together() {
 }
 
 describe("personal quests grow from life", () => {
+  it("records a shared bell quest before its sound changes the owner's mood", () => {
+    let s = createWorld();
+    s.schema = 2;
+    s.turn = s.revision = 20;
+    s.actors.vale.progress = { program: 2, step: 0, marks: [1, 2, 3, 4, 5] };
+    s = enableMotives(decodeSave(JSON.stringify(s)), { personalQuests: true });
+    for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
+    s.items.bell.holder = "keeper";
+    s.items.lamp.fuel = 0;
+    s.items.oil.doses = 0;
+    lifeOf(s, "vale").milestones = [1, 2];
+    lifeOf(s, "keeper").company.vale = 23;
+    s.actors.vale.progress.current = generateProgram(s, "vale", places, things);
+    expect(programFor(s, "vale").generated.situation).toBe("answer");
+    s = act(s, "wait");
+    s = act(s, "accompany", { target: "keeper", destination: "pond" });
+    s = act(s, "ring", { item: "bell" });
+    expect(s.actors.vale.progress.program).toBe(3);
+    expect(lifeOf(s, "vale").milestones).toHaveLength(3);
+    expect(s.items.bell.holder).toBe("keeper");
+    expect(s.items.oil.doses).toBe(3);
+  });
+  it("uses shared light and sound in place while gifts keep their owners", () => {
+    let s = together();
+    s.items.lamp.holder = "moth";
+    s.items.oil.holder = "moth";
+    s.items.bell.holder = "keeper";
+    lifeOf(s, "moth").attachments.lamp = { from: "vale", turn: 0 };
+    lifeOf(s, "moth").attachments.oil = { from: "vale", turn: 0 };
+    for (const id of ["moth", "keeper"]) lifeOf(s, id).company.vale = 3;
+    expect(cardPlay(s, ["lamp"]).action.kind).toBe("ask");
+    expect(cardPlay(s, ["lamp", "station"]).action.kind).toBe("light");
+    expect(cardPlay(s, ["bell", "station"]).action.kind).toBe("ring");
+    expect(cardPlay(s, ["oil", "lamp"]).action.kind).toBe("refill");
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "refill", { item: "oil", target: "lamp" });
+    s = act(s, "ring", { item: "bell" });
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(s.items.oil.holder).toBe("moth");
+    expect(s.items.bell.holder).toBe("keeper");
+    expect(keepReason(s, "moth", "lamp")).toContain("gift from Vale");
+    s.actors.moth.place = "pond";
+    expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "vale", target: "keeper" },
+      ["keeper"],
+      false,
+    );
+    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+  it("finishes the shore journey while Pip keeps Vale's gifted lamp", () => {
+    let s = fresh();
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "move", { target: "pond" });
+    s = act(s, "give", { item: "lamp", target: "moth" });
+    lifeOf(s, "vale").phase = "active";
+    expect(handStatus(s, "vale").items).toContainEqual({
+      id: "lamp",
+      met: true,
+      sharedBy: "moth",
+    });
+    s = act(s, "talk", { target: "moth" });
+    expect(s.actors.vale.progress.step).toBe(1);
+    s = act(s, "accompany", { target: "moth", destination: "station" });
+    expect(s.actors.vale.progress.program).toBe(2);
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(keepReason(s, "moth", "lamp")).toContain("gift from Vale");
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("shares only nearby friendly items and keeps delivery ownership explicit", () => {
+    const s = together();
+    s.items.lamp.holder = "moth";
+    const target = { items: ["lamp"], avatars: ["moth"], location: "station" };
+    expect(handStatus(s, "vale", target).met).toBe(true);
+    expect(
+      handStatus(s, "vale", {
+        ...target,
+        conditions: [{ kind: "heldBy", item: "lamp", avatar: "keeper" }],
+      }).met,
+    ).toBe(false);
+    s.actors.moth.place = "pond";
+    expect(handStatus(s, "vale", target).met).toBe(false);
+    s.actors.moth.place = "station";
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "vale", target: "moth" },
+      ["moth"],
+      false,
+    );
+    expect(handStatus(s, "vale", target).met).toBe(false);
+  });
+
+  it("shows hope earned through gifts and warmth before a later quest", () => {
+    let s = fresh();
+    s = act(s, "light", { item: "lamp" });
+    s = act(s, "move", { target: "pond" });
+    s = act(s, "give", { item: "lamp", target: "moth" });
+    expect(hopeProgress(s, "vale")).toMatchObject({
+      done: 1,
+      next: "Gather in warm light",
+    });
+    expect(
+      s.log.some((e) => e.text.includes("hope milestone: Return a kindness")),
+    ).toBe(true);
+    s = act(s, "talk", { target: "moth" });
+    expect(hopeProgress(s, "vale")).toMatchObject({
+      done: 2,
+      next: "Care for the shore",
+    });
+    expect(hopeProgress(s, "moth").done).toBeGreaterThanOrEqual(1);
+    const restored = decodeSave(encodeSave(s));
+    expect(restored.life).toEqual(s.life);
+    s = act(restored, "talk", { target: "moth" });
+    expect(hopeProgress(s, "vale").done).toBe(2);
+  });
   it("keeps the first light, then hides the next checklist through three quiet turns", () => {
     let s = fresh();
     expect(programFor(s, "vale").id).toBe("first-light");
@@ -230,6 +351,30 @@ describe("personal quests grow from life", () => {
     lifeOf(s, "vale").phase = "active";
     p = generateProgram(s, "vale", places, things);
     expect(p.generated.situation).toBe("gathering");
+  });
+
+  it("shapes later quests around a shared lamp while Pip keeps the gift", () => {
+    const s = together();
+    s.turn = s.revision = 3;
+    s.items.lamp.holder = "moth";
+    s.items.lamp.lit = true;
+    lifeOf(s, "moth").attachments.lamp = { from: "vale", turn: 1 };
+    lifeOf(s, "vale").milestones = [1, 2];
+    lifeOf(s, "vale").phase = "active";
+    const next = generateProgram(s, "vale", places, things);
+    expect(next.generated.situation).toBe("crossing");
+    expect(next.steps.some((step) => step.items?.includes("lamp"))).toBe(true);
+    for (let i = 0; i < 12; i += 1) {
+      s.actors.moth.progress.program = i;
+      const p = generateProgram(s, "moth", places, things);
+      const conditions = p.steps.flatMap((step) =>
+        (step.any || [step]).flatMap((h) => h.conditions || []),
+      );
+      expect(
+        conditions.some((c) => c.kind === "heldBy" && c.item === "lamp"),
+      ).toBe(false);
+    }
+    expect(s.items.lamp.holder).toBe("moth");
   });
 
   it("retains old progress, possessions and memories when enabled on an earlier save", () => {
