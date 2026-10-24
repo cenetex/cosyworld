@@ -896,13 +896,21 @@ fn validate_character_entries(
             .find(|e| e.id == entry.id)
             .ok_or("entity_ids")?;
         let (reflect, dream) = reflection_due(context, entity);
-        match entry.reflection.as_ref() {
+        match entry.reflection.as_mut() {
             Some(r)
-                if reflect
-                    && bounded(&r.thought, 400)
+                if bounded(&r.thought, 400)
                     && bounded(&r.persona, 600)
-                    && r.dream.as_ref().is_none_or(|s| dream && bounded(s, 400))
-                    && (!dream || r.dream.is_some()) => {}
+                    && r.dream.as_ref().is_none_or(|s| bounded(s, 400))
+                    && (!dream || r.dream.is_some()) =>
+            {
+                // A provider may echo an earlier private reflection.
+                // Keep growth on its cadence while preserving valid speech.
+                if !reflect {
+                    entry.reflection = None;
+                } else if !dream {
+                    r.dream = None;
+                }
+            }
             None if !reflect => {}
             _ => return Err("reflection"),
         }
@@ -1205,7 +1213,7 @@ mod tests {
             check(r#"{"entries":[{"id":"vale","text":""}]}"#, "stop").unwrap_err(),
             "text_bounds"
         );
-        assert_eq!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap_err(), "reflection");
+        assert!(check(r#"{"entries":[{"id":"vale","text":"A thought.","reflection":{"thought":"A thought.","persona":"A persona."}}]}"#, "stop").unwrap()[0].reflection.is_none());
     }
 
     #[test]
@@ -1275,9 +1283,25 @@ mod tests {
             "reflection"
         );
         c.turn = 0;
+        assert!(
+            validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap()[0]
+                .reflection
+                .is_none()
+        );
+        c.turn = 2;
+        c.entities[0].inner_life = Some(InnerLife {
+            persona: None,
+            thoughts: vec![],
+            dreams: vec![InnerMoment {
+                turn: 1,
+                text: "An earlier dream.".into(),
+            }],
+        });
+        let entries = validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap();
+        assert!(entries[0].reflection.as_ref().unwrap().dream.is_none());
         assert_eq!(
-            validate_character_entries(flat, "stop", "vale-model", &c, &ids).unwrap_err(),
-            "reflection"
+            entries[0].reflection.as_ref().unwrap().thought,
+            "I feel welcome."
         );
     }
 
