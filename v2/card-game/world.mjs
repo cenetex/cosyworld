@@ -1147,7 +1147,7 @@ function travel(s, actor, destination) {
     remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
 }
-function perform(s, a) {
+function perform(s, a, capture = () => {}) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -1366,6 +1366,9 @@ function perform(s, a) {
       throw new Error("Unknown act.");
   }
   meetCast(s);
+  // Record the completed physical act while its shared use is still agreed.
+  // Reactions can change who is willing to share on the following play.
+  capture();
   recordReaction(s, a, witnesses, requestAccepted);
   recordLifeAction(s, a, invitation?.accepted ?? requestAccepted, usefulGift);
   addLog(s, "World", text, {
@@ -1747,7 +1750,7 @@ export function play(s, action, expectedRevision = s.revision) {
   const pondRing = exact.kind === "ring" && next.actors.vale.place === "pond";
   const secondRing = pondRing && next.steamClock.rings === 1;
   next.steamClock.rings = pondRing && !secondRing && !clearingWasOpen ? 1 : 0;
-  const respondent = perform(next, exact);
+  const respondent = perform(next, exact, () => captureHands(next, met));
   if (secondRing) {
     // The second ring reveals the way; Vale stays until the player takes it.
     next.steamClock.discovered = true;
@@ -1786,7 +1789,7 @@ export function play(s, action, expectedRevision = s.revision) {
   }
   for (const actor of ["moth", "keeper"]) {
     if (actor === respondent || !active.includes(actor)) continue;
-    perform(next, plan(next, actor).action);
+    perform(next, plan(next, actor).action, () => captureHands(next, met));
     captureHands(next, met);
   }
   if (next.items.lamp.lit) {

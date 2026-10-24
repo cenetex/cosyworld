@@ -57,6 +57,28 @@ function together() {
 }
 
 describe("personal quests grow from life", () => {
+  it("records a shared bell quest before its sound changes the owner's mood", () => {
+    let s = createWorld();
+    s.schema = 2;
+    s.turn = s.revision = 20;
+    s.actors.vale.progress = { program: 2, step: 0, marks: [1, 2, 3, 4, 5] };
+    s = enableMotives(decodeSave(JSON.stringify(s)), { personalQuests: true });
+    for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
+    s.items.bell.holder = "keeper";
+    s.items.lamp.fuel = 0;
+    s.items.oil.doses = 0;
+    lifeOf(s, "vale").milestones = [1, 2];
+    lifeOf(s, "keeper").company.vale = 23;
+    s.actors.vale.progress.current = generateProgram(s, "vale", places, things);
+    expect(programFor(s, "vale").generated.situation).toBe("answer");
+    s = act(s, "wait");
+    s = act(s, "accompany", { target: "keeper", destination: "pond" });
+    s = act(s, "ring", { item: "bell" });
+    expect(s.actors.vale.progress.program).toBe(3);
+    expect(lifeOf(s, "vale").milestones).toHaveLength(3);
+    expect(s.items.bell.holder).toBe("keeper");
+    expect(s.items.oil.doses).toBe(3);
+  });
   it("uses shared light and sound in place while gifts keep their owners", () => {
     let s = together();
     s.items.lamp.holder = "moth";
