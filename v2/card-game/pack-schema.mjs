@@ -41,9 +41,12 @@ const voiceOk = (e) =>
   e.lines.length >= 3 &&
   e.lines.length <= 12 &&
   e.lines.every((line) => textOk(line, 200));
+// Placeholders are {name} from a fixed list; any other brace is an error.
 const templateOk = (v, max, names) =>
   textOk(v, max) &&
-  [...v.matchAll(/\{([^}]*)\}/g)].every((m) => names.includes(m[1]));
+  !/[{}]/.test(
+    v.replace(/\{([a-z]+)\}/g, (m, name) => (names.includes(name) ? "" : m)),
+  );
 
 // Media lives in the pack's own folder under the card table's assets.
 export const mediaPathOk = (pack, path) =>
