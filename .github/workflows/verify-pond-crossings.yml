@@ -22,16 +22,17 @@ jobs:
           cache: npm
       - name: Apply two-flash ritual to the verified crossing candidate
         run: |
-          cp v2/scripts/review/{lamp-ritual-rules.patch,prepare-lamp-ritual.mjs,card-ship-ritual.test.mjs} "$RUNNER_TEMP/"
+          cp v2/scripts/review/{lamp-ritual-rules.patch,prepare-lamp-ritual.mjs,card-ship-ritual.test.mjs,fix-ritual-regressions.mjs} "$RUNNER_TEMP/"
           git checkout --detach 2442e6a4236fa7a9e0ea1a92b97076aa3afee85e
           test "$(sha256sum "$RUNNER_TEMP/lamp-ritual-rules.patch" | cut -d' ' -f1)" = 854f3c188b7c0e6661f6df9faa7a0bf734eb6288aeffd5f6ff98b8289691479e
           git apply --check "$RUNNER_TEMP/lamp-ritual-rules.patch"
           git apply "$RUNNER_TEMP/lamp-ritual-rules.patch"
           node "$RUNNER_TEMP/prepare-lamp-ritual.mjs"
+          node "$RUNNER_TEMP/fix-ritual-regressions.mjs"
       - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Format and check the changed source
         run: |
-          npx prettier --write v2/card-game/{world,cards,narrative}.mjs test/card-{crossings,ship-ritual,greek-drama}.test.mjs v2/scripts/smoke-card-{pond-crossings,greek-drama}.mjs
+          npx prettier --write v2/card-game/{world,cards,narrative}.mjs test/card-{crossings,ship-ritual,greek-drama}.test.mjs test/fixtures/card-narrative-contexts.mjs v2/scripts/smoke-card-{pond-crossings,greek-drama}.mjs
           git diff --check
           npm run lint
           npm run v2:card:pack:check
