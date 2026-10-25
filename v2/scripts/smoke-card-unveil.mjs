@@ -67,6 +67,12 @@ try {
     });
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
+      if (motion === "reduce")
+        return route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Story fixture unavailable." }),
+        });
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -135,6 +141,28 @@ try {
       await page.screenshot({
         path: new URL(`reveal-${width}.png`, output).pathname,
       });
+      // A hidden tab keeps the discovery ready for the player's return.
+      if (width === 1440) {
+        await page.evaluate(() => {
+          Object.defineProperty(document, "hidden", {
+            configurable: true,
+            value: true,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await page.waitForTimeout(1800);
+        assert.equal(
+          await page.locator("#unveil-dialog").getAttribute("data-phase"),
+          "reveal",
+        );
+        await page.evaluate(() => {
+          Object.defineProperty(document, "hidden", {
+            configurable: true,
+            value: false,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+      }
       // The first reveal finishes itself; the player can also tap or press Escape.
       await ready();
       assert.equal(
@@ -174,6 +202,8 @@ try {
       );
       await page.locator("#unveil-take").click();
       await finish();
+      if (motion === "reduce")
+        assert.equal(await page.locator("#story-retry").isVisible(), true);
       const events = await page.evaluate(() => ({
         discoveries: window.discoveries,
         flights: window.flights,
