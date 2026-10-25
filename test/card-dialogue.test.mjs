@@ -324,12 +324,72 @@ describe("one exchange per card play", () => {
     expect(exchange.active).toBe(true);
     expect(busy).toHaveBeenCalledExactlyOnceWith(true);
     exchange.revealed(2, lines[1].text);
-    vi.advanceTimersByTime(899);
+    vi.advanceTimersByTime(1199);
     expect(exchange.active).toBe(true);
     vi.advanceTimersByTime(1);
     expect(settled).toHaveBeenLastCalledWith(lines[1]);
     expect(busy).toHaveBeenLastCalledWith(false);
     expect(vi.getTimerCount()).toBe(0);
+  });
+  it("keeps the last revealed line readable before releasing the cards", () => {
+    const { exchange, busy } = setup();
+    exchange.begin();
+    exchange.load([{ seq: 1 }]);
+    exchange.revealed(1, "A".repeat(200), true);
+    vi.advanceTimersByTime(4999);
+    expect(exchange.active).toBe(true);
+    expect(busy).toHaveBeenLastCalledWith(true);
+    vi.advanceTimersByTime(1);
+    expect(exchange.active).toBe(false);
+  });
+  it("holds the speaker and cards through an exit and pauses the next line in a menu", async () => {
+    let finish;
+    const show = vi.fn(),
+      busy = vi.fn(),
+      transition = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+    const exchange = createExchange({ show, busy, transition });
+    exchange.begin();
+    exchange.load([{ seq: 1 }, { seq: 2 }]);
+    exchange.revealed(1, "Farewell.");
+    exchange.advance();
+    exchange.revealed(1, "Farewell.");
+    exchange.advance();
+    expect(transition).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(busy).toHaveBeenLastCalledWith(true);
+    exchange.pause(true);
+    finish();
+    await Promise.resolve();
+    expect(show).toHaveBeenCalledTimes(1);
+    exchange.pause(false);
+    expect(show).toHaveBeenLastCalledWith({ seq: 2 });
+  });
+  it("drops an old handoff after reset and keeps the fresh speaker", async () => {
+    let finish;
+    const show = vi.fn();
+    const exchange = createExchange({
+      show,
+      transition: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    });
+    exchange.begin();
+    exchange.load([{ seq: 1 }, { seq: 2 }]);
+    exchange.revealed(1, "Farewell.");
+    exchange.advance();
+    exchange.cancel();
+    exchange.begin();
+    exchange.load([{ seq: 3 }]);
+    finish();
+    await Promise.resolve();
+    expect(show).toHaveBeenCalledTimes(2);
+    expect(exchange.current).toEqual({ seq: 3 });
   });
   it("ignores old lines and lets a completed line advance once on a tap", () => {
     const { exchange, lines, show } = setup();

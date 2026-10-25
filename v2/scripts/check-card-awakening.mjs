@@ -164,6 +164,36 @@ try {
   await decode();
   await page.screenshot({ path: "output/badger-check/mobile-awake.png" });
   assert.equal(await page.evaluate(() => document.body.scrollWidth), 390);
+  const compact = await page.evaluate(() => {
+    const dialog = document.querySelector(".dialogue").getBoundingClientRect();
+    const card = document
+      .querySelector('#hand [data-card="vale"]')
+      .getBoundingClientRect();
+    const label = document
+      .querySelector('#hand [data-card="vale"] .name')
+      .getBoundingClientRect();
+    return {
+      dialogHeight: dialog.height,
+      gap: card.top - dialog.bottom,
+      visibleCard: (innerHeight - card.top) / card.height,
+      labelBottom: label.bottom,
+      height: innerHeight,
+      actionsHidden: document.querySelector(".action-panel").hidden,
+    };
+  });
+  assert(compact.dialogHeight <= 80, "A short reply fits its words");
+  assert(compact.gap <= 16, "Cards sit close to the speech box");
+  assert(
+    compact.visibleCard >= 0.72 && compact.visibleCard <= 0.78,
+    "Resting cards show three quarters",
+  );
+  assert(
+    compact.labelBottom <= compact.height,
+    "Resting card names stay visible",
+  );
+  assert(compact.actionsHidden, "The idle hand uses only the cards");
+  console.log("Phone space:", compact);
+
   const bounds = await sprite.boundingBox();
   assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390);
   assert.ok(

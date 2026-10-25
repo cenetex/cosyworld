@@ -187,6 +187,7 @@ export function createExchange({
   show,
   prepare,
   settled = () => {},
+  transition = () => {},
   busy = () => {},
   now = () => performance.now(),
   setTimer = setTimeout,
@@ -200,7 +201,9 @@ export function createExchange({
     due = 0,
     remaining = null,
     paused = false,
-    completed = null;
+    completed = null,
+    handoff = null,
+    transitioning = false;
   function clear() {
     if (timer !== null) clearTimer(timer);
     timer = null;
@@ -219,17 +222,42 @@ export function createExchange({
     lines = [];
     index = -1;
     completed = null;
+    handoff = null;
+    transitioning = false;
     busy(false);
   }
   function advance() {
-    if (!active || index < 0 || completed !== lines[index]?.seq) return;
+    if (
+      !active ||
+      transitioning ||
+      index < 0 ||
+      completed !== lines[index]?.seq
+    )
+      return;
     clear();
     remaining = null;
-    settled(lines[index]);
+    transitioning = true;
+    const previous = lines[index];
     completed = null;
-    if (++index < lines.length) show(lines[index]);
-    else finish();
+    settled(previous);
+    const version = generation;
+    const next = lines[index + 1] || null;
+    const resume = () => {
+      if (!active || version !== generation) return;
+      if (paused) {
+        handoff = resume;
+        return;
+      }
+      handoff = null;
+      transitioning = false;
+      if (++index < lines.length) show(next);
+      else finish();
+    };
+    const waiting = transition(previous, next);
+    if (waiting?.then) void waiting.then(resume, resume);
+    else resume();
   }
+
   return {
     begin() {
       generation++;
@@ -238,6 +266,8 @@ export function createExchange({
       lines = [];
       index = -1;
       completed = null;
+      handoff = null;
+      transitioning = false;
       active = true;
       busy(true);
     },
@@ -257,14 +287,18 @@ export function createExchange({
       else start();
     },
     revealed(seq, text, instant = false) {
-      if (!active || seq !== lines[index]?.seq || completed === seq) return;
+      if (
+        !active ||
+        transitioning ||
+        seq !== lines[index]?.seq ||
+        completed === seq
+      )
+        return;
       completed = seq;
       arm(
-        index === lines.length - 1
-          ? 900
-          : instant
-            ? Math.min(9000, Math.max(2200, text.length * 25))
-            : Math.min(2800, Math.max(1200, text.length * 12)),
+        instant
+          ? Math.min(9000, Math.max(2200, text.length * 25))
+          : Math.min(2800, Math.max(1200, text.length * 12)),
       );
     },
     advance,
@@ -274,7 +308,8 @@ export function createExchange({
       if (value && timer !== null) remaining = Math.max(0, due - now());
       paused = value;
       clear();
-      if (!paused && remaining !== null) arm(remaining);
+      if (!paused && handoff) handoff();
+      else if (!paused && remaining !== null) arm(remaining);
     },
     get active() {
       return active;

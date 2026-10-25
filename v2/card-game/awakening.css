@@ -31,24 +31,12 @@ body[data-stage="resident"] .scene-shade {
   background: linear-gradient(#101b2080, transparent 30%);
 }
 body[data-stage="resident"] #cast,
-body[data-stage="resident"] #prior-portrait,
 body[data-stage="resident"] #speech-hint {
   display: none;
 }
 body[data-stage="resident"] .dialogue {
-  bottom: calc(var(--dock-height) + 8px);
+  bottom: calc(var(--dock-height) + 2px);
   width: min(860px, calc(100% - 28px));
-}
-body[data-stage="resident"] #dialogue-text {
-  height: auto;
-  min-height: 30px;
-  max-height: 75px;
-  margin: 6px 0;
-}
-body[data-stage="resident"] .prior-response {
-  height: auto;
-  min-height: 30px;
-  padding: 0 0 6px;
 }
 body[data-stage="resident"] .stage {
   min-height: 350px;
@@ -102,8 +90,5 @@ body[data-stage="resident"] a {
   body[data-stage="resident"] .dialogue {
     bottom: calc(var(--dock-height) + 4px);
     padding: 4px 10px;
-  }
-  #dialogue-text {
-    max-height: 40px;
   }
 }

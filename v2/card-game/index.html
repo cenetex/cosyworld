@@ -42,43 +42,52 @@
             role="status"
             hidden
           ></p>
-          <div id="prior-response" class="prior-response" hidden>
+          <div id="speech-row" class="speech-row" hidden>
             <span
-              id="prior-portrait"
-              class="prior-portrait"
+              id="speaker-portrait"
+              class="speaker-portrait"
               aria-hidden="true"
             ></span>
-            <div class="prior-content">
-              <strong id="prior-speaker"></strong>
-              <p id="prior-text"></p>
+            <div class="speech-content">
+              <div class="dialogue-heading">
+                <strong id="speaker"></strong>
+                <span id="story-status" role="status" hidden></span>
+                <button id="story-retry" type="button" hidden>
+                  Retry dialogue
+                </button>
+                <div class="line-controls">
+                  <button
+                    id="previous-line"
+                    type="button"
+                    aria-label="Previous scene line"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    id="next-line"
+                    type="button"
+                    aria-label="Next scene line"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+              <button
+                id="dialogue-advance"
+                class="speech-line"
+                type="button"
+                hidden
+              >
+                <span id="dialogue-text" aria-hidden="true"></span>
+              </button>
+              <span
+                id="speech-hint"
+                class="speech-hint"
+                aria-hidden="true"
+                hidden
+              ></span>
             </div>
           </div>
-          <div class="dialogue-heading">
-            <strong id="speaker"></strong><span id="line-turn"></span>
-            <span id="story-status" role="status" hidden></span>
-            <button id="story-retry" type="button" hidden>
-              Retry dialogue
-            </button>
-            <div class="line-controls">
-              <button id="previous-line" aria-label="Previous scene line">
-                ‹</button
-              ><button id="next-line" aria-label="Next scene line">›</button>
-            </div>
-          </div>
-          <button
-            id="dialogue-advance"
-            class="speech-line"
-            type="button"
-            hidden
-          >
-            <span id="dialogue-text" aria-hidden="true"></span>
-          </button>
-          <span
-            id="speech-hint"
-            class="speech-hint"
-            aria-hidden="true"
-            hidden
-          ></span>
           <span
             id="speech-announcement"
             class="sr-only"
@@ -110,13 +119,12 @@
           </button>
         </div>
         <section class="action-panel" aria-label="Selected card actions">
-          <p id="selection-name"></p>
+          <p id="selection-name" class="sr-only"></p>
           <div
             id="card-actions"
             role="group"
             aria-labelledby="selection-name"
           ></div>
-          <p id="action-hint"></p>
         </section>
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>

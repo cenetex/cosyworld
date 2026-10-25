@@ -124,7 +124,6 @@ function save() {
 let storyStatus = "ready",
   storyError = "",
   renderedCast = "",
-  renderedPrior = "",
   renderedHand = "",
   speechKey = null,
   speechGlyphs = [],
@@ -162,6 +161,7 @@ async function releaseHand() {
 }
 const completedSpeech = new Set();
 const entrances = new Map();
+const exits = new Map();
 let shownSceneLine = null;
 async function prepareScene() {
   await travelShown;
@@ -171,6 +171,7 @@ async function prepareScene() {
         image.decode(),
       ),
       ...entrances.values(),
+      ...exits.values(),
     ],
     10000,
   );
@@ -194,10 +195,30 @@ const exchange = createExchange({
     reviewing = false;
     lineSeq = line.seq;
     renderScene();
+    if (!reducedMotion.matches)
+      $("speech-row").animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 240,
+        easing: "ease-out",
+      });
   },
   settled: (line) => {
     if (line.departureTo) departed.add(line.actorId);
     renderScene();
+  },
+  transition: (previous, next) => {
+    if (reducedMotion.matches) return;
+    const version = trip;
+    return waitForScene([...exits.values()]).then(async () => {
+      if (version !== trip || !exchange.active) return;
+      if (next) {
+        await $("speech-row")
+          .animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: 220,
+            easing: "ease-in",
+          })
+          .finished.catch(() => {});
+      }
+    });
   },
   busy: (value) => {
     clearTimeout(handTimer);
@@ -312,6 +333,13 @@ function pauseSpeech() {
     document.hidden || Boolean(document.querySelector("dialog[open]"));
   reveal.pause(paused);
   exchange.pause(paused);
+  for (const animation of [
+    ...$("cast").getAnimations({ subtree: true }),
+    ...$("speech-row").getAnimations(),
+  ]) {
+    if (paused) animation.pause();
+    else if (animation.playState === "paused") animation.play();
+  }
   if (paused) speechSounds.stop();
 }
 document.addEventListener("visibilitychange", pauseSpeech);
@@ -504,6 +532,7 @@ function commitAction(action, revision) {
   ];
   pendingCast = speak ? sceneCast(world, world.log.length - 1, visible) : null;
   if (speak) exchange.begin();
+  else cardsCooling = true;
   selected = [];
   expandedHolders.clear();
   lineSeq = null;
@@ -515,6 +544,15 @@ function commitAction(action, revision) {
     render();
   }
   if (speak) narrator.changed(action);
+  else {
+    const version = trip;
+    void prepareScene().then(() => {
+      if (version !== trip || exchange.active) return;
+      cardsCooling = false;
+      updateCardCooldown();
+      renderScene();
+    });
+  }
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -541,6 +579,12 @@ function cancelTravel() {
       animation.cancel();
   }
   entrances.clear();
+  for (const figure of exits.keys()) {
+    for (const animation of figure.getAnimations()) animation.cancel();
+    if (figure.dataset.removing) figure.remove();
+  }
+  exits.clear();
+  for (const animation of $("speech-row").getAnimations()) animation.cancel();
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
 async function travel(place, arrive, landed) {
@@ -585,6 +629,7 @@ function frameFigure(img) {
     img.style.setProperty("--figure-top", f.top);
     img.style.setProperty("--figure-height", f.height);
     img.style.setProperty("--head-x", f.headX);
+    img.style.setProperty("--portrait-crop", f.portraitCrop);
   };
   const measure = () => {
     if (!figures.has(img.src)) {
@@ -625,6 +670,7 @@ function frameFigure(img) {
         top: top / h,
         height: (bottom - top) / h,
         headX: (left + right) / 2 / w,
+        portraitCrop: img.naturalHeight / img.naturalWidth < 1.25 ? 0.85 : 0.3,
       });
     }
     apply(figures.get(img.src));
@@ -637,10 +683,11 @@ function renderActions() {
   const { actions, hint } = cardActions(world, selected);
   $("selection-name").textContent = selected.length
     ? selected.map(nameOf).join(" + ")
-    : "Select a card";
-  $("action-hint").textContent = selected.length
-    ? hint
-    : "Select a person to see what they carry.";
+    : "Card actions";
+  document.querySelector(".action-panel").hidden = !actions.length;
+  document.querySelector(".play-dock").dataset.selected = String(
+    selected.length > 0,
+  );
   const revision = world.revision;
   row.replaceChildren(
     ...actions.map((action, index) => {
@@ -830,6 +877,34 @@ function renderStage(locationId) {
     sprite.alt = mood?.alt || nameOf(stage.resident);
   }
 }
+function leaveFigure(figure, remove = false) {
+  if (exits.has(figure)) return;
+  if (remove) figure.dataset.removing = "true";
+  figure.setAttribute("aria-hidden", "true");
+  if (reducedMotion.matches || $("travel").classList.contains("travelling")) {
+    if (remove) figure.remove();
+    return;
+  }
+  const animation = figure.animate(
+    [
+      { opacity: 1, translate: "0 0" },
+      {
+        opacity: 0,
+        translate: `${figure.style.getPropertyValue("--exit-x")} 0`,
+      },
+    ],
+    { duration: 850, easing: "ease-in-out", fill: "forwards" },
+  );
+  const task = animation.finished
+    .catch(() => {})
+    .then(() => {
+      if (exits.get(figure) !== task) return;
+      if (remove) figure.remove();
+      animation.cancel();
+      exits.delete(figure);
+    });
+  exits.set(figure, task);
+}
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
@@ -876,6 +951,10 @@ function renderScene() {
     const existing = new Map(
       [...$("cast").children].map((el) => [el.dataset.avatar, el]),
     );
+    const removed = [...existing.values()].filter(
+      (figure) =>
+        !staging.actors.some(({ id }) => id === figure.dataset.avatar),
+    );
     $("cast").replaceChildren(
       ...staging.actors.map(({ id }) => {
         if (existing.has(id)) return existing.get(id);
@@ -890,7 +969,9 @@ function renderScene() {
         figure.append(body);
         return figure;
       }),
+      ...removed,
     );
+    for (const figure of removed) leaveFigure(figure, true);
   }
   staging.actors.forEach((actor, index) => {
     const { id } = actor;
@@ -917,7 +998,9 @@ function renderScene() {
     const left =
       actor.presence === "departed" ||
       (!reviewing && departed.has(id) && scene.line?.turn === world.turn);
+    const wasLeft = figure.classList.contains("departed");
     figure.classList.toggle("departed", left);
+    if (left && !wasLeft && !reviewing) leaveFigure(figure);
     figure.setAttribute("aria-hidden", String(left));
     const arrivalKey =
       actor.movement?.kind === "arrive"
@@ -951,10 +1034,10 @@ function renderScene() {
                   { opacity: 1, translate: "0 0" },
                 ],
                 {
-                  duration: 600,
+                  duration: 850,
                   delay:
                     id !== "vale" && !actor.movement.companions.includes("vale")
-                      ? index * 300
+                      ? index * 420
                       : 0,
                   fill: "backwards",
                   easing: "ease-out",
@@ -970,34 +1053,6 @@ function renderScene() {
       });
     }
   });
-  const previous =
-    scene.line?.kind === "dialogue"
-      ? scene.lines.findLast(
-          (entry) =>
-            entry.index < scene.line.index &&
-            entry.index >= scene.visitStart &&
-            entry.kind === "dialogue",
-        ) || null
-      : scene.previous;
-  const priorKey = JSON.stringify(previous);
-  if (priorKey !== renderedPrior) {
-    renderedPrior = priorKey;
-    $("prior-response").hidden = true;
-    $("prior-speaker").textContent = previous?.speaker || "";
-    $("prior-text").textContent = previous?.text || "";
-    const priorId =
-      previous?.entityId || previous?.actorId || previous?.locationId;
-    const priorPortrait = $("prior-portrait");
-    priorPortrait.replaceChildren();
-    if (priorId && things[priorId]) priorPortrait.innerHTML = art(priorId);
-    else if (priorId) {
-      const image = node("img");
-      image.src = portrait(priorId);
-      image.alt = "";
-      priorPortrait.dataset.kind = people[priorId] ? "avatar" : "location";
-      priorPortrait.append(image);
-    }
-  }
   const spoken =
     scene.line?.kind === "dialogue" &&
     (reviewing || scene.line.turn === world.turn);
@@ -1006,10 +1061,9 @@ function renderScene() {
     : pendingSpeaker
       ? nameOf(pendingSpeaker)
       : "";
-  const movement = reviewing ? "" : movementCaption(world);
+  const movement = reviewing || !cardsCooling ? "" : movementCaption(world);
   $("movement-caption").textContent = movement;
   $("movement-caption").hidden = !movement;
-  $("line-turn").textContent = "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
     storyStatus === "retry"
@@ -1022,6 +1076,26 @@ function renderScene() {
       ? $("story-status").textContent
       : "New words are on the way",
   );
+  const portraitId = spoken
+    ? scene.line.entityId || scene.line.actorId || scene.locationId
+    : pendingSpeaker;
+  const portraitBox = $("speaker-portrait");
+  if (portraitBox.dataset.entity !== (portraitId || "")) {
+    portraitBox.dataset.entity = portraitId || "";
+    portraitBox.replaceChildren();
+    if (portraitId) {
+      const image = node("img");
+      image.alt = "";
+      image.src = people[portraitId]
+        ? portrait(portraitId, null, world)
+        : places[portraitId]
+          ? backdrop(portraitId)
+          : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`;
+      portraitBox.dataset.kind = people[portraitId] ? "avatar" : "scene";
+      if (people[portraitId]) frameFigure(image);
+      portraitBox.append(image);
+    }
+  }
   const text = spoken ? scene.line.text : "";
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
@@ -1033,8 +1107,11 @@ function renderScene() {
     at >= 0 && at < spokenLines.length - 1 ? spokenLines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
   // Keep failures visible even when this scene has no earlier words.
-  document.querySelector(".dialogue").hidden =
-    !text && storyStatus === "ready" && !exchange.preparing;
+  const hasSpeech = Boolean(
+    text || storyStatus !== "ready" || exchange.preparing,
+  );
+  document.querySelector(".dialogue").hidden = !hasSpeech && !movement;
+  $("speech-row").hidden = !hasSpeech;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = true;
@@ -1073,6 +1150,22 @@ function renderScene() {
     renderScene();
   };
   $("dialogue-advance").onclick = advance;
+  $("dialogue-advance").onkeydown = (event) => {
+    const amount = {
+      ArrowDown: 28,
+      ArrowUp: -28,
+      PageDown: speechHeight,
+      PageUp: -speechHeight,
+    }[event.key];
+    if (amount !== undefined) {
+      event.preventDefault();
+      $("dialogue-text").scrollTop += amount;
+    } else if (["Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      $("dialogue-text").scrollTop =
+        event.key === "Home" ? 0 : $("dialogue-text").scrollHeight;
+    }
+  };
   $("next-line").onclick = advance;
 }
 let renderedLog = [];
