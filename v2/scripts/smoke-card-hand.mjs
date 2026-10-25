@@ -68,7 +68,12 @@ try {
   await play("pond");
   await takeAll();
 
-  // The pond hand overflows: arrows appear, the earlier one disabled.
+  // Revealing the last card scrolls it into view. Return to the start before
+  // checking the arrows at either endpoint of the overflowing pond hand.
+  await page.$eval("#hand", (h) => (h.scrollLeft = 0));
+  await page.waitForFunction(
+    () => document.querySelector("#hand-prev").disabled,
+  );
   assert.ok((await scroll()).max > 0, "the pond hand should overflow");
   assert.equal(await page.isVisible("#hand-next"), true);
   assert.equal(await page.isDisabled("#hand-prev"), true);

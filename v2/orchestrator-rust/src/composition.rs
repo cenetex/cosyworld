@@ -1042,9 +1042,7 @@ impl RuntimeWorld {
             let legacy_id = local_lead
                 .as_ref()
                 .map(|lead| local_lead_offer_id(&lead.id))
-                .unwrap_or_else(|| {
-                    format!("explore_path:{}", target.id.clone().unwrap_or_default())
-                });
+                .unwrap_or_else(|| format!("explore_path:{}", target.id.unwrap_or_default()));
             let offer_id = format!(
                 "{}:{}:{}",
                 active_content().manifest.rules_profile,

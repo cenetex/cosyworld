@@ -259,7 +259,7 @@ impl RuntimeWorld {
         subject_key: &str,
     ) {
         for actor_id in actor_ids.iter().copied() {
-            self.remember_search_discovery(actor_id, location_id, kind, subject_id, &subject_key);
+            self.remember_search_discovery(actor_id, location_id, kind, subject_id, subject_key);
         }
     }
 

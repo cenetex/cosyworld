@@ -15,7 +15,8 @@ fi
 set +e
 output="$(
   cd "$ROOT/orchestrator-rust"
-  CARGO_TARGET_DIR="$CLIPPY_TARGET_DIR" \
+  CARGO_TERM_COLOR=never \
+    CARGO_TARGET_DIR="$CLIPPY_TARGET_DIR" \
     RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}" \
     cargo clippy --all-targets 2>&1
 )"

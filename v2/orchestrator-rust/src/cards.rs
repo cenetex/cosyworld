@@ -558,7 +558,7 @@ pub(super) fn account_view(access: &AccessContext) -> AccountView {
 
 pub(super) fn parse_card_ids(value: &str) -> Vec<String> {
     value
-        .split(|ch: char| matches!(ch, ',' | ' ' | '\n' | '\t' | ';'))
+        .split([',', ' ', '\n', '\t', ';'])
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .map(|part| part.trim_matches('"').trim_matches('\''))

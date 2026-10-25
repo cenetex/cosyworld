@@ -640,7 +640,7 @@ pub(crate) fn resident_proposed_action_intent(action: &AvatarProposedAction) -> 
     // interior voice. Keeping them here lets models turn implementation details into
     // dialogue (for example, "item 11453577331"). The typed pending action retains
     // every id needed for validation and execution; continuity only needs the verb.
-    let kind = compact_whitespace(&kind.replace('_', " ").replace('-', " "));
+    let kind = compact_whitespace(&kind.replace(['_', '-'], " "));
     Some(trim_to_chars(&format!("propose {kind}"), 180))
 }
 
