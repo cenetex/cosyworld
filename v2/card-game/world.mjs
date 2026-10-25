@@ -1442,13 +1442,15 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
-function routeBetween(s, from, target) {
+// Routes use the exits this actor may take, so a crossing open only to the
+// player stays out of a resident's plans but not out of the player's.
+function routeBetween(s, from, target, actor = null) {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {
     const route = queue.shift();
     if (route.at(-1) === target) return route;
-    for (const next of exits(s, route.at(-1)))
+    for (const next of exits(s, route.at(-1), actor))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);
@@ -1456,7 +1458,7 @@ function routeBetween(s, from, target) {
   }
 }
 function toward(s, actor, target) {
-  const route = routeBetween(s, s.actors[actor].place, target);
+  const route = routeBetween(s, s.actors[actor].place, target, actor);
   return legalActions(s, actor).find(
     (a) => a.kind === "move" && a.target === route?.[1],
   );
