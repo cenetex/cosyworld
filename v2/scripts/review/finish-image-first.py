@@ -9,8 +9,11 @@ s=s.replace('e.kind === "dialogue" && witnessed(e)','e.kind === "dialogue" && e.
 s=s.replace('// Words and the world\'s own account, so every turn is recorded even when\n  // its words fail or are still on the way.','// Only spoken lines belong in this optional conversation record.\n  // Rule receipts and hidden counters stay in the save, not on the screen.')
 s=s.replace('  dialog.addEventListener("close", () => dialog.remove(), { once: true });','  dialog.addEventListener("close", () => { dialog.remove(); pauseSpeech(); }, { once: true });')
 s=s.replace('  document.body.append(dialog);\n  dialog.showModal();','  document.body.append(dialog);\n  dialog.showModal();\n  pauseSpeech();')
+s=s.replace('`cosyworld-scene-turn-${world.turn}.json`','"cosyworld-conversation.json"')
 p.write_text(s)
-p=Path('v2/card-game/awakening.css');s=p.read_text().replace('  inset: 0 0 124px;', '  inset: 0 0 calc(var(--dock-height) - 80px);').replace('  bottom: 10px;', '  bottom: calc(var(--dock-height) + 8px);').replace('    bottom: 132px;', '    bottom: calc(var(--dock-height) - 60px);');p.write_text(s)
+# Reserve the dialogue safe area while retaining one coordinate space for the
+# resident and the painted backdrop. No crossing or temperament rule changes.
+p=Path('v2/card-game/awakening.css');s=p.read_text().replace('  inset: 0 0 124px;', '  inset: 0 0 calc(var(--dock-height) + 72px);').replace('  bottom: 10px;', '  bottom: calc(var(--dock-height) + 8px);').replace('    bottom: 132px;', '    bottom: calc(var(--dock-height) + 72px);');p.write_text(s)
 p=Path('v2/card-game/index.html');s=p.read_text().replace('Save scene script','Save conversation');p.write_text(s)
 # Add coverage for selected-card actions, optional conversation history, and drag.
 p=Path('v2/scripts/smoke-card-image-first.mjs');s=p.read_text()
