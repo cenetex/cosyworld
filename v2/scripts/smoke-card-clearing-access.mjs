@@ -148,8 +148,10 @@ try {
     // With every bell silent the way back is hidden; the clock's own bell
     // on the clearing card reopens it.
     assert.equal(await card("pond").count(), 0);
+    await card("clearing").click();
+    await page.locator('[data-choices-for="clearing"]').click();
     await page
-      .getByRole("button", { name: "Ring the Steam Clock · Forest Clearing" })
+      .getByRole("button", { name: "Ring the Steam Clock", exact: true })
       .click();
     await ready();
     assert.equal(await card("pond").count(), 1);
