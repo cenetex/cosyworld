@@ -1,0 +1,1888 @@
+{
+  "schema": 6,
+  "locations": {
+    "attic": { "anchored": true },
+    "pond": { "answer": null, "shipSignal": 2 }
+  },
+  "standoffs": [],
+  "peaceUntil": {
+    "vale": 0,
+    "moth": 0,
+    "keeper": 0,
+    "badger": 0,
+    "greek-antigone": 0,
+    "greek-ismene": 0,
+    "greek-creon": 0,
+    "greek-guard": 0,
+    "greek-baker": 0,
+    "greek-elder": 0,
+    "greek-shipmaster": 0,
+    "greek-rhapsode": 0,
+    "greek-market-neighbor": 0,
+    "greek-temple-attendant": 0,
+    "greek-ferryman": 0,
+    "greek-helen-egypt": 0,
+    "greek-menelaus-egypt": 0,
+    "greek-helen-troy": 0,
+    "greek-menelaus-troy": 0,
+    "greek-electra-aeschylus": 0,
+    "greek-orestes-aeschylus": 0,
+    "greek-electra-sophocles": 0,
+    "greek-orestes-sophocles": 0,
+    "greek-electra-euripides": 0,
+    "greek-orestes-euripides": 0
+  },
+  "memories": {
+    "vale": {
+      "events": [
+        {
+          "seq": 1,
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "seq": 2,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "seq": 3,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror and the pond open onto each other. A dark shore waits between them."
+        },
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        },
+        {
+          "seq": 7,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Vale covers the Lamp with the Black cloth."
+        },
+        {
+          "seq": 8,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Pip asks Vale for the Lamp. Vale keeps it for now."
+        },
+        {
+          "seq": 9,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: The pond's reflected path to the attic closes. The shore path to the station remains open."
+        },
+        {
+          "seq": 10,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: Vale uncovers and takes the Black cloth."
+        },
+        {
+          "seq": 11,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: The pond's reflection opens a path to the attic."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "moth": {
+      "events": [
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        },
+        {
+          "seq": 7,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Vale covers the Lamp with the Black cloth."
+        },
+        {
+          "seq": 8,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Pip asks Vale for the Lamp. Vale keeps it for now."
+        },
+        {
+          "seq": 9,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: The pond's reflected path to the attic closes. The shore path to the station remains open."
+        },
+        {
+          "seq": 10,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: Vale uncovers and takes the Black cloth."
+        },
+        {
+          "seq": 11,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: The pond's reflection opens a path to the attic."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "keeper": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "lamp": {
+      "events": [
+        {
+          "seq": 1,
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "seq": 2,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "seq": 3,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror and the pond open onto each other. A dark shore waits between them."
+        },
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        },
+        {
+          "seq": 7,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Vale covers the Lamp with the Black cloth."
+        },
+        {
+          "seq": 8,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Pip asks Vale for the Lamp. Vale keeps it for now."
+        },
+        {
+          "seq": 9,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: The pond's reflected path to the attic closes. The shore path to the station remains open."
+        },
+        {
+          "seq": 10,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: Vale uncovers and takes the Black cloth."
+        },
+        {
+          "seq": 11,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: The pond's reflection opens a path to the attic."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "oil": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "bell": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "cloth": {
+      "events": [
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        },
+        {
+          "seq": 7,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Vale covers the Lamp with the Black cloth."
+        },
+        {
+          "seq": 8,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Pip asks Vale for the Lamp. Vale keeps it for now."
+        },
+        {
+          "seq": 9,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: The pond's reflected path to the attic closes. The shore path to the station remains open."
+        },
+        {
+          "seq": 10,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: Vale uncovers and takes the Black cloth."
+        },
+        {
+          "seq": 11,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: The pond's reflection opens a path to the attic."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "station": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "attic": {
+      "events": [
+        {
+          "seq": 1,
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "seq": 2,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "seq": 3,
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror and the pond open onto each other. A dark shore waits between them."
+        },
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "pond": {
+      "events": [
+        {
+          "seq": 5,
+          "turn": 2,
+          "kind": "event",
+          "text": "World: Vale goes to Black pond through the reflection. Something on the far shore turns its head."
+        },
+        {
+          "seq": 7,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Vale covers the Lamp with the Black cloth."
+        },
+        {
+          "seq": 8,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: Pip asks Vale for the Lamp. Vale keeps it for now."
+        },
+        {
+          "seq": 9,
+          "turn": 3,
+          "kind": "event",
+          "text": "World: The pond's reflected path to the attic closes. The shore path to the station remains open."
+        },
+        {
+          "seq": 10,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: Vale uncovers and takes the Black cloth."
+        },
+        {
+          "seq": 11,
+          "turn": 4,
+          "kind": "event",
+          "text": "World: The pond's reflection opens a path to the attic."
+        }
+      ],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "badger": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "clearing": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-harbor": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-courtyard": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-well": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-palace": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-gate": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-battlefield": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-sanctuary": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-cithaeron": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-aulis": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-athens": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-piraeus": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-assembly": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-acropolis": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-demos-house": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-thinkery": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-jury-house": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-festival": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-attic-farm": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-acharnae": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-colonus": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-eleusis": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-marathon": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-argolid-road": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-argos-sanctuary": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-argos-palace": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-argos-tomb": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-mycenae-palace": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-argive-farm": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-corinth": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-troezen": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-delphi": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-trachis": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-oeta": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-pherae": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-thetis": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-troy": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-greek-camp": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-trojan-camp": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-troy-beach": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-lemnos": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-thrace": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-egypt-tomb": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-tauris": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-sicily": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-susa": { "events": [], "landmarks": [], "text": null, "turn": null },
+    "greek-scythian-crag": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-divine-heights": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-bird-wilderness": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-underworld": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-antigone": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-ismene": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-creon": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-guard": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-baker": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-elder": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-shipmaster": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-rhapsode": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-market-neighbor": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-temple-attendant": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-ferryman": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-helen-egypt": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-menelaus-egypt": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-helen-troy": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-menelaus-troy": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-electra-aeschylus": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-orestes-aeschylus": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-electra-sophocles": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-orestes-sophocles": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-electra-euripides": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-orestes-euripides": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-water-jar": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-bread": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-funeral-cloth": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-oil-flask": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-shovel": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-decree": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-household-token": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-provisions": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-egypt-testimony": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-troy-testimony": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-tomb-testimony": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-palace-testimony": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    },
+    "greek-farm-testimony": {
+      "events": [],
+      "landmarks": [],
+      "text": null,
+      "turn": null
+    }
+  },
+  "turn": 4,
+  "revision": 4,
+  "eventSeq": 11,
+  "actors": {
+    "vale": {
+      "place": "pond",
+      "progress": { "program": 1, "step": 1, "marks": [1, 2] },
+      "crossed": 1,
+      "lastTalk": -9,
+      "trust": {
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "moth": {
+      "place": "pond",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": 3,
+      "trust": {
+        "vale": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "keeper": {
+      "place": "station",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "badger": {
+      "place": "clearing",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      },
+      "awake": false,
+      "irritation": 0,
+      "wakeCause": null
+    },
+    "greek-antigone": {
+      "place": "greek-gate",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-ismene": {
+      "place": "greek-sanctuary",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-creon": {
+      "place": "greek-palace",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-guard": {
+      "place": "greek-gate",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-baker": {
+      "place": "greek-courtyard",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-elder": {
+      "place": "greek-well",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-shipmaster": {
+      "place": "greek-harbor",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-rhapsode": {
+      "place": "greek-argolid-road",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-market-neighbor": {
+      "place": "greek-athens",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-temple-attendant": {
+      "place": "greek-delphi",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-ferryman": {
+      "place": "greek-underworld",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-helen-egypt": {
+      "place": "greek-egypt-tomb",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-menelaus-egypt": {
+      "place": "greek-egypt-tomb",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-helen-troy": {
+      "place": "greek-troy-beach",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-menelaus-troy": {
+      "place": "greek-troy-beach",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-electra-aeschylus": {
+      "place": "greek-argos-tomb",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-orestes-aeschylus": {
+      "place": "greek-argos-tomb",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-electra-sophocles": {
+      "place": "greek-mycenae-palace",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-orestes-sophocles": {
+      "place": "greek-mycenae-palace",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-electra-euripides": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-electra-euripides": {
+      "place": "greek-argive-farm",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-orestes-euripides": 0
+      }
+    },
+    "greek-orestes-euripides": {
+      "place": "greek-argive-farm",
+      "progress": { "program": 0, "step": 0, "marks": [] },
+      "crossed": 0,
+      "lastTalk": -9,
+      "trust": {
+        "vale": 0,
+        "moth": 0,
+        "keeper": 0,
+        "badger": 0,
+        "greek-antigone": 0,
+        "greek-ismene": 0,
+        "greek-creon": 0,
+        "greek-guard": 0,
+        "greek-baker": 0,
+        "greek-elder": 0,
+        "greek-shipmaster": 0,
+        "greek-rhapsode": 0,
+        "greek-market-neighbor": 0,
+        "greek-temple-attendant": 0,
+        "greek-ferryman": 0,
+        "greek-helen-egypt": 0,
+        "greek-menelaus-egypt": 0,
+        "greek-helen-troy": 0,
+        "greek-menelaus-troy": 0,
+        "greek-electra-aeschylus": 0,
+        "greek-orestes-aeschylus": 0,
+        "greek-electra-sophocles": 0,
+        "greek-orestes-sophocles": 0,
+        "greek-electra-euripides": 0
+      }
+    }
+  },
+  "items": {
+    "lamp": {
+      "holder": "vale",
+      "fuel": 10,
+      "lit": true,
+      "history": [
+        "Turn 1: Vale lights the Lamp.",
+        "Turn 2: Vale carried it to Black pond.",
+        "Turn 3: Vale covers the Lamp with the Black cloth."
+      ]
+    },
+    "oil": { "holder": "keeper", "doses": 3, "history": [] },
+    "bell": { "holder": "station", "ringing": 0, "history": [] },
+    "cloth": {
+      "holder": "vale",
+      "history": [
+        "Turn 3: Vale covers the Lamp with the Black cloth.",
+        "Turn 4: Vale uncovers and takes the Black cloth."
+      ]
+    },
+    "greek-water-jar": { "holder": "greek-well", "history": [] },
+    "greek-bread": { "holder": "greek-courtyard", "history": [] },
+    "greek-funeral-cloth": { "holder": "greek-sanctuary", "history": [] },
+    "greek-oil-flask": { "holder": "greek-courtyard", "history": [] },
+    "greek-shovel": { "holder": "greek-gate", "history": [] },
+    "greek-decree": { "holder": "greek-palace", "history": [] },
+    "greek-household-token": { "holder": "greek-sanctuary", "history": [] },
+    "greek-provisions": { "holder": "greek-harbor", "history": [] },
+    "greek-egypt-testimony": { "holder": "greek-egypt-tomb", "history": [] },
+    "greek-troy-testimony": { "holder": "greek-troy-beach", "history": [] },
+    "greek-tomb-testimony": { "holder": "greek-argos-tomb", "history": [] },
+    "greek-palace-testimony": {
+      "holder": "greek-mycenae-palace",
+      "history": []
+    },
+    "greek-farm-testimony": { "holder": "greek-argive-farm", "history": [] }
+  },
+  "log": [
+    {
+      "seq": 1,
+      "turn": 0,
+      "kind": "narration",
+      "actorId": null,
+      "locationId": "attic",
+      "cast": ["vale"],
+      "items": [{ "id": "lamp", "holder": "vale", "fuel": 8, "lit": false }],
+      "light": false,
+      "speaker": "World",
+      "text": "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+    },
+    {
+      "seq": 2,
+      "turn": 1,
+      "speaker": "World",
+      "text": "Vale lights the Lamp.",
+      "kind": "action",
+      "actorId": "vale",
+      "locationId": "attic",
+      "cast": ["vale"],
+      "items": [{ "id": "lamp", "holder": "vale", "fuel": 8, "lit": true }],
+      "light": true,
+      "verb": "light",
+      "fromLocationId": "attic",
+      "witnesses": ["vale", "lamp"],
+      "itemId": "lamp",
+      "targetId": null
+    },
+    {
+      "seq": 3,
+      "turn": 1,
+      "speaker": "World",
+      "text": "The attic mirror and the pond open onto each other. A dark shore waits between them.",
+      "kind": "narration",
+      "actorId": null,
+      "locationId": "attic",
+      "cast": ["vale"],
+      "items": [{ "id": "lamp", "holder": "vale", "fuel": 7, "lit": true }],
+      "light": true
+    },
+    {
+      "seq": 4,
+      "turn": 1,
+      "speaker": "World",
+      "text": "Vale completes hand 1/1 of Light the lamp. Level 2. Next: hold Lamp · at Black pond · with Pip.",
+      "kind": "quest",
+      "actorId": "vale",
+      "locationId": "attic",
+      "cast": ["vale"],
+      "items": [{ "id": "lamp", "holder": "vale", "fuel": 7, "lit": true }],
+      "light": true,
+      "programId": "first-light",
+      "program": {
+        "id": "first-light",
+        "name": "Light the lamp",
+        "purpose": "Bring light to the attic.",
+        "steps": [
+          {
+            "items": ["lamp"],
+            "location": "attic",
+            "avatars": [],
+            "conditions": [{ "kind": "lit", "item": "lamp" }]
+          }
+        ]
+      },
+      "programIndex": 0,
+      "target": {
+        "items": ["lamp"],
+        "location": "attic",
+        "avatars": [],
+        "conditions": [{ "kind": "lit", "item": "lamp" }]
+      },
+      "fulfillment": {
+        "items": ["lamp"],
+        "location": "attic",
+        "avatars": [],
+        "conditions": [{ "kind": "lit", "item": "lamp", "met": true }]
+      },
+      "step": 0,
+      "level": 2
+    },
+    {
+      "seq": 5,
+      "turn": 2,
+      "speaker": "World",
+      "text": "Vale goes to Black pond through the reflection. Something on the far shore turns its head.",
+      "kind": "action",
+      "actorId": "vale",
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 7, "lit": true },
+        { "id": "cloth", "holder": "moth" }
+      ],
+      "light": true,
+      "verb": "move",
+      "fromLocationId": "attic",
+      "witnesses": ["vale", "lamp"],
+      "itemId": null,
+      "targetId": "pond"
+    },
+    {
+      "seq": 6,
+      "turn": 2,
+      "speaker": "World",
+      "text": "Vale completes hand 1/2 of Along the shore. Next: hold Lamp · at Empty station · with any company.",
+      "kind": "quest",
+      "actorId": "vale",
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 6, "lit": true },
+        { "id": "cloth", "holder": "moth" }
+      ],
+      "light": true,
+      "programId": "along-the-shore",
+      "program": {
+        "id": "along-the-shore",
+        "name": "Along the shore",
+        "purpose": "Meet the moth by the water, then carry the lamp along the path to the station.",
+        "steps": [
+          { "items": ["lamp"], "location": "pond", "avatars": ["moth"] },
+          { "items": ["lamp"], "location": "station", "avatars": [] }
+        ]
+      },
+      "programIndex": 1,
+      "target": { "items": ["lamp"], "location": "pond", "avatars": ["moth"] },
+      "fulfillment": {
+        "items": ["lamp"],
+        "location": "pond",
+        "avatars": ["moth"]
+      },
+      "step": 0,
+      "level": 2
+    },
+    {
+      "seq": 7,
+      "turn": 3,
+      "speaker": "World",
+      "text": "Vale covers the Lamp with the Black cloth.",
+      "kind": "action",
+      "actorId": "vale",
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 12, "lit": true },
+        { "id": "cloth", "holder": "lamp" }
+      ],
+      "light": false,
+      "verb": "cover",
+      "fromLocationId": "pond",
+      "witnesses": ["vale", "moth", "lamp", "cloth"],
+      "itemId": "cloth",
+      "targetId": "lamp"
+    },
+    {
+      "seq": 8,
+      "turn": 3,
+      "speaker": "World",
+      "text": "Pip asks Vale for the Lamp. Vale keeps it for now.",
+      "kind": "action",
+      "actorId": "moth",
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 12, "lit": true },
+        { "id": "cloth", "holder": "lamp" }
+      ],
+      "light": false,
+      "verb": "ask",
+      "fromLocationId": "pond",
+      "witnesses": ["vale", "moth", "lamp", "cloth"],
+      "itemId": "lamp",
+      "targetId": "vale"
+    },
+    {
+      "seq": 9,
+      "turn": 3,
+      "speaker": "World",
+      "text": "The pond's reflected path to the attic closes. The shore path to the station remains open.",
+      "kind": "narration",
+      "actorId": null,
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 11, "lit": true },
+        { "id": "cloth", "holder": "lamp" }
+      ],
+      "light": false
+    },
+    {
+      "seq": 10,
+      "turn": 4,
+      "speaker": "World",
+      "text": "Vale uncovers and takes the Black cloth.",
+      "kind": "action",
+      "actorId": "vale",
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 11, "lit": true },
+        { "id": "cloth", "holder": "vale" }
+      ],
+      "light": true,
+      "verb": "take",
+      "fromLocationId": "pond",
+      "witnesses": ["vale", "moth", "lamp", "cloth"],
+      "itemId": "cloth",
+      "targetId": null
+    },
+    {
+      "seq": 11,
+      "turn": 4,
+      "speaker": "World",
+      "text": "The pond's reflection opens a path to the attic.",
+      "kind": "narration",
+      "actorId": null,
+      "locationId": "pond",
+      "cast": ["vale", "moth"],
+      "items": [
+        { "id": "lamp", "holder": "vale", "fuel": 10, "lit": true },
+        { "id": "cloth", "holder": "vale" }
+      ],
+      "light": true
+    }
+  ],
+  "opening": { "version": 1, "crossed": true, "met": { "vale": 0, "moth": 2 } },
+  "steamClock": {
+    "rings": 0,
+    "discovered": false,
+    "openUntil": 0,
+    "returnRingingUntil": 0
+  },
+  "packs": {
+    "greek-drama": {
+      "revision": 1,
+      "choices": {},
+      "flags": {},
+      "receipts": {},
+      "met": {}
+    }
+  },
+  "arrival": { "seq": 5, "fromLocationId": "attic", "locationId": "pond" }
+}

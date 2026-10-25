@@ -41,7 +41,7 @@ export function rememberEvent(world, entry) {
     if (
       entry.consequence ||
       (entry.kind === "action" &&
-        ["give", "trade", "threaten", "attack", "accompany"].includes(
+        ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
           entry.verb,
         ))
     ) {

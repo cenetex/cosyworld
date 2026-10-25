@@ -1,0 +1,246 @@
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { chromium } from "playwright";
+import { createServer } from "../card-game/serve.mjs";
+import {
+  createWorld,
+  legalActions,
+  play,
+  encodeSave,
+} from "../card-game/world.mjs";
+import { packDefinition } from "../card-game/pack-registry.mjs";
+const output = new URL("../../output/theban-scenery/", import.meta.url);
+await mkdir(output, { recursive: true });
+const act = (s, kind, fields = {}) => {
+  const a = legalActions(s).find(
+    (a) =>
+      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
+  );
+  assert(a, `${kind} ${JSON.stringify(fields)}`);
+  const r = play(s, a);
+  assert(r.ok, r.error);
+  return r.state;
+};
+function initial() {
+  let s = createWorld({ opening: true });
+  s = act(s, "light");
+  s = act(s, "move", { target: "pond" });
+  s.items.cloth.holder = "vale";
+  s.items.lamp.fuel = 12;
+  s.items.bell.holder = "station";
+  s.actors.moth.place = "station";
+  s.actors.keeper.place = "station";
+  return s;
+}
+const server = createServer();
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+let browser;
+const results = [];
+try {
+  browser = await chromium.launch({
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+      : {}),
+  });
+  for (const [width, height] of [
+    [1440, 900],
+    [390, 844],
+  ]) {
+    const page = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: "reduce",
+    });
+    page.setDefaultTimeout(12000);
+    const errors = [],
+      failed = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("response", (r) => {
+      if (r.status() >= 400 && r.url().includes("/assets/"))
+        failed.push(r.url());
+    });
+    await page.route("**/card-game/text", async (route) => {
+      const c = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          revision: c.revision,
+          model: "theban-scenery-fixture",
+          entries: c.entities.map(({ id }) => ({
+            id,
+            text: "There is room beside the table.",
+          })),
+        }),
+      });
+    });
+    const key = `cosyworld.reflected-shore.v1.theban-scenery-${width}`;
+    await page.addInitScript(
+      ({ key, save }) => {
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+        localStorage.setItem("cosyworld.dialogue.sound", "off");
+        localStorage.setItem(
+          "cosyworld.room-music",
+          JSON.stringify({ enabled: false, volume: 0 }),
+        );
+      },
+      { key, save: encodeSave(initial()) },
+    );
+    const state = () =>
+        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key),
+      card = (id) => page.locator(`#hand [data-card="${id}"]`);
+    async function ready() {
+      for (let i = 0; i < 200; i++) {
+        if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        if (
+          (await page.locator("#hand").getAttribute("data-cooling")) === "false"
+        )
+          return;
+        await page.waitForTimeout(30);
+      }
+      throw Error("hand remained busy");
+    }
+    async function use(...ids) {
+      await ready();
+      for (const id of ids) {
+        await card(id).scrollIntoViewIfNeeded();
+        await card(id).click();
+      }
+      await card(ids.at(-1)).click();
+      await ready();
+    }
+    async function shot(name) {
+      await page.waitForFunction(() =>
+        [
+          ...document.querySelectorAll("#hand img,#backdrop,.location-overlay"),
+        ].every((i) => i.complete && i.naturalWidth > 0),
+      );
+      await page.keyboard.press("Escape");
+      await page.locator("#hand").evaluate((h) => (h.scrollLeft = 0));
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+      assert.equal(
+        await page
+          .locator(".inspiration-meter,#hand-tip,#quest-guide,#unveil-dialog")
+          .count(),
+        0,
+      );
+      await page.screenshot({
+        path: new URL(`${name}-${width}.png`, output).pathname,
+      });
+    }
+    try {
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?table=theban-scenery-${width}`,
+      );
+      await card("cloth").waitFor();
+      await shot("pond-empty");
+      assert.equal(await card("greek-harbor").count(), 0);
+      await use("cloth", "lamp");
+      await use("cloth");
+      await page.reload();
+      await card("cloth").waitFor();
+      assert.equal(await card("greek-harbor").count(), 0);
+      await use("cloth", "lamp");
+      await use("cloth");
+      assert.equal(
+        await card("greek-harbor").locator(".name").innerText(),
+        "Greek ship",
+      );
+      assert(
+        (
+          await card("greek-harbor").locator(".art img").getAttribute("src")
+        ).endsWith("ship-card.webp"),
+      );
+      await shot("pond-ship");
+      await use("greek-harbor");
+      assert.equal((await state()).packs["greek-drama"].scope, "opening");
+      await use("lamp");
+      await shot("harbor");
+      const visited = new Set(["greek-harbor"]);
+      for (const id of [
+        "greek-courtyard",
+        "greek-well",
+        "greek-palace",
+        "greek-well",
+        "greek-gate",
+        "greek-battlefield",
+        "greek-gate",
+        "greek-courtyard",
+        "greek-sanctuary",
+        "greek-courtyard",
+        "greek-harbor",
+      ]) {
+        await use(id);
+        assert.equal((await state()).actors.vale.place, id);
+        assert(
+          (await page.locator("#backdrop").getAttribute("src")).endsWith(
+            ".webp",
+          ),
+        );
+        const destinations = await page
+          .locator("#hand [data-card]")
+          .evaluateAll((cards) => cards.map((c) => c.dataset.card));
+        for (const hidden of [
+          "greek-athens",
+          "greek-argolid-road",
+          "greek-aulis",
+          "greek-cithaeron",
+        ])
+          assert(!destinations.includes(hidden));
+        if (!visited.has(id)) {
+          await shot(id.replace("greek-", ""));
+          visited.add(id);
+        }
+      }
+      assert.equal(
+        visited.size,
+        packDefinition("greek-drama").release.places.length,
+      );
+      await page.reload();
+      await card("pond").waitFor();
+      await use("pond");
+      assert.equal((await state()).actors.vale.place, "pond");
+      assert.equal(await card("greek-harbor").count(), 0);
+      await shot("return");
+      assert.deepEqual(errors, []);
+      assert.deepEqual(failed, []);
+      results.push({
+        width,
+        height,
+        visited: [...visited],
+        passed: true,
+        pageErrors: errors,
+        failedAssets: failed,
+      });
+    } catch (e) {
+      results.push({
+        width,
+        passed: false,
+        message: e.message,
+        pageErrors: errors,
+        failedAssets: failed,
+      });
+      await page
+        .screenshot({ path: new URL(`failure-${width}.png`, output).pathname })
+        .catch(() => {});
+      throw e;
+    } finally {
+      await writeFile(
+        new URL("report.json", output),
+        JSON.stringify(results, null, 2),
+      );
+      await page.close();
+    }
+  }
+} finally {
+  await browser?.close();
+  await new Promise((r) => server.close(r));
+}
+console.log(
+  "Theban painted opening: seven places, quiet ritual, reload and return passed at desktop and phone widths.",
+);

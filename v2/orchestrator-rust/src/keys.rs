@@ -377,7 +377,7 @@ pub(super) fn natural_investigation_contribution_strategies(
             }],
             resolution: ContributionResolutionPolicy::SrdCheck {
                 ability: ability.to_string(),
-                dc: LISTEN_DC as u16,
+                dc: LISTEN_DC,
             },
             clock_id: state.investigation_clock_id.clone(),
             baseline_progress: 0,

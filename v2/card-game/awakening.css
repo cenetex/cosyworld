@@ -1,8 +1,7 @@
-/* A staged pack place: backdrop and resident sprite share image coordinates,
-   including on narrow screens. The pack data positions the sprite. */
+/* Backdrop and actor share image coordinates, including on narrow screens. */
 body[data-stage="resident"] .stage-picture {
   position: absolute;
-  inset: 0 0 124px;
+  inset: 0 0 calc(var(--dock-height) + 72px);
   overflow: hidden;
   container-type: size;
 }
@@ -37,7 +36,7 @@ body[data-stage="resident"] #speech-hint {
   display: none;
 }
 body[data-stage="resident"] .dialogue {
-  bottom: 10px;
+  bottom: calc(var(--dock-height) + 8px);
   width: min(860px, calc(100% - 28px));
 }
 body[data-stage="resident"] #dialogue-text {
@@ -51,12 +50,6 @@ body[data-stage="resident"] .prior-response {
   min-height: 30px;
   padding: 0 0 6px;
 }
-body[data-stage="resident"] .card-frame {
-  height: 208px;
-}
-body[data-stage="resident"] .card {
-  grid-template-rows: 16px 30px 30px 1fr 25px;
-}
 body[data-stage="resident"] .stage {
   min-height: 350px;
 }
@@ -64,13 +57,8 @@ body[data-stage="resident"] a {
   color: var(--gold);
 }
 @media (max-width: 700px) {
-  body[data-stage="resident"] .card-frame {
-    flex-basis: 154px;
-    width: 154px;
-    height: 184px;
-  }
   body[data-stage="resident"] .stage-picture {
-    bottom: 132px;
+    bottom: calc(var(--dock-height) + 72px);
   }
   body[data-stage="resident"] .stage-canvas {
     left: 46%;
@@ -79,5 +67,43 @@ body[data-stage="resident"] a {
 @media (max-height: 680px) {
   body[data-stage="resident"] {
     overflow-y: auto;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 701px) {
+  :root {
+    --card-height: clamp(126px, 37dvh, 176px);
+    --card-width: clamp(100px, 28dvh, 128px);
+    --dock-height: calc(var(--card-height) + 82px);
+  }
+  body,
+  body[data-stage="resident"] {
+    min-height: 0;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  main,
+  body .stage,
+  body[data-stage="resident"] .stage {
+    min-height: 0;
+  }
+  .topbar {
+    min-height: 44px;
+    padding-block: 2px;
+  }
+  body .card .name {
+    font-size: 14px;
+    padding-bottom: 8px;
+  }
+  body .cast {
+    top: 46px;
+  }
+  body .dialogue,
+  body[data-stage="resident"] .dialogue {
+    bottom: calc(var(--dock-height) + 4px);
+    padding: 4px 10px;
+  }
+  #dialogue-text {
+    max-height: 40px;
   }
 }

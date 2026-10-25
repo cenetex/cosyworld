@@ -44,7 +44,7 @@ try {
   const ready = async () => {
     for (let i = 0; i < 250; i++) {
       // A newly met card is unveiled first; add it to the hand.
-      if (await page.locator("#unveil-dialog").evaluate((d) => d.open)) {
+      if (await page.locator("#unveil-dialog[open]").count()) {
         await page.locator("#unveil-take").click();
         continue;
       }
@@ -93,10 +93,8 @@ try {
   assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   const echoTurn = (await state()).turn;
   const echoRequests = requests.length;
-  assert.match(
-    await page.locator('[data-card="bell"] .state').textContent(),
-    /Ring again/,
-  );
+  assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
+  assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
   await page.reload();
   await page.locator('[data-card="bell"]').waitFor();
   await ready();

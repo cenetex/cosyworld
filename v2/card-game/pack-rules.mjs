@@ -13,6 +13,7 @@ import {
   crossings,
   fixturesAt,
   isPackPlace,
+  validatePackStates,
 } from "./pack-registry.mjs";
 
 const fill = (template, values) =>
@@ -25,6 +26,15 @@ export const newCrossingState = (c) =>
   c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
 export const newPackRecord = (pack) => ({
   revision: pack.revision,
+  ...(pack.choices
+    ? {
+        choices: {},
+        flags: {},
+        receipts: {},
+        met: {},
+        scope: pack.release ? "opening" : "full",
+      }
+    : {}),
   sounds: Object.fromEntries(
     Object.keys(pack.fixtures || {}).map((id) => [id, 0]),
   ),
@@ -42,18 +52,58 @@ export const soundAt = (s, place, senses) =>
   senses.baseSoundAt(s, place) ||
   fixturesAt(place).some((f) => fixtureSounding(s, f.id));
 
-function conditionMet(s, c, senses) {
+function objectPlace(s, item) {
+  let holder = s.items[item]?.holder;
+  const seen = new Set([item]);
+  while (s.items[holder]) {
+    if (seen.has(holder)) return null;
+    seen.add(holder);
+    holder = s.items[holder].holder;
+  }
+  return s.actors[holder]?.place || holder;
+}
+export function conditionMet(s, c, senses, packId = null) {
+  const state = s.packs?.[packId];
   switch (c.kind) {
     case "sound":
-      return c.at.some((place) => soundAt(s, place, senses));
+      return !!senses && c.at.some((place) => soundAt(s, place, senses));
+    case "light":
+      return Boolean(
+        s.items[c.item]?.lit &&
+          s.items[c.item]?.fuel > 0 &&
+          c.at.includes(objectPlace(s, c.item)) &&
+          (!c.uncovered ||
+            !Object.values(s.items).some((i) => i.holder === c.item)),
+      );
+    case "not":
+      return !conditionMet(s, c.condition, senses, packId);
+    case "choice":
+      return state?.choices?.[c.key] === c.value;
+    case "choice_unset":
+      return !!state && !Object.hasOwn(state.choices || {}, c.key);
+    case "flag":
+      return (state?.flags?.[c.key] ?? false) === c.value;
+    case "holding":
+      return s.items[c.item]?.holder === c.actor;
+    case "item_at":
+      return s.items[c.item]?.holder === c.place;
+    case "met":
+      return !!state?.met && Object.hasOwn(state.met, c.actor);
     default:
       return false;
   }
 }
+const signalReady = (s, c, senses) =>
+  (c.signal?.while || []).every((r) => conditionMet(s, r, senses, c.packId));
 const windowOpen = (s, c) =>
-  !c.signal || s.turn < (crossingState(s, c.id)?.until ?? 0);
+  !c.signal ||
+  (c.signal.opens === null
+    ? crossingState(s, c.id)?.phase === c.signal.steps.length
+    : s.turn < (crossingState(s, c.id)?.until ?? 0));
 export const crossingOpen = (s, c, senses) =>
-  windowOpen(s, c) && c.requires.every((r) => conditionMet(s, r, senses));
+  windowOpen(s, c) &&
+  signalReady(s, c, senses) &&
+  c.requires.every((r) => conditionMet(s, r, senses, c.packId));
 export const crossingBetween = (from, to) =>
   crossings.find((c) => c.from === from && c.to === to) || null;
 export const mayCross = (c, actor, senses) =>
@@ -109,6 +159,9 @@ export const beginRound = (s, senses) => ({
   open: Object.fromEntries(
     crossings.map((c) => [c.id, crossingOpen(s, c, senses)]),
   ),
+  ready: Object.fromEntries(
+    crossings.map((c) => [c.id, signalReady(s, c, senses)]),
+  ),
   advanced: new Set(),
 });
 export const holderBefore = (s, a) =>
@@ -120,29 +173,49 @@ export const holderBefore = (s, a) =>
  */
 export function noteAct(s, a, place, holder, round, senses, log) {
   for (const c of crossings) {
-    const signal = c.signal;
-    if (!signal || place !== c.from) continue;
-    const state = s.crossings[c.id];
-    if (round.open[c.id]) {
+    const signal = c.signal,
+      state = s.crossings[c.id];
+    if (!signal) continue;
+    if (
+      !round.ready[c.id] ||
+      !signalReady(s, c, senses) ||
+      s.actors[senses.player].place !== c.from
+    ) {
+      state.phase = 0;
+      if (signal.opens === null) state.until = 0;
+      continue;
+    }
+    if (place !== c.from) continue;
+    if (a.actor !== senses.player) {
+      if (signal.steps.some((p) => matches(p, a, holder))) state.phase = 0;
+      continue;
+    }
+    if (signal.opens !== null && round.open[c.id]) {
       if (matches(signal.refresh, a, holder))
         state.until = s.turn + signal.opens;
       continue;
     }
-    if (a.actor !== senses.player) continue;
-    if (!matches(signal.steps[state.phase], a, holder)) continue;
+    if (state.phase === signal.steps.length) {
+      if (matches(signal.steps[0], a, holder)) state.phase = 0;
+      else continue;
+    }
+    if (!matches(signal.steps[state.phase], a, holder)) {
+      if (signal.steps.some((p) => matches(p, a, holder))) state.phase = 0;
+      if (!matches(signal.steps[0], a, holder)) continue;
+    }
     state.phase += 1;
     round.advanced.add(c.id);
     if (state.phase === signal.steps.length) {
-      state.phase = 0;
       state.discovered = true;
-      state.until = s.turn + signal.opens;
-      log(signal.complete, c.from);
-    } else if (signal.progress?.[state.phase - 1]) {
-      log(signal.progress[state.phase - 1], c.from);
+      if (signal.opens !== null) {
+        state.phase = 0;
+        state.until = s.turn + signal.opens;
+      }
+      if (signal.complete) log(signal.complete, c.from);
     }
+    // No progress lines: a physical manipulation confirms only that manipulation.
   }
 }
-
 /** Close the round: break signals and narrate crossings that changed. */
 export function endRound(s, round, senses, log) {
   const here = s.actors[senses.player].place;
@@ -151,7 +224,9 @@ export function endRound(s, round, senses, log) {
     if (
       c.signal &&
       state.phase > 0 &&
-      (here !== c.from || (c.signal.consecutive && !round.advanced.has(c.id)))
+      (here !== c.from ||
+        !signalReady(s, c, senses) ||
+        (c.signal.consecutive && !round.advanced.has(c.id)))
     )
       state.phase = 0;
     const open = crossingOpen(s, c, senses);
@@ -162,35 +237,6 @@ export function endRound(s, round, senses, log) {
   }
 }
 
-/** Wording for an offer that would continue a signal or refresh its window. */
-export function signalOffer(s, a, senses) {
-  if (a.actor !== senses.player) return null;
-  const here = s.actors[a.actor].place,
-    holder = holderBefore(s, a);
-  for (const c of crossings) {
-    if (!c.signal?.offer || c.from !== here) continue;
-    const next = crossingOpen(s, c, senses)
-      ? c.signal.refresh
-      : s.crossings[c.id].phase > 0
-        ? c.signal.steps[s.crossings[c.id].phase]
-        : null;
-    if (matches(next, a, holder))
-      return fill(c.signal.offer, { actor: senses.nameOf(a.actor) });
-  }
-  return null;
-}
-/** Status line for a hub object the next signal step asks for. */
-export function signalHint(s, item, senses) {
-  const here = s.actors[senses.player].place;
-  const c = crossings.find(
-    (c) =>
-      c.signal?.hint &&
-      c.from === here &&
-      s.crossings[c.id].phase > 0 &&
-      c.signal.steps[s.crossings[c.id].phase].item === item,
-  );
-  return c?.signal.hint || null;
-}
 /** A one-line answer after a step that did not yet complete the signal. */
 export function signalEcho(s, location, card) {
   const c = crossings.find(
@@ -328,9 +374,17 @@ export function validPackState(s, senses) {
     if (
       !exactKeys(state, ["discovered", "phase", "until"]) ||
       typeof state.discovered !== "boolean" ||
-      !whole(state.phase, c.signal.steps.length - 1) ||
-      !whole(state.until, s.turn + c.signal.opens) ||
-      (state.until > 0 && !state.discovered) ||
+      !whole(
+        state.phase,
+        c.signal.steps.length - (c.signal.opens === null ? 0 : 1),
+      ) ||
+      !whole(
+        state.until,
+        c.signal.opens === null ? 0 : s.turn + c.signal.opens,
+      ) ||
+      ((state.until > 0 ||
+        (c.signal.opens === null && state.phase === c.signal.steps.length)) &&
+        !state.discovered) ||
       (state.phase > 0 && s.actors[senses.player]?.place !== c.from)
     )
       return false;
@@ -339,7 +393,20 @@ export function validPackState(s, senses) {
     const record = s.packs[pack.id];
     const fixtures = Object.entries(pack.fixtures || {});
     if (
-      !exactKeys(record, ["revision", "sounds"]) ||
+      !exactKeys(
+        record,
+        pack.choices
+          ? [
+              "revision",
+              "sounds",
+              "choices",
+              "flags",
+              "receipts",
+              "met",
+              "scope",
+            ]
+          : ["revision", "sounds"],
+      ) ||
       record.revision !== pack.revision ||
       !exactKeys(
         record.sounds,
@@ -369,5 +436,5 @@ export function validPackState(s, senses) {
     )
       return false;
   }
-  return true;
+  return validatePackStates(s);
 }

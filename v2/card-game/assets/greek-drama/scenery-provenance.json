@@ -1,0 +1,94 @@
+{
+  "style": "chthonic Greek",
+  "generated": "2026-10-25",
+  "tool": "image_gen",
+  "assets": [
+    {
+      "place": "greek-harbor",
+      "file": "harbor-day.webp",
+      "sourceName": "ancient_mediterranean_harbor_at_golden_hour.png",
+      "generationId": "68a6d7da-43f6-4254-a945-173e131eb0e2",
+      "sourceSha256": "45687999815219d0d2227e8ad06d360037730812f3acb9108bec14a97c71c64a",
+      "sha256": "fa6decb3687e1654eea0b82882ff649e2154d8b7b2136c2bacec0c47313be283",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-courtyard",
+      "file": "courtyard-day.webp",
+      "sourceName": "sunlit_mediterranean_courtyard_and_hilltop_citadel.png",
+      "generationId": "34b2c61e-c612-4b93-bcea-d45f8b70c15b",
+      "sourceSha256": "3876953e14f81b5fd58cef3d9ba5b2d10e9f742e191e83426303157e9f87a20b",
+      "sha256": "71ed7446a2e2dbd8ebc3a360a05c42e57bbb762f38895acadace9edc73bf3cf6",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-well",
+      "file": "market-well-day.webp",
+      "sourceName": "sunlit_ancient_greek_well_market.png",
+      "generationId": "649b3803-1ea9-4575-a765-3c7132ae7e89",
+      "sourceSha256": "1837f4e4b013ae0da9fa0f94e440742186041e4a4bc73501960d516bc1fd3d6e",
+      "sha256": "5a193151b0151909f1bd81b1dc892e23a810c093e2052d3d8109a1dc0e91eab1",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-gate",
+      "file": "city-gate-day.webp",
+      "sourceName": "golden_gate_to_the_ancient_valley.png",
+      "generationId": "7d5b30a0-009f-42ab-9d3e-94b4ab1e05b6",
+      "sourceSha256": "2bc8b932efa81723e40471515ac2a3044bc2de357ea3959ee9441db5cdd43fae",
+      "sha256": "9ae46e70a56cdb7d52a45df570666d3c2c725505af8125db54db64571dda43a3",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-battlefield",
+      "file": "burial-ground-dusk.webp",
+      "sourceName": "sunset_over_the_ancient_burial_field.png",
+      "generationId": "20a79e34-453d-4638-ad7f-38656adf2b32",
+      "sourceSha256": "4176fbc1a3fe6785d26d92e6aceb947a582c23c560b260b6d7f34a0cf7335d2b",
+      "sha256": "879cabe8a22df1aab4da686c2f0b8beada648afb7c812cea6c83893b3516df2c",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-palace",
+      "file": "palace-day.webp",
+      "sourceName": "ancient_temple_courtyard_at_golden_hour.png",
+      "generationId": "1833bee0-c681-46f4-a2ba-d020c229551b",
+      "sourceSha256": "3511e200ced36e9b258abca54edd9d15d8997d137d1d91de50f7fe6ce6e7dec5",
+      "sha256": "84cb7f68fdf967e85b2595c51724c6c73edcbd17cc6f1b707aa102dd6a3ca245",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "greek-sanctuary",
+      "file": "sanctuary-dawn.webp",
+      "sourceName": "golden_hour_olive_grove_sanctuary.png",
+      "generationId": "a0c26214-6b9c-4bda-9675-dcaa7ee65641",
+      "sourceSha256": "e32867e13dc5df1b2f817d98767f30688ae58dd9ed8ce9614ec9630eea47ef6d",
+      "sha256": "9ca10c28660a585862ddbc3282ccb32fd26ecaec4ecd9d68d53c8894f3a76982",
+      "size": [1672, 941],
+      "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+    },
+    {
+      "place": "pond",
+      "file": "pond-ship-overlay.png",
+      "sourceName": "moonlit_ghost_ship_on_the_ancient_lake.png",
+      "generationId": "6a3cf449-5ef6-44ef-a32f-81012404d54c",
+      "sourceSha256": "6a1178f6e6909d04bb57db0bb676e80e32a936d2f883ff56be0358e08ae0a586",
+      "sha256": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55",
+      "size": [1672, 940],
+      "processing": "Masked generated ship, ropes and reflection; translated 300px left. Original pond and standing mirror unchanged outside alpha mask."
+    },
+    {
+      "place": "pond boarding card",
+      "file": "ship-card.webp",
+      "sha256": "a4ad79d3e33d7dd0123629c8b9e3796df68e030bdbae49ea83e75ce027164e20",
+      "size": [590, 800],
+      "processing": "Crop of actual pond and ship composite; WebP quality94."
+    }
+  ]
+}

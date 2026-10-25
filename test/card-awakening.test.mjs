@@ -95,7 +95,9 @@ describe("the bell crossing to the Steam Clock", () => {
     });
     expect(turnOutcome(heard).card.kind).toBe("ring");
     expect(
-      heard.memories.pond.events.some((e) => e.text.includes("second ring")),
+      heard.memories.pond.events.some((e) =>
+        e.text.includes("forest clearing"),
+      ),
     ).toBe(true);
     // Only Vale sees the way, and no one can be asked along it.
     expect(exits(heard, "pond", "vale")).toContain("clearing");
@@ -167,7 +169,10 @@ describe("the bell crossing to the Steam Clock", () => {
       step: 0,
       marks: [],
     });
-    expect(narrativeContext(s).outcome.avatars).toHaveLength(4);
+    expect(narrativeContext(s).outcome.avatars.map((a) => a.id)).toEqual([
+      "vale",
+      "badger",
+    ]);
   });
 
   it("allows a return after leaving the bell behind and reacts to local ringing", () => {
@@ -208,9 +213,9 @@ describe("the bell crossing to the Steam Clock", () => {
   it("adds the clearing to an older shore save while keeping existing belongings and memories", () => {
     // A schema 6 shore save from before the clearing existed.
     const old = pond();
-    old.schema = 6;
-    delete old.crossings;
-    delete old.packs;
+    delete old.crossings["pond-clearing"];
+    delete old.crossings["clearing-pond"];
+    delete old.packs["badger-forest"];
     delete old.actors.badger;
     delete old.peaceUntil.badger;
     delete old.memories.badger;

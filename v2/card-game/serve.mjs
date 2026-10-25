@@ -47,7 +47,17 @@ const assets = new Map([
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
   ),
-  ...packMediaFiles.map((file) => [`/${file}`, [file, "image/png"]]),
+  ...packMediaFiles.map((file) => [
+    `/${file}`,
+    [
+      file,
+      file.endsWith(".svg")
+        ? "image/svg+xml"
+        : file.endsWith(".webp")
+          ? "image/webp"
+          : "image/png",
+    ],
+  ]),
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {

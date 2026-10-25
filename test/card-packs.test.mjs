@@ -28,6 +28,7 @@ import {
   packDefinitions,
   packPlaces,
   packPeople,
+  packThings,
   packFixtures,
   crossings,
 } from "../v2/card-game/pack-registry.mjs";
@@ -63,15 +64,20 @@ describe("world packs on the card table", () => {
         "--check",
       ]),
     ).not.toThrow();
-    expect(packDefinitions.map((p) => p.id)).toEqual(["badger-forest"]);
+    expect(packDefinitions.map((p) => p.id)).toEqual([
+      "badger-forest",
+      "greek-drama",
+    ]);
   });
 
   it("joins only hub entities the engine really has", () => {
     const base = (map) =>
-      Object.keys(map).filter((id) => !packPlaces[id] && !packPeople[id]);
+      Object.keys(map).filter(
+        (id) => !packPlaces[id] && !packPeople[id] && !packThings[id],
+      );
     expect(hub.places).toEqual(base(places));
     expect(hub.avatars).toEqual(base(people));
-    expect(hub.items).toEqual(Object.keys(things));
+    expect(hub.items).toEqual(base(things));
     expect(hub.player).toBe("vale");
   });
 
@@ -144,8 +150,9 @@ describe("world packs on the card table", () => {
     let s = enableMotives(createWorld());
     s = act(act(s, "wait"), "move", "pond");
     const old = structuredClone(s);
-    old.crossings = {};
-    old.packs = {};
+    delete old.crossings["pond-clearing"];
+    delete old.crossings["clearing-pond"];
+    delete old.packs["badger-forest"];
     delete old.actors.badger;
     delete old.peaceUntil.badger;
     delete old.memories.badger;
@@ -171,7 +178,7 @@ describe("the forest crossing's signal", () => {
     s.items.bell.holder = "vale";
     return s;
   }
-  it("counts resolved plays only and words the next step", () => {
+  it("counts resolved plays without disclosing the next step", () => {
     let s = pond();
     expect(knownActors(s)).not.toContain("badger");
     s = act(s, "ring", null, "bell");
@@ -183,9 +190,7 @@ describe("the forest crossing's signal", () => {
     // The next ring would complete the signal, and the offer says so.
     expect(
       legalActions(s).find((a) => a.kind === "ring" && a.item === "bell").text,
-    ).toBe(
-      "Vale rings the Bell again. The Steam Clock answers through the water.",
-    );
+    ).toBe("Vale rings the Bell. The sound carries across the shore.");
     s = act(s, "ring", null, "bell");
     expect(s.crossings["pond-clearing"]).toMatchObject({
       phase: 0,
@@ -202,7 +207,7 @@ describe("the Steam Clock's own bell", () => {
     const s = clearing();
     expect(exits(s, "clearing", "vale")).not.toContain("pond");
     expect(availableCards(s)).not.toContain("pond");
-    expect(placeText(s, "clearing")).toMatch(/no path to Black pond/);
+    expect(placeText(s, "clearing")).toMatch(/Moss lies between the roots/);
   });
 
   it("opens the way back while the hand bell sounds at either end", () => {

@@ -124,8 +124,10 @@ back to the hub.
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `{ "kind": "sound", "at": [places] }` | A sound is audible at any listed place: the hand bell ringing uncovered there, or a pack fixture sounding there. |
 
-That is the whole vocabulary today. To add a kind (light at a place, the player
-holding an item, a recorded choice), add it in three places together:
+The vocabulary also includes `light`, bounded `not`, and persistent pack
+`choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
+senses belong on crossings; entity/choice requirements use persistent kinds.
+To add another kind, update all three places together:
 `CONDITION_KINDS` and its shape check in `pack-schema.mjs`, its evaluation in
 `conditionMet` in `pack-rules.mjs`, and a test in `test/card-packs.test.mjs`.
 Keep each kind a closed, typed descriptor over shared world state.
@@ -191,3 +193,24 @@ schema 6 `steamClock` record.
 5. Add a test that walks the crossing in and back, through a reload. If the
    pack needs a new condition, signal pattern or resident rule, add it to the
    vocabulary as a general rule with its own test, not as a special case.
+
+## Shared opening-release extensions
+
+`signal.while` must hold before and after a counted resolved play.
+`opens: null` retains a completed signal while conditions hold; numeric
+windows retain Forest behavior. Only the player can advance a signal.
+Neither phase nor hint/progress text is exposed by the normal interface.
+
+Crossing scenery may name `overlay`, `cardArt`, and `cardName`; an optional
+`travelLabel` names the immediate action. These use the same open predicate.
+Media can be PNG, SVG or WebP under the owning pack folder and is checked
+against actual file signatures and both server allowlists.
+
+Packs can own items, internal conditional routes, and typed choices.
+Effects remain choose, set_flag and custody-checked place_item. Canonical
+person identities prevent incompatible embodiments being active together.
+Ordered receipts recompute saved choices/flags on loading.
+
+An optional `release` lists opening places, avatars, items and choices.
+Fresh saves use opening scope; migrated old Greek games retain full scope.
+This is release composition, not a new player progression meter or UI mode.

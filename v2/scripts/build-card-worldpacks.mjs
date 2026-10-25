@@ -53,20 +53,32 @@ const packs = (table.packs || []).map((id) => {
 
 const seen = new Map();
 for (const pack of packs) {
-  problems.push(...packProblems(pack, table.hub));
+  problems.push(
+    ...packProblems(
+      pack,
+      table.hub,
+      packs.flatMap((p) => Object.keys(p.places)),
+    ),
+  );
   for (const id of [
     ...Object.keys(pack.places || {}),
     ...Object.keys(pack.avatars || {}),
     ...Object.keys(pack.fixtures || {}),
+    ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
   ]) {
     if (seen.has(id))
       problems.push(`${pack.id}: ${id} is also defined by ${seen.get(id)}`);
     seen.set(id, pack.id);
   }
-  // Media must exist and be a real PNG, since the table serves it verbatim.
+  // Media must exist and match its PNG, SVG or WebP extension, since the table serves it verbatim.
   const media = [
     ...Object.values(pack.places || {}).map((p) => p.backdrop),
+    ...Object.values(pack.items || {}).map((i) => i.art),
+    ...(pack.crossings || []).flatMap((c) => [
+      c.scenery?.overlay,
+      c.scenery?.cardArt,
+    ]),
     ...Object.values(pack.avatars || {}).flatMap((a) => [
       a.portrait,
       ...Object.values(a.variants || {}).map((v) => v.portrait),
@@ -78,9 +90,14 @@ for (const pack of packs) {
     if (
       !bytes ||
       bytes.length < 24 ||
-      !bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))
+      !(file.endsWith(".png")
+        ? bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))
+        : file.endsWith(".webp")
+          ? bytes.toString("ascii", 0, 4) === "RIFF" &&
+            bytes.toString("ascii", 8, 12) === "WEBP"
+          : file.endsWith(".svg") && /<svg\s/.test(bytes.toString("utf8")))
     )
-      problems.push(`${pack.id}: missing or invalid PNG ${file}`);
+      problems.push(`${pack.id}: missing or invalid media ${file}`);
   }
 }
 

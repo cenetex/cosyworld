@@ -51,6 +51,14 @@ import {
 } from "./situations.mjs";
 import {
   packPlaces,
+  packThings,
+  entityActive,
+  actorCanVisit,
+  packExits,
+  packChoices,
+  applyPackChoice,
+  validatePackLinks,
+  packDefinition,
   packPeople,
   packActorIds,
   packDefinitions,
@@ -70,7 +78,6 @@ import {
   holderBefore,
   noteAct,
   endRound,
-  signalOffer,
   fixtureOffers,
   soundFixture,
   hasTemperament,
@@ -117,6 +124,7 @@ export const people = {
   ...packPeople,
 };
 export const things = {
+  ...packThings,
   lamp: {
     name: "Lamp",
     text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
@@ -134,11 +142,12 @@ export const things = {
     text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object.",
   },
 };
+validatePackLinks(places, people, things);
 const ids = Object.keys(things);
 const actorIds = ["vale", "moth", "keeper", ...packActorIds];
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-export function createWorld({ opening = false } = {}) {
+export function createWorld({ opening = false, packScopes = {} } = {}) {
   const world = {
     schema: 7,
     locations: { attic: { anchored: false }, pond: { answer: null } },
@@ -208,6 +217,15 @@ export function createWorld({ opening = false } = {}) {
     };
   }
   installPacks(world);
+  for (const [id, scope] of Object.entries(packScopes)) {
+    if (
+      !world.packs[id] ||
+      !["opening", "full"].includes(scope) ||
+      !packDefinition(id)?.release
+    )
+      throw new Error("Unknown content scope.");
+    world.packs[id].scope = scope;
+  }
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -236,6 +254,11 @@ function installPacks(s) {
       s.peaceUntil[id] = 0;
       s.memories[id] = fresh[id];
       if (s.motives) s.motives.grievances[id] = [];
+    }
+    for (const [id, item] of Object.entries(pack.items || {})) {
+      if (s.items[id]) throw new Error("A pack item is already present.");
+      s.items[id] = { holder: item.holder, history: [] };
+      s.memories[id] = fresh[id];
     }
     for (const [id, actor] of Object.entries(s.actors))
       for (const other of Object.keys(pack.avatars))
@@ -291,16 +314,19 @@ export const placeText = (s, place) =>
   ].join(" ");
 export function exits(s, place, actor = null) {
   return [
-    ...baseExits(s, place),
-    ...(reflectionOpen(s, place) && place === "attic"
-      ? ["pond"]
-      : reflectionOpen(s, place) && place === "pond"
-        ? ["attic"]
-        : []),
-    // Pack crossings decide their own conditions and who may take them.
-    ...crossingExits(s, place, actor, senses),
-  ];
+    ...new Set([
+      ...baseExits(s, place),
+      ...(reflectionOpen(s, place) && place === "attic"
+        ? ["pond"]
+        : reflectionOpen(s, place) && place === "pond"
+          ? ["attic"]
+          : []),
+      ...crossingExits(s, place, actor, senses),
+      ...packExits(s, place, actor),
+    ]),
+  ].filter((to) => entityActive(s, to) && actorCanVisit(actor, to));
 }
+
 const programPlaces = (s) =>
   s.opening
     ? Object.fromEntries(
@@ -311,10 +337,14 @@ const programPlaces = (s) =>
       )
     : places;
 function meetCast(s) {
+  for (const [id, a] of Object.entries(packPeople))
+    if (entityActive(s, id) && s.actors[id].place === s.actors.vale.place)
+      s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
   if (!s.opening) return;
   if (s.actors.vale.place === "pond") s.opening.crossed = true;
   for (const id of actorIds)
     if (
+      entityActive(s, id) &&
       s.actors[id].place === s.actors.vale.place &&
       s.opening.met[id] === undefined
     )
@@ -471,10 +501,21 @@ function captureHands(s, met) {
         fulfillment: {
           items: [...target.items],
           location: s.actors[actor].place,
-          avatars: knownActors(s).filter(
-            (id) =>
-              id !== actor && s.actors[id].place === s.actors[actor].place,
-          ),
+          // Include the actual required participants, even before Vale meets
+          // them. Keep nearby witnesses within the receipt's two-person bound.
+          avatars: [
+            ...new Set([
+              ...target.avatars,
+              ...actorIds.filter(
+                (id) =>
+                  id !== actor &&
+                  entityActive(s, id) &&
+                  s.actors[id].place === s.actors[actor].place,
+              ),
+            ]),
+          ]
+            .slice(0, 2)
+            .sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
           ...((target.conditions || []).length
             ? { conditions: handStatus(s, actor, target).conditions }
             : {}),
@@ -509,7 +550,9 @@ function ensurePrograms(s) {
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter((id) => id !== "vale")) {
+  for (const actor of knownActors(s).filter(
+    (id) => id !== "vale" && !isPackActor(id),
+  )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
     if (
@@ -685,7 +728,7 @@ export function addLog(s, speaker, text, detail = {}) {
     locationId,
     cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
     items: ids
-      .filter((id) => itemPlace(s, id) === locationId)
+      .filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId)
       .map((id) => {
         const { history, ...item } = s.items[id];
         return { id, ...item };
@@ -798,6 +841,11 @@ function settleStandoffs(s) {
 // A joint trip follows the invited avatar's current target hands.
 export function accompanyDecision(s, actor, companion, destination) {
   const here = s.actors[companion].place;
+  if (!actorCanVisit(companion, destination))
+    return {
+      accepted: false,
+      reason: "Their commitments keep them in this part of the world.",
+    };
   if (standoffFor(s, actor) || standoffFor(s, companion))
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
@@ -870,6 +918,7 @@ export function accompanyDecision(s, actor, companion, destination) {
 }
 
 export function legalActions(s, actor = "vale") {
+  if (!s.actors[actor] || !entityActive(s, actor)) return [];
   const here = s.actors[actor].place;
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
@@ -994,6 +1043,7 @@ export function legalActions(s, actor = "vale") {
   for (const id of ids) {
     const item = s.items[id];
     if (
+      !entityActive(s, id) ||
       itemPlace(s, id) !== here ||
       (actorIds.includes(rootHolder(s, id)) &&
         !knownActors(s).includes(rootHolder(s, id)))
@@ -1160,9 +1210,15 @@ export function legalActions(s, actor = "vale") {
       action.key += ":" + receive;
       out.push(action);
     }
-  out.push(...fixtureOffers(s, actor, senses));
-  // A play that would continue a crossing's signal says so.
-  for (const a of out) a.text = signalOffer(s, a, senses) || a.text;
+  out.push(...fixtureOffers(s, actor, senses), ...packChoices(s, actor));
+  for (const action of out) {
+    if (action.kind === "take" && things[s.items[action.item]?.holder])
+      action.label = "Uncover";
+    if (action.kind === "move") {
+      const crossing = crossingBetween(here, action.target);
+      if (crossing?.travelLabel) action.label = crossing.travelLabel;
+    }
+  }
   return out;
 }
 export function matchingActions(s, selected) {
@@ -1188,8 +1244,10 @@ function perform(s, a, capture = () => {}, round = null) {
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
   const witnesses = [
-    ...actorIds.filter((id) => s.actors[id].place === here),
-    ...ids.filter((id) => itemPlace(s, id) === here),
+    ...actorIds.filter(
+      (id) => entityActive(s, id) && s.actors[id].place === here,
+    ),
+    ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
   ];
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
@@ -1207,6 +1265,9 @@ function perform(s, a, capture = () => {}, round = null) {
     arrival = null,
     invitation = null;
   switch (a.kind) {
+    case "choose":
+      applyPackChoice(s, a);
+      break;
     case "accompany": {
       const respondentConflict = standoffFor(s, a.target);
       if (respondentConflict) {
@@ -1275,7 +1336,7 @@ function perform(s, a, capture = () => {}, round = null) {
           );
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
-        const retreat = exits(s, here)[0];
+        const retreat = exits(s, here, a.target)[0];
         s.actors[a.target].place = retreat;
         for (const id of carried(s, a.target))
           remember(
@@ -1339,6 +1400,7 @@ function perform(s, a, capture = () => {}, round = null) {
         soundFixture(s, a.fixture);
         break;
       }
+
       s.locations.pond.answer =
         s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
       s.items.bell.ringing = 3;
@@ -1405,6 +1467,7 @@ function perform(s, a, capture = () => {}, round = null) {
     kind: "action",
     actorId: a.actor,
     verb: a.kind,
+    ...(a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId } : {}),
     fromLocationId: here,
     witnesses,
     itemId: a.item,
@@ -1430,13 +1493,13 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
-function routeBetween(s, from, target) {
+function routeBetween(s, from, target, actor = "vale") {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {
     const route = queue.shift();
     if (route.at(-1) === target) return route;
-    for (const next of exits(s, route.at(-1)))
+    for (const next of exits(s, route.at(-1), actor))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);
@@ -1444,7 +1507,7 @@ function routeBetween(s, from, target) {
   }
 }
 function toward(s, actor, target) {
-  const route = routeBetween(s, s.actors[actor].place, target);
+  const route = routeBetween(s, s.actors[actor].place, target, actor);
   return legalActions(s, actor).find(
     (a) => a.kind === "move" && a.target === route?.[1],
   );
@@ -1456,6 +1519,20 @@ export function plan(s, actor = "vale") {
       action: legalActions(s, actor)[0],
       reason: packPeople[actor].tastes.reason,
     };
+  if (isPackActor(actor)) {
+    const actions = legalActions(s, actor).filter(
+      (a) =>
+        !["move", "accompany", "threaten"].includes(a.kind) &&
+        (a.kind !== "take" || desireFor(s, actor).items.includes(a.item)),
+    );
+    return socialPlan(s, actor, actions, {
+      standoffFor,
+      opponentOf,
+      routeBetween,
+      carried,
+      willingToGive,
+    });
+  }
   if (!knownActors(s).includes(actor))
     return {
       action: legalActions(s, actor)[0],
@@ -1552,7 +1629,9 @@ export function plan(s, actor = "vale") {
         there = s.actors[id].place;
       return (
         id !== actor &&
+        entityActive(s, id) &&
         there !== here &&
+        routeBetween(s, here, there, actor) &&
         theirs.avatars.includes(actor) &&
         (theirs.location || there) === there &&
         handStatus(s, id, theirs).items.every((e) => e.met) &&
@@ -1735,12 +1814,13 @@ export function plan(s, actor = "vale") {
     find("cover", "cloth", "bell")
   )
     return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
-  if (hand.location && here !== hand.location)
-    return choose(toward(s, actor, hand.location), reason);
   // When both avatars hold their hands and wait, the later one in cast order
-  // goes, so the cast always comes to Vale and two waits cannot face off.
+  // goes. Keep following that meeting across intermediate rooms instead of
+  // returning to this avatar's own meeting place after the first step.
   const waiting = waitingHere(actorIds.slice(0, actorIds.indexOf(actor)));
   if (waiting) return goMeet(waiting);
+  if (hand.location && here !== hand.location)
+    return choose(toward(s, actor, hand.location), reason);
   return idle(
     handStatus(s, actor).met
       ? "Hold the target hand."
@@ -1796,7 +1876,17 @@ export function play(s, action, expectedRevision = s.revision) {
   ) {
     next.locations.attic.anchored = true;
   }
-  for (const actor of ["moth", "keeper"]) {
+  const residents = [
+    "moth",
+    "keeper",
+    ...active.filter(
+      (id) =>
+        isPackActor(id) &&
+        entityActive(next, id) &&
+        next.actors[id].place === next.actors.vale.place,
+    ),
+  ];
+  for (const actor of residents) {
     if (actor === respondent || !active.includes(actor)) continue;
     perform(
       next,
@@ -2008,9 +2098,10 @@ export function validateWorld(s) {
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3,
     ) ||
     !Array.isArray(s.standoffs) ||
-    s.standoffs.length > 1
+    s.standoffs.length > Math.floor(actorIds.length / 2)
   )
     fail();
+  const fighting = new Set();
   for (const c of s.standoffs) {
     if (
       !c ||
@@ -2026,6 +2117,8 @@ export function validateWorld(s) {
     )
       fail();
     const pair = [c.challenger, c.defender];
+    if (pair.some((id) => fighting.has(id))) fail();
+    for (const id of pair) fighting.add(id);
     if (
       pair.some(
         (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn,
@@ -2064,6 +2157,8 @@ export function validateWorld(s) {
       fail();
     if (
       !Object.hasOwn(places, a.place) ||
+      !actorCanVisit(id, a.place) ||
+      (entityActive(s, id) && !entityActive(s, a.place)) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||
       !Number.isSafeInteger(a.lastTalk) ||
@@ -2163,6 +2258,11 @@ export function validateWorld(s) {
     )
       fail();
     if (
+      entityActive(s, id) &&
+      (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id)))
+    )
+      fail();
+    if (
       !Array.isArray(item.history) ||
       item.history.length > 12 ||
       item.history.some((t) => typeof t !== "string" || t.length > 400)
@@ -2189,6 +2289,12 @@ export function validateWorld(s) {
     bell.ringing < 0 ||
     bell.ringing > 3 ||
     (covered(s, "bell") && bell.ringing > 0)
+  )
+    fail();
+  const signal = s.locations.pond.shipSignal;
+  if (
+    signal !== undefined &&
+    (!Number.isInteger(signal) || signal < 0 || signal > 4)
   )
     fail();
   if (
@@ -2242,6 +2348,7 @@ export function validateWorld(s) {
     "talk",
     "wait",
     "trade",
+    "choose",
   ];
   for (const e of s.log) {
     if (e.seq !== undefined) {
@@ -2259,7 +2366,7 @@ export function validateWorld(s) {
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
-        e.witnesses.length > 8 ||
+        e.witnesses.length > actorIds.length + ids.length ||
         e.witnesses.some((id) => ![...actorIds, ...ids].includes(id)))
     )
       fail();
@@ -2285,6 +2392,18 @@ export function validateWorld(s) {
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (e.verb === "choose") {
+      const pack = packDefinition(e.packId),
+        choice = pack?.choices.find((c) => c.id === e.choiceId);
+      if (
+        !choice ||
+        e.actorId !== "vale" ||
+        e.targetId !== choice.subject ||
+        e.locationId !== choice.at ||
+        s.packs[e.packId].receipts[e.choiceId] !== e.turn
+      )
+        fail();
+    } else if (e.packId !== undefined || e.choiceId !== undefined) fail();
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
       fail();
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
@@ -2373,7 +2492,7 @@ export function validateWorld(s) {
     if (
       e.cast !== undefined &&
       (!Array.isArray(e.cast) ||
-        e.cast.length > 4 ||
+        e.cast.length > actorIds.length ||
         new Set(e.cast).size !== e.cast.length ||
         e.cast.some((id) => !actorIds.includes(id)))
     )
@@ -2381,7 +2500,7 @@ export function validateWorld(s) {
     if (
       e.items !== undefined &&
       (!Array.isArray(e.items) ||
-        e.items.length > 4 ||
+        e.items.length > ids.length ||
         e.items.some(
           (item) =>
             !item ||

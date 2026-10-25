@@ -148,6 +148,159 @@ fn serve(path: &str) -> Response {
             "image/png",
             include_bytes!("../../card-game/assets/badger-forest/badger-grumpy.png"),
         ),
+        "assets/greek-drama/chthonic-antigone.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-antigone.png"),
+        ),
+        "assets/greek-drama/chthonic-ismene.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-ismene.png"),
+        ),
+        "assets/greek-drama/chthonic-creon.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-creon.png"),
+        ),
+        "assets/greek-drama/chthonic-guard.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-guard.png"),
+        ),
+        "assets/greek-drama/chthonic-baker.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-baker.png"),
+        ),
+        "assets/greek-drama/chthonic-elder.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-elder.png"),
+        ),
+        "assets/greek-drama/chthonic-shipmaster.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-shipmaster.png"),
+        ),
+        "assets/greek-drama/chthonic-singer.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-singer.png"),
+        ),
+        "assets/greek-drama/chthonic-neighbor.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-neighbor.png"),
+        ),
+        "assets/greek-drama/chthonic-attendant.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-attendant.png"),
+        ),
+        "assets/greek-drama/chthonic-ferryman.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-ferryman.png"),
+        ),
+        "assets/greek-drama/chthonic-helen.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-helen.png"),
+        ),
+        "assets/greek-drama/chthonic-menelaus.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-menelaus.png"),
+        ),
+        "assets/greek-drama/chthonic-electra.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-electra.png"),
+        ),
+        "assets/greek-drama/chthonic-orestes.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/chthonic-orestes.png"),
+        ),
+        "assets/greek-drama/antigone.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/antigone.svg"),
+        ),
+        "assets/greek-drama/baker.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/baker.svg"),
+        ),
+        "assets/greek-drama/bread.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/bread.svg"),
+        ),
+        "assets/greek-drama/courtyard.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/courtyard.svg"),
+        ),
+        "assets/greek-drama/creon.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/creon.svg"),
+        ),
+        "assets/greek-drama/decree.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/decree.svg"),
+        ),
+        "assets/greek-drama/elder.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/elder.svg"),
+        ),
+        "assets/greek-drama/funeral-cloth.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/funeral-cloth.svg"),
+        ),
+        "assets/greek-drama/grove.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/grove.svg"),
+        ),
+        "assets/greek-drama/guard.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/guard.svg"),
+        ),
+        "assets/greek-drama/guide.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/guide.svg"),
+        ),
+        "assets/greek-drama/harbor.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/harbor.svg"),
+        ),
+        "assets/greek-drama/household-token.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/household-token.svg"),
+        ),
+        "assets/greek-drama/ismene.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/ismene.svg"),
+        ),
+        "assets/greek-drama/oil-flask.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/oil-flask.svg"),
+        ),
+        "assets/greek-drama/palace.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/palace.svg"),
+        ),
+        "assets/greek-drama/provisions.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/provisions.svg"),
+        ),
+        "assets/greek-drama/sea.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/sea.svg"),
+        ),
+        "assets/greek-drama/shovel.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/shovel.svg"),
+        ),
+        "assets/greek-drama/testimony.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/testimony.svg"),
+        ),
+        "assets/greek-drama/water-jar.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/water-jar.svg"),
+        ),
+        "assets/greek-drama/harbor-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp")),
+        "assets/greek-drama/courtyard-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/courtyard-day.webp")),
+        "assets/greek-drama/market-well-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/market-well-day.webp")),
+        "assets/greek-drama/city-gate-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/city-gate-day.webp")),
+        "assets/greek-drama/burial-ground-dusk.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/burial-ground-dusk.webp")),
+        "assets/greek-drama/palace-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/palace-day.webp")),
+        "assets/greek-drama/sanctuary-dawn.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/sanctuary-dawn.webp")),
+        "assets/greek-drama/pond-ship-overlay.png" => ("image/png", include_bytes!("../../card-game/assets/greek-drama/pond-ship-overlay.png")),
+        "assets/greek-drama/ship-card.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/ship-card.webp")),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),
@@ -426,7 +579,10 @@ mod tests {
                 .to_owned();
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
             assert!(!body.is_empty());
-            if path.ends_with(".png") {
+            if path.ends_with(".svg") {
+                assert_eq!(content_type, "image/svg+xml");
+                assert!(std::str::from_utf8(&body).unwrap().starts_with("<svg"));
+            } else if path.ends_with(".png") {
                 assert_eq!(content_type, "image/png");
                 assert_eq!(&body[..8], b"\x89PNG\r\n\x1a\n");
             } else if path.ends_with(".jpg") {
@@ -481,11 +637,25 @@ mod tests {
                 }
             }
         }
+        for pack in packs["packs"].as_array().unwrap() {
+            if let Some(items) = pack["items"].as_object() {
+                for item in items.values() {
+                    if let Some(path) = item["art"].as_str() { media.push(path.to_owned()); }
+                }
+            }
+            for crossing in pack["crossings"].as_array().unwrap() {
+                for key in ["overlay", "cardArt"] {
+                    if let Some(path) = crossing["scenery"][key].as_str() { media.push(path.to_owned()); }
+                }
+            }
+        }
         assert!(!media.is_empty());
         for path in media {
             let response = request(true, &format!("/card-game/{path}"), "GET").await;
             assert_eq!(response.status(), StatusCode::OK, "{path}");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
+            let expected = if path.ends_with(".svg") { "image/svg+xml" }
+                else if path.ends_with(".webp") { "image/webp" } else { "image/png" };
+            assert_eq!(response.headers()[header::CONTENT_TYPE], expected, "{path}");
         }
     }
 

@@ -6,7 +6,14 @@ import {
   stayingWith,
   lifeFacts,
 } from "./life.mjs";
-import { packTastes, packNames, packPeople } from "./pack-registry.mjs";
+import {
+  packTastes,
+  packNames,
+  packPeople,
+  packThings,
+  conditionsMet,
+  entityActive,
+} from "./pack-registry.mjs";
 import { hasTemperament, variantOf } from "./pack-rules.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
@@ -32,7 +39,7 @@ export const tastes = {
   ...packTastes,
 };
 const actors = Object.keys(tastes);
-const items = ["lamp", "oil", "bell", "cloth"];
+const items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
 export const names = {
   ...packNames,
   vale: "Vale",
@@ -73,7 +80,7 @@ export function resentment(s, actor, other) {
   );
 }
 export function valueOf(s, actor, item) {
-  let value = tastes[actor].values[item];
+  let value = tastes[actor]?.values[item] ?? 1;
   if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
   if (item === "oil") {
     if (!s.items.oil.doses) return 1;
@@ -131,8 +138,25 @@ export function interest(s, actor) {
       text: variantOf(s, actor).want,
       reason: packPeople[actor].tastes.reason,
     };
-  const held = items.filter((id) => owner(s, id) === actor);
-  let item = items
+  const resident = packPeople[actor];
+  if (resident) {
+    const wish = resident.desire,
+      active = wish && conditionsMet(s, resident.packId, wish.requires);
+    return {
+      items: active
+        ? wish.items.filter(
+            (id) => entityActive(s, id) && owner(s, id) !== actor,
+          )
+        : [],
+      location: active ? wish.location : resident.home || resident.place,
+      avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
+      text: resident.tastes.likes,
+      reason: resident.tastes.reason,
+    };
+  }
+  const domainItems = items.filter((id) => !packThings[id]);
+  const held = domainItems.filter((id) => owner(s, id) === actor);
+  let item = domainItems
     .slice()
     .sort((a, b) => valueOf(s, actor, b) - valueOf(s, actor, a))
     .find((id) => !held.includes(id));
@@ -381,7 +405,7 @@ export function socialPlan(s, actor, actions, api) {
           : -5;
     if (a.kind === "move" && !a.item) {
       const target = want.location;
-      const path = api.routeBetween(s, here, target);
+      const path = api.routeBetween(s, here, target, actor);
       n = path?.[1] === a.target ? (want.items.length ? 18 : 35) : -15;
     }
     if (a.kind === "light" && actor === "moth") n = 45;

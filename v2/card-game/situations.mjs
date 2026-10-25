@@ -1,6 +1,6 @@
-import { isPackActor } from "./pack-registry.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
+import { isPackActor } from "./pack-registry.mjs";
 export const condition = (kind, item, extra = {}) => ({
   conditions: [{ kind, item, ...extra }],
 });

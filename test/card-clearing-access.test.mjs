@@ -173,8 +173,9 @@ describe("the temporary ringing path to Forest Clearing", () => {
       const old = structuredClone(s);
       old.schema = 6;
       old.steamClock = clock;
-      delete old.crossings;
-      delete old.packs;
+      delete old.crossings["pond-clearing"];
+      delete old.crossings["clearing-pond"];
+      delete old.packs["badger-forest"];
       return JSON.stringify(old);
     };
     let s = act(open(), "move", "clearing");

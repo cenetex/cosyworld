@@ -58,6 +58,29 @@ export function narrativeContractCases() {
   });
   const lit = playCard(opening, "light", "lamp");
   const pond = playCard(lit, "move", null, "pond");
+  const signalStart = structuredClone(pond);
+  signalStart.items.cloth.holder = "vale";
+  signalStart.items.lamp.fuel = 12;
+  const firstCover = playCard(signalStart, "cover", "cloth", "lamp");
+  const firstFlash = playCard(firstCover, "take", "cloth");
+  const secondCover = playCard(firstFlash, "cover", "cloth", "lamp");
+  const ship = playCard(secondCover, "take", "cloth");
+  const harbor = playCard(ship, "move", null, "greek-harbor");
+  const courtyard = playCard(harbor, "move", null, "greek-courtyard");
+  const gate = playCard(courtyard, "move", null, "greek-gate");
+  const choose = (world, choiceId) => {
+    const action = legalActions(world).find((a) => a.choiceId === choiceId);
+    if (!action) throw new Error(`Missing contract choice: ${choiceId}`);
+    const result = play(world, action);
+    if (!result.ok) throw new Error(`Rejected contract choice: ${choiceId}`);
+    return result.state;
+  };
+  const heard = choose(gate, "greek-hear-decree");
+  const refused = choose(heard, "greek-decline-burial");
+  const legacyHarbor = structuredClone(harbor);
+  legacyHarbor.packs["greek-drama"].scope = "full";
+  const egypt = choose(legacyHarbor, "greek-helen-egypt");
+  const helen = playCard(egypt, "move", null, "greek-egypt-tomb");
   const worlds = [
     ["opening", opening],
     ["first light", lit],
@@ -70,6 +93,18 @@ export function narrativeContractCases() {
     ["enter clearing", clearing],
     ["return to echo's location", playCard(clearing, "move", null, "pond")],
     ["uncover bell", playCard(covered, "take", "cloth")],
+    ["first lamp covering", firstCover],
+    ["first lamp flash", firstFlash],
+    ["second lamp covering", secondCover],
+    ["ship summoned", ship],
+    ["reload summoned ship", decodeSave(encodeSave(ship))],
+    ["Steam Clock return bell", playCard(clearing, "ring", null, "clearing")],
+    ["Greek harbor crossing", harbor],
+    ["Theban gate cast", gate],
+    ["Theban refusal", refused],
+    ["Helen history choice", egypt],
+    ["Helen in Egypt", helen],
+    ["reload Greek history", decodeSave(encodeSave(helen))],
   ];
   return worlds.map(([name, world]) => ({
     name,

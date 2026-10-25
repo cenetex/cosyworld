@@ -1,15 +1,84 @@
 # Card world text and memory
 
+## Image-first presentation
+
+Card faces contain the illustration and a small name. Selecting a card or
+pair reveals its immediate action. Additional authored decisions and social
+actions sit under the selected card's more-actions button. Selection, cancellation,
+drag pairing and keyboard navigation spend no turn; only a committed play does.
+
+No card face or hover text exposes quest checklists, levels, hope fractions,
+Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. New cards join
+the hand without an interrupting tutorial or discovery modal. Observable changes
+belong in the scene and art; hidden conditions never become a progress indicator.
+Accessible descriptions report the same observable facts, not extra puzzle clues.
+
+Lamp and cloth manipulations need no generated commentary. Social exchanges,
+travel and the existing authored bell echo retain their speech. The optional
+Conversation panel and export contain spoken lines, not an objective journal.
+Basic controls are available on request in Menu, without combination recipes.
+
+This presentation change preserves the existing simulation and save fields;
+it does not erase saved levels or replace the resident motivation system.
+Forest owns crossing mechanics. No new gate format is introduced here.
+
+Run `node v2/scripts/smoke-card-image-first.mjs` for real desktop, phone and
+short-landscape checks. It exercises keyboard, scrolling, selection, drag,
+ritual reload, visible state, travel and conversation without paid model calls.
+
+## World packs and the Wine-Dark Sea
+
+Black Pond now offers a card for **The Wine-Dark Harbor**. Play it to cross
+with Vale's current belongings, then take the courtyard road to **Before the
+Burial**. The Black Pond card at the harbor returns to the same shore save.
+The lamp reflection and the bell's Steam Clock crossing keep their rules.
+
+Selected cards with authored decisions have a **···** button. It opens a readable
+list of currently legal actions. Choosing a history is a committed turn:
+Helen's Egyptian and Trojan accounts open different witnesses and evidence;
+the three Atreid accounts open different households. Later actions depend on
+that choice. Leaving, reloading, or switching tabs preserves the account.
+
+The [pack source and coverage guide](../content/greek-drama/README.md)
+documents all 44 works, the executable episodes, and the situated inquiry
+hooks. The ordinary card catalog, custody, memory, save, and action system
+carry the pack. `pack-registry.mjs` evaluates closed conditions and effects;
+story text cannot choose a branch or perform an action.
+
+Earlier schema 6 saves gain schema 7 and the mounted packs through a validated migration
+that retains their original state. A save that claims a mounted pack must have its complete,
+valid state; it cannot silently recreate missing characters or erase choices.
+The existing save slot stays unchanged. Future revisions require migrations.
+
+Dialogue receives at most eight local entity cards and three speakers, with
+bounded outcome records and active history embodiments only. The server
+adds trusted profiles from the authored source. Existing character model
+pins remain required; new pack voices use the configured WorldContent model
+unless explicitly pinned in the deployment map. No new provider key or
+client-selected model is introduced.
+
+```sh
+npm run v2:card:pack:check
+npx vitest run test/card-greek-drama.test.mjs
+npm run v2:card:greek:smoke
+```
+
+The browser smoke exercises the real card interface at desktop and phone
+sizes, including choices, save reload, evidence custody, return travel, and
+cross-tab updates. Its deterministic speech fixture tests the UI; the
+narrative contract smoke separately sends real Greek request contexts
+through Rust validation without a paid model call.
+
 ## Personal quests and lasting hopes
 
 The browser enables `personalQuests` alongside motives. The first quest gives
 each avatar a starting purpose. A completed quest earns a level and starts
-three quiet turns. Its checklist leaves the card. After this rest, useful
+three quiet turns. This is internal simulation state. After this rest, useful
 gifts and lamp care earn two Inspiration points; conversations, trades and
 accepted shared trips earn one. Both people in a social action can earn points.
 Each person earns at most two points per round. The same exchange earns again
 after six turns. Failed requests, solo waiting and inspecting cards leave the
-meter unchanged. Five points unlock one new personal quest at the end of the
+saved inspiration unchanged. Five points unlock one new personal quest at the end of the
 round. The new quest can first advance on the following turn.
 
 Each avatar has a lasting hope and three milestones. Generated quests favour
@@ -25,9 +94,8 @@ purpose. Talking, giving, trading and accepted invitations create three turns
 of shared time. Residents can tend items or talk during this time. A grievance
 still lets them seek space. The player chooses Vale's actions throughout.
 
-Avatar cards show Inspiration during the quiet and seeking phases. The Menu
-shows each hope, its milestones, and the current quest when one is active.
-Item cards explain attachments. Personal facts also enter the story context.
+These mechanics remain internal; cards and menus do not display Inspiration,
+hope milestones or task checklists. Personal relationships may inform speech.
 
 Schema 6 saves gain optional, validated `life` state. Loading an earlier save
 adds this state while keeping its active quest, earned steps, items, memories
@@ -68,13 +136,12 @@ quiet: concrete complaints, grudging answers, and a firm claim to his warm
 patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
-The Black pond card in the clearing returns Vale and their belongings to the
-shore while a bell is sounding at either end: the hand bell at the pond or in
-the clearing, or the Steam Clock's own bell. The clearing card offers
-**Ring the Steam Clock**, which sounds for three following plays, wakes and
-annoys Badger, and leaves the hand bell alone. When every bell is silent the
-way back is hidden until the clock is rung. Once the entrance closes, two
-consecutive rings at the pond open it again.
+The Black pond card in the clearing appears only while a bell is audible at
+one of the two shores. Silence removes both the exit and the travel offer.
+Choose **Ring the Steam Clock** on the clearing card to ring its installed
+bell for three following turns, even if the hand bell was left behind.
+Ringing the clock wakes or annoys Badger; it does not move or ring the hand bell.
+Once the entrance closes, two consecutive rings at the pond open it again.
 The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing
 and its sleeping resident when loaded.
@@ -89,9 +156,9 @@ Every avatar, item, and location has a profile in `entity-profiles.json` and a s
 
 Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
-After a card play, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. A separate narrator call covers items and places. These calls run together inside one bounded scene request, which requests JSON-object output and validates every entry before publication. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action and starts the next exchange. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, item plays, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. A separate narrator call covers items and places. These calls run together inside one bounded scene request, which requests JSON-object output and validates every entry before publication. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
-The conversation shows generated text, with the prior spoken line and speaker portrait above the current line. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand cools down during generation and playback, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Each speaker has a soft, pitched voice sound; the menu toggles it. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A card play holds the current spoken line while the next exchange is written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading a turn whose words are still pending requests that turn again. Action records remain in the saved world and scene export.
+The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand cools down during generation and playback, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Each speaker has a soft, pitched voice sound; the menu toggles it. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A card play holds the current spoken line while the next exchange is written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading a turn whose words are still pending requests that turn again. Action records remain in the saved world and scene export.
 
 The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Actual arrivals fade in together for an accepted accompany play. A farewell finishes before its avatar fades out of its seat. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat.
 
@@ -99,13 +166,16 @@ A raised card keeps the current conversation in place. Playing a destination sta
 
 The card rules still commit movement, trades, quest progress and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Each play finishes its exchange before the next card action. Selecting cards prepares a single play or a combination. The scene and both conversation lines stay on the completed play until the next play is committed. Departure captions use the existing speaker heading, and the cutout fades after the farewell. A temporary speech failure retries the same completed turn once after a short pause. Both attempts share a thirty-second limit, allowing the server its full twenty-five-second deadline. A stalled stream releases the hand when the shared limit expires. Reset and save updates cancel the active attempt and retry pause. Completed replies reach playback as soon as they are validated, while stream cleanup finishes separately. A retained line follows its event ID when the history window trims older events. The window keeps the latest 100 game events and, separately, the latest 100 generated lines, so generated text never shortens the history the rules read. The latest arrival also stays on the world, so the stage keeps Vale's entrance side after that event leaves the window. After both attempts fail, the hand becomes playable and the failure remains visible even if the scene has no earlier words. Retry dialogue requests the same completed scene without spending a turn or moving anyone; a later card play also tries again. Incomplete responses remain failures, and stale or cancelled replies cannot overwrite the current scene. A new game or a save update from another tab cancels the old request.
 
-Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Scene exports include entity memories and generated beats.
+Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Conversation exports include only the speaker and text of spoken lines.
 
 ## Opening in the attic
 
 New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and reveals a Black pond location card. Vale stays in the attic until the player plays that card, then meets Pip at the pond. The mirror keeps the exit from the attic available after discovery, including when the lamp runs dry. Entry to the attic from Black pond requires a lit, fueled, uncovered lamp physically at the pond, on the ground or carried by someone there. When that carrier leaves, the attic card and travel offers disappear. Previously selected moves and accompany requests are checked against the current state again at play time; old saves keep discovery but cannot bypass the pond requirement.
 
-Every card the player meets for the first time is unveiled: it appears large over the scene with a line about it, then flies into the hand and stays marked new until it is used. Several new cards unveil one at a time, people first, then items, then places. A tap, Escape, or five seconds adds the card to the hand, and the conversation waits meanwhile. The cards on the table when a game starts count as met, and a reload never unveils a card again; the browser stores the met cards beside the save. Any change of Vale's place, by a played card or by retreating from a fight, dips the scene to dark and names the destination before the new place appears. Reduced motion skips the flight and the fade. `npm run v2:card:unveil:smoke` checks the attic flow in a browser. The shore path joins the pond and station. The attic and station connect through the pond.
+Newly encountered cards join the hand without a modal or tutorial. Travel still
+fades between locations and loads the next scene before revealing it. Reduced
+motion skips the fade. The opening route stays the same: attic, pond, then station.
+The `v2:card:unveil:smoke` command now runs the image-first presentation regression.
 
 The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
 
@@ -115,9 +185,8 @@ Existing saves keep their station start, original routes, authored programs, and
 
 The browser starts and loads worlds with `enableMotives` and `personalQuests`.
 Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules,
-and turn order. During a personal quest, an avatar card shows its target hand
-and progress. Between quests it shows Inspiration. Menu shows lasting hopes,
-milestones, and the active quests of the discovered cast.
+and turn order. Their quests, motives and saved progress remain internal;
+the player encounters people and their observable actions, not task dashboards.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
 
@@ -206,3 +275,14 @@ limit and the complete group has a fourteen-second limit. Each avatar gets one
 call and the narrator gets one call, for at most five calls per scene. The
 existing scene admission, concurrency and retry limits still apply. Provider
 failure, incomplete output or invalid reflection keeps the last saved scene.
+
+## Seven-place painted opening
+
+New Greek games expose the harbor and six Theban places, each with a distinct
+painting. Old Greek saves retain later routes and histories. The ship uses
+a painted transparent layer over the unchanged pond and a card crop from
+that same scene. Both worlds now share Forest’s crossing implementation and
+one compiled `packs.json`. Weather/night alternates remain unfinished.
+
+See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
+journey is `v2/scripts/smoke-card-theban-scenery.mjs`.

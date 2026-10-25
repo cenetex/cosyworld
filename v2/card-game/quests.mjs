@@ -1,13 +1,22 @@
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
 import {
+  packPeople,
+  packOf,
+  packThings,
+  packPlaces,
+  isPackActor,
+  entityActive,
+  packExits,
+  actorCanVisit,
+} from "./pack-registry.mjs";
+import {
   condition,
   conditionMet,
   questItemAvailable,
   requiredItems,
   situationPrograms,
 } from "./situations.mjs";
-import { isPackActor, packPeople, packOf } from "./pack-registry.mjs";
 import { packDiscovered } from "./pack-rules.mjs";
 export { condition } from "./situations.mjs";
 
@@ -154,7 +163,9 @@ export const openingPrograms = {
 // A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
   Object.keys(s.opening?.met || s.actors).filter(
-    (id) => !isPackActor(id) || packDiscovered(s, packOf(id).id),
+    (id) =>
+      entityActive(s, id) &&
+      (!isPackActor(id) || packDiscovered(s, packOf(id).id)),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
@@ -234,10 +245,21 @@ export function generateProgram(
   const actors = knownActors(s).filter((id) => !isPackActor(id)),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
-  const reachable = [here];
-  for (let i = 0; i < reachable.length; i++)
-    for (const next of places[reachable[i]].exits)
-      if (!reachable.includes(next)) reachable.push(next);
+  const traversed = [here];
+  for (let i = 0; i < traversed.length; i++)
+    for (const next of [
+      ...places[traversed[i]].exits,
+      ...packExits(s, traversed[i], actor),
+    ])
+      if (
+        entityActive(s, next) &&
+        actorCanVisit(actor, next) &&
+        !traversed.includes(next)
+      )
+        traversed.push(next);
+  // Travel through added regions can lead home, but shore programs must not
+  // ask a resident to attend a meeting outside that resident's domain.
+  const reachable = traversed.filter((id) => !packPlaces[id]);
   const placeOf = (item) =>
     s.actors[ownerOf(s, item)]?.place || ownerOf(s, item);
   const bundle = (item) =>

@@ -21,15 +21,15 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
-const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
+const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Follow the profile's setting and register when they differ from the default tone. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
-scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data.
+scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data. A choose card commits the player's recorded decision. Branch facts establish the history of this playthrough; incompatible literary accounts are possibilities until a recorded choice establishes one. Never overwrite that choice with remembered mythology or invent a later decision.
 
 For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
 
 KNOWLEDGE
-Use visible facts and witnessed events as knowledge. A new effect becomes known when a completed event reveals it. Treat an unfamiliar object or place with curiosity; future effects remain uncertain. Desires establish what an avatar wants. React to discoveries when they happen, with surprise, doubt or interest shaped by the speaker's personality. Let the player choose the next card.
+Use visible facts and witnessed events as knowledge. A new effect becomes known when a completed event reveals it. Treat an unfamiliar object or place with curiosity; future effects remain uncertain. Desires establish what an avatar wants. React to discoveries when they happen, with surprise, doubt or interest shaped by the speaker's personality. Let the player choose the next card. Do not coach solutions, recommend card combinations, count ritual steps, announce progress, or explain hidden gate conditions. Describe observable changes without explaining their algorithm. Do not turn desires into task checklists or mention inspiration, levels, points, fuel arithmetic, or remaining turns.
 
 SPEECH
 Sleeping avatars receive a short third-person sleeping description for their card. Their speech begins after the recorded wake event. Awake avatars speak in first person to the other scene.speakers. Only scene.speakers take spoken turns. Other avatar entries are quiet reflections on their cards, not replies in the scene. A lone departing speaker addresses those staying behind; other lone speakers reflect on the recorded scene. Vale is the player avatar. When Vale is in scene.speakers, give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. When Vale is absent from scene.speakers, let the departing avatars speak for themselves without a Vale farewell or departure recap. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
@@ -43,7 +43,7 @@ The player has just watched the card and its result. Never narrate the play back
 A complaint needs a recorded cause: a remembered grievance in the speaker's facts or an event in scene.events. A disliked thing in a persona is a taste, not something that happened. When no recorded event made a noise, spoiled a light or threatened someone, no one complains about it, including a noise someone nearly made or might make.
 
 VOICE AND MEMORY
-Use each supplied profile's voice, persona, tastes and values. Characters have selfish motives, whimsical vanity, and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
+Use each supplied profile's voice, persona, tastes and values. Characters have their own motives, vanities, loyalties and grievances. Match the gravity or humour of their supplied personas. Comic personas can have whimsical vanity and petty grievances. Choose one motive that matters now. Let a witnessed gift, refusal, threat or shared journey change the tone or the terms of a request. An older landmark is useful when it explains that change; recent conversation supplies what to answer. A remembered expression is something someone said, while an event is something that happened. Use the speaker's own witnessed memories. A desire supplies subtext: a character may ask why, hesitate, bargain, thank someone, or admit a fear. Let repeated requests develop through a new reason or a response to what was just said. Keep the exact inventory and quest checklist in game data. Keep numerical status, levels and quest program steps in game data. Physical details can carry the cosmic unease. Write a conversation between distinct people who want something from each other.
 
 STAGING
 direction.vale_intent gives the performance of the chosen action. When Vale is a scene speaker, convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
@@ -135,7 +135,7 @@ fn admit(limits: &mut RateLimiter, client: IpAddr, now: Instant) -> bool {
         && limits.allow("card-text-hour".into(), PER_HOUR, now)
 }
 
-fn profiles() -> &'static Value {
+fn base_profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
     PROFILES.get_or_init(|| {
         let mut profiles: Value =
@@ -147,12 +147,14 @@ fn profiles() -> &'static Value {
             .expect("embedded card world packs");
         let map = profiles.as_object_mut().expect("profiles");
         for pack in packs["packs"].as_array().expect("pack list") {
-            for (collection, kind) in [("places", "location"), ("avatars", "avatar")] {
-                for (id, entity) in pack[collection].as_object().expect("pack entities") {
+            for (collection, kind) in [("places", "location"), ("avatars", "avatar"), ("items", "item")] {
+                let Some(entities) = pack[collection].as_object() else { continue; };
+                for (id, entity) in entities {
                     let mut profile = json!({
                         "kind": kind,
                         "name": entity["name"],
-                        "persona": entity["persona"],
+                        "persona": entity.get("persona").unwrap_or(&entity["text"]),
+                        "pack": pack["id"],
                     });
                     if let Some(voice) = entity.get("voice") {
                         profile["voice"] = voice.clone();
@@ -167,6 +169,8 @@ fn profiles() -> &'static Value {
         profiles
     })
 }
+fn profiles() -> &'static Value { base_profiles() }
+
 fn kind(id: &str, expected: &str) -> bool {
     profiles()[id]["kind"].as_str() == Some(expected)
 }
@@ -208,19 +212,20 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>
 
 fn parse_character_models(text: &str) -> Result<BTreeMap<String, String>, String> {
     let models: BTreeMap<String, String> = serde_json::from_str(text).map_err(|e| e.to_string())?;
-    let avatars: BTreeSet<_> = profiles()
+    let avatars: BTreeSet<_> = base_profiles()
         .as_object()
         .expect("profiles")
         .iter()
-        .filter(|(_, p)| p["kind"] == "avatar")
+        .filter(|(_, p)| p["kind"] == "avatar" && p.get("pack").is_none())
         .map(|(id, _)| id.clone())
         .collect();
-    if models.keys().cloned().collect::<BTreeSet<_>>() != avatars
+    if !avatars.is_subset(&models.keys().cloned().collect::<BTreeSet<_>>())
+        || models.keys().any(|id| !kind(id, "avatar"))
         || models
             .values()
             .any(|id| !bounded(id, 160) || id.trim() != id)
     {
-        return Err("character models must cover the authored avatars with exact model IDs".into());
+        return Err("character models must cover hub avatars; optional mounted avatars need exact model IDs".into());
     }
     Ok(models)
 }
@@ -464,6 +469,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "threaten"
             | "guard"
             | "attack"
+            | "choose"
     ) && card
         .target
         .as_ref()
@@ -492,10 +498,10 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             card.accepted.is_none() && card.destination.is_none()
         }
         && avatars.contains("vale")
-        && (1..=4).contains(&outcome.avatars.len())
+        && (1..=8).contains(&outcome.avatars.len())
         && avatars.len() == outcome.avatars.len()
         && avatars.iter().all(|id| kind(id, "avatar"))
-        && (1..=4).contains(&outcome.items.len())
+        && outcome.items.len() <= 24
         && items.len() == outcome.items.len()
         && items.iter().all(|id| kind(id, "item"))
         && outcome.items.iter().all(|item| {
@@ -545,6 +551,7 @@ fn direction(context: &Context) -> Value {
         "threaten" => format!("Vale chose to threaten {target}. Deliver the demand with pressure and resolve. Keep that intent through the target's recorded response."),
         "attack" => format!("Vale chose to attack {target}. Speak with commitment to that attack and its actual result. A blocked blow or a retreat changes the result; the chosen intent remains an attack."),
         "guard" => format!("Vale chose to guard against {target}. Hold a firm defensive stance and react to the recorded response."),
+        "choose" => format!("Vale committed to this recorded choice: {}. Respond to its consequences. The saved history establishes which account is true here; do not import another version or decide a future choice for Vale.", context.action.as_deref().unwrap_or("the choice in the scene facts")),
         _ => format!("Vale chose {}. The player already saw this play and its result, so Vale does not describe it. Vale speaks to what it changes: a cost, a hope, a question or a doubt about the person involved.", outcome.card.kind),
     }
     };
@@ -953,13 +960,16 @@ async fn complete_characters(
     let mut groups = Vec::new();
     for entity in &context.entities {
         if kind(&entity.id, "avatar") {
-            let Some(model) = models.get(&entity.id) else {
+            let model = models.get(&entity.id).cloned();
+            if model.is_none() && profiles()[&entity.id]["pack"].is_null() {
                 return Err(error(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "A character voice is waiting for its model.",
                 ));
-            };
-            groups.push((vec![entity.id.clone()], Some(model.clone())));
+            }
+            // New pack voices inherit the configured WorldContent model unless
+            // deployment explicitly pins one. Existing voice pins stay intact.
+            groups.push((vec![entity.id.clone()], model));
         }
     }
     let scenery: Vec<_> = context
@@ -1484,6 +1494,91 @@ mod tests {
             r#"{"vale":"one","moth":"two","keeper":"three","badger":"four"}"#
         )
         .is_ok());
+        assert!(parse_character_models(
+            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four","greek-antigone":"five"}"#
+        ).is_ok());
+        assert!(parse_character_models(
+            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four","invented-avatar":"five"}"#
+        ).is_err());
+    }
+
+    #[tokio::test]
+    async fn pack_voices_inherit_the_configured_model_without_new_deployment_pins() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let captured = seen.clone();
+        let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
+            let captured = captured.clone();
+            async move {
+                let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+                captured.lock().unwrap().push(body.clone());
+                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
+                    let mut entry = json!({"id":id,"text":"There is room at the table."});
+                    if input["reflection_requests"].as_array().unwrap().iter().any(|r| &r["id"] == id) {
+                        entry["reflection"] = json!({"thought":"I am glad of the company.","persona":"I welcome a traveler and keep my own counsel.","dream":"A small boat rests beside the table."});
+                    }
+                    entry
+                }).collect();
+                Json(json!({"model":body["model"],"choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let config = test_config(address);
+        let models = ["vale", "moth", "keeper", "badger"]
+            .into_iter()
+            .map(|id| (id.to_string(), "test-entity-model".to_string()))
+            .collect();
+        let mut c = context();
+        c.location = "greek-courtyard".into();
+        c.entities[1].id = c.location.clone();
+        c.entities[3].id = "greek-baker".into();
+        c.speakers[1] = "greek-baker".into();
+        let result = complete_characters(&config, &c, &models, None).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap()["entries"].as_array().unwrap().len(), 4);
+        assert!(seen.lock().unwrap().iter().any(|body| {
+            let input: Value =
+                serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+            input["requested_ids"] == json!(["greek-baker"]) && body["model"] == "test-entity-model"
+        }));
+        server.abort();
+    }
+
+    #[test]
+    fn trusted_pack_profiles_accept_a_local_choice_without_unrelated_cast() {
+        let c: Context = serde_json::from_value(json!({
+            "revision":12,"turn":12,"location":"greek-gate","focus":null,
+            "speakers":["vale","greek-antigone"],
+            "action":"Vale declines to help with the burial.",
+            "events":["Antigone knows Vale's answer."],"conversation":[],
+            "entities":[
+                {"id":"greek-gate","facts":["The city gate is open."],"desire":null,"memories":[],"previous":null},
+                {"id":"vale","facts":["Vale declined to help."],"desire":{"items":[],"avatars":[],"location":null},"memories":[],"previous":null},
+                {"id":"greek-antigone","facts":["Vale declined to help."],"desire":{"items":[],"avatars":[],"location":"greek-gate"},"memories":[],"previous":null}
+            ],
+            "outcome":{
+                "card":{"kind":"choose","target":"greek-antigone","item":null,"receive":null,"destination":null,"accepted":null},
+                "avatars":[
+                    {"id":"vale","location":"greek-gate","holding":[],"travel":null},
+                    {"id":"greek-antigone","location":"greek-gate","holding":[],"travel":null}
+                ],"items":[]
+            }
+        })).unwrap();
+        assert!(valid(&c));
+        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        assert_eq!(p["personas"][2]["profile"]["name"], "Antigone");
+        assert!(!p.to_string().contains("greek-helen-troy"));
+        assert!(p["direction"]["vale_intent"]
+            .as_str()
+            .unwrap()
+            .contains("declines to help"));
+        assert!(SYSTEM.contains("incompatible literary accounts"));
+        let mut invalid = c;
+        invalid.entities[2].id = "invented-avatar".into();
+        assert!(!valid(&invalid));
     }
 
     #[test]

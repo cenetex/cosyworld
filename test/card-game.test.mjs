@@ -209,6 +209,7 @@ describe("the reflected shore card game", () => {
   it("preserves unique objects and valid state across 4000 varied turns", () => {
     let seed = 109,
       s = createWorld();
+    const itemIds = Object.keys(s.items).sort();
     for (let i = 0; i < 4000; i++) {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const actions = legalActions(s);
@@ -218,7 +219,7 @@ describe("the reflected shore card game", () => {
       expect(result.ok).toBe(true);
       s = result.state;
       expect(() => validateWorld(s)).not.toThrow();
-      expect(Object.keys(s.items)).toHaveLength(4);
+      expect(Object.keys(s.items).sort()).toEqual(itemIds);
       if (i % 97 === 0) {
         s = decodeSave(encodeSave(s));
       }

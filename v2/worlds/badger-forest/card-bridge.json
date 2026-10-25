@@ -4,7 +4,12 @@
   "pack": "badger-forest",
   "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open.",
   "values": {
-    "badger": { "lamp": 3, "oil": 1, "bell": 1, "cloth": 7 }
+    "badger": {
+      "lamp": 3,
+      "oil": 1,
+      "bell": 1,
+      "cloth": 7
+    }
   },
   "crossings": [
     {
@@ -15,21 +20,33 @@
       "travel": "through the reflection",
       "signal": {
         "steps": [
-          { "verb": "ring", "item": "bell" },
-          { "verb": "ring", "item": "bell" }
+          {
+            "verb": "ring",
+            "item": "bell"
+          },
+          {
+            "verb": "ring",
+            "item": "bell"
+          }
         ],
         "consecutive": true,
         "opens": 3,
-        "refresh": { "verb": "ring", "item": "bell" },
-        "offer": "{actor} rings the Bell again. The Steam Clock answers through the water.",
-        "progress": [
-          "A distant clock answers the bell. Its echo hangs over the pond, waiting for a second ring."
-        ],
-        "hint": "The Steam Clock answers. Ring again to find it.",
-        "echo": { "speaker": "echo", "text": "bong" },
-        "complete": "The second ring folds the pond's reflection. In the water, a forest clearing and an old Steam Clock come into view."
+        "refresh": {
+          "verb": "ring",
+          "item": "bell"
+        },
+        "echo": {
+          "speaker": "echo",
+          "text": "bong"
+        },
+        "complete": "In the water, a forest clearing and an old Steam Clock come into view."
       },
-      "requires": [{ "kind": "sound", "at": ["pond"] }],
+      "requires": [
+        {
+          "kind": "sound",
+          "at": ["pond"]
+        }
+      ],
       "closed": "The reflected clearing fades from the pond."
     },
     {
@@ -38,13 +55,18 @@
       "to": "pond",
       "travelers": "player",
       "travel": "through the reflection",
-      "requires": [{ "kind": "sound", "at": ["pond", "clearing"] }],
+      "requires": [
+        {
+          "kind": "sound",
+          "at": ["pond", "clearing"]
+        }
+      ],
       "scenery": {
         "open": "A bell is sounding, and the dark reflection between the roots opens onto Black pond.",
-        "closed": "The roots show only moss: no path to Black pond is visible. Ring the clock's bell to reopen the crossing."
+        "closed": "Moss lies between the roots."
       },
       "opened": "A dark reflection between the roots opens onto Black pond.",
-      "closed": "The bells fall silent. The path to Black pond disappears between the roots; the Steam Clock's bell can reopen it."
+      "closed": "The bells fall silent. The reflection between the roots fades."
     }
   ]
 }

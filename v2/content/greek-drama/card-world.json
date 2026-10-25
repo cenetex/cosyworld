@@ -1,0 +1,3778 @@
+{
+  "schemaVersion": 1,
+  "id": "greek-drama",
+  "packId": "cosyworld.greek-drama",
+  "revision": 1,
+  "name": "The Wine-Dark Sea",
+  "description": "Courtyards, cities, and sea roads where a household's decision can change a city.",
+  "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
+  "entry": "greek-harbor",
+  "continuity": {
+    "startingEra": "theban-aftermath",
+    "policy": "Account choices are saved quest commitments. Only the chosen account activates its residents, evidence, and outward route. A return route stays open. Inquiry hooks record a question; they do not replay an ancient catastrophe or silently change the live era.",
+    "groups": [
+      {
+        "key": "greek-helen-account",
+        "options": ["egypt", "troy"],
+        "initial": "uncommitted"
+      },
+      {
+        "key": "greek-atreid-account",
+        "options": ["aeschylus", "sophocles", "euripides"],
+        "initial": "uncommitted"
+      }
+    ]
+  },
+  "coverage": {
+    "works": 44,
+    "authors": {
+      "Aeschylus": 7,
+      "Sophocles": 7,
+      "Euripides": 19,
+      "Aristophanes": 11
+    },
+    "opening": "Before the Burial",
+    "status": "A complete situated repertoire, a consequential Theban opening, and branching Helen and Atreid episodes. Situated hooks open saved inquiries; they are not complete adaptations of the other plays."
+  },
+  "places": {
+    "greek-harbor": {
+      "name": "The Wine-Dark Harbor",
+      "text": "A ship rests against the stone landing. Worn steps climb toward the town.",
+      "exits": ["greek-courtyard", "greek-athens", "greek-argolid-road"],
+      "backdrop": "assets/greek-drama/harbor-day.webp",
+      "persona": "A ship rests against the stone landing. Worn steps climb toward the town."
+    },
+    "greek-courtyard": {
+      "name": "Theban Courtyard",
+      "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
+      "exits": ["greek-harbor", "greek-well", "greek-gate", "greek-sanctuary"],
+      "backdrop": "assets/greek-drama/courtyard-day.webp",
+      "persona": "Bread cools beneath a cloth. An empty place remains at the common table."
+    },
+    "greek-well": {
+      "name": "Theban Market Well",
+      "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
+      "exits": ["greek-courtyard", "greek-palace", "greek-gate"],
+      "backdrop": "assets/greek-drama/market-well-day.webp",
+      "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
+    },
+    "greek-palace": {
+      "name": "Theban Palace Forecourt",
+      "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
+      "exits": ["greek-well"],
+      "backdrop": "assets/greek-drama/palace-day.webp",
+      "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
+    },
+    "greek-gate": {
+      "name": "Theban City Gate",
+      "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
+      "exits": [
+        "greek-courtyard",
+        "greek-well",
+        "greek-battlefield",
+        "greek-aulis"
+      ],
+      "backdrop": "assets/greek-drama/city-gate-day.webp",
+      "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear."
+    },
+    "greek-battlefield": {
+      "name": "The Exposed Battlefield",
+      "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
+      "exits": ["greek-gate"],
+      "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
+      "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
+    },
+    "greek-sanctuary": {
+      "name": "The Hillside Sanctuary",
+      "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
+      "exits": ["greek-courtyard", "greek-cithaeron"],
+      "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
+      "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
+    },
+    "greek-cithaeron": {
+      "name": "Cithaeron Slopes",
+      "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
+      "exits": ["greek-sanctuary"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
+    },
+    "greek-aulis": {
+      "name": "Aulis Anchorage",
+      "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
+      "exits": ["greek-gate", "greek-greek-camp"],
+      "backdrop": "assets/greek-drama/harbor.svg",
+      "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
+    },
+    "greek-athens": {
+      "name": "Athenian Agora",
+      "text": "Fish sellers and potters share the square. A herald reads the day's public business.",
+      "exits": [
+        "greek-harbor",
+        "greek-piraeus",
+        "greek-assembly",
+        "greek-acropolis",
+        "greek-demos-house",
+        "greek-thinkery",
+        "greek-jury-house",
+        "greek-festival",
+        "greek-attic-farm",
+        "greek-colonus",
+        "greek-eleusis",
+        "greek-marathon",
+        "greek-delphi"
+      ],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "Fish sellers and potters share the square. A herald reads the day's public business."
+    },
+    "greek-piraeus": {
+      "name": "Piraeus Quays",
+      "text": "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger.",
+      "exits": ["greek-athens", "greek-tauris", "greek-sicily"],
+      "backdrop": "assets/greek-drama/harbor.svg",
+      "persona": "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger."
+    },
+    "greek-assembly": {
+      "name": "The Assembly Hill",
+      "text": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
+    },
+    "greek-acropolis": {
+      "name": "Acropolis Treasury",
+      "text": "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
+    },
+    "greek-demos-house": {
+      "name": "House of Demos",
+      "text": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
+    },
+    "greek-thinkery": {
+      "name": "The Thinkery",
+      "text": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
+    },
+    "greek-jury-house": {
+      "name": "The Juror's House",
+      "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard."
+    },
+    "greek-festival": {
+      "name": "The Women's Festival",
+      "text": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
+    },
+    "greek-attic-farm": {
+      "name": "The Attic Farm",
+      "text": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
+      "exits": [
+        "greek-athens",
+        "greek-acharnae",
+        "greek-divine-heights",
+        "greek-bird-wilderness"
+      ],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed."
+    },
+    "greek-acharnae": {
+      "name": "Acharnae Market",
+      "text": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
+      "exits": ["greek-attic-farm"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
+    },
+    "greek-colonus": {
+      "name": "Colonus Grove",
+      "text": "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground.",
+      "exits": ["greek-athens", "greek-underworld"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground."
+    },
+    "greek-eleusis": {
+      "name": "Eleusinian Sanctuary",
+      "text": "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them."
+    },
+    "greek-marathon": {
+      "name": "Marathon Altar",
+      "text": "Children shelter around Zeus's altar. Their companions watch the road for a herald.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Children shelter around Zeus's altar. Their companions watch the road for a herald."
+    },
+    "greek-argolid-road": {
+      "name": "The Argolid Crossroads",
+      "text": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
+      "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
+    },
+    "greek-argos-sanctuary": {
+      "name": "Argive Shore Sanctuary",
+      "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
+      "exits": ["greek-argolid-road"],
+      "backdrop": "assets/greek-drama/harbor.svg",
+      "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
+    },
+    "greek-argos-palace": {
+      "name": "Argive Palace",
+      "text": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "persona": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members."
+    },
+    "greek-argos-tomb": {
+      "name": "Agamemnon's Tomb",
+      "text": "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "persona": "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot."
+    },
+    "greek-mycenae-palace": {
+      "name": "Mycenaean Palace",
+      "text": "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "persona": "The palace rises above a worn approach. A woman waits where arriving servants can hear her."
+    },
+    "greek-argive-farm": {
+      "name": "The Argive Farmhouse",
+      "text": "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "persona": "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest."
+    },
+    "greek-corinth": {
+      "name": "Corinthian Courtyard",
+      "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
+      "exits": ["greek-argolid-road", "greek-troezen"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
+    },
+    "greek-troezen": {
+      "name": "Troezen Palace",
+      "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
+      "exits": ["greek-corinth"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
+    },
+    "greek-delphi": {
+      "name": "Delphic Temple",
+      "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
+      "exits": ["greek-athens", "greek-trachis"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
+    },
+    "greek-trachis": {
+      "name": "House at Trachis",
+      "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
+      "exits": ["greek-delphi", "greek-oeta", "greek-pherae"],
+      "backdrop": "assets/greek-drama/courtyard.svg",
+      "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
+    },
+    "greek-oeta": {
+      "name": "The Oeta Road",
+      "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
+      "exits": ["greek-trachis"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
+    },
+    "greek-pherae": {
+      "name": "Palace of Pherae",
+      "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
+      "exits": ["greek-trachis", "greek-thetis"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
+    },
+    "greek-thetis": {
+      "name": "Thetis's Sanctuary",
+      "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
+      "exits": ["greek-pherae"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
+    },
+    "greek-troy": {
+      "name": "The Trojan Walls",
+      "text": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
+      "exits": [
+        "greek-greek-camp",
+        "greek-trojan-camp",
+        "greek-thrace",
+        "greek-susa"
+      ],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
+    },
+    "greek-greek-camp": {
+      "name": "The Greek Camp at Troy",
+      "text": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order.",
+      "exits": ["greek-aulis", "greek-troy", "greek-lemnos"],
+      "backdrop": "assets/greek-drama/harbor.svg",
+      "persona": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order."
+    },
+    "greek-trojan-camp": {
+      "name": "The Trojan Night Camp",
+      "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
+      "exits": ["greek-troy"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
+    },
+    "greek-troy-beach": {
+      "name": "The Homecoming Beach",
+      "text": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/sea.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ],
+      "persona": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war."
+    },
+    "greek-lemnos": {
+      "name": "The Lemnian Cave",
+      "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
+      "exits": ["greek-greek-camp"],
+      "backdrop": "assets/greek-drama/sea.svg",
+      "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
+    },
+    "greek-thrace": {
+      "name": "The Thracian Shore",
+      "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
+      "exits": ["greek-troy"],
+      "backdrop": "assets/greek-drama/sea.svg",
+      "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
+    },
+    "greek-egypt-tomb": {
+      "name": "Proteus's Tomb in Egypt",
+      "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "persona": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea."
+    },
+    "greek-tauris": {
+      "name": "The Taurian Temple",
+      "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
+      "exits": ["greek-piraeus"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
+    },
+    "greek-sicily": {
+      "name": "The Sicilian Cave",
+      "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
+      "exits": ["greek-piraeus"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
+    },
+    "greek-susa": {
+      "name": "The Court at Susa",
+      "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
+      "exits": ["greek-troy", "greek-scythian-crag"],
+      "backdrop": "assets/greek-drama/palace.svg",
+      "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
+    },
+    "greek-scythian-crag": {
+      "name": "The Scythian Crag",
+      "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
+      "exits": ["greek-susa"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
+    },
+    "greek-divine-heights": {
+      "name": "The Divine Heights",
+      "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
+      "exits": ["greek-attic-farm"],
+      "backdrop": "assets/greek-drama/sea.svg",
+      "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
+    },
+    "greek-bird-wilderness": {
+      "name": "The Hoopoe's Thicket",
+      "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
+      "exits": ["greek-attic-farm"],
+      "backdrop": "assets/greek-drama/grove.svg",
+      "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
+    },
+    "greek-underworld": {
+      "name": "The Underworld Landing",
+      "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
+      "exits": ["greek-colonus"],
+      "backdrop": "assets/greek-drama/harbor.svg",
+      "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+    }
+  },
+  "avatars": {
+    "greek-antigone": {
+      "name": "Antigone",
+      "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
+      "place": "greek-gate",
+      "home": "greek-gate",
+      "values": {
+        "greek-funeral-cloth": 5,
+        "greek-oil-flask": 4,
+        "greek-shovel": 3
+      },
+      "persona": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
+      "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
+      "portrait": "assets/greek-drama/chthonic-antigone.png",
+      "desire": {
+        "items": ["greek-funeral-cloth", "greek-oil-flask"],
+        "location": "greek-battlefield",
+        "avatars": [],
+        "requires": [
+          {
+            "kind": "choice_unset",
+            "key": "greek-theban-response"
+          }
+        ]
+      },
+      "tastes": {
+        "likes": "practical help, care for the dead",
+        "sore": "being told that family grief is an inconvenience",
+        "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+      }
+    },
+    "greek-ismene": {
+      "name": "Ismene",
+      "text": "She has gathered clean cloth under the altar roof. She checks the road before speaking.",
+      "place": "greek-sanctuary",
+      "home": "greek-sanctuary",
+      "values": {
+        "greek-household-token": 4,
+        "greek-bread": 2
+      },
+      "persona": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
+      "voice": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
+      "portrait": "assets/greek-drama/chthonic-ismene.png",
+      "desire": {
+        "items": [],
+        "location": "greek-sanctuary",
+        "avatars": []
+      },
+      "tastes": {
+        "likes": "careful plans, a safe place for family",
+        "sore": "being called indifferent because she is afraid",
+        "reason": "She has gathered clean cloth under the altar roof. She checks the road before speaking."
+      }
+    },
+    "greek-creon": {
+      "name": "Creon",
+      "text": "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
+      "place": "greek-palace",
+      "home": "greek-palace",
+      "values": {
+        "greek-decree": 5,
+        "greek-household-token": 2
+      },
+      "persona": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
+      "voice": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
+      "portrait": "assets/greek-drama/chthonic-creon.png",
+      "desire": {
+        "items": [],
+        "location": "greek-palace",
+        "avatars": []
+      },
+      "tastes": {
+        "likes": "public procedure, named witnesses",
+        "sore": "private defiance presented as settled law",
+        "reason": "He receives petitions beside the posted decree. His attendants wait for clear instructions."
+      }
+    },
+    "greek-guard": {
+      "name": "The Gate Guard",
+      "text": "He has read the decree several times. His spear rests against the gatepost.",
+      "place": "greek-gate",
+      "home": "greek-gate",
+      "values": {
+        "greek-provisions": 3,
+        "greek-bread": 2
+      },
+      "persona": "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
+      "voice": "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
+      "portrait": "assets/greek-drama/chthonic-guard.png",
+      "tastes": {
+        "likes": "an unambiguous instruction, returning alive",
+        "sore": "being blamed for things outside his sight",
+        "reason": "He has read the decree several times. His spear rests against the gatepost."
+      }
+    },
+    "greek-baker": {
+      "name": "Dione the Baker",
+      "text": "Flour covers her forearms. She has kept a place free at the common table.",
+      "place": "greek-courtyard",
+      "home": "greek-courtyard",
+      "values": {
+        "greek-water-jar": 5,
+        "greek-bread": 2
+      },
+      "persona": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
+      "voice": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
+      "portrait": "assets/greek-drama/chthonic-baker.png",
+      "desire": {
+        "items": [],
+        "location": "greek-courtyard",
+        "avatars": []
+      },
+      "tastes": {
+        "likes": "a returned jar, a fed neighbor",
+        "sore": "grand speeches that leave the washing to her",
+        "reason": "Flour covers her forearms. She has kept a place free at the common table."
+      }
+    },
+    "greek-elder": {
+      "name": "The Chorus Elder",
+      "text": "He listens beside the well and repeats each claim with the speaker's name.",
+      "place": "greek-well",
+      "home": "greek-well",
+      "values": {
+        "greek-decree": 3,
+        "greek-household-token": 2
+      },
+      "persona": "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
+      "voice": "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
+      "portrait": "assets/greek-drama/chthonic-elder.png",
+      "tastes": {
+        "likes": "named witnesses, a hearing before punishment",
+        "sore": "rumor repeated as fact",
+        "reason": "He listens beside the well and repeats each claim with the speaker's name."
+      }
+    },
+    "greek-shipmaster": {
+      "name": "Myrto the Shipmaster",
+      "text": "She ties a mooring rope around the stone bollard and watches the road into town.",
+      "place": "greek-harbor",
+      "home": "greek-harbor",
+      "values": {
+        "greek-provisions": 5
+      },
+      "persona": "A practical shipmaster who remembers her passengers. Talk about the landing, provisions, the nearby town, and the return voyage. Speak from witnessed events; do not offer voyages or historical accounts that are not available here.",
+      "voice": "A practical shipmaster who remembers her passengers. Talk about the landing, provisions, the nearby town, and the return voyage. Speak from witnessed events; do not offer voyages or historical accounts that are not available here.",
+      "portrait": "assets/greek-drama/chthonic-shipmaster.png",
+      "tastes": {
+        "likes": "paid provisions, an honest destination",
+        "sore": "passengers promising what they cannot deliver",
+        "reason": "She ties a mooring rope around the stone bollard and watches the road into town."
+      }
+    },
+    "greek-rhapsode": {
+      "name": "The Argolid Singer",
+      "text": "He carries three accounts of a household's return. Each gives a different place to hear Electra.",
+      "place": "greek-argolid-road",
+      "home": "greek-argolid-road",
+      "values": {
+        "greek-provisions": 2
+      },
+      "persona": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
+      "voice": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
+      "portrait": "assets/greek-drama/chthonic-singer.png",
+      "tastes": {
+        "likes": "specific testimony, a patient audience",
+        "sore": "three incompatible accounts flattened into one",
+        "reason": "He carries three accounts of a household's return. Each gives a different place to hear Electra."
+      }
+    },
+    "greek-market-neighbor": {
+      "name": "The Agora Neighbor",
+      "text": "She sells small pots near the herald's platform. She knows which proposed laws will change her rent.",
+      "place": "greek-athens",
+      "home": "greek-athens",
+      "values": {
+        "greek-bread": 2
+      },
+      "persona": "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
+      "voice": "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
+      "portrait": "assets/greek-drama/chthonic-neighbor.png",
+      "tastes": {
+        "likes": "peaceful trade, useful arguments",
+        "sore": "public schemes paid for by someone else",
+        "reason": "She sells small pots near the herald's platform. She knows which proposed laws will change her rent."
+      }
+    },
+    "greek-temple-attendant": {
+      "name": "The Delphic Attendant",
+      "text": "He has arranged travelers' questions in a short queue. A broom leans against the columns.",
+      "place": "greek-delphi",
+      "home": "greek-delphi",
+      "values": {
+        "greek-provisions": 2
+      },
+      "persona": "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
+      "voice": "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
+      "portrait": "assets/greek-drama/chthonic-attendant.png",
+      "tastes": {
+        "likes": "clear questions, careful custody of tokens",
+        "sore": "being asked to confirm an unspoken prophecy",
+        "reason": "He has arranged travelers' questions in a short queue. A broom leans against the columns."
+      }
+    },
+    "greek-ferryman": {
+      "name": "The Lower Ferryman",
+      "text": "He holds a mooring rope and waits for each traveler to name a purpose.",
+      "place": "greek-underworld",
+      "home": "greek-underworld",
+      "values": {
+        "greek-provisions": 2
+      },
+      "persona": "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
+      "voice": "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
+      "portrait": "assets/greek-drama/chthonic-ferryman.png",
+      "tastes": {
+        "likes": "a stated purpose, a return plan",
+        "sore": "travelers who expect death to erase consequences",
+        "reason": "He holds a mooring rope and waits for each traveler to name a purpose."
+      }
+    },
+    "greek-helen-egypt": {
+      "name": "Helen",
+      "text": "She checks the traveler's account against a witness tablet.",
+      "place": "greek-egypt-tomb",
+      "home": "greek-egypt-tomb",
+      "values": {},
+      "persona": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+      "voice": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+      "portrait": "assets/greek-drama/chthonic-helen.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "canonicalPerson": "helen",
+      "tastes": {
+        "likes": "being heard in her own words",
+        "sore": "others deciding her identity from a rumor",
+        "reason": "She checks the traveler's account against a witness tablet."
+      }
+    },
+    "greek-menelaus-egypt": {
+      "name": "Menelaus",
+      "text": "Salt stains his cloak. He has kept the ship's passenger tally.",
+      "place": "greek-egypt-tomb",
+      "home": "greek-egypt-tomb",
+      "values": {},
+      "persona": "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+      "voice": "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+      "portrait": "assets/greek-drama/chthonic-menelaus.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "canonicalPerson": "menelaus",
+      "tastes": {
+        "likes": "a reliable witness, provisions for the crew",
+        "sore": "confident claims without a source",
+        "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
+      }
+    },
+    "greek-helen-troy": {
+      "name": "Helen",
+      "text": "She checks the traveler's account against a witness tablet.",
+      "place": "greek-troy-beach",
+      "home": "greek-troy-beach",
+      "values": {},
+      "persona": "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+      "voice": "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+      "portrait": "assets/greek-drama/chthonic-helen.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ],
+      "canonicalPerson": "helen",
+      "tastes": {
+        "likes": "being heard in her own words",
+        "sore": "others deciding her identity from a rumor",
+        "reason": "She checks the traveler's account against a witness tablet."
+      }
+    },
+    "greek-menelaus-troy": {
+      "name": "Menelaus",
+      "text": "Salt stains his cloak. He has kept the ship's passenger tally.",
+      "place": "greek-troy-beach",
+      "home": "greek-troy-beach",
+      "values": {},
+      "persona": "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+      "voice": "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+      "portrait": "assets/greek-drama/chthonic-menelaus.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ],
+      "canonicalPerson": "menelaus",
+      "tastes": {
+        "likes": "a reliable witness, provisions for the crew",
+        "sore": "confident claims without a source",
+        "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
+      }
+    },
+    "greek-electra-aeschylus": {
+      "name": "Electra",
+      "text": "She has preserved an account of the household's losses.",
+      "place": "greek-argos-tomb",
+      "home": "greek-argos-tomb",
+      "values": {},
+      "persona": "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "voice": "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "portrait": "assets/greek-drama/chthonic-electra.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "canonicalPerson": "electra",
+      "tastes": {
+        "likes": "testimony about her father, a relative who listens",
+        "sore": "silence demanded for the household's convenience",
+        "reason": "She has preserved an account of the household's losses."
+      }
+    },
+    "greek-orestes-aeschylus": {
+      "name": "Orestes",
+      "text": "He has come to hear his sister before committing himself.",
+      "place": "greek-argos-tomb",
+      "home": "greek-argos-tomb",
+      "values": {},
+      "persona": "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "voice": "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "portrait": "assets/greek-drama/chthonic-orestes.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "canonicalPerson": "orestes",
+      "tastes": {
+        "likes": "evidence before an irreversible promise",
+        "sore": "being treated as an instrument of someone else's revenge",
+        "reason": "He has come to hear his sister before committing himself."
+      }
+    },
+    "greek-electra-sophocles": {
+      "name": "Electra",
+      "text": "She has preserved an account of the household's losses.",
+      "place": "greek-mycenae-palace",
+      "home": "greek-mycenae-palace",
+      "values": {},
+      "persona": "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "voice": "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "portrait": "assets/greek-drama/chthonic-electra.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "canonicalPerson": "electra",
+      "tastes": {
+        "likes": "testimony about her father, a relative who listens",
+        "sore": "silence demanded for the household's convenience",
+        "reason": "She has preserved an account of the household's losses."
+      }
+    },
+    "greek-orestes-sophocles": {
+      "name": "Orestes",
+      "text": "He has come to hear his sister before committing himself.",
+      "place": "greek-mycenae-palace",
+      "home": "greek-mycenae-palace",
+      "values": {},
+      "persona": "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "voice": "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "portrait": "assets/greek-drama/chthonic-orestes.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "canonicalPerson": "orestes",
+      "tastes": {
+        "likes": "evidence before an irreversible promise",
+        "sore": "being treated as an instrument of someone else's revenge",
+        "reason": "He has come to hear his sister before committing himself."
+      }
+    },
+    "greek-electra-euripides": {
+      "name": "Electra",
+      "text": "She has preserved an account of the household's losses.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "persona": "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "voice": "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+      "portrait": "assets/greek-drama/chthonic-electra.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "canonicalPerson": "electra",
+      "tastes": {
+        "likes": "testimony about her father, a relative who listens",
+        "sore": "silence demanded for the household's convenience",
+        "reason": "She has preserved an account of the household's losses."
+      }
+    },
+    "greek-orestes-euripides": {
+      "name": "Orestes",
+      "text": "He has come to hear his sister before committing himself.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "persona": "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "voice": "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+      "portrait": "assets/greek-drama/chthonic-orestes.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "canonicalPerson": "orestes",
+      "tastes": {
+        "likes": "evidence before an irreversible promise",
+        "sore": "being treated as an instrument of someone else's revenge",
+        "reason": "He has come to hear his sister before committing himself."
+      }
+    }
+  },
+  "items": {
+    "greek-water-jar": {
+      "name": "Water Jar",
+      "text": "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
+      "holder": "greek-well",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/water-jar.svg"
+    },
+    "greek-bread": {
+      "name": "Courtyard Bread",
+      "text": "A round loaf set aside after the water jar was returned.",
+      "holder": "greek-courtyard",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/bread.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-water-returned",
+          "value": true
+        }
+      ]
+    },
+    "greek-funeral-cloth": {
+      "name": "Funeral Cloth",
+      "text": "Clean linen folded for a burial.",
+      "holder": "greek-sanctuary",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/funeral-cloth.svg"
+    },
+    "greek-oil-flask": {
+      "name": "Funeral Oil",
+      "text": "A stoppered flask of oil for the funeral rite.",
+      "holder": "greek-courtyard",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/oil-flask.svg"
+    },
+    "greek-shovel": {
+      "name": "Burial Shovel",
+      "text": "A short iron shovel with soil caught beneath the blade.",
+      "holder": "greek-gate",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/shovel.svg"
+    },
+    "greek-decree": {
+      "name": "The Burial Decree",
+      "text": "A public copy forbids burial of the brother left outside the city.",
+      "holder": "greek-palace",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/decree.svg"
+    },
+    "greek-household-token": {
+      "name": "Household Token",
+      "text": "A small marked seal identifies the bereaved household for a public petition.",
+      "holder": "greek-sanctuary",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/household-token.svg"
+    },
+    "greek-provisions": {
+      "name": "Travel Provisions",
+      "text": "Bread, dried figs, and a small water skin are packed for a short voyage.",
+      "holder": "greek-harbor",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/provisions.svg"
+    },
+    "greek-egypt-testimony": {
+      "name": "The Egyptian Witness Tablet",
+      "text": "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
+      "holder": "greek-egypt-tomb",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-troy-testimony": {
+      "name": "The Trojan Witness Tablet",
+      "text": "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
+      "holder": "greek-troy-beach",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ]
+    },
+    "greek-tomb-testimony": {
+      "name": "The Tomb Witness Tablet",
+      "text": "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
+      "holder": "greek-argos-tomb",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ]
+    },
+    "greek-palace-testimony": {
+      "name": "The Palace Witness Tablet",
+      "text": "The testimony begins with Electra waiting outside the Mycenaean palace.",
+      "holder": "greek-mycenae-palace",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ]
+    },
+    "greek-farm-testimony": {
+      "name": "The Farmer's Witness Tablet",
+      "text": "The testimony begins in a poor household in the Argive countryside.",
+      "holder": "greek-argive-farm",
+      "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ]
+    }
+  },
+  "routes": [
+    {
+      "from": "greek-harbor",
+      "to": "greek-egypt-tomb",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    {
+      "from": "greek-egypt-tomb",
+      "to": "greek-harbor"
+    },
+    {
+      "from": "greek-harbor",
+      "to": "greek-troy-beach",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ]
+    },
+    {
+      "from": "greek-troy-beach",
+      "to": "greek-harbor"
+    },
+    {
+      "from": "greek-argolid-road",
+      "to": "greek-argos-tomb",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ]
+    },
+    {
+      "from": "greek-argos-tomb",
+      "to": "greek-argolid-road"
+    },
+    {
+      "from": "greek-argolid-road",
+      "to": "greek-mycenae-palace",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ]
+    },
+    {
+      "from": "greek-mycenae-palace",
+      "to": "greek-argolid-road"
+    },
+    {
+      "from": "greek-argolid-road",
+      "to": "greek-argive-farm",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ]
+    },
+    {
+      "from": "greek-argive-farm",
+      "to": "greek-argolid-road"
+    },
+    {
+      "from": "greek-argos-tomb",
+      "to": "greek-argos-palace",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ]
+    },
+    {
+      "from": "greek-argos-palace",
+      "to": "greek-argos-tomb"
+    }
+  ],
+  "choices": [
+    {
+      "id": "greek-return-water-jar",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Return the water jar",
+      "text": "Vale sets the filled jar beside Dione's table. She puts a loaf aside for the traveler.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-water-jar",
+          "actor": "vale"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-water-jar",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-water-returned",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-hear-decree",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Hear the burial order",
+      "text": "The guard reads the burial prohibition aloud. Vale now knows what the order forbids.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-decree-known",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-gather-witness",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Ask for a public witness",
+      "text": "The elder agrees to witness a petition from the bereaved household.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-witness-support",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-prepare-burial-ground",
+      "subject": "greek-battlefield",
+      "at": "greek-battlefield",
+      "label": "Prepare the burial ground",
+      "text": "Vale digs beside the fallen brother and leaves the shovel at the prepared ground.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-shovel",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-theban-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-shovel",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-grave-prepared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-perform-burial",
+      "subject": "greek-battlefield",
+      "at": "greek-battlefield",
+      "label": "Perform the burial",
+      "text": "Vale lays out the cloth and oil at the prepared grave. The brother receives a burial despite the standing prohibition.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-funeral-cloth",
+          "actor": "vale"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-oil-flask",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-theban-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-funeral-cloth",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-oil-flask",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-theban-response",
+          "value": "burial"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-burial-performed",
+          "value": true
+        }
+      ],
+      "summary": "The brother was buried. The decree remains in force, and the household must answer for the defiance."
+    },
+    {
+      "id": "greek-petition-burial",
+      "subject": "greek-creon",
+      "at": "greek-palace",
+      "label": "Petition for burial",
+      "text": "Vale presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-witness-support",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-decree",
+          "actor": "vale"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-household-token",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-theban-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-decree",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-theban-response",
+          "value": "concession"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-burial-permitted",
+          "value": true
+        }
+      ],
+      "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite."
+    },
+    {
+      "id": "greek-prepare-permitted-burial",
+      "subject": "greek-battlefield",
+      "at": "greek-battlefield",
+      "label": "Prepare the permitted burial",
+      "text": "Vale digs beside the fallen brother under the public exception and leaves the shovel at the prepared ground.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "concession"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-grave-prepared",
+          "value": false
+        },
+        {
+          "kind": "holding",
+          "item": "greek-shovel",
+          "actor": "vale"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-shovel",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-grave-prepared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-perform-permitted-burial",
+      "subject": "greek-battlefield",
+      "at": "greek-battlefield",
+      "label": "Complete the permitted burial",
+      "text": "Vale lays out the cloth and oil at the prepared grave. The brother receives a burial under the witnessed exception.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "concession"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-burial-performed",
+          "value": false
+        },
+        {
+          "kind": "holding",
+          "item": "greek-funeral-cloth",
+          "actor": "vale"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-oil-flask",
+          "actor": "vale"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-funeral-cloth",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-oil-flask",
+          "place": "greek-battlefield"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-burial-performed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-decline-burial",
+      "subject": "greek-antigone",
+      "at": "greek-gate",
+      "label": "Decline the request",
+      "text": "Vale declines to help with the burial. Antigone knows the answer; no burial or punishment has occurred through this choice.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-theban-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-theban-response",
+          "value": "refusal"
+        }
+      ]
+    },
+    {
+      "id": "greek-report-plan",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Report the intended burial",
+      "text": "Vale tells the guard that the household intends to seek a burial. The guard records the warning; he has witnessed no burial.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-decree-known",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-theban-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-theban-response",
+          "value": "exposure"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-guard-warned",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-courtyard-burial",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Tell the courtyard what happened",
+      "text": "Vale reports the burial at the common table. Dione and the neighbors now know who helped.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "burial"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-burial-public",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-courtyard-concession",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Share the public exception",
+      "text": "Vale tells Dione about the witnessed exception. She records that permission was given for the family’s burial rite.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "concession"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-concession-public",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-courtyard-refusal",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Return to the common table",
+      "text": "Vale returns to the table after declining. Dione leaves a place available; the household dispute remains unresolved.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "refusal"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-refusal-public",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-courtyard-exposure",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Explain the warning",
+      "text": "Vale tells Dione about the warning given to the guard. She asks that further claims name their witnesses.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "exposure"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-exposure-public",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-helen-egypt",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Follow Helen's Egyptian account",
+      "text": "Vale commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-account"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "summary": "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story."
+    },
+    {
+      "id": "greek-helen-troy",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Follow Helen's Trojan account",
+      "text": "Vale commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-account"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ],
+      "summary": "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history."
+    },
+    {
+      "id": "greek-hear-helen-egypt",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen's testimony",
+      "text": "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-heard-egypt",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-helen-egypt-passage",
+      "subject": "greek-menelaus-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Provision a return passage",
+      "text": "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-heard-egypt",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-provisions",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-egypt-testimony",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-provisions",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-helen-response",
+          "value": "passage"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-passage-agreed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-helen-egypt-shelter",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Support a stay under protection",
+      "text": "Vale records Helen's request to remain under protection while the competing claims are heard.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-heard-egypt",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-egypt-testimony",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-helen-response",
+          "value": "shelter"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-shelter-requested",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-hear-helen-troy",
+      "subject": "greek-helen-troy",
+      "at": "greek-troy-beach",
+      "label": "Hear Helen's testimony",
+      "text": "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-heard-troy",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-helen-troy-passage",
+      "subject": "greek-menelaus-troy",
+      "at": "greek-troy-beach",
+      "label": "Provision a return passage",
+      "text": "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-heard-troy",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-troy-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-provisions",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-troy-testimony",
+          "place": "greek-troy-beach"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-provisions",
+          "place": "greek-troy-beach"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-helen-response",
+          "value": "passage"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-passage-agreed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-helen-troy-shelter",
+      "subject": "greek-helen-troy",
+      "at": "greek-troy-beach",
+      "label": "Support a stay under protection",
+      "text": "Vale records Helen's request to remain under protection while the competing claims are heard.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "troy"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-heard-troy",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-troy-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-helen-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-troy-testimony",
+          "place": "greek-troy-beach"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-helen-response",
+          "value": "shelter"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-shelter-requested",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-aeschylus",
+      "subject": "greek-rhapsode",
+      "at": "greek-argolid-road",
+      "label": "Follow the tomb account · Aeschylus",
+      "text": "Vale follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-account"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "summary": "The Aeschylus account governs the Atreid household, beginning at Agamemnon’s tomb. The other accounts remain alternative stories."
+    },
+    {
+      "id": "greek-hear-electra-aeschylus",
+      "subject": "greek-electra-aeschylus",
+      "at": "greek-argos-tomb",
+      "label": "Hear the household's testimony",
+      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-heard-aeschylus",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-aeschylus-hearing",
+      "subject": "greek-orestes-aeschylus",
+      "at": "greek-argos-tomb",
+      "label": "Commit the testimony to a hearing",
+      "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-aeschylus",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tomb-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tomb-testimony",
+          "place": "greek-argos-tomb"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-hearing-promised",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-aeschylus-refusal",
+      "subject": "greek-electra-aeschylus",
+      "at": "greek-argos-tomb",
+      "label": "Refuse the revenge commitment",
+      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-aeschylus",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tomb-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tomb-testimony",
+          "place": "greek-argos-tomb"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "refusal"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-refusal-recorded",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-sophocles",
+      "subject": "greek-rhapsode",
+      "at": "greek-argolid-road",
+      "label": "Follow the palace account · Sophocles",
+      "text": "Vale follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-account"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "summary": "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories."
+    },
+    {
+      "id": "greek-hear-electra-sophocles",
+      "subject": "greek-electra-sophocles",
+      "at": "greek-mycenae-palace",
+      "label": "Hear the household's testimony",
+      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-heard-sophocles",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-sophocles-hearing",
+      "subject": "greek-orestes-sophocles",
+      "at": "greek-mycenae-palace",
+      "label": "Commit the testimony to a hearing",
+      "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-sophocles",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-palace-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-palace-testimony",
+          "place": "greek-mycenae-palace"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-hearing-promised",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-sophocles-refusal",
+      "subject": "greek-electra-sophocles",
+      "at": "greek-mycenae-palace",
+      "label": "Refuse the revenge commitment",
+      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-sophocles",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-palace-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-palace-testimony",
+          "place": "greek-mycenae-palace"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "refusal"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-refusal-recorded",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-euripides",
+      "subject": "greek-rhapsode",
+      "at": "greek-argolid-road",
+      "label": "Follow the farmhouse account · Euripides",
+      "text": "Vale follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-account"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "summary": "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories."
+    },
+    {
+      "id": "greek-hear-electra-euripides",
+      "subject": "greek-electra-euripides",
+      "at": "greek-argive-farm",
+      "label": "Hear the household's testimony",
+      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-heard-euripides",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-euripides-hearing",
+      "subject": "greek-orestes-euripides",
+      "at": "greek-argive-farm",
+      "label": "Commit the testimony to a hearing",
+      "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-euripides",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-farm-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-farm-testimony",
+          "place": "greek-argive-farm"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-hearing-promised",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-atreid-euripides-refusal",
+      "subject": "greek-electra-euripides",
+      "at": "greek-argive-farm",
+      "label": "Refuse the revenge commitment",
+      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-atreid-heard-euripides",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-farm-testimony",
+          "actor": "vale"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-atreid-response"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-farm-testimony",
+          "place": "greek-argive-farm"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-atreid-response",
+          "value": "refusal"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-atreid-refusal-recorded",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-inquire-aeschylus-persians",
+      "subject": "greek-susa",
+      "at": "greek-susa",
+      "label": "Ask who brought the fleet report",
+      "text": "Vale opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-persians",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-inquire-aeschylus-seven-against-thebes",
+      "subject": "greek-gate",
+      "at": "greek-gate",
+      "label": "Ask which gate needs help",
+      "text": "Vale opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-seven-against-thebes",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-inquire-aeschylus-suppliant-women",
+      "subject": "greek-argos-sanctuary",
+      "at": "greek-argos-sanctuary",
+      "label": "Hear the Danaids' petition",
+      "text": "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-suppliant-women",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-suppliant-women"
+    },
+    {
+      "id": "greek-inquire-aeschylus-prometheus-bound",
+      "subject": "greek-scythian-crag",
+      "at": "greek-scythian-crag",
+      "label": "Carry a question to the bound figure",
+      "text": "Vale opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-prometheus-bound",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-prometheus-bound"
+    },
+    {
+      "id": "greek-inquire-aeschylus-agamemnon",
+      "subject": "greek-argos-palace",
+      "at": "greek-argos-palace",
+      "label": "Ask about the returning household",
+      "text": "Vale opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-agamemnon",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-agamemnon"
+    },
+    {
+      "id": "greek-inquire-aeschylus-libation-bearers",
+      "subject": "greek-argos-tomb",
+      "at": "greek-argos-tomb",
+      "label": "Ask about the offerings",
+      "text": "Vale opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-libation-bearers",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-libation-bearers"
+    },
+    {
+      "id": "greek-inquire-aeschylus-eumenides",
+      "subject": "greek-delphi",
+      "at": "greek-delphi",
+      "label": "Ask where a blood dispute can be heard",
+      "text": "Vale opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aeschylus-eumenides",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-eumenides"
+    },
+    {
+      "id": "greek-inquire-sophocles-ajax",
+      "subject": "greek-greek-camp",
+      "at": "greek-greek-camp",
+      "label": "Ask who will speak for the isolated soldier",
+      "text": "Vale opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-ajax",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-inquire-sophocles-antigone",
+      "subject": "greek-gate",
+      "at": "greek-gate",
+      "label": "Hear the family's burial request",
+      "text": "Vale opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-antigone",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-antigone"
+    },
+    {
+      "id": "greek-inquire-sophocles-women-of-trachis",
+      "subject": "greek-trachis",
+      "at": "greek-trachis",
+      "label": "Ask what is known about the garment",
+      "text": "Vale opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-women-of-trachis",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-women-of-trachis"
+    },
+    {
+      "id": "greek-inquire-sophocles-oedipus-tyrannus",
+      "subject": "greek-palace",
+      "at": "greek-palace",
+      "label": "Ask which witness has not been heard",
+      "text": "Vale opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-oedipus-tyrannus",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-inquire-sophocles-electra",
+      "subject": "greek-mycenae-palace",
+      "at": "greek-mycenae-palace",
+      "label": "Hear Electra at the palace",
+      "text": "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-electra",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-electra"
+    },
+    {
+      "id": "greek-inquire-sophocles-philoctetes",
+      "subject": "greek-lemnos",
+      "at": "greek-lemnos",
+      "label": "Ask what the abandoned man wants",
+      "text": "Vale opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-philoctetes",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-philoctetes"
+    },
+    {
+      "id": "greek-inquire-sophocles-oedipus-at-colonus",
+      "subject": "greek-colonus",
+      "at": "greek-colonus",
+      "label": "Hear the exile's request for refuge",
+      "text": "Vale opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-sophocles-oedipus-at-colonus",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-at-colonus"
+    },
+    {
+      "id": "greek-inquire-euripides-alcestis",
+      "subject": "greek-pherae",
+      "at": "greek-pherae",
+      "label": "Ask who accepted the death bargain",
+      "text": "Vale opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-alcestis",
+          "value": true
+        }
+      ],
+      "workId": "euripides-alcestis"
+    },
+    {
+      "id": "greek-inquire-euripides-medea",
+      "subject": "greek-corinth",
+      "at": "greek-corinth",
+      "label": "Ask what protection the household needs",
+      "text": "Vale opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-medea",
+          "value": true
+        }
+      ],
+      "workId": "euripides-medea"
+    },
+    {
+      "id": "greek-inquire-euripides-children-of-heracles",
+      "subject": "greek-marathon",
+      "at": "greek-marathon",
+      "label": "Hear the children's claim to sanctuary",
+      "text": "Vale opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-children-of-heracles",
+          "value": true
+        }
+      ],
+      "workId": "euripides-children-of-heracles"
+    },
+    {
+      "id": "greek-inquire-euripides-hippolytus",
+      "subject": "greek-troezen",
+      "at": "greek-troezen",
+      "label": "Ask how the accusation was learned",
+      "text": "Vale opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-hippolytus",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hippolytus"
+    },
+    {
+      "id": "greek-inquire-euripides-andromache",
+      "subject": "greek-thetis",
+      "at": "greek-thetis",
+      "label": "Ask whether the mother and child are safe",
+      "text": "Vale opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-andromache",
+          "value": true
+        }
+      ],
+      "workId": "euripides-andromache"
+    },
+    {
+      "id": "greek-inquire-euripides-hecuba",
+      "subject": "greek-thrace",
+      "at": "greek-thrace",
+      "label": "Ask which guest broke protection",
+      "text": "Vale opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-hecuba",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-inquire-euripides-suppliant-women",
+      "subject": "greek-eleusis",
+      "at": "greek-eleusis",
+      "label": "Hear the mothers' burial petition",
+      "text": "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-suppliant-women",
+          "value": true
+        }
+      ],
+      "workId": "euripides-suppliant-women"
+    },
+    {
+      "id": "greek-inquire-euripides-electra",
+      "subject": "greek-argive-farm",
+      "at": "greek-argive-farm",
+      "label": "Hear Electra at the farmhouse",
+      "text": "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-electra",
+          "value": true
+        }
+      ],
+      "workId": "euripides-electra"
+    },
+    {
+      "id": "greek-inquire-euripides-heracles",
+      "subject": "greek-courtyard",
+      "at": "greek-courtyard",
+      "label": "Ask what the threatened household needs",
+      "text": "Vale opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-heracles",
+          "value": true
+        }
+      ],
+      "workId": "euripides-heracles"
+    },
+    {
+      "id": "greek-inquire-euripides-trojan-women",
+      "subject": "greek-troy",
+      "at": "greek-troy",
+      "label": "Ask which families face separation",
+      "text": "Vale opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-trojan-women",
+          "value": true
+        }
+      ],
+      "workId": "euripides-trojan-women"
+    },
+    {
+      "id": "greek-inquire-euripides-iphigenia-in-tauris",
+      "subject": "greek-tauris",
+      "at": "greek-tauris",
+      "label": "Ask how strangers are identified",
+      "text": "Vale opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-iphigenia-in-tauris",
+          "value": true
+        }
+      ],
+      "workId": "euripides-iphigenia-in-tauris"
+    },
+    {
+      "id": "greek-inquire-euripides-ion",
+      "subject": "greek-delphi",
+      "at": "greek-delphi",
+      "label": "Ask who can identify the foundling's token",
+      "text": "Vale opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-ion",
+          "value": true
+        }
+      ],
+      "workId": "euripides-ion"
+    },
+    {
+      "id": "greek-inquire-euripides-helen",
+      "subject": "greek-egypt-tomb",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen in Egypt",
+      "text": "Vale opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-helen",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-inquire-euripides-phoenician-women",
+      "subject": "greek-palace",
+      "at": "greek-palace",
+      "label": "Hear the household before the siege",
+      "text": "Vale opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-phoenician-women",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-inquire-euripides-orestes",
+      "subject": "greek-argos-palace",
+      "at": "greek-argos-palace",
+      "label": "Ask what the civic hearing can decide",
+      "text": "Vale opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-orestes",
+          "value": true
+        }
+      ],
+      "workId": "euripides-orestes"
+    },
+    {
+      "id": "greek-inquire-euripides-bacchae",
+      "subject": "greek-cithaeron",
+      "at": "greek-cithaeron",
+      "label": "Ask what the worshippers claim",
+      "text": "Vale opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-bacchae",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-inquire-euripides-iphigenia-at-aulis",
+      "subject": "greek-aulis",
+      "at": "greek-aulis",
+      "label": "Ask why the fleet cannot sail",
+      "text": "Vale opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-iphigenia-at-aulis",
+          "value": true
+        }
+      ],
+      "workId": "euripides-iphigenia-at-aulis"
+    },
+    {
+      "id": "greek-inquire-euripides-rhesus",
+      "subject": "greek-trojan-camp",
+      "at": "greek-trojan-camp",
+      "label": "Check the arriving ally's identity",
+      "text": "Vale opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-rhesus",
+          "value": true
+        }
+      ],
+      "workId": "euripides-rhesus"
+    },
+    {
+      "id": "greek-inquire-euripides-cyclops",
+      "subject": "greek-sicily",
+      "at": "greek-sicily",
+      "label": "Ask the captive shepherds about a way out",
+      "text": "Vale opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-euripides-cyclops",
+          "value": true
+        }
+      ],
+      "workId": "euripides-cyclops"
+    },
+    {
+      "id": "greek-inquire-aristophanes-acharnians",
+      "subject": "greek-acharnae",
+      "at": "greek-acharnae",
+      "label": "Ask what a private peace permits",
+      "text": "Vale opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-acharnians",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-acharnians"
+    },
+    {
+      "id": "greek-inquire-aristophanes-knights",
+      "subject": "greek-demos-house",
+      "at": "greek-demos-house",
+      "label": "Ask who speaks for Demos",
+      "text": "Vale opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-knights",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-knights"
+    },
+    {
+      "id": "greek-inquire-aristophanes-clouds",
+      "subject": "greek-thinkery",
+      "at": "greek-thinkery",
+      "label": "Ask what the school promises a debtor",
+      "text": "Vale opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-clouds",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-clouds"
+    },
+    {
+      "id": "greek-inquire-aristophanes-wasps",
+      "subject": "greek-jury-house",
+      "at": "greek-jury-house",
+      "label": "Ask why the juror cannot stay home",
+      "text": "Vale opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-wasps",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-wasps"
+    },
+    {
+      "id": "greek-inquire-aristophanes-peace",
+      "subject": "greek-divine-heights",
+      "at": "greek-divine-heights",
+      "label": "Ask who will help recover peace",
+      "text": "Vale opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-peace",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-peace"
+    },
+    {
+      "id": "greek-inquire-aristophanes-birds",
+      "subject": "greek-bird-wilderness",
+      "at": "greek-bird-wilderness",
+      "label": "Ask what the proposed city would control",
+      "text": "Vale opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-birds",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-birds"
+    },
+    {
+      "id": "greek-inquire-aristophanes-lysistrata",
+      "subject": "greek-acropolis",
+      "at": "greek-acropolis",
+      "label": "Ask how the coalition holds the treasury",
+      "text": "Vale opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-lysistrata",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-lysistrata"
+    },
+    {
+      "id": "greek-inquire-aristophanes-women-at-the-thesmophoria",
+      "subject": "greek-festival",
+      "at": "greek-festival",
+      "label": "Ask who has entered the festival",
+      "text": "Vale opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-women-at-the-thesmophoria",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-women-at-the-thesmophoria"
+    },
+    {
+      "id": "greek-inquire-aristophanes-frogs",
+      "subject": "greek-underworld",
+      "at": "greek-underworld",
+      "label": "Ask what the city needs from a poet",
+      "text": "Vale opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-frogs",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-inquire-aristophanes-assemblywomen",
+      "subject": "greek-assembly",
+      "at": "greek-assembly",
+      "label": "Ask what the proposed common ownership changes",
+      "text": "Vale opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-assemblywomen",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-assemblywomen"
+    },
+    {
+      "id": "greek-inquire-aristophanes-wealth",
+      "subject": "greek-attic-farm",
+      "at": "greek-attic-farm",
+      "label": "Ask who would lose from fair prosperity",
+      "text": "Vale opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-inquiry-aristophanes-wealth",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-wealth"
+    }
+  ],
+  "works": [
+    {
+      "id": "aeschylus-persians",
+      "author": "Aeschylus",
+      "title": "Persians",
+      "era": "imperial-aftermath",
+      "placeIds": ["greek-susa"],
+      "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Persians",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aeschylus-seven-against-thebes",
+      "author": "Aeschylus",
+      "title": "Seven Against Thebes",
+      "era": "theban-war",
+      "placeIds": ["greek-gate"],
+      "premise": "The city's defenders must answer rival claims to command while households seek protection.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Seven Against Thebes",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aeschylus-suppliant-women",
+      "author": "Aeschylus",
+      "title": "Suppliant Women",
+      "era": "heroic-households",
+      "placeIds": ["greek-argos-sanctuary"],
+      "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-suppliant-women"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Suppliant Women",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aeschylus-prometheus-bound",
+      "author": "Aeschylus",
+      "title": "Prometheus Bound",
+      "era": "divine-frontier",
+      "placeIds": ["greek-scythian-crag"],
+      "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Prometheus Bound",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aeschylus-agamemnon",
+      "author": "Aeschylus",
+      "title": "Agamemnon",
+      "era": "homecomings",
+      "placeIds": ["greek-argos-palace"],
+      "premise": "A returning commander enters a household divided by the costs of the expedition.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-agamemnon"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Agamemnon",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-atreid-account",
+        "value": "aeschylus"
+      }
+    },
+    {
+      "id": "aeschylus-libation-bearers",
+      "author": "Aeschylus",
+      "title": "Libation Bearers",
+      "era": "homecomings",
+      "placeIds": ["greek-argos-tomb"],
+      "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
+      "status": "branching-episode",
+      "hookChoiceIds": ["greek-inquire-aeschylus-libation-bearers"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Libation Bearers",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-atreid-account",
+        "value": "aeschylus"
+      }
+    },
+    {
+      "id": "aeschylus-eumenides",
+      "author": "Aeschylus",
+      "title": "Eumenides",
+      "era": "homecomings",
+      "placeIds": ["greek-delphi"],
+      "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aeschylus-eumenides"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aeschylus",
+        "work": "Eumenides",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-ajax",
+      "author": "Sophocles",
+      "title": "Ajax",
+      "era": "trojan-war",
+      "placeIds": ["greek-greek-camp"],
+      "premise": "Military honor, isolation, and the treatment of the dead divide the camp.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-sophocles-ajax"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Ajax",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-antigone",
+      "author": "Sophocles",
+      "title": "Antigone",
+      "era": "theban-aftermath",
+      "placeIds": ["greek-gate"],
+      "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
+      "status": "opening-episode",
+      "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Antigone",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-women-of-trachis",
+      "author": "Sophocles",
+      "title": "Women of Trachis",
+      "era": "heroic-households",
+      "placeIds": ["greek-trachis"],
+      "premise": "A household prepares a gift without agreeing about its history or effects.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-sophocles-women-of-trachis"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Women of Trachis",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-oedipus-tyrannus",
+      "author": "Sophocles",
+      "title": "Oedipus Tyrannus",
+      "era": "theban-households",
+      "placeIds": ["greek-palace"],
+      "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Oedipus Tyrannus",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-electra",
+      "author": "Sophocles",
+      "title": "Electra",
+      "era": "homecomings",
+      "placeIds": ["greek-mycenae-palace"],
+      "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
+      "status": "branching-episode",
+      "hookChoiceIds": ["greek-inquire-sophocles-electra"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Electra",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-atreid-account",
+        "value": "sophocles"
+      }
+    },
+    {
+      "id": "sophocles-philoctetes",
+      "author": "Sophocles",
+      "title": "Philoctetes",
+      "era": "trojan-war",
+      "placeIds": ["greek-lemnos"],
+      "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-sophocles-philoctetes"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Philoctetes",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "sophocles-oedipus-at-colonus",
+      "author": "Sophocles",
+      "title": "Oedipus at Colonus",
+      "era": "theban-exile",
+      "placeIds": ["greek-colonus"],
+      "premise": "An old exile seeks a resting place while rival powers contest his presence.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-at-colonus"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Sophocles",
+        "work": "Oedipus at Colonus",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-alcestis",
+      "author": "Euripides",
+      "title": "Alcestis",
+      "era": "heroic-households",
+      "placeIds": ["greek-pherae"],
+      "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-alcestis"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Alcestis",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-medea",
+      "author": "Euripides",
+      "title": "Medea",
+      "era": "heroic-households",
+      "placeIds": ["greek-corinth"],
+      "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-medea"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Medea",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-children-of-heracles",
+      "author": "Euripides",
+      "title": "Children of Heracles",
+      "era": "heroic-aftermath",
+      "placeIds": ["greek-marathon"],
+      "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-children-of-heracles"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Children of Heracles",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-hippolytus",
+      "author": "Euripides",
+      "title": "Hippolytus",
+      "era": "heroic-households",
+      "placeIds": ["greek-troezen"],
+      "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-hippolytus"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Hippolytus",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-andromache",
+      "author": "Euripides",
+      "title": "Andromache",
+      "era": "homecomings",
+      "placeIds": ["greek-thetis"],
+      "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-andromache"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Andromache",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-hecuba",
+      "author": "Euripides",
+      "title": "Hecuba",
+      "era": "trojan-aftermath",
+      "placeIds": ["greek-thrace"],
+      "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Hecuba",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-suppliant-women",
+      "author": "Euripides",
+      "title": "Suppliant Women",
+      "era": "theban-aftermath",
+      "placeIds": ["greek-eleusis"],
+      "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-suppliant-women"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Suppliant Women",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-electra",
+      "author": "Euripides",
+      "title": "Electra",
+      "era": "homecomings",
+      "placeIds": ["greek-argive-farm"],
+      "premise": "The revenge claim is heard in a poor household beyond the royal city.",
+      "status": "branching-episode",
+      "hookChoiceIds": ["greek-inquire-euripides-electra"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Electra",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-atreid-account",
+        "value": "euripides"
+      }
+    },
+    {
+      "id": "euripides-heracles",
+      "author": "Euripides",
+      "title": "Heracles",
+      "era": "heroic-households",
+      "placeIds": ["greek-courtyard"],
+      "premise": "A household needs protection from tyranny and support after destructive divine interference.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-heracles"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Heracles",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-trojan-women",
+      "author": "Euripides",
+      "title": "Trojan Women",
+      "era": "trojan-aftermath",
+      "placeIds": ["greek-troy"],
+      "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-trojan-women"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Trojan Women",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-iphigenia-in-tauris",
+      "author": "Euripides",
+      "title": "Iphigenia in Tauris",
+      "era": "homecomings",
+      "placeIds": ["greek-tauris"],
+      "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-in-tauris"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Iphigenia in Tauris",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-ion",
+      "author": "Euripides",
+      "title": "Ion",
+      "era": "heroic-households",
+      "placeIds": ["greek-delphi"],
+      "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-ion"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Ion",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-helen",
+      "author": "Euripides",
+      "title": "Helen",
+      "era": "homecomings",
+      "placeIds": ["greek-egypt-tomb"],
+      "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
+      "status": "branching-episode",
+      "hookChoiceIds": ["greek-inquire-euripides-helen"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Helen",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-helen-account",
+        "value": "egypt"
+      }
+    },
+    {
+      "id": "euripides-phoenician-women",
+      "author": "Euripides",
+      "title": "Phoenician Women",
+      "era": "theban-war",
+      "placeIds": ["greek-palace"],
+      "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Phoenician Women",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-orestes",
+      "author": "Euripides",
+      "title": "Orestes",
+      "era": "homecomings",
+      "placeIds": ["greek-argos-palace"],
+      "premise": "A household facing judgment after matricide considers further desperate action.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-orestes"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Orestes",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      },
+      "branch": {
+        "key": "greek-atreid-account",
+        "value": "aeschylus"
+      }
+    },
+    {
+      "id": "euripides-bacchae",
+      "author": "Euripides",
+      "title": "Bacchae",
+      "era": "early-thebes",
+      "placeIds": ["greek-cithaeron"],
+      "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Bacchae",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-iphigenia-at-aulis",
+      "author": "Euripides",
+      "title": "Iphigenia at Aulis",
+      "era": "trojan-departure",
+      "placeIds": ["greek-aulis"],
+      "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-at-aulis"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Iphigenia at Aulis",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-rhesus",
+      "author": "Euripides",
+      "title": "Rhesus",
+      "era": "trojan-war",
+      "placeIds": ["greek-trojan-camp"],
+      "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-rhesus"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Rhesus",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "euripides-cyclops",
+      "author": "Euripides",
+      "title": "Cyclops",
+      "era": "homecomings",
+      "placeIds": ["greek-sicily"],
+      "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Euripides",
+        "work": "Cyclops",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-acharnians",
+      "author": "Aristophanes",
+      "title": "Acharnians",
+      "era": "civic-athens",
+      "placeIds": ["greek-acharnae"],
+      "premise": "A farmer's separate peace creates a market inside a community still at war.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-acharnians"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Acharnians",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-knights",
+      "author": "Aristophanes",
+      "title": "Knights",
+      "era": "civic-athens",
+      "placeIds": ["greek-demos-house"],
+      "premise": "Rival household servants compete to flatter and exploit the person who holds political power.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-knights"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Knights",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-clouds",
+      "author": "Aristophanes",
+      "title": "Clouds",
+      "era": "civic-athens",
+      "placeIds": ["greek-thinkery"],
+      "premise": "A debtor seeks an education that may overturn the balance of authority in his own family.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-clouds"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Clouds",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-wasps",
+      "author": "Aristophanes",
+      "title": "Wasps",
+      "era": "civic-athens",
+      "placeIds": ["greek-jury-house"],
+      "premise": "A juror's pleasure and income collide with his household's attempt to restrain him.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-wasps"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Wasps",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-peace",
+      "author": "Aristophanes",
+      "title": "Peace",
+      "era": "civic-athens",
+      "placeIds": ["greek-divine-heights"],
+      "premise": "A farmer seeks peace while trades built on war face losing their customers.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Peace",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-birds",
+      "author": "Aristophanes",
+      "title": "Birds",
+      "era": "civic-athens",
+      "placeIds": ["greek-bird-wilderness"],
+      "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Birds",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-lysistrata",
+      "author": "Aristophanes",
+      "title": "Lysistrata",
+      "era": "civic-athens",
+      "placeIds": ["greek-acropolis"],
+      "premise": "A coalition uses control of the treasury and intimacy to put pressure on the war.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-lysistrata"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Lysistrata",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-women-at-the-thesmophoria",
+      "author": "Aristophanes",
+      "title": "Women at the Thesmophoria",
+      "era": "civic-athens",
+      "placeIds": ["greek-festival"],
+      "premise": "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-women-at-the-thesmophoria"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Women at the Thesmophoria",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-frogs",
+      "author": "Aristophanes",
+      "title": "Frogs",
+      "era": "civic-athens",
+      "placeIds": ["greek-underworld"],
+      "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Frogs",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-assemblywomen",
+      "author": "Aristophanes",
+      "title": "Assemblywomen",
+      "era": "civic-athens",
+      "placeIds": ["greek-assembly"],
+      "premise": "A political takeover promises shared property and leaves households to work through its consequences.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-assemblywomen"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Assemblywomen",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    },
+    {
+      "id": "aristophanes-wealth",
+      "author": "Aristophanes",
+      "title": "Wealth",
+      "era": "civic-athens",
+      "placeIds": ["greek-attic-farm"],
+      "premise": "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
+      "status": "situated-hook",
+      "hookChoiceIds": ["greek-inquire-aristophanes-wealth"],
+      "source": {
+        "catalogue": "https://greekdrama.johnhboyer.com/",
+        "author": "Aristophanes",
+        "work": "Wealth",
+        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+      }
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://greekdrama.johnhboyer.com/",
+      "name": "The Greek Drama Reader",
+      "use": "44-work inventory and author/title identities"
+    },
+    {
+      "url": "https://classics.mit.edu/Sophocles/antigone.html",
+      "name": "Sophocles, Antigone",
+      "use": "Underlying burial conflict; original adaptation prose"
+    },
+    {
+      "url": "https://classics.mit.edu/Euripides/helen.html",
+      "name": "Euripides, Helen",
+      "use": "Egyptian account and phantom premise; original adaptation prose"
+    }
+  ],
+  "fixtures": {},
+  "release": {
+    "places": [
+      "greek-harbor",
+      "greek-courtyard",
+      "greek-well",
+      "greek-gate",
+      "greek-battlefield",
+      "greek-palace",
+      "greek-sanctuary"
+    ],
+    "avatars": [
+      "greek-antigone",
+      "greek-ismene",
+      "greek-creon",
+      "greek-guard",
+      "greek-baker",
+      "greek-elder",
+      "greek-shipmaster"
+    ],
+    "items": [
+      "greek-water-jar",
+      "greek-bread",
+      "greek-funeral-cloth",
+      "greek-oil-flask",
+      "greek-shovel",
+      "greek-decree",
+      "greek-household-token",
+      "greek-provisions"
+    ],
+    "choices": [
+      "greek-return-water-jar",
+      "greek-hear-decree",
+      "greek-gather-witness",
+      "greek-prepare-burial-ground",
+      "greek-perform-burial",
+      "greek-petition-burial",
+      "greek-prepare-permitted-burial",
+      "greek-perform-permitted-burial",
+      "greek-decline-burial",
+      "greek-report-plan",
+      "greek-courtyard-burial",
+      "greek-courtyard-concession",
+      "greek-courtyard-refusal",
+      "greek-courtyard-exposure"
+    ]
+  }
+}

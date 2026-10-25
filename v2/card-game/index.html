@@ -16,7 +16,7 @@
     <header class="topbar">
       <div class="brand">COSYWORLD <span>The reflected shore</span></div>
       <div class="top-actions">
-        <span id="turn">Turn 0</span><button id="history-button">History</button
+        <button id="history-button">Conversation</button
         ><button id="menu-button">Menu</button>
       </div>
     </header>
@@ -29,7 +29,6 @@
              stays for screen readers. -->
         <div class="sr-only">
           <h1 id="place-title"></h1>
-          <p id="path-state"></p>
         </div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
         <div id="travel" class="travel" aria-hidden="true">
@@ -83,12 +82,6 @@
         </section>
       </section>
       <section class="play-dock" aria-label="Card hand">
-        <p id="hand-tip" class="hand-tip" aria-live="polite" hidden>
-          <span id="hand-tip-text"></span>
-          <button id="hand-tip-close" type="button" aria-label="Dismiss tip">
-            ×
-          </button>
-        </p>
         <div class="hand-wrap">
           <button
             id="hand-prev"
@@ -113,98 +106,30 @@
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>
     </main>
-    <dialog id="unveil-dialog" class="unveil" aria-labelledby="unveil-eyebrow">
-      <p id="unveil-eyebrow" class="kicker"></p>
-      <div id="unveil-card" class="unveil-card"></div>
-      <p id="unveil-text" class="unveil-text"></p>
-      <button id="unveil-take" type="button">Add to hand</button>
-    </dialog>
     <dialog id="history-dialog">
       <div class="modal-heading">
         <h2>Conversation</h2>
         <button data-close="history-dialog">Close</button>
       </div>
       <div id="messages" class="messages"></div>
-      <button id="export-script">Save scene script</button>
-      <details id="inner-life-panel">
-        <summary>Inner life</summary>
-        <div id="inner-lives"></div>
-      </details>
+      <button id="export-script">Save conversation</button>
     </dialog>
     <dialog id="menu-dialog">
       <div class="modal-heading">
         <h2>The reflected shore</h2>
         <button data-close="menu-dialog">Close</button>
       </div>
-      <p>
-        Play cards to guide Vale. Pip and the keeper take a turn after each
-        play.
-      </p>
-      <p>
-        Tap a card to raise it. Tap a second card to combine them. Tap a raised
-        card to play. The card shows what will happen.
-      </p>
-      <p>
-        You can also drag a card or raised pair into the scene. Drag one card
-        onto another to form a pair. Tap the scene or press Escape to lower your
-        cards.
-      </p>
-      <p>
-        A card you meet for the first time is shown large, then joins your hand
-        marked new. A location card travels there; the scene darkens and names
-        the place before you arrive. The current location passes a turn. Pair a
-        carried item with the current location to put it down, or with an avatar
-        to give it.
-      </p>
-      <p>
-        Each card play leaves memories. Avatars, items, and places remember what
-        happens around them. Their words grow from those memories after a play.
-      </p>
-      <p>
-        Pair an avatar with another location to ask them to accompany Vale. Tap
-        either raised card to play the request. Their tastes, current interests,
-        and remembered grievances shape their answer. An agreement takes both
-        avatars and their items along that path. Each request takes one turn.
-      </p>
-      <p>
-        Oil flask + Lamp adds fuel. Black cloth + Lamp blocks light. Black cloth
-        + Bell muffles sound. Play an avatar card to hear what they want.
-      </p>
-      <p>
-        Personal quests show items to use, a place, and company to seek. A
-        friendly companion beside you can keep a shared quest item. Pair a
-        shared Lamp or Bell with your current place to use it there. Oil flask
-        and Lamp can also be used together while their owners are beside you.
-        Delivery steps name who should hold it. Completing a quest earns a
-        level, followed by three quiet turns to enjoy the result. Then talks,
-        useful gifts, trades, lamp care, and shared journeys fill Inspiration.
-        Five points unlock the next quest. Each person can earn two points per
-        turn; the same exchange can earn points again after six turns. Their
-        lasting hope and recent experiences shape new quests. Useful gifts,
-        shared lamp care, and warm conversations can also reach hope milestones.
-        Read each person's next step and earned milestones below.
-      </p>
-      <p>
-        Pair one of your items with an item held by another avatar to trade.
-        Their tastes and feelings about you shape the price. The card shows both
-        sides of the exchange. Pair an item with an avatar to give it as a gift.
-      </p>
-      <p>
-        The cast remembers noise, spoiled light, threats, and gifts. A useful
-        gift can soften a grievance. Read their cards for the current mood.
-        Gifts and favourite items give people a reason to keep their belongings.
-        A shared moment gives them three turns to enjoy each other's company.
-      </p>
-      <p>
-        Tap a speaking line to reveal it. Tap again to continue. Each exchange
-        also advances at a reading pace. The hand rests until the exchange
-        finishes. The arrows let you read earlier lines.
-      </p>
-      <p>
-        At Black pond, ring the uncovered Bell twice in a row to reach the Steam
-        Clock. A sounding bell at either end keeps the way back open; the
-        clearing card can ring the clock's own bell.
-      </p>
+      <details class="controls-help">
+        <summary>Controls</summary>
+        <p>
+          Select a card, or two together. Select a raised card again to act. You
+          can also drag them into the scene. Escape or the scene lowers them.
+        </p>
+        <p>
+          Arrow keys move between cards. Enter selects. Reading and selecting do
+          not advance the world.
+        </p>
+      </details>
       <button id="speech-sound" type="button" aria-pressed="true">
         Voice sounds: on
       </button>
@@ -216,8 +141,7 @@
         <input id="music-volume" type="range" min="0" max="100" value="30" />
       </div>
       <p id="music-status" class="music-status" aria-live="polite"></p>
-      <div id="quest-guide" aria-label="Quest programs"></div>
-      <p>Your game saves in this browser. History holds the scene script.</p>
+      <p>Your game saves in this browser. Conversation holds spoken lines.</p>
       <p id="table-slot" class="music-status" hidden></p>
       <button id="new-game">New game</button>
     </dialog>

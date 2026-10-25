@@ -53,17 +53,21 @@ for (const target of targets) {
       version,
       `${url}: version`,
     );
-    const expectedType = file.endsWith(".mp3")
-      ? "audio/mpeg"
-      : file.endsWith(".png")
-        ? "image/png"
-        : file.endsWith(".json")
-          ? "application/json"
-          : file.endsWith(".mjs")
-            ? "text/javascript"
-            : file.endsWith(".css")
-              ? "text/css"
-              : "text/html";
+    const expectedType = file.endsWith(".svg")
+      ? "image/svg+xml"
+      : file.endsWith(".webp")
+        ? "image/webp"
+        : file.endsWith(".mp3")
+          ? "audio/mpeg"
+          : file.endsWith(".png")
+            ? "image/png"
+            : file.endsWith(".json")
+              ? "application/json"
+              : file.endsWith(".mjs")
+                ? "text/javascript"
+                : file.endsWith(".css")
+                  ? "text/css"
+                  : "text/html";
     assert(
       response.headers.get("content-type")?.startsWith(expectedType),
       `${url}: content type`,

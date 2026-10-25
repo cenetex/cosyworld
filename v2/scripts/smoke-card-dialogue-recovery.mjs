@@ -106,6 +106,10 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=dialogue-recovery`,
     );
+    // Loading a quiet scene is silent. Explicit conversation requests words.
+    const person = page.locator('#hand [data-card="moth"]');
+    await person.click();
+    await person.click();
     await page.waitForFunction(() =>
       document
         .querySelector("#story-status")
@@ -133,10 +137,10 @@ try {
     assert.deepEqual(recovered.items, before.items);
     assert.deepEqual(recovered.actors, before.actors);
     assert.equal(await retry.isVisible(), false);
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 2/);
+    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 3/);
     // Invalid JSON content must fail visibly too, and a later play can recover.
     mode = "invalid";
-    const pond = page.locator('#hand [data-card="pond"]');
+    const pond = person;
     await pond.click();
     await pond.click();
     await page.waitForFunction(
@@ -151,10 +155,11 @@ try {
     );
     // Keep the existing history, without an extra status banner over the cast.
     assert.equal(await page.locator("#turn-receipt").count(), 0);
-    assert.match(
-      await page.$eval("#messages", (box) => box.textContent),
-      new RegExp(`Turn ${failed.turn}`),
+    assert.equal(
+      failed.log.some((e) => e.turn === failed.turn && e.kind === "action"),
+      true,
     );
+    assert.doesNotMatch(await page.locator("#messages").innerText(), /Turn \d/);
     // Slow words release the hand rather than holding it.
     mode = "hang";
     await pond.click();
@@ -165,19 +170,21 @@ try {
       { timeout: 6000 },
     );
     assert.equal((await state()).turn, before.turn + 2);
-    assert.match(
-      await page.$eval("#messages", (box) => box.textContent),
-      new RegExp(`Turn ${before.turn + 2}`),
+    assert.equal(
+      (await state()).log.some(
+        (e) => e.turn === before.turn + 2 && e.kind === "action",
+      ),
+      true,
     );
     mode = "ready";
     await pond.click();
     await pond.click();
     await ready();
     assert.equal((await state()).turn, before.turn + 3);
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 5/);
+    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 6/);
     await page.reload();
     await ready();
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 5/);
+    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 6/);
     assert.deepEqual(errors, []);
     console.log(
       `Visible failure, same-turn retry, later play and reload passed at ${width}px.`,

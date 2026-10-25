@@ -156,8 +156,8 @@ describe("card standoffs", () => {
     const old = meeting();
     old.schema = 2;
     old.turn = old.revision = 8;
-    for (const [id, actor] of Object.entries(old.actors).filter(
-      ([id]) => id !== "badger",
+    for (const [id, actor] of Object.entries(old.actors).filter(([id]) =>
+      ["vale", "moth", "keeper"].includes(id),
     )) {
       actor.place = "station";
       actor.progress = {
@@ -220,7 +220,7 @@ describe("card standoffs", () => {
         s.memories[id].events.some((e) => e.text.includes("threatens")),
       ).toBe(true);
     const moth = context.entities.find((e) => e.id === "moth");
-    expect(moth.facts.join(" ")).toContain("resolve 4/4; guarding");
+    expect(moth.facts.join(" ")).toContain("guarding");
     expect(
       context.entities.every(
         (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),

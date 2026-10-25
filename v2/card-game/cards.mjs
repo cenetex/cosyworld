@@ -1,5 +1,6 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
+import { entityActive, packThings } from "./pack-registry.mjs";
 import {
   places,
   people,
@@ -18,14 +19,17 @@ export function availableCards(world) {
   return [
     "vale",
     ...Object.keys(things)
-      .filter((id) => itemPlace(world, id) === here)
+      .filter((id) => entityActive(world, id) && itemPlace(world, id) === here)
       .sort(
         (a, b) =>
           Number(rootHolder(world, b) === "vale") -
           Number(rootHolder(world, a) === "vale"),
       ),
     ...Object.keys(people).filter(
-      (id) => id !== "vale" && world.actors[id].place === here,
+      (id) =>
+        id !== "vale" &&
+        entityActive(world, id) &&
+        world.actors[id].place === here,
     ),
     ...exits(world, here, "vale"),
     here,
@@ -49,6 +53,12 @@ export function avatarPlays(world, id) {
         ["talk", "wait", "threaten", "guard", "attack"].indexOf(a.kind) -
         ["talk", "wait", "threaten", "guard", "attack"].indexOf(b.kind),
     );
+}
+export function cardChoices(world, id) {
+  if (!availableCards(world).includes(id)) return [];
+  return legalActions(world).filter(
+    (a) => a.target === id && (a.kind === "choose" || Boolean(a.fixture)),
+  );
 }
 
 // A place card offers the plays its fixtures make there (ringing a clock).
@@ -117,9 +127,11 @@ export function cardPlay(world, selected) {
       );
     return result(
       null,
-      id === "oil"
-        ? "Pair with the Lamp to pour oil."
-        : "Pair with the Lamp or Bell to cover it.",
+      packThings[id]
+        ? "Pair with a person to give it, or this place to put it down."
+        : id === "oil"
+          ? "Pair with the Lamp to pour oil."
+          : "Pair with the Lamp or Bell to cover it.",
     );
   }
   const item = cards.find((id) => things[id]);
@@ -215,4 +227,32 @@ export function playLabel(action) {
     talk: "Talk",
     wait: "Stay here",
   }[action?.kind];
+}
+
+export function cardObservation(world, id) {
+  const item = world.items[id];
+  if (item) {
+    const observations = [];
+    if (typeof item.lit === "boolean")
+      observations.push(item.lit ? "Lit" : "Unlit");
+    if (typeof item.ringing === "number")
+      observations.push(
+        item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
+      );
+    const cover = Object.keys(world.items).find(
+      (other) => world.items[other].holder === id,
+    );
+    if (cover) observations.push(`Covered by ${nameOf(cover)}`);
+    observations.push(
+      things[item.holder]
+        ? `On ${nameOf(item.holder)}`
+        : people[rootHolder(world, id)]
+          ? `Carried by ${nameOf(rootHolder(world, id))}`
+          : "Resting here",
+    );
+    return observations.join(". ") + ".";
+  }
+  if (world.actors[id])
+    return world.actors[id].awake === false ? "Asleep." : "Here.";
+  return id === world.actors.vale.place ? "Here." : "A way onward.";
 }
