@@ -111,6 +111,31 @@ try {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
+const SEEN_KEY = `${SAVE_KEY}.seen`;
+let encountered = new Set(),
+  discoveryDone = Promise.resolve(),
+  discoveryPending = false;
+const fresh = new Set();
+function rememberCards() {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
+  } catch {}
+}
+function loadSeen(reset = false) {
+  let saved = [];
+  try {
+    saved = reset ? [] : JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+  } catch {}
+  encountered = new Set([
+    ...(Array.isArray(saved)
+      ? saved.filter((id) => people[id] || things[id] || places[id])
+      : []),
+    ...availableCards(world),
+  ]);
+  fresh.clear();
+  rememberCards();
+}
+loadSeen();
 function save() {
   if (saveBlocked) return;
   try {
@@ -163,7 +188,7 @@ const completedSpeech = new Set();
 const entrances = new Map();
 const exits = new Map();
 let shownSceneLine = null;
-async function prepareScene() {
+async function prepareStage() {
   await travelShown;
   await waitForScene(
     [
@@ -175,6 +200,10 @@ async function prepareScene() {
     ],
     10000,
   );
+}
+async function prepareScene() {
+  await prepareStage();
+  await discoveryDone;
 }
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
@@ -222,7 +251,7 @@ const exchange = createExchange({
   },
   busy: (value) => {
     clearTimeout(handTimer);
-    cardsCooling = value;
+    cardsCooling = value || discoveryPending;
     updateCardCooldown();
     if (value && storyStatus === "pending")
       handTimer = setTimeout(releaseHand, HAND_WAIT);
@@ -341,6 +370,7 @@ function pauseSpeech() {
     else if (animation.playState === "paused") animation.play();
   }
   if (paused) speechSounds.stop();
+  else wakeDiscovery?.();
 }
 document.addEventListener("visibilitychange", pauseSpeech);
 document.addEventListener("pointerdown", () => speechSounds.unlock(), {
@@ -455,6 +485,7 @@ const narrator = createNarrator({
 $("story-retry").onclick = () => narrator.retry();
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
+  fresh.delete(id);
   selected = selected.includes(id)
     ? selected.filter((cardId) => cardId !== id)
     : selected.length >= 2
@@ -543,6 +574,7 @@ function commitAction(action, revision) {
   else {
     render();
   }
+  discoveryDone = unveilNew();
   if (speak) narrator.changed(action);
   else {
     const version = trip;
@@ -567,6 +599,7 @@ let covering = false,
   revealTravel = () => {};
 function cancelTravel() {
   trip++;
+  cancelDiscovery();
   covering = false;
   revealTravel();
   travelShown = Promise.resolve();
@@ -621,6 +654,179 @@ async function travel(place, arrive, landed) {
   if (mine !== trip) return;
   revealTravel();
   landed();
+}
+
+let discoveryTimer = null,
+  discoveryDue = 0,
+  discoveryRemaining = 0;
+let endDiscovery = null,
+  wakeDiscovery = null,
+  discoveryFlying = false;
+function cancelDiscovery() {
+  discoveryPending = false;
+  wakeDiscovery?.();
+  wakeDiscovery = null;
+  clearTimeout(discoveryTimer);
+  discoveryTimer = null;
+  discoveryRemaining = 0;
+  for (const animation of $("unveil-take").getAnimations()) animation.cancel();
+  $("unveil-dialog").close();
+  $("unveil-take").replaceChildren();
+  endDiscovery?.();
+  endDiscovery = null;
+  discoveryFlying = false;
+}
+function armDiscovery(delay) {
+  clearTimeout(discoveryTimer);
+  discoveryRemaining = delay;
+  discoveryDue = performance.now() + delay;
+  discoveryTimer = document.hidden ? null : setTimeout(takeDiscovered, delay);
+}
+function pauseDiscovery() {
+  if (!$("unveil-dialog").open) return;
+  if (document.hidden && discoveryTimer !== null) {
+    discoveryRemaining = Math.max(0, discoveryDue - performance.now());
+    clearTimeout(discoveryTimer);
+    discoveryTimer = null;
+  } else if (!document.hidden && !discoveryFlying)
+    armDiscovery(discoveryRemaining);
+  for (const animation of $("unveil-take").getAnimations()) {
+    if (document.hidden) animation.pause();
+    else if (animation.playState === "paused") animation.play();
+  }
+}
+document.addEventListener("visibilitychange", pauseDiscovery);
+async function takeDiscovered() {
+  if (!endDiscovery || discoveryFlying) return;
+  clearTimeout(discoveryTimer);
+  discoveryTimer = null;
+  discoveryFlying = true;
+  const version = trip,
+    done = endDiscovery;
+  const dialog = $("unveil-dialog"),
+    shown = $("unveil-take");
+  const id = shown.dataset.card;
+  let target = $("hand").querySelector(`[data-card="${id}"]`);
+  if (target?.closest(".card-frame").hidden) {
+    target = $("hand").querySelector(`[data-card="${rootHolder(world, id)}"]`);
+  }
+  if (target && !reducedMotion.matches) {
+    const hand = $("hand"),
+      visible = hand.getBoundingClientRect(),
+      cardBounds = target.getBoundingClientRect();
+    const left =
+      cardBounds.left < visible.left
+        ? cardBounds.left - visible.left
+        : cardBounds.right > visible.right
+          ? cardBounds.right - visible.right
+          : 0;
+    hand.scrollLeft += left;
+    const start = shown.getBoundingClientRect(),
+      end = target.getBoundingClientRect();
+    dialog.dataset.phase = "flight";
+    const animation = shown.animate(
+      [
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+        {
+          transform: `translate(${end.x - start.x}px, ${end.y - start.y}px) scale(${end.width / start.width}, ${end.height / start.height})`,
+          opacity: 0.65,
+        },
+      ],
+      { duration: 480, easing: "cubic-bezier(.3,.05,.4,1)", fill: "forwards" },
+    );
+    if (document.hidden) animation.pause();
+    await animation.finished.catch(() => {});
+    animation.cancel();
+  }
+  if (version !== trip || done !== endDiscovery) return;
+  dialog.close();
+  shown.replaceChildren();
+  endDiscovery = null;
+  discoveryFlying = false;
+  done();
+}
+$("unveil-take").onclick = takeDiscovered;
+$("unveil-dialog").addEventListener("click", (event) => {
+  if (event.target === $("unveil-dialog")) void takeDiscovered();
+});
+$("unveil-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  void takeDiscovered();
+});
+async function unveilNew() {
+  if (saveBlocked) return;
+  const rank = { avatar: 0, item: 1, location: 2 };
+  const found = availableCards(world)
+    .filter((id) => !encountered.has(id))
+    .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
+  if (!found.length) return;
+  for (const id of found) {
+    encountered.add(id);
+    fresh.add(id);
+  }
+  rememberCards();
+  discoveryPending = true;
+  cardsCooling = true;
+  renderedHand = "";
+  render();
+  const version = trip;
+  try {
+    await prepareStage();
+    for (const id of found) {
+      if (document.hidden || document.querySelector("dialog[open]")) {
+        await new Promise((resolve) => {
+          wakeDiscovery = resolve;
+        });
+        wakeDiscovery = null;
+      }
+      if (version !== trip) return;
+      const shown = card(id);
+      shown.hidden = false;
+      shown.removeAttribute("data-holder");
+      shown.dataset.raised = "false";
+      shown
+        .querySelectorAll(".held-preview, .sr-only")
+        .forEach((el) => el.remove());
+      const face = shown.querySelector(".card"),
+        display = node("span", undefined, face.className);
+      for (const attr of face.attributes)
+        if (attr.name.startsWith("data-"))
+          display.setAttribute(attr.name, attr.value);
+      display.append(...face.childNodes);
+      face.replaceWith(display);
+      await waitForScene(
+        [...shown.querySelectorAll("img")].map((img) => img.decode()),
+        1500,
+      );
+      if (version !== trip) return;
+      const dialog = $("unveil-dialog"),
+        button = $("unveil-take");
+      button.dataset.card = id;
+      button.setAttribute(
+        "aria-label",
+        `${nameOf(id)} discovered. Add to hand.`,
+      );
+      button.replaceChildren(shown);
+      dialog.dataset.phase = "reveal";
+      const finished = new Promise((resolve) => {
+        endDiscovery = resolve;
+      });
+      dialog.showModal();
+      $("discovery-announcement").textContent = `${nameOf(id)} discovered.`;
+      pauseSpeech();
+      armDiscovery(reducedMotion.matches ? 700 : 1400);
+      await finished;
+    }
+  } finally {
+    if (version === trip) {
+      discoveryPending = false;
+      if (!exchange.active) {
+        cardsCooling = false;
+        updateCardCooldown();
+        renderScene();
+      }
+    }
+  }
 }
 
 const figures = new Map();
@@ -721,6 +927,7 @@ function card(id) {
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
   el.type = "button";
+  el.classList.toggle("new", fresh.has(id));
   el.dataset.card = id;
   el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
@@ -1422,6 +1629,7 @@ $("confirm-reset").onclick = () => {
     questPrograms: true,
     personalQuests: true,
   });
+  loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
@@ -1449,6 +1657,7 @@ window.addEventListener("storage", (event) => {
       questPrograms: true,
       personalQuests: true,
     });
+    loadSeen();
     renderedHand = "";
     lineSeq = null;
     selected = [];

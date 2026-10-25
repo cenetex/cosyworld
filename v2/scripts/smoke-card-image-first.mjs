@@ -138,7 +138,7 @@ try {
       assert.equal(
         await page
           .locator(
-            ".card .state,.card .caption,.card .kind,.inspiration-meter,#quest-guide,#hand-tip,#unveil-dialog,#turn",
+            ".card .state,.card .caption,.card .kind,.inspiration-meter,#quest-guide,#hand-tip,#turn",
           )
           .count(),
         0,
