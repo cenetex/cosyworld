@@ -19,10 +19,11 @@ jobs:
           cache: npm
       - name: Apply presentation change to pinned gameplay head
         run: |
-          cp v2/scripts/review/{build-image-first.py,smoke-image-first.mjs} "$RUNNER_TEMP/"
+          cp v2/scripts/review/{build-image-first.py,smoke-image-first.mjs,finish-image-first.py} "$RUNNER_TEMP/"
           git checkout --detach 2b6c131ffb192689e7733fac258d11968f18d547
           python3 "$RUNNER_TEMP/build-image-first.py"
           cp "$RUNNER_TEMP/smoke-image-first.mjs" v2/scripts/smoke-card-image-first.mjs
+          python3 "$RUNNER_TEMP/finish-image-first.py"
           npm run version:bump
       - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Formatting, lint and source consistency
