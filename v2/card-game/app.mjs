@@ -9,9 +9,9 @@ import { createNarrator } from "./narrative.mjs";
 import {
   lifeOf,
   questActive,
-  hopes,
-  lifeFacts,
-  INSPIRATION_MAX,
+  hopeOf,
+  lifeLine,
+  purposeOrigin,
   keepReason,
 } from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
@@ -42,7 +42,10 @@ import {
   standoffFor,
   opponentOf,
   strikePower,
+  senses,
 } from "./world.mjs";
+import { isPackActor, packPlaces, packOf } from "./pack-registry.mjs";
+import { signalHint, variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
   sceneScript,
@@ -59,6 +62,7 @@ import {
   cardPlay,
   playLabel,
   avatarPlays,
+  placePlays,
 } from "./cards.mjs";
 import { LESSONS, nextLesson } from "./lessons.mjs";
 import {
@@ -478,16 +482,13 @@ const narrator = createNarrator({
 });
 $("story-retry").onclick = () => narrator.retry();
 function status(id) {
+  // An object the next step of a crossing's signal asks for says so.
+  const hint = signalHint(world, id, senses);
+  if (hint) return hint;
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
     return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
-  if (
-    id === "bell" &&
-    world.actors.vale.place === "pond" &&
-    world.steamClock.rings === 1
-  )
-    return "The Steam Clock answers. Ring again to find it.";
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
@@ -786,7 +787,7 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
+      type === "avatar" && !isPackActor(id) && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -826,15 +827,13 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world) || id === "badger") {
+    if (!hasQuestPrograms(world) || isPackActor(id)) {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
     const life = lifeOf(world, id);
     if (life && !questActive(world, id)) {
-      caption =
-        life.phase === "content" ? "Enjoying this moment" : "Finding a purpose";
-      detail = interest(world, id).text;
+      ({ caption, detail } = lifeLine(world, id));
     }
   } else {
     caption = id === world.actors.vale.place ? "Here" : "A path from here";
@@ -858,36 +857,15 @@ function card(id) {
       ),
     );
   if (type === "avatar" && lifeOf(world, id) && !questActive(world, id)) {
-    const life = lifeOf(world, id);
     info.replaceChildren(
-      node("span", interest(world, id).text, "hand-condition"),
+      node("span", lifeLine(world, id).detail, "hand-condition life-line"),
     );
-    const meter = node("progress", undefined, "inspiration-meter");
-    meter.max = INSPIRATION_MAX;
-    meter.value = life.inspiration;
-    meter.setAttribute("aria-label", `${def.name} inspiration`);
-    info.append(
-      node(
-        "span",
-        `Inspiration ${life.inspiration}/${INSPIRATION_MAX}`,
-        "hand-condition",
-      ),
-      meter,
-    );
-    info.append(
-      node(
-        "span",
-        life.phase === "content"
-          ? world.turn >= life.restUntil
-            ? "Inspiration next turn"
-            : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
-          : "Talk · trade · help",
-        "trade-offers",
-      ),
-    );
+    // Heading to rest already names the place the avatar wants.
+    if (lifeOf(world, id).phase !== "returning")
+      info.append(node("span", interest(world, id).text, "hand-condition"));
   } else if (
     type === "avatar" &&
-    (!hasQuestPrograms(world) || id === "badger")
+    (!hasQuestPrograms(world) || isPackActor(id))
   ) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
@@ -928,9 +906,12 @@ function card(id) {
       info.append(line);
     };
     row(
-      "Hold",
+      world.life ? "Use" : "Hold",
       target.items.length
-        ? target.items.map((e) => ({ ...e, text: nameOf(e.id) }))
+        ? target.items.map((e) => ({
+            ...e,
+            text: `${nameOf(e.id)}${e.sharedBy ? ` · with ${nameOf(e.sharedBy)}` : ""}`,
+          }))
         : [{ met: true, text: "Any items" }],
     );
     row("At", [
@@ -973,16 +954,13 @@ function card(id) {
       );
   }
   if (type === "avatar" && lifeOf(world, id)) {
-    const life = lifeOf(world, id),
-      hope = hopes[id];
+    const hope = hopeOf(world, id),
+      next = hope.milestones[lifeOf(world, id).milestones.length];
+    info.append(node("span", `Hope: ${hope.title}`, "personal-hope"));
     info.append(
-      node(
-        "span",
-        `Hope ${life.milestones.length}/${hope.milestones.length} · Menu`,
-        "personal-hope",
-      ),
+      node("span", next ? next.title : "A hope fulfilled", "hope-next"),
     );
-    info.title = lifeFacts(world, id).join("\n");
+    info.title = `${hope.title}. Menu shows the milestones.`;
   }
   if (type === "item" && people[rootHolder(world, id)]) {
     const reason = keepReason(world, rootHolder(world, id), id);
@@ -991,6 +969,19 @@ function card(id) {
       info.append(node("span", reason, "item-attachment"));
       info.title = `${def.text} ${reason}`;
     }
+    if (
+      rootHolder(world, id) !== "vale" &&
+      ["light", "snuff", "ring"].includes(
+        cardPlay(world, [id, world.actors.vale.place]).action?.kind,
+      )
+    )
+      info.append(
+        node(
+          "span",
+          `Use here: pair with ${nameOf(world.actors.vale.place)}.`,
+          "item-attachment",
+        ),
+      );
   }
   el.append(info);
   const label = playLabel(chosen.action);
@@ -1050,7 +1041,12 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const plays = type === "avatar" ? avatarPlays(world, id) : [];
+  const plays =
+    type === "avatar"
+      ? avatarPlays(world, id)
+      : type === "location"
+        ? placePlays(world, id)
+        : [];
   if (plays.length && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
@@ -1075,37 +1071,43 @@ function card(id) {
   }
   return frame;
 }
-function renderClearing(locationId) {
-  const forest = locationId === "clearing";
-  document.body.dataset.world = forest ? "forest" : "shore";
-  document.querySelector(".brand span").textContent = forest
-    ? "The Steam Clock"
-    : "The reflected shore";
-  let picture = $("clearing-picture");
-  if (forest && !picture) {
-    picture = node("div", undefined, "clearing-picture");
-    picture.id = "clearing-picture";
-    const canvas = node("div", undefined, "clearing-canvas");
+// A pack place with a stage shows its resident as a sprite on the backdrop
+// instead of the shore's cast row. The pack's data places the sprite.
+function renderStage(locationId) {
+  const pack = packOf(locationId);
+  const stage = packPlaces[locationId]?.stage;
+  document.body.dataset.world = pack?.id || "shore";
+  document.body.dataset.stage = stage ? "resident" : "cast";
+  document.querySelector(".brand span").textContent =
+    pack?.name || "The reflected shore";
+  let picture = $("stage-picture");
+  if (stage && picture?.dataset.place !== locationId) {
+    picture?.remove();
+    picture = node("div", undefined, "stage-picture");
+    picture.id = "stage-picture";
+    picture.dataset.place = locationId;
+    const canvas = node("div", undefined, "stage-canvas");
     const background = node("img", undefined, "backdrop");
-    background.src = backdrop("clearing");
-    background.alt =
-      "The old Steam Clock stands on mossy stones in a sunlit clearing.";
-    const badger = node("img", undefined, "clearing-badger");
-    badger.id = "badger-sprite";
-    canvas.append(background, badger);
+    background.src = backdrop(locationId);
+    background.alt = stage.alt;
+    const sprite = node("img", undefined, "stage-resident");
+    sprite.id = "resident-sprite";
+    sprite.dataset.resident = stage.resident;
+    sprite.style.setProperty("--sprite-left", `${stage.sprite.left}%`);
+    sprite.style.setProperty("--sprite-top", `${stage.sprite.top}%`);
+    sprite.style.setProperty("--sprite-width", `${stage.sprite.width}%`);
+    canvas.append(background, sprite);
     picture.append(canvas);
     $("stage").prepend(picture);
   }
-  if (picture) picture.hidden = !forest;
-  $("backdrop").hidden = forest;
-  if (forest) {
-    $("badger-sprite").src = portrait("badger", null, world);
-    $("badger-sprite").dataset.state = world.actors.badger.awake
-      ? "grumpy"
-      : "sleeping";
-    $("badger-sprite").alt = world.actors.badger.awake
-      ? "Grumpy Badger, awake and looking put out."
-      : "Grumpy Badger asleep beside the clock.";
+  if (picture) picture.hidden = !stage;
+  $("backdrop").hidden = Boolean(stage);
+  if (stage) {
+    const sprite = $("resident-sprite");
+    const mood = variantOf(world, stage.resident);
+    sprite.src = portrait(stage.resident, null, world);
+    sprite.dataset.state = mood?.name || "present";
+    sprite.alt = mood?.alt || nameOf(stage.resident);
   }
 }
 function renderScene() {
@@ -1114,7 +1116,7 @@ function renderScene() {
     hold: exchange.preparing,
     review: reviewing,
   });
-  renderClearing(scene.locationId);
+  renderStage(scene.locationId);
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -1528,13 +1530,16 @@ $("menu-button").onclick = () => {
         .map((id) => {
           const block = node("section", undefined, "quest-guide-program");
           const life = lifeOf(world, id),
-            hope = hopes[id],
+            hope = hopeOf(world, id),
             program = programFor(world, id);
           block.append(node("h3", `${nameOf(id)} · ${hope.title}`));
           block.append(
             node(
               "p",
-              `Inspiration ${life.inspiration}/${INSPIRATION_MAX} · ${life.phase === "active" ? "Personal quest active" : life.phase === "content" ? "Enjoying the result" : "Finding a purpose"}`,
+              lifeLine(world, id)?.detail ||
+                (purposeOrigin(world, id)
+                  ? `Pursuing a personal quest. It began with ${purposeOrigin(world, id)}.`
+                  : "Pursuing a personal quest."),
             ),
           );
           const milestones = node("ol");
@@ -1542,7 +1547,7 @@ $("menu-button").onclick = () => {
             milestones.append(
               node(
                 "li",
-                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}`,
+                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}${i < life.milestones.length ? ` · turn ${life.milestones[i]}` : ""}`,
               ),
             ),
           );
@@ -1555,14 +1560,20 @@ $("menu-button").onclick = () => {
               steps.append(
                 node(
                   "li",
-                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(step).map(handText).join(" OR ")}`,
+                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(
+                    step,
+                  )
+                    .map((h) => handText(h).replace(/^hold /u, "use "))
+                    .join(" OR ")}`,
                 ),
               ),
             );
             block.append(steps);
           }
-          for (const fact of lifeFacts(world, id).slice(3))
-            block.append(node("p", fact));
+          for (const item of Object.keys(world.items)) {
+            const reason = keepReason(world, id, item);
+            if (reason) block.append(node("p", `${nameOf(item)}: ${reason}`));
+          }
           return block;
         }),
     );
@@ -1607,7 +1618,7 @@ $("menu-button").onclick = () => {
           ]
         : []),
       ...knownActors(world)
-        .filter((id) => id !== "vale" && id !== "badger")
+        .filter((id) => id !== "vale" && !isPackActor(id))
         .map((actor) => ({
           actor,
           program: programFor(world, actor),

@@ -108,8 +108,31 @@ fn admit(limits: &mut RateLimiter, client: IpAddr, now: Instant) -> bool {
 fn profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
     PROFILES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
-            .expect("embedded entity profiles")
+        let mut profiles: Value =
+            serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
+                .expect("embedded entity profiles");
+        // World packs mounted on the table add their places and residents. The
+        // browser reads the same compiled file, so ids and voices agree.
+        let packs: Value = serde_json::from_str(include_str!("../../card-game/packs.json"))
+            .expect("embedded card world packs");
+        let map = profiles.as_object_mut().expect("profiles");
+        for pack in packs["packs"].as_array().expect("pack list") {
+            for (collection, kind) in [("places", "location"), ("avatars", "avatar")] {
+                for (id, entity) in pack[collection].as_object().expect("pack entities") {
+                    let profile = json!({
+                        "kind": kind,
+                        "name": entity["name"],
+                        "idiolect": entity["idiolect"],
+                        "lines": entity["lines"],
+                    });
+                    assert!(
+                        map.insert(id.clone(), profile).is_none(),
+                        "duplicate card profile {id}"
+                    );
+                }
+            }
+        }
+        profiles
     })
 }
 fn kind(id: &str, expected: &str) -> bool {
@@ -1238,14 +1261,18 @@ async fn speak(
             response_format: None,
             room_id: None,
         };
-        let Ok(completion) = request_chat_completion(&config, request).await else {
-            tracing::info!(
-                feature = "card_voice",
-                entity = id,
-                reason = "provider",
-                "card voice rejected"
-            );
-            continue;
+        let completion = match request_chat_completion(&config, request).await {
+            Ok(completion) => completion,
+            Err(error) => {
+                tracing::info!(
+                    feature = "card_voice",
+                    entity = id,
+                    reason = "provider",
+                    failure = error.code(),
+                    "card voice rejected"
+                );
+                continue;
+            }
         };
         match check.clean(&completion.text, completion.finish_reason != "length") {
             Ok(text) => return Ok((text, completion.resolved_model_id)),
