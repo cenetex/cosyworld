@@ -272,6 +272,13 @@ main {
   align-items: center;
   gap: 12px;
 }
+.movement-caption {
+  margin: 0 0 6px;
+  color: #d8cbb3;
+  font:
+    13px/1.4 Georgia,
+    serif;
+}
 #speaker {
   color: var(--gold);
   font-family: Georgia, serif;

@@ -284,10 +284,10 @@ export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
   s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  // Each departure needs light at that end of the mirror.
+  // Light at either end opens the mirror in both directions.
   ["attic", "pond"].includes(from) &&
   shining(s) &&
-  itemPlace(s, "lamp") === from;
+  ["attic", "pond"].includes(itemPlace(s, "lamp"));
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>

@@ -26,6 +26,7 @@ import {
   currentScene,
   sceneCast,
   sceneChanges,
+  movementCaption,
   sceneStaging,
   portrait,
   backdrop,
@@ -142,10 +143,18 @@ let storyStatus = "ready",
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
 let handTimer = null;
-function releaseHand() {
+async function releaseHand() {
   // A slow request can be replaced by a new play. Ready dialogue owns the
   // hand through scene preparation and the last speaker's reading pause.
-  if (!cardsCooling || storyStatus !== "pending" || !exchange.preparing) return;
+  const version = trip;
+  await prepareScene();
+  if (
+    version !== trip ||
+    !cardsCooling ||
+    storyStatus !== "pending" ||
+    !exchange.preparing
+  )
+    return;
   cardsCooling = false;
   updateCardCooldown();
   renderScene();
@@ -153,6 +162,18 @@ function releaseHand() {
 const completedSpeech = new Set();
 const entrances = new Map();
 let shownSceneLine = null;
+async function prepareScene() {
+  await travelShown;
+  await waitForScene(
+    [
+      ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
+        image.decode(),
+      ),
+      ...entrances.values(),
+    ],
+    10000,
+  );
+}
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(cardsCooling));
@@ -162,16 +183,7 @@ function updateCardCooldown() {
   }
 }
 const exchange = createExchange({
-  prepare: () =>
-    waitForScene(
-      [
-        ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
-          image.decode(),
-        ),
-        ...entrances.values(),
-      ],
-      10000,
-    ),
+  prepare: prepareScene,
   show: (line) => {
     pendingCast = null;
     pendingSpeaker = null;
@@ -443,6 +455,7 @@ function commitAction(action, revision) {
   }
   reveal.finish();
   speechSounds.stop();
+  cancelTravel();
   // Manipulating an object needs no automatic speech or tutorial recap.
   const speak = [
     "talk",
@@ -503,7 +516,24 @@ const TRAVEL_COVER = 400,
   TRAVEL_HOLD = 700,
   TRAVEL_WAIT = 4000;
 let covering = false,
-  trip = 0;
+  trip = 0,
+  travelShown = Promise.resolve(),
+  revealTravel = () => {};
+function cancelTravel() {
+  trip++;
+  covering = false;
+  revealTravel();
+  travelShown = Promise.resolve();
+  $("travel").classList.remove("travelling");
+  for (const figure of $("cast").children) {
+    figure.classList.remove("entering");
+    for (const animation of figure
+      .querySelector(".portrait-body")
+      .getAnimations())
+      animation.cancel();
+  }
+  entrances.clear();
+}
 // Cards met at the new place are unveiled once the veil has fully lifted.
 function travel(place, arrive, landed) {
   const veil = $("travel");
@@ -514,6 +544,9 @@ function travel(place, arrive, landed) {
     return;
   }
   const mine = ++trip;
+  travelShown = new Promise((resolve) => {
+    revealTravel = resolve;
+  });
   covering = true;
   veil.classList.add("travelling");
   setTimeout(async () => {
@@ -530,7 +563,11 @@ function travel(place, arrive, landed) {
     ]);
     if (mine !== trip) return;
     veil.classList.remove("travelling");
-    setTimeout(() => mine === trip && landed(), TRAVEL_COVER);
+    setTimeout(() => {
+      if (mine !== trip) return;
+      revealTravel();
+      landed();
+    }, TRAVEL_COVER);
   }, TRAVEL_COVER);
 }
 
@@ -800,6 +837,8 @@ function renderStage(locationId) {
   }
 }
 function renderScene() {
+  // Every path to this renderer keeps the source visible until the veil covers it.
+  if (covering) return;
   const scene = currentScene(world, null, {
     seq: lineSeq,
     hold: exchange.preparing,
@@ -888,7 +927,7 @@ function renderScene() {
     figure.setAttribute("aria-hidden", String(left));
     const arrivalKey =
       actor.movement?.kind === "arrive"
-        ? `${world.turn}:${scene.locationId}`
+        ? `${trip}:${world.turn}:${scene.locationId}`
         : "";
     const entering =
       arrivalKey && figure.dataset.arrival !== arrivalKey && !reviewing;
@@ -896,23 +935,41 @@ function renderScene() {
     if (!arrivalKey) figure.classList.remove("entering");
     if (entering) {
       figure.classList.add("entering");
-      const task = waitForScene([image.decode()]).then(async () => {
-        if (!figure.isConnected || figure.dataset.arrival !== arrivalKey)
-          return;
-        figure.classList.remove("entering");
-        if (!reducedMotion.matches) {
-          await figure
-            .querySelector(".portrait-body")
-            .animate(
-              [
-                { opacity: 0, translate: actor.x < 50 ? "-24px 0" : "24px 0" },
-                { opacity: 1, translate: "0 0" },
-              ],
-              { duration: 420, easing: "ease-out" },
-            )
-            .finished.catch(() => {});
-        }
-      });
+      const version = trip;
+      const task = waitForScene([travelShown, image.decode()]).then(
+        async () => {
+          if (
+            version !== trip ||
+            !figure.isConnected ||
+            figure.dataset.arrival !== arrivalKey
+          )
+            return;
+          figure.classList.remove("entering");
+          if (!reducedMotion.matches) {
+            await figure
+              .querySelector(".portrait-body")
+              .animate(
+                [
+                  {
+                    opacity: 0,
+                    translate: actor.x < 50 ? "-24px 0" : "24px 0",
+                  },
+                  { opacity: 1, translate: "0 0" },
+                ],
+                {
+                  duration: 600,
+                  delay:
+                    id !== "vale" && !actor.movement.companions.includes("vale")
+                      ? index * 300
+                      : 0,
+                  fill: "backwards",
+                  easing: "ease-out",
+                },
+              )
+              .finished.catch(() => {});
+          }
+        },
+      );
       entrances.set(figure, task);
       void task.finally(() => {
         if (entrances.get(figure) === task) entrances.delete(figure);
@@ -955,6 +1012,9 @@ function renderScene() {
     : pendingSpeaker
       ? nameOf(pendingSpeaker)
       : "";
+  const movement = reviewing ? "" : movementCaption(world);
+  $("movement-caption").textContent = movement;
+  $("movement-caption").hidden = !movement;
   $("line-turn").textContent = "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
@@ -1217,6 +1277,7 @@ $("confirm-reset").onclick = () => {
     const previous = localStorage.getItem(SAVE_KEY);
     if (previous) localStorage.setItem(`${SAVE_KEY}.bak`, previous);
   } catch {}
+  cancelTravel();
   narrator.invalidate();
   exchange.cancel();
   departed.clear();
@@ -1240,6 +1301,7 @@ $("confirm-reset").onclick = () => {
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
+  cancelTravel();
   narrator.invalidate();
   exchange.cancel();
   departed.clear();

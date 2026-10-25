@@ -48,7 +48,7 @@ describe.each([true, false])("pond access (opening: %s)", (opening) => {
     },
   );
 
-  it.each(["station", "attic"])(
+  it.each(["station"])(
     "closes when the carrier leaves for %s and rejects stale choices",
     (destination) => {
       const s = pond(opening);
@@ -121,7 +121,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     },
   );
 
-  it.each(["unlit", "empty", "covered", "at the pond"])(
+  it.each(["unlit", "empty", "covered", "at the station"])(
     "closes with the lamp %s and checks saved and selected routes again",
     (condition) => {
       const s = attic();
@@ -141,7 +141,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
         s.items.lamp.fuel = 0;
       }
       if (condition === "covered") s.items.cloth.holder = "lamp";
-      if (condition === "at the pond") s.actors.moth.place = "pond";
+      if (condition === "at the station") s.actors.moth.place = "station";
       const before = encodeSave(s);
       expect(exits(s, "attic")).not.toContain("pond");
       expect(availableCards(s)).not.toContain("pond");
@@ -160,6 +160,31 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     },
   );
 });
+
+describe.each([true, false])(
+  "light on the far side (opening: %s)",
+  (opening) => {
+    it.each([
+      ["pond", "attic", "attic"],
+      ["pond", "attic", "moth"],
+      ["attic", "pond", "pond"],
+      ["attic", "pond", "moth"],
+    ])("opens %s to %s with the lamp held by %s", (from, to, holder) => {
+      const s = pond(opening);
+      s.actors.vale.place = from;
+      s.actors.moth.place = to;
+      s.items.lamp.holder = holder;
+      expect(itemPlace(s, "lamp")).toBe(to);
+      expect(exits(s, from)).toContain(to);
+      expect(exits(s, to)).toContain(from);
+      const restored = decodeSave(encodeSave(s));
+      expect(availableCards(restored)).toContain(to);
+      const result = play(restored, cardPlay(restored, [to]).action);
+      expect(result.ok).toBe(true);
+      expect(result.state.actors.vale.place).toBe(to);
+    });
+  },
+);
 
 it("removes entry after an autonomous carrier departure in the same completed turn", () => {
   const start = pond();
