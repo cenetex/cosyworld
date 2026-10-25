@@ -1,0 +1,95 @@
+name: Verify image-first cards
+on:
+  push:
+    branches: [work/image-first-cards-1141]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Apply presentation change to pinned gameplay head
+        run: |
+          cp v2/scripts/review/{build-image-first.py,smoke-image-first.mjs} "$RUNNER_TEMP/"
+          git checkout --detach 2b6c131ffb192689e7733fac258d11968f18d547
+          python3 "$RUNNER_TEMP/build-image-first.py"
+          cp "$RUNNER_TEMP/smoke-image-first.mjs" v2/scripts/smoke-card-image-first.mjs
+          npm run version:bump
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Formatting, lint and source consistency
+        run: |
+          git diff --name-only -- '*.mjs' '*.css' '*.html' | xargs npx prettier --write
+          npx prettier --write v2/scripts/smoke-card-image-first.mjs
+          git diff --check
+          npm run lint
+          npm run v2:card:pack:check
+      - name: Complete JavaScript regression suite
+        run: |
+          mkdir -p output/image-first
+          set -o pipefail
+          npm test 2>&1 | tee output/image-first/tests.txt
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Real desktop and phone playthroughs
+        run: |
+          node v2/scripts/smoke-card-image-first.mjs
+          node v2/scripts/smoke-card-pond-crossings.mjs
+          node v2/scripts/smoke-card-greek-drama.mjs
+          node v2/scripts/smoke-card-clearing-access.mjs
+          node v2/scripts/check-card-awakening.mjs
+          node v2/scripts/smoke-card-dialogue-recovery.mjs
+          node v2/scripts/smoke-card-music.mjs
+      - name: Export candidate source
+        run: |
+          git add v2/card-game test/card-crossings.test.mjs test/card-combat.test.mjs test/card-ship-ritual.test.mjs v2/orchestrator-rust/src/card_narrative.rs v2/scripts/smoke-card-*.mjs v2/scripts/check-card-awakening.mjs package.json package-lock.json v2/orchestrator-rust/Cargo.toml v2/orchestrator-rust/Cargo.lock
+          git diff --cached --check
+          git diff --cached --binary > "$RUNNER_TEMP/image-first.patch"
+          sha256sum "$RUNNER_TEMP/image-first.patch"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: image-first-evidence
+          path: |
+            output/image-first/
+            output/greek-drama-check/
+            output/pond-crossings-check/
+            output/badger-check/
+            output/dialogue-recovery/
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-first-patch
+          path: ${{ runner.temp }}/image-first.patch
+          retention-days: 7
+  candidate:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 2b6c131ffb192689e7733fac258d11968f18d547
+          fetch-depth: 1
+      - uses: actions/download-artifact@v8
+        with:
+          name: image-first-patch
+          path: ${{ runner.temp }}/candidate
+      - name: Publish only the verified candidate branch
+        run: |
+          git apply --check "$RUNNER_TEMP/candidate/image-first.patch"
+          git apply --index "$RUNNER_TEMP/candidate/image-first.patch"
+          git config user.name 'CosyWorld verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Make card illustrations primary and preserve mystery'
+          git push origin "HEAD:refs/heads/verified/image-first-${{ github.run_id }}"
+          git rev-parse HEAD
