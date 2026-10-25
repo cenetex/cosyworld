@@ -52,6 +52,7 @@ try {
     const page = await browser.newPage({
       viewport: { width, height },
       reducedMotion: "reduce",
+      hasTouch: width === 390,
     });
     page.setDefaultTimeout(10000);
     const errors = [],
@@ -111,7 +112,7 @@ try {
         await card(id).scrollIntoViewIfNeeded();
         await card(id).click();
       }
-      await card(ids.at(-1)).click();
+      await card(ids.at(-1)).locator("..").locator(".card-primary").click();
       await ready();
     }
     async function art() {
@@ -171,6 +172,46 @@ try {
           () => document.querySelector("#hand").scrollLeft > 0,
         );
       }
+      const tapCard = async (id) => {
+        await card(id).scrollIntoViewIfNeeded();
+        if (width === 390) await card(id).tap();
+        else await card(id).click();
+      };
+      // Either member of a pair can be lowered, with or without a play.
+      for (const ids of [
+        ["vale", "lamp"],
+        ["cloth", "lamp"],
+      ]) {
+        for (const lowered of ids) {
+          for (const id of ids) await tapCard(id);
+          assert.equal(
+            await page.locator(".card-primary").count(),
+            ids[0] === "vale" ? 0 : 2,
+          );
+          await tapCard(lowered);
+          assert.equal(
+            await card(lowered).getAttribute("aria-pressed"),
+            "false",
+          );
+          const remaining = ids.find((id) => id !== lowered);
+          assert.equal(
+            await card(remaining).getAttribute("aria-pressed"),
+            "true",
+          );
+          await tapCard(remaining);
+          assert.equal(
+            await card(remaining).getAttribute("aria-pressed"),
+            "false",
+          );
+          assert.equal(await page.locator(".card-options").count(), 0);
+          assert.deepEqual(
+            await state(),
+            old,
+            "card taps preserve the saved world",
+          );
+          assert.equal(requests.length, 0);
+        }
+      }
       await card("cloth").scrollIntoViewIfNeeded();
       await card("cloth").click();
       await card("lamp").scrollIntoViewIfNeeded();
@@ -196,6 +237,13 @@ try {
       );
       await page.keyboard.press("Enter");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
+      await page.keyboard.press("Enter");
+      assert.equal(await card("lamp").getAttribute("aria-pressed"), "false");
+      await page.keyboard.press("Space");
+      assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
+      await page.keyboard.press("Space");
+      assert.equal(await card("lamp").getAttribute("aria-pressed"), "false");
+      assert.deepEqual(await state(), old);
       await page.keyboard.press("Escape");
       const geometry = await card("lamp").evaluate((c) => ({
         card: c.getBoundingClientRect().height,

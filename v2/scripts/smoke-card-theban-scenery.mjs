@@ -107,7 +107,7 @@ try {
         await card(id).scrollIntoViewIfNeeded();
         await card(id).click();
       }
-      await card(ids.at(-1)).click();
+      await card(ids.at(-1)).locator("..").locator(".card-primary").click();
       await ready();
     }
     async function shot(name) {

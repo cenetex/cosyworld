@@ -2,8 +2,9 @@
 
 ## Image-first presentation
 
-Card faces contain the illustration and a small name. Selecting a card or
-pair reveals its immediate action. Additional authored decisions and social
+Card faces contain the illustration and a small name. Tapping a card toggles
+its selection. Selecting a card or pair reveals its immediate action; tapping
+the action button below plays it. Additional authored decisions and social
 actions sit under the selected card's more-actions button. Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 
@@ -214,7 +215,7 @@ The cast guards, responds to attacks, or leaves. Threats, hits, releases, and re
 
 ## Accompany requests
 
-Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap either raised card, or drag the pair into the scene, to play the request. Pairing Vale with a location travels there directly. Pairing a carried item with the current place puts it down; pairing a lamp or bell lying here with the current place lights, puts out or rings it where it lies.
+Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap the Accompany button beneath either raised card to play the request. Pairing Vale with a location offers travel there. Pairing a carried item with the current place offers to put it down; pairing a lamp or bell lying here with the current place offers to light, put out or ring it where it lies.
 
 The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play.
 

@@ -408,11 +408,11 @@ const narrator = createNarrator({
 $("story-retry").onclick = () => narrator.retry();
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
-  if (selected.includes(id)) {
-    commit(selected, selectionRevision);
-    return;
-  }
-  selected = selected.length >= 2 ? [id] : [...selected, id];
+  selected = selected.includes(id)
+    ? selected.filter((cardId) => cardId !== id)
+    : selected.length >= 2
+      ? [id]
+      : [...selected, id];
   selectionRevision = world.revision;
   render();
   $("hand")

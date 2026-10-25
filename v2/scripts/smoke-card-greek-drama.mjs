@@ -126,7 +126,7 @@ try {
       await ready();
       await card(id).scrollIntoViewIfNeeded();
       await card(id).click();
-      await card(id).click();
+      await card(id).locator("..").locator(".card-primary").click();
       await ready();
     };
     const pair = async (one, two) => {
@@ -135,7 +135,7 @@ try {
       await card(one).click();
       await card(two).scrollIntoViewIfNeeded();
       await card(two).click();
-      await card(two).click();
+      await card(two).locator("..").locator(".card-primary").click();
       await ready();
     };
     const signalShip = async () => {

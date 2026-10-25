@@ -98,9 +98,12 @@ try {
     );
     await card("attic").waitFor();
     await ready();
-    assert.equal(await card("attic").locator(".name").innerText(), "Mirror attic");
+    assert.equal(
+      await card("attic").locator(".name").innerText(),
+      "Mirror attic",
+    );
     await card("pond").click();
-    await card("pond").click();
+    await card("pond").locator("..").locator(".card-primary").click();
     await ready();
     const departed = await state();
     assert.equal(departed.actors.moth.place, "station");
@@ -135,10 +138,13 @@ try {
     await card("attic").waitFor();
     await ready();
     await card("attic").click();
-    await card("attic").click();
+    await card("attic").locator("..").locator(".card-primary").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "attic");
-    assert.equal(await card("attic").locator(".name").innerText(), "Mirror attic");
+    assert.equal(
+      await card("attic").locator(".name").innerText(),
+      "Mirror attic",
+    );
     assert.deepEqual(errors, []);
     console.log(
       `Pond access, quiet departure, reload and restored lamp passed at ${width}px.`,

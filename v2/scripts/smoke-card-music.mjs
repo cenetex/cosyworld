@@ -57,7 +57,11 @@ try {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     await page.locator(`#hand [data-card="${card}"]`).click();
-    await page.locator(`#hand [data-card="${card}"]`).click();
+    await page
+      .locator(`#hand [data-card="${card}"]`)
+      .locator("..")
+      .locator(".card-primary")
+      .click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
   await page.locator("#menu-button").click();
