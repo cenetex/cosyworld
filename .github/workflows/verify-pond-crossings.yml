@@ -22,13 +22,14 @@ jobs:
           cache: npm
       - name: Materialize exact candidate without changing the PR branch
         run: |
-          cp v2/scripts/review/{apply-pond-crossings.mjs,pond-crossings.patch,smoke-pond-crossings.mjs} "$RUNNER_TEMP/"
+          cp v2/scripts/review/{apply-pond-crossings.mjs,pond-crossings.patch,smoke-pond-crossings.mjs,conserve-lamp-fixtures.mjs} "$RUNNER_TEMP/"
           git checkout --detach f3e72635697ac96b5aafc57e4d79fbb096e7098e
           sha256sum "$RUNNER_TEMP/pond-crossings.patch"
           test "$(sha256sum "$RUNNER_TEMP/pond-crossings.patch" | cut -d' ' -f1)" = 300757aaeeb0f0332b6a140abff3cd00bcb06d0f7ca9692ed5f8c496a68b1dd9
           git apply --check "$RUNNER_TEMP/pond-crossings.patch"
           git apply "$RUNNER_TEMP/pond-crossings.patch"
           node "$RUNNER_TEMP/apply-pond-crossings.mjs"
+          node "$RUNNER_TEMP/conserve-lamp-fixtures.mjs"
       - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Format and check the changed source
         run: |
