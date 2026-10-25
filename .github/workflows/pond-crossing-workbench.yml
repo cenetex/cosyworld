@@ -1,0 +1,38 @@
+name: Pond crossing workbench
+on:
+  push:
+    branches: [work/pond-crossing-workbench]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: f3e72635697ac96b5aafc57e4d79fbb096e7098e
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Export reproducible development workspace
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess, tarfile
+          root = pathlib.Path('.')
+          names = subprocess.check_output(['git','ls-files','-z']).decode().split('\0')
+          with tarfile.open('/tmp/pond-workspace.tgz','w:gz') as out:
+              for name in names:
+                  if name and pathlib.Path(name).is_file():
+                      p = pathlib.Path(name)
+                      if p.suffix in {'.mjs','.js','.json','.rs','.toml','.lock','.md','.yml','.yaml','.html','.css','.sh','.py'} or name in {'package-lock.json','package.json'}:
+                          out.add(p, arcname=name)
+              out.add('node_modules', arcname='node_modules')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pond-crossing-workspace
+          path: /tmp/pond-workspace.tgz
+          retention-days: 1
