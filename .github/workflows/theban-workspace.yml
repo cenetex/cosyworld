@@ -1,0 +1,30 @@
+name: Theban integration workspace
+on:
+  push:
+    branches: [work/theban-scenery-integration]
+    paths: [.github/workflows/theban-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export only the relevant source histories
+        run: |
+          mkdir -p /tmp/theban-workspace
+          git branch export-greek 25e7777285f7d171a4fd107d1d131d1f138e9a4f
+          git branch export-forest b6c498750a1cff05255d60d19974235a1aade548
+          git branch export-base 864aa62f8725128845ae2d44aa24f75e86da5115
+          git bundle create /tmp/theban-workspace/sources.bundle export-greek export-forest export-base
+          git bundle verify /tmp/theban-workspace/sources.bundle
+          sha256sum /tmp/theban-workspace/sources.bundle > /tmp/theban-workspace/SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: theban-integration-workspace
+          path: /tmp/theban-workspace/
+          retention-days: 2
