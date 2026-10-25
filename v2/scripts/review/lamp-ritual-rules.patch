@@ -1,0 +1,163 @@
+diff --git a/v2/card-game/cards.mjs b/v2/card-game/cards.mjs
+index f97b61a..ecd57c6 100644
+--- a/v2/card-game/cards.mjs
++++ b/v2/card-game/cards.mjs
+@@ -200,6 +200,8 @@ export function cardPlay(world, selected) {
+   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
+ }
+ export function playLabel(action) {
++  if (action?.kind === "take" && action.item === "cloth" &&
++    action.text.includes("uncovers and takes")) return "Uncover";
+   if (action?.kind === "choose") return action.label;
+   if (action?.kind === "ring" && action.target === "clearing")
+     return "Ring the Steam Clock";
+diff --git a/v2/card-game/narrative.mjs b/v2/card-game/narrative.mjs
+index 8054fa1..417ebe7 100644
+--- a/v2/card-game/narrative.mjs
++++ b/v2/card-game/narrative.mjs
+@@ -20,6 +20,7 @@ import {
+   opponentOf,
+   placeText,
+   clockRinging,
++  shipSignalPhase,
+ } from "./world.mjs";
+ import { desireFor, knownActors } from "./quests.mjs";
+ import {
+@@ -401,6 +402,11 @@ export function narrativeContext(world, action = null) {
+       } else {
+         if (id === "pond" || id === "clearing")
+           facts.push(placeText(world, id));
++        if (id === "pond") facts.push(
++          shipSignalPhase(world) === 4
++            ? "The second complete cover-and-uncover signal has summoned the ship."
++            : `Completed lamp signals: ${Math.floor(shipSignalPhase(world) / 2)} of two. Covering alone is not a completed signal.`,
++        );
+         if (id === "clearing")
+           facts.push(
+             `The Steam Clock bell is ${clockRinging(world) ? "ringing" : "silent"}.`,
+diff --git a/v2/card-game/world.mjs b/v2/card-game/world.mjs
+index 678f58f..0783e6e 100644
+--- a/v2/card-game/world.mjs
++++ b/v2/card-game/world.mjs
+@@ -140,7 +140,7 @@ export const nameOf = (id) =>
+ export function createWorld({ opening = false } = {}) {
+   const world = {
+     schema: 6,
+-    locations: { attic: { anchored: false }, pond: { answer: null } },
++    locations: { attic: { anchored: false }, pond: { answer: null, shipSignal: 0 } },
+     standoffs: [],
+     peaceUntil: { vale: 0, moth: 0, keeper: 0 },
+     memories: newMemories(),
+@@ -341,16 +341,35 @@ export const clearingReturnOpen = (s) =>
+     (s.items.bell.ringing > 0 &&
+       !covered(s, "bell") &&
+       ["pond", "clearing"].includes(itemPlace(s, "bell"))));
+-export const greekShipPresent = (s) =>
+-  packExits(s, "pond", "vale").includes("greek-harbor") &&
+-  shining(s) &&
++// Count resolved cover/uncover transitions, not inspection, retries or the
++// current brightness alone. Phase 4 is the second complete flash and summons.
++export const shipSignalPhase = (s) => s.locations?.pond?.shipSignal ?? 0;
++const shipSignalConditions = (s) =>
++  s.actors.vale.place === "pond" &&
++  s.items.lamp.lit && s.items.lamp.fuel > 0 &&
+   itemPlace(s, "lamp") === "pond" &&
+-  !(
+-    s.items.bell.ringing > 0 &&
+-    !covered(s, "bell") &&
+-    ["pond", "clearing"].includes(itemPlace(s, "bell"))
+-  ) &&
+-  !clockRinging(s);
++  !(s.items.bell.ringing > 0 && !covered(s, "bell") &&
++    ["pond", "clearing"].includes(itemPlace(s, "bell"))) && !clockRinging(s);
++export const greekShipPresent = (s) =>
++  shipSignalPhase(s) === 4 && shipSignalConditions(s) &&
++  !covered(s, "lamp") &&
++  packExits(s, "pond", "vale").includes("greek-harbor");
++function advanceShipSignal(s, action, before) {
++  if (!before.ready || !shipSignalConditions(s)) {
++    s.locations.pond.shipSignal = 0;
++    return;
++  }
++  const nowCovered = covered(s, "lamp");
++  if (before.covered === nowCovered) return;
++  const player = action.actor === "vale";
++  const covering = player && action.kind === "cover" &&
++    action.item === "cloth" && action.target === "lamp" && nowCovered;
++  const uncovering = player && action.kind === "take" &&
++    action.item === "cloth" && before.covered && !nowCovered;
++  s.locations.pond.shipSignal = covering
++    ? (before.phase === 2 ? 3 : 1)
++    : uncovering && [1, 3].includes(before.phase) ? before.phase + 1 : 0;
++}
+ const baseExits = (s, place) =>
+   s.opening
+     ? places[place].exits.filter((to) => ![place, to].includes("attic"))
+@@ -363,7 +382,9 @@ export const placeText = (s, place) =>
+     : place === "pond"
+       ? greekShipPresent(s)
+         ? "Lamplight lies across the quiet Black pond. A Greek ship waits on the reflection; its gangway leads to the Wine-Dark Harbor. The shore path to the station remains."
+-        : "Something vast breathes beneath Black pond. A path leads to the station. A lit, uncovered lamp on this shore can call a Greek ship when the bells are quiet."
++        : shipSignalPhase(s) >= 2
++          ? "One flash has crossed the quiet pond. Cover and uncover the lit lamp once more with the Black cloth. The path to the station remains."
++          : "Black pond holds the lamp's reflection. In quiet, cover and uncover the lit lamp twice with the Black cloth to call a ship. A path leads to the station."
+       : s.opening && place === "attic"
+         ? reflectionOpen(s)
+           ? "A tall mirror opens onto a black shore. A path leads through the glass."
+@@ -1320,6 +1341,11 @@ function perform(s, a, capture = () => {}) {
+     if (a.actor === conflict.defender) conflict.answered = true;
+   }
+   if (a.kind === "wait") return;
++  const signalBefore = {
++    ready: shipSignalConditions(s),
++    covered: covered(s, "lamp"),
++    phase: shipSignalPhase(s),
++  };
+   const usefulGift =
+     a.kind === "give" &&
+     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
+@@ -1532,6 +1558,7 @@ function perform(s, a, capture = () => {}) {
+     default:
+       throw new Error("Unknown act.");
+   }
++  advanceShipSignal(s, a, signalBefore);
+   meetCast(s);
+   // Record the completed physical act while its shared use is still agreed.
+   // Reactions can change who is willing to share on the following play.
+@@ -2033,12 +2060,15 @@ export function play(s, action, expectedRevision = s.revision) {
+         locationId: "clearing",
+       },
+     );
++  if (!shipSignalConditions(next)) next.locations.pond.shipSignal = 0;
++  if (shipSignalPhase(s) < 2 && shipSignalPhase(next) === 2)
++    addLog(next, "World", "The first flash draws a ripple across the reflection. A second cover and uncover may bring something closer.", { locationId: "pond" });
+   if (shipWasPresent !== greekShipPresent(next))
+     addLog(
+       next,
+       "World",
+       greekShipPresent(next)
+-        ? "In the lamplit quiet, a Greek ship appears on Black pond. Its gangway opens a passage to the Wine-Dark Harbor."
++        ? "At the second uncovering, a Greek ship appears on Black pond. Its gangway opens a passage to the Wine-Dark Harbor."
+         : "The Greek ship and its gangway fade from Black pond. The passage to the Wine-Dark Harbor is no longer open.",
+       {
+         locationId: "pond",
+@@ -2446,6 +2476,9 @@ export function validateWorld(s) {
+     (covered(s, "bell") && bell.ringing > 0)
+   )
+     fail();
++  const signal = s.locations.pond.shipSignal;
++  if (signal !== undefined &&
++    (!Number.isInteger(signal) || signal < 0 || signal > 4)) fail();
+   if (
+     !Array.isArray(s.log) ||
+     s.log.filter((e) => !e?.generated).length > LOG_LIMIT ||
+@@ -2725,6 +2758,9 @@ export function decodeSave(text) {
+       memory.landmarks = remembered.memories[id]?.landmarks || [];
+   }
+   if (s?.schema === 6) {
++    // Only absence means legacy. Malformed present values still fail validation.
++    if (s.locations?.pond && s.locations.pond.shipSignal === undefined)
++      s.locations.pond.shipSignal = 0;
+     addSteamClock(s);
+     addWorldPacks(s);
+   }

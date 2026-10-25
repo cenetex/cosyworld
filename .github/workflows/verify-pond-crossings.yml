@@ -20,26 +20,24 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - name: Materialize exact candidate without changing the PR branch
+      - name: Apply two-flash ritual to the verified crossing candidate
         run: |
-          cp v2/scripts/review/{apply-pond-crossings.mjs,pond-crossings.patch,smoke-pond-crossings.mjs,conserve-lamp-fixtures.mjs} "$RUNNER_TEMP/"
-          git checkout --detach f3e72635697ac96b5aafc57e4d79fbb096e7098e
-          sha256sum "$RUNNER_TEMP/pond-crossings.patch"
-          test "$(sha256sum "$RUNNER_TEMP/pond-crossings.patch" | cut -d' ' -f1)" = 300757aaeeb0f0332b6a140abff3cd00bcb06d0f7ca9692ed5f8c496a68b1dd9
-          git apply --check "$RUNNER_TEMP/pond-crossings.patch"
-          git apply "$RUNNER_TEMP/pond-crossings.patch"
-          node "$RUNNER_TEMP/apply-pond-crossings.mjs"
-          node "$RUNNER_TEMP/conserve-lamp-fixtures.mjs"
+          cp v2/scripts/review/{lamp-ritual-rules.patch,prepare-lamp-ritual.mjs,card-ship-ritual.test.mjs} "$RUNNER_TEMP/"
+          git checkout --detach 2442e6a4236fa7a9e0ea1a92b97076aa3afee85e
+          test "$(sha256sum "$RUNNER_TEMP/lamp-ritual-rules.patch" | cut -d' ' -f1)" = 854f3c188b7c0e6661f6df9faa7a0bf734eb6288aeffd5f6ff98b8289691479e
+          git apply --check "$RUNNER_TEMP/lamp-ritual-rules.patch"
+          git apply "$RUNNER_TEMP/lamp-ritual-rules.patch"
+          node "$RUNNER_TEMP/prepare-lamp-ritual.mjs"
       - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Format and check the changed source
         run: |
-          npx prettier --write v2/card-game/{world,cards,narrative,scene,app}.mjs test/card-crossings.test.mjs v2/scripts/smoke-card-pond-crossings.mjs
+          npx prettier --write v2/card-game/{world,cards,narrative}.mjs test/card-{crossings,ship-ritual,greek-drama}.test.mjs v2/scripts/smoke-card-{pond-crossings,greek-drama}.mjs
           git diff --check
           npm run lint
           npm run v2:card:pack:check
       - name: Full JavaScript regression suite
         run: npm test
-      - name: Browser crossing and existing regression checks
+      - name: Browser ritual, crossings, and existing regression checks
         run: |
           npx playwright install --with-deps chromium
           node v2/scripts/smoke-card-pond-crossings.mjs
@@ -48,23 +46,22 @@ jobs:
           node v2/scripts/smoke-card-greek-drama.mjs
       - name: Export tested candidate
         run: |
-          git add -N test/card-crossings.test.mjs v2/scripts/smoke-card-pond-crossings.mjs v2/docs/pond-crossings.md
-          git diff --binary > "$RUNNER_TEMP/pond-crossings.verified.patch"
+          git add -N test/card-ship-ritual.test.mjs
+          git diff --binary > "$RUNNER_TEMP/lamp-ritual.verified.patch"
           git diff --stat
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: pond-crossings-evidence
+          name: lamp-ritual-evidence
           path: |
             output/pond-crossings-check/
             output/greek-drama-check/
             output/badger-check/
-            ${{ runner.temp }}/pond-crossings.patch
           retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
-          name: pond-crossings-verified-patch
-          path: ${{ runner.temp }}/pond-crossings.verified.patch
+          name: lamp-ritual-verified-patch
+          path: ${{ runner.temp }}/lamp-ritual.verified.patch
           if-no-files-found: error
           retention-days: 7
   candidate:
@@ -75,11 +72,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: f3e72635697ac96b5aafc57e4d79fbb096e7098e
+          ref: 2442e6a4236fa7a9e0ea1a92b97076aa3afee85e
           persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
-          name: pond-crossings-verified-patch
+          name: lamp-ritual-verified-patch
           path: ${{ runner.temp }}/verified
       - name: Publish a separate candidate, never the PR or production branch
         env:
@@ -88,12 +85,12 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          git apply --check "$RUNNER_TEMP/verified/pond-crossings.verified.patch"
-          git apply "$RUNNER_TEMP/verified/pond-crossings.verified.patch"
-          git add v2 test readme.md package.json package-lock.json
+          git apply --check "$RUNNER_TEMP/verified/lamp-ritual.verified.patch"
+          git apply "$RUNNER_TEMP/verified/lamp-ritual.verified.patch"
+          git add v2 test package.json package-lock.json
           if git diff --cached --name-only | grep -q '^.github/'; then exit 1; fi
           git diff --cached --check
-          git -c user.name='CosyWorld verification' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Gate pond crossings on live light and sound'
+          git -c user.name='CosyWorld verification' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Summon the Greek ship with two black-cloth lamp signals'
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push "https://github.com/$REPOSITORY.git" "HEAD:refs/heads/verified/pond-crossings-$RUN_ID"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push "https://github.com/$REPOSITORY.git" "HEAD:refs/heads/verified/lamp-ritual-$RUN_ID"
           printf 'Verified candidate: %s\n' "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
