@@ -169,7 +169,7 @@ describe("entity memories and model text", () => {
     old.schema = 3;
     delete old.memories;
     const restored = decodeSave(JSON.stringify(old));
-    expect(restored.schema).toBe(6);
+    expect(restored.schema).toBe(7);
     expect(restored.actors).toEqual(world.actors);
     expect(restored.items).toEqual(world.items);
     expect(

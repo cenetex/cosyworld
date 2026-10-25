@@ -374,7 +374,7 @@ describe("situations and their consequences", () => {
     for (const actor of Object.values(old.actors)) delete actor.trust;
     for (const memory of Object.values(old.memories)) delete memory.landmarks;
     const restored = decodeSave(JSON.stringify(old));
-    expect(restored.schema).toBe(6);
+    expect(restored.schema).toBe(7);
     expect(programFor(restored, "vale")).toEqual(programFor(old, "vale"));
     expect(restored.items).toEqual(old.items);
     expect(restored.log).toEqual(old.log);

@@ -44,7 +44,10 @@ import {
   standoffFor,
   opponentOf,
   strikePower,
+  senses,
 } from "./world.mjs";
+import { isPackActor, packPlaces, packOf } from "./pack-registry.mjs";
+import { signalHint, variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
   sceneScript,
@@ -61,6 +64,7 @@ import {
   cardPlay,
   playLabel,
   avatarPlays,
+  placePlays,
 } from "./cards.mjs";
 import { LESSONS, nextLesson } from "./lessons.mjs";
 import {
@@ -472,16 +476,13 @@ const narrator = createNarrator({
 });
 $("story-retry").onclick = () => narrator.retry();
 function status(id) {
+  // An object the next step of a crossing's signal asks for says so.
+  const hint = signalHint(world, id, senses);
+  if (hint) return hint;
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
     return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
-  if (
-    id === "bell" &&
-    world.actors.vale.place === "pond" &&
-    world.steamClock.rings === 1
-  )
-    return "The Steam Clock answers. Ring again to find it.";
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
@@ -780,7 +781,7 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
+      type === "avatar" && !isPackActor(id) && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -820,7 +821,7 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world) || id === "badger") {
+    if (!hasQuestPrograms(world) || isPackActor(id)) {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
@@ -881,7 +882,7 @@ function card(id) {
     );
   } else if (
     type === "avatar" &&
-    (!hasQuestPrograms(world) || id === "badger")
+    (!hasQuestPrograms(world) || isPackActor(id))
   ) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
@@ -1062,7 +1063,12 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const plays = type === "avatar" ? avatarPlays(world, id) : [];
+  const plays =
+    type === "avatar"
+      ? avatarPlays(world, id)
+      : type === "location"
+        ? placePlays(world, id)
+        : [];
   if (plays.length && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
@@ -1087,37 +1093,43 @@ function card(id) {
   }
   return frame;
 }
-function renderClearing(locationId) {
-  const forest = locationId === "clearing";
-  document.body.dataset.world = forest ? "forest" : "shore";
-  document.querySelector(".brand span").textContent = forest
-    ? "The Steam Clock"
-    : "The reflected shore";
-  let picture = $("clearing-picture");
-  if (forest && !picture) {
-    picture = node("div", undefined, "clearing-picture");
-    picture.id = "clearing-picture";
-    const canvas = node("div", undefined, "clearing-canvas");
+// A pack place with a stage shows its resident as a sprite on the backdrop
+// instead of the shore's cast row. The pack's data places the sprite.
+function renderStage(locationId) {
+  const pack = packOf(locationId);
+  const stage = packPlaces[locationId]?.stage;
+  document.body.dataset.world = pack?.id || "shore";
+  document.body.dataset.stage = stage ? "resident" : "cast";
+  document.querySelector(".brand span").textContent =
+    pack?.name || "The reflected shore";
+  let picture = $("stage-picture");
+  if (stage && picture?.dataset.place !== locationId) {
+    picture?.remove();
+    picture = node("div", undefined, "stage-picture");
+    picture.id = "stage-picture";
+    picture.dataset.place = locationId;
+    const canvas = node("div", undefined, "stage-canvas");
     const background = node("img", undefined, "backdrop");
-    background.src = backdrop("clearing");
-    background.alt =
-      "The old Steam Clock stands on mossy stones in a sunlit clearing.";
-    const badger = node("img", undefined, "clearing-badger");
-    badger.id = "badger-sprite";
-    canvas.append(background, badger);
+    background.src = backdrop(locationId);
+    background.alt = stage.alt;
+    const sprite = node("img", undefined, "stage-resident");
+    sprite.id = "resident-sprite";
+    sprite.dataset.resident = stage.resident;
+    sprite.style.setProperty("--sprite-left", `${stage.sprite.left}%`);
+    sprite.style.setProperty("--sprite-top", `${stage.sprite.top}%`);
+    sprite.style.setProperty("--sprite-width", `${stage.sprite.width}%`);
+    canvas.append(background, sprite);
     picture.append(canvas);
     $("stage").prepend(picture);
   }
-  if (picture) picture.hidden = !forest;
-  $("backdrop").hidden = forest;
-  if (forest) {
-    $("badger-sprite").src = portrait("badger", null, world);
-    $("badger-sprite").dataset.state = world.actors.badger.awake
-      ? "grumpy"
-      : "sleeping";
-    $("badger-sprite").alt = world.actors.badger.awake
-      ? "Grumpy Badger, awake and looking put out."
-      : "Grumpy Badger asleep beside the clock.";
+  if (picture) picture.hidden = !stage;
+  $("backdrop").hidden = Boolean(stage);
+  if (stage) {
+    const sprite = $("resident-sprite");
+    const mood = variantOf(world, stage.resident);
+    sprite.src = portrait(stage.resident, null, world);
+    sprite.dataset.state = mood?.name || "present";
+    sprite.alt = mood?.alt || nameOf(stage.resident);
   }
 }
 function renderScene() {
@@ -1126,7 +1138,7 @@ function renderScene() {
     hold: exchange.preparing,
     review: reviewing,
   });
-  renderClearing(scene.locationId);
+  renderStage(scene.locationId);
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -1631,7 +1643,7 @@ $("menu-button").onclick = () => {
           ]
         : []),
       ...knownActors(world)
-        .filter((id) => id !== "vale" && id !== "badger")
+        .filter((id) => id !== "vale" && !isPackActor(id))
         .map((actor) => ({
           actor,
           program: programFor(world, actor),

@@ -138,8 +138,33 @@ fn admit(limits: &mut RateLimiter, client: IpAddr, now: Instant) -> bool {
 fn profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
     PROFILES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
-            .expect("embedded entity profiles")
+        let mut profiles: Value =
+            serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
+                .expect("embedded entity profiles");
+        // World packs mounted on the table add their places and residents. The
+        // browser reads the same compiled file, so ids and personas agree.
+        let packs: Value = serde_json::from_str(include_str!("../../card-game/packs.json"))
+            .expect("embedded card world packs");
+        let map = profiles.as_object_mut().expect("profiles");
+        for pack in packs["packs"].as_array().expect("pack list") {
+            for (collection, kind) in [("places", "location"), ("avatars", "avatar")] {
+                for (id, entity) in pack[collection].as_object().expect("pack entities") {
+                    let mut profile = json!({
+                        "kind": kind,
+                        "name": entity["name"],
+                        "persona": entity["persona"],
+                    });
+                    if let Some(voice) = entity.get("voice") {
+                        profile["voice"] = voice.clone();
+                    }
+                    assert!(
+                        map.insert(id.clone(), profile).is_none(),
+                        "duplicate card profile {id}"
+                    );
+                }
+            }
+        }
+        profiles
     })
 }
 fn kind(id: &str, expected: &str) -> bool {

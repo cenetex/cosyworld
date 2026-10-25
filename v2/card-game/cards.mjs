@@ -51,6 +51,14 @@ export function avatarPlays(world, id) {
     );
 }
 
+// A place card offers the plays its fixtures make there (ringing a clock).
+export function placePlays(world, id) {
+  if (!places[id] || world.actors.vale.place !== id) return [];
+  return legalActions(world).filter(
+    (a) => a.fixture && a.target === id && a.actor === "vale",
+  );
+}
+
 // Each face names one play. Pairs express use, handover, travel, invitations, or placement.
 // The shared world rules still decide whether that play is legal.
 export function cardPlay(world, selected) {
@@ -185,12 +193,8 @@ export function cardPlay(world, selected) {
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 export function playLabel(action) {
-  if (
-    action?.target === "badger" &&
-    action?.kind === "talk" &&
-    action.text.includes("gently wakes")
-  )
-    return "Wake gently";
+  // Pack data can name a play (a fixture, or greeting a sleeping resident).
+  if (action?.label) return action.label;
   if (action?.kind === "trade")
     return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
   return {

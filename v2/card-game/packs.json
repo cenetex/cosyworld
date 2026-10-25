@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "hub": {
+    "player": "vale",
+    "places": [
+      "station",
+      "attic",
+      "pond"
+    ],
+    "avatars": [
+      "vale",
+      "moth",
+      "keeper"
+    ],
+    "items": [
+      "lamp",
+      "oil",
+      "bell",
+      "cloth"
+    ]
+  },
+  "packs": [
+    {
+      "schemaVersion": 1,
+      "id": "badger-forest",
+      "packId": "cosyworld.badger-forest",
+      "revision": 1,
+      "name": "The Steam Clock",
+      "description": "A sunlit woodland clearing where an old Steam Clock ticks over Badger's favourite patch of moss.",
+      "entry": "clearing",
+      "places": {
+        "clearing": {
+          "name": "Forest Clearing",
+          "text": "The old Steam Clock ticks among the trees. Its bell can be rung. Badger rests on warm moss.",
+          "persona": "A sunlit woodland clearing around an old steam clock on mossy stones. Badger has a favourite patch of moss.",
+          "exits": [],
+          "backdrop": "assets/badger-forest/steam-clock-background.png",
+          "stage": {
+            "alt": "The old Steam Clock stands on mossy stones in a sunlit clearing.",
+            "resident": "badger",
+            "sprite": {
+              "left": 59,
+              "top": 78,
+              "width": 22
+            }
+          }
+        }
+      },
+      "fixtures": {
+        "steam-clock": {
+          "name": "Steam Clock",
+          "at": "clearing",
+          "sound": {
+            "label": "Ring the Steam Clock",
+            "text": "{actor} rings the Steam Clock's bell. The sound rolls between the trees.",
+            "turns": 3
+          }
+        }
+      },
+      "avatars": {
+        "badger": {
+          "name": "Grumpy Badger",
+          "text": "Comically touchy. Very attached to his warm patch of moss.",
+          "place": "clearing",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Grumpy Badger regards every interruption as an outrageous theft of his nap. Territorial about his warm moss, deeply unimpressed by visitors, and grudging even when they help. He wants the noise stopped and his rest restored, not an adventure or a new friend. Quiet lowers his irritation but does not turn him into a welcoming guide. Sleep, wake state and actual incidents come from the world facts.",
+          "voice": "Clipped, gravelly complaints; blunt refusals, cross rhetorical questions, and muttered corrections. Pick one concrete nuisance from this turn and grumble about it. At high irritation, become terser and more indignant, not eloquent or encouraging. Answer a direct question with whatever he actually knows, reluctantly, then set a curt boundary. A useful answer can still sound thoroughly annoyed. Avoid cheerful greetings, praise, offers to guide, sentimental warmth, repeated catchphrases, and personal abuse. While asleep, describe a small sleeping movement in third person; no speech.",
+          "tastes": {
+            "likes": "Warm moss and an uninterrupted nap",
+            "sore": "Being woken and unnecessary noise",
+            "reason": "Badger considers this patch of moss his own.",
+            "noise": "{actor} rang a bell beside his warm patch of moss."
+          },
+          "temperament": {
+            "asleep": true,
+            "irritation": 3,
+            "irritated": 2,
+            "voice": 1,
+            "sound": 2,
+            "calm": 1,
+            "woken": "Badger wakes from a very satisfactory nap, looking mildly offended.",
+            "disturbed": "Badger opens his eyes and flattens his ears at the noise."
+          },
+          "variants": {
+            "asleep": {
+              "portrait": "assets/badger-forest/badger-sleeping.png",
+              "alt": "Grumpy Badger asleep beside the clock.",
+              "greet": "{actor} gently wakes {name}.",
+              "label": "Wake gently",
+              "want": "An uninterrupted nap",
+              "note": "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger."
+            },
+            "awake": {
+              "portrait": "assets/badger-forest/badger-grumpy.png",
+              "alt": "Grumpy Badger, awake and looking put out.",
+              "greet": "{actor} says hello to {name}.",
+              "want": "The warm patch of moss",
+              "note": "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."
+            },
+            "irritated": {
+              "want": "Some quiet after all that noise",
+              "note": "Furious at the noise: clipped complaints and a blunt demand for quiet."
+            }
+          }
+        }
+      },
+      "bridge": {
+        "id": "shore-badger-forest",
+        "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
+      },
+      "values": {
+        "badger": {
+          "lamp": 3,
+          "oil": 1,
+          "bell": 1,
+          "cloth": 7
+        }
+      },
+      "crossings": [
+        {
+          "id": "pond-clearing",
+          "from": "pond",
+          "to": "clearing",
+          "travelers": "player",
+          "travel": "through the reflection",
+          "signal": {
+            "steps": [
+              {
+                "verb": "ring",
+                "item": "bell"
+              },
+              {
+                "verb": "ring",
+                "item": "bell"
+              }
+            ],
+            "consecutive": true,
+            "opens": 3,
+            "refresh": {
+              "verb": "ring",
+              "item": "bell"
+            },
+            "offer": "{actor} rings the Bell again. The Steam Clock answers through the water.",
+            "progress": [
+              "A distant clock answers the bell. Its echo hangs over the pond, waiting for a second ring."
+            ],
+            "hint": "The Steam Clock answers. Ring again to find it.",
+            "echo": {
+              "speaker": "echo",
+              "text": "bong"
+            },
+            "complete": "The second ring folds the pond's reflection. In the water, a forest clearing and an old Steam Clock come into view."
+          },
+          "requires": [
+            {
+              "kind": "sound",
+              "at": [
+                "pond"
+              ]
+            }
+          ],
+          "closed": "The reflected clearing fades from the pond."
+        },
+        {
+          "id": "clearing-pond",
+          "from": "clearing",
+          "to": "pond",
+          "travelers": "player",
+          "travel": "through the reflection",
+          "requires": [
+            {
+              "kind": "sound",
+              "at": [
+                "pond",
+                "clearing"
+              ]
+            }
+          ],
+          "scenery": {
+            "open": "A bell is sounding, and the dark reflection between the roots opens onto Black pond.",
+            "closed": "The roots show only moss: no path to Black pond is visible. Ring the clock's bell to reopen the crossing."
+          },
+          "opened": "A dark reflection between the roots opens onto Black pond.",
+          "closed": "The bells fall silent. The path to Black pond disappears between the roots; the Steam Clock's bell can reopen it."
+        }
+      ]
+    }
+  ]
+}

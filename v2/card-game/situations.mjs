@@ -1,3 +1,4 @@
+import { isPackActor } from "./pack-registry.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
 export const condition = (kind, item, extra = {}) => ({
@@ -184,7 +185,7 @@ export function situationPrograms(s, actor, base, api) {
       );
   }
   const others = Object.keys(s.actors).filter(
-    (id) => id !== actor && id !== "badger",
+    (id) => id !== actor && !isPackActor(id),
   );
   // Vale chooses handovers through card plays. Residents can arrange care
   // between themselves while a player decides whether to take an offer.

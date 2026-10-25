@@ -1,5 +1,6 @@
 // Personal quests grow from shared actions. This state belongs to the save.
 import { rootOwner, questItemAvailable, conditionMet } from "./situations.mjs";
+import { packActorIds, packNames } from "./pack-registry.mjs";
 
 export const INSPIRATION_MAX = 5;
 export const REST_TURNS = 3;
@@ -130,7 +131,7 @@ export function keepReason(s, actor, item) {
   if (!life || rootOwner(s, item) !== actor) return null;
   const attachment = life.attachments[item];
   return attachment
-    ? `A gift from ${names[attachment.from] || "Grumpy Badger"}, kept since turn ${attachment.turn}.`
+    ? `A gift from ${names[attachment.from] || packNames[attachment.from]}, kept since turn ${attachment.turn}.`
     : hopes[actor].keeps[item] || null;
 }
 export function attachmentValue(s, actor, item) {
@@ -169,7 +170,7 @@ export function lifeFacts(s, actor) {
       .map((item) => `${itemNames[item]}: ${keepReason(s, actor, item)}`),
     ...(stayingWith(s, actor)
       ? [
-          `Staying to spend time with ${names[stayingWith(s, actor)] || "Grumpy Badger"}.`,
+          `Staying to spend time with ${names[stayingWith(s, actor)] || packNames[stayingWith(s, actor)]}.`,
         ]
       : []),
   ];
@@ -323,7 +324,7 @@ export function validLife(s) {
           ([item, a]) =>
             items.includes(item) &&
             a &&
-            [...actors, "badger"].includes(a.from) &&
+            [...actors, ...packActorIds].includes(a.from) &&
             a.from !== id &&
             whole(a.turn, s.turn),
         ) &&
@@ -331,7 +332,7 @@ export function validLife(s) {
         Object.keys(p.company).length <= 3 &&
         Object.entries(p.company).every(
           ([other, until]) =>
-            [...actors, "badger"].includes(other) &&
+            [...actors, ...packActorIds].includes(other) &&
             other !== id &&
             whole(until, s.turn + REST_TURNS),
         ) &&

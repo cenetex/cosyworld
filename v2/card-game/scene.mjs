@@ -7,11 +7,22 @@ import {
   shining,
 } from "./world.mjs";
 
-export const backdrop = (id) =>
-  `./assets/${id === "clearing" ? "steam-clock-background" : id}.png`;
-export const portrait = (id, facing = null, world = null) =>
-  `./assets/${id === "badger" ? (world?.actors.badger.awake === false ? "badger-sleeping" : "badger-grumpy") : id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
+import { packPlaces, packPeople } from "./pack-registry.mjs";
+import { variantOf } from "./pack-rules.mjs";
+
+// Pack art lives in the pack's own asset folder and is named by its data.
+export const backdrop = (id) =>
+  packPlaces[id] ? `./${packPlaces[id].backdrop}` : `./assets/${id}.png`;
+export function portrait(id, facing = null, world = null) {
+  const resident = packPeople[id];
+  if (resident)
+    return `./${
+      resident.portrait ||
+      (world ? variantOf(world, id) : resident.variants.awake).portrait
+    }`;
+  return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
+}
 const personIds = Object.keys(people);
 const speakerId = (entry) =>
   entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;

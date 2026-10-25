@@ -7,6 +7,8 @@ import {
   requiredItems,
   situationPrograms,
 } from "./situations.mjs";
+import { isPackActor, packPeople, packOf } from "./pack-registry.mjs";
+import { packDiscovered } from "./pack-rules.mjs";
 export { condition } from "./situations.mjs";
 
 // Hand parts combine at one moment. Sequences join reusable steps;
@@ -149,17 +151,23 @@ export const openingPrograms = {
     questPrograms.keeper[1],
   ],
 };
+// A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
   Object.keys(s.opening?.met || s.actors).filter(
-    (id) => id !== "badger" || s.steamClock?.discovered,
+    (id) => !isPackActor(id) || packDiscovered(s, packOf(id).id),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
-  badger: { items: [], location: "clearing", avatars: [] },
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
   keeper: { items: [], location: "attic", avatars: [] },
+  ...Object.fromEntries(
+    Object.entries(packPeople).map(([id, a]) => [
+      id,
+      { items: [], location: a.place, avatars: [] },
+    ]),
+  ),
 };
 export const newProgress = () => ({ program: 0, step: 0, marks: [] });
 export const savedProgramFor = (s, actor) =>
@@ -169,7 +177,7 @@ export const savedProgramFor = (s, actor) =>
 export const programFor = (s, actor) =>
   questActive(s, actor) ? savedProgramFor(s, actor) : null;
 export const targetsFor = (s, actor) =>
-  hasQuestPrograms(s) && actor !== "badger"
+  hasQuestPrograms(s) && !isPackActor(actor)
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
 const ownerOf = (s, item) => {
@@ -223,7 +231,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = knownActors(s).filter((id) => id !== "badger"),
+  const actors = knownActors(s).filter((id) => !isPackActor(id)),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
   const reachable = [here];
