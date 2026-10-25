@@ -46,7 +46,7 @@ identity. The five connective residents each have a distinct portrait.
 The original twenty-one SVGs remain in the directory: five settings, seven
 legacy figures, and nine object illustrations. The PNG portraits replace
 the figure references in the authored character data. Scenery and object
-art continue to use the existing SVGs.
+art uses the existing SVGs. Seven opening settings use painted WebP backdrops.
 
 The visual vocabulary uses terracotta, olive green, parchment, and dark blue,
 with simplified architecture and profile figures informed by ancient painted
@@ -65,11 +65,17 @@ data.
 
 ## Opening scenery — October 25, 2026
 
-Eight source paintings were generated with image_gen in the conversation.
-Seven are full-frame WebP quality94 derivatives. The full generated pond
-omitted the standing mirror, so it was not substituted for the original.
-A masked generated ship, rigging and reflection was translated beside that
-mirror and layered over the actual pond. Its boarding card crops the same
-composite. No other base pixels change. See scenery-provenance.json for
-source names, generation IDs, transformations, dimensions and checksums.
-Day/night/weather variants are not included in this integration.
+The seven opening paintings and ship boarding card were regenerated with
+the built-in `image_gen` tool on October 25, 2026. The supplied Git bundle
+contained their references and checksums; its WebP files required recovery.
+The user requested regeneration. The archive's review sheet supplied the
+composition and style reference for each setting.
+
+The original pond and the bundle's transparent ship layer remain the runtime
+scene. The boarding portrait was generated from those two images and the
+review sheet. It matches the ship, mirror and nighttime setting.
+
+The eight generated outputs are stored as WebP at quality 94. Full prompts
+are in [scenery-prompts.json](scenery-prompts.json). Source names, generation
+IDs, dimensions, current checksums and the archive's prior records are in
+[scenery-provenance.json](scenery-provenance.json).

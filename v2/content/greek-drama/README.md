@@ -85,9 +85,9 @@ location. No script in the content can spawn, kill, teleport or spend money.
 Seven generated paintings replace shared SVG backgrounds in the opening.
 The pond ship is a masked generated ship/rigging/reflection layer over the
 **unchanged original pond**. The original mirror, trees, building, shore and
-camera remain. The generated full pond painting omitted the mirror, so it
-was deliberately not used as the base. The boarding portrait crops the
-actual composed pond view, not a different harbor.
+camera remain. The boarding portrait was generated from the original pond,
+the transparent ship layer and the archive's review sheet. It matches the
+ship, mirror and nighttime setting.
 
 `assets/greek-drama/scenery-provenance.json` records generation IDs, source
 names, transformations, dimensions and runtime checksums. Seven backdrops
