@@ -167,8 +167,9 @@ main {
   transform: translateX(-50%);
   pointer-events: none;
   transition:
-    opacity 0.36s,
-    translate 0.36s;
+    left 0.85s ease-in-out,
+    bottom 0.85s ease-in-out,
+    height 0.85s ease-in-out;
 }
 .portrait[data-depth="foreground"] {
   z-index: 3;
@@ -215,57 +216,6 @@ main {
   padding: 10px 18px;
   backdrop-filter: blur(12px);
 }
-.prior-response {
-  display: flex;
-  height: 66px;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid #ffffff20;
-  padding: 2px 0 10px;
-  margin-bottom: 3px;
-  color: #c7bfbb;
-}
-.prior-portrait {
-  flex: 0 0 38px;
-  height: 38px;
-  overflow: hidden;
-  border: 1px solid #89745d;
-  border-radius: 50%;
-  background: #35323d;
-}
-.prior-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.prior-portrait[data-kind="avatar"] img {
-  height: 200%;
-  object-position: center top;
-  transform: translateY(6px) scale(2.5);
-  transform-origin: 50% 12%;
-}
-.prior-portrait svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.7;
-}
-.prior-content {
-  min-width: 0;
-}
-#prior-speaker {
-  font-size: 11px;
-  font-weight: 600;
-}
-#prior-text {
-  font:
-    13px/1.35 Georgia,
-    serif;
-  margin: 3px 0 0;
-  max-height: 36px;
-  overflow: auto;
-}
 .dialogue-heading {
   display: flex;
   flex-wrap: wrap;
@@ -283,10 +233,6 @@ main {
   color: var(--gold);
   font-family: Georgia, serif;
   font-size: 18px;
-}
-#line-turn {
-  font-size: 10px;
-  color: var(--muted);
 }
 .line-controls {
   margin-left: auto;
@@ -541,35 +487,6 @@ h2 {
     margin: 3px 0 6px;
   }
 }
-@media (max-width: 700px) {
-  .prior-response {
-    height: 76px;
-    gap: 8px;
-    padding-bottom: 7px;
-  }
-  .prior-portrait {
-    flex-basis: 32px;
-    height: 32px;
-  }
-  #prior-text {
-    font-size: 12px;
-    max-height: 49px;
-  }
-}
-@media (max-height: 740px) {
-  .prior-response {
-    height: 50px;
-    padding-bottom: 4px;
-  }
-  .prior-portrait {
-    flex-basis: 28px;
-    height: 28px;
-  }
-  #prior-text {
-    font-size: 11px;
-    max-height: 30px;
-  }
-}
 /* Frame the group from the scene height, even on a very wide screen. Keep
    their feet above the full two-line exchange, with room for the title. */
 @media (min-width: 701px) {
@@ -704,7 +621,7 @@ h2 {
 :root {
   --card-width: clamp(174px, 15.5vw, 224px);
   --card-height: clamp(224px, 31dvh, 310px);
-  --dock-height: calc(var(--card-height) + 82px);
+  --dock-height: calc(var(--card-height) * 0.75 + 12px);
 }
 body {
   background: #090d12;
@@ -735,7 +652,7 @@ main {
   left: 0;
   right: 0;
   z-index: 5;
-  padding: 10px 22px max(4px, env(safe-area-inset-bottom));
+  padding: 0 22px env(safe-area-inset-bottom);
   background: linear-gradient(#090d1200, #090d12bd 55%, #090d12f5);
   border: 0;
   pointer-events: none;
@@ -750,8 +667,10 @@ main {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 20px 16px 8px;
-  scrollbar-width: thin;
+  padding: 12px 16px 0;
+  height: calc(var(--card-height) * 0.75 + 12px);
+  transition: height 220ms ease-out;
+  scrollbar-width: none;
   scrollbar-color: #ad97744d transparent;
   scroll-padding-inline: 5px;
   scroll-snap-type: x proximity;
@@ -860,7 +779,7 @@ body .card.avatar .art img {
 }
 body .card .name {
   position: absolute;
-  inset: auto 0 0;
+  inset: auto 0 calc(var(--card-height) * 0.25);
   z-index: 1;
   margin: 0;
   padding: 36px 8px 14px;
@@ -930,19 +849,6 @@ body .card-frame[hidden] {
 .action-panel {
   pointer-events: auto;
   text-align: center;
-  min-height: 88px;
-}
-#selection-name,
-#action-hint {
-  margin: 3px 0;
-  font-size: 12px;
-  line-height: 1.35;
-}
-#selection-name {
-  color: #f2e3c4;
-}
-#action-hint {
-  color: #c4b99f;
 }
 #card-actions {
   display: flex;
@@ -997,7 +903,7 @@ body .card.drag-over {
   z-index: 8;
 }
 body .dialogue {
-  bottom: calc(var(--dock-height) + 12px);
+  bottom: calc(var(--dock-height) + 2px);
   max-width: 720px;
   width: calc(100% - 28px);
   background: #10151ddd;
@@ -1053,7 +959,7 @@ body .cast[data-count] {
     width: 98%;
   }
   body .dialogue {
-    bottom: calc(var(--dock-height) + 6px);
+    bottom: calc(var(--dock-height) + 2px);
     padding: 8px 12px;
   }
 }
@@ -1061,7 +967,7 @@ body .cast[data-count] {
   :root {
     --card-height: 176px;
     --card-width: 128px;
-    --dock-height: 244px;
+    --dock-height: 144px;
   }
   body {
     overflow-y: auto;
@@ -1072,5 +978,88 @@ body .cast[data-count] {
   }
   body .stage {
     min-height: 570px;
+  }
+}
+
+/* The speech box follows the line length; long replies scroll. */
+.speech-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.speaker-portrait {
+  position: relative;
+  height: 48px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #b09a6a66;
+  background: #252832;
+}
+.speaker-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.speaker-portrait[data-kind="avatar"] img {
+  --shown: calc(var(--figure-height, 1) * var(--portrait-crop, 0.3));
+  position: absolute;
+  width: auto;
+  max-width: none;
+  height: calc(100% / var(--shown));
+  top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
+  left: 50%;
+  translate: calc(-100% * var(--head-x, 0.5)) 0;
+}
+.speech-content {
+  min-width: 0;
+}
+body .dialogue-heading {
+  gap: 4px;
+  min-height: 28px;
+}
+body #speaker {
+  font-size: 16px;
+}
+body .speech-line {
+  min-height: 24px;
+}
+body #dialogue-text {
+  font:
+    16px/1.4 Georgia,
+    serif;
+  height: auto;
+  max-height: 4.2em;
+  margin: 2px 0 0;
+  padding-right: 4px;
+}
+body .movement-caption {
+  margin: 0 0 4px;
+}
+body .line-controls {
+  gap: 0;
+}
+body .line-controls button {
+  min-height: 28px;
+  min-width: 32px;
+  padding: 0 6px;
+}
+.play-dock[data-selected="true"] .hand {
+  height: calc(var(--card-height) + 16px);
+}
+.play-dock[data-selected="true"] .card .name {
+  bottom: 0;
+}
+@media (max-width: 700px) {
+  .speech-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .speaker-portrait {
+    height: 44px;
+  }
+  body #dialogue-text {
+    font-size: 15px;
   }
 }
