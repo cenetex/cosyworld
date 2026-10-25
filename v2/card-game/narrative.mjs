@@ -20,6 +20,7 @@ import {
   opponentOf,
   placeText,
   clockRinging,
+  shipSignalPhase,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
 import {
@@ -401,6 +402,12 @@ export function narrativeContext(world, action = null) {
       } else {
         if (id === "pond" || id === "clearing")
           facts.push(placeText(world, id));
+        if (id === "pond")
+          facts.push(
+            shipSignalPhase(world) === 4
+              ? "The second complete cover-and-uncover signal has summoned the ship."
+              : `Completed lamp signals: ${Math.floor(shipSignalPhase(world) / 2)} of two. Covering alone is not a completed signal.`,
+          );
         if (id === "clearing")
           facts.push(
             `The Steam Clock bell is ${clockRinging(world) ? "ringing" : "silent"}.`,

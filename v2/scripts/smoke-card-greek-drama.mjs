@@ -33,6 +33,7 @@ let fixture = enableMotives(createWorld({ opening: true }), {
 fixture = commit(commit(fixture, "light"), "move", "pond");
 fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;
+fixture.items.oil.holder = "greek-harbor";
 fixture.actors.vale.trust.moth = 2;
 addLog(
   fixture,
@@ -127,17 +128,40 @@ try {
       await card(id).click();
       await ready();
     };
+    const pair = async (one, two) => {
+      await ready();
+      await card(one).scrollIntoViewIfNeeded();
+      await card(one).click();
+      await card(two).scrollIntoViewIfNeeded();
+      await card(two).click();
+      await card(two).click();
+      await ready();
+    };
+    const signalShip = async () => {
+      const s = await state();
+      assert.ok(
+        s.items.lamp.fuel >= 6,
+        "the return was provisioned at the harbor",
+      );
+      if (!(await state()).items.lamp.lit) await playCard("lamp");
+      for (let i = 0; i < 2; i++) {
+        await pair("cloth", "lamp");
+        await playCard("cloth");
+      }
+      assert.equal((await state()).locations.pond.shipSignal, 4);
+    };
     const travel = async (id) => {
       const before = await state();
-      const boarding = before.actors.vale.place === "pond" && id === "greek-harbor";
-      if (boarding && !before.items.lamp.lit) {
-        assert.ok(before.items.lamp.fuel > 0);
-        await playCard("lamp");
+      const boarding =
+        before.actors.vale.place === "pond" && id === "greek-harbor";
+      if (before.actors.vale.place === "greek-harbor" && id === "pond") {
+        if (before.items.lamp.lit) await playCard("lamp");
+        while ((await state()).items.lamp.fuel < 7) await pair("oil", "lamp");
       }
+      if (boarding) await signalShip();
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
-      // Preserve fuel through long episodes by using the ordinary lamp card.
       if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
     };
     const choose = async (choiceId) => {
@@ -199,7 +223,8 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
-    await card("greek-harbor").waitFor();
+    await card("lamp").waitFor();
+    assert.equal(await card("greek-harbor").count(), 0);
     await ready();
     await travel("greek-harbor");
     await travel("greek-courtyard");
@@ -286,7 +311,7 @@ try {
 
     // A second tab's committed journey uses the same migration and UI rebuild.
     // Reopen the crossing through a real card play, not a forged state edit.
-    if (!current.items.lamp.lit) await playCard("lamp");
+    await signalShip();
     current = await state();
     const updated = commit(current, "move", "greek-harbor");
     await page.evaluate(

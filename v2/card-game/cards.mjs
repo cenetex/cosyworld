@@ -200,6 +200,12 @@ export function cardPlay(world, selected) {
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 export function playLabel(action) {
+  if (
+    action?.kind === "take" &&
+    action.item === "cloth" &&
+    action.text.includes("uncovers and takes")
+  )
+    return "Uncover";
   if (action?.kind === "choose") return action.label;
   if (action?.kind === "ring" && action.target === "clearing")
     return "Ring the Steam Clock";

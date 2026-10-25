@@ -18,16 +18,24 @@ refreshed by another ring. Silence hides the return card again.
 
 ## Greek ship
 
-A Greek ship appears at Black Pond when a fueled, lit, uncovered lamp is
-physically there and no uncovered hand bell at either shore or clock bell
-is audible. Custody by a resident counts only while that resident is at the
-pond. Sound elsewhere does not block the ship.
+At quiet Black Pond, cover the lit Lamp with the Black cloth, uncover it,
+then repeat the complete cycle once. The ship and boarding card appear
+on the **second uncovering**, not merely when the lamp is lit.
 
-One predicate selects the pond's ship layer, location-card art, current
-location facts and boarding offer. Extinguishing or covering the lamp,
-removing its carrier, or sounding a nearby bell removes the ship and offer.
-Previously raised offers are checked again when played. The Greek harbor's
-return remains available without the entry conditions.
+Use **Black cloth + Lamp** to cover it and **Black cloth** to uncover it.
+The four resolved transitions are saved. Inspection, reload, generated
+speech and rejected actions cannot count as flashes. An unlit or already
+covered lamp cannot fabricate a complete cycle. The first flash gives a
+ripple hint; waiting between flashes is allowed but consumes normal fuel.
+
+Snuffing, running dry, leaving the pond, or sounding a nearby bell cancels
+the signal. Restoring light or silence alone does not summon it again.
+The variant, current facts and boarding offer share the same predicate.
+The Greek harbor retains its return route without the entry lamp.
+
+Legacy saves receive signal phase zero without resetting their stories.
+Run the 24 ritual regressions in test/card-ship-ritual.test.mjs alongside
+card-crossings.test.mjs and the desktop/phone browser smoke.
 
 ## Scope and verification
 

@@ -16,8 +16,9 @@ the traveler.
 
 The external
 [`card-bridge.json`](../../worlds/greek-drama/card-bridge.json) owns the
-Black Pond–harbor topology. Shore-side entry requires a fueled, lit,
-uncovered lamp physically at the pond and silence from the nearby bells.
+Black Pond–harbor topology. At the quiet pond, cover and uncover the fueled,
+lit Lamp twice with the Black cloth. The second uncovering summons the ship.
+Lighting the lamp alone does not open this crossing.
 The Greek ship location variant and the boarding card share that predicate.
 The harbor keeps its return route even if the entry lamp has gone out.
 The reusable source never names
@@ -95,9 +96,11 @@ thicket rather than an already-built empire.
 
 ## Opening route
 
-At Black Pond, bring an uncovered lit lamp and wait for the nearby bells to
-fall silent. A Greek ship appears on the pond together with the **Wine-Dark
-Harbor** travel card. Board it, then travel to **Theban Courtyard**.
+At quiet Black Pond, play **Black cloth + Lamp** to cover the lit lamp,
+then **Black cloth** to uncover it. Repeat once. The second uncovering
+reveals a Greek ship and the **Wine-Dark Harbor** boarding card together.
+Board it, then travel to **Theban Courtyard**. Progress survives reload;
+leaving, extinguishing the lamp, or nearby bells cancels the signal.
 The courtyard reaches the market well, gate, and sanctuary. The well reaches
 the palace; the gate reaches the battlefield.
 

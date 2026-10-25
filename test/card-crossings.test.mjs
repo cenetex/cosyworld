@@ -39,7 +39,14 @@ function pond() {
   s.actors.vale.place = "pond";
   s.items.lamp.holder = "vale";
   s.items.lamp.lit = true;
-  return s;
+  s.items.lamp.fuel = 12;
+  s.items.cloth.holder = "vale";
+  let next = s;
+  for (let i = 0; i < 2; i++) {
+    next = act(next, "cover", "lamp", "cloth");
+    next = act(next, "take", null, "cloth");
+  }
+  return next;
 }
 function act(s, kind, target, item) {
   const a = legalActions(s).find(

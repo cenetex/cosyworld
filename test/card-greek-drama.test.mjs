@@ -47,11 +47,23 @@ function act(world, kind, field = {}) {
 
 function move(world, target) {
   const boarding = world.actors.vale.place === "pond" && target === HARBOR;
-  // The old fixture crossed permanently open topology. Now conserve the real
-  // lamp during long Greek episodes, and relight it for each boarding.
-  if (boarding && !world.items.lamp.lit) {
-    expect(world.items.lamp.fuel).toBeGreaterThan(0);
-    world = act(world, "light", { item: "lamp" });
+  if (world.actors.vale.place === HARBOR && target === "pond") {
+    if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
+    while (world.items.lamp.fuel < 7)
+      world = act(world, "refill", { item: "oil" });
+    if (rootHolder(world, "cloth") !== "vale")
+      world = act(world, "take", { item: "cloth" });
+  }
+  const nested = boarding && world.items.cloth.holder === "bell";
+  if (boarding) {
+    if (["lamp", "bell"].includes(world.items.cloth.holder))
+      world = act(world, "take", { item: "cloth" });
+    if (!world.items.lamp.lit) world = act(world, "light", { item: "lamp" });
+    for (let i = 0; i < 2; i++) {
+      world = act(world, "cover", { item: "cloth", target: "lamp" });
+      world = act(world, "take", { item: "cloth" });
+    }
+    if (nested) world = act(world, "cover", { item: "cloth", target: "bell" });
   }
   expect(exits(world, world.actors.vale.place, "vale")).toContain(target);
   expect(availableCards(world)).toContain(target);
@@ -60,9 +72,14 @@ function move(world, target) {
   const result = play(world, action);
   expect(result.ok, result.error).toBe(true);
   expect(result.state.actors.vale.place).toBe(target);
-  return boarding && result.state.items.lamp.lit
-    ? act(result.state, "snuff", { item: "lamp" })
-    : result.state;
+  world = result.state;
+  if (boarding) {
+    if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
+    // Reserve capacity for funeral supplies, then collect this same cloth
+    // at the harbor before a return. The nested-custody case keeps its pair.
+    if (!nested) world = act(world, "drop", { item: "cloth", target: HARBOR });
+  }
+  return world;
 }
 
 const walk = (world, ...route) => route.reduce(move, world);
@@ -85,7 +102,11 @@ function pond() {
     personalQuests: true,
   });
   world = act(world, "light");
-  return move(world, "pond");
+  world = move(world, "pond");
+  world.items.cloth.holder = "vale";
+  world.items.oil.holder = HARBOR;
+  world.items.lamp.fuel = 12;
+  return world;
 }
 
 const harbor = () => move(pond(), HARBOR);
