@@ -36,6 +36,8 @@ const firstProgram = [
   ["attic"],
   ["lamp"],
   ["pond"],
+  // Vale carries the light away; Pip and the keeper take the station path.
+  ["pond"],
   ["lamp", "cloth"],
 ];
 const secondProgram = [
@@ -106,7 +108,7 @@ describe("target hands and quest programs", () => {
     s = playRoute(s, firstProgram.slice(4));
     expect(levelOf(s, "vale")).toBe(2);
     expect(programFor(s, "vale").id).toBe("the-bell-below");
-    expect(s.actors.vale.progress.marks).toEqual([1, 4, 7]);
+    expect(s.actors.vale.progress.marks).toEqual([1, 4, 8]);
     expect(desireFor(s, "moth")).toEqual({
       items: ["oil"],
       location: "attic",
@@ -119,7 +121,7 @@ describe("target hands and quest programs", () => {
     s = cards(s, "cloth", "bell");
     expect(s.actors.keeper.place).toBe("attic");
     expect(s.actors.vale.progress.step).toBe(1);
-    expect(s.actors.vale.progress.marks).toEqual([1, 4, 7, 8]);
+    expect(s.actors.vale.progress.marks).toEqual([1, 4, 8, 9]);
     expect(levelOf(s, "vale")).toBe(2);
     const receipt = s.log.findLast(
       (e) => e.kind === "quest" && e.actorId === "vale",
@@ -382,7 +384,7 @@ describe("quest saves and scene records", () => {
       { program: 0, step: 99, marks: [] },
       { program: 1, step: 0, marks: [] },
       { program: 1, step: 0, marks: [1, 1, 7] },
-      { program: 1, step: 0, marks: [1, 4, 8] },
+      { program: 1, step: 0, marks: [1, 4, 9] },
       { program: 0, step: 1, marks: [0] },
     ]) {
       const s = structuredClone(completed);

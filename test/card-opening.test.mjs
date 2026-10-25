@@ -130,7 +130,7 @@ describe("the first light in the attic", () => {
     expect(currentScene(lit).locationId).toBe("attic");
     expect(sceneCast(lit)).toEqual(["vale", null]);
     expect(narrativeContext(lit).events.join(" ")).toContain(
-      "open onto each other",
+      "opens a path to the pond",
     );
     expect(JSON.stringify(narrativeContext(lit))).not.toMatch(
       /keeper|moth|Pip/,
@@ -237,7 +237,7 @@ describe("the first light in the attic", () => {
     ).toBe(true);
   });
 
-  it("keeps the first crossing safe after putting the lamp down or letting it run dry", () => {
+  it("takes the lamp when lighting it and strands Vale when its fuel runs out", () => {
     let dropped = act(fresh(), "drop", { item: "lamp" });
     dropped = act(dropped, "light");
     expect(dropped.items.lamp.holder).toBe("vale");
@@ -248,10 +248,12 @@ describe("the first light in the attic", () => {
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);
     s = decodeSave(encodeSave(s));
-    expect(exits(s, "attic")).toEqual(["pond"]);
+    expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
-    s = act(s, "move", { target: "pond" });
-    expect(s.actors.vale.place).toBe("pond");
+    expect(availableCards(s)).not.toContain("pond");
+    expect(cardPlay(s, ["pond"]).action).toBeNull();
+    expect(placeText(s, "attic")).toContain("Dust gathers");
+    expect(s.actors.vale.place).toBe("attic");
   });
 
   it("lets a defeated avatar retreat from the attic through the mirror", () => {

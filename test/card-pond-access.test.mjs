@@ -6,6 +6,7 @@ import {
   exits,
   itemPlace,
   legalActions,
+  placeText,
   play,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
@@ -97,6 +98,65 @@ describe.each([true, false])("pond access (opening: %s)", (opening) => {
       if (condition === "covered") s.items.cloth.holder = "lamp";
       expect(exits(s, "pond")).not.toContain("attic");
       expect(availableCards(decodeSave(encodeSave(s)))).not.toContain("attic");
+    },
+  );
+});
+
+describe.each([true, false])("attic access (opening: %s)", (opening) => {
+  function attic() {
+    const s = pond(opening);
+    s.actors.vale.place = s.actors.moth.place = "attic";
+    s.locations.attic.anchored = true;
+    return s;
+  }
+
+  it.each(["attic", "vale", "moth"])(
+    "allows departure with a shining lamp held by %s at the attic",
+    (holder) => {
+      const s = attic();
+      s.items.lamp.holder = holder;
+      const result = play(s, cardPlay(s, ["pond"]).action);
+      expect(result.ok).toBe(true);
+      expect(result.state.actors.vale.place).toBe("pond");
+    },
+  );
+
+  it.each(["unlit", "empty", "covered", "at the pond"])(
+    "closes with the lamp %s and checks saved and selected routes again",
+    (condition) => {
+      const s = attic();
+      s.items.bell.holder = "vale";
+      const stale = legalActions(s).filter(
+        (a) =>
+          (a.kind === "move" && a.target === "pond") ||
+          (a.kind === "accompany" && a.destination === "pond"),
+      );
+      expect(stale.map((a) => a.kind)).toContain("accompany");
+      expect(stale.some((a) => a.kind === "move" && a.item === "bell")).toBe(
+        true,
+      );
+      if (condition === "unlit") s.items.lamp.lit = false;
+      if (condition === "empty") {
+        s.items.lamp.lit = false;
+        s.items.lamp.fuel = 0;
+      }
+      if (condition === "covered") s.items.cloth.holder = "lamp";
+      if (condition === "at the pond") s.actors.moth.place = "pond";
+      const before = encodeSave(s);
+      expect(exits(s, "attic")).not.toContain("pond");
+      expect(availableCards(s)).not.toContain("pond");
+      expect(cardPlay(s, ["pond"]).action).toBeNull();
+      for (const action of stale) {
+        const result = play(s, action);
+        expect(result.ok).toBe(false);
+        expect(result.state).toBe(s);
+      }
+      expect(encodeSave(s)).toBe(before);
+      const restored = decodeSave(before);
+      expect(availableCards(restored)).not.toContain("pond");
+      expect(exits(restored, "attic")).toEqual(opening ? [] : ["station"]);
+      if (opening)
+        expect(placeText(restored, "attic")).toContain("Dust gathers");
     },
   );
 });

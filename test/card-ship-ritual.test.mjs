@@ -308,7 +308,9 @@ test("the four-action crossing preserves an NPC receipt for a witness Vale has n
   s = act(s, "light", "lamp");
   s = act(s, "move", null, "pond");
   s.items.cloth.holder = "pond";
-  s.items.oil.holder = "pond";
+  // Pip meets the keeper out of sight while Vale works the lamp signal.
+  s.actors.moth.place = "station";
+  s.items.oil.holder = "moth";
   s.items.lamp.fuel = 12;
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);

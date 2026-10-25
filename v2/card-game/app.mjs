@@ -133,24 +133,20 @@ let storyStatus = "ready",
   speechComplete = null,
   nextSceneSeq = null,
   replay = 0,
-  pendingReplay = 0,
   cardsCooling = false,
   reviewing = false,
   pendingCast = null,
+  pendingSpeaker = null,
   departed = new Set();
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
 let handTimer = null;
 function releaseHand() {
-  // The cooldown is a courtesy pause, not a lock: if the story request has
-  // failed or wedged (status "retry"/error) the hand must still release,
-  // because no busy(false) will arrive. The revision guard rejects any
-  // stale play, so releasing early cannot corrupt the world.
-  if (!cardsCooling) return;
+  // A slow request can be replaced by a new play. Ready dialogue owns the
+  // hand through scene preparation and the last speaker's reading pause.
+  if (!cardsCooling || storyStatus !== "pending" || !exchange.preparing) return;
   cardsCooling = false;
-  // The scene shows who is really here once the hand is free.
-  pendingCast = null;
   updateCardCooldown();
   renderScene();
 }
@@ -178,6 +174,7 @@ const exchange = createExchange({
     ),
   show: (line) => {
     pendingCast = null;
+    pendingSpeaker = null;
     reviewing = false;
     lineSeq = line.seq;
     renderScene();
@@ -190,10 +187,12 @@ const exchange = createExchange({
     clearTimeout(handTimer);
     cardsCooling = value;
     updateCardCooldown();
-    if (value) handTimer = setTimeout(releaseHand, HAND_WAIT);
+    if (value && storyStatus === "pending")
+      handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
       pendingCast = null;
+      pendingSpeaker = null;
       renderScene();
     }
   },
@@ -383,6 +382,10 @@ window.addEventListener("pagehide", () => music.setHidden(true));
 window.addEventListener("pageshow", () => music.setHidden(document.hidden));
 const narrator = createNarrator({
   getWorld: () => world,
+  started: (context) => {
+    pendingSpeaker = context.speakers[0] || null;
+    renderScene();
+  },
   apply: (next) => {
     world = next;
     storyStatus = "ready";
@@ -456,8 +459,6 @@ function commitAction(action, revision) {
   narrator.invalidate();
   exchange.cancel();
   storyStatus = speak ? "pending" : "ready";
-  pendingReplay = replay;
-  const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   const from = world.actors.vale.place;
   world = result.state;
   music.setRoom(world.actors.vale.place);
@@ -480,13 +481,10 @@ function commitAction(action, revision) {
         .map((change) => change.actorId),
     ]),
   ];
-  pendingCast = sceneCast(world, world.log.length - 1, visible);
+  pendingCast = speak ? sceneCast(world, world.log.length - 1, visible) : null;
   if (speak) exchange.begin();
   selected = [];
-  lineSeq =
-    speak && previousLine?.locationId === world.actors.vale.place
-      ? previousLine.seq
-      : null;
+  lineSeq = null;
   notice("");
   save();
   if (world.actors.vale.place !== from)
@@ -949,7 +947,14 @@ function renderScene() {
       priorPortrait.append(image);
     }
   }
-  $("speaker").textContent = scene.line?.speaker || "";
+  const spoken =
+    scene.line?.kind === "dialogue" &&
+    (reviewing || scene.line.turn === world.turn);
+  $("speaker").textContent = spoken
+    ? scene.line.speaker
+    : pendingSpeaker
+      ? nameOf(pendingSpeaker)
+      : "";
   $("line-turn").textContent = "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
@@ -963,9 +968,6 @@ function renderScene() {
       ? $("story-status").textContent
       : "New words are on the way",
   );
-  const spoken =
-    scene.line?.kind === "dialogue" &&
-    (reviewing || scene.line.turn === world.turn);
   const text = spoken ? scene.line.text : "";
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
@@ -985,9 +987,7 @@ function renderScene() {
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
-      instant:
-        completedSpeech.has(key) ||
-        (replay === pendingReplay && storyStatus === "pending"),
+      instant: completedSpeech.has(key),
     });
   } else {
     reveal.cancel();
@@ -1229,7 +1229,7 @@ $("confirm-reset").onclick = () => {
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
-  replay = pendingReplay = 0;
+  replay = 0;
   lineSeq = null;
   selected = [];
   saveBlocked = false;

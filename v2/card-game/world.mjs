@@ -283,13 +283,11 @@ export const carried = (s, actor) =>
 export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
   s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-export const reflectionOpen = (s, from = null) =>
-  // Discovery keeps the attic's escape open. Entry from the pond still needs
-  // light here, resolved through the lamp's current holder and their location.
-  from === "pond"
-    ? shining(s) && itemPlace(s, "lamp") === "pond"
-    : Boolean(s.locations?.attic.anchored) ||
-      (shining(s) && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
+  // Each departure needs light at that end of the mirror.
+  ["attic", "pond"].includes(from) &&
+  shining(s) &&
+  itemPlace(s, "lamp") === from;
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
@@ -304,7 +302,7 @@ const baseExits = (s, place) =>
 export const placeText = (s, place) =>
   [
     s.opening && place === "attic"
-      ? reflectionOpen(s)
+      ? reflectionOpen(s, place)
         ? "A tall mirror opens onto a black shore. A path leads through the glass."
         : "A tall mirror reflects a black shore. Dust gathers along its frame."
       : s.opening && place === "station"
@@ -600,7 +598,7 @@ function applyConsequence(s, actor, target) {
     case "anchor":
       s.locations.attic.anchored = true;
       text =
-        "The mirror remembers the crossing. The way out of the attic stays open when the lamp goes dark.";
+        "The mirror remembers the crossing. Its path opens in lamplight at either shore.";
       break;
     case "oil":
       s.items.oil.doses = 3;
@@ -1932,10 +1930,10 @@ export function play(s, action, expectedRevision = s.revision) {
       isOpen
         ? reflectionSource === "pond"
           ? "The pond's reflection opens a path to the attic."
-          : "The attic mirror and the pond open onto each other. A dark shore waits between them."
+          : "The attic mirror opens a path to the pond. A dark shore waits through the glass."
         : reflectionSource === "pond"
           ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
-          : "The reflected path closes. The paths through the station remain open.",
+          : "The attic mirror's path to the pond closes.",
       { locationId: reflectionSource },
     );
   advancePrograms(next, met);

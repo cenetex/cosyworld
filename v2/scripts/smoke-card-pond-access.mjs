@@ -145,9 +145,25 @@ try {
       await card("attic").locator(".name").innerText(),
       "Mirror attic",
     );
+    await card("lamp").click();
+    await card("lamp").locator("..").locator(".card-primary").click();
+    await ready();
+    assert.equal((await state()).items.lamp.lit, false);
+    assert.equal(await card("pond").count(), 0);
+    await page.reload();
+    await ready();
+    assert.equal(await card("pond").count(), 0);
+    assert.equal((await state()).actors.vale.place, "attic");
+    await card("lamp").click();
+    await card("lamp").locator("..").locator(".card-primary").click();
+    await ready();
+    await card("pond").click();
+    await card("pond").locator("..").locator(".card-primary").click();
+    await ready();
+    assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Pond access, quiet departure, reload and restored lamp passed at ${width}px.`,
+      `Mirror access in both directions, quiet departure, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }
