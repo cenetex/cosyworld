@@ -311,7 +311,9 @@ describe("one exchange per card play", () => {
     expect(busy).toHaveBeenLastCalledWith(true);
     vi.advanceTimersByTime(2000);
     expect(exchange.active).toBe(true);
+    busy.mockClear();
     exchange.load(lines);
+    expect(busy).toHaveBeenCalledExactlyOnceWith(true);
     expect(show).toHaveBeenLastCalledWith(lines[0]);
     exchange.revealed(1, lines[0].text);
     vi.advanceTimersByTime(1199);
@@ -320,6 +322,7 @@ describe("one exchange per card play", () => {
     expect(show).toHaveBeenLastCalledWith(lines[1]);
     expect(settled).toHaveBeenCalledTimes(1);
     expect(exchange.active).toBe(true);
+    expect(busy).toHaveBeenCalledExactlyOnceWith(true);
     exchange.revealed(2, lines[1].text);
     vi.advanceTimersByTime(899);
     expect(exchange.active).toBe(true);

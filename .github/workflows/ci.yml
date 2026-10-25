@@ -283,6 +283,8 @@ jobs:
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
           node v2/scripts/smoke-card-dialogue-recovery.mjs
+          node v2/scripts/smoke-card-dialogue-timing.mjs
+          node v2/scripts/smoke-card-movement.mjs
 
       - name: Check music fades between rooms and on pause
         if: matrix.mode == 'baseline'
@@ -304,6 +306,10 @@ jobs:
             output/pond-crossings-check/*.png
             output/pond-crossings-check/*.json
             output/dialogue-recovery/*.png
+            output/dialogue-timing/*.png
+            output/dialogue-timing/*.json
+            output/movement/*.png
+            output/movement/*.json
           if-no-files-found: ignore
           retention-days: 7
 

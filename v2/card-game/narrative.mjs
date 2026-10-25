@@ -747,6 +747,7 @@ export function createNarrator({
   getWorld,
   apply,
   status,
+  started = () => {},
   request = requestNarrative,
   preview = () => {},
 }) {
@@ -804,6 +805,7 @@ export function createNarrator({
         const revision = getWorld().revision;
         try {
           const context = narrativeContext(getWorld(), action);
+          started(context);
           await write(context, version, controller.signal);
         } catch (error) {
           if (version === ticket) {

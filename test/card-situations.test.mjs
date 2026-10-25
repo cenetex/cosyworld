@@ -166,7 +166,7 @@ describe("situations and their consequences", () => {
     expect(handStatus(s, "vale", delivered).met).toBe(true);
   });
 
-  it("records a crossing once and keeps the path open through darkness and reload", () => {
+  it("records a crossing once and preserves its light requirement through reload", () => {
     let s = continuing();
     s.actors.vale.place = "pond";
     s.items.lamp.holder = "vale";
@@ -178,14 +178,15 @@ describe("situations and their consequences", () => {
     expect(s.locations.attic.anchored).toBe(true);
     s.items.lamp.fuel = 0;
     s.items.lamp.lit = false;
-    expect(reflectionOpen(s)).toBe(true);
+    expect(reflectionOpen(s)).toBe(false);
     const effects = s.log.filter((e) => e.consequence?.kind === "anchor");
     expect(effects).toHaveLength(1);
     const restored = decodeSave(encodeSave(s));
     expect(play(restored, plan(restored).action)).toEqual(
       play(s, plan(s).action),
     );
-    expect(reflectionOpen(restored)).toBe(true);
+    expect(reflectionOpen(restored)).toBe(false);
+    expect(restored.locations.attic.anchored).toBe(true);
   });
 
   it("a bell call restores the real oil resource only after the played sound", () => {

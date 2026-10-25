@@ -195,6 +195,7 @@ describe("entity memories and model text", () => {
   it("coalesces fast plays and keeps reset worlds clear of late replies", async () => {
     let world = act(createWorld(), "wait");
     const requests = [],
+      started = vi.fn(),
       apply = vi.fn((next) => {
         world = next;
       });
@@ -202,8 +203,12 @@ describe("entity memories and model text", () => {
       getWorld: () => world,
       apply,
       status: vi.fn(),
+      started,
       request: (context) =>
-        new Promise((resolve) => requests.push({ context, resolve })),
+        new Promise((resolve) => {
+          expect(started).toHaveBeenLastCalledWith(context);
+          requests.push({ context, resolve });
+        }),
     });
     narrator.changed();
     world = act(world, "wait");
@@ -211,10 +216,12 @@ describe("entity memories and model text", () => {
     world = act(world, "wait");
     narrator.changed();
     expect(requests).toHaveLength(1);
+    expect(started).toHaveBeenCalledTimes(1);
     requests[0].resolve(response(requests[0].context));
     await flush();
     expect(apply).not.toHaveBeenCalled();
     expect(requests).toHaveLength(2);
+    expect(started).toHaveBeenCalledTimes(2);
     expect(requests[1].context.turn).toBe(3);
     narrator.invalidate();
     world = createWorld();

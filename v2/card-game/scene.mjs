@@ -85,6 +85,49 @@ export function sceneChanges(world) {
     }));
 }
 
+// Show physical movement as soon as the scene appears, while words are prepared.
+export function movementCaption(world) {
+  const here = world.actors.vale.place;
+  const arrival = world.log.findLast(
+    (e) =>
+      e.turn === world.turn &&
+      !e.generated &&
+      e.actorId === "vale" &&
+      e.fromLocationId &&
+      e.fromLocationId !== e.locationId &&
+      e.locationId === here,
+  );
+  const changes = sceneChanges(world);
+  const ids = [
+    ...new Set([
+      ...changes.map((change) => change.actorId),
+      ...(arrival
+        ? knownActors(world).filter(
+            (id) => id !== "vale" && world.actors[id].place === here,
+          )
+        : []),
+    ]),
+  ].filter((id) => entityActive(world, id));
+  return ids
+    .map((id) => {
+      const who = nameOf(id);
+      const change = changes.find((change) => change.actorId === id);
+      if (
+        arrival?.verb === "accompany" &&
+        arrival.accepted &&
+        arrival.targetId === id
+      )
+        return `${who} travels with Vale.`;
+      if (change?.leaving) return `${who} leaves for ${nameOf(change.to)}.`;
+      if (change)
+        return change.from === arrival?.fromLocationId
+          ? `${who} follows from ${nameOf(change.from)}.`
+          : `${who} arrives from ${nameOf(change.from)}.`;
+      return `${who} is waiting here.`;
+    })
+    .join(" ");
+}
+
 // Seats follow the cast, so a reply never pushes another character off stage.
 export function sceneCast(
   world,

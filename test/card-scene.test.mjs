@@ -14,6 +14,7 @@ import {
   sceneCast,
   sceneLines,
   sceneStaging,
+  movementCaption,
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
@@ -46,6 +47,45 @@ function act(s, kind, item, target) {
   ).state;
 }
 describe("JRPG scenes", () => {
+  it("distinguishes a follower, agreed company, and a waiting resident", () => {
+    const s = gathered();
+    s.actors.vale.place = s.actors.moth.place = "attic";
+    s.items.lamp.holder = "vale";
+    s.items.lamp.lit = true;
+    const followed = act(s, "move", null, "pond");
+    expect(movementCaption(followed)).toContain(
+      "Pip follows from Mirror attic.",
+    );
+    expect(movementCaption(decodeSave(encodeSave(followed)))).toBe(
+      movementCaption(followed),
+    );
+    const invite = legalActions(s).find(
+      (a) =>
+        a.kind === "accompany" &&
+        a.target === "moth" &&
+        a.destination === "pond",
+    );
+    const shared = play(s, invite).state;
+    expect(movementCaption(shared)).toContain("Pip travels with Vale.");
+    const waiting = createWorld({ opening: true });
+    waiting.items.lamp.lit = true;
+    waiting.locations.attic.anchored = true;
+    expect(movementCaption(act(waiting, "move", null, "pond"))).toBe(
+      "Pip is waiting here.",
+    );
+  });
+
+  it("explains a quiet departure and clears it on the following turn", () => {
+    const s = gathered();
+    s.items.lamp.holder = "moth";
+    s.items.lamp.lit = true;
+    const left = act(s, "wait");
+    expect(movementCaption(left)).toContain("Pip leaves for Black pond.");
+    expect(movementCaption(act(left, "wait"))).not.toContain(
+      "Pip leaves for Black pond.",
+    );
+  });
+
   it("starts a fresh scene on return and keeps earlier visits available for replay", () => {
     const write = (s) => {
       const context = narrativeContext(s);

@@ -243,6 +243,7 @@ export function createExchange({
     },
     load(value) {
       if (!active) return;
+      busy(true);
       lines = value;
       index = -1;
       const version = ++generation;

@@ -109,7 +109,7 @@ try {
     // Loading a quiet scene is silent. Explicit conversation requests words.
     const person = page.locator('#hand [data-card="moth"]');
     await person.click();
-    await person.click();
+    await person.locator("..").locator(".card-primary").click();
     await page.waitForFunction(() =>
       document
         .querySelector("#story-status")
@@ -142,7 +142,7 @@ try {
     mode = "invalid";
     const pond = person;
     await pond.click();
-    await pond.click();
+    await pond.locator("..").locator(".card-primary").click();
     await page.waitForFunction(
       () => !document.querySelector("#story-retry").hidden,
     );
@@ -163,7 +163,7 @@ try {
     // Slow words release the hand rather than holding it.
     mode = "hang";
     await pond.click();
-    await pond.click();
+    await pond.locator("..").locator(".card-primary").click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
       null,
@@ -178,7 +178,7 @@ try {
     );
     mode = "ready";
     await pond.click();
-    await pond.click();
+    await pond.locator("..").locator(".card-primary").click();
     await ready();
     assert.equal((await state()).turn, before.turn + 3);
     assert.match(await page.textContent("#dialogue-text"), /speaks on turn 6/);

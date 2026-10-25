@@ -26,6 +26,7 @@ import {
   currentScene,
   sceneCast,
   sceneChanges,
+  movementCaption,
   sceneStaging,
   portrait,
   backdrop,
@@ -133,30 +134,46 @@ let storyStatus = "ready",
   speechComplete = null,
   nextSceneSeq = null,
   replay = 0,
-  pendingReplay = 0,
   cardsCooling = false,
   reviewing = false,
   pendingCast = null,
+  pendingSpeaker = null,
   departed = new Set();
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
 let handTimer = null;
-function releaseHand() {
-  // The cooldown is a courtesy pause, not a lock: if the story request has
-  // failed or wedged (status "retry"/error) the hand must still release,
-  // because no busy(false) will arrive. The revision guard rejects any
-  // stale play, so releasing early cannot corrupt the world.
-  if (!cardsCooling) return;
+async function releaseHand() {
+  // A slow request can be replaced by a new play. Ready dialogue owns the
+  // hand through scene preparation and the last speaker's reading pause.
+  const version = trip;
+  await prepareScene();
+  if (
+    version !== trip ||
+    !cardsCooling ||
+    storyStatus !== "pending" ||
+    !exchange.preparing
+  )
+    return;
   cardsCooling = false;
-  // The scene shows who is really here once the hand is free.
-  pendingCast = null;
   updateCardCooldown();
   renderScene();
 }
 const completedSpeech = new Set();
 const entrances = new Map();
 let shownSceneLine = null;
+async function prepareScene() {
+  await travelShown;
+  await waitForScene(
+    [
+      ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
+        image.decode(),
+      ),
+      ...entrances.values(),
+    ],
+    10000,
+  );
+}
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(cardsCooling));
@@ -166,18 +183,10 @@ function updateCardCooldown() {
   }
 }
 const exchange = createExchange({
-  prepare: () =>
-    waitForScene(
-      [
-        ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
-          image.decode(),
-        ),
-        ...entrances.values(),
-      ],
-      10000,
-    ),
+  prepare: prepareScene,
   show: (line) => {
     pendingCast = null;
+    pendingSpeaker = null;
     reviewing = false;
     lineSeq = line.seq;
     renderScene();
@@ -190,10 +199,12 @@ const exchange = createExchange({
     clearTimeout(handTimer);
     cardsCooling = value;
     updateCardCooldown();
-    if (value) handTimer = setTimeout(releaseHand, HAND_WAIT);
+    if (value && storyStatus === "pending")
+      handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
       pendingCast = null;
+      pendingSpeaker = null;
       renderScene();
     }
   },
@@ -383,6 +394,10 @@ window.addEventListener("pagehide", () => music.setHidden(true));
 window.addEventListener("pageshow", () => music.setHidden(document.hidden));
 const narrator = createNarrator({
   getWorld: () => world,
+  started: (context) => {
+    pendingSpeaker = context.speakers[0] || null;
+    renderScene();
+  },
   apply: (next) => {
     world = next;
     storyStatus = "ready";
@@ -408,11 +423,11 @@ const narrator = createNarrator({
 $("story-retry").onclick = () => narrator.retry();
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
-  if (selected.includes(id)) {
-    commit(selected, selectionRevision);
-    return;
-  }
-  selected = selected.length >= 2 ? [id] : [...selected, id];
+  selected = selected.includes(id)
+    ? selected.filter((cardId) => cardId !== id)
+    : selected.length >= 2
+      ? [id]
+      : [...selected, id];
   selectionRevision = world.revision;
   render();
   $("hand")
@@ -440,6 +455,7 @@ function commitAction(action, revision) {
   }
   reveal.finish();
   speechSounds.stop();
+  cancelTravel();
   // Manipulating an object needs no automatic speech or tutorial recap.
   const speak = [
     "talk",
@@ -456,8 +472,6 @@ function commitAction(action, revision) {
   narrator.invalidate();
   exchange.cancel();
   storyStatus = speak ? "pending" : "ready";
-  pendingReplay = replay;
-  const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   const from = world.actors.vale.place;
   world = result.state;
   music.setRoom(world.actors.vale.place);
@@ -480,13 +494,10 @@ function commitAction(action, revision) {
         .map((change) => change.actorId),
     ]),
   ];
-  pendingCast = sceneCast(world, world.log.length - 1, visible);
+  pendingCast = speak ? sceneCast(world, world.log.length - 1, visible) : null;
   if (speak) exchange.begin();
   selected = [];
-  lineSeq =
-    speak && previousLine?.locationId === world.actors.vale.place
-      ? previousLine.seq
-      : null;
+  lineSeq = null;
   notice("");
   save();
   if (world.actors.vale.place !== from)
@@ -501,13 +512,29 @@ function commitAction(action, revision) {
 // so a change of place is always seen, whatever caused it. The new place is
 // drawn only once the veil is fully down, and the veil lifts only once the new
 // backdrop and portraits have loaded, so the swap is never seen.
-const TRAVEL_COVER = 400,
-  TRAVEL_HOLD = 700,
+const TRAVEL_HOLD = 700,
   TRAVEL_WAIT = 4000;
 let covering = false,
-  trip = 0;
+  trip = 0,
+  travelShown = Promise.resolve(),
+  revealTravel = () => {};
+function cancelTravel() {
+  trip++;
+  covering = false;
+  revealTravel();
+  travelShown = Promise.resolve();
+  $("travel").classList.remove("travelling");
+  for (const figure of $("cast").children) {
+    figure.classList.remove("entering");
+    for (const animation of figure
+      .querySelector(".portrait-body")
+      .getAnimations())
+      animation.cancel();
+  }
+  entrances.clear();
+}
 // Cards met at the new place are unveiled once the veil has fully lifted.
-function travel(place, arrive, landed) {
+async function travel(place, arrive, landed) {
   const veil = $("travel");
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
@@ -516,24 +543,31 @@ function travel(place, arrive, landed) {
     return;
   }
   const mine = ++trip;
+  travelShown = new Promise((resolve) => {
+    revealTravel = resolve;
+  });
   covering = true;
   veil.classList.add("travelling");
-  setTimeout(async () => {
-    if (mine !== trip) return;
-    covering = false;
-    arrive();
-    const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
-    await Promise.race([
-      Promise.all([
-        new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
-        ...images.map((img) => img.decode().catch(() => {})),
-      ]),
-      new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
-    ]);
-    if (mine !== trip) return;
-    veil.classList.remove("travelling");
-    setTimeout(() => mine === trip && landed(), TRAVEL_COVER);
-  }, TRAVEL_COVER);
+  // The browser may start a CSS transition on a later frame. Wait for its
+  // completion so each scene change stays covered at every rendering speed.
+  await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  if (mine !== trip) return;
+  covering = false;
+  arrive();
+  const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
+  await Promise.race([
+    Promise.all([
+      new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
+      ...images.map((img) => img.decode().catch(() => {})),
+    ]),
+    new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
+  ]);
+  if (mine !== trip) return;
+  veil.classList.remove("travelling");
+  await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  if (mine !== trip) return;
+  revealTravel();
+  landed();
 }
 
 const figures = new Map();
@@ -802,6 +836,8 @@ function renderStage(locationId) {
   }
 }
 function renderScene() {
+  // Every path to this renderer keeps the source visible until the veil covers it.
+  if (covering) return;
   const scene = currentScene(world, null, {
     seq: lineSeq,
     hold: exchange.preparing,
@@ -890,7 +926,7 @@ function renderScene() {
     figure.setAttribute("aria-hidden", String(left));
     const arrivalKey =
       actor.movement?.kind === "arrive"
-        ? `${world.turn}:${scene.locationId}`
+        ? `${trip}:${world.turn}:${scene.locationId}`
         : "";
     const entering =
       arrivalKey && figure.dataset.arrival !== arrivalKey && !reviewing;
@@ -898,23 +934,41 @@ function renderScene() {
     if (!arrivalKey) figure.classList.remove("entering");
     if (entering) {
       figure.classList.add("entering");
-      const task = waitForScene([image.decode()]).then(async () => {
-        if (!figure.isConnected || figure.dataset.arrival !== arrivalKey)
-          return;
-        figure.classList.remove("entering");
-        if (!reducedMotion.matches) {
-          await figure
-            .querySelector(".portrait-body")
-            .animate(
-              [
-                { opacity: 0, translate: actor.x < 50 ? "-24px 0" : "24px 0" },
-                { opacity: 1, translate: "0 0" },
-              ],
-              { duration: 420, easing: "ease-out" },
-            )
-            .finished.catch(() => {});
-        }
-      });
+      const version = trip;
+      const task = waitForScene([travelShown, image.decode()]).then(
+        async () => {
+          if (
+            version !== trip ||
+            !figure.isConnected ||
+            figure.dataset.arrival !== arrivalKey
+          )
+            return;
+          figure.classList.remove("entering");
+          if (!reducedMotion.matches) {
+            await figure
+              .querySelector(".portrait-body")
+              .animate(
+                [
+                  {
+                    opacity: 0,
+                    translate: actor.x < 50 ? "-24px 0" : "24px 0",
+                  },
+                  { opacity: 1, translate: "0 0" },
+                ],
+                {
+                  duration: 600,
+                  delay:
+                    id !== "vale" && !actor.movement.companions.includes("vale")
+                      ? index * 300
+                      : 0,
+                  fill: "backwards",
+                  easing: "ease-out",
+                },
+              )
+              .finished.catch(() => {});
+          }
+        },
+      );
       entrances.set(figure, task);
       void task.finally(() => {
         if (entrances.get(figure) === task) entrances.delete(figure);
@@ -949,7 +1003,17 @@ function renderScene() {
       priorPortrait.append(image);
     }
   }
-  $("speaker").textContent = scene.line?.speaker || "";
+  const spoken =
+    scene.line?.kind === "dialogue" &&
+    (reviewing || scene.line.turn === world.turn);
+  $("speaker").textContent = spoken
+    ? scene.line.speaker
+    : pendingSpeaker
+      ? nameOf(pendingSpeaker)
+      : "";
+  const movement = reviewing ? "" : movementCaption(world);
+  $("movement-caption").textContent = movement;
+  $("movement-caption").hidden = !movement;
   $("line-turn").textContent = "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
@@ -963,9 +1027,6 @@ function renderScene() {
       ? $("story-status").textContent
       : "New words are on the way",
   );
-  const spoken =
-    scene.line?.kind === "dialogue" &&
-    (reviewing || scene.line.turn === world.turn);
   const text = spoken ? scene.line.text : "";
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
@@ -985,9 +1046,7 @@ function renderScene() {
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
-      instant:
-        completedSpeech.has(key) ||
-        (replay === pendingReplay && storyStatus === "pending"),
+      instant: completedSpeech.has(key),
     });
   } else {
     reveal.cancel();
@@ -1217,6 +1276,7 @@ $("confirm-reset").onclick = () => {
     const previous = localStorage.getItem(SAVE_KEY);
     if (previous) localStorage.setItem(`${SAVE_KEY}.bak`, previous);
   } catch {}
+  cancelTravel();
   narrator.invalidate();
   exchange.cancel();
   departed.clear();
@@ -1229,7 +1289,7 @@ $("confirm-reset").onclick = () => {
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
-  replay = pendingReplay = 0;
+  replay = 0;
   lineSeq = null;
   selected = [];
   saveBlocked = false;
@@ -1240,6 +1300,7 @@ $("confirm-reset").onclick = () => {
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
+  cancelTravel();
   narrator.invalidate();
   exchange.cancel();
   departed.clear();

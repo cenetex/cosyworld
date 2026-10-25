@@ -99,7 +99,7 @@ try {
     await ready();
     const use = async (id) => {
       await card(id).click();
-      await card(id).click();
+      await card(id).locator("..").locator(".card-primary").click();
       await ready();
     };
     const wait = () => use("pond");
