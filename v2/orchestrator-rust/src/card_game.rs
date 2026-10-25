@@ -136,17 +136,17 @@ fn serve(path: &str) -> Response {
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/awakening.css"),
         ),
-        "assets/steam-clock-background.png" => (
+        "assets/badger-forest/steam-clock-background.png" => (
             "image/png",
-            include_bytes!("../../card-game/assets/steam-clock-background.png"),
+            include_bytes!("../../card-game/assets/badger-forest/steam-clock-background.png"),
         ),
-        "assets/badger-sleeping.png" => (
+        "assets/badger-forest/badger-sleeping.png" => (
             "image/png",
-            include_bytes!("../../card-game/assets/badger-sleeping.png"),
+            include_bytes!("../../card-game/assets/badger-forest/badger-sleeping.png"),
         ),
-        "assets/badger-grumpy.png" => (
+        "assets/badger-forest/badger-grumpy.png" => (
             "image/png",
-            include_bytes!("../../card-game/assets/badger-grumpy.png"),
+            include_bytes!("../../card-game/assets/badger-forest/badger-grumpy.png"),
         ),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
@@ -199,6 +199,26 @@ fn serve(path: &str) -> Response {
         "music.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/music.mjs"),
+        ),
+        "pack-schema.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-schema.mjs"),
+        ),
+        "pack-registry.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-registry.mjs"),
+        ),
+        "pack-rules.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-rules.mjs"),
+        ),
+        "legacy-saves.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/legacy-saves.mjs"),
+        ),
+        "packs.json" => (
+            "application/json; charset=utf-8",
+            include_bytes!("../../card-game/packs.json"),
         ),
         "assets/music/attic-1.mp3" => (
             "audio/mpeg",
@@ -353,9 +373,9 @@ mod tests {
             "style.css",
             "entry.mjs",
             "awakening.css",
-            "assets/steam-clock-background.png",
-            "assets/badger-sleeping.png",
-            "assets/badger-grumpy.png",
+            "assets/badger-forest/steam-clock-background.png",
+            "assets/badger-forest/badger-sleeping.png",
+            "assets/badger-forest/badger-grumpy.png",
             "app.mjs",
             "world.mjs",
             "scene.mjs",
@@ -369,6 +389,11 @@ mod tests {
             "narrative.mjs",
             "dialogue.mjs",
             "music.mjs",
+            "pack-schema.mjs",
+            "pack-registry.mjs",
+            "pack-rules.mjs",
+            "legacy-saves.mjs",
+            "packs.json",
             "assets/music/attic-1.mp3",
             "assets/music/attic-2.mp3",
             "assets/music/pond-1.mp3",
@@ -434,6 +459,34 @@ mod tests {
             request(true, "/", "POST").await.status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
+    }
+
+    #[tokio::test]
+    async fn deployed_table_serves_every_mounted_pack_image() {
+        // Pack art is named by the compiled pack data; each file must be embedded.
+        let packs: serde_json::Value =
+            serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
+        let mut media = Vec::new();
+        for pack in packs["packs"].as_array().unwrap() {
+            for place in pack["places"].as_object().unwrap().values() {
+                media.push(place["backdrop"].as_str().unwrap().to_owned());
+            }
+            for avatar in pack["avatars"].as_object().unwrap().values() {
+                let variants = avatar["variants"].as_object().into_iter().flatten();
+                for path in std::iter::once(&avatar["portrait"])
+                    .chain(variants.map(|(_, v)| &v["portrait"]))
+                    .filter_map(|p| p.as_str())
+                {
+                    media.push(path.to_owned());
+                }
+            }
+        }
+        assert!(!media.is_empty());
+        for path in media {
+            let response = request(true, &format!("/card-game/{path}"), "GET").await;
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
+        }
     }
 
     #[tokio::test]

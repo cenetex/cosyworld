@@ -42,7 +42,10 @@ import {
   standoffFor,
   opponentOf,
   strikePower,
+  senses,
 } from "./world.mjs";
+import { isPackActor, packPlaces, packOf } from "./pack-registry.mjs";
+import { signalHint, variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
   sceneScript,
@@ -59,6 +62,7 @@ import {
   cardPlay,
   playLabel,
   avatarPlays,
+  placePlays,
 } from "./cards.mjs";
 import { LESSONS, nextLesson } from "./lessons.mjs";
 import {
@@ -84,6 +88,15 @@ let world = enableMotives(createWorld({ opening: true }), {
   lineSeq = null,
   selectionRevision = 0,
   dragging = [];
+// Name the save slot: table saves are keyed off the URL param, so a player
+// landing through a different link silently lands in a different slot.
+{
+  const slotLabel = $("table-slot");
+  if (slotLabel && tableName) {
+    slotLabel.hidden = false;
+    slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
+  }
+}
 const paths = {
   lamp: '<path d="M18 25h28l4 29H14zM23 25v-9a9 9 0 0 1 18 0v9M12 55h40M24 47c-5-7 7-9 6-17 9 8 13 16 3 18"/>',
   oil: '<path d="M24 8h16v12l8 10v24H16V30l8-10zM24 14h16M17 35h30M32 38c-12 12-2 17 2 12 3-4-2-9-2-12z"/>',
@@ -197,7 +210,11 @@ let storyStatus = "ready",
 const HAND_WAIT = 2500;
 let handTimer = null;
 function releaseHand() {
-  if (!cardsCooling || storyStatus !== "pending") return;
+  // The cooldown is a courtesy pause, not a lock: if the story request has
+  // failed or wedged (status "retry"/error) the hand must still release,
+  // because no busy(false) will arrive. The revision guard rejects any
+  // stale play, so releasing early cannot corrupt the world.
+  if (!cardsCooling) return;
   cardsCooling = false;
   // The scene shows who is really here once the hand is free.
   pendingCast = null;
@@ -457,16 +474,13 @@ const narrator = createNarrator({
 });
 $("story-retry").onclick = () => narrator.retry();
 function status(id) {
+  // An object the next step of a crossing's signal asks for says so.
+  const hint = signalHint(world, id, senses);
+  if (hint) return hint;
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
     return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
-  if (
-    id === "bell" &&
-    world.actors.vale.place === "pond" &&
-    world.steamClock.rings === 1
-  )
-    return "The Steam Clock answers. Ring again to find it.";
   if (id === "bell")
     return covered(world, id)
       ? "Muffled by the cloth"
@@ -765,7 +779,7 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
+      type === "avatar" && !isPackActor(id) && hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -805,7 +819,7 @@ function card(id) {
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
       : "Next journey";
     detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world) || id === "badger") {
+    if (!hasQuestPrograms(world) || isPackActor(id)) {
       caption = interest(world, id).text;
       detail = tastes[id].likes;
     }
@@ -843,7 +857,7 @@ function card(id) {
       info.append(node("span", interest(world, id).text, "hand-condition"));
   } else if (
     type === "avatar" &&
-    (!hasQuestPrograms(world) || id === "badger")
+    (!hasQuestPrograms(world) || isPackActor(id))
   ) {
     info.textContent = "";
     info.append(node("span", tastes[id].likes, "hand-condition"));
@@ -884,9 +898,12 @@ function card(id) {
       info.append(line);
     };
     row(
-      "Hold",
+      world.life ? "Use" : "Hold",
       target.items.length
-        ? target.items.map((e) => ({ ...e, text: nameOf(e.id) }))
+        ? target.items.map((e) => ({
+            ...e,
+            text: `${nameOf(e.id)}${e.sharedBy ? ` · with ${nameOf(e.sharedBy)}` : ""}`,
+          }))
         : [{ met: true, text: "Any items" }],
     );
     row("At", [
@@ -929,8 +946,12 @@ function card(id) {
       );
   }
   if (type === "avatar" && lifeOf(world, id)) {
-    const hope = hopeOf(world, id);
+    const hope = hopeOf(world, id),
+      next = hope.milestones[lifeOf(world, id).milestones.length];
     info.append(node("span", `Hope: ${hope.title}`, "personal-hope"));
+    info.append(
+      node("span", next ? next.title : "A hope fulfilled", "hope-next"),
+    );
     info.title = `${hope.title}. Menu shows the milestones.`;
   }
   if (type === "item" && people[rootHolder(world, id)]) {
@@ -940,6 +961,19 @@ function card(id) {
       info.append(node("span", reason, "item-attachment"));
       info.title = `${def.text} ${reason}`;
     }
+    if (
+      rootHolder(world, id) !== "vale" &&
+      ["light", "snuff", "ring"].includes(
+        cardPlay(world, [id, world.actors.vale.place]).action?.kind,
+      )
+    )
+      info.append(
+        node(
+          "span",
+          `Use here: pair with ${nameOf(world.actors.vale.place)}.`,
+          "item-attachment",
+        ),
+      );
   }
   el.append(info);
   const label = playLabel(chosen.action);
@@ -999,7 +1033,12 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const plays = type === "avatar" ? avatarPlays(world, id) : [];
+  const plays =
+    type === "avatar"
+      ? avatarPlays(world, id)
+      : type === "location"
+        ? placePlays(world, id)
+        : [];
   if (plays.length && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
@@ -1024,37 +1063,43 @@ function card(id) {
   }
   return frame;
 }
-function renderClearing(locationId) {
-  const forest = locationId === "clearing";
-  document.body.dataset.world = forest ? "forest" : "shore";
-  document.querySelector(".brand span").textContent = forest
-    ? "The Steam Clock"
-    : "The reflected shore";
-  let picture = $("clearing-picture");
-  if (forest && !picture) {
-    picture = node("div", undefined, "clearing-picture");
-    picture.id = "clearing-picture";
-    const canvas = node("div", undefined, "clearing-canvas");
+// A pack place with a stage shows its resident as a sprite on the backdrop
+// instead of the shore's cast row. The pack's data places the sprite.
+function renderStage(locationId) {
+  const pack = packOf(locationId);
+  const stage = packPlaces[locationId]?.stage;
+  document.body.dataset.world = pack?.id || "shore";
+  document.body.dataset.stage = stage ? "resident" : "cast";
+  document.querySelector(".brand span").textContent =
+    pack?.name || "The reflected shore";
+  let picture = $("stage-picture");
+  if (stage && picture?.dataset.place !== locationId) {
+    picture?.remove();
+    picture = node("div", undefined, "stage-picture");
+    picture.id = "stage-picture";
+    picture.dataset.place = locationId;
+    const canvas = node("div", undefined, "stage-canvas");
     const background = node("img", undefined, "backdrop");
-    background.src = backdrop("clearing");
-    background.alt =
-      "The old Steam Clock stands on mossy stones in a sunlit clearing.";
-    const badger = node("img", undefined, "clearing-badger");
-    badger.id = "badger-sprite";
-    canvas.append(background, badger);
+    background.src = backdrop(locationId);
+    background.alt = stage.alt;
+    const sprite = node("img", undefined, "stage-resident");
+    sprite.id = "resident-sprite";
+    sprite.dataset.resident = stage.resident;
+    sprite.style.setProperty("--sprite-left", `${stage.sprite.left}%`);
+    sprite.style.setProperty("--sprite-top", `${stage.sprite.top}%`);
+    sprite.style.setProperty("--sprite-width", `${stage.sprite.width}%`);
+    canvas.append(background, sprite);
     picture.append(canvas);
     $("stage").prepend(picture);
   }
-  if (picture) picture.hidden = !forest;
-  $("backdrop").hidden = forest;
-  if (forest) {
-    $("badger-sprite").src = portrait("badger", null, world);
-    $("badger-sprite").dataset.state = world.actors.badger.awake
-      ? "grumpy"
-      : "sleeping";
-    $("badger-sprite").alt = world.actors.badger.awake
-      ? "Grumpy Badger, awake and looking put out."
-      : "Grumpy Badger asleep beside the clock.";
+  if (picture) picture.hidden = !stage;
+  $("backdrop").hidden = Boolean(stage);
+  if (stage) {
+    const sprite = $("resident-sprite");
+    const mood = variantOf(world, stage.resident);
+    sprite.src = portrait(stage.resident, null, world);
+    sprite.dataset.state = mood?.name || "present";
+    sprite.alt = mood?.alt || nameOf(stage.resident);
   }
 }
 function renderScene() {
@@ -1063,7 +1108,7 @@ function renderScene() {
     hold: exchange.preparing,
     review: reviewing,
   });
-  renderClearing(scene.locationId);
+  renderStage(scene.locationId);
   const resolvedBeat =
     Boolean(pendingCast) || (!reviewing && scene.line?.turn !== world.turn);
   if (pendingCast) scene.slots = pendingCast;
@@ -1494,7 +1539,7 @@ $("menu-button").onclick = () => {
             milestones.append(
               node(
                 "li",
-                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}`,
+                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}${i < life.milestones.length ? ` · turn ${life.milestones[i]}` : ""}`,
               ),
             ),
           );
@@ -1507,7 +1552,11 @@ $("menu-button").onclick = () => {
               steps.append(
                 node(
                   "li",
-                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(step).map(handText).join(" OR ")}`,
+                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(
+                    step,
+                  )
+                    .map((h) => handText(h).replace(/^hold /u, "use "))
+                    .join(" OR ")}`,
                 ),
               ),
             );
@@ -1561,7 +1610,7 @@ $("menu-button").onclick = () => {
           ]
         : []),
       ...knownActors(world)
-        .filter((id) => id !== "vale" && id !== "badger")
+        .filter((id) => id !== "vale" && !isPackActor(id))
         .map((actor) => ({
           actor,
           program: programFor(world, actor),
@@ -1621,6 +1670,12 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
+  // Archive the outgoing save: starting fresh must be reversible, because
+  // a confirm click is not enough consent to destroy a whole run.
+  try {
+    const previous = localStorage.getItem(SAVE_KEY);
+    if (previous) localStorage.setItem(`${SAVE_KEY}.bak`, previous);
+  } catch {}
   narrator.invalidate();
   exchange.cancel();
   departed.clear();

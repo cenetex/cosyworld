@@ -363,7 +363,7 @@ describe("quest saves and scene records", () => {
     legacy.items.lamp.holder = "vale";
     legacy.actors.vale.place = "pond";
     const restored = decodeSave(JSON.stringify(legacy));
-    expect(restored.schema).toBe(6);
+    expect(restored.schema).toBe(7);
     expect(restored.items).toEqual(legacy.items);
     expect(restored.log).toEqual(legacy.log);
     expect(restored.actors.vale.place).toBe("pond");

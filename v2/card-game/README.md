@@ -51,6 +51,11 @@ mixed-play checks.
 
 ## The bell crossing to the Steam Clock
 
+The Forest Clearing, Badger and the Steam Clock are a world pack
+(`v2/content/badger-forest/`) joined to Black pond by a bridge
+(`v2/worlds/badger-forest/`). No engine rule names them; see
+[`v2/docs/card-packs.md`](../docs/card-packs.md) for the format.
+
 Ring the Bell twice in a row at Black pond to find the Forest Clearing.
 The first ring gets one reply: **echo** says **bong**. The second folds
 the pond's reflection and unveils a Forest Clearing card; Vale stays at the
@@ -75,8 +80,12 @@ patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
 The Black pond card in the clearing returns Vale and their belongings to the
-shore. It works even if the bell has been left behind or stopped ringing.
-Once the entrance closes, two consecutive rings at the pond open it again.
+shore while a bell is sounding at either end: the hand bell at the pond or in
+the clearing, or the Steam Clock's own bell. The clearing card offers
+**Ring the Steam Clock**, which sounds for three following plays, wakes and
+annoys Badger, and leaves the hand bell alone. When every bell is silent the
+way back is hidden until the clock is rung. Once the entrance closes, two
+consecutive rings at the pond open it again.
 The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing
 and its sleeping resident when loaded.

@@ -1,7 +1,7 @@
 // Personal quests grow from shared actions. This state belongs to the save.
 // No rule here names an avatar, item or place: hopes come from profile data
 // and purposes from recorded experiences, so any generated world gets both.
-import { rootOwner } from "./situations.mjs";
+import { rootOwner, questItemAvailable } from "./situations.mjs";
 import { profiles } from "./memory.mjs";
 
 export const LIFE_VERSION = 2;
@@ -305,6 +305,24 @@ export function lifeFacts(s, actor) {
   ];
 }
 
+// A hope step can also be reached without a quest: a useful gift or shared
+// care counts as a delivery, and talk in shared light as a gathering.
+function earnHope(s, actor, kind) {
+  const life = lifeOf(s, actor);
+  if (!life || life.milestones.at(-1) === s.turn) return;
+  if (life.hope.steps[life.milestones.length]?.includes(kind))
+    life.milestones.push(s.turn);
+}
+// A light is an item whose state records being lit; it shines while lit,
+// fuelled and not covered by another item.
+const shiningLights = (s) =>
+  Object.keys(s.items).filter(
+    (id) =>
+      s.items[id].lit === true &&
+      (s.items[id].fuel ?? 1) > 0 &&
+      !Object.values(s.items).some((other) => other.holder === id),
+  );
+
 // Record what happened to each participant. Experiences are memories, not
 // points: the first meaningful one after a rest seeds the next purpose.
 export function recordLifeAction(s, a, accepted, usefulGift = false) {
@@ -343,6 +361,27 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
   const participants = [
     ...new Set([a.actor, ...(social && s.actors[a.target] ? [a.target] : [])]),
   ].filter(participant);
+  if (
+    (a.kind === "give" && usefulGift) ||
+    (a.kind === "refill" &&
+      Object.keys(s.life.actors).some(
+        (id) =>
+          id !== a.actor &&
+          participant(id) &&
+          s.actors[id].place === s.actors[a.actor].place &&
+          questItemAvailable(s, id, a.target),
+      ))
+  )
+    earnHope(s, a.actor, "delivery");
+  if (
+    a.kind === "talk" &&
+    s.actors[a.target] &&
+    s.actors[a.target].place === s.actors[a.actor].place &&
+    shiningLights(s).some((item) =>
+      participants.every((id) => questItemAvailable(s, id, item)),
+    )
+  )
+    for (const id of participants) earnHope(s, id, "gathering");
   for (const id of participants) {
     const kind = kindFor(id);
     if (!kind) continue;
@@ -434,7 +473,8 @@ export function finishPersonalQuest(s, actor, program, sanctuaries = null) {
   const life = lifeOf(s, actor);
   if (!life) return;
   const next = life.hope.steps[life.milestones.length];
-  if (fitsMilestone(next, program)) life.milestones.push(s.turn);
+  if (fitsMilestone(next, program) && life.milestones.at(-1) !== s.turn)
+    life.milestones.push(s.turn);
   delete life.origin;
   life.finished = s.turn;
   life.restLeft = REST_TURNS;
@@ -507,7 +547,6 @@ export function validLife(s, placeIds = null) {
           (p.phase === "active" && validExperience(p.origin))) &&
         Array.isArray(p.milestones) &&
         p.milestones.length <= steps.length &&
-        p.milestones.length <= s.actors[id].progress.program &&
         p.milestones.every(
           (turn, i) => whole(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0),
         ) &&

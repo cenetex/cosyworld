@@ -200,7 +200,7 @@ describe("the reflected shore card game", () => {
       play(s, plan(s).action),
     );
     expect(() => decodeSave("{")).toThrow();
-    expect(() => decodeSave(JSON.stringify({ ...s, schema: 7 }))).toThrow();
+    expect(() => decodeSave(JSON.stringify({ ...s, schema: 8 }))).toThrow();
     const broken = structuredClone(s);
     broken.items.cloth.holder = "cloth";
     expect(() => validateWorld(broken)).toThrow();
@@ -251,9 +251,14 @@ describe("the reflected shore card game", () => {
         "cards.mjs",
         "lessons.mjs",
         "assets/station.png",
-        "assets/steam-clock-background.png",
-        "assets/badger-sleeping.png",
-        "assets/badger-grumpy.png",
+        "assets/badger-forest/steam-clock-background.png",
+        "assets/badger-forest/badger-sleeping.png",
+        "assets/badger-forest/badger-grumpy.png",
+        "pack-schema.mjs",
+        "pack-registry.mjs",
+        "pack-rules.mjs",
+        "legacy-saves.mjs",
+        "packs.json",
       ]) {
         expect((await fetch(`${url}/card-game/${file}`)).status).toBe(200);
       }

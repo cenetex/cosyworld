@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { roomTracks } from "./music.mjs";
+import { packMediaFiles } from "./pack-registry.mjs";
 
 const assets = new Map([
   ["/", ["index.html", "text/html"]],
@@ -22,6 +23,11 @@ const assets = new Map([
   ["/memory.mjs", ["memory.mjs", "text/javascript"]],
   ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
   ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
+  ["/pack-schema.mjs", ["pack-schema.mjs", "text/javascript"]],
+  ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
+  ["/pack-rules.mjs", ["pack-rules.mjs", "text/javascript"]],
+  ["/legacy-saves.mjs", ["legacy-saves.mjs", "text/javascript"]],
+  ["/packs.json", ["packs.json", "application/json"]],
   ["/music.mjs", ["music.mjs", "text/javascript"]],
   ...Object.values(roomTracks)
     .flat()
@@ -38,18 +44,10 @@ const assets = new Map([
     `/assets/${id}-card.jpg`,
     [`assets/${id}-card.jpg`, "image/jpeg"],
   ]),
-  ...[
-    "station",
-    "attic",
-    "pond",
-    "vale",
-    "moth",
-    "keeper",
-    "keeper-right",
-    "steam-clock-background",
-    "badger-sleeping",
-    "badger-grumpy",
-  ].map((id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]]),
+  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
+    (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
+  ),
+  ...packMediaFiles.map((file) => [`/${file}`, [file, "image/png"]]),
 ]);
 export function createServer() {
   return http.createServer(async (req, res) => {
