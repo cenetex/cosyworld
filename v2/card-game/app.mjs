@@ -672,6 +672,7 @@ function cancelDiscovery() {
   for (const animation of $("unveil-take").getAnimations()) animation.cancel();
   $("unveil-dialog").close();
   $("unveil-take").replaceChildren();
+  delete $("unveil-take").dataset.card;
   endDiscovery?.();
   endDiscovery = null;
   discoveryFlying = false;
@@ -741,6 +742,7 @@ async function takeDiscovered() {
   if (version !== trip || done !== endDiscovery) return;
   dialog.close();
   shown.replaceChildren();
+  delete shown.dataset.card;
   endDiscovery = null;
   discoveryFlying = false;
   done();
