@@ -28,7 +28,7 @@ The basic acts are moving to a linked place, moving an item, using an item, and 
 
 The player chooses Vale's next act by playing cards. Each card names its play. A raised pair shows the combined use. Another avatar's answer follows that avatar's own motives.
 
-Tap a card to raise it, then tap it again to play it. Tap a second card to form a pair. Tap either raised card to play the pair. Dragging one card onto another forms a pair; dragging a card or raised pair onto the scene plays it. Tap the scene or press Escape to lower the cards. These choices are free until the play commits.
+Tap a card to select it, then tap it again to unselect it. Tap a second card to form a pair. Tap an action button beneath either raised card to play the pair. Dragging one card onto another forms a pair; dragging a card or raised pair onto the scene plays it. Tap the scene or press Escape to lower the cards. These choices are free until the play commits.
 
 Keep visible cards tied to what the avatar can reach and knows about. Each known exit should be easy to inspect. A changing world can alter an available action; the new fact should explain the change.
 

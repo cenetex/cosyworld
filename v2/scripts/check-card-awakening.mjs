@@ -67,7 +67,11 @@ try {
   const play = async (id) => {
     await ready();
     await page.locator(`[data-card="${id}"]`).click();
-    await page.locator(`[data-card="${id}"]`).click();
+    await page
+      .locator(`[data-card="${id}"]`)
+      .locator("..")
+      .locator(".card-primary")
+      .click();
     await ready();
   };
   const decode = () =>
@@ -131,6 +135,11 @@ try {
     "false",
   );
   await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page.evaluate(() => document.activeElement.className),
+    "card-primary",
+  );
   await page.keyboard.press("Enter");
   await ready();
   assert.equal((await state()).actors.badger.awake, true);
