@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-greek-drama",
+  "pack": "greek-drama",
+  "description": "A ship crosses from the quiet pond to the Wine-Dark Harbor; its appearance is the only answer to the lamp signal.",
+  "crossings": [
+    {
+      "id": "pond-greek-harbor",
+      "from": "pond",
+      "to": "greek-harbor",
+      "travelers": "player",
+      "travel": "aboard the ship",
+      "travelLabel": "Board",
+      "signal": {
+        "steps": [
+          {
+            "verb": "cover",
+            "item": "cloth",
+            "target": "lamp"
+          },
+          {
+            "verb": "take",
+            "item": "cloth",
+            "from": "lamp"
+          },
+          {
+            "verb": "cover",
+            "item": "cloth",
+            "target": "lamp"
+          },
+          {
+            "verb": "take",
+            "item": "cloth",
+            "from": "lamp"
+          }
+        ],
+        "consecutive": false,
+        "opens": null,
+        "while": [
+          {
+            "kind": "light",
+            "item": "lamp",
+            "at": ["pond"]
+          },
+          {
+            "kind": "not",
+            "condition": {
+              "kind": "sound",
+              "at": ["pond", "clearing"]
+            }
+          }
+        ]
+      },
+      "requires": [
+        {
+          "kind": "light",
+          "item": "lamp",
+          "at": ["pond"],
+          "uncovered": true
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "sound",
+            "at": ["pond", "clearing"]
+          }
+        }
+      ],
+      "scenery": {
+        "open": "A ship waits on the black water.",
+        "overlay": "assets/greek-drama/pond-ship-overlay.png",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-harbor-pond",
+      "from": "greek-harbor",
+      "to": "pond",
+      "travelers": "player",
+      "travel": "back across the black water",
+      "requires": []
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import profiles from "../card-game/entity-profiles.json" with { type: "json" };
+import { profiles } from "../card-game/memory.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -44,7 +44,7 @@ try {
   const ready = async () => {
     for (let i = 0; i < 250; i++) {
       // A newly met card is unveiled first; add it to the hand.
-      if (await page.locator("#unveil-dialog").evaluate((d) => d.open)) {
+      if (await page.locator("#unveil-dialog[open]").count()) {
         await page.locator("#unveil-take").click();
         continue;
       }
@@ -87,16 +87,14 @@ try {
   assert.equal((await state()).items.bell.holder, "vale");
   await play("pond");
   await play("bell");
-  assert.equal((await state()).steamClock.rings, 1);
+  assert.equal((await state()).crossings["pond-clearing"].phase, 1);
   assert.equal((await state()).actors.vale.place, "pond");
   assert.equal(await page.locator("#speaker").textContent(), "echo");
   assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   const echoTurn = (await state()).turn;
   const echoRequests = requests.length;
-  assert.match(
-    await page.locator('[data-card="bell"] .state').textContent(),
-    /Ring again/,
-  );
+  assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
+  assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
   await page.reload();
   await page.locator('[data-card="bell"]').waitFor();
   await ready();
@@ -112,12 +110,13 @@ try {
   await play("bell");
   // The second ring reveals the clearing; its card takes Vale there.
   assert.equal((await state()).actors.vale.place, "pond");
-  assert.equal((await state()).steamClock.discovered, true);
+  assert.equal((await state()).crossings["pond-clearing"].discovered, true);
   await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
-  const sprite = page.locator("#badger-sprite");
-  assert.equal(await sprite.getAttribute("data-state"), "sleeping");
+  const sprite = page.locator("#resident-sprite");
+  assert.equal(await sprite.getAttribute("data-resident"), "badger");
+  assert.equal(await sprite.getAttribute("data-state"), "asleep");
   assert.equal(requests.at(-1).location, "clearing");
   assert.ok(!requests.at(-1).speakers.includes("badger"));
   await decode();
@@ -144,7 +143,7 @@ try {
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
   await play("pond"); // Waiting is a real play and breaks the two-ring sequence.
-  assert.equal((await state()).steamClock.rings, 0);
+  assert.equal((await state()).crossings["pond-clearing"].phase, 0);
   await play("bell");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
@@ -154,7 +153,7 @@ try {
   await page.reload();
   await page.locator('[data-card="badger"]').waitFor();
   await ready();
-  assert.equal(await sprite.getAttribute("data-state"), "grumpy");
+  assert.equal(await sprite.getAttribute("data-state"), "awake");
   await page.setViewportSize({ width: 390, height: 844 });
   await decode();
   await page.screenshot({ path: "output/badger-check/mobile-awake.png" });

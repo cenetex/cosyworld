@@ -6,15 +6,18 @@ import {
   stayingWith,
   lifeFacts,
 } from "./life.mjs";
+import {
+  packTastes,
+  packNames,
+  packPeople,
+  packThings,
+  conditionsMet,
+  entityActive,
+} from "./pack-registry.mjs";
+import { hasTemperament, variantOf } from "./pack-rules.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
 export const tastes = {
-  badger: {
-    likes: "Warm moss and an uninterrupted nap",
-    sore: "Being woken and unnecessary noise",
-    home: "clearing",
-    values: { lamp: 3, oil: 1, bell: 1, cloth: 7 },
-  },
   vale: {
     likes: "Interesting routes and a decent bargain",
     sore: "Changed terms",
@@ -33,11 +36,12 @@ export const tastes = {
     home: "station",
     values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
   },
+  ...packTastes,
 };
 const actors = Object.keys(tastes);
-const items = ["lamp", "oil", "bell", "cloth"];
+const items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
 export const names = {
-  badger: "Grumpy Badger",
+  ...packNames,
   vale: "Vale",
   moth: "Pip",
   keeper: "The Keeper",
@@ -76,7 +80,7 @@ export function resentment(s, actor, other) {
   );
 }
 export function valueOf(s, actor, item) {
-  let value = tastes[actor].values[item];
+  let value = tastes[actor]?.values[item] ?? 1;
   if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
   if (item === "oil") {
     if (!s.items.oil.doses) return 1;
@@ -125,20 +129,34 @@ export function giftDecision(s, giver, item, recipient) {
   };
 }
 export function interest(s, actor) {
-  if (actor === "badger")
+  // A resident with a temperament wants what its current mood wants, at home.
+  if (hasTemperament(actor))
     return {
       items: [],
-      location: "clearing",
+      location: tastes[actor].home,
       avatars: [],
-      text: !s.actors.badger.awake
-        ? "An uninterrupted nap"
-        : s.actors.badger.irritation > 1
-          ? "Some quiet after all that noise"
-          : "The warm patch of moss",
-      reason: "Badger considers this patch of moss his own.",
+      text: variantOf(s, actor).want,
+      reason: packPeople[actor].tastes.reason,
     };
-  const held = items.filter((id) => owner(s, id) === actor);
-  let item = items
+  const resident = packPeople[actor];
+  if (resident) {
+    const wish = resident.desire,
+      active = wish && conditionsMet(s, resident.packId, wish.requires);
+    return {
+      items: active
+        ? wish.items.filter(
+            (id) => entityActive(s, id) && owner(s, id) !== actor,
+          )
+        : [],
+      location: active ? wish.location : resident.home || resident.place,
+      avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
+      text: resident.tastes.likes,
+      reason: resident.tastes.reason,
+    };
+  }
+  const domainItems = items.filter((id) => !packThings[id]);
+  const held = domainItems.filter((id) => owner(s, id) === actor);
+  let item = domainItems
     .slice()
     .sort((a, b) => valueOf(s, actor, b) - valueOf(s, actor, a))
     .find((id) => !held.includes(id));
@@ -259,12 +277,15 @@ export function recordReaction(s, a, witnesses, accepted) {
     } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
     s.motives.grievances[id] = list.slice(-6);
   };
+  // Residents who mind noise resent a bell rung beside them.
   if (a.kind === "ring")
-    add(
-      "badger",
-      `${names[a.actor]} rang a bell beside his warm patch of moss.`,
-      "noise",
-    );
+    for (const [id, resident] of Object.entries(packPeople))
+      if (resident.tastes.noise)
+        add(
+          id,
+          resident.tastes.noise.replace("{actor}", names[a.actor]),
+          "noise",
+        );
   if (a.kind === "ring")
     add(
       "keeper",
@@ -384,7 +405,7 @@ export function socialPlan(s, actor, actions, api) {
           : -5;
     if (a.kind === "move" && !a.item) {
       const target = want.location;
-      const path = api.routeBetween(s, here, target);
+      const path = api.routeBetween(s, here, target, actor);
       n = path?.[1] === a.target ? (want.items.length ? 18 : 35) : -15;
     }
     if (a.kind === "light" && actor === "moth") n = 45;

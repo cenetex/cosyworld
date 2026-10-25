@@ -2,6 +2,12 @@ import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
 import {
+  entityActive,
+  packEntity,
+  packFacts,
+  packSceneFacts,
+} from "./pack-registry.mjs";
+import {
   addLog,
   carried,
   itemPlace,
@@ -12,8 +18,11 @@ import {
   validateWorld,
   standoffFor,
   opponentOf,
+  placeText,
+  places,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
+import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import {
   conditionMet,
   conditionText,
@@ -21,7 +30,7 @@ import {
 } from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
-// witnessed events; quest counters remain on the cards and in the history.
+// witnessed events. Hidden puzzle bookkeeping is not dialogue material.
 export function speechMemories(memory, { expressions = true } = {}) {
   const concrete = (e) =>
     e.kind === "event" &&
@@ -47,6 +56,36 @@ export function turnOutcome(world) {
   const played = events.findLast(
     (entry) => entry.kind === "action" && entry.actorId === "vale",
   );
+  const here = world.actors.vale.place;
+  const known = knownActors(world);
+  // The original table has a small, fixed cast. Packs can contain a whole
+  // repertoire: send only local witnesses, the chosen partner and travellers.
+  const actorIds = [
+    ...new Set([
+      "vale",
+      played?.targetId,
+      ...known.filter((id) => world.actors[id].place === here),
+      ...sceneChanges(world).map((change) => change.actorId),
+      ...(!packEntity(here) ? known.filter((id) => !packEntity(id)) : []),
+    ]),
+  ]
+    .filter((id) => known.includes(id) && entityActive(world, id))
+    .slice(0, 8);
+  const relevantItems = [
+    ...new Set([
+      played?.itemId,
+      played?.receiveId,
+      ...Object.keys(world.items).filter((id) =>
+        actorIds.includes(rootHolder(world, id)),
+      ),
+      ...Object.keys(world.items).filter((id) => itemPlace(world, id) === here),
+      ...(!world.opening && !packEntity(here)
+        ? Object.keys(world.items).filter((id) => !packEntity(id))
+        : []),
+    ]),
+  ]
+    .filter((id) => world.items[id] && entityActive(world, id))
+    .slice(0, 24);
   return {
     card: {
       kind: played?.verb || (world.turn ? "wait" : "arrive"),
@@ -56,49 +95,41 @@ export function turnOutcome(world) {
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
     },
-    avatars: Object.entries(world.actors)
-      .filter(([id]) => knownActors(world).includes(id))
-      .map(([id, actor]) => {
-        const movement = events.findLast(
-          (entry) =>
-            entry.fromLocationId &&
-            entry.fromLocationId !== entry.locationId &&
-            entry.locationId === actor.place &&
-            (entry.actorId === id ||
-              (entry.verb === "accompany" &&
-                entry.accepted &&
-                entry.targetId === id)),
-        );
-        const shared = movement?.verb === "accompany" && movement.accepted;
-        return {
-          id,
-          location: actor.place,
-          holding: carried(world, id),
-          travel: movement
-            ? {
-                from: movement.fromLocationId,
-                to: movement.locationId,
-                companions: shared
-                  ? [movement.actorId, movement.targetId].filter(
-                      (other) => other !== id,
-                    )
-                  : [],
-              }
-            : null,
-        };
-      }),
-    items: Object.entries(world.items)
-      .filter(
-        ([id]) =>
-          !world.opening ||
-          knownActors(world).includes(rootHolder(world, id)) ||
-          itemPlace(world, id) === world.actors.vale.place,
-      )
-      .map(([id, item]) => ({
+    avatars: actorIds.map((id) => {
+      const actor = world.actors[id];
+      const movement = events.findLast(
+        (entry) =>
+          entry.fromLocationId &&
+          entry.fromLocationId !== entry.locationId &&
+          entry.locationId === actor.place &&
+          (entry.actorId === id ||
+            (entry.verb === "accompany" &&
+              entry.accepted &&
+              entry.targetId === id)),
+      );
+      const shared = movement?.verb === "accompany" && movement.accepted;
+      return {
         id,
-        holder: item.holder,
-        location: itemPlace(world, id),
-      })),
+        location: actor.place,
+        holding: carried(world, id),
+        travel: movement
+          ? {
+              from: movement.fromLocationId,
+              to: movement.locationId,
+              companions: shared
+                ? [movement.actorId, movement.targetId].filter(
+                    (other) => other !== id,
+                  )
+                : [],
+            }
+          : null,
+      };
+    }),
+    items: relevantItems.map((id) => ({
+      id,
+      holder: world.items[id].holder,
+      location: itemPlace(world, id),
+    })),
   };
 }
 
@@ -112,21 +143,22 @@ export function narrativeContext(world, action = null) {
   const known = knownActors(world);
   const present = Object.keys(world.actors).filter(
     (id) =>
-      knownActors(world).includes(id) && world.actors[id].place === location,
+      known.includes(id) &&
+      entityActive(world, id) &&
+      world.actors[id].place === location,
   );
   const localItems = Object.keys(world.items).filter(
-    (id) => itemPlace(world, id) === location,
+    (id) => entityActive(world, id) && itemPlace(world, id) === location,
   );
   const changes = sceneChanges(world);
   const departing = changes
     .filter((change) => change.leaving)
     .map((change) => change.actorId);
-  const awake = (id) => id !== "badger" || world.actors.badger.awake;
+  const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
   const introductions = present.filter(
     (id) => id !== "vale" && awake(id) && world.opening?.met[id] === world.turn,
   );
   const audience = [...new Set([...present, ...departing])];
-  const ids = [location, ...localItems, ...audience];
   const focus = localItems.includes(action?.item) ? action.item : null;
   const played = world.log.findLast(
     (entry) =>
@@ -161,7 +193,25 @@ export function narrativeContext(world, action = null) {
   const speakers = [
     ...[...chosen].filter((id) => !movers.includes(id)),
     ...movers.filter((id) => chosen.has(id)),
-  ];
+  ].slice(0, 3);
+  // Model requests stay bounded as the pack catalog grows. The actual chosen
+  // card and every speaker take priority over incidental objects in a room.
+  const ids = [
+    ...new Set([
+      location,
+      ...speakers,
+      focus,
+      target,
+      ...audience,
+      ...localItems,
+    ]),
+  ]
+    .filter(
+      (id) =>
+        id &&
+        (id === location || audience.includes(id) || localItems.includes(id)),
+    )
+    .slice(0, 8);
   const events = world.log
     .filter(
       (entry) =>
@@ -182,7 +232,10 @@ export function narrativeContext(world, action = null) {
     [played?.itemId, played?.receiveId].includes("bell");
   const bellRang = world.log.some(
     (entry) =>
-      entry.turn === world.turn && !entry.generated && entry.verb === "ring",
+      entry.turn === world.turn &&
+      !entry.generated &&
+      entry.verb === "ring" &&
+      entry.itemId === "bell",
   );
   const quietFact =
     bellHandled && !bellRang && !world.items.bell.ringing
@@ -217,15 +270,27 @@ export function narrativeContext(world, action = null) {
     conversation,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
-      const facts = [];
+      // The place and player retain the route's established history. Another
+      // resident knows only their own recorded interactions and memories.
+      const continuity =
+        kind === "location" || id === "vale"
+          ? packSceneFacts(world, location)
+          : [];
+      const facts = [...packFacts(world, id), ...continuity]
+        .filter((fact, index, all) => all.indexOf(fact) === index)
+        .slice(-4);
       let desire = null;
       if (kind === "avatar") {
-        if (id === "badger")
+        // A resident's mood is a world fact; its pack words how to play it.
+        if (hasTemperament(id)) {
+          const state = world.actors[id],
+            mood = variantOf(world, id);
           facts.push(
-            world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
-              : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
+            state.awake
+              ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}`
+              : mood.note,
           );
+        }
         if (
           played?.verb === "trade" &&
           [played.actorId, played.targetId].includes(id)
@@ -252,6 +317,8 @@ export function narrativeContext(world, action = null) {
         const company = Object.keys(world.actors).filter(
           (other) =>
             other !== id &&
+            known.includes(other) &&
+            entityActive(world, other) &&
             world.actors[other].place === world.actors[id].place,
         );
         facts.push(
@@ -267,7 +334,7 @@ export function narrativeContext(world, action = null) {
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
-            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
+            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
           );
         const target = desireFor(world, id);
         desire = {
@@ -337,6 +404,8 @@ export function narrativeContext(world, action = null) {
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
+        if (places[id]) facts.push(placeText(world, id));
+
         facts.push(
           `Paths visible now: ${exits(world, id, "vale").map(nameOf).join(", ") || "none"}.`,
         );
@@ -470,25 +539,24 @@ export function applyGeneratedText(world, context, response) {
       };
     }
   }
-  // The first pond ring gets one small reply from the distant clock.
-  if (
-    context.location === "pond" &&
-    context.outcome?.card.kind === "ring" &&
-    next.steamClock.rings === 1
-  ) {
+  // An unfinished crossing signal can get one small reply where it was made.
+  const echo =
+    context.outcome?.card &&
+    signalEcho(next, context.location, context.outcome.card);
+  if (echo) {
     if (
       !next.log.some(
         (entry) =>
           entry.turn === next.turn &&
           entry.generated &&
-          entry.speaker === "echo",
+          entry.speaker === echo.speaker,
       )
     )
-      addLog(next, "echo", "bong", {
+      addLog(next, echo.speaker, echo.text, {
         kind: "dialogue",
-        entityId: "pond",
+        entityId: context.location,
         generated: true,
-        locationId: "pond",
+        locationId: context.location,
       });
     return validateWorld(next);
   }

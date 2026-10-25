@@ -23,6 +23,7 @@ discordService.log
 # Media files
 images/*
 *.webp
+!v2/card-game/assets/greek-drama/*.webp
 !v2/content/core/assets/generated/cards/*.webp
 !v2/content/the-holy-land/assets/cards/*.webp
 !v2/content/hoppycat-archive/assets/cards/*.webp

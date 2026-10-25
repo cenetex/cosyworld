@@ -32,8 +32,8 @@ function continuing() {
   const s = createWorld();
   s.schema = 2;
   s.turn = s.revision = 20;
-  for (const [id, actor] of Object.entries(s.actors).filter(
-    ([id]) => id !== "badger",
+  for (const [id, actor] of Object.entries(s.actors).filter(([id]) =>
+    ["vale", "moth", "keeper"].includes(id),
   )) {
     actor.place = "station";
     actor.progress = {
@@ -96,7 +96,8 @@ describe("situations and their consequences", () => {
       actor.progress.recentKinds = [];
       delete actor.progress.current;
     }
-    for (const item of Object.values(s.items)) item.holder = "station";
+    for (const id of ["lamp", "oil", "bell", "cloth"])
+      s.items[id].holder = "station";
     s.items.oil.doses = 1;
     for (const id of ["keeper", "moth", "vale"])
       s.actors[id].progress.current = generateProgram(s, id, places, things);
@@ -117,9 +118,11 @@ describe("situations and their consequences", () => {
     const isolated = Object.fromEntries(
       Object.keys(places).map((id) => [id, { exits: [] }]),
     );
-    for (const item of Object.values(s.items)) item.holder = "attic";
-    for (const actor of Object.values(s.actors)) actor.place = "attic";
-    for (const id of Object.keys(s.actors)) {
+    for (const id of ["lamp", "oil", "bell", "cloth"])
+      s.items[id].holder = "attic";
+    for (const id of ["vale", "moth", "keeper", "badger"])
+      s.actors[id].place = "attic";
+    for (const id of ["vale", "moth", "keeper", "badger"]) {
       const p = generateProgram(s, id, isolated, things);
       expect(p.generated.situation).toBe("bargain");
       expect(p.steps.length).toBeGreaterThan(0);
@@ -128,7 +131,8 @@ describe("situations and their consequences", () => {
 
   it("asks the pond for a change that the world still needs", () => {
     const s = continuing();
-    for (const item of Object.values(s.items)) item.holder = "station";
+    for (const id of ["lamp", "oil", "bell", "cloth"])
+      s.items[id].holder = "station";
     for (const actor of Object.values(s.actors)) delete actor.progress.current;
     s.items.oil.doses = 3;
     const quiet = generateProgram(s, "keeper", places, things);
@@ -374,7 +378,7 @@ describe("situations and their consequences", () => {
     for (const actor of Object.values(old.actors)) delete actor.trust;
     for (const memory of Object.values(old.memories)) delete memory.landmarks;
     const restored = decodeSave(JSON.stringify(old));
-    expect(restored.schema).toBe(6);
+    expect(restored.schema).toBe(7);
     expect(programFor(restored, "vale")).toEqual(programFor(old, "vale"));
     expect(restored.items).toEqual(old.items);
     expect(restored.log).toEqual(old.log);

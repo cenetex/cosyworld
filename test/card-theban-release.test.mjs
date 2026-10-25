@@ -1,0 +1,257 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  exits,
+  legalActions,
+  play,
+  senses,
+} from "../v2/card-game/world.mjs";
+import {
+  packDefinition,
+  packMediaFiles,
+  entityActive,
+  packChoices,
+  hub,
+  packDefinitions,
+} from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import {
+  backdrop,
+  locationOverlay,
+  travelCard,
+} from "../v2/card-game/scene.mjs";
+import { createServer } from "../v2/card-game/serve.mjs";
+const pack = packDefinition("greek-drama");
+const legacy = (name) =>
+  JSON.parse(
+    readFileSync(
+      new URL(
+        `./fixtures/wine-dark-legacy/schema6-${name}.json`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+const act = (s, kind, fields = {}) => {
+  const a = legalActions(s).find(
+    (a) =>
+      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
+  );
+  expect(a).toBeTruthy();
+  const r = play(s, a);
+  expect(r.ok, r.error).toBe(true);
+  return r.state;
+};
+const reachable = (s) => {
+  const seen = new Set([pack.entry]);
+  for (const id of seen)
+    for (const to of exits(s, id, "vale"))
+      if (to.startsWith("greek-")) seen.add(to);
+  return [...seen].sort();
+};
+describe("the seven-place Theban release", () => {
+  it("opens exactly seven places, not the catalogue", () => {
+    const s = createWorld();
+    expect(s.packs[pack.id].scope).toBe("opening");
+    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    expect(reachable(s)).toHaveLength(7);
+    expect(entityActive(s, "greek-athens")).toBe(false);
+    expect(entityActive(s, "greek-rhapsode")).toBe(false);
+  });
+  it("withholds empty inquiries and later branch menus without deleting source works", () => {
+    const s = createWorld();
+    for (const place of pack.release.places) {
+      s.actors.vale.place = place;
+      const ids = packChoices(s).map((c) => c.choiceId);
+      expect(
+        ids.some(
+          (id) =>
+            id.startsWith("greek-inquire-") || id.startsWith("greek-helen-"),
+        ),
+      ).toBe(false);
+    }
+    expect(pack.works).toHaveLength(44);
+    expect(Object.keys(pack.places)).toHaveLength(49);
+  });
+  it("preserves opening scope through reloads", () => {
+    let s = createWorld();
+    for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
+    expect(reachable(s)).toEqual([...pack.release.places].sort());
+  });
+  it("keeps a route from every opening place back to the pond", () => {
+    const s = createWorld();
+    for (const start of pack.release.places) {
+      const seen = new Set([start]);
+      for (const id of seen)
+        for (const to of exits(s, id, "vale"))
+          if (pack.release.places.includes(to)) seen.add(to);
+      expect(seen.has(pack.entry)).toBe(true);
+    }
+    expect(exits(s, pack.entry, "vale")).toContain("pond");
+  });
+  it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
+    const before = legacy("egypt"),
+      after = decodeSave(JSON.stringify(before));
+    expect(after.schema).toBe(7);
+    expect(after.packs[pack.id].scope).toBe("full");
+    for (const key of ["choices", "flags", "receipts", "met"])
+      expect(after.packs[pack.id][key]).toEqual(before.packs[pack.id][key]);
+    expect(after.items).toEqual(before.items);
+    expect(after.memories).toEqual(before.memories);
+    expect(after.log).toEqual(before.log);
+    expect(after.actors.vale.place).toBe("greek-egypt-tomb");
+    expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
+    expect(entityActive(after, "greek-athens")).toBe(true);
+    expect(entityActive(after, "greek-helen-troy")).toBe(false);
+    expect(decodeSave(encodeSave(after))).toEqual(after);
+  });
+  it("continues a genuine halfway signal without counting migration as a flash", () => {
+    let s = decodeSave(JSON.stringify(legacy("halfway")));
+    expect(s.crossings["pond-greek-harbor"].phase).toBe(2);
+    expect(locationOverlay(s, "pond")).toBeNull();
+    s = act(s, "cover", { item: "cloth", target: "lamp" });
+    expect(locationOverlay(s, "pond")).toBeNull();
+    s = act(s, "take", { item: "cloth" });
+    expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
+    expect(travelCard(s, "greek-harbor")).toMatchObject({
+      name: "Greek ship",
+      art: "./assets/greek-drama/ship-card.webp",
+    });
+    s = act(s, "move", { target: "greek-harbor" });
+    expect(s.actors.vale.place).toBe("greek-harbor");
+  });
+  it("rejects false histories and conflicting migration state", () => {
+    const s = legacy("egypt");
+    s.packs[pack.id].choices["greek-helen-account"] = "troy";
+    expect(() => decodeSave(JSON.stringify(s))).toThrow();
+    const mixed = decodeSave(JSON.stringify(legacy("halfway")));
+    mixed.schema = 6;
+    mixed.locations.pond.shipSignal = 4;
+    expect(() => decodeSave(JSON.stringify(mixed))).toThrow();
+  });
+  it("rejects unknown release modes and changes to withheld residents", () => {
+    const s = createWorld();
+    s.packs[pack.id].scope = "everything";
+    expect(() => encodeSave(s)).toThrow();
+    const changed = createWorld();
+    changed.actors["greek-rhapsode"].place = "greek-harbor";
+    expect(() => encodeSave(changed)).toThrow();
+  });
+  it("uses seven distinct painted backdrops", () => {
+    const images = pack.release.places.map(backdrop);
+    expect(new Set(images).size).toBe(7);
+    expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
+    for (const image of images) {
+      const bytes = readFileSync(
+        new URL(`../v2/card-game/${image}`, import.meta.url),
+      );
+      expect(bytes.toString("ascii", 0, 4)).toBe("RIFF");
+      expect(bytes.toString("ascii", 8, 12)).toBe("WEBP");
+    }
+  });
+  it("retains the empty pond and hides ship art until actual arrival", () => {
+    const s = createWorld();
+    s.actors.vale.place = "pond";
+    expect(backdrop("pond")).toBe("./assets/pond.png");
+    expect(locationOverlay(s, "pond")).toBeNull();
+    expect(travelCard(s, pack.entry)).toBeNull();
+  });
+  it("checks every committed art checksum", () => {
+    const p = JSON.parse(
+      readFileSync(
+        new URL(
+          "../v2/card-game/assets/greek-drama/scenery-provenance.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(8);
+    for (const image of p.assets) {
+      const bytes = readFileSync(
+        new URL(
+          `../v2/card-game/assets/greek-drama/${image.file}`,
+          import.meta.url,
+        ),
+      );
+      expect(createHash("sha256").update(bytes).digest("hex"), image.file).toBe(
+        image.sha256,
+      );
+    }
+  });
+  it("serves all mounted media formats correctly", async () => {
+    const server = createServer();
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      for (const path of packMediaFiles) {
+        const response = await fetch(
+          `http://127.0.0.1:${server.address().port}/${path}`,
+        );
+        expect(response.status, path).toBe(200);
+        const type = path.endsWith(".svg")
+          ? "image/svg+xml"
+          : path.endsWith(".webp")
+            ? "image/webp"
+            : "image/png";
+        expect(response.headers.get("content-type")).toContain(type);
+        await response.arrayBuffer();
+      }
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+  it("evaluates light with arbitrary referenced entities", () => {
+    const s = {
+      items: { candle: { lit: true, fuel: 2, holder: "wanderer" } },
+      actors: { wanderer: { place: "shore" } },
+      packs: {},
+      turn: 0,
+    };
+    expect(
+      conditionMet(s, { kind: "light", item: "candle", at: ["shore"] }, senses),
+    ).toBe(true);
+    expect(
+      conditionMet(
+        s,
+        {
+          kind: "not",
+          condition: { kind: "light", item: "candle", at: ["cave"] },
+        },
+        senses,
+      ),
+    ).toBe(true);
+    s.items.wrap = { holder: "candle" };
+    expect(
+      conditionMet(
+        s,
+        { kind: "light", item: "candle", at: ["shore"], uncovered: true },
+        senses,
+      ),
+    ).toBe(false);
+    expect(
+      conditionMet(s, { kind: "light", item: "candle", at: ["shore"] }, senses),
+    ).toBe(true);
+  });
+  it.each([
+    (p) => (p.routes = {}),
+    (p) => (p.choices[0].effects = null),
+    (p) => (p.avatars["greek-antigone"] = null),
+    (p) => (p.continuity.groups = [{ key: "bad", options: null }]),
+    (p) => (p.release.places = null),
+  ])("rejects malformed author data", (mutate) => {
+    const bad = structuredClone(pack);
+    mutate(bad);
+    expect(
+      packProblems(
+        bad,
+        hub,
+        packDefinitions.flatMap((p) => Object.keys(p.places)),
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+});

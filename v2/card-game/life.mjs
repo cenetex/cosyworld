@@ -1,12 +1,24 @@
+import { packPeople, packThings, isPackActor } from "./pack-registry.mjs";
 // Personal quests grow from shared actions. This state belongs to the save.
 import { rootOwner, questItemAvailable, conditionMet } from "./situations.mjs";
+import { packActorIds, packNames } from "./pack-registry.mjs";
 
 export const INSPIRATION_MAX = 5;
 export const REST_TURNS = 3;
 const actors = ["vale", "moth", "keeper"];
-const items = ["lamp", "oil", "bell", "cloth"];
-const names = { vale: "Vale", moth: "Pip", keeper: "The keeper" };
+const items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
+const names = {
+  vale: "Vale",
+  moth: "Pip",
+  keeper: "The keeper",
+  ...Object.fromEntries(
+    Object.entries(packPeople).map(([id, a]) => [id, a.name]),
+  ),
+};
 const itemNames = {
+  ...Object.fromEntries(
+    Object.entries(packThings).map(([id, item]) => [id, item.name]),
+  ),
   lamp: "Lamp",
   oil: "Oil flask",
   bell: "Bell",
@@ -53,7 +65,8 @@ export const hopes = {
 };
 export const lifeOf = (s, actor) => s.life?.actors?.[actor];
 export const questActive = (s, actor) =>
-  !lifeOf(s, actor) || lifeOf(s, actor).phase === "active";
+  !isPackActor(actor) &&
+  (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
 
 const hopeHints = {
   vale: [
@@ -130,7 +143,7 @@ export function keepReason(s, actor, item) {
   if (!life || rootOwner(s, item) !== actor) return null;
   const attachment = life.attachments[item];
   return attachment
-    ? `A gift from ${names[attachment.from] || "Grumpy Badger"}, kept since turn ${attachment.turn}.`
+    ? `A gift from ${names[attachment.from] || packNames[attachment.from]}, kept since turn ${attachment.turn}.`
     : hopes[actor].keeps[item] || null;
 }
 export function attachmentValue(s, actor, item) {
@@ -169,7 +182,7 @@ export function lifeFacts(s, actor) {
       .map((item) => `${itemNames[item]}: ${keepReason(s, actor, item)}`),
     ...(stayingWith(s, actor)
       ? [
-          `Staying to spend time with ${names[stayingWith(s, actor)] || "Grumpy Badger"}.`,
+          `Staying to spend time with ${names[stayingWith(s, actor)] || packNames[stayingWith(s, actor)]}.`,
         ]
       : []),
   ];
@@ -318,20 +331,20 @@ export function validLife(s) {
           (turn, i) => whole(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0),
         ) &&
         p.attachments &&
-        Object.keys(p.attachments).length <= 4 &&
+        Object.keys(p.attachments).length <= items.length &&
         Object.entries(p.attachments).every(
           ([item, a]) =>
             items.includes(item) &&
             a &&
-            [...actors, "badger"].includes(a.from) &&
+            [...actors, ...packActorIds].includes(a.from) &&
             a.from !== id &&
             whole(a.turn, s.turn),
         ) &&
         p.company &&
-        Object.keys(p.company).length <= 3 &&
+        Object.keys(p.company).length <= 3 + Object.keys(packPeople).length &&
         Object.entries(p.company).every(
           ([other, until]) =>
-            [...actors, "badger"].includes(other) &&
+            [...actors, ...packActorIds].includes(other) &&
             other !== id &&
             whole(until, s.turn + REST_TURNS),
         ) &&
@@ -341,7 +354,7 @@ export function validLife(s) {
           (e) =>
             e &&
             typeof e.key === "string" &&
-            e.key.length <= 120 &&
+            e.key.length <= 400 &&
             ["help", "trade", "talk", "journey", "care"].includes(e.kind) &&
             whole(e.turn, s.turn) &&
             [1, 2].includes(e.points),

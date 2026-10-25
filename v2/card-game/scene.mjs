@@ -5,13 +5,51 @@ import {
   carried,
   itemPlace,
   shining,
+  senses,
 } from "./world.mjs";
+import { entityActive, crossings } from "./pack-registry.mjs";
 
-export const backdrop = (id) =>
-  `./assets/${id === "clearing" ? "steam-clock-background" : id}.png`;
-export const portrait = (id, facing = null, world = null) =>
-  `./assets/${id === "badger" ? (world?.actors.badger.awake === false ? "badger-sleeping" : "badger-grumpy") : id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
+import { packPlaces, packPeople } from "./pack-registry.mjs";
+import { variantOf, crossingOpen } from "./pack-rules.mjs";
+
+// Pack art lives in the pack's own asset folder and is named by its data.
+export const backdrop = (id) =>
+  packPlaces[id] ? `./${packPlaces[id].backdrop}` : `./assets/${id}.png`;
+export function portrait(id, facing = null, world = null) {
+  const resident = packPeople[id];
+  if (resident)
+    return `./${
+      resident.portrait ||
+      (world ? variantOf(world, id) : resident.variants.awake).portrait
+    }`;
+  return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
+}
+const visibleCrossing = (world, place) =>
+  crossings.find(
+    (c) =>
+      c.from === place && c.scenery?.overlay && crossingOpen(world, c, senses),
+  );
+export const locationVariant = (world, id) =>
+  visibleCrossing(world, id)?.id || "base";
+export const locationOverlay = (world, id) => {
+  const f = visibleCrossing(world, id)?.scenery.overlay;
+  return f ? `./${f}` : null;
+};
+export function travelCard(world, id) {
+  const c = crossings.find(
+    (c) =>
+      c.from === world.actors.vale.place &&
+      c.to === id &&
+      crossingOpen(world, c, senses),
+  );
+  return c?.scenery
+    ? {
+        name: c.scenery.cardName || nameOf(id),
+        art: c.scenery.cardArt ? `./${c.scenery.cardArt}` : null,
+      }
+    : null;
+}
 const personIds = Object.keys(people);
 const speakerId = (entry) =>
   entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
@@ -33,6 +71,7 @@ export function sceneChanges(world) {
         !entry.generated &&
         entry.actorId &&
         entry.actorId !== "vale" &&
+        entityActive(world, entry.actorId) &&
         entry.fromLocationId &&
         entry.locationId !== entry.fromLocationId &&
         (entry.locationId === here || entry.fromLocationId === here) &&
@@ -59,7 +98,18 @@ export function sceneCast(
       (id) =>
         knownActors(world).includes(id) && world.actors[id].place === here,
     );
-  const slots = personIds.filter((id) => present.includes(id));
+  const target = world.log
+    .slice(0, through + 1)
+    .findLast(
+      (entry) =>
+        entry.turn === world.turn &&
+        entry.actorId === "vale" &&
+        entry.kind === "action",
+    )?.targetId;
+  const priority = [...new Set(["vale", target, ...present])]
+    .filter((id) => present.includes(id) && people[id])
+    .slice(0, 3);
+  const slots = personIds.filter((id) => priority.includes(id));
   while (slots.length < 2) slots.push(null);
   return slots;
 }
@@ -94,7 +144,12 @@ export function sceneStaging(
     review = false,
   } = {},
 ) {
-  const ids = cast.filter((id) => people[id]);
+  const selected = [...new Set(["vale", activeSpeaker, ...cast])]
+    .filter((id) => cast.includes(id) && people[id])
+    .slice(0, 3);
+  const ids = cast.filter(
+    (id, index) => selected.includes(id) && cast.indexOf(id) === index,
+  );
   const history = world.log.slice(0, through + 1);
   // The latest arrival is also kept on the world after its log entry is trimmed.
   const kept = world.arrival;
@@ -306,6 +361,8 @@ export function currentScene(
   return {
     locationId: world.actors.vale.place,
     background: backdrop(world.actors.vale.place),
+    variant: locationVariant(world, world.actors.vale.place),
+    overlay: locationOverlay(world, world.actors.vale.place),
     visitStart: start,
     slots: sceneCast(
       world,
@@ -340,6 +397,8 @@ export function sceneScript(world) {
       id,
       name: p.name,
       background: backdrop(id),
+      variant: locationVariant(world, id),
+      overlay: locationOverlay(world, id),
     })),
     avatars: Object.entries(people).map(([id, p]) => ({
       id,

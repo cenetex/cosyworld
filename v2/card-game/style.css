@@ -361,327 +361,6 @@ main {
     opacity: 0;
   }
 }
-/* Every world action belongs to a card in this single row. */
-.play-dock {
-  position: relative;
-  flex: none;
-  background: linear-gradient(#1c1d28, #13141c);
-  border-top: 1px solid #645941;
-  padding: 0 18px 4px;
-}
-.hand {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 18px 5px 8px;
-  scrollbar-width: thin;
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: 5px;
-}
-/* More cards than fit: arrows at either end over fades hinting the rest. */
-.hand-wrap {
-  position: relative;
-}
-.hand-wrap::before,
-.hand-wrap::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 56px;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.hand-wrap::before {
-  left: 0;
-  background: linear-gradient(90deg, #15161f, #15161f00);
-}
-.hand-wrap::after {
-  right: 0;
-  background: linear-gradient(270deg, #15161f, #15161f00);
-}
-.hand-wrap[data-overflow="true"][data-start="false"]::before,
-.hand-wrap[data-overflow="true"][data-end="false"]::after {
-  opacity: 1;
-}
-/* Level with the card art, clear of the card's text. */
-.hand-scroll {
-  min-height: 0;
-  position: absolute;
-  top: 30%;
-  z-index: 2;
-  translate: 0 -50%;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid #89765d;
-  border-radius: 50%;
-  background: #25232ee6;
-  color: var(--gold);
-  font-size: 24px;
-  line-height: 1;
-  box-shadow: 0 2px 10px #000a;
-}
-.hand-scroll.prev {
-  left: 2px;
-}
-.hand-scroll.next {
-  right: 2px;
-}
-.hand-scroll:disabled {
-  opacity: 0;
-  pointer-events: none;
-}
-.hand-scroll:hover:not(:disabled) {
-  background: #463a3c;
-}
-/* A one-time pairing tip, straddling the top edge of the dock. */
-.hand-tip {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  z-index: 3;
-  translate: -50% -50%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-  margin: 0;
-  padding: 3px 4px 3px 12px;
-  border: 1px solid #89765d;
-  border-radius: 16px;
-  background: #25232e;
-  color: #ecdfc4;
-  font-size: 12px;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px #000a;
-}
-.hand-tip[hidden] {
-  display: none;
-}
-#hand-tip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#hand-tip-close {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: #bcb5c4;
-  font-size: 15px;
-}
-#hand-tip-close:hover {
-  color: var(--gold);
-}
-.card-frame[data-tip="true"] .card {
-  border-color: #dfc38daa;
-}
-.card-frame:first-child {
-  margin-left: auto;
-}
-.card-frame:last-child {
-  margin-right: auto;
-}
-.card-frame {
-  position: relative;
-  flex: 0 0 190px;
-  width: 190px;
-  height: 282px;
-  scroll-snap-align: start;
-  transition: transform 0.15s;
-}
-.card-frame[data-raised="true"] {
-  transform: translateY(-8px);
-}
-.card {
-  width: 100%;
-  height: 100%;
-  /* Kind, art, name, caption, details, play: the card holds what the scene
-     no longer labels. */
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 80px auto auto 1fr auto;
-  gap: 0;
-  text-align: left;
-  padding: 8px 10px 9px;
-  background: linear-gradient(130deg, #393746, #252734);
-  border: 1px solid #6d6272;
-  border-radius: 8px;
-  transition:
-    transform 0.15s,
-    border-color 0.15s;
-  touch-action: pan-x;
-}
-.card:hover {
-  transform: translateY(-3px);
-}
-.card[aria-pressed="true"] {
-  border-color: var(--gold);
-}
-.card .kind {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: #c0b6c3;
-  margin-bottom: 6px;
-}
-.card .art {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 5px;
-  background: radial-gradient(circle at 50% 70%, #ffffff14, #00000038);
-  box-shadow: inset 0 0 0 1px #ffffff12;
-  color: #e4ca91;
-}
-.card svg {
-  width: 42px;
-  height: 48px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* The art row has a fixed height, but a percentage height inside it does
-   not resolve the same way in every browser, so the image is pinned to the
-   box rather than sized by the row. */
-.card .art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-/* An avatar's banner frames the head and shoulders. frameFigure measures
-   where the figure stands in its cutout, so every portrait crops alike. */
-.card.avatar .art img {
-  --shown: calc(var(--figure-height, 1) * 0.32);
-  inset: auto;
-  top: calc(4% - 100% * var(--figure-top, 0) / var(--shown));
-  left: 50%;
-  width: auto;
-  height: calc(100% / var(--shown));
-  translate: calc(-100% * var(--head-x, 0.5)) 0;
-  object-fit: fill;
-}
-/* An item's cutout stands whole in a warm pool of light. */
-.card.item .art {
-  background: radial-gradient(ellipse at 50% 85%, #e4ca9133, #00000040 70%);
-}
-.card.item .art img {
-  inset: 6% 0;
-  height: 88%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 6px #000a);
-}
-.card .name {
-  font:
-    17px/1.15 Georgia,
-    serif;
-  margin-top: 7px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card .caption {
-  font-size: 11px;
-  color: #bcb5c4;
-  margin-top: 2px;
-}
-.card .state {
-  border-top: 1px solid #ffffff19;
-  margin-top: 6px;
-  padding-top: 5px;
-  font-size: 11.5px;
-  color: #d7cdbd;
-  overflow: hidden;
-}
-/* What a place or thing is like, in the space the card would otherwise
-   leave empty. The unveil has room for all of it. */
-.card .flavor {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  margin-top: 6px;
-  font:
-    italic 12px/1.35 Georgia,
-    serif;
-  color: #b9b0bd;
-}
-.unveil-card .flavor {
-  display: block;
-}
-.unveil-text:empty {
-  display: none;
-}
-/* Every card action, single or one of several, is the same button. */
-.card-play,
-.card-options button {
-  display: grid;
-  place-items: center;
-  min-height: 36px;
-  padding: 4px;
-  border: 1px solid #89765d;
-  border-radius: 6px;
-  background: #00000026;
-  text-align: center;
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--gold);
-}
-.card-play {
-  align-self: end;
-  margin-top: 6px;
-}
-.card[aria-pressed="true"] .card-play {
-  color: #fff1ce;
-}
-.card.location {
-  background: linear-gradient(140deg, #263b40, #232932);
-}
-.card.avatar {
-  background: linear-gradient(140deg, #453745, #2b2737);
-}
-.card.lit {
-  background: linear-gradient(140deg, #594631, #272733);
-}
-.card.drag-over {
-  outline: 2px solid var(--gold);
-}
-.stage.ready::after {
-  content: attr(data-play);
-  position: absolute;
-  z-index: 6;
-  inset: 8px;
-  display: grid;
-  place-content: center;
-  padding: 20px;
-  text-align: center;
-  border: 2px dashed var(--gold);
-  border-radius: 8px;
-  background: #171621aa;
-  font:
-    22px/1.3 Georgia,
-    serif;
-  color: #fff1ce;
-  pointer-events: none;
-}
-.stage.drag-over::after {
-  background: #3b3036c9;
-  border-style: solid;
-}
 dialog {
   color: var(--ink);
   background: #1d1e2a;
@@ -975,82 +654,6 @@ h2 {
   opacity: 1;
 }
 
-/* A card met for the first time is shown large before it joins the hand. */
-dialog.unveil {
-  width: min(420px, calc(100% - 28px));
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  text-align: center;
-  overflow: visible;
-}
-dialog.unveil::backdrop {
-  background: #05060ccc;
-  backdrop-filter: blur(6px);
-}
-.unveil-card {
-  display: grid;
-  place-items: center;
-  height: 440px;
-}
-.unveil-card .card-frame {
-  transform: scale(1.5);
-}
-.unveil-card .card {
-  animation: unveil 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
-  box-shadow:
-    0 0 0 1px var(--gold),
-    0 0 60px #dfc38d55;
-}
-.unveil-text {
-  margin: 0 auto 18px;
-  max-width: 32ch;
-  font:
-    italic 17px/1.45 Georgia,
-    serif;
-  color: #ecdfc4;
-  text-shadow: 0 1px 8px #000;
-}
-#unveil-take {
-  min-height: 44px;
-  padding: 8px 22px;
-  border: 1px solid var(--gold);
-  border-radius: 22px;
-  background: #2a2430;
-  color: var(--gold);
-  font-size: 15px;
-}
-#unveil-take:hover {
-  background: #463a3c;
-}
-@keyframes unveil {
-  from {
-    opacity: 0;
-    transform: rotateY(90deg) scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.unveil-ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 50;
-  margin: 0;
-  transform-origin: 0 0;
-  pointer-events: none;
-}
-.card.new {
-  border-color: var(--gold);
-  box-shadow: 0 0 18px #dfc38d55;
-}
-.card.new .kind::after {
-  content: " · new";
-  color: var(--gold);
-}
-
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
@@ -1059,71 +662,19 @@ dialog.unveil::backdrop {
   }
 }
 
-.hand-condition {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 3px;
+.card-choices {
+  width: min(480px, calc(100vw - 32px));
 }
-.condition-label {
-  color: #bcb5c4;
-  min-width: 24px;
+.card-choice-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
 }
-.hand-token {
-  color: #e9d9bd;
-}
-.hand-token[data-met="true"] {
-  color: #a5d6af;
-}
-.trade-offers {
-  display: block;
-  margin-top: 5px;
-  color: #dfc38d;
-  font-size: 11px;
-}
-.card .state {
-  line-height: 1.25;
-}
-.card.avatar .caption {
-  color: #e6d9c5;
-}
-.quest-guide-program {
-  border-top: 1px solid var(--edge);
-  padding-top: 8px;
-}
-.quest-guide-program h3 {
-  font:
-    18px Georgia,
-    serif;
-  color: var(--gold);
-}
-.quest-guide-program li {
-  margin: 10px 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.card.has-options .card-play {
-  visibility: hidden;
-}
-.card .caption.conflict {
-  color: #f0ba95;
-}
-.card-options {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
-  display: flex;
-  gap: 3px;
-}
-.card-options button {
-  flex: 1;
-  min-width: 0;
-  background: #25232e;
-}
-.card-options button:hover {
-  background: #463a3c;
+.card-choice-list button {
+  min-height: 48px;
+  padding: 12px 16px;
+  text-align: left;
+  line-height: 1.4;
 }
 
 /* Let the farewell finish before the cutout leaves its existing slot. */
@@ -1156,39 +707,339 @@ dialog.unveil::backdrop {
 .portrait.entering {
   visibility: hidden;
 }
-.inspiration-meter {
+
+/* Image-first cards. The illustration is the face, not a banner above a report. */
+:root {
+  --card-width: clamp(174px, 15.5vw, 224px);
+  --card-height: clamp(224px, 31dvh, 310px);
+  --dock-height: calc(var(--card-height) + 82px);
+}
+body {
+  background: #090d12;
+}
+.topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 10;
+  min-height: 58px;
+  border: 0;
+  background: linear-gradient(#090d12bc, #090d1200);
+}
+.top-actions button {
+  background: #0e121888;
+  border-color: #c7af7955;
+  border-radius: 22px;
+}
+main {
+  position: relative;
+}
+.stage {
+  min-height: 0;
+  flex: 1;
+}
+.play-dock {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 10px 22px max(4px, env(safe-area-inset-bottom));
+  background: linear-gradient(#090d1200, #090d12bd 55%, #090d12f5);
+  border: 0;
+  pointer-events: none;
+}
+.hand-wrap {
+  position: relative;
+  pointer-events: auto;
+}
+.hand {
+  display: flex;
+  gap: 14px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 5px 56px;
+  scrollbar-width: thin;
+  scrollbar-color: #ad97744d transparent;
+  scroll-padding-inline: 5px;
+  scroll-snap-type: x proximity;
+}
+.hand-wrap::before,
+.hand-wrap::after {
+  display: none;
+}
+.hand-scroll {
+  position: absolute;
+  top: 42%;
+  translate: 0 -50%;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #bda57488;
+  background: #11151de6;
+  color: var(--gold);
+  font-size: 24px;
+}
+.hand-scroll.prev {
+  left: -15px;
+}
+.hand-scroll.next {
+  right: -15px;
+}
+.hand-scroll:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.card-frame:first-child {
+  margin-left: auto;
+}
+.card-frame:last-child {
+  margin-right: auto;
+}
+body .card-frame {
+  position: relative;
+  flex: 0 0 var(--card-width);
+  width: var(--card-width);
+  height: var(--card-height);
+  scroll-snap-align: start;
+  transition: transform 0.16s;
+}
+body .card-frame[data-raised="true"] {
+  transform: translateY(-10px);
+}
+body .card {
+  position: relative;
   width: 100%;
-  height: 0.45rem;
-  accent-color: #e5c983;
+  height: 100%;
   display: block;
-  margin: 0.2rem 0 0.35rem;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #a48d63b3;
+  border-radius: 13px;
+  text-align: center;
+  background: #181b22;
+  touch-action: pan-x;
+  box-shadow: 0 6px 20px #0006;
 }
-.card.avatar[data-personal="true"] {
-  grid-template-rows: auto 48px auto auto 1fr auto;
+body .card:hover {
+  transform: translateY(-2px);
+  background: #181b22;
 }
-.personal-hope,
-.item-attachment {
+body .card[aria-pressed="true"] {
+  border-color: #f2dba6;
+  background: #181b22;
+  box-shadow:
+    0 0 0 1px #f2dba677,
+    0 0 22px #f2dba61a;
+}
+body .card .art {
+  position: absolute;
+  inset: 0;
   display: block;
-  margin-top: 0.35rem;
-  line-height: 1.3;
-  color: #dccca7;
+  overflow: hidden;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
+}
+body .card .art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+body .card.item .art img {
+  inset: 6% 3% 12%;
+  width: 94%;
+  height: 82%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 10px #0009);
+}
+body .card.avatar .art img {
+  --shown: calc(var(--figure-height, 1) * 0.78);
+  inset: auto;
+  top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
+  left: 50%;
+  width: auto;
+  height: calc(100% / var(--shown));
+  translate: calc(-100% * var(--head-x, 0.5)) 0;
+  object-fit: fill;
+}
+body .card .name {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  margin: 0;
+  padding: 36px 8px 14px;
+  background: linear-gradient(transparent, #080b12eb 65%);
+  font:
+    18px/1.2 Georgia,
+    serif;
+  color: #f2e3c4;
+  white-space: normal;
+  text-wrap: balance;
+  text-shadow: 0 2px 5px #000;
+}
+body .card[data-lit="true"] .art {
+  background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
+}
+body .card[data-lit="false"] .art > img:first-child {
+  filter: saturate(0.35) brightness(0.48);
+}
+body .card[data-covered="true"] .art > img:first-child {
+  opacity: 0.35;
+}
+body .card.item .art .object-cover {
+  inset: 10% 3% 12%;
+  height: 80%;
+  filter: brightness(0.65);
+}
+body .card[data-ringing="true"] .art > img:first-child {
+  animation: sounding 0.5s ease-in-out infinite alternate;
+  transform-origin: 50% 20%;
+}
+@keyframes sounding {
+  from {
+    rotate: -2deg;
+  }
+  to {
+    rotate: 2deg;
+  }
+}
+body .card-options {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: calc(100% + 8px);
+  bottom: auto;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+body .card-options button {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 10px;
+  background: #171920ee;
+  border: 1px solid #baa37c;
+  border-radius: 24px;
+  color: #f2e3c4;
+  font:
+    15px/1.2 Georgia,
+    serif;
   white-space: normal;
 }
-.hope-next {
-  display: block;
-  font-size: 0.78rem;
-  line-height: 1.3;
-  color: var(--gold, #dbc28a);
+body .card-options .card-more {
+  flex: 0 0 44px;
+  font:
+    20px/1 Georgia,
+    serif;
 }
-
-#inner-life-panel {
-  margin-top: 1rem;
+body .card-options button:hover {
+  background: #3c3325;
 }
-#inner-life-panel summary {
+body .card.drag-over {
+  outline: 2px solid var(--gold);
+}
+.stage.ready::after {
+  content: attr(data-play);
+  position: absolute;
+  inset: 60px 15% var(--dock-height);
+  border: 1px solid #dfc38d55;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: #13161a44;
+  color: var(--gold);
+  font:
+    24px Georgia,
+    serif;
+  pointer-events: none;
+  z-index: 8;
+}
+body .dialogue {
+  bottom: calc(var(--dock-height) + 12px);
+  max-width: 720px;
+  width: calc(100% - 28px);
+  background: #10151ddd;
+  border-color: #b09a6a55;
+}
+body .cast {
+  --cast-bottom: calc(var(--dock-height) - 70px);
+  bottom: var(--cast-bottom);
+  top: 64px;
+  height: auto;
+  width: min(92%, 1100px);
+  inset-inline: 0;
+  margin-inline: auto;
+}
+body .cast[data-count] {
+  bottom: var(--cast-bottom);
+  height: auto;
+}
+body .card-choices {
+  width: min(460px, calc(100vw - 28px));
+}
+body .card-choice-list button {
+  min-height: 44px;
+}
+.controls-help {
+  margin-bottom: 20px;
+}
+.controls-help summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   cursor: pointer;
 }
-#inner-lives section {
-  border-top: 1px solid var(--border, #45424d);
-  margin-top: 1rem;
-  padding-top: 0.5rem;
+@media (max-width: 700px) {
+  :root {
+    --card-width: 154px;
+    --card-height: clamp(196px, 28dvh, 246px);
+  }
+  .topbar {
+    min-height: 50px;
+    padding: 4px 10px;
+  }
+  .top-actions button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .play-dock {
+    padding-inline: 16px;
+  }
+  .hand {
+    gap: 10px;
+  }
+  body .card .name {
+    font-size: 16px;
+    padding-bottom: 12px;
+  }
+  body .cast {
+    top: 54px;
+    width: 98%;
+  }
+  body .dialogue {
+    bottom: calc(var(--dock-height) + 6px);
+    padding: 8px 12px;
+  }
+}
+@media (max-height: 640px) {
+  :root {
+    --card-height: 176px;
+    --card-width: 128px;
+    --dock-height: 244px;
+  }
+  body {
+    overflow-y: auto;
+    min-height: 570px;
+  }
+  main {
+    min-height: 570px;
+  }
+  body .stage {
+    min-height: 570px;
+  }
 }

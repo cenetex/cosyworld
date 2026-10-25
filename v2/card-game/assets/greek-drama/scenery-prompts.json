@@ -1,0 +1,50 @@
+{
+  "generated": "2026-10-25",
+  "tool": "built-in image_gen",
+  "reference": {
+    "file": "wine-dark-seven-locations-review.jpg",
+    "sha256": "b3ef9723459f561bed2c38b24c8c72ee332965b75ef2357521989746b1aa91e1"
+  },
+  "assets": [
+    {
+      "file": "harbor-day.webp",
+      "generationId": "exec-fbd53522-1afd-45c3-8971-b09ddf962659",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: upper right, Wine-Dark Harbor. A sunlit ancient Mediterranean harbor. A worn stone quay with clay jars and timber moorings fills the left foreground, a small wooden fishing boat lies beside the stone wall, and deep blue sea opens to the right. Warm ochre homes rise toward a citadel across the bay. Olive branches frame the top. Soft gold afternoon light, clear blue sky and distant hills. Preserve the panel's view and rich painted textures."
+    },
+    {
+      "file": "courtyard-day.webp",
+      "generationId": "exec-6d0362a8-df78-4f2d-bee7-35433f284b70",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: second row left, Theban Courtyard. An intimate ancient Greek stone courtyard with cream plaster and faded red columns on the left, a doorway and clay pots, worn pale paving, a leafy olive tree and low well near the middle distance, and a citadel on a hill beyond. Quiet warm afternoon light. Preserve the spacious foreground for game character overlays and the panel's view."
+    },
+    {
+      "file": "market-well-day.webp",
+      "generationId": "exec-6bb329c0-4bd7-4d82-a8ed-c119d7a3ba9e",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: second row right, Market Well. An ancient Greek market square centered on a round stone well with a simple wooden lifting frame. Cream and ochre buildings, weathered red columns and market awnings border the square. Olive trees, a hilltop citadel and hazy mountains rise beyond. Warm sun casts detailed leaf shadows across broad paving in the foreground. Match the panel's distinct well and open square."
+    },
+    {
+      "file": "city-gate-day.webp",
+      "generationId": "exec-34ab3e30-7074-4921-93e5-a2543e43f62b",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: third row left, City Gate. A great ancient Greek city gate of weathered warm sandstone with painted dark red trim and open bronze-bound timber doors. Look diagonally past its left facade through the bright opening toward a green valley and distant mountains. Paving stretches across the foreground. Cypress trees and a few clay jars stand beside the wall at right. Golden afternoon, strong architectural perspective, preserve the panel's view."
+    },
+    {
+      "file": "burial-ground-dusk.webp",
+      "generationId": "exec-207fb43c-03de-4ed0-bd2a-923625b5d023",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: third row right, Burial Ground. A silent ancient battlefield outside Thebes at sunset. Rough earth and stones, weathered shields, a discarded helmet and upright broken spears in the near ground. A leafless tree frames the upper left. The fortified city and a low hill lie in the far right distance. Red-orange sun below dark storm clouds illuminates a hazy valley. Keep the scene solemn and empty, with scattered battle relics and dry grass. Match the panel's wide view."
+    },
+    {
+      "file": "palace-day.webp",
+      "generationId": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: bottom row left, Palace Forecourt. Broad pale stone steps lead to closed bronze doors between tall red-and-cream ancient Greek columns. A spacious circular patterned stone forecourt fills the lower half. Clay jars and low carved stone walls flank the steps, tall cypress trees at the right, mountain citadel beyond. Warm late afternoon light, fine worn stone texture. Match the panel's grand frontal view."
+    },
+    {
+      "file": "sanctuary-dawn.webp",
+      "generationId": "exec-7525e630-3160-40bf-89d2-928cacf01796",
+      "prompt": "Use case: historical-scene. Asset type: full-screen scenery for the Wine-Dark Sea card game. The supplied contact sheet is a composition and style reference. Recreate only the specified panel as a single finished painting that fills the entire output. Match its old Greek architecture, painterly detail, quiet atmosphere, earthy colors, and sense of place. Human figures are separate game layers; keep this setting empty of people. Wide 16:9 landscape, about 1792 by 1008 pixels. The image is scenery edge to edge; captions, borders, cards, labels, and interface are excluded.\n\nReference panel: bottom row right, Hillside Sanctuary. A secluded ancient Greek sanctuary under an old spreading olive tree. A round stone basin sits at left, a small simple columned shrine and worn steps at right, and a broad stone terrace overlooks a distant sea valley through cypress trees. Golden dawn glows beneath soft violet and rose clouds. Preserve the peaceful open foreground and the panel's tree canopy framing."
+    },
+    {
+      "file": "ship-card.webp",
+      "generationId": "exec-f87d8c04-98fd-43f2-be04-bf71e9638b8d",
+      "prompt": "Use case: compositing. Asset type: portrait boarding-card artwork for the Wine-Dark Sea card game. Image 1 is the actual Black Pond backdrop. Image 2 is the existing transparent ship layer, with the ship and its reflection already placed in the coordinate system of Image 1. Image 3 is the reference contact sheet; its upper-left panel shows their intended combined scene. Create a tight portrait view centered on that same dark wooden Greek ship, its cream square sail, curved carved prow, tiny amber lamps, rigging and reflected sail. Match the exact ship design from Image 2 and the deep blue nighttime pond from Image 1. Preserve the nearby tall oval mirror where it appears at the right edge of the view. This should read as a portrait view of the same pond scene. Crop to the ship, mast and reflection, with a little dark shoreline in the foreground. Portrait aspect ratio 590:800, edge-to-edge artwork. The scene contains only the existing ship and setting. All captions, frames and UI are excluded."
+    }
+  ]
+}

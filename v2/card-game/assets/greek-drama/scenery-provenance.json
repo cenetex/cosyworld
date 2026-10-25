@@ -1,0 +1,234 @@
+{
+  "style": "chthonic Greek",
+  "generated": "2026-10-25",
+  "tool": "image_gen",
+  "assets": [
+    {
+      "place": "greek-harbor",
+      "file": "harbor-day.webp",
+      "sourceName": "exec-fbd53522-1afd-45c3-8971-b09ddf962659.png",
+      "generationId": "exec-fbd53522-1afd-45c3-8971-b09ddf962659",
+      "sourceSha256": "43539485a8f525679e5fb55a0851ebc4c70431d084136851848b3d4a7b851dc5",
+      "sha256": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-harbor",
+        "file": "harbor-day.webp",
+        "sourceName": "ancient_mediterranean_harbor_at_golden_hour.png",
+        "generationId": "68a6d7da-43f6-4254-a945-173e131eb0e2",
+        "sourceSha256": "45687999815219d0d2227e8ad06d360037730812f3acb9108bec14a97c71c64a",
+        "sha256": "fa6decb3687e1654eea0b82882ff649e2154d8b7b2136c2bacec0c47313be283",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-courtyard",
+      "file": "courtyard-day.webp",
+      "sourceName": "exec-6d0362a8-df78-4f2d-bee7-35433f284b70.png",
+      "generationId": "exec-6d0362a8-df78-4f2d-bee7-35433f284b70",
+      "sourceSha256": "fee97e9bc64b386e3190bea2ae8225ce23d7eda33694e01681e80bdf9a9cf7ab",
+      "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-courtyard",
+        "file": "courtyard-day.webp",
+        "sourceName": "sunlit_mediterranean_courtyard_and_hilltop_citadel.png",
+        "generationId": "34b2c61e-c612-4b93-bcea-d45f8b70c15b",
+        "sourceSha256": "3876953e14f81b5fd58cef3d9ba5b2d10e9f742e191e83426303157e9f87a20b",
+        "sha256": "71ed7446a2e2dbd8ebc3a360a05c42e57bbb762f38895acadace9edc73bf3cf6",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-well",
+      "file": "market-well-day.webp",
+      "sourceName": "exec-6bb329c0-4bd7-4d82-a8ed-c119d7a3ba9e.png",
+      "generationId": "exec-6bb329c0-4bd7-4d82-a8ed-c119d7a3ba9e",
+      "sourceSha256": "f5397a829c9ee746cc556a3ac26b08a0ae58f7399c6ea13bc4242156f985db1b",
+      "sha256": "ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-well",
+        "file": "market-well-day.webp",
+        "sourceName": "sunlit_ancient_greek_well_market.png",
+        "generationId": "649b3803-1ea9-4575-a765-3c7132ae7e89",
+        "sourceSha256": "1837f4e4b013ae0da9fa0f94e440742186041e4a4bc73501960d516bc1fd3d6e",
+        "sha256": "5a193151b0151909f1bd81b1dc892e23a810c093e2052d3d8109a1dc0e91eab1",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-gate",
+      "file": "city-gate-day.webp",
+      "sourceName": "exec-34ab3e30-7074-4921-93e5-a2543e43f62b.png",
+      "generationId": "exec-34ab3e30-7074-4921-93e5-a2543e43f62b",
+      "sourceSha256": "17ca53328f6f32a68d1a0bdb0b1d142e7ae5881b05957928a4aa3121dd46ac74",
+      "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-gate",
+        "file": "city-gate-day.webp",
+        "sourceName": "golden_gate_to_the_ancient_valley.png",
+        "generationId": "7d5b30a0-009f-42ab-9d3e-94b4ab1e05b6",
+        "sourceSha256": "2bc8b932efa81723e40471515ac2a3044bc2de357ea3959ee9441db5cdd43fae",
+        "sha256": "9ae46e70a56cdb7d52a45df570666d3c2c725505af8125db54db64571dda43a3",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-battlefield",
+      "file": "burial-ground-dusk.webp",
+      "sourceName": "exec-207fb43c-03de-4ed0-bd2a-923625b5d023.png",
+      "generationId": "exec-207fb43c-03de-4ed0-bd2a-923625b5d023",
+      "sourceSha256": "0a597fcb92a0ccf3953ae0e02930f8ec4ef60fe68dd9bbdd4ba6d443f022e240",
+      "sha256": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-battlefield",
+        "file": "burial-ground-dusk.webp",
+        "sourceName": "sunset_over_the_ancient_burial_field.png",
+        "generationId": "20a79e34-453d-4638-ad7f-38656adf2b32",
+        "sourceSha256": "4176fbc1a3fe6785d26d92e6aceb947a582c23c560b260b6d7f34a0cf7335d2b",
+        "sha256": "879cabe8a22df1aab4da686c2f0b8beada648afb7c812cea6c83893b3516df2c",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-palace",
+      "file": "palace-day.webp",
+      "sourceName": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac.png",
+      "generationId": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac",
+      "sourceSha256": "525f46767b9d64cd2d339daefbf142bfe04317c25e8789c73c35d8ab4b80b8ce",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-palace",
+        "file": "palace-day.webp",
+        "sourceName": "ancient_temple_courtyard_at_golden_hour.png",
+        "generationId": "1833bee0-c681-46f4-a2ba-d020c229551b",
+        "sourceSha256": "3511e200ced36e9b258abca54edd9d15d8997d137d1d91de50f7fe6ce6e7dec5",
+        "sha256": "84cb7f68fdf967e85b2595c51724c6c73edcbd17cc6f1b707aa102dd6a3ca245",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "greek-sanctuary",
+      "file": "sanctuary-dawn.webp",
+      "sourceName": "exec-7525e630-3160-40bf-89d2-928cacf01796.png",
+      "generationId": "exec-7525e630-3160-40bf-89d2-928cacf01796",
+      "sourceSha256": "058639664948e03ef91213fbc34b91b7ad51b861850f6da207ffbca9c16a1ade",
+      "sha256": "d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "archiveSource": {
+        "place": "greek-sanctuary",
+        "file": "sanctuary-dawn.webp",
+        "sourceName": "golden_hour_olive_grove_sanctuary.png",
+        "generationId": "a0c26214-6b9c-4bda-9675-dcaa7ee65641",
+        "sourceSha256": "e32867e13dc5df1b2f817d98767f30688ae58dd9ed8ce9614ec9630eea47ef6d",
+        "sha256": "9ca10c28660a585862ddbc3282ccb32fd26ecaec4ecd9d68d53c8894f3a76982",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Full frame; RGB WebP quality 94. No lighting or composition changes."
+      }
+    },
+    {
+      "place": "pond",
+      "file": "pond-ship-overlay.png",
+      "sourceName": "moonlit_ghost_ship_on_the_ancient_lake.png",
+      "generationId": "6a3cf449-5ef6-44ef-a32f-81012404d54c",
+      "sourceSha256": "6a1178f6e6909d04bb57db0bb676e80e32a936d2f883ff56be0358e08ae0a586",
+      "sha256": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55",
+      "size": [
+        1672,
+        940
+      ],
+      "processing": "Masked generated ship, ropes and reflection; translated 300px left. Original pond and standing mirror unchanged outside alpha mask."
+    },
+    {
+      "place": "pond boarding card",
+      "file": "ship-card.webp",
+      "sha256": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
+      "size": [
+        1078,
+        1460
+      ],
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "sourceName": "exec-f87d8c04-98fd-43f2-be04-bf71e9638b8d.png",
+      "generationId": "exec-f87d8c04-98fd-43f2-be04-bf71e9638b8d",
+      "sourceSha256": "91642888de1b01c3fbc745ad16b3703aa68749246787f888d38f7b524a677c42",
+      "archiveSource": {
+        "place": "pond boarding card",
+        "file": "ship-card.webp",
+        "sha256": "a4ad79d3e33d7dd0123629c8b9e3796df68e030bdbae49ea83e75ce027164e20",
+        "size": [
+          590,
+          800
+        ],
+        "processing": "Crop of actual pond and ship composite; WebP quality94."
+      }
+    }
+  ],
+  "regeneration": {
+    "date": "2026-10-25",
+    "reason": "The source bundle omitted eight WebP files. The user requested regeneration.",
+    "promptFile": "scenery-prompts.json",
+    "reference": {
+      "file": "wine-dark-seven-locations-review.jpg",
+      "sha256": "b3ef9723459f561bed2c38b24c8c72ee332965b75ef2357521989746b1aa91e1"
+    }
+  }
+}

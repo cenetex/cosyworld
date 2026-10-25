@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "description": "The card table's hub and the world packs mounted on it. Black pond is the hub's crossing point; each pack joins it through its own bridge.",
+  "hub": {
+    "player": "vale",
+    "places": ["station", "attic", "pond"],
+    "avatars": ["vale", "moth", "keeper"],
+    "items": ["lamp", "oil", "bell", "cloth"]
+  },
+  "packs": ["badger-forest", "greek-drama"]
+}

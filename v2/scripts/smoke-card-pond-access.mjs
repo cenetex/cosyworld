@@ -98,7 +98,7 @@ try {
     );
     await card("attic").waitFor();
     await ready();
-    assert.match(await page.textContent("#path-state"), /path is open/);
+    assert.equal(await card("attic").locator(".name").innerText(), "Mirror attic");
     await card("pond").click();
     await card("pond").click();
     await ready();
@@ -107,8 +107,8 @@ try {
     assert.equal(departed.items.lamp.holder, "moth");
     assert.equal(departed.items.lamp.lit, true);
     assert.equal(await card("attic").count(), 0);
-    assert.match(await page.textContent("#path-state"), /dark reflection/);
-    assert.deepEqual(requests.at(-1).speakers, ["moth"]);
+    assert.equal(await card("pond").locator(".name").innerText(), "Black pond");
+    assert.equal(requests.length, 0);
     assert.deepEqual(
       departed.log
         .filter(
@@ -116,7 +116,7 @@ try {
             e.turn === departed.turn && e.generated && e.kind === "dialogue",
         )
         .map((e) => e.actorId),
-      ["moth"],
+      [],
     );
     await page.reload();
     await ready();
@@ -138,10 +138,10 @@ try {
     await card("attic").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "attic");
-    assert.equal(await page.textContent("#place-title"), "Mirror attic");
+    assert.equal(await card("attic").locator(".name").innerText(), "Mirror attic");
     assert.deepEqual(errors, []);
     console.log(
-      `Pond access, farewell, reload and restored lamp passed at ${width}px.`,
+      `Pond access, quiet departure, reload and restored lamp passed at ${width}px.`,
     );
     await page.close();
   }

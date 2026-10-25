@@ -1,11 +1,11 @@
 /* Backdrop and actor share image coordinates, including on narrow screens. */
-body[data-world="forest"] .clearing-picture {
+body[data-stage="resident"] .stage-picture {
   position: absolute;
-  inset: 0 0 124px;
+  inset: 0 0 calc(var(--dock-height) + 72px);
   overflow: hidden;
   container-type: size;
 }
-body[data-world="forest"] .clearing-canvas {
+body[data-stage="resident"] .stage-canvas {
   position: absolute;
   width: max(100cqw, 150cqh);
   height: max(100cqh, 66.667cqw);
@@ -13,70 +13,97 @@ body[data-world="forest"] .clearing-canvas {
   top: 50%;
   transform: translate(-50%, -50%);
 }
-body[data-world="forest"] .backdrop {
+body[data-stage="resident"] .backdrop {
   z-index: 0;
 }
-body[data-world="forest"] .clearing-badger {
+body[data-stage="resident"] .stage-resident {
   position: absolute;
-  width: 22%;
+  width: var(--sprite-width, 22%);
   height: auto;
-  left: 59%;
-  top: 78%;
+  left: var(--sprite-left, 59%);
+  top: var(--sprite-top, 78%);
   transform: translate(-50%, -92%);
   filter: drop-shadow(0 5px 4px #17201570);
 }
-body[data-world="forest"] .scene-shade {
+body[data-stage="resident"] .scene-shade {
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(#101b2080, transparent 30%);
 }
-body[data-world="forest"] #cast,
-body[data-world="forest"] #prior-portrait,
-body[data-world="forest"] #speech-hint {
+body[data-stage="resident"] #cast,
+body[data-stage="resident"] #prior-portrait,
+body[data-stage="resident"] #speech-hint {
   display: none;
 }
-body[data-world="forest"] .dialogue {
-  bottom: 10px;
+body[data-stage="resident"] .dialogue {
+  bottom: calc(var(--dock-height) + 8px);
   width: min(860px, calc(100% - 28px));
 }
-body[data-world="forest"] #dialogue-text {
+body[data-stage="resident"] #dialogue-text {
   height: auto;
   min-height: 30px;
   max-height: 75px;
   margin: 6px 0;
 }
-body[data-world="forest"] .prior-response {
+body[data-stage="resident"] .prior-response {
   height: auto;
   min-height: 30px;
   padding: 0 0 6px;
 }
-body[data-world="forest"] .card-frame {
-  height: 208px;
-}
-body[data-world="forest"] .card {
-  grid-template-rows: 16px 30px 30px 1fr 25px;
-}
-body[data-world="forest"] .stage {
+body[data-stage="resident"] .stage {
   min-height: 350px;
 }
-body[data-world="forest"] a {
+body[data-stage="resident"] a {
   color: var(--gold);
 }
 @media (max-width: 700px) {
-  body[data-world="forest"] .card-frame {
-    flex-basis: 154px;
-    width: 154px;
-    height: 184px;
+  body[data-stage="resident"] .stage-picture {
+    bottom: calc(var(--dock-height) + 72px);
   }
-  body[data-world="forest"] .clearing-picture {
-    bottom: 132px;
-  }
-  body[data-world="forest"] .clearing-canvas {
+  body[data-stage="resident"] .stage-canvas {
     left: 46%;
   }
 }
 @media (max-height: 680px) {
-  body[data-world="forest"] {
+  body[data-stage="resident"] {
     overflow-y: auto;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 701px) {
+  :root {
+    --card-height: clamp(126px, 37dvh, 176px);
+    --card-width: clamp(100px, 28dvh, 128px);
+    --dock-height: calc(var(--card-height) + 82px);
+  }
+  body,
+  body[data-stage="resident"] {
+    min-height: 0;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  main,
+  body .stage,
+  body[data-stage="resident"] .stage {
+    min-height: 0;
+  }
+  .topbar {
+    min-height: 44px;
+    padding-block: 2px;
+  }
+  body .card .name {
+    font-size: 14px;
+    padding-bottom: 8px;
+  }
+  body .cast {
+    top: 46px;
+  }
+  body .dialogue,
+  body[data-stage="resident"] .dialogue {
+    bottom: calc(var(--dock-height) + 4px);
+    padding: 4px 10px;
+  }
+  #dialogue-text {
+    max-height: 40px;
   }
 }

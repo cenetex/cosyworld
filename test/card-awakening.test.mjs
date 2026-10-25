@@ -39,6 +39,8 @@ function act(s, kind, item, target) {
   return result.state;
 }
 const ring = (s) => act(s, "ring", "bell");
+// The bridge's signal state for the pond's crossing into the clearing.
+const signal = (s) => s.crossings["pond-clearing"];
 // The second ring reveals the clearing; playing its card takes Vale there.
 const reach = (s) => act(s, "move", null, "clearing");
 
@@ -78,7 +80,7 @@ describe("the bell crossing to the Steam Clock", () => {
     const start = pond();
     const first = ring(start);
     expect(first.actors.vale.place).toBe("pond");
-    expect(first.steamClock.rings).toBe(1);
+    expect(signal(first).phase).toBe(1);
     expect(knownActors(first)).not.toContain("badger");
     const before = encodeSave(first);
     availableCards(first);
@@ -86,14 +88,16 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(encodeSave(first)).toBe(before);
     const heard = ring(decodeSave(before));
     expect(heard.actors.vale.place).toBe("pond");
-    expect(heard.steamClock).toEqual({
-      rings: 0,
+    expect(signal(heard)).toEqual({
+      phase: 0,
       discovered: true,
-      openUntil: heard.turn + 3,
+      until: heard.turn + 3,
     });
     expect(turnOutcome(heard).card.kind).toBe("ring");
     expect(
-      heard.memories.pond.events.some((e) => e.text.includes("second ring")),
+      heard.memories.pond.events.some((e) =>
+        e.text.includes("forest clearing"),
+      ),
     ).toBe(true);
     // Only Vale sees the way, and no one can be asked along it.
     expect(exits(heard, "pond", "vale")).toContain("clearing");
@@ -110,7 +114,9 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(rootHolder(next, "lamp")).toBe("vale");
     expect(next.actors.badger.awake).toBe(false);
     expect(availableCards(next)).toContain("badger");
-    expect(exits(next, "clearing")).toEqual(["pond"]);
+    // The carried bell is still sounding, so the way back is open to Vale.
+    expect(exits(next, "clearing", "vale")).toEqual(["pond"]);
+    expect(exits(next, "clearing")).toEqual([]);
     expect(
       turnOutcome(next).avatars.find((a) => a.id === "vale").travel,
     ).toEqual({ from: "pond", to: "clearing", companions: [] });
@@ -123,7 +129,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(rejected.ok).toBe(false);
     expect(rejected.state).toBe(s);
     s = act(s, "wait");
-    expect(s.steamClock.rings).toBe(0);
+    expect(signal(s).phase).toBe(0);
     s = ring(s);
     expect(s.actors.vale.place).toBe("pond");
     s = act(s, "move", null, "station");
@@ -139,7 +145,7 @@ describe("the bell crossing to the Steam Clock", () => {
     s.actors.vale.place = "pond";
     s.items.cloth.holder = "bell";
     expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
-    expect(s.steamClock.rings).toBe(0);
+    expect(signal(s).phase).toBe(0);
   });
 
   it("keeps Badger asleep on arrival, then remembers waking him across return trips", () => {
@@ -163,7 +169,10 @@ describe("the bell crossing to the Steam Clock", () => {
       step: 0,
       marks: [],
     });
-    expect(narrativeContext(s).outcome.avatars).toHaveLength(4);
+    expect(narrativeContext(s).outcome.avatars.map((a) => a.id)).toEqual([
+      "vale",
+      "badger",
+    ]);
   });
 
   it("allows a return after leaving the bell behind and reacts to local ringing", () => {
@@ -171,7 +180,7 @@ describe("the bell crossing to the Steam Clock", () => {
     s = ring(s);
     expect(s.actors.badger).toMatchObject({
       awake: true,
-      wakeCause: "bell",
+      wakeCause: "sound",
       irritation: 2,
     });
     s = act(s, "wait");
@@ -202,8 +211,11 @@ describe("the bell crossing to the Steam Clock", () => {
   });
 
   it("adds the clearing to an older shore save while keeping existing belongings and memories", () => {
+    // A schema 6 shore save from before the clearing existed.
     const old = pond();
-    delete old.steamClock;
+    delete old.crossings["pond-clearing"];
+    delete old.crossings["clearing-pond"];
+    delete old.packs["badger-forest"];
     delete old.actors.badger;
     delete old.peaceUntil.badger;
     delete old.memories.badger;
@@ -216,7 +228,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(restored.actors.vale.place).toBe("pond");
     expect(restored.actors.badger.awake).toBe(false);
     expect(reach(ring(ring(restored))).actors.vale.place).toBe("clearing");
-    restored.steamClock.rings = 2;
+    restored.crossings["pond-clearing"].phase = 2;
     expect(() => decodeSave(JSON.stringify(restored))).toThrow();
   });
 });
