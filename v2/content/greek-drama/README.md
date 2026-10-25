@@ -69,6 +69,8 @@ is promised, not silently held; no murder, recognition, or verdict is created
 by generated dialogue.
 
 The branches are content-driven choices in the ordinary action system.
+Select a character or place card and use its more-actions button to see
+authored decisions; the idle card remains illustration and name.
 They are not error messages, world resets, or a menu that discards the current
 save. The source defines the alternatives; general rules enforce the saved
 commitment. The selected account, evidence custody, follow-up response, and

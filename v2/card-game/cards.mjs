@@ -242,3 +242,31 @@ export function playLabel(action) {
     wait: "Stay here",
   }[action?.kind];
 }
+
+export function cardObservation(world, id) {
+  const item = world.items[id];
+  if (item) {
+    const observations = [];
+    if (typeof item.lit === "boolean")
+      observations.push(item.lit ? "Lit" : "Unlit");
+    if (typeof item.ringing === "number")
+      observations.push(
+        item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
+      );
+    const cover = Object.keys(world.items).find(
+      (other) => world.items[other].holder === id,
+    );
+    if (cover) observations.push(`Covered by ${nameOf(cover)}`);
+    observations.push(
+      things[item.holder]
+        ? `On ${nameOf(item.holder)}`
+        : people[rootHolder(world, id)]
+          ? `Carried by ${nameOf(rootHolder(world, id))}`
+          : "Resting here",
+    );
+    return observations.join(". ") + ".";
+  }
+  if (world.actors[id])
+    return world.actors[id].awake === false ? "Asleep." : "Here.";
+  return id === world.actors.vale.place ? "Here." : "A way onward.";
+}

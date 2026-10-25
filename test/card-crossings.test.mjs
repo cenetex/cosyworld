@@ -70,7 +70,7 @@ test("remembering the clearing never creates a silent return exit", () => {
   assert(!exits(s, "clearing", "vale").includes("pond"));
   assert(!availableCards(s).includes("pond"));
   assert.equal(cardPlay(s, ["pond"]).action, null);
-  assert.match(placeText(s, "clearing"), /no path to Black pond/);
+  assert.match(placeText(s, "clearing"), /Moss lies between its roots/);
 });
 test("a hand bell sounding at either end opens the return crossing", () => {
   for (const holder of ["vale", "clearing", "pond"]) {
@@ -271,6 +271,6 @@ test("narration is given the same current crossing facts as the cards", () => {
     if (s.actors.vale.place === "pond") assert.match(facts, /Greek ship/);
     else if (clearingReturnOpen(s))
       assert.match(facts, /opens onto Black pond/);
-    else assert.match(facts, /no path to Black pond/);
+    else assert.match(facts, /Moss lies between its roots/);
   }
 });

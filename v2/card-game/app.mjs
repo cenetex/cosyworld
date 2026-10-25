@@ -1,24 +1,7 @@
-import {
-  enableMotives,
-  hasQuestPrograms,
-  interest,
-  motiveFacts,
-  tastes,
-} from "./motives.mjs";
+import { enableMotives } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
 import { packDefinition, packEntity, packMedia } from "./pack-registry.mjs";
-import {
-  lifeOf,
-  questActive,
-  hopes,
-  lifeFacts,
-  INSPIRATION_MAX,
-  keepReason,
-  hopeProgress,
-  recentInspiration,
-} from "./life.mjs";
 import { createRoomMusic } from "./music.mjs";
-import { conditionText } from "./situations.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -34,21 +17,12 @@ import {
   createWorld,
   rootHolder,
   covered,
-  shining,
-  reflectionOpen,
   play,
   encodeSave,
   decodeSave,
-  handStatus,
-  handText,
-  tradeOffers,
-  standoffFor,
-  opponentOf,
-  strikePower,
 } from "./world.mjs";
 import {
   currentScene,
-  sceneScript,
   sceneCast,
   sceneChanges,
   sceneStaging,
@@ -56,7 +30,6 @@ import {
   backdrop,
   locationOverlay,
   locationVariant,
-  witnessed,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -65,17 +38,9 @@ import {
   playLabel,
   avatarPlays,
   cardChoices,
+  cardObservation,
 } from "./cards.mjs";
-import { LESSONS, nextLesson } from "./lessons.mjs";
-import {
-  programsFor,
-  knownActors,
-  desireFor,
-  programFor,
-  levelOf,
-  targetsFor,
-  alternatives,
-} from "./quests.mjs";
+import { knownActors } from "./quests.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
@@ -141,45 +106,6 @@ try {
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
-}
-// Cards the player has met. A card seen for the first time is unveiled large,
-// then flies into the hand and glows until it is used. The cards on the table
-// when a game starts count as met.
-const SEEN_KEY = `${SAVE_KEY}.seen`;
-let encountered = null;
-try {
-  const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
-  if (Array.isArray(seen)) encountered = new Set(seen);
-} catch {
-  encountered = null;
-}
-encountered ??= new Set(availableCards(world));
-const fresh = new Set(),
-  unveiling = [];
-let unveilTimer = null;
-function saveSeen() {
-  try {
-    localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
-  } catch {
-    // Unveiling is a courtesy; the world itself still saves.
-  }
-}
-// Pairing tips the player has already used or dismissed, kept per browser.
-const LESSONS_KEY = "cosyworld.reflected-shore.lessons";
-let learned;
-try {
-  learned = new Set(JSON.parse(localStorage.getItem(LESSONS_KEY) || "[]"));
-} catch {
-  learned = new Set();
-}
-function learn(kind) {
-  if (learned.has(kind)) return;
-  learned.add(kind);
-  try {
-    localStorage.setItem(LESSONS_KEY, JSON.stringify([...learned]));
-  } catch {
-    // A tip that shows again is harmless.
-  }
 }
 function save() {
   if (saveBlocked) return;
@@ -478,32 +404,8 @@ const narrator = createNarrator({
   },
 });
 $("story-retry").onclick = () => narrator.retry();
-function status(id) {
-  if (packEntity(id)) return "Carry · give · trade";
-  if (id === "lamp")
-    return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
-  if (id === "oil")
-    return `${world.items.oil.doses} ${world.items.oil.doses === 1 ? "dose" : "doses"} · +4 fuel each`;
-  if (
-    id === "bell" &&
-    world.actors.vale.place === "pond" &&
-    world.steamClock.rings === 1
-  )
-    return "The Steam Clock answers. Ring again to find it.";
-  if (id === "bell")
-    return covered(world, id)
-      ? "Muffled by the cloth"
-      : world.items.bell.ringing
-        ? `Ringing · ${world.items.bell.ringing} turns left`
-        : "Quiet · rings for 3 turns";
-  return things[world.items.cloth.holder]
-    ? `Covering the ${nameOf(world.items.cloth.holder)}`
-    : "Blocks light and sound";
-}
-
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
-  fresh.delete(id);
   if (selected.includes(id)) {
     commit(selected, selectionRevision);
     return;
@@ -511,12 +413,16 @@ function choose(id) {
   selected = selected.length >= 2 ? [id] : [...selected, id];
   selectionRevision = world.revision;
   render();
+  $("hand")
+    .querySelector(`[data-card="${id}"]`)
+    ?.closest(".card-frame")
+    ?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 function commit(cards, revision) {
   if (saveBlocked || cardsCooling) return;
   const resolved = cardPlay(world, cards);
   if (!resolved.action) {
-    $("play-readout").textContent = resolved.hint;
+    $("play-readout").textContent = "That cannot be used here.";
     return;
   }
   commitAction(resolved.action, revision);
@@ -530,11 +436,24 @@ function commitAction(action, revision) {
     render();
     return;
   }
-  if (action.actor === "vale" && LESSONS.includes(action.kind))
-    learn(action.kind);
   reveal.finish();
   speechSounds.stop();
-  storyStatus = "pending";
+  // Manipulating an object needs no automatic speech or tutorial recap.
+  const speak = [
+    "talk",
+    "ask",
+    "give",
+    "trade",
+    "accompany",
+    "threaten",
+    "attack",
+    "choose",
+    "move",
+    "ring",
+  ].includes(action.kind);
+  narrator.invalidate();
+  exchange.cancel();
+  storyStatus = speak ? "pending" : "ready";
   pendingReplay = replay;
   const previousLine = currentScene(world, null, { seq: lineSeq }).line;
   const from = world.actors.vale.place;
@@ -560,21 +479,20 @@ function commitAction(action, revision) {
     ]),
   ];
   pendingCast = sceneCast(world, world.log.length - 1, visible);
-  exchange.begin();
+  if (speak) exchange.begin();
   selected = [];
   lineSeq =
-    previousLine?.locationId === world.actors.vale.place
+    speak && previousLine?.locationId === world.actors.vale.place
       ? previousLine.seq
       : null;
   notice("");
   save();
   if (world.actors.vale.place !== from)
-    travel(world.actors.vale.place, render, unveilNew);
+    travel(world.actors.vale.place, render, render);
   else {
     render();
-    unveilNew();
   }
-  narrator.changed(action);
+  if (speak) narrator.changed(action);
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -616,97 +534,6 @@ function travel(place, arrive, landed) {
   }, TRAVEL_COVER);
 }
 
-function unveilNew() {
-  if (saveBlocked) return;
-  // People first, then what they carry, then the ways onward.
-  const rank = { avatar: 0, item: 1, location: 2 };
-  const found = availableCards(world)
-    .filter((id) => !encountered.has(id))
-    .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
-  if (!found.length) return;
-  for (const id of found) {
-    encountered.add(id);
-    fresh.add(id);
-    unveiling.push(id);
-  }
-  saveSeen();
-  showUnveil();
-}
-function showUnveil() {
-  const dialog = $("unveil-dialog");
-  if (dialog.open || !unveiling.length) return;
-  const id = unveiling[0],
-    type = cardType(id);
-  $("unveil-eyebrow").textContent =
-    type === "location"
-      ? "A new place"
-      : type === "avatar"
-        ? "Someone new"
-        : "Something new";
-  // A showpiece, not a control: it cannot be clicked, so it need not look idle.
-  const shown = card(id);
-  shown.inert = true;
-  for (const button of shown.querySelectorAll("button"))
-    button.disabled = false;
-  $("unveil-card").replaceChildren(shown);
-  // Places and things carry their text on the card; people's goes beneath.
-  $("unveil-text").textContent = type === "avatar" ? people[id].text : "";
-  dialog.showModal();
-  pauseSpeech();
-  clearTimeout(unveilTimer);
-  unveilTimer = setTimeout(takeUnveiled, 5000);
-}
-// The unveiled card flies from the middle of the screen into its slot.
-function takeUnveiled() {
-  clearTimeout(unveilTimer);
-  const dialog = $("unveil-dialog");
-  if (!dialog.open) return;
-  const id = unveiling.shift(),
-    shown = $("unveil-card").firstElementChild,
-    start = shown?.getBoundingClientRect();
-  dialog.close();
-  // The showpiece leaves the page, so only the hand holds this card.
-  $("unveil-card").replaceChildren();
-  renderedHand = "";
-  render();
-  const slot = $("hand")
-    .querySelector(`[data-card="${id}"]`)
-    ?.closest(".card-frame");
-  if (!slot || !start || reducedMotion.matches) {
-    showUnveil();
-    return;
-  }
-  slot.scrollIntoView({ block: "nearest", inline: "nearest" });
-  const end = slot.getBoundingClientRect(),
-    ghost = shown.cloneNode(true),
-    size = slot.offsetWidth;
-  ghost.classList.add("unveil-ghost");
-  document.body.append(ghost);
-  slot.style.visibility = "hidden";
-  const at = (r) =>
-    `translate(${r.left}px, ${r.top}px) scale(${r.width / size})`;
-  ghost
-    .animate([{ transform: at(start) }, { transform: at(end) }], {
-      duration: 560,
-      easing: "cubic-bezier(.2,.7,.2,1)",
-    })
-    .finished.finally(() => {
-      ghost.remove();
-      slot.style.visibility = "";
-      showUnveil();
-    });
-}
-$("unveil-take").onclick = takeUnveiled;
-$("unveil-dialog").addEventListener("click", (e) => {
-  if (e.target === $("unveil-dialog")) takeUnveiled();
-});
-$("unveil-dialog").addEventListener("cancel", (e) => {
-  e.preventDefault();
-  takeUnveiled();
-});
-// Where a cutout's figure stands: the top and height of its outline and the
-// middle of its head, as fractions of the image. The card banner uses them to
-// frame the head and shoulders of any portrait the same way.
 const figures = new Map();
 function frameFigure(img) {
   const apply = (f) => {
@@ -783,298 +610,74 @@ function showCardChoices(id, choices, revision) {
   close.type = "button";
   close.onclick = () => dialog.close();
   dialog.append(heading, options, close);
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.addEventListener(
+    "close",
+    () => {
+      dialog.remove();
+      pauseSpeech();
+    },
+    { once: true },
+  );
   document.body.append(dialog);
   dialog.showModal();
+  pauseSpeech();
 }
 function card(id) {
   const type = cardType(id),
     def = places[id] || people[id] || things[id];
   const raised = selected.includes(id);
-  const ownPlay = cardPlay(world, [id]);
-  const chosen = raised ? cardPlay(world, selected) : ownPlay;
-  const el = node(
-    "button",
-    undefined,
-    `card ${type} ${id === "lamp" && shining(world) ? "lit" : ""} ${fresh.has(id) ? "new" : ""}`,
-  );
+  const chosen = raised ? cardPlay(world, selected) : null;
+  const el = node("button", undefined, `card ${type}`);
   el.type = "button";
   el.dataset.card = id;
-  if (type === "avatar" && lifeOf(world, id)) el.dataset.personal = "true";
   el.disabled = saveBlocked || cardsCooling;
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
-  el.title =
-    (id === "pond" || id === "clearing"
-      ? placeText(world, id)
-      : world.memories[id].text) ||
-    (type === "avatar"
-      ? !hasQuestPrograms(world)
-        ? motiveFacts(world, id).join(". ")
-        : `${def.text} ${programFor(world, id)?.name || "Next journey"}. ${handText(desireFor(world, id))}.`
-      : type === "location"
-        ? placeText(world, id)
-        : def.text);
-  el.append(
-    node(
-      "span",
-      type === "avatar" &&
-        id !== "badger" &&
-        !packEntity(id) &&
-        hasQuestPrograms(world)
-        ? `${type} · Level ${levelOf(world, id)}`
-        : type,
-      "kind",
-    ),
-  );
   const graphic = node("span", undefined, "art");
-  {
-    const img = node("img");
-    img.src =
-      type === "item"
-        ? packMedia(id, "art") || `./assets/${id}-card.png`
-        : type === "avatar"
-          ? portrait(id, null, world)
-          : backdrop(id);
-    img.alt = "";
-    if (type === "avatar") frameFigure(img);
-    graphic.append(img);
-    if (type === "location") {
-      el.dataset.locationVariant = locationVariant(world, id);
-      const src = locationOverlay(world, id);
-      if (src) {
-        const overlay = node("img", undefined, "location-overlay");
-        overlay.src = src;
-        overlay.alt = "";
-        overlay.style.cssText =
-          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none";
-        graphic.style.position = "relative";
-        graphic.append(overlay);
-      }
+  const img = node("img");
+  img.src =
+    type === "item"
+      ? packMedia(id, "art") || `./assets/${id}-card.png`
+      : type === "avatar"
+        ? portrait(id, null, world)
+        : backdrop(id);
+  img.alt = "";
+  img.draggable = false;
+  if (type === "avatar") frameFigure(img);
+  graphic.append(img);
+  if (type === "location") {
+    el.dataset.locationVariant = locationVariant(world, id);
+    const src = locationOverlay(world, id);
+    if (src) {
+      const overlay = node("img", undefined, "location-overlay");
+      overlay.src = src;
+      overlay.alt = "";
+      graphic.append(overlay);
     }
   }
-  el.append(graphic, node("span", def.name, "name"));
-  let caption, detail;
   if (type === "item") {
-    const holder = world.items[id].holder,
-      owner = rootHolder(world, id);
-    caption =
-      holder === "vale"
-        ? "Carried"
-        : things[holder]
-          ? `On ${nameOf(holder)}`
-          : people[owner]
-            ? `With ${nameOf(owner)}`
-            : "On the ground";
-    detail = status(id);
-  } else if (type === "avatar") {
-    const program = programFor(world, id),
-      progress = world.actors[id].progress;
-    caption = program
-      ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
-      : packEntity(id)
-        ? "Local resident"
-        : "Next journey";
-    detail = handText(desireFor(world, id));
-    if (!hasQuestPrograms(world) || id === "badger") {
-      caption = interest(world, id).text;
-      detail = tastes[id].likes;
+    const item = world.items[id];
+    // Observable physical states, never fuel arithmetic or puzzle progress.
+    if (typeof item.lit === "boolean") el.dataset.lit = String(item.lit);
+    if (typeof item.ringing === "number")
+      el.dataset.ringing = String(item.ringing > 0 && !covered(world, id));
+    const covering = Object.keys(world.items).find(
+      (other) => world.items[other].holder === id,
+    );
+    if (covering) {
+      el.dataset.covered = "true";
+      const cloth = node("img", undefined, "object-cover");
+      cloth.src = packMedia(covering, "art") || `./assets/${covering}-card.png`;
+      cloth.alt = "";
+      graphic.append(cloth);
     }
-    const life = lifeOf(world, id);
-    if (life && !questActive(world, id)) {
-      caption =
-        life.phase === "content" ? "Enjoying this moment" : "Finding a purpose";
-      detail = interest(world, id).text;
-    }
-  } else {
-    caption = id === world.actors.vale.place ? "Here" : "A path from here";
-    detail =
-      id === world.actors.vale.place
-        ? "Wait a turn · leave items here"
-        : "Travel · carry your items";
   }
-  const conflict = type === "avatar" ? standoffFor(world, id) : null;
-  if (conflict)
-    caption = `Facing ${nameOf(opponentOf(conflict, id))} · Resolve ${conflict.resolve[id]}/4${conflict.guarding[id] ? " · Guarding" : ""}`;
-  el.append(node("span", caption, `caption${conflict ? " conflict" : ""}`));
-  const info = node("span", detail, "state");
-  info.id = `card-detail-${id}`;
-  if (type !== "avatar")
-    info.append(
-      node(
-        "span",
-        type === "location" ? placeText(world, id) : def.text,
-        "flavor",
-      ),
-    );
-  if (type === "avatar" && lifeOf(world, id) && !questActive(world, id)) {
-    const life = lifeOf(world, id);
-    info.replaceChildren(
-      node("span", interest(world, id).text, "hand-condition"),
-    );
-    const meter = node("progress", undefined, "inspiration-meter");
-    meter.max = INSPIRATION_MAX;
-    meter.value = life.inspiration;
-    meter.setAttribute("aria-label", `${def.name} inspiration`);
-    info.append(
-      node(
-        "span",
-        `Inspiration ${life.inspiration}/${INSPIRATION_MAX}`,
-        "hand-condition",
-      ),
-      meter,
-    );
-    info.append(
-      node(
-        "span",
-        life.phase === "content"
-          ? world.turn >= life.restUntil
-            ? "Inspiration next turn"
-            : `Resting · ${life.restUntil - world.turn} ${life.restUntil - world.turn === 1 ? "turn" : "turns"} left`
-          : recentInspiration(world, id),
-        "trade-offers",
-      ),
-    );
-  } else if (
-    type === "avatar" &&
-    (!hasQuestPrograms(world) || id === "badger")
-  ) {
-    info.textContent = "";
-    info.append(node("span", tastes[id].likes, "hand-condition"));
-    const grudge = world.motives?.grievances[id]?.at(-1);
-    info.append(
-      node(
-        "span",
-        grudge
-          ? `Sore at ${nameOf(grudge.other)}: ${grudge.kind}`
-          : `Touchy about: ${tastes[id].sore}`,
-        "hand-condition",
-      ),
-    );
-    info.title = motiveFacts(world, id).join("\n");
-    if (id !== "vale")
-      info.append(
-        node(
-          "span",
-          `Offers: ${tradeOffers(world, id).map(nameOf).join(", ") || "Make an offer"}`,
-          "trade-offers",
-        ),
-      );
-  } else if (type === "avatar") {
-    info.textContent = "";
-    const target = handStatus(world, id);
-    const row = (label, entries) => {
-      const line = node("span", undefined, "hand-condition");
-      line.append(node("span", label, "condition-label"));
-      for (const entry of entries) {
-        const token = node(
-          "span",
-          `${entry.met ? "✓" : "·"} ${entry.text}`,
-          "hand-token",
-        );
-        token.dataset.met = String(entry.met);
-        line.append(token);
-      }
-      info.append(line);
-    };
-    row(
-      world.life ? "Use" : "Hold",
-      target.items.length
-        ? target.items.map((e) => ({
-            ...e,
-            text: `${nameOf(e.id)}${e.sharedBy ? ` · with ${nameOf(e.sharedBy)}` : ""}`,
-          }))
-        : [{ met: true, text: "Any items" }],
-    );
-    row("At", [
-      {
-        ...target.location,
-        text: target.location.id ? nameOf(target.location.id) : "Any place",
-      },
-    ]);
-    row(
-      "With",
-      target.avatars.length
-        ? target.avatars.map((e) => ({ ...e, text: nameOf(e.id) }))
-        : [{ met: true, text: "Any company" }],
-    );
-    if (target.conditions.length)
-      row(
-        "Need",
-        target.conditions.map((c) => ({
-          ...c,
-          text: conditionText(c, nameOf),
-        })),
-      );
-    const choices = targetsFor(world, id);
-    if (choices.length > 1)
-      info.append(
-        node("span", `${choices.length} choices · Menu`, "trade-offers"),
-      );
-    const offers = tradeOffers(world, id);
-    if (id !== "vale")
-      info.append(
-        node(
-          "span",
-          offers.length
-            ? `Offers: ${offers.map(nameOf).join(", ")}`
-            : target.met
-              ? "Hand complete"
-              : "Seeking this hand",
-          "trade-offers",
-        ),
-      );
-  }
-  if (type === "avatar" && lifeOf(world, id)) {
-    const life = lifeOf(world, id),
-      hope = hopes[id];
-    info.append(
-      node(
-        "span",
-        `Hope ${life.milestones.length}/${hope.milestones.length} · Menu`,
-        "personal-hope",
-      ),
-    );
-    const progress = hopeProgress(world, id);
-    info.append(node("span", progress.next, "hope-next"));
-    info.title = `${lifeFacts(world, id).join("\n")}\n${progress.hint}`;
-  }
-  if (type === "item" && people[rootHolder(world, id)]) {
-    const reason = keepReason(world, rootHolder(world, id), id);
-    if (reason) {
-      info.querySelector(".flavor")?.remove();
-      info.append(node("span", reason, "item-attachment"));
-      info.title = `${def.text} ${reason}`;
-    }
-    if (
-      rootHolder(world, id) !== "vale" &&
-      ["light", "snuff", "ring"].includes(
-        cardPlay(world, [id, world.actors.vale.place]).action?.kind,
-      )
-    )
-      info.append(
-        node(
-          "span",
-          `Use here: pair with ${nameOf(world.actors.vale.place)}.`,
-          "item-attachment",
-        ),
-      );
-  }
-  el.append(info);
-  const label = playLabel(chosen.action);
-  el.append(
-    node(
-      "span",
-      raised
-        ? label
-          ? `${label} · tap to play`
-          : chosen.hint
-        : playLabel(ownPlay.action) ||
-            (id === "vale" ? "Pair with a place" : "Combine"),
-      "card-play",
-    ),
-  );
+  const label = playLabel(chosen?.action);
+  const observation = node("span", cardObservation(world, id), "sr-only");
+  observation.id = `card-detail-${id}`;
+  if (raised && label) observation.textContent += ` ${label}.`;
+  el.append(graphic, node("span", def.name, "name"), observation);
   el.addEventListener("click", () => choose(id));
   el.draggable = !el.disabled;
   el.addEventListener("dragstart", (e) => {
@@ -1086,7 +689,7 @@ function card(id) {
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
-    $("stage").dataset.play = cardPlay(world, dragging).hint;
+    $("stage").dataset.play = playLabel(cardPlay(world, dragging).action) || "";
     $("stage").classList.add("ready");
   });
   el.addEventListener("dragend", () => {
@@ -1119,40 +722,39 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const plays = type === "avatar" ? avatarPlays(world, id) : [];
-  const choices = cardChoices(world, id);
-  if ((plays.length || choices.length) && !(raised && selected.length === 2)) {
-    el.classList.add("has-options");
+  if (raised) {
     const options = node("div", undefined, "card-options");
     const revision = world.revision;
-    for (const action of plays) {
-      const button = node("button", playLabel(action));
+    const primary = chosen?.action;
+    if (primary) {
+      const button = node("button", playLabel(primary), "card-primary");
       button.type = "button";
-      if (action.choiceId) {
-        button.dataset.choice = action.choiceId;
-        button.dataset.pack = action.packId;
-      }
       button.disabled = saveBlocked || cardsCooling;
-      button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
-      button.title =
-        action.kind === "threaten"
-          ? `Open a standoff${action.item ? ` over ${nameOf(action.item)}` : ""}.`
-          : action.kind === "guard"
-            ? "Reduce the next hit by 1. Guard lasts until your next play."
-            : action.kind === "attack"
-              ? `${strikePower(world, "vale", action.target)} resolve damage. At zero, the loser drops the disputed item and retreats.`
-              : action.text;
-      button.addEventListener("click", () => commitAction(action, revision));
+      button.setAttribute("aria-label", `${playLabel(primary)} · ${def.name}`);
+      button.onclick = (event) => {
+        event.stopPropagation();
+        commitAction(primary, revision);
+      };
       options.append(button);
     }
-    if (choices.length) {
-      const button = node("button", "Choices");
-      button.type = "button";
-      button.dataset.choicesFor = id;
-      button.setAttribute("aria-label", `Choices · ${def.name}`);
-      button.disabled = saveBlocked || cardsCooling;
-      button.onclick = () => showCardChoices(id, choices, revision);
-      options.append(button);
+    if (selected.length === 1) {
+      const choices = cardChoices(world, id);
+      const plays =
+        type === "avatar"
+          ? avatarPlays(world, id).filter((a) => a.kind !== primary?.kind)
+          : [];
+      if (choices.length || plays.length) {
+        const button = node("button", "···", "card-more");
+        button.type = "button";
+        button.dataset.choicesFor = id;
+        button.setAttribute("aria-label", `More actions · ${def.name}`);
+        button.disabled = saveBlocked || cardsCooling;
+        button.onclick = (event) => {
+          event.stopPropagation();
+          showCardChoices(id, [...choices, ...plays], revision);
+        };
+        options.append(button);
+      }
     }
     frame.append(options);
   }
@@ -1324,7 +926,7 @@ function renderScene() {
   const priorKey = JSON.stringify(previous);
   if (priorKey !== renderedPrior) {
     renderedPrior = priorKey;
-    $("prior-response").hidden = !previous;
+    $("prior-response").hidden = true;
     $("prior-speaker").textContent = previous?.speaker || "";
     $("prior-text").textContent = previous?.text || "";
     const priorId =
@@ -1341,13 +943,7 @@ function renderScene() {
     }
   }
   $("speaker").textContent = scene.line?.speaker || "";
-  $("line-turn").textContent = scene.line
-    ? scene.line.departureTo
-      ? `${exchange.current?.seq === scene.line.seq && !departed.has(scene.line.actorId) ? "Leaving for" : "Left for"} ${nameOf(scene.line.departureTo)}`
-      : scene.line.arrivalFrom
-        ? `Arrived from ${nameOf(scene.line.arrivalFrom)}`
-        : `Turn ${scene.line.turn}`
-    : "";
+  $("line-turn").textContent = "";
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
     storyStatus === "retry"
@@ -1360,21 +956,25 @@ function renderScene() {
       ? $("story-status").textContent
       : "New words are on the way",
   );
-  const text = scene.line?.text || "";
+  const spoken =
+    scene.line?.kind === "dialogue" &&
+    (reviewing || scene.line.turn === world.turn);
+  const text = spoken ? scene.line.text : "";
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
-  const at = scene.lines.findIndex(
+  const spokenLines = scene.lines.filter((entry) => entry.kind === "dialogue");
+  const at = spokenLines.findIndex(
     (entry) => entry.index === scene.line?.index,
   );
   nextSceneSeq =
-    at >= 0 && at < scene.lines.length - 1 ? scene.lines[at + 1].seq : null;
+    at >= 0 && at < spokenLines.length - 1 ? spokenLines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
   // Keep failures visible even when this scene has no earlier words.
   document.querySelector(".dialogue").hidden =
     !text && storyStatus === "ready" && !exchange.preparing;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
-  $("speech-hint").hidden = !text;
+  $("speech-hint").hidden = true;
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
@@ -1393,7 +993,7 @@ function renderScene() {
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
     reviewing = true;
-    lineSeq = scene.lines[at - 1].seq;
+    lineSeq = spokenLines[at - 1].seq;
     renderScene();
   };
   const advance = () => {
@@ -1418,10 +1018,10 @@ let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  // Words and the world's own account, so every turn is recorded even when
-  // its words fail or are still on the way.
+  // Only spoken lines belong in this optional conversation record.
+  // Rule receipts and hidden counters stay in the save, not on the screen.
   const conversation = world.log.filter(
-    (entry) => entry.generated === true || witnessed(entry),
+    (entry) => entry.kind === "dialogue" && entry.generated === true,
   );
   let common = 0;
   while (
@@ -1439,7 +1039,7 @@ function renderLog() {
       `message ${entry.speaker === "World" || !entry.generated ? "world" : entry.speaker === "You" ? "you" : ""}`,
     );
     const by = node("div", entry.speaker, "speaker");
-    by.append(node("span", `Turn ${entry.turn}`));
+
     item.append(by, node("p", entry.text));
     box.append(item);
   }
@@ -1454,30 +1054,16 @@ function render() {
   music.setRoom(world.actors.vale.place);
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
-  $("turn").textContent = `Turn ${world.turn}`;
   $("place-title").textContent = nameOf(world.actors.vale.place);
-  $("path-state").textContent = reflectionOpen(world, world.actors.vale.place)
-    ? "The reflected path is open"
-    : "The mirror holds a dark reflection";
-  const handKey = JSON.stringify([
-    world.revision,
-    selected,
-    saveBlocked,
-    [...fresh],
-  ]);
+  const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
   if (handKey !== renderedHand) {
     renderedHand = handKey;
     $("hand").replaceChildren(...availableCards(world).map(card));
     $("hand").scrollLeft = scroll;
   }
-  for (const card of $("hand").querySelectorAll("[data-card]")) {
-    const words = world.memories[card.dataset.card]?.text;
-    if (words) card.title = words;
-  }
   $("play-readout").textContent = selected.length
-    ? cardPlay(world, selected).hint
+    ? playLabel(cardPlay(world, selected).action) || ""
     : "";
-  renderTip();
   updateHandScroll();
   renderScene();
   renderLog();
@@ -1487,22 +1073,6 @@ function render() {
       .querySelector(`[data-card="${focused}"]`)
       ?.focus({ preventScroll: true });
 }
-// The first gift, trade, and shared journey are named once, over the hand.
-let tip = null;
-function renderTip() {
-  tip = saveBlocked ? null : nextLesson(world, learned);
-  $("hand-tip").hidden = !tip;
-  $("hand-tip-text").textContent = tip?.text ?? "";
-  for (const frame of $("hand").querySelectorAll(".card-frame")) {
-    const id = frame.querySelector("[data-card]")?.dataset.card;
-    if (tip?.cards.includes(id)) frame.dataset.tip = "true";
-    else delete frame.dataset.tip;
-  }
-}
-$("hand-tip-close").onclick = () => {
-  if (tip) learn(tip.kind);
-  renderTip();
-};
 // A hand wider than the dock scrolls; the arrows and edge fades show there
 // is more, and the wheel and arrow keys move along it.
 function updateHandScroll() {
@@ -1579,7 +1149,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
   if (
     selected.length &&
-    !e.target.closest(".card") &&
+    !e.target.closest(".card-frame") &&
     !e.target.closest("dialog") &&
     !e.target.closest(".dialogue")
   ) {
@@ -1588,165 +1158,11 @@ document.addEventListener("click", (e) => {
   }
 });
 $("history-button").onclick = () => {
-  const lives = Object.keys(world.actors)
-    .filter((id) => knownActors(world).includes(id))
-    .map((id) => {
-      const memory = world.memories[id];
-      const section = node("section");
-      section.append(node("h3", nameOf(id)));
-      const life = memory.innerLife;
-      if (!life)
-        section.append(
-          node("p", "A story is taking shape through shared moments."),
-        );
-      if (life?.persona) section.append(node("p", life.persona));
-      for (const [label, moments] of [
-        ["Thought", life?.thoughts],
-        ["Dream", life?.dreams],
-      ]) {
-        for (const moment of [...(moments || [])].reverse()) {
-          section.append(
-            node("h4", `${label} · Turn ${moment.turn}`),
-            node("p", moment.text),
-          );
-        }
-      }
-      return section;
-    });
-  $("inner-lives").replaceChildren(...lives);
   $("history-dialog").showModal();
   pauseSpeech();
   $("messages").scrollTop = $("messages").scrollHeight;
 };
 $("menu-button").onclick = () => {
-  if (world.life) {
-    $("quest-guide").replaceChildren(
-      ...knownActors(world)
-        .filter((id) => lifeOf(world, id))
-        .map((id) => {
-          const block = node("section", undefined, "quest-guide-program");
-          const life = lifeOf(world, id),
-            hope = hopes[id],
-            program = programFor(world, id);
-          block.append(node("h3", `${nameOf(id)} · ${hope.title}`));
-          const hopeState = hopeProgress(world, id);
-          block.append(
-            node(
-              "p",
-              `Hope ${hopeState.done}/${hopeState.total} · ${hopeState.hint}`,
-            ),
-          );
-          block.append(node("p", recentInspiration(world, id)));
-          block.append(
-            node(
-              "p",
-              `Inspiration ${life.inspiration}/${INSPIRATION_MAX} · ${life.phase === "active" ? "Personal quest active" : life.phase === "content" ? "Enjoying the result" : "Finding a purpose"}`,
-            ),
-          );
-          const milestones = node("ol");
-          hope.milestones.forEach((step, i) =>
-            milestones.append(
-              node(
-                "li",
-                `${i < life.milestones.length ? "✓ " : i === life.milestones.length ? "Next: " : ""}${step.title}${i < life.milestones.length ? ` · turn ${life.milestones[i]}` : ""}`,
-              ),
-            ),
-          );
-          block.append(milestones);
-          if (program) {
-            block.append(node("h4", program.name));
-            if (program.purpose) block.append(node("p", program.purpose));
-            const steps = node("ol");
-            program.steps.forEach((step, i) =>
-              steps.append(
-                node(
-                  "li",
-                  `${i < world.actors[id].progress.step ? "✓ " : i === world.actors[id].progress.step ? "Now: " : ""}${alternatives(
-                    step,
-                  )
-                    .map((h) => handText(h).replace(/^hold /u, "use "))
-                    .join(" OR ")}`,
-                ),
-              ),
-            );
-            block.append(steps);
-          }
-          for (const fact of lifeFacts(world, id).slice(3))
-            block.append(node("p", fact));
-          return block;
-        }),
-    );
-    $("menu-dialog").showModal();
-    pauseSpeech();
-    return;
-  }
-  if (!hasQuestPrograms(world)) {
-    $("quest-guide").replaceChildren(
-      ...knownActors(world).map((id) => {
-        const block = node("section", undefined, "quest-guide-program");
-        block.append(
-          node("h3", nameOf(id)),
-          ...motiveFacts(world, id).map((fact) => node("p", fact)),
-        );
-        return block;
-      }),
-    );
-    $("menu-dialog").showModal();
-    pauseSpeech();
-    return;
-  }
-  $("quest-guide").replaceChildren(
-    ...[
-      ...programsFor(world, "vale")
-        .filter(
-          (_, index) =>
-            !world.opening || index <= world.actors.vale.progress.program,
-        )
-        .map((program, index) => ({
-          program,
-          index,
-          actor: "vale",
-        })),
-      ...(world.actors.vale.progress.current
-        ? [
-            {
-              actor: "vale",
-              program: programFor(world, "vale"),
-              index: world.actors.vale.progress.program,
-            },
-          ]
-        : []),
-      ...knownActors(world)
-        .filter((id) => id !== "vale" && id !== "badger")
-        .map((actor) => ({
-          actor,
-          program: programFor(world, actor),
-          index: world.actors[actor].progress.program,
-        })),
-    ].map(({ program, index, actor }) => {
-      const block = node("section", undefined, "quest-guide-program");
-      block.append(
-        node("h3", `${nameOf(actor)} · ${program.name} · Level ${index + 2}`),
-      );
-      const steps = node("ol");
-      if (program.purpose) block.append(node("p", program.purpose));
-      for (const [i, hand] of program.steps.entries()) {
-        const progress = world.actors[actor].progress;
-        const done =
-          progress.program > index ||
-          (progress.program === index && progress.step > i);
-        const current = progress.program === index && progress.step === i;
-        steps.append(
-          node(
-            "li",
-            `${done ? "✓ " : current ? "Now: " : ""}${alternatives(hand).map(handText).join(" OR ")}`,
-          ),
-        );
-      }
-      block.append(steps);
-      return block;
-    }),
-  );
   $("menu-dialog").showModal();
   pauseSpeech();
 };
@@ -1760,13 +1176,24 @@ document
   .forEach((dialog) => dialog.addEventListener("close", pauseSpeech));
 $("export-script").onclick = () => {
   const url = URL.createObjectURL(
-    new Blob([JSON.stringify(sceneScript(world), null, 2)], {
-      type: "application/json",
-    }),
+    new Blob(
+      [
+        JSON.stringify(
+          world.log
+            .filter((e) => e.kind === "dialogue" && e.generated === true)
+            .map(({ speaker, text }) => ({ speaker, text })),
+          null,
+          2,
+        ),
+      ],
+      {
+        type: "application/json",
+      },
+    ),
   );
   const link = node("a");
   link.href = url;
-  link.download = `cosyworld-scene-turn-${world.turn}.json`;
+  link.download = "cosyworld-conversation.json";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
@@ -1793,10 +1220,6 @@ $("confirm-reset").onclick = () => {
     personalQuests: true,
   });
   completedSpeech.clear();
-  encountered = new Set(availableCards(world));
-  fresh.clear();
-  unveiling.length = 0;
-  saveSeen();
   reviewing = false;
   renderedHand = "";
   replay = pendingReplay = 0;
@@ -1807,7 +1230,6 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   render();
-  narrator.changed();
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
@@ -1855,7 +1277,6 @@ function resumeScene() {
     exchange.load(line ? [line] : []);
   } else {
     render();
-    if (!saveBlocked) narrator.changed();
   }
 }
 resumeScene();

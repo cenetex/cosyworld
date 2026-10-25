@@ -83,8 +83,6 @@ try {
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const ready = async () => {
       for (let i = 0; i < 375; i++) {
-        if (await page.locator("#unveil-dialog").evaluate((d) => d.open))
-          await page.locator("#unveil-take").click();
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
         )
@@ -157,6 +155,7 @@ try {
     };
     const ringClock = async () => {
       await ready();
+      await page.locator('#hand [data-card="clearing"]').click();
       await page.locator('[data-choices-for="clearing"]').click();
       await page
         .getByRole("button", { name: "Ring the Steam Clock", exact: true })

@@ -81,7 +81,7 @@ test("only the fourth transition, the second uncover, summons ship and boarding 
   assert.equal(s.items.lamp.lit, true);
   assert.equal(s.items.lamp.fuel, 8);
   assert.equal(
-    s.log.filter((e) => e.text.startsWith("At the second uncovering")).length,
+    s.log.filter((e) => e.text.startsWith("A Greek ship appears")).length,
     1,
   );
 });
@@ -276,11 +276,15 @@ test("invalid saved signal phases fail validation", () => {
     assert.throws(() => decodeSave(JSON.stringify(s)));
   }
 });
-test("the narration receives a first-flash hint without claiming the ship is present", () => {
+test("the narration does not expose a partial ritual or claim a ship is present", () => {
   const s = cycle(pond()),
     ctx = narrativeContext(s),
     facts = ctx.entities.find((e) => e.id === "pond").facts;
-  assert(facts.some((f) => f.includes("Completed lamp signals: 1 of two")));
+  assert(
+    !facts.some((f) =>
+      /Completed lamp signals|cover and uncover|once more|first flash/i.test(f),
+    ),
+  );
   assert(!facts.some((f) => f.includes("ship waits")));
   visible(s, false);
 });

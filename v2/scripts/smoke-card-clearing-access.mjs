@@ -146,8 +146,11 @@ try {
     await page.reload();
     await ready();
     assert.equal(await card("pond").count(), 0);
+    await page.locator('#hand [data-card="clearing"]').click();
     await page.locator('[data-choices-for="clearing"]').click();
-    await page.getByRole("button", { name: "Ring the Steam Clock", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Ring the Steam Clock", exact: true })
+      .click();
     await ready();
     assert.equal(await card("pond").count(), 1);
     await use("pond");

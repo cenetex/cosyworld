@@ -25,8 +25,8 @@ on the **second uncovering**, not merely when the lamp is lit.
 Use **Black cloth + Lamp** to cover it and **Black cloth** to uncover it.
 The four resolved transitions are saved. Inspection, reload, generated
 speech and rejected actions cannot count as flashes. An unlit or already
-covered lamp cannot fabricate a complete cycle. The first flash gives a
-ripple hint; waiting between flashes is allowed but consumes normal fuel.
+covered lamp cannot fabricate a complete cycle. Partial signal phases have no progress text or bespoke reassurance cue.
+Waiting between actions is allowed but consumes normal fuel.
 
 Snuffing, running dry, leaving the pond, or sounding a nearby bell cancels
 the signal. Restoring light or silence alone does not summon it again.
@@ -34,7 +34,7 @@ The variant, current facts and boarding offer share the same predicate.
 The Greek harbor retains its return route without the entry lamp.
 
 Legacy saves receive signal phase zero without resetting their stories.
-Run the 24 ritual regressions in test/card-ship-ritual.test.mjs alongside
+Run the ritual regressions in test/card-ship-ritual.test.mjs alongside
 card-crossings.test.mjs and the desktop/phone browser smoke.
 
 ## Scope and verification

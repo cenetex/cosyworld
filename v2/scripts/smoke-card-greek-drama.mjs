@@ -107,8 +107,6 @@ try {
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
     const ready = async () => {
       for (let i = 0; i < 375; i++) {
-        if (await page.locator("#unveil-dialog").evaluate((d) => d.open))
-          await page.locator("#unveil-take").click();
         if (await page.locator("#dialogue-advance").isVisible())
           await page.locator("#dialogue-advance").click();
         if (
@@ -175,6 +173,7 @@ try {
       );
       if (!(await option.isVisible())) {
         const opener = page.locator(`[data-choices-for="${action.cards[0]}"]`);
+        await card(action.cards[0]).click();
         await opener.scrollIntoViewIfNeeded();
         await opener.click();
       }

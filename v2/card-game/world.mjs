@@ -398,14 +398,12 @@ const baseExits = (s, place) =>
 export const placeText = (s, place) =>
   place === "clearing"
     ? clearingReturnOpen(s)
-      ? "A bell sounds among the Steam Clock's roots. Its dark reflection opens onto Black pond. The clock's bell can be rung again before the sound fades."
-      : "The Steam Clock ticks among the trees. The roots show only moss: no path to Black pond is visible. Ring the clock's bell to reopen the crossing."
+      ? "A bell sounds among the Steam Clock's roots. A dark reflection opens onto Black pond."
+      : "The Steam Clock ticks among the trees. Moss lies between its roots."
     : place === "pond"
       ? greekShipPresent(s)
         ? "Lamplight lies across the quiet Black pond. A Greek ship waits on the reflection; its gangway leads to the Wine-Dark Harbor. The shore path to the station remains."
-        : shipSignalPhase(s) >= 2
-          ? "One flash has crossed the quiet pond. Cover and uncover the lit lamp once more with the Black cloth. The path to the station remains."
-          : "Black pond holds the lamp's reflection. In quiet, cover and uncover the lit lamp twice with the Black cloth to call a ship. A path leads to the station."
+        : "Dark water reflects the trees. A path leads along the shore."
       : s.opening && place === "attic"
         ? reflectionOpen(s)
           ? "A tall mirror opens onto a black shore. A path leads through the glass."
@@ -2087,25 +2085,18 @@ export function play(s, action, expectedRevision = s.revision) {
     addLog(
       next,
       "World",
-      "The bells fall silent. The path to Black pond disappears between the roots; the Steam Clock's bell can reopen it.",
+      "The bells fall silent. The path to Black pond disappears between the roots.",
       {
         locationId: "clearing",
       },
     );
   if (!shipSignalConditions(next)) next.locations.pond.shipSignal = 0;
-  if (shipSignalPhase(s) < 2 && shipSignalPhase(next) === 2)
-    addLog(
-      next,
-      "World",
-      "The first flash draws a ripple across the reflection. A second cover and uncover may bring something closer.",
-      { locationId: "pond" },
-    );
   if (shipWasPresent !== greekShipPresent(next))
     addLog(
       next,
       "World",
       greekShipPresent(next)
-        ? "At the second uncovering, a Greek ship appears on Black pond. Its gangway opens a passage to the Wine-Dark Harbor."
+        ? "A Greek ship appears on Black pond. Its gangway opens a passage to the Wine-Dark Harbor."
         : "The Greek ship and its gangway fade from Black pond. The passage to the Wine-Dark Harbor is no longer open.",
       {
         locationId: "pond",

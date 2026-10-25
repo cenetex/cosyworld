@@ -44,7 +44,7 @@ try {
   console.log("Loaded card table");
   // Cards met for the first time are unveiled; take each into the hand.
   async function takeUnveiled() {
-    while (await page.$eval("#unveil-dialog", (d) => d.open)) {
+    while (await page.locator("#unveil-dialog[open]").count()) {
       await page.click("#unveil-take");
       await page.waitForFunction(
         () => !document.querySelector(".unveil-ghost"),
@@ -66,8 +66,8 @@ try {
   await page.locator('[data-close="menu-dialog"]').click();
   // Lighting the lamp opens the way to the pond and starts the attic music.
   await playCard("lamp");
-  await page.waitForFunction(
-    () => document.querySelector("#unveil-dialog").open,
+  await page.waitForFunction(() =>
+    document.querySelector('#hand [data-card="pond"]'),
   );
   await takeUnveiled();
   await page.waitForFunction(() => {

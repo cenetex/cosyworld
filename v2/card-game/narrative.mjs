@@ -20,7 +20,6 @@ import {
   opponentOf,
   placeText,
   clockRinging,
-  shipSignalPhase,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
 import {
@@ -30,7 +29,7 @@ import {
 } from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
-// witnessed events; quest counters remain on the cards and in the history.
+// witnessed events. Hidden puzzle bookkeeping is not dialogue material.
 export function speechMemories(memory, { expressions = true } = {}) {
   const concrete = (e) =>
     e.kind === "event" &&
@@ -284,7 +283,7 @@ export function narrativeContext(world, action = null) {
         if (id === "badger")
           facts.push(
             world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
+              ? `Awake. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise: clipped complaints and a blunt demand for quiet." : "Still grumpy: resent the interruption, answer grudgingly, and protect your nap."}`
               : "Asleep on the moss. Give a third-person sleeping movement for this card. The next direct greeting can wake Badger.",
           );
         if (
@@ -330,7 +329,7 @@ export function narrativeContext(world, action = null) {
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
-            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: resolve ${conflict.resolve[id]}/4; ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
+            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
           );
         const target = desireFor(world, id);
         desire = {
@@ -402,12 +401,6 @@ export function narrativeContext(world, action = null) {
       } else {
         if (id === "pond" || id === "clearing")
           facts.push(placeText(world, id));
-        if (id === "pond")
-          facts.push(
-            shipSignalPhase(world) === 4
-              ? "The second complete cover-and-uncover signal has summoned the ship."
-              : `Completed lamp signals: ${Math.floor(shipSignalPhase(world) / 2)} of two. Covering alone is not a completed signal.`,
-          );
         if (id === "clearing")
           facts.push(
             `The Steam Clock bell is ${clockRinging(world) ? "ringing" : "silent"}.`,
