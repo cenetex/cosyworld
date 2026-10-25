@@ -1,8 +1,52 @@
 # The Wine-Dark Sea: card art
 
-These 21 SVGs are original illustrations authored for this world pack and
-licensed with the repository under MIT. No image, illustration, character
+This directory contains the world pack's original SVG illustrations and
+generated character portraits. The repository's existing
+[MIT license](../../../../LICENSE) applies. No image, illustration, character
 design, or page asset from the Greek Drama Reader is reproduced.
+
+## Chthonic character portraits
+
+The fifteen `chthonic-*.png` portraits were generated with the built-in
+`image_gen` tool on **2026-10-24**, following the user's direction,
+**“chthonic Greek.”** They use dark earth, ash, worn cloth, and bronze to
+give the mortal characters distinct appearances. The full generation
+prompts are recorded in [chthonic-prompts.json](chthonic-prompts.json).
+
+Each portrait is a **1024 × 1536 transparent RGBA PNG**. The original image
+outputs were copied unchanged into this directory, retaining their generated
+alpha channels. These are generated raster images.
+
+| Portrait | Character identity |
+| --- | --- |
+| `chthonic-antigone.png` | Antigone |
+| `chthonic-ismene.png` | Ismene |
+| `chthonic-creon.png` | Creon |
+| `chthonic-guard.png` | The Gate Guard |
+| `chthonic-baker.png` | Dione the Baker |
+| `chthonic-elder.png` | The Chorus Elder |
+| `chthonic-shipmaster.png` | Myrto the Shipmaster |
+| `chthonic-singer.png` | The Argolid Singer |
+| `chthonic-neighbor.png` | The Agora Neighbor |
+| `chthonic-attendant.png` | The Delphic Attendant |
+| `chthonic-ferryman.png` | The Lower Ferryman |
+| `chthonic-helen.png` | Helen |
+| `chthonic-menelaus.png` | Menelaus |
+| `chthonic-electra.png` | Electra |
+| `chthonic-orestes.png` | Orestes |
+
+Fifteen character identities serve the pack's twenty-one resident
+embodiments. The two Helen accounts share Helen's portrait and Menelaus's
+portrait; the three Atreid accounts share Electra's portrait and Orestes's
+portrait. Each history variant shares art only with its own character
+identity. The five connective residents each have a distinct portrait.
+
+## Retained SVG illustrations
+
+The original twenty-one SVGs remain in the directory: five settings, seven
+legacy figures, and nine object illustrations. The PNG portraits replace
+the figure references in the authored character data. Scenery and object
+art continue to use the existing SVGs.
 
 The visual vocabulary uses terracotta, olive green, parchment, and dark blue,
 with simplified architecture and profile figures informed by ancient painted
@@ -15,7 +59,6 @@ scripts, network references, or raster dependencies.
 - Nine object illustrations: water jar, bread, funeral cloth, oil flask,
   shovel, decree, household token, provisions, and witness tablet.
 
-The current release reuses figure art for alternative embodiments and the
-guide art for connective residents. It reuses setting illustrations across
-related locations. Distinct IDs, names, profiles, custody, and choices remain
-separate in the authored pack data.
+Setting illustrations are reused across related locations. Distinct IDs,
+names, profiles, custody, and choices remain separate in the authored pack
+data.

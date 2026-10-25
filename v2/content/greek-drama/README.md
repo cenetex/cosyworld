@@ -122,6 +122,15 @@ The same account conditions guard destinations, incoming routes, residents,
 and evidence. A desire can have its own conditions; Antigone's request for
 burial materials ends when the traveler commits to a response.
 
+Character art uses fifteen transparent PNG portraits generated with
+`image_gen` in the user-directed “chthonic Greek” style. The twenty-one
+resident embodiments share portraits only within their own character
+identity; each connective resident has distinct art. Original generated
+pixels and alpha are retained. The five scenery SVGs and nine object SVGs
+remain in use, and the seven legacy figure SVGs are retained. See the
+[art provenance](../../card-game/assets/greek/PROVENANCE.md) for generation
+details and prompts.
+
 Conditions are closed descriptors: an established account, an uncommitted
 choice, a flag, current custody, or a recorded meeting. Effects select an
 account, set a flag, or place a currently carried item in the current place.

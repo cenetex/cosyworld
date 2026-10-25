@@ -524,7 +524,7 @@ export default {
       },
       "persona": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
-      "portrait": "./assets/greek/antigone.svg",
+      "portrait": "./assets/greek/chthonic-antigone.png",
       "desire": {
         "items": [
           "greek-funeral-cloth",
@@ -553,7 +553,7 @@ export default {
       },
       "persona": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
       "voice": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
-      "portrait": "./assets/greek/ismene.svg",
+      "portrait": "./assets/greek/chthonic-ismene.png",
       "desire": {
         "items": [],
         "location": "greek-sanctuary",
@@ -573,7 +573,7 @@ export default {
       },
       "persona": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
       "voice": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
-      "portrait": "./assets/greek/creon.svg",
+      "portrait": "./assets/greek/chthonic-creon.png",
       "desire": {
         "items": [],
         "location": "greek-palace",
@@ -593,7 +593,7 @@ export default {
       },
       "persona": "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
       "voice": "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
-      "portrait": "./assets/greek/guard.svg"
+      "portrait": "./assets/greek/chthonic-guard.png"
     },
     "greek-baker": {
       "name": "Dione the Baker",
@@ -608,7 +608,7 @@ export default {
       },
       "persona": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
       "voice": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
-      "portrait": "./assets/greek/baker.svg",
+      "portrait": "./assets/greek/chthonic-baker.png",
       "desire": {
         "items": [],
         "location": "greek-courtyard",
@@ -628,7 +628,7 @@ export default {
       },
       "persona": "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
       "voice": "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
-      "portrait": "./assets/greek/elder.svg"
+      "portrait": "./assets/greek/chthonic-elder.png"
     },
     "greek-shipmaster": {
       "name": "Myrto the Shipmaster",
@@ -642,7 +642,7 @@ export default {
       },
       "persona": "A shipmaster who asks where a report came from. Present Egypt and Troy as mutually exclusive routes through the current story. Once a route is chosen, remember it without treating another Helen as present.",
       "voice": "A shipmaster who asks where a report came from. Present Egypt and Troy as mutually exclusive routes through the current story. Once a route is chosen, remember it without treating another Helen as present.",
-      "portrait": "./assets/greek/guide.svg"
+      "portrait": "./assets/greek/chthonic-shipmaster.png"
     },
     "greek-rhapsode": {
       "name": "The Argolid Singer",
@@ -656,7 +656,7 @@ export default {
       },
       "persona": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
       "voice": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
-      "portrait": "./assets/greek/guide.svg"
+      "portrait": "./assets/greek/chthonic-singer.png"
     },
     "greek-market-neighbor": {
       "name": "The Agora Neighbor",
@@ -670,7 +670,7 @@ export default {
       },
       "persona": "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
       "voice": "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
-      "portrait": "./assets/greek/guide.svg"
+      "portrait": "./assets/greek/chthonic-neighbor.png"
     },
     "greek-temple-attendant": {
       "name": "The Delphic Attendant",
@@ -684,7 +684,7 @@ export default {
       },
       "persona": "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
       "voice": "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
-      "portrait": "./assets/greek/guide.svg"
+      "portrait": "./assets/greek/chthonic-attendant.png"
     },
     "greek-ferryman": {
       "name": "The Lower Ferryman",
@@ -698,7 +698,7 @@ export default {
       },
       "persona": "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
       "voice": "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
-      "portrait": "./assets/greek/guide.svg"
+      "portrait": "./assets/greek/chthonic-ferryman.png"
     },
     "greek-helen-egypt": {
       "name": "Helen",
@@ -710,7 +710,7 @@ export default {
       "values": {},
       "persona": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
       "voice": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
-      "portrait": "./assets/greek/ismene.svg",
+      "portrait": "./assets/greek/chthonic-helen.png",
       "requires": [
         {
           "kind": "choice",
@@ -730,7 +730,7 @@ export default {
       "values": {},
       "persona": "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
       "voice": "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
-      "portrait": "./assets/greek/guard.svg",
+      "portrait": "./assets/greek/chthonic-menelaus.png",
       "requires": [
         {
           "kind": "choice",
@@ -750,7 +750,7 @@ export default {
       "values": {},
       "persona": "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
       "voice": "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
-      "portrait": "./assets/greek/ismene.svg",
+      "portrait": "./assets/greek/chthonic-helen.png",
       "requires": [
         {
           "kind": "choice",
@@ -770,7 +770,7 @@ export default {
       "values": {},
       "persona": "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
       "voice": "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
-      "portrait": "./assets/greek/guard.svg",
+      "portrait": "./assets/greek/chthonic-menelaus.png",
       "requires": [
         {
           "kind": "choice",
@@ -790,7 +790,7 @@ export default {
       "values": {},
       "persona": "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
       "voice": "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-      "portrait": "./assets/greek/antigone.svg",
+      "portrait": "./assets/greek/chthonic-electra.png",
       "requires": [
         {
           "kind": "choice",
@@ -810,7 +810,7 @@ export default {
       "values": {},
       "persona": "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
       "voice": "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-      "portrait": "./assets/greek/guard.svg",
+      "portrait": "./assets/greek/chthonic-orestes.png",
       "requires": [
         {
           "kind": "choice",
@@ -830,7 +830,7 @@ export default {
       "values": {},
       "persona": "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
       "voice": "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-      "portrait": "./assets/greek/antigone.svg",
+      "portrait": "./assets/greek/chthonic-electra.png",
       "requires": [
         {
           "kind": "choice",
@@ -850,7 +850,7 @@ export default {
       "values": {},
       "persona": "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
       "voice": "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-      "portrait": "./assets/greek/guard.svg",
+      "portrait": "./assets/greek/chthonic-orestes.png",
       "requires": [
         {
           "kind": "choice",
@@ -870,7 +870,7 @@ export default {
       "values": {},
       "persona": "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
       "voice": "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-      "portrait": "./assets/greek/antigone.svg",
+      "portrait": "./assets/greek/chthonic-electra.png",
       "requires": [
         {
           "kind": "choice",
@@ -890,7 +890,7 @@ export default {
       "values": {},
       "persona": "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
       "voice": "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-      "portrait": "./assets/greek/guard.svg",
+      "portrait": "./assets/greek/chthonic-orestes.png",
       "requires": [
         {
           "kind": "choice",

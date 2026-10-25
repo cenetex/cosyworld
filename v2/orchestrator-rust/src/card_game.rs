@@ -156,6 +156,66 @@ fn serve(path: &str) -> Response {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/packs/greek-drama.mjs"),
         ),
+        "assets/greek/chthonic-antigone.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-antigone.png"),
+        ),
+        "assets/greek/chthonic-ismene.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-ismene.png"),
+        ),
+        "assets/greek/chthonic-creon.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-creon.png"),
+        ),
+        "assets/greek/chthonic-guard.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-guard.png"),
+        ),
+        "assets/greek/chthonic-baker.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-baker.png"),
+        ),
+        "assets/greek/chthonic-elder.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-elder.png"),
+        ),
+        "assets/greek/chthonic-shipmaster.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-shipmaster.png"),
+        ),
+        "assets/greek/chthonic-singer.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-singer.png"),
+        ),
+        "assets/greek/chthonic-neighbor.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-neighbor.png"),
+        ),
+        "assets/greek/chthonic-attendant.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-attendant.png"),
+        ),
+        "assets/greek/chthonic-ferryman.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-ferryman.png"),
+        ),
+        "assets/greek/chthonic-helen.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-helen.png"),
+        ),
+        "assets/greek/chthonic-menelaus.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-menelaus.png"),
+        ),
+        "assets/greek/chthonic-electra.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-electra.png"),
+        ),
+        "assets/greek/chthonic-orestes.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek/chthonic-orestes.png"),
+        ),
         "assets/greek/antigone.svg" => (
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek/antigone.svg"),
@@ -450,6 +510,21 @@ mod tests {
             "assets/badger-grumpy.png",
             "pack-registry.mjs",
             "packs/greek-drama.mjs",
+            "assets/greek/chthonic-antigone.png",
+            "assets/greek/chthonic-ismene.png",
+            "assets/greek/chthonic-creon.png",
+            "assets/greek/chthonic-guard.png",
+            "assets/greek/chthonic-baker.png",
+            "assets/greek/chthonic-elder.png",
+            "assets/greek/chthonic-shipmaster.png",
+            "assets/greek/chthonic-singer.png",
+            "assets/greek/chthonic-neighbor.png",
+            "assets/greek/chthonic-attendant.png",
+            "assets/greek/chthonic-ferryman.png",
+            "assets/greek/chthonic-helen.png",
+            "assets/greek/chthonic-menelaus.png",
+            "assets/greek/chthonic-electra.png",
+            "assets/greek/chthonic-orestes.png",
             "assets/greek/antigone.svg",
             "assets/greek/baker.svg",
             "assets/greek/bread.svg",

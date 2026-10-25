@@ -55,9 +55,16 @@ const conditions = (requirements = []) => {
 };
 const media = (asset) => {
   if (asset === undefined) return;
-  fail(typeof asset === "string" && /^\.\/assets\/greek\/[a-z0-9-]+\.svg$/.test(asset),
+  fail(typeof asset === "string" && /^\.\/assets\/greek\/[a-z0-9-]+\.(?:svg|png)$/.test(asset),
     `unsupported media path ${asset}`);
-  fail(fs.existsSync(path.join(root, "card-game", asset)), `missing media ${asset}`);
+  const file = path.join(root, "card-game", asset);
+  fail(fs.existsSync(file), `missing media ${asset}`);
+  if (asset.endsWith(".png")) {
+    const bytes = fs.readFileSync(file);
+    fail(bytes.length >= 33 && bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")) &&
+      bytes.readUInt32BE(8) === 13 && bytes.toString("ascii", 12, 16) === "IHDR" &&
+      bytes.readUInt32BE(16) > 0 && bytes.readUInt32BE(20) > 0, `invalid PNG media ${asset}`);
+  }
 };
 for (const [key, place] of Object.entries(source.places)) {
   fail(nonempty(place.name, 120) && nonempty(place.text), `${key} needs a name and short description`);
