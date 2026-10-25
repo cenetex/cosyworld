@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
@@ -124,18 +125,18 @@ try {
     };
     const playCard = async (id) => {
       await ready();
-      await card(id).scrollIntoViewIfNeeded();
-      await card(id).click();
-      await card(id).locator("..").locator(".card-primary").click();
+
+      await selectCard(page, id);
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const pair = async (one, two) => {
       await ready();
-      await card(one).scrollIntoViewIfNeeded();
-      await card(one).click();
-      await card(two).scrollIntoViewIfNeeded();
-      await card(two).click();
-      await card(two).locator("..").locator(".card-primary").click();
+
+      await selectCard(page, one);
+
+      await selectCard(page, two);
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const signalShip = async () => {
@@ -175,13 +176,10 @@ try {
         `[data-choice="${choiceId}"][data-pack="greek-drama"]`,
       );
       if (!(await option.isVisible())) {
-        const opener = page.locator(`[data-choices-for="${action.cards[0]}"]`);
-        await card(action.cards[0]).click();
-        await opener.scrollIntoViewIfNeeded();
-        await opener.click();
+        await selectCard(page, action.cards[0]);
       }
       if (["greek-helen-egypt", "greek-helen-troy"].includes(choiceId)) {
-        const bounds = await page.locator("dialog.card-choices").boundingBox();
+        const bounds = await page.locator("#card-actions").boundingBox();
         assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
         await page.screenshot({
           path: new URL(`history-choice-${width}.png`, output).pathname,
@@ -205,27 +203,21 @@ try {
       );
       assert.ok(
         await page.evaluate(() =>
-          [...document.querySelectorAll("#hand .card-frame")].every((frame) => {
-            const bounds = frame.getBoundingClientRect();
-            return [...frame.querySelectorAll(".card-options button")].every(
-              (button) => {
-                const option = button.getBoundingClientRect();
-                return (
-                  option.left >= bounds.left - 1 &&
-                  option.right <= bounds.right + 1
-                );
-              },
-            );
-          }),
+          [...document.querySelectorAll("#card-actions button")].every(
+            (button) => {
+              const bounds = button.getBoundingClientRect();
+              return bounds.width <= innerWidth && bounds.height >= 44;
+            },
+          ),
         ),
-        "choice and conversation buttons fit their own card",
+        "action buttons fit the viewport and have touch targets",
       );
     };
 
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
-    await card("lamp").waitFor();
+    await card("lamp").waitFor({ state: "attached" });
     assert.equal(await card("greek-harbor").count(), 0);
     await ready();
     await travel("greek-harbor");
@@ -253,7 +245,7 @@ try {
     });
 
     await page.reload();
-    await card("greek-antigone").waitFor();
+    await card("greek-antigone").waitFor({ state: "attached" });
     await ready();
     current = await state();
     assert.equal(current.actors.vale.place, "greek-gate");
@@ -290,7 +282,7 @@ try {
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
     await page.reload();
-    await card(evidence).waitFor();
+    await card(evidence).waitFor({ state: "attached" });
     await ready();
     await artReady();
     await page.screenshot({

@@ -71,7 +71,7 @@ describe("accompany card requests", () => {
     const trip = cardPlay(world, ["moth", "pond"]).action;
     expect(cardPlay(world, ["pond", "moth"]).action).toEqual(trip);
     expect(matchingActions(world, ["moth", "pond"])).toEqual([trip]);
-    expect(playLabel(trip)).toBe("Accompany");
+    expect(playLabel(trip)).toBe("Invite Pip along");
     expect(trip.text).toContain("asks Pip to accompany");
     expect(trip.key).not.toBe(cardPlay(world, ["moth", "attic"]).action.key);
     accompanyDecision(world, "vale", "moth", "pond");

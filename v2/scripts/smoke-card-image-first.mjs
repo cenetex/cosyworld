@@ -1,3 +1,4 @@
+import { selectCard, revealCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -109,10 +110,9 @@ try {
     async function cards(...ids) {
       await ready();
       for (const id of ids) {
-        await card(id).scrollIntoViewIfNeeded();
-        await card(id).click();
+        await selectCard(page, id);
       }
-      await card(ids.at(-1)).locator("..").locator(".card-primary").click();
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     }
     async function art() {
@@ -132,7 +132,7 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=image-first-${width}`,
       );
-      await card("cloth").waitFor();
+      await card("cloth").waitFor({ state: "attached" });
       await art();
       const old = await state();
       assert.equal(
@@ -144,7 +144,7 @@ try {
         0,
       );
       assert.equal(
-        await page.locator(".card-options").count(),
+        await page.locator("#card-actions button").count(),
         0,
         "actions hidden until selection",
       );
@@ -173,20 +173,18 @@ try {
         );
       }
       const tapCard = async (id) => {
-        await card(id).scrollIntoViewIfNeeded();
-        if (width === 390) await card(id).tap();
-        else await card(id).click();
+        await selectCard(page, id, { touch: width === 390 });
       };
       // Either member of a pair can be lowered, with or without a play.
       for (const ids of [
-        ["vale", "lamp"],
+        ["vale", "cloth"],
         ["cloth", "lamp"],
       ]) {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
           assert.equal(
             await page.locator(".card-primary").count(),
-            ids[0] === "vale" ? 0 : 2,
+            ids[0] === "vale" ? 0 : 1,
           );
           await tapCard(lowered);
           assert.equal(
@@ -203,7 +201,7 @@ try {
             await card(remaining).getAttribute("aria-pressed"),
             "false",
           );
-          assert.equal(await page.locator(".card-options").count(), 0);
+          assert.equal(await page.locator("#card-actions button").count(), 0);
           assert.deepEqual(
             await state(),
             old,
@@ -212,10 +210,10 @@ try {
           assert.equal(requests.length, 0);
         }
       }
-      await card("cloth").scrollIntoViewIfNeeded();
-      await card("cloth").click();
-      await card("lamp").scrollIntoViewIfNeeded();
-      await card("lamp").click();
+
+      await selectCard(page, "cloth");
+
+      await selectCard(page, "lamp");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
       assert.equal(
         await page.locator(".card-primary").first().innerText(),
@@ -224,11 +222,12 @@ try {
       assert.equal((await state()).turn, old.turn, "selection costs no turn");
       await page.keyboard.press("Escape");
       assert.equal(
-        await page.locator(".card-options").count(),
+        await page.locator("#card-actions button").count(),
         0,
         "cancel clears actions",
       );
       await hand.evaluate((h) => (h.scrollLeft = 0));
+      await revealCard(page, "lamp");
       await card("vale").focus();
       await page.keyboard.press("ArrowRight");
       assert.equal(
@@ -245,11 +244,13 @@ try {
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "false");
       assert.deepEqual(await state(), old);
       await page.keyboard.press("Escape");
+      await revealCard(page, "lamp");
       const geometry = await card("lamp").evaluate((c) => ({
         card: c.getBoundingClientRect().height,
         art: c.querySelector(".art").getBoundingClientRect().height,
       }));
       assert(geometry.art / geometry.card > 0.9, JSON.stringify(geometry));
+      await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
@@ -267,7 +268,7 @@ try {
       );
       assert.equal(requests.length, 0, "cloth manipulations remain silent");
       await page.reload();
-      await card("cloth").waitFor();
+      await card("cloth").waitFor({ state: "attached" });
       assert.equal(
         (await state()).crossings["pond-greek-harbor"].phase,
         2,
@@ -276,7 +277,7 @@ try {
       await cards("cloth", "lamp");
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
-      await card("greek-harbor").waitFor();
+      await card("greek-harbor").waitFor({ state: "attached" });
       await art();
       assert.equal(
         await page.locator("#backdrop").getAttribute("data-location-variant"),
@@ -287,15 +288,15 @@ try {
         0,
         "ship discovery does not open a modal",
       );
-      await card("greek-harbor").scrollIntoViewIfNeeded();
-      await card("greek-harbor").click();
+
+      await selectCard(page, "greek-harbor");
       await art();
       await page.screenshot({
         path: new URL(`pond-${width}.png`, output).pathname,
         fullPage: true,
       });
       const buttons = await page
-        .locator(".card-options button")
+        .locator("#card-actions button")
         .evaluateAll((bs) =>
           bs.map((b) => ({
             w: b.getBoundingClientRect().width,
@@ -313,7 +314,7 @@ try {
         /inspiration|ring.*twice|cloth.*lamp|ritual|milestones|quest|points/i,
       );
       await page.locator('[data-close="menu-dialog"]').click();
-      await card("greek-harbor").click();
+      await selectCard(page, "greek-harbor");
       await page.locator(".card-primary").click();
       await ready();
       assert.equal((await state()).actors.vale.place, "greek-harbor");
@@ -336,11 +337,12 @@ try {
         fullPage: true,
       });
       await page.reload();
-      await card("greek-baker").waitFor();
+      await card("greek-baker").waitFor({ state: "attached" });
       await ready();
       assert.equal((await state()).actors.vale.place, "greek-courtyard");
       const beforeDrag = await state();
-      await card("cloth").scrollIntoViewIfNeeded();
+
+      await revealCard(page, "cloth");
       await card("cloth").dragTo(card("lamp"));
       assert.equal(
         (await state()).turn,

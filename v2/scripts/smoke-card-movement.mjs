@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -120,7 +121,7 @@ try {
         });
       }
       const card = (id) => page.locator(`#hand [data-card="${id}"]`);
-      await card("pond").waitFor();
+      await card("pond").waitFor({ state: "attached" });
       await page.waitForFunction(
         () => document.querySelector("#cast .entering") === null,
       );
@@ -141,9 +142,9 @@ try {
         }
         requestAnimationFrame(sample);
       });
-      if (kind === "shared") await card("moth").click();
-      await card("pond").click();
-      await card("pond").locator("..").locator(".card-primary").click();
+      if (kind === "shared") await selectCard(page, "moth");
+      await selectCard(page, "pond");
+      await page.locator("#card-actions .card-primary").click();
       if (kind === "reset") {
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();

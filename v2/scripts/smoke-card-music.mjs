@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -56,12 +57,8 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
-    await page.locator(`#hand [data-card="${card}"]`).click();
-    await page
-      .locator(`#hand [data-card="${card}"]`)
-      .locator("..")
-      .locator(".card-primary")
-      .click();
+    await selectCard(page, card);
+    await page.locator("#card-actions .card-primary").click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
   await page.locator("#menu-button").click();

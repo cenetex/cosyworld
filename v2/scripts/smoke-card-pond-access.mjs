@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -96,14 +97,14 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=pond-access-check`,
     );
-    await card("attic").waitFor();
+    await card("attic").waitFor({ state: "attached" });
     await ready();
     assert.equal(
       await card("attic").locator(".name").innerText(),
       "Mirror attic",
     );
-    await card("pond").click();
-    await card("pond").locator("..").locator(".card-primary").click();
+    await selectCard(page, "pond");
+    await page.locator("#card-actions .card-primary").click();
     await ready();
     const departed = await state();
     assert.equal(departed.actors.moth.place, "station");
@@ -135,18 +136,18 @@ try {
       },
       { key, value: encodeSave(departed) },
     );
-    await card("attic").waitFor();
+    await card("attic").waitFor({ state: "attached" });
     await ready();
-    await card("attic").click();
-    await card("attic").locator("..").locator(".card-primary").click();
+    await selectCard(page, "attic");
+    await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "attic");
     assert.equal(
       await card("attic").locator(".name").innerText(),
       "Mirror attic",
     );
-    await card("lamp").click();
-    await card("lamp").locator("..").locator(".card-primary").click();
+    await selectCard(page, "lamp");
+    await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
     assert.equal(await card("pond").count(), 0);
@@ -154,11 +155,11 @@ try {
     await ready();
     assert.equal(await card("pond").count(), 0);
     assert.equal((await state()).actors.vale.place, "attic");
-    await card("lamp").click();
-    await card("lamp").locator("..").locator(".card-primary").click();
+    await selectCard(page, "lamp");
+    await page.locator("#card-actions .card-primary").click();
     await ready();
-    await card("pond").click();
-    await card("pond").locator("..").locator(".card-primary").click();
+    await selectCard(page, "pond");
+    await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);

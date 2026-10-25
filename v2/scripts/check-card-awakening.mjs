@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -66,12 +67,8 @@ try {
     );
   const play = async (id) => {
     await ready();
-    await page.locator(`[data-card="${id}"]`).click();
-    await page
-      .locator(`[data-card="${id}"]`)
-      .locator("..")
-      .locator(".card-primary")
-      .click();
+    await selectCard(page, id);
+    await page.locator("#card-actions .card-primary").click();
     await ready();
   };
   const decode = () =>
@@ -80,7 +77,7 @@ try {
     );
   await mkdir("output/badger-check", { recursive: true });
   await page.goto(`${origin}/?table=badger-check`);
-  await page.locator('[data-card="lamp"]').waitFor();
+  await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
   await play("lamp");
   // The lamp reveals the way; the pond card takes Vale there.
   assert.equal((await state()).actors.vale.place, "attic");
@@ -100,7 +97,7 @@ try {
   assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
   assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
   await page.reload();
-  await page.locator('[data-card="bell"]').waitFor();
+  await page.locator('[data-card="bell"]').waitFor({ state: "attached" });
   await ready();
   assert.equal(requests.length, echoRequests);
   assert.equal(
@@ -160,7 +157,7 @@ try {
   await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   await page.reload();
-  await page.locator('[data-card="badger"]').waitFor();
+  await page.locator('[data-card="badger"]').waitFor({ state: "attached" });
   await ready();
   assert.equal(await sprite.getAttribute("data-state"), "awake");
   await page.setViewportSize({ width: 390, height: 844 });

@@ -16,21 +16,19 @@ import {
 
 export function availableCards(world) {
   const here = world.actors.vale.place;
+  const items = Object.keys(things).filter(
+    (id) => entityActive(world, id) && itemPlace(world, id) === here,
+  );
+  const cast = Object.keys(people).filter(
+    (id) => entityActive(world, id) && world.actors[id].place === here,
+  );
+  const after = (holder) =>
+    items
+      .filter((id) => world.items[id].holder === holder)
+      .flatMap((id) => [id, ...after(id)]);
   return [
-    "vale",
-    ...Object.keys(things)
-      .filter((id) => entityActive(world, id) && itemPlace(world, id) === here)
-      .sort(
-        (a, b) =>
-          Number(rootHolder(world, b) === "vale") -
-          Number(rootHolder(world, a) === "vale"),
-      ),
-    ...Object.keys(people).filter(
-      (id) =>
-        id !== "vale" &&
-        entityActive(world, id) &&
-        world.actors[id].place === here,
-    ),
+    ...cast.flatMap((id) => [id, ...after(id)]),
+    ...after(here),
     ...exits(world, here, "vale"),
     here,
   ];
@@ -69,8 +67,8 @@ export function placePlays(world, id) {
   );
 }
 
-// Each face names one play. Pairs express use, handover, travel, invitations, or placement.
-// The shared world rules still decide whether that play is legal.
+// Resolve the primary play for drag gestures and other shortcuts.
+// cardActions adds every named choice for the shared row.
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
@@ -100,8 +98,7 @@ export function cardPlay(world, selected) {
         id === here ? find("wait") : find("move", null, id),
         `Travel to ${nameOf(id)}.`,
       );
-    // Staying put belongs to the place card; Vale's card travels in a pair.
-    if (id === "vale") return result(null, "Pair Vale with a place to travel.");
+    if (id === "vale") return result(find("wait"));
     if (people[id])
       return result(find("talk", null, id), `Meet ${nameOf(id)} here.`);
     const holder = world.items[id].holder;
@@ -137,6 +134,25 @@ export function cardPlay(world, selected) {
   const item = cards.find((id) => things[id]);
   const location = cards.find((id) => places[id]);
   const avatar = cards.find((id) => people[id]);
+  if (
+    cards.includes("vale") &&
+    cards.some((id) => people[id] && id !== "vale")
+  ) {
+    const other = cards.find((id) => people[id] && id !== "vale");
+    return result(
+      find("threaten", undefined, other) || find("guard", undefined, other),
+      `Select ${nameOf(other)} on their own to talk.`,
+    );
+  }
+  if (item && avatar === "vale") return cardPlay(world, [item]);
+  if (cards.includes("cloth")) {
+    const beneath = cards.find((id) => id !== "cloth");
+    if (things[beneath] && world.items.cloth.holder === beneath)
+      return result(
+        find("take", "cloth"),
+        "Put down a carried item to make room for the cloth.",
+      );
+  }
   if (avatar && location)
     return result(
       avatar === "vale"
@@ -204,11 +220,61 @@ export function cardPlay(world, selected) {
     );
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
+// The row lists every play for this selection. The world owns legality.
+export function cardActions(world, selected) {
+  const cards = [...new Set(selected)];
+  const primary = cardPlay(world, cards);
+  if (
+    !cards.length ||
+    cards.length > 2 ||
+    cards.some((id) => !availableCards(world).includes(id))
+  )
+    return { actions: [], hint: primary.hint };
+  let actions = primary.action ? [primary.action] : [];
+  let hint = actions.length ? "" : primary.hint;
+  if (cards.length === 1) {
+    const id = cards[0];
+    if (id === "vale") {
+      actions.push(...avatarPlays(world, id));
+      hint = "Select a person or place to make a pair.";
+    } else if (people[id]) {
+      const offers = legalActions(world).filter((a) => a.target === id);
+      hint = offers.some((a) => a.kind === "threaten")
+        ? "Pair with Vale to threaten, or select a carried item to ask for it."
+        : offers.some((a) => a.kind === "accompany")
+          ? `Pair with a place to invite ${nameOf(id)} along.`
+          : "Select a carried item to ask for it.";
+    }
+    actions.push(...cardChoices(world, id));
+  } else if (cards.includes("vale")) {
+    const other = cards.find((id) => id !== "vale");
+    if (people[other]) {
+      actions = avatarPlays(world, other).filter((a) => a.kind !== "talk");
+      hint = actions.length ? "" : primary.hint;
+    }
+  }
+  return {
+    actions: [
+      ...new Map(actions.map((action) => [action.key, action])).values(),
+    ],
+    hint,
+  };
+}
+
 export function playLabel(action) {
   // Pack data can name a play (a fixture, or greeting a sleeping resident).
   if (action?.label) return action.label;
   if (action?.kind === "trade")
-    return `Trade ${nameOf(action.item)} → ${nameOf(action.receive)}`;
+    return `Trade ${nameOf(action.item)} for ${nameOf(action.receive)}`;
+  if (action?.kind === "threaten")
+    return `Threaten ${nameOf(action.target)}${action.item ? ` for ${nameOf(action.item)}` : ""}`;
+  if (action?.kind === "give") return `Give to ${nameOf(action.target)}`;
+  if (action?.kind === "ask")
+    return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
+  if (action?.kind === "accompany")
+    return `Invite ${nameOf(action.target)} along`;
+  if (action?.kind === "move" && action.item)
+    return `Carry to ${nameOf(action.target)}`;
   return {
     accompany: "Accompany",
     threaten: "Threaten",
@@ -225,7 +291,7 @@ export function playLabel(action) {
     cover: "Cover",
     move: "Travel",
     talk: "Talk",
-    wait: "Stay here",
+    wait: "Wait",
   }[action?.kind];
 }
 

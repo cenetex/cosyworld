@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -95,11 +96,11 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=clearing-access-check`,
     );
-    await card("clearing").waitFor();
+    await card("clearing").waitFor({ state: "attached" });
     await ready();
     const use = async (id) => {
-      await card(id).click();
-      await card(id).locator("..").locator(".card-primary").click();
+      await selectCard(page, id);
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const wait = () => use("pond");
@@ -122,7 +123,7 @@ try {
     await use("bell");
     assert.equal(await card("clearing").count(), 1);
     // A save arriving from another tab closes a selected, now-stale route.
-    await card("clearing").click();
+    await selectCard(page, "clearing");
     const expired = act(act(act(await state(), "wait"), "wait"), "wait");
     await page.evaluate(
       ({ key, value }) => {
@@ -148,8 +149,8 @@ try {
     // With every bell silent the way back is hidden; the clock's own bell
     // on the clearing card reopens it.
     assert.equal(await card("pond").count(), 0);
-    await card("clearing").click();
-    await page.locator('[data-choices-for="clearing"]').click();
+    await selectCard(page, "clearing");
+
     await page
       .getByRole("button", { name: "Ring the Steam Clock", exact: true })
       .click();

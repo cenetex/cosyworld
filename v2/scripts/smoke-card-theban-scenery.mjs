@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -104,10 +105,9 @@ try {
     async function use(...ids) {
       await ready();
       for (const id of ids) {
-        await card(id).scrollIntoViewIfNeeded();
-        await card(id).click();
+        await selectCard(page, id);
       }
-      await card(ids.at(-1)).locator("..").locator(".card-primary").click();
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     }
     async function shot(name) {
@@ -137,13 +137,13 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=theban-scenery-${width}`,
       );
-      await card("cloth").waitFor();
+      await card("cloth").waitFor({ state: "attached" });
       await shot("pond-empty");
       assert.equal(await card("greek-harbor").count(), 0);
       await use("cloth", "lamp");
       await use("cloth");
       await page.reload();
-      await card("cloth").waitFor();
+      await card("cloth").waitFor({ state: "attached" });
       assert.equal(await card("greek-harbor").count(), 0);
       await use("cloth", "lamp");
       await use("cloth");
@@ -202,7 +202,7 @@ try {
         packDefinition("greek-drama").release.places.length,
       );
       await page.reload();
-      await card("pond").waitFor();
+      await card("pond").waitFor({ state: "attached" });
       await use("pond");
       assert.equal((await state()).actors.vale.place, "pond");
       assert.equal(await card("greek-harbor").count(), 0);

@@ -16,6 +16,7 @@ import {
   nameOf,
   createWorld,
   covered,
+  rootHolder,
   play,
   encodeSave,
   decodeSave,
@@ -39,8 +40,7 @@ import {
   cardType,
   cardPlay,
   playLabel,
-  avatarPlays,
-  cardChoices,
+  cardActions,
   cardObservation,
 } from "./cards.mjs";
 import { knownActors } from "./quests.mjs";
@@ -54,6 +54,7 @@ let world = enableMotives(createWorld({ opening: true }), {
     personalQuests: true,
   }),
   selected = [],
+  expandedHolders = new Set(),
   saveBlocked = false,
   lineSeq = null,
   selectionRevision = 0,
@@ -177,7 +178,10 @@ async function prepareScene() {
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(cardsCooling));
-  for (const button of $("hand").querySelectorAll("button")) {
+  $("card-actions").setAttribute("aria-busy", String(cardsCooling));
+  for (const button of document.querySelectorAll(
+    "#hand button, #card-actions button",
+  )) {
     button.disabled = saveBlocked || cardsCooling;
     if (button.dataset.card) button.draggable = !button.disabled;
   }
@@ -433,7 +437,10 @@ function choose(id) {
   $("hand")
     .querySelector(`[data-card="${id}"]`)
     ?.closest(".card-frame")
-    ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    ?.scrollIntoView({
+      block: "nearest",
+      inline: people[id] ? "start" : "nearest",
+    });
 }
 function commit(cards, revision) {
   if (saveBlocked || cardsCooling) return;
@@ -450,6 +457,7 @@ function commitAction(action, revision) {
   if (!result.ok) {
     notice(result.error);
     selected = [];
+    expandedHolders.clear();
     render();
     return;
   }
@@ -497,6 +505,7 @@ function commitAction(action, revision) {
   pendingCast = speak ? sceneCast(world, world.log.length - 1, visible) : null;
   if (speak) exchange.begin();
   selected = [];
+  expandedHolders.clear();
   lineSeq = null;
   notice("");
   save();
@@ -623,40 +632,38 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-function showCardChoices(id, choices, revision) {
-  const dialog = node("dialog", undefined, "card-choices");
-  const heading = node("h2", nameOf(id));
-  heading.id = "card-choice-heading";
-  dialog.setAttribute("aria-labelledby", heading.id);
-  const options = node("div", undefined, "card-choice-list");
-  for (const action of choices) {
-    const button = node("button", playLabel(action));
-    button.type = "button";
-    if (action.choiceId) {
-      button.dataset.choice = action.choiceId;
-      button.dataset.pack = action.packId;
-    }
-    button.onclick = () => {
-      dialog.close();
-      commitAction(action, revision);
-    };
-    options.append(button);
-  }
-  const close = node("button", "Keep looking");
-  close.type = "button";
-  close.onclick = () => dialog.close();
-  dialog.append(heading, options, close);
-  dialog.addEventListener(
-    "close",
-    () => {
-      dialog.remove();
-      pauseSpeech();
-    },
-    { once: true },
+function renderActions() {
+  const row = $("card-actions");
+  const { actions, hint } = cardActions(world, selected);
+  $("selection-name").textContent = selected.length
+    ? selected.map(nameOf).join(" + ")
+    : "Select a card";
+  $("action-hint").textContent = selected.length
+    ? hint
+    : "Select a person to see what they carry.";
+  const revision = world.revision;
+  row.replaceChildren(
+    ...actions.map((action, index) => {
+      const button = node(
+        "button",
+        playLabel(action),
+        index === 0 ? "card-primary" : "card-action",
+      );
+      button.type = "button";
+      button.dataset.action = action.kind;
+      button.title = action.text;
+      button.disabled = saveBlocked || cardsCooling;
+      if (action.choiceId) {
+        button.dataset.choice = action.choiceId;
+        button.dataset.pack = action.packId;
+      }
+      button.onclick = () => commitAction(action, revision);
+      return button;
+    }),
   );
-  document.body.append(dialog);
-  dialog.showModal();
-  pauseSpeech();
+  $("play-readout").textContent = selected.length
+    ? `${selected.map(nameOf).join(" + ")}. ${actions.map(playLabel).join(". ") || hint}`
+    : "";
 }
 function card(id) {
   const type = cardType(id),
@@ -760,41 +767,29 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  if (raised) {
-    const options = node("div", undefined, "card-options");
-    const revision = world.revision;
-    const primary = chosen?.action;
-    if (primary) {
-      const button = node("button", playLabel(primary), "card-primary");
-      button.type = "button";
-      button.disabled = saveBlocked || cardsCooling;
-      button.setAttribute("aria-label", `${playLabel(primary)} · ${def.name}`);
-      button.onclick = (event) => {
-        event.stopPropagation();
-        commitAction(primary, revision);
-      };
-      options.append(button);
-    }
-    if (selected.length === 1) {
-      const choices = cardChoices(world, id);
-      const plays =
-        type === "avatar"
-          ? avatarPlays(world, id).filter((a) => a.kind !== primary?.kind)
-          : [];
-      if (choices.length || plays.length) {
-        const button = node("button", "···", "card-more");
-        button.type = "button";
-        button.dataset.choicesFor = id;
-        button.setAttribute("aria-label", `More actions · ${def.name}`);
-        button.disabled = saveBlocked || cardsCooling;
-        button.onclick = (event) => {
-          event.stopPropagation();
-          showCardChoices(id, [...choices, ...plays], revision);
-        };
-        options.append(button);
+  const holder = things[id] ? rootHolder(world, id) : null;
+  if (people[holder]) {
+    frame.dataset.holder = holder;
+    frame.hidden = !expandedHolders.has(holder);
+    el.setAttribute("aria-label", `${def.name}, carried by ${nameOf(holder)}`);
+  }
+  if (people[id]) {
+    const held = availableCards(world).filter(
+      (item) => things[item] && rootHolder(world, item) === id,
+    );
+    if (held.length) {
+      frame.dataset.inventory = String(held.length);
+      frame.dataset.expanded = String(expandedHolders.has(id));
+      el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
+      observation.textContent += ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`;
+      for (const item of held.slice(0, 2)) {
+        const preview = node("img", undefined, "held-preview");
+        preview.src = packMedia(item, "art") || `./assets/${item}-card.png`;
+        preview.alt = "";
+        preview.draggable = false;
+        frame.prepend(preview);
       }
     }
-    frame.append(options);
   }
   return frame;
 }
@@ -1121,23 +1116,34 @@ function render() {
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("place-title").textContent = nameOf(world.actors.vale.place);
-  const handKey = JSON.stringify([world.revision, selected, saveBlocked]);
+  for (const id of selected) {
+    if (people[id]) expandedHolders.add(id);
+  }
+  const handKey = JSON.stringify([
+    world.revision,
+    selected,
+    [...expandedHolders],
+    saveBlocked,
+  ]);
   if (handKey !== renderedHand) {
     renderedHand = handKey;
     $("hand").replaceChildren(...availableCards(world).map(card));
     $("hand").scrollLeft = scroll;
+    renderActions();
   }
-  $("play-readout").textContent = selected.length
-    ? playLabel(cardPlay(world, selected).action) || ""
-    : "";
   updateHandScroll();
   renderScene();
   renderLog();
   updateCardCooldown();
-  if (focused)
-    document
+  if (focused) {
+    const frame = $("hand")
       .querySelector(`[data-card="${focused}"]`)
+      ?.closest(".card-frame");
+    const focusId = frame?.hidden ? frame.dataset.holder : focused;
+    $("hand")
+      .querySelector(`[data-card="${focusId}"]`)
       ?.focus({ preventScroll: true });
+  }
 }
 // A hand wider than the dock scrolls; the arrows and edge fades show there
 // is more, and the wheel and arrow keys move along it.
@@ -1165,6 +1171,12 @@ $("hand-prev").onclick = () => scrollHand(-1);
 $("hand-next").onclick = () => scrollHand(1);
 $("hand").addEventListener("scroll", updateHandScroll, { passive: true });
 new ResizeObserver(updateHandScroll).observe($("hand"));
+new ResizeObserver(([entry]) => {
+  document.documentElement.style.setProperty(
+    "--dock-height",
+    `${entry.target.getBoundingClientRect().height}px`,
+  );
+}).observe(document.querySelector(".play-dock"));
 $("hand").addEventListener(
   "wheel",
   (e) => {
@@ -1180,14 +1192,42 @@ $("hand").addEventListener(
   { passive: false },
 );
 $("hand").addEventListener("keydown", (e) => {
+  if (
+    e.key === "Tab" &&
+    !e.shiftKey &&
+    e.target.dataset.card &&
+    selected.length
+  ) {
+    const action = $("card-actions").querySelector("button:not(:disabled)");
+    if (action) {
+      e.preventDefault();
+      action.focus();
+      return;
+    }
+  }
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-  const cards = [...$("hand").querySelectorAll(".card")],
+  const cards = [
+      ...$("hand").querySelectorAll(".card-frame:not([hidden]) .card"),
+    ],
     at = cards.indexOf(document.activeElement),
     next = cards[at + (e.key === "ArrowRight" ? 1 : -1)];
   if (at < 0 || !next) return;
   e.preventDefault();
   next.focus({ preventScroll: true });
   next.scrollIntoView({ block: "nearest", inline: "nearest" });
+});
+$("card-actions").addEventListener("keydown", (e) => {
+  if (
+    e.key === "Tab" &&
+    e.shiftKey &&
+    e.target === $("card-actions").firstElementChild
+  ) {
+    const card = $("hand").querySelector(`[data-card="${selected.at(-1)}"]`);
+    if (card) {
+      e.preventDefault();
+      card.focus();
+    }
+  }
 });
 $("stage").addEventListener("dragover", (e) => {
   if (dragging.length) {
@@ -1207,19 +1247,22 @@ $("stage").addEventListener("drop", (e) => {
   if (cards.length) commit(cards, selectionRevision);
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && selected.length) {
+  if (e.key === "Escape" && (selected.length || expandedHolders.size)) {
     selected = [];
+    expandedHolders.clear();
     render();
   }
 });
 document.addEventListener("click", (e) => {
   if (
-    selected.length &&
+    (selected.length || expandedHolders.size) &&
+    !e.target.closest(".play-dock") &&
     !e.target.closest(".card-frame") &&
     !e.target.closest("dialog") &&
     !e.target.closest(".dialogue")
   ) {
     selected = [];
+    expandedHolders.clear();
     render();
   }
 });
@@ -1292,6 +1335,7 @@ $("confirm-reset").onclick = () => {
   replay = 0;
   lineSeq = null;
   selected = [];
+  expandedHolders.clear();
   saveBlocked = false;
   notice("");
   save();
@@ -1315,6 +1359,7 @@ window.addEventListener("storage", (event) => {
     renderedHand = "";
     lineSeq = null;
     selected = [];
+    expandedHolders.clear();
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();
