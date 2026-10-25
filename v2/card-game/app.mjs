@@ -54,6 +54,8 @@ import {
   sceneStaging,
   portrait,
   backdrop,
+  locationOverlay,
+  locationVariant,
   witnessed,
 } from "./scene.mjs";
 import {
@@ -767,8 +769,10 @@ function showCardChoices(id, choices, revision) {
   for (const action of choices) {
     const button = node("button", playLabel(action));
     button.type = "button";
-    button.dataset.choice = action.choiceId;
-    button.dataset.pack = action.packId;
+    if (action.choiceId) {
+      button.dataset.choice = action.choiceId;
+      button.dataset.pack = action.packId;
+    }
     button.onclick = () => {
       dialog.close();
       commitAction(action, revision);
@@ -802,7 +806,9 @@ function card(id) {
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   el.title =
-    world.memories[id].text ||
+    (id === "pond" || id === "clearing"
+      ? placeText(world, id)
+      : world.memories[id].text) ||
     (type === "avatar"
       ? !hasQuestPrograms(world)
         ? motiveFacts(world, id).join(". ")
@@ -834,6 +840,19 @@ function card(id) {
     img.alt = "";
     if (type === "avatar") frameFigure(img);
     graphic.append(img);
+    if (type === "location") {
+      el.dataset.locationVariant = locationVariant(world, id);
+      const src = locationOverlay(world, id);
+      if (src) {
+        const overlay = node("img", undefined, "location-overlay");
+        overlay.src = src;
+        overlay.alt = "";
+        overlay.style.cssText =
+          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none";
+        graphic.style.position = "relative";
+        graphic.append(overlay);
+      }
+    }
   }
   el.append(graphic, node("span", def.name, "name"));
   let caption, detail;
@@ -1188,6 +1207,20 @@ function renderScene() {
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
   img.alt = placeText(world, scene.locationId);
+  img.dataset.locationVariant = scene.variant;
+  let overlay = $("location-overlay");
+  if (scene.overlay && !overlay) {
+    overlay = node("img", undefined, "backdrop location-overlay");
+    overlay.id = "location-overlay";
+    overlay.style.pointerEvents = "none";
+    img.after(overlay);
+  }
+  if (overlay) {
+    overlay.hidden = !scene.overlay;
+    if (scene.overlay && overlay.getAttribute("src") !== scene.overlay)
+      overlay.src = scene.overlay;
+    overlay.alt = scene.overlay ? "A Greek ship waits on the Black pond." : "";
+  }
   const staging = sceneStaging(world, {
     through: resolvedBeat ? world.log.length - 1 : scene.line?.index,
     cast: scene.slots,

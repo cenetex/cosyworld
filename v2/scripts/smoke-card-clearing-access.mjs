@@ -145,6 +145,11 @@ try {
     assert.equal((await state()).items.bell.ringing, 0);
     await page.reload();
     await ready();
+    assert.equal(await card("pond").count(), 0);
+    await page.locator('[data-choices-for="clearing"]').click();
+    await page.getByRole("button", { name: "Ring the Steam Clock", exact: true }).click();
+    await ready();
+    assert.equal(await card("pond").count(), 1);
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
     assert.equal(await card("clearing").count(), 0);

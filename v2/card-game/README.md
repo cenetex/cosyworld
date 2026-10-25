@@ -106,8 +106,11 @@ quiet: concrete complaints, grudging answers, and a firm claim to his warm
 patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
-The Black pond card in the clearing returns Vale and their belongings to the
-shore. It works even if the bell has been left behind or stopped ringing.
+The Black pond card in the clearing appears only while a bell is audible at
+one of the two shores. Silence removes both the exit and the travel offer.
+Choose **Ring the Steam Clock** on the clearing card to ring its installed
+bell for three following turns, even if the hand bell was left behind.
+Ringing the clock wakes or annoys Badger; it does not move or ring the hand bell.
 Once the entrance closes, two consecutive rings at the pond open it again.
 The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing

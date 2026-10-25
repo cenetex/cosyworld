@@ -62,14 +62,17 @@ describe("the temporary ringing path to Forest Clearing", () => {
     );
   });
 
-  it("allows the final available turn and always keeps the way out", () => {
+  it("allows the final entry turn but requires sound to reopen the return", () => {
     let s = act(act(open(), "wait"), "wait");
     expect(s.items.bell.ringing).toBe(1);
     s = act(s, "move", "clearing");
     expect(s.items.bell.ringing).toBe(0);
     s = act(act(s, "wait"), "wait");
+    expect(exits(s, "clearing", "vale")).not.toContain("pond");
+    expect(availableCards(s)).not.toContain("pond");
+    s = act(decodeSave(encodeSave(s)), "ring", "clearing");
     expect(exits(s, "clearing", "vale")).toContain("pond");
-    s = act(decodeSave(encodeSave(s)), "move", "pond");
+    s = act(s, "move", "pond");
     expect(visible(s)).toBe(false);
     expect(visible(ring(s))).toBe(false);
     expect(visible(ring(ring(s)))).toBe(true);

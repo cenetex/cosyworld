@@ -31,7 +31,8 @@ let fixture = enableMotives(createWorld({ opening: true }), {
   personalQuests: true,
 });
 fixture = commit(commit(fixture, "light"), "move", "pond");
-fixture.items.cloth.holder = "lamp";
+fixture.items.cloth.holder = "vale";
+fixture.items.lamp.fuel = 12;
 fixture.actors.vale.trust.moth = 2;
 addLog(
   fixture,
@@ -127,9 +128,17 @@ try {
       await ready();
     };
     const travel = async (id) => {
+      const before = await state();
+      const boarding = before.actors.vale.place === "pond" && id === "greek-harbor";
+      if (boarding && !before.items.lamp.lit) {
+        assert.ok(before.items.lamp.fuel > 0);
+        await playCard("lamp");
+      }
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
+      // Preserve fuel through long episodes by using the ordinary lamp card.
+      if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
     };
     const choose = async (choiceId) => {
       await ready();
@@ -205,7 +214,7 @@ try {
       current.packs["greek-drama"].choices["greek-theban-response"],
       "refusal",
     );
-    assert.equal(current.items.cloth.holder, "lamp");
+    assert.equal(current.items.cloth.holder, "vale");
     assert.equal(rootHolder(current, "lamp"), "vale");
     assert.equal(rootHolder(current, "cloth"), "vale");
     const refusalTurn =
@@ -276,6 +285,9 @@ try {
     assert.equal(rootHolder(current, evidence), "vale");
 
     // A second tab's committed journey uses the same migration and UI rebuild.
+    // Reopen the crossing through a real card play, not a forged state edit.
+    if (!current.items.lamp.lit) await playCard("lamp");
+    current = await state();
     const updated = commit(current, "move", "greek-harbor");
     await page.evaluate(
       ({ key, value }) => {

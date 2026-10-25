@@ -16,7 +16,11 @@ the traveler.
 
 The external
 [`card-bridge.json`](../../worlds/greek-drama/card-bridge.json) owns the
-unconditional Black Pond–harbor connection. The reusable source never names
+Black Pond–harbor topology. Shore-side entry requires a fueled, lit,
+uncovered lamp physically at the pond and silence from the nearby bells.
+The Greek ship location variant and the boarding card share that predicate.
+The harbor keeps its return route even if the entry lamp has gone out.
+The reusable source never names
 Black Pond or another world. The build script combines source and bridge into
 [`greek-drama.mjs`](../../card-game/packs/greek-drama.mjs), which the card
 registry loads. Do not hand-edit that generated module.
@@ -91,7 +95,9 @@ thicket rather than an already-built empire.
 
 ## Opening route
 
-From Black Pond, travel to **The Wine-Dark Harbor**, then **Theban Courtyard**.
+At Black Pond, bring an uncovered lit lamp and wait for the nearby bells to
+fall silent. A Greek ship appears on the pond together with the **Wine-Dark
+Harbor** travel card. Board it, then travel to **Theban Courtyard**.
 The courtyard reaches the market well, gate, and sanctuary. The well reaches
 the palace; the gate reaches the battlefield.
 

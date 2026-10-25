@@ -90,6 +90,7 @@ describe("the bell crossing to the Steam Clock", () => {
       rings: 0,
       discovered: true,
       openUntil: heard.turn + 3,
+      returnRingingUntil: 0,
     });
     expect(turnOutcome(heard).card.kind).toBe("ring");
     expect(
@@ -110,7 +111,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(rootHolder(next, "lamp")).toBe("vale");
     expect(next.actors.badger.awake).toBe(false);
     expect(availableCards(next)).toContain("badger");
-    expect(exits(next, "clearing")).toEqual(["pond"]);
+    expect(exits(next, "clearing", "vale")).toEqual(["pond"]);
     expect(
       turnOutcome(next).avatars.find((a) => a.id === "vale").travel,
     ).toEqual({ from: "pond", to: "clearing", companions: [] });

@@ -57,7 +57,10 @@ export function avatarPlays(world, id) {
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
   return legalActions(world).filter(
-    (a) => a.kind === "choose" && a.target === id,
+    (a) =>
+      a.target === id &&
+      (a.kind === "choose" ||
+        (id === "clearing" && a.kind === "ring" && a.item === null)),
   );
 }
 
@@ -198,6 +201,14 @@ export function cardPlay(world, selected) {
 }
 export function playLabel(action) {
   if (action?.kind === "choose") return action.label;
+  if (action?.kind === "ring" && action.target === "clearing")
+    return "Ring the Steam Clock";
+  if (
+    action?.kind === "move" &&
+    action.target === "greek-harbor" &&
+    action.text.includes("aboard the Greek ship")
+  )
+    return "Board the Greek ship";
   if (
     action?.target === "badger" &&
     action?.kind === "talk" &&

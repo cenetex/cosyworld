@@ -5,12 +5,29 @@ import {
   carried,
   itemPlace,
   shining,
+  greekShipPresent,
 } from "./world.mjs";
 import { entityActive, packMedia } from "./pack-registry.mjs";
 
 export const backdrop = (id) =>
   packMedia(id, "backdrop") ||
   `./assets/${id === "clearing" ? "steam-clock-background" : id}.png`;
+// The arrival is a location variant, not a new avatar or an inventory item.
+// Reuse the pack's original harbor.svg ship geometry as a transparent layer;
+// the pond, mirror, camera and shore remain exactly the same in both variants.
+const greekShipLayer =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">' +
+      '<g transform="translate(430,-190) scale(1.05)" fill="#412e31" stroke="#d3ae78" stroke-width="5">' +
+      '<path d="M180 578q70 108 280 34l38-44q-158 48-318 10z"/>' +
+      '<path d="M342 341v259M344 357l-95 190h95z" fill="#d9c099"/>' +
+      '<path d="M351 368 432 545h-78z" fill="#8e443a"/></g></svg>',
+  );
+export const locationVariant = (world, id) =>
+  id === "pond" && greekShipPresent(world) ? "greek-ship" : "base";
+export const locationOverlay = (world, id) =>
+  locationVariant(world, id) === "greek-ship" ? greekShipLayer : null;
 export const portrait = (id, facing = null, world = null) =>
   packMedia(id, "portrait") ||
   `./assets/${id === "badger" ? (world?.actors.badger.awake === false ? "badger-sleeping" : "badger-grumpy") : id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
@@ -326,6 +343,8 @@ export function currentScene(
   return {
     locationId: world.actors.vale.place,
     background: backdrop(world.actors.vale.place),
+    variant: locationVariant(world, world.actors.vale.place),
+    overlay: locationOverlay(world, world.actors.vale.place),
     visitStart: start,
     slots: sceneCast(
       world,
@@ -360,6 +379,8 @@ export function sceneScript(world) {
       id,
       name: p.name,
       background: backdrop(id),
+      variant: locationVariant(world, id),
+      overlay: locationOverlay(world, id),
     })),
     avatars: Object.entries(people).map(([id, p]) => ({
       id,

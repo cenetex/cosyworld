@@ -69,8 +69,8 @@ export const places = {
   ...packPlaces,
   clearing: {
     name: "Forest Clearing",
-    text: "The old Steam Clock ticks among the trees. Badger sleeps on warm moss. A dark reflection between its roots leads back to Black pond.",
-    exits: ["pond"],
+    text: "The old Steam Clock ticks among the trees. Its bell can be rung. Badger rests on warm moss; a reflection between the roots answers only while a bell is sounding.",
+    exits: [],
   },
   station: {
     name: "Empty station",
@@ -270,9 +270,16 @@ function addSteamClock(s) {
     // Earlier saves remember discovery, but have no temporary access receipt.
     if (s.steamClock && s.steamClock.openUntil === undefined)
       s.steamClock.openUntil = 0;
+    if (s.steamClock && s.steamClock.returnRingingUntil === undefined)
+      s.steamClock.returnRingingUntil = 0;
     return;
   }
-  s.steamClock = { rings: 0, discovered: false, openUntil: 0 };
+  s.steamClock = {
+    rings: 0,
+    discovered: false,
+    openUntil: 0,
+    returnRingingUntil: 0,
+  };
   s.actors.badger = {
     place: "clearing",
     progress: newProgress(),
@@ -324,18 +331,46 @@ export const clearingOpen = (s) =>
   s.items.bell.ringing > 0 &&
   !covered(s, "bell") &&
   itemPlace(s, "bell") === "pond";
+// A remembered crossing is not an open crossing. The clock's own bell is a
+// local, repeatable way back when the hand bell was left on the other shore.
+export const clockRinging = (s) =>
+  s.turn < (s.steamClock?.returnRingingUntil ?? 0);
+export const clearingReturnOpen = (s) =>
+  Boolean(s.steamClock?.discovered) &&
+  (clockRinging(s) ||
+    (s.items.bell.ringing > 0 &&
+      !covered(s, "bell") &&
+      ["pond", "clearing"].includes(itemPlace(s, "bell"))));
+export const greekShipPresent = (s) =>
+  packExits(s, "pond", "vale").includes("greek-harbor") &&
+  shining(s) &&
+  itemPlace(s, "lamp") === "pond" &&
+  !(
+    s.items.bell.ringing > 0 &&
+    !covered(s, "bell") &&
+    ["pond", "clearing"].includes(itemPlace(s, "bell"))
+  ) &&
+  !clockRinging(s);
 const baseExits = (s, place) =>
   s.opening
     ? places[place].exits.filter((to) => ![place, to].includes("attic"))
     : places[place].exits;
 export const placeText = (s, place) =>
-  s.opening && place === "attic"
-    ? reflectionOpen(s)
-      ? "A tall mirror opens onto a black shore. A path leads through the glass."
-      : "A tall mirror reflects a black shore. Dust gathers along its frame."
-    : s.opening && place === "station"
-      ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
-      : places[place].text;
+  place === "clearing"
+    ? clearingReturnOpen(s)
+      ? "A bell sounds among the Steam Clock's roots. Its dark reflection opens onto Black pond. The clock's bell can be rung again before the sound fades."
+      : "The Steam Clock ticks among the trees. The roots show only moss: no path to Black pond is visible. Ring the clock's bell to reopen the crossing."
+    : place === "pond"
+      ? greekShipPresent(s)
+        ? "Lamplight lies across the quiet Black pond. A Greek ship waits on the reflection; its gangway leads to the Wine-Dark Harbor. The shore path to the station remains."
+        : "Something vast breathes beneath Black pond. A path leads to the station. A lit, uncovered lamp on this shore can call a Greek ship when the bells are quiet."
+      : s.opening && place === "attic"
+        ? reflectionOpen(s)
+          ? "A tall mirror opens onto a black shore. A path leads through the glass."
+          : "A tall mirror reflects a black shore. Dust gathers along its frame."
+        : s.opening && place === "station"
+          ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
+          : places[place].text;
 export function exits(s, place, actor = null) {
   return [
     ...new Set([
@@ -350,7 +385,13 @@ export function exits(s, place, actor = null) {
       ...(clearingOpen(s) && place === "pond" && actor === "vale"
         ? ["clearing"]
         : []),
-      ...packExits(s, place, actor),
+      ...(clearingReturnOpen(s) && place === "clearing" && actor === "vale"
+        ? ["pond"]
+        : []),
+      ...packExits(s, place, actor).filter(
+        (to) =>
+          place !== "pond" || to !== "greek-harbor" || greekShipPresent(s),
+      ),
     ]),
   ].filter((to) => entityActive(s, to) && actorCanVisit(actor, to));
 }
@@ -943,6 +984,17 @@ export function legalActions(s, actor = "vale") {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
+  if (here === "clearing" && actor === "vale")
+    out.push(
+      offer(
+        "ring",
+        actor,
+        null,
+        "clearing",
+        "Vale rings the Steam Clock's bell. A dark reflection between the roots opens onto Black pond for three following turns.",
+        ["clearing"],
+      ),
+    );
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     for (const other of knownActors(s).filter(
@@ -971,7 +1023,7 @@ export function legalActions(s, actor = "vale") {
         actor,
         null,
         to,
-        `${nameOf(actor)} goes to ${nameOf(to)}${through ? " through the reflection" : ""}.`,
+        `${nameOf(actor)} goes to ${nameOf(to)}${here === "pond" && to === "greek-harbor" ? " aboard the Greek ship" : through ? " through the reflection" : ""}.`,
         [to],
       ),
     );
@@ -982,7 +1034,7 @@ export function legalActions(s, actor = "vale") {
           actor,
           id,
           to,
-          `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${through ? " through the reflection" : ""}.`,
+          `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${here === "pond" && to === "greek-harbor" ? " aboard the Greek ship" : through ? " through the reflection" : ""}.`,
           [id, to],
         ),
       );
@@ -1414,6 +1466,11 @@ function perform(s, a, capture = () => {}) {
           s.actors.badger.irritation + 2,
         );
         text += " Badger opens his eyes and flattens his ears at the noise.";
+      }
+      if (a.target === "clearing" && a.item === null) {
+        s.steamClock.discovered = true;
+        s.steamClock.returnRingingUntil = s.turn + 3;
+        break;
       }
       s.locations.pond.answer =
         s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
@@ -1861,6 +1918,8 @@ export function play(s, action, expectedRevision = s.revision) {
     knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
   );
   const clearingWasOpen = clearingOpen(s);
+  const returnWasOpen = clearingReturnOpen(s);
+  const shipWasPresent = greekShipPresent(s);
   next.turn += 1;
   next.revision += 1;
   for (const actor of knownActors(next)) {
@@ -1875,7 +1934,10 @@ export function play(s, action, expectedRevision = s.revision) {
   const met = new Map();
   captureHands(next, met);
   const active = knownActors(next);
-  const pondRing = exact.kind === "ring" && next.actors.vale.place === "pond";
+  const pondRing =
+    exact.kind === "ring" &&
+    exact.item === "bell" &&
+    next.actors.vale.place === "pond";
   const secondRing = pondRing && next.steamClock.rings === 1;
   next.steamClock.rings = pondRing && !secondRing && !clearingWasOpen ? 1 : 0;
   const respondent = perform(next, exact, () => captureHands(next, met));
@@ -1944,7 +2006,10 @@ export function play(s, action, expectedRevision = s.revision) {
   }
   const rings = next.log.filter(
     (entry) =>
-      entry.turn === next.turn && entry.verb === "ring" && !entry.generated,
+      entry.turn === next.turn &&
+      entry.verb === "ring" &&
+      entry.itemId === "bell" &&
+      !entry.generated,
   );
   // A fresh ring lasts for three following plays. Covering the bell can still
   // silence it during this round, and a distant ring cannot extend the path.
@@ -1959,6 +2024,26 @@ export function play(s, action, expectedRevision = s.revision) {
     addLog(next, "World", "The reflected clearing fades from the pond.", {
       locationId: "pond",
     });
+  if (returnWasOpen && !clearingReturnOpen(next))
+    addLog(
+      next,
+      "World",
+      "The bells fall silent. The path to Black pond disappears between the roots; the Steam Clock's bell can reopen it.",
+      {
+        locationId: "clearing",
+      },
+    );
+  if (shipWasPresent !== greekShipPresent(next))
+    addLog(
+      next,
+      "World",
+      greekShipPresent(next)
+        ? "In the lamplit quiet, a Greek ship appears on Black pond. Its gangway opens a passage to the Wine-Dark Harbor."
+        : "The Greek ship and its gangway fade from Black pond. The passage to the Wine-Dark Harbor is no longer open.",
+      {
+        locationId: "pond",
+      },
+    );
   const isOpen = reflectionOpen(next, reflectionSource);
   if (wasOpen !== isOpen)
     addLog(
@@ -2098,7 +2183,12 @@ export function validateWorld(s) {
     s.steamClock.openUntil < 0 ||
     s.steamClock.openUntil > s.turn + 3 ||
     (s.steamClock.openUntil > 0 && !s.steamClock.discovered) ||
-    (s.steamClock.rings === 1 && s.actors?.vale?.place !== "pond")
+    (s.steamClock.rings === 1 && s.actors?.vale?.place !== "pond") ||
+    (s.steamClock.returnRingingUntil !== undefined &&
+      (!Number.isSafeInteger(s.steamClock.returnRingingUntil) ||
+        s.steamClock.returnRingingUntil < 0 ||
+        s.steamClock.returnRingingUntil > s.turn + 3 ||
+        (s.steamClock.returnRingingUntil > 0 && !s.steamClock.discovered)))
   )
     fail();
   if (s.opening !== undefined) {

@@ -46,6 +46,13 @@ function act(world, kind, field = {}) {
 }
 
 function move(world, target) {
+  const boarding = world.actors.vale.place === "pond" && target === HARBOR;
+  // The old fixture crossed permanently open topology. Now conserve the real
+  // lamp during long Greek episodes, and relight it for each boarding.
+  if (boarding && !world.items.lamp.lit) {
+    expect(world.items.lamp.fuel).toBeGreaterThan(0);
+    world = act(world, "light", { item: "lamp" });
+  }
   expect(exits(world, world.actors.vale.place, "vale")).toContain(target);
   expect(availableCards(world)).toContain(target);
   const action = cardPlay(world, [target]).action;
@@ -53,7 +60,9 @@ function move(world, target) {
   const result = play(world, action);
   expect(result.ok, result.error).toBe(true);
   expect(result.state.actors.vale.place).toBe(target);
-  return result.state;
+  return boarding && result.state.items.lamp.lit
+    ? act(result.state, "snuff", { item: "lamp" })
+    : result.state;
 }
 
 const walk = (world, ...route) => route.reduce(move, world);
@@ -87,7 +96,9 @@ describe("the Wine-Dark Sea crossing", () => {
   it("travels through the pond without replacing the avatar, belongings or witnessed history", () => {
     let world = pond();
     // A nested belonging tests actual custody rather than a copied inventory.
-    world.items.cloth.holder = "lamp";
+    world.items.bell.holder = "vale";
+    world.items.cloth.holder = "bell";
+    world.items.lamp.fuel = 12;
     world.actors.vale.trust.moth = 2;
     addLog(
       world,
@@ -112,7 +123,7 @@ describe("the Wine-Dark Sea crossing", () => {
     world = walk(world, HARBOR, COURTYARD);
     expect(rootHolder(world, "lamp")).toBe("vale");
     expect(rootHolder(world, "cloth")).toBe("vale");
-    expect(world.items.cloth.holder).toBe("lamp");
+    expect(world.items.cloth.holder).toBe("bell");
     expect(itemPlace(world, "cloth")).toBe(COURTYARD);
     world = reload(world);
     world = walk(world, HARBOR, "pond");
@@ -132,7 +143,7 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(world.memories.vale.landmarks).toContainEqual(remembered);
     expect(world.memories.moth.landmarks).toContainEqual(remembered);
     expect(rootHolder(world, "lamp")).toBe("vale");
-    expect(world.items.cloth.holder).toBe("lamp");
+    expect(world.items.cloth.holder).toBe("bell");
     expect(move(world, HARBOR).actors.vale.place).toBe(HARBOR);
   });
 

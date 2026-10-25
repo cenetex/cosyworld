@@ -18,6 +18,8 @@ import {
   validateWorld,
   standoffFor,
   opponentOf,
+  placeText,
+  clockRinging,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
 import {
@@ -229,7 +231,10 @@ export function narrativeContext(world, action = null) {
     [played?.itemId, played?.receiveId].includes("bell");
   const bellRang = world.log.some(
     (entry) =>
-      entry.turn === world.turn && !entry.generated && entry.verb === "ring",
+      entry.turn === world.turn &&
+      !entry.generated &&
+      entry.verb === "ring" &&
+      entry.itemId === "bell",
   );
   const quietFact =
     bellHandled && !bellRang && !world.items.bell.ringing
@@ -394,6 +399,12 @@ export function narrativeContext(world, action = null) {
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
+        if (id === "pond" || id === "clearing")
+          facts.push(placeText(world, id));
+        if (id === "clearing")
+          facts.push(
+            `The Steam Clock bell is ${clockRinging(world) ? "ringing" : "silent"}.`,
+          );
         facts.push(
           `Paths visible now: ${exits(world, id, "vale").map(nameOf).join(", ") || "none"}.`,
         );
