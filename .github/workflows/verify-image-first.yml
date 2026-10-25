@@ -19,17 +19,19 @@ jobs:
           cache: npm
       - name: Apply presentation change to pinned gameplay head
         run: |
-          cp v2/scripts/review/{build-image-first.py,smoke-image-first.mjs,finish-image-first.py} "$RUNNER_TEMP/"
+          cp v2/scripts/review/{build-image-first.py,smoke-image-first.mjs,finish-image-first.py,polish-image-first.py,card-presentation.test.mjs} "$RUNNER_TEMP/"
           git checkout --detach 2b6c131ffb192689e7733fac258d11968f18d547
           python3 "$RUNNER_TEMP/build-image-first.py"
           cp "$RUNNER_TEMP/smoke-image-first.mjs" v2/scripts/smoke-card-image-first.mjs
+          cp "$RUNNER_TEMP/card-presentation.test.mjs" test/card-presentation.test.mjs
           python3 "$RUNNER_TEMP/finish-image-first.py"
+          python3 "$RUNNER_TEMP/polish-image-first.py"
           npm run version:bump
       - run: npm ci --prefer-offline --no-audit --no-fund
       - name: Formatting, lint and source consistency
         run: |
           git diff --name-only -- '*.mjs' '*.css' '*.html' | xargs npx prettier --write
-          npx prettier --write v2/scripts/smoke-card-image-first.mjs
+          npx prettier --write v2/scripts/smoke-card-image-first.mjs test/card-presentation.test.mjs
           git diff --check
           npm run lint
           npm run v2:card:pack:check
@@ -42,16 +44,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Real desktop and phone playthroughs
         run: |
-          node v2/scripts/smoke-card-image-first.mjs
-          node v2/scripts/smoke-card-pond-crossings.mjs
-          node v2/scripts/smoke-card-greek-drama.mjs
-          node v2/scripts/smoke-card-clearing-access.mjs
-          node v2/scripts/check-card-awakening.mjs
-          node v2/scripts/smoke-card-dialogue-recovery.mjs
-          node v2/scripts/smoke-card-music.mjs
+          failed=0
+          for suite in smoke-card-image-first smoke-card-pond-crossings smoke-card-greek-drama smoke-card-clearing-access check-card-awakening smoke-card-dialogue-recovery smoke-card-music; do
+            node "v2/scripts/$suite.mjs" > "output/image-first/$suite.txt" 2>&1 || failed=1
+            cat "output/image-first/$suite.txt"
+          done
+          exit "$failed"
       - name: Export candidate source
         run: |
-          git add v2/card-game test/card-crossings.test.mjs test/card-combat.test.mjs test/card-ship-ritual.test.mjs v2/orchestrator-rust/src/card_narrative.rs v2/scripts/smoke-card-*.mjs v2/scripts/check-card-awakening.mjs package.json package-lock.json v2/orchestrator-rust/Cargo.toml v2/orchestrator-rust/Cargo.lock
+          git add v2/card-game test/card-crossings.test.mjs test/card-combat.test.mjs test/card-ship-ritual.test.mjs test/card-presentation.test.mjs v2/content/greek-drama/README.md v2/docs/pond-crossings.md v2/orchestrator-rust/src/card_narrative.rs v2/scripts/smoke-card-*.mjs v2/scripts/check-card-awakening.mjs package.json package-lock.json v2/orchestrator-rust/Cargo.toml v2/orchestrator-rust/Cargo.lock
           git diff --cached --check
           git diff --cached --binary > "$RUNNER_TEMP/image-first.patch"
           sha256sum "$RUNNER_TEMP/image-first.patch"
