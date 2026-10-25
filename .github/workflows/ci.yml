@@ -278,6 +278,8 @@ jobs:
           node v2/scripts/smoke-card-narrative-contract.mjs
           node v2/scripts/smoke-card-pond-access.mjs
           node v2/scripts/smoke-card-clearing-access.mjs
+          node v2/scripts/smoke-card-pond-crossings.mjs
+          node v2/scripts/smoke-card-image-first.mjs
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
           node v2/scripts/smoke-card-dialogue-recovery.mjs
@@ -297,6 +299,10 @@ jobs:
             output/badger-check/*.png
             output/theban-scenery/*.png
             output/theban-scenery/*.json
+            output/image-first/*.png
+            output/image-first/*.json
+            output/pond-crossings/*.png
+            output/pond-crossings/*.json
             output/dialogue-recovery/*.png
           if-no-files-found: ignore
           retention-days: 7

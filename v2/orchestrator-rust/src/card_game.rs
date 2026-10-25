@@ -292,15 +292,42 @@ fn serve(path: &str) -> Response {
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/water-jar.svg"),
         ),
-        "assets/greek-drama/harbor-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp")),
-        "assets/greek-drama/courtyard-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/courtyard-day.webp")),
-        "assets/greek-drama/market-well-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/market-well-day.webp")),
-        "assets/greek-drama/city-gate-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/city-gate-day.webp")),
-        "assets/greek-drama/burial-ground-dusk.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/burial-ground-dusk.webp")),
-        "assets/greek-drama/palace-day.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/palace-day.webp")),
-        "assets/greek-drama/sanctuary-dawn.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/sanctuary-dawn.webp")),
-        "assets/greek-drama/pond-ship-overlay.png" => ("image/png", include_bytes!("../../card-game/assets/greek-drama/pond-ship-overlay.png")),
-        "assets/greek-drama/ship-card.webp" => ("image/webp", include_bytes!("../../card-game/assets/greek-drama/ship-card.webp")),
+        "assets/greek-drama/harbor-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp"),
+        ),
+        "assets/greek-drama/courtyard-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/courtyard-day.webp"),
+        ),
+        "assets/greek-drama/market-well-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/market-well-day.webp"),
+        ),
+        "assets/greek-drama/city-gate-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/city-gate-day.webp"),
+        ),
+        "assets/greek-drama/burial-ground-dusk.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/burial-ground-dusk.webp"),
+        ),
+        "assets/greek-drama/palace-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/palace-day.webp"),
+        ),
+        "assets/greek-drama/sanctuary-dawn.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/sanctuary-dawn.webp"),
+        ),
+        "assets/greek-drama/pond-ship-overlay.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/pond-ship-overlay.png"),
+        ),
+        "assets/greek-drama/ship-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
+        ),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),
@@ -640,12 +667,16 @@ mod tests {
         for pack in packs["packs"].as_array().unwrap() {
             if let Some(items) = pack["items"].as_object() {
                 for item in items.values() {
-                    if let Some(path) = item["art"].as_str() { media.push(path.to_owned()); }
+                    if let Some(path) = item["art"].as_str() {
+                        media.push(path.to_owned());
+                    }
                 }
             }
             for crossing in pack["crossings"].as_array().unwrap() {
                 for key in ["overlay", "cardArt"] {
-                    if let Some(path) = crossing["scenery"][key].as_str() { media.push(path.to_owned()); }
+                    if let Some(path) = crossing["scenery"][key].as_str() {
+                        media.push(path.to_owned());
+                    }
                 }
             }
         }
@@ -653,8 +684,13 @@ mod tests {
         for path in media {
             let response = request(true, &format!("/card-game/{path}"), "GET").await;
             assert_eq!(response.status(), StatusCode::OK, "{path}");
-            let expected = if path.ends_with(".svg") { "image/svg+xml" }
-                else if path.ends_with(".webp") { "image/webp" } else { "image/png" };
+            let expected = if path.ends_with(".svg") {
+                "image/svg+xml"
+            } else if path.ends_with(".webp") {
+                "image/webp"
+            } else {
+                "image/png"
+            };
             assert_eq!(response.headers()[header::CONTENT_TYPE], expected, "{path}");
         }
     }

@@ -147,8 +147,14 @@ fn base_profiles() -> &'static Value {
             .expect("embedded card world packs");
         let map = profiles.as_object_mut().expect("profiles");
         for pack in packs["packs"].as_array().expect("pack list") {
-            for (collection, kind) in [("places", "location"), ("avatars", "avatar"), ("items", "item")] {
-                let Some(entities) = pack[collection].as_object() else { continue; };
+            for (collection, kind) in [
+                ("places", "location"),
+                ("avatars", "avatar"),
+                ("items", "item"),
+            ] {
+                let Some(entities) = pack[collection].as_object() else {
+                    continue;
+                };
                 for (id, entity) in entities {
                     let mut profile = json!({
                         "kind": kind,
@@ -169,7 +175,9 @@ fn base_profiles() -> &'static Value {
         profiles
     })
 }
-fn profiles() -> &'static Value { base_profiles() }
+fn profiles() -> &'static Value {
+    base_profiles()
+}
 
 fn kind(id: &str, expected: &str) -> bool {
     profiles()[id]["kind"].as_str() == Some(expected)
