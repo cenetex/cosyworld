@@ -1,0 +1,35 @@
+name: Atmosphere workspace
+on:
+  push:
+    branches: [work/wine-dark-atmosphere-verification]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: f3e72635697ac96b5aafc57e4d79fbb096e7098e
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Export tracked source and verification dependencies only
+        run: |
+          mkdir -p /tmp/atmosphere-export
+          git archive --format=tar HEAD | gzip > /tmp/atmosphere-export/source.tar.gz
+          tar -czf /tmp/atmosphere-export/dependencies.tar.gz node_modules
+          cp "$(command -v node)" /tmp/atmosphere-export/node
+          git rev-parse HEAD > /tmp/atmosphere-export/revision.txt
+          cd /tmp/atmosphere-export
+          sha256sum source.tar.gz dependencies.tar.gz node > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wine-dark-atmosphere-workspace
+          path: /tmp/atmosphere-export/
+          if-no-files-found: error
+          retention-days: 1
