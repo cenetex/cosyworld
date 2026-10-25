@@ -14,7 +14,13 @@ import {
   opponentOf,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
-import { conditionMet, conditionText } from "./situations.mjs";
+import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
+import { packPeople } from "./pack-registry.mjs";
+import {
+  conditionMet,
+  conditionText,
+  questItemAvailable,
+} from "./situations.mjs";
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events; quest counters remain on the cards and in the history.
@@ -117,7 +123,7 @@ export function narrativeContext(world, action = null) {
   const departing = changes
     .filter((change) => change.leaving)
     .map((change) => change.actorId);
-  const awake = (id) => id !== "badger" || world.actors.badger.awake;
+  const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
   const introductions = present.filter(
     (id) => id !== "vale" && awake(id) && world.opening?.met[id] === world.turn,
   );
@@ -216,12 +222,16 @@ export function narrativeContext(world, action = null) {
       const facts = [];
       let desire = null;
       if (kind === "avatar") {
-        if (id === "badger")
+        // A resident's mood is a world fact; its pack words how to play it.
+        if (hasTemperament(id)) {
+          const state = world.actors[id],
+            mood = variantOf(world, id);
           facts.push(
-            world.actors.badger.awake
-              ? `Awake. Irritation: ${world.actors.badger.irritation}/3. First woken by ${world.actors.badger.wakeCause}. ${world.actors.badger.irritation > 1 ? "Furious at the noise. I want quiet, now." : "Still grumpy about my interrupted nap."}`
-              : "Asleep on the moss. A direct greeting would wake me.",
+            state.awake
+              ? `Awake. Irritation: ${state.irritation}/${packPeople[id].temperament.irritation}.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}`
+              : mood.note,
           );
+        }
         if (
           played?.verb === "trade" &&
           [played.actorId, played.targetId].includes(id)
@@ -296,9 +306,11 @@ export function narrativeContext(world, action = null) {
           facts.push(
             carried(world, id).includes(item)
               ? `I have the ${nameOf(item)} I wanted.`
-              : itemPlace(world, item) === world.actors[id].place
-                ? `I want the ${nameOf(item)}; ${nameOf(rootHolder(world, item))} has it.`
-                : `I want the ${nameOf(item)}.`,
+              : questItemAvailable(world, id, item)
+                ? `I can use the ${nameOf(item)} ${nameOf(rootHolder(world, item))} keeps here. It stays theirs.`
+                : itemPlace(world, item) === world.actors[id].place
+                  ? `I want the ${nameOf(item)}; ${nameOf(rootHolder(world, item))} has it.`
+                  : `I want the ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(
@@ -471,25 +483,24 @@ export function applyGeneratedText(world, context, response) {
       };
     }
   }
-  // The first pond ring gets one small reply from the distant clock.
-  if (
-    context.location === "pond" &&
-    context.outcome?.card.kind === "ring" &&
-    next.steamClock.rings === 1
-  ) {
+  // An unfinished crossing signal can get one small reply where it was made.
+  const echo =
+    context.outcome?.card &&
+    signalEcho(next, context.location, context.outcome.card);
+  if (echo) {
     if (
       !next.log.some(
         (entry) =>
           entry.turn === next.turn &&
           entry.generated &&
-          entry.speaker === "echo",
+          entry.speaker === echo.speaker,
       )
     )
-      addLog(next, "echo", "bong", {
+      addLog(next, echo.speaker, echo.text, {
         kind: "dialogue",
-        entityId: "pond",
+        entityId: context.location,
         generated: true,
-        locationId: "pond",
+        locationId: context.location,
       });
     return validateWorld(next);
   }

@@ -31,13 +31,15 @@ function pond() {
 const ring = (s) => act(s, "ring");
 const open = () => ring(ring(pond()));
 const visible = (s) => exits(s, "pond", "vale").includes("clearing");
+// The bridge's saved state for the pond's crossing into the clearing.
+const crossing = (s) => s.crossings["pond-clearing"];
 
 describe("the temporary ringing path to Forest Clearing", () => {
   it("offers three following turns, then expires and rejects stale choices", () => {
     let s = open();
     const stale = cardPlay(s, ["clearing"]).action;
     expect(s.items.bell.ringing).toBe(3);
-    expect(s.steamClock.openUntil).toBe(s.turn + 3);
+    expect(crossing(s).until).toBe(s.turn + 3);
     for (let remaining = 3; remaining > 0; remaining--) {
       expect(visible(s)).toBe(true);
       expect(s.items.bell.ringing).toBe(remaining);
@@ -48,7 +50,7 @@ describe("the temporary ringing path to Forest Clearing", () => {
       expect(play(s, { key: "invented" }).state).toBe(s);
       s = act(s, "wait");
     }
-    expect(s.steamClock.discovered).toBe(true);
+    expect(crossing(s).discovered).toBe(true);
     expect(visible(s)).toBe(false);
     expect(availableCards(s)).not.toContain("clearing");
     expect(cardPlay(s, ["clearing"]).action).toBeNull();
@@ -62,14 +64,17 @@ describe("the temporary ringing path to Forest Clearing", () => {
     );
   });
 
-  it("allows the final available turn and always keeps the way out", () => {
+  it("allows the final entry turn but needs a sounding bell to return", () => {
     let s = act(act(open(), "wait"), "wait");
     expect(s.items.bell.ringing).toBe(1);
     s = act(s, "move", "clearing");
     expect(s.items.bell.ringing).toBe(0);
     s = act(act(s, "wait"), "wait");
+    expect(exits(s, "clearing", "vale")).not.toContain("pond");
+    expect(availableCards(s)).not.toContain("pond");
+    s = act(decodeSave(encodeSave(s)), "ring", "clearing");
     expect(exits(s, "clearing", "vale")).toContain("pond");
-    s = act(decodeSave(encodeSave(s)), "move", "pond");
+    s = act(s, "move", "pond");
     expect(visible(s)).toBe(false);
     expect(visible(ring(s))).toBe(false);
     expect(visible(ring(ring(s)))).toBe(true);
@@ -78,22 +83,22 @@ describe("the temporary ringing path to Forest Clearing", () => {
   it("refreshes an active window with one local ring and preserves its exact remainder on reload", () => {
     let s = act(act(open(), "wait"), "wait");
     s = ring(decodeSave(encodeSave(s)));
-    expect(s.steamClock.rings).toBe(0);
-    expect(s.steamClock.openUntil).toBe(s.turn + 3);
+    expect(crossing(s).phase).toBe(0);
+    expect(crossing(s).until).toBe(s.turn + 3);
     expect(s.items.bell.ringing).toBe(3);
     s = decodeSave(encodeSave(act(s, "wait")));
-    expect(s.steamClock.openUntil - s.turn).toBe(2);
+    expect(crossing(s).until - s.turn).toBe(2);
     s = act(act(s, "wait"), "wait");
     expect(visible(decodeSave(encodeSave(s)))).toBe(false);
   });
 
   it("does not let a distant ring refresh or reopen the pond path", () => {
     let s = open();
-    const expiry = s.steamClock.openUntil;
+    const expiry = crossing(s).until;
     s = act(s, "move", "station");
     expect(visible(s)).toBe(false);
     s = ring(s);
-    expect(s.steamClock.openUntil).toBe(expiry);
+    expect(crossing(s).until).toBe(expiry);
     s = act(s, "move", "pond");
     expect(s.items.bell.ringing).toBeGreaterThan(0);
     expect(visible(s)).toBe(false);
@@ -156,23 +161,33 @@ describe("the temporary ringing path to Forest Clearing", () => {
     s = act(s, "wait");
     expect(s.actors.moth.place).toBe("station");
     expect(s.items.bell).toMatchObject({ holder: "moth", ringing: 2 });
-    expect(s.steamClock.openUntil).toBeGreaterThan(s.turn);
+    expect(crossing(s).until).toBeGreaterThan(s.turn);
     expect(availableCards(s)).not.toContain("clearing");
     expect(play(s, stale, s.revision).ok).toBe(false);
     expect(visible(decodeSave(encodeSave(s)))).toBe(false);
   });
 
   it("keeps legacy discovery and an inside avatar without granting permanent access", () => {
+    // A schema 6 save kept the crossing in its own steamClock record.
+    const legacy = (s, clock) => {
+      const old = structuredClone(s);
+      old.schema = 6;
+      old.steamClock = clock;
+      delete old.crossings;
+      delete old.packs;
+      return JSON.stringify(old);
+    };
     let s = act(open(), "move", "clearing");
-    delete s.steamClock.openUntil;
-    s = decodeSave(JSON.stringify(s));
-    expect(s.steamClock).toMatchObject({ discovered: true, openUntil: 0 });
+    s = decodeSave(legacy(s, { rings: 0, discovered: true }));
+    expect(crossing(s)).toEqual({ discovered: true, phase: 0, until: 0 });
     expect(s.actors.vale.place).toBe("clearing");
     expect(exits(s, "clearing", "vale")).toContain("pond");
     expect(visible(act(s, "move", "pond"))).toBe(false);
-    for (const invalid of [-1, 1.5, s.turn + 4]) {
-      s.steamClock.openUntil = invalid;
-      expect(() => decodeSave(JSON.stringify(s))).toThrow();
-    }
+    for (const invalid of [-1, 1.5, s.turn + 4])
+      expect(() =>
+        decodeSave(
+          legacy(s, { rings: 0, discovered: true, openUntil: invalid }),
+        ),
+      ).toThrow();
   });
 });

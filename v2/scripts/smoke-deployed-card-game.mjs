@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { roomTracks } from "../card-game/music.mjs";
+import { packMediaFiles } from "../card-game/pack-registry.mjs";
 
 const targets = process.argv.slice(2);
 assert(targets.length, "Pass at least one deployed card-game URL.");
@@ -12,9 +13,11 @@ const files = [
   "style.css",
   "entry.mjs",
   "awakening.css",
-  "assets/steam-clock-background.png",
-  "assets/badger-sleeping.png",
-  "assets/badger-grumpy.png",
+  "pack-schema.mjs",
+  "pack-registry.mjs",
+  "pack-rules.mjs",
+  "legacy-saves.mjs",
+  "packs.json",
   "app.mjs",
   "world.mjs",
   "scene.mjs",
@@ -33,6 +36,7 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  ...packMediaFiles,
 ];
 
 for (const target of targets) {

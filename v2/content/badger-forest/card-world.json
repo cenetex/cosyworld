@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "badger-forest",
+  "packId": "cosyworld.badger-forest",
+  "revision": 1,
+  "name": "The Steam Clock",
+  "description": "A sunlit woodland clearing where an old Steam Clock ticks over Badger's favourite patch of moss.",
+  "entry": "clearing",
+  "places": {
+    "clearing": {
+      "name": "Forest Clearing",
+      "text": "The old Steam Clock ticks among the trees. Its bell can be rung. Badger rests on warm moss.",
+      "idiolect": "I'm a sunlit clearing in the woods. An old steam clock stands on my mossy stones. A reflection between my roots leads back the way visitors came. Badger's favourite patch of moss is here.",
+      "lines": [
+        "The steam clock hisses once.",
+        "Sun on the moss, warm in one patch.",
+        "Roots, and a reflection between them."
+      ],
+      "exits": [],
+      "backdrop": "assets/badger-forest/steam-clock-background.png",
+      "stage": {
+        "alt": "The old Steam Clock stands on mossy stones in a sunlit clearing.",
+        "resident": "badger",
+        "sprite": {
+          "left": 59,
+          "top": 78,
+          "width": 22
+        }
+      }
+    }
+  },
+  "fixtures": {
+    "steam-clock": {
+      "name": "Steam Clock",
+      "at": "clearing",
+      "sound": {
+        "label": "Ring the Steam Clock",
+        "text": "{actor} rings the Steam Clock's bell. The sound rolls between the trees.",
+        "turns": 3
+      }
+    }
+  },
+  "avatars": {
+    "badger": {
+      "name": "Grumpy Badger",
+      "text": "Comically touchy. Very attached to his warm patch of moss.",
+      "place": "clearing",
+      "travels": false,
+      "standoffs": false,
+      "idiolect": "Grumpy Badger. That's me. This warm moss is mine and I was asleep on it. Every visitor is a theft of my nap. Noise stopped, rest restored, that's all I want. Not an adventure. Not a new friend. If you ask me something straight, I'll tell you what I know, grudgingly, and then you can go.",
+      "lines": [
+        "Asleep. I was asleep.",
+        "That's my moss.",
+        "Hrmph.",
+        "The way back? Through the roots. There. Now go.",
+        "Ring that again and see what happens.",
+        "Not interested.",
+        "Quiet is all I asked for. All.",
+        "Three winters I slept through. One visitor and I'm up.",
+        "The clock hisses. I hiss back. We get along.",
+        "You've had your answer. The moss hasn't had its badger.",
+        "Warm patch, right there. Mine. Still mine."
+      ],
+      "tastes": {
+        "likes": "Warm moss and an uninterrupted nap",
+        "sore": "Being woken and unnecessary noise",
+        "reason": "Badger considers this patch of moss his own.",
+        "noise": "{actor} rang a bell beside his warm patch of moss."
+      },
+      "temperament": {
+        "asleep": true,
+        "irritation": 3,
+        "irritated": 2,
+        "voice": 1,
+        "sound": 2,
+        "calm": 1,
+        "woken": "Badger wakes from a very satisfactory nap, looking mildly offended.",
+        "disturbed": "Badger opens his eyes and flattens his ears at the noise."
+      },
+      "variants": {
+        "asleep": {
+          "portrait": "assets/badger-forest/badger-sleeping.png",
+          "alt": "Grumpy Badger asleep beside the clock.",
+          "greet": "{actor} gently wakes {name}.",
+          "label": "Wake gently",
+          "want": "An uninterrupted nap",
+          "note": "Asleep on the moss. A direct greeting would wake me."
+        },
+        "awake": {
+          "portrait": "assets/badger-forest/badger-grumpy.png",
+          "alt": "Grumpy Badger, awake and looking put out.",
+          "greet": "{actor} says hello to {name}.",
+          "want": "The warm patch of moss",
+          "note": "Still grumpy about my interrupted nap."
+        },
+        "irritated": {
+          "want": "Some quiet after all that noise",
+          "note": "Furious at the noise. I want quiet, now."
+        }
+      }
+    }
+  }
+}

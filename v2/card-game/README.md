@@ -3,20 +3,26 @@
 ## Personal quests and lasting hopes
 
 The browser enables `personalQuests` alongside motives. The first quest gives
-each avatar a starting purpose. A completed quest earns a level and starts
-three quiet turns. Its checklist leaves the card. After this rest, useful
-gifts and lamp care earn two Inspiration points; conversations, trades and
-accepted shared trips earn one. Both people in a social action can earn points.
-Each person earns at most two points per round. The same exchange earns again
-after six turns. Failed requests, solo waiting and inspecting cards leave the
-meter unchanged. Five points unlock one new personal quest at the end of the
-round. The new quest can first advance on the following turn.
+each avatar a starting purpose. A completed quest earns a level and its
+checklist leaves the card. The avatar then rests for three rounds, but only in
+a sanctuary: a place whose data sets `sanctuary: true` (Empty station and
+Mirror attic). An avatar that finishes elsewhere heads to its home sanctuary,
+or the first declared one, and the player can accompany it there.
 
-Each avatar has a lasting hope and three milestones. Generated quests favour
-the next feasible milestone, then recent experiences and variety. A quest
-that fulfils the next milestone records its completion turn. The hope and its
-completed milestones stay with the avatar through later quests. Earlier
-authored quests keep their order as the opening story.
+Gifts, talks, trades, lamp care and accepted shared trips are remembered as
+short experiences of kind, partner, item and place. They carry no points.
+Experiences during rest count. When rest ends, the strongest one since the
+last quest seeds the next purpose at the end of that round and steers the
+quest's kind (a gift toward a delivery, a talk toward a gathering, a journey
+toward a crossing). Without one, the next experience does the same. After six
+quiet rounds a purpose comes from the hope alone. The rest and stall counts
+stay internal; cards show prose such as "Restless since Vale's gift."
+
+Each avatar has a lasting hope generated from profile data: its home place,
+its most valued item, and three milestone situations in a stable rotation.
+Generated quests favour the next milestone, then the seeding experience and
+variety. A quest whose kind fits the next milestone records its completion
+turn. Earlier authored quests keep their order as the opening story.
 
 Favourite belongings have lasting value. A received gift gains a saved
 attachment to its giver. These reasons affect gifts, prices and autonomous
@@ -25,20 +31,30 @@ purpose. Talking, giving, trading and accepted invitations create three turns
 of shared time. Residents can tend items or talk during this time. A grievance
 still lets them seek space. The player chooses Vale's actions throughout.
 
-Avatar cards show Inspiration during the quiet and seeking phases. The Menu
-shows each hope, its milestones, and the current quest when one is active.
-Item cards explain attachments. Personal facts also enter the story context.
+Between quests, avatar cards show a line of prose instead of a checklist. The
+Menu shows each hope, its milestones, and the current quest when one is
+active. Item cards explain attachments. Personal facts enter the speech context
+as short first-person lines, such as "I want to go home and rest." The
+simulation decides every purpose, rest and attachment; models only voice them.
 
-Schema 6 saves gain optional, validated `life` state. Loading an earlier save
-adds this state while keeping its active quest, earned steps, items, memories
-and levels. New-game and cross-tab save updates use the same setup. The action
-history is bounded independently from the saved Inspiration and attachments.
+Schema 6 saves gain optional, validated `life` state, now version 2. Loading
+an earlier save adds this state while keeping its active quest, earned steps,
+items, memories and levels. A version 1 `life` record loses its Inspiration
+number and keeps its experiences, attachments, company and milestones. A
+seeking avatar that had points takes up a purpose at the next round. New-game
+and cross-tab save updates use the same setup.
 
 Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
-repeat limits, attachment and company rules, hope selection, save migration,
-validation and deterministic mixed-play checks.
+sanctuary rest, experience seeding, attachment and company rules, generated
+hopes over other worlds, save migration, validation and deterministic
+mixed-play checks.
 
 ## The bell crossing to the Steam Clock
+
+The Forest Clearing, Badger and the Steam Clock are a world pack
+(`v2/content/badger-forest/`) joined to Black pond by a bridge
+(`v2/worlds/badger-forest/`). No engine rule names them; see
+[`v2/docs/card-packs.md`](../docs/card-packs.md) for the format.
 
 Ring the Bell twice in a row at Black pond to find the Forest Clearing.
 The first ring gets one reply: **echo** says **bong**. The second folds
@@ -64,8 +80,12 @@ patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
 The Black pond card in the clearing returns Vale and their belongings to the
-shore. It works even if the bell has been left behind or stopped ringing.
-Once the entrance closes, two consecutive rings at the pond open it again.
+shore while a bell is sounding at either end: the hand bell at the pond or in
+the clearing, or the Steam Clock's own bell. The clearing card offers
+**Ring the Steam Clock**, which sounds for three following plays, wakes and
+annoys Badger, and leaves the hand bell alone. When every bell is silent the
+way back is hidden until the clock is rung. Once the entrance closes, two
+consecutive rings at the pond open it again.
 The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing
 and its sleeping resident when loaded.
@@ -107,7 +127,8 @@ Existing saves keep their station start, original routes, authored programs, and
 The browser starts and loads worlds with `enableMotives` and `personalQuests`.
 Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules,
 and turn order. During a personal quest, an avatar card shows its target hand
-and progress. Between quests it shows Inspiration. Menu shows lasting hopes,
+and progress. Between quests it shows where the avatar is in its rest. Menu
+shows lasting hopes,
 milestones, and the active quests of the discovered cast.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
@@ -116,7 +137,7 @@ Trades compare each character’s value for both objects, including attached clo
 
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Shared actions then fill Inspiration and unlock a fresh purpose from the current world and the avatar’s lasting hope. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and three rounds of rest in a sanctuary. The next shared experience then seeds a fresh purpose from the current world and the avatar’s lasting hope. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 

@@ -1,3 +1,4 @@
+import { isPackActor } from "./pack-registry.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
 export const condition = (kind, item, extra = {}) => ({
@@ -13,6 +14,23 @@ export const rootOwner = (s, item) => {
   }
   return owner;
 };
+// A friendly companion can keep an item while it serves a shared quest.
+// Custody rules for card plays and explicit deliveries still use rootOwner.
+export function questItemAvailable(s, actor, item) {
+  const owner = rootOwner(s, item);
+  if (owner === actor) return true;
+  return Boolean(
+    s.life &&
+      s.actors[owner] &&
+      (!s.opening || s.opening.met[owner] !== undefined) &&
+      s.actors[owner].place === s.actors[actor].place &&
+      ![actor, owner].some((id) =>
+        (s.motives?.grievances[id] || []).some(
+          (g) => g.other === (id === actor ? owner : actor) && g.weight > 0,
+        ),
+      ),
+  );
+}
 export function conditionMet(s, c) {
   switch (c.kind) {
     case "lit":
@@ -72,8 +90,17 @@ export function requiredItems(s, actor, target) {
 // Choose a situation from real custody, resources, company and past programs.
 // A stalled resident still uses the short independent errands in quests.mjs.
 export function situationPrograms(s, actor, base, api) {
-  const { hand, hold, at, withAvatars, either, available, needed, reachable } =
-    api;
+  const {
+    hand,
+    hold,
+    at,
+    withAvatars,
+    either,
+    available,
+    needed,
+    reachable,
+    mayGive = () => true,
+  } = api;
   const own = (item) => rootOwner(s, item) === actor;
   const canGet = (item) => available(item);
   const partner = base.generated.partner;
@@ -158,14 +185,14 @@ export function situationPrograms(s, actor, base, api) {
       );
   }
   const others = Object.keys(s.actors).filter(
-    (id) => id !== actor && id !== "badger",
+    (id) => id !== actor && !isPackActor(id),
   );
   // Vale chooses handovers through card plays. Residents can arrange care
   // between themselves while a player decides whether to take an offer.
   const caretakers = others.filter((id) => actor === "vale" || id !== "vale");
   const deliveries = caretakers.flatMap((avatar) =>
     needed(avatar)
-      .filter((item) => own(item))
+      .filter((item) => own(item) && mayGive(item))
       .map((item) => ({ avatar, item })),
   );
   // A recent gift supplies a reason to return a useful item to that person.
@@ -203,6 +230,7 @@ export function situationPrograms(s, actor, base, api) {
   if (
     reachable.includes("station") &&
     canGet("lamp") &&
+    (!own("lamp") || mayGive("lamp")) &&
     (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 && canGet("oil")))
   ) {
     choices.push(

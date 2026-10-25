@@ -1,11 +1,14 @@
 import { hasQuestPrograms, interest } from "./motives.mjs";
-import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
+import { questActive, lifeOf, personalQuestRank, hopeOf } from "./life.mjs";
 import {
   condition,
   conditionMet,
+  questItemAvailable,
   requiredItems,
   situationPrograms,
 } from "./situations.mjs";
+import { isPackActor, packPeople, packOf } from "./pack-registry.mjs";
+import { packDiscovered } from "./pack-rules.mjs";
 export { condition } from "./situations.mjs";
 
 // Hand parts combine at one moment. Sequences join reusable steps;
@@ -148,17 +151,23 @@ export const openingPrograms = {
     questPrograms.keeper[1],
   ],
 };
+// A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
   Object.keys(s.opening?.met || s.actors).filter(
-    (id) => id !== "badger" || s.steamClock?.discovered,
+    (id) => !isPackActor(id) || packDiscovered(s, packOf(id).id),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
-  badger: { items: [], location: "clearing", avatars: [] },
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
   keeper: { items: [], location: "attic", avatars: [] },
+  ...Object.fromEntries(
+    Object.entries(packPeople).map(([id, a]) => [
+      id,
+      { items: [], location: a.place, avatars: [] },
+    ]),
+  ),
 };
 export const newProgress = () => ({ program: 0, step: 0, marks: [] });
 export const savedProgramFor = (s, actor) =>
@@ -168,7 +177,7 @@ export const savedProgramFor = (s, actor) =>
 export const programFor = (s, actor) =>
   questActive(s, actor) ? savedProgramFor(s, actor) : null;
 export const targetsFor = (s, actor) =>
-  hasQuestPrograms(s) && actor !== "badger"
+  hasQuestPrograms(s) && !isPackActor(actor)
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
 const ownerOf = (s, item) => {
@@ -185,7 +194,11 @@ const ownerOf = (s, item) => {
 export const desireFor = (s, actor) => {
   const here = s.actors[actor].place;
   const score = (h) =>
-    requiredItems(s, actor, h).filter((id) => ownerOf(s, id) !== actor).length *
+    requiredItems(s, actor, h).filter((id) =>
+      h.items.includes(id)
+        ? !questItemAvailable(s, actor, id)
+        : ownerOf(s, id) !== actor,
+    ).length *
       20 +
     (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
     (h.conditions || []).filter(
@@ -218,7 +231,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = knownActors(s).filter((id) => id !== "badger"),
+  const actors = knownActors(s).filter((id) => !isPackActor(id)),
     ids = Object.keys(s.items);
   const here = s.actors[actor].place;
   const reachable = [here];
@@ -364,7 +377,9 @@ export function generateProgram(
     either,
     reachable,
     available: (id) =>
-      available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
+      (s.life && questItemAvailable(s, actor, id)) ||
+      (available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id))),
+    mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
     needed: (id) => requiredItems(s, id, desireFor(s, id)),
     name: (id) =>
       things[id]?.name ||
@@ -405,26 +420,8 @@ export function generateProgram(
     (recent.includes(p.generated.item) ? 2 : 0);
   const chosen = choices.sort((a, b) => rank(a) - rank(b))[0] || base;
   if (lifeOf(s, actor)) {
-    const milestone =
-      hopes[actor].milestones[lifeOf(s, actor).milestones.length];
-    if (
-      milestone?.effects &&
-      milestone.kinds.includes(chosen.generated.situation)
-    ) {
-      chosen.steps = chosen.steps.map((step) => {
-        const outcomes = step.any?.filter((h) =>
-          milestone.effects.includes(h.consequence?.kind),
-        );
-        if (outcomes?.length && outcomes.length < step.any.length) {
-          chosen.name = milestone.title;
-          chosen.purpose =
-            "Wrap the bell at Black pond with company to make the shore a quiet refuge.";
-        }
-        return outcomes?.length ? { any: outcomes } : step;
-      });
-    }
     chosen.purpose =
-      `${hopes[actor].title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
+      `${hopeOf(s, actor).title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
         0,
         240,
       );

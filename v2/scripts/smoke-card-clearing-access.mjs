@@ -116,7 +116,7 @@ try {
     await wait();
     await wait();
     assert.equal(await card("clearing").count(), 0);
-    assert.equal((await state()).steamClock.discovered, true);
+    assert.equal((await state()).crossings["pond-clearing"].discovered, true);
     await use("bell");
     assert.equal(await card("clearing").count(), 0);
     await use("bell");
@@ -145,13 +145,21 @@ try {
     assert.equal((await state()).items.bell.ringing, 0);
     await page.reload();
     await ready();
+    // With every bell silent the way back is hidden; the clock's own bell
+    // on the clearing card reopens it.
+    assert.equal(await card("pond").count(), 0);
+    await page
+      .getByRole("button", { name: "Ring the Steam Clock · Forest Clearing" })
+      .click();
+    await ready();
+    assert.equal(await card("pond").count(), 1);
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
     assert.equal(await card("clearing").count(), 0);
     assert.ok(requests.length > 0);
     assert.deepEqual(errors, []);
     console.log(
-      `Clearing expiry, refresh, reload, stale selection and safe return passed at ${width}px.`,
+      `Clearing expiry, refresh, reload, stale selection, clock bell and safe return passed at ${width}px.`,
     );
     await page.close();
   }

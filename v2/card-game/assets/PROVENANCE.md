@@ -2,9 +2,10 @@
 
 ## Steam Clock opening (2026-10-19)
 
-`steam-clock-background.png` (1536 × 1024, RGB), `badger-sleeping.png` and
-`badger-grumpy.png` (both 1254 × 1254, RGBA) were made with the built-in image
-tool for this opening. These files preserve the generated PNGs and alpha.
+`badger-forest/steam-clock-background.png` (1536 × 1024, RGB),
+`badger-forest/badger-sleeping.png` and `badger-forest/badger-grumpy.png` (both
+1254 × 1254, RGBA) were made with the built-in image tool for this opening.
+They live in the `badger-forest` world pack's asset folder. These files preserve the generated PNGs and alpha.
 
 The references are the original CosyWorld images
 `v2/content/lonely-forest/assets/characters/slices/18-forest-clock-shrine.png`

@@ -5,16 +5,13 @@ import {
   keepReason,
   stayingWith,
   lifeFacts,
+  nameIn,
 } from "./life.mjs";
+import { packTastes, packNames, packPeople } from "./pack-registry.mjs";
+import { hasTemperament, variantOf } from "./pack-rules.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
 export const tastes = {
-  badger: {
-    likes: "Warm moss and an uninterrupted nap",
-    sore: "Being woken and unnecessary noise",
-    home: "clearing",
-    values: { lamp: 3, oil: 1, bell: 1, cloth: 7 },
-  },
   vale: {
     likes: "Interesting routes and a decent bargain",
     sore: "Changed terms",
@@ -33,11 +30,12 @@ export const tastes = {
     home: "station",
     values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
   },
+  ...packTastes,
 };
 const actors = Object.keys(tastes);
 const items = ["lamp", "oil", "bell", "cloth"];
 export const names = {
-  badger: "Grumpy Badger",
+  ...packNames,
   vale: "Vale",
   moth: "Pip",
   keeper: "The Keeper",
@@ -59,7 +57,7 @@ export function enableMotives(
       grievances: Object.fromEntries(actors.map((id) => [id, []])),
     };
   if (questPrograms || personalQuests) s.motives.questPrograms = true;
-  if (personalQuests) enablePersonalQuests(s);
+  if (personalQuests) enablePersonalQuests(s, (id) => tastes[id]);
   return s;
 }
 export function owner(s, item) {
@@ -125,17 +123,14 @@ export function giftDecision(s, giver, item, recipient) {
   };
 }
 export function interest(s, actor) {
-  if (actor === "badger")
+  // A resident with a temperament wants what its current mood wants, at home.
+  if (hasTemperament(actor))
     return {
       items: [],
-      location: "clearing",
+      location: tastes[actor].home,
       avatars: [],
-      text: !s.actors.badger.awake
-        ? "An uninterrupted nap"
-        : s.actors.badger.irritation > 1
-          ? "Some quiet after all that noise"
-          : "The warm patch of moss",
-      reason: "Badger considers this patch of moss his own.",
+      text: variantOf(s, actor).want,
+      reason: packPeople[actor].tastes.reason,
     };
   const held = items.filter((id) => owner(s, id) === actor);
   let item = items
@@ -168,6 +163,14 @@ export function interest(s, actor) {
   }
   if (actor === "keeper" && held.includes("bell"))
     item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
+  if (lifeOf(s, actor)?.phase === "returning")
+    return {
+      items: [],
+      location: lifeOf(s, actor).restAt,
+      avatars: [],
+      text: `Rest at ${nameIn(s, lifeOf(s, actor).restAt)}`,
+      reason: "Rest in a sanctuary after the last quest",
+    };
   const company = stayingWith(s, actor);
   if (company)
     return {
@@ -182,7 +185,7 @@ export function interest(s, actor) {
       items: [],
       location: s.actors[actor].place,
       avatars: [],
-      text: "Enjoying what we achieved",
+      text: "Content after the last quest",
       reason: "Take time to enjoy the last quest",
     };
   if (item && actors.includes(owner(s, item)) && owner(s, item) !== actor) {
@@ -259,12 +262,15 @@ export function recordReaction(s, a, witnesses, accepted) {
     } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
     s.motives.grievances[id] = list.slice(-6);
   };
+  // Residents who mind noise resent a bell rung beside them.
   if (a.kind === "ring")
-    add(
-      "badger",
-      `${names[a.actor]} rang a bell beside his warm patch of moss.`,
-      "noise",
-    );
+    for (const [id, resident] of Object.entries(packPeople))
+      if (resident.tastes.noise)
+        add(
+          id,
+          resident.tastes.noise.replace("{actor}", names[a.actor]),
+          "noise",
+        );
   if (a.kind === "ring")
     add(
       "keeper",
@@ -422,6 +428,7 @@ export function socialPlan(s, actor, actions, api) {
     if (
       lifeOf(s, actor) &&
       a.kind === "move" &&
+      lifeOf(s, actor).phase !== "returning" &&
       (stayingWith(s, actor) || lifeOf(s, actor).phase === "content")
     )
       n -= 50;

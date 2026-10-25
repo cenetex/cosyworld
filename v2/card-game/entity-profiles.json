@@ -122,33 +122,5 @@
       "Something deep turns over.",
       "My reflection holds one more lantern."
     ]
-  },
-  "badger": {
-    "kind": "avatar",
-    "name": "Grumpy Badger",
-    "idiolect": "Grumpy Badger. That's me. This warm moss is mine and I was asleep on it. Every visitor is a theft of my nap. Noise stopped, rest restored, that's all I want. Not an adventure. Not a new friend. If you ask me something straight, I'll tell you what I know, grudgingly, and then you can go.",
-    "lines": [
-      "Asleep. I was asleep.",
-      "That's my moss.",
-      "Hrmph.",
-      "Black pond? Through the roots. There. Now go.",
-      "Ring that again and see what happens.",
-      "Not interested.",
-      "Quiet is all I asked for. All.",
-      "Three winters I slept through. One visitor and I'm up.",
-      "The clock hisses. I hiss back. We get along.",
-      "You've had your answer. The moss hasn't had its badger.",
-      "Warm patch, right there. Mine. Still mine."
-    ]
-  },
-  "clearing": {
-    "kind": "location",
-    "name": "Forest Clearing",
-    "idiolect": "I'm a sunlit clearing in the woods. An old steam clock stands on my mossy stones. A reflection between my roots leads back to Black pond. Badger's favourite patch of moss is here.",
-    "lines": [
-      "The steam clock hisses once.",
-      "Sun on the moss, warm in one patch.",
-      "Roots, and a reflection between them."
-    ]
   }
 }
