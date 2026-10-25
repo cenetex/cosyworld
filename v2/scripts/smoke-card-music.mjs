@@ -46,10 +46,8 @@ try {
   // Cards met for the first time are unveiled; take each into the hand.
   async function takeUnveiled() {
     while (await page.locator("#unveil-dialog[open]").count()) {
-      await page.click("#unveil-take");
-      await page.waitForFunction(
-        () => !document.querySelector(".unveil-ghost"),
-      );
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(60);
     }
   }
   async function playCard(card) {

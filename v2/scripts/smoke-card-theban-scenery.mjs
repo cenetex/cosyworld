@@ -124,9 +124,7 @@ try {
         ),
       );
       assert.equal(
-        await page
-          .locator(".inspiration-meter,#hand-tip,#quest-guide,#unveil-dialog")
-          .count(),
+        await page.locator(".inspiration-meter,#hand-tip,#quest-guide").count(),
         0,
       );
       await page.screenshot({

@@ -3,14 +3,17 @@
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
-its selection. Selecting a card or pair reveals its immediate action; tapping
-the action button below plays it. Additional authored decisions and social
-actions sit under the selected card's more-actions button. Selection, cancellation,
+its selection. Selecting a card or pair shows named actions in the row below.
+Tapping an action button plays it. Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 
 No card face or hover text exposes quest checklists, levels, hope fractions,
-Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. New cards join
-the hand without an interrupting tutorial or discovery modal. Observable changes
+Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly
+met card appears briefly over the scene, then flies into the hand. Held items
+fly toward their owner's stack. A glow marks the new card until selected.
+A tap or Escape advances the reveal; reduced motion uses a brief still reveal.
+Travel and arrivals finish first, and dialogue follows the discoveries.
+Saved discovery records keep each reveal to the first encounter. Observable changes
 belong in the scene and art; hidden conditions never become a progress indicator.
 Accessible descriptions report the same observable facts, not extra puzzle clues.
 
@@ -34,8 +37,8 @@ with Vale's current belongings, then take the courtyard road to **Before the
 Burial**. The Black Pond card at the harbor returns to the same shore save.
 The lamp reflection and the bell's Steam Clock crossing keep their rules.
 
-Selected cards with authored decisions have a **···** button. It opens a readable
-list of currently legal actions. Choosing a history is a committed turn:
+Selected cards with authored decisions show their legal actions in the row
+below the hand. Choosing a history is a committed turn:
 Helen's Egyptian and Trojan accounts open different witnesses and evidence;
 the three Atreid accounts open different households. Later actions depend on
 that choice. Leaving, reloading, or switching tabs preserves the account.
@@ -176,7 +179,8 @@ New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mi
 Newly encountered cards join the hand without a modal or tutorial. Travel still
 fades between locations and loads the next scene before revealing it. Reduced
 motion skips the fade. The opening route stays the same: attic, pond, then station.
-The `v2:card:unveil:smoke` command now runs the image-first presentation regression.
+The `v2:card:unveil:smoke` command checks discovery reveals, flights, glow,
+travel order, held items, reload, cancellation, and reduced motion.
 
 The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
 
