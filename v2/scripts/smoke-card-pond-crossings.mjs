@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 // Actual card UI, deterministic speech fixture, and saved crossing conditions.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -95,18 +96,18 @@ try {
     };
     const use = async (id) => {
       await ready();
-      await card(id).scrollIntoViewIfNeeded();
-      await card(id).click();
-      await card(id).locator("..").locator(".card-primary").click();
+
+      await selectCard(page, id);
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const pair = async (one, two) => {
       await ready();
-      await card(one).scrollIntoViewIfNeeded();
-      await card(one).click();
-      await card(two).scrollIntoViewIfNeeded();
-      await card(two).click();
-      await card(two).locator("..").locator(".card-primary").click();
+
+      await selectCard(page, one);
+
+      await selectCard(page, two);
+      await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const signal = async ({ reloadHalfway = false } = {}) => {
@@ -138,7 +139,7 @@ try {
         save,
       });
       await page.reload();
-      await card("vale").waitFor();
+      await card("vale").waitFor({ state: "attached" });
       await ready();
     };
     const shot = async (name) => {
@@ -162,14 +163,14 @@ try {
     const ringClock = async () => {
       await ready();
       await page.locator('#hand [data-card="clearing"]').click();
-      await page.locator('[data-choices-for="clearing"]').click();
+
       await page
         .getByRole("button", { name: "Ring the Steam Clock", exact: true })
         .click();
       await ready();
     };
     await page.goto(`${origin}/?table=crossings-${width}`);
-    await card("vale").waitFor();
+    await card("vale").waitFor({ state: "attached" });
     await load(fixture("clearing"));
     assert.equal(await card("pond").count(), 0);
     await shot("clearing-silent");
@@ -212,7 +213,7 @@ try {
     await load(fixture("pond", true));
     await signal();
     // A genuine cross-tab save update invalidates the selected boarding offer.
-    await card("greek-harbor").click();
+    await selectCard(page, "greek-harbor");
     s = await state();
     s.items.lamp.lit = false;
     s.revision++;

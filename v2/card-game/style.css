@@ -669,28 +669,13 @@ h2 {
   }
 }
 
-.card-choices {
-  width: min(480px, calc(100vw - 32px));
-}
-.card-choice-list {
-  display: grid;
-  gap: 10px;
-  margin: 20px 0;
-}
-.card-choice-list button {
-  min-height: 48px;
-  padding: 12px 16px;
-  text-align: left;
-  line-height: 1.4;
-}
-
 /* Let the farewell finish before the cutout leaves its existing slot. */
 .portrait.departed {
   opacity: 0;
   translate: var(--exit-x) 0;
 }
 .hand[data-cooling="true"] .card,
-.hand[data-cooling="true"] .card-options button {
+#card-actions[aria-busy="true"] button {
   opacity: 0.7;
   cursor: wait;
 }
@@ -765,7 +750,7 @@ main {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 16px 5px 56px;
+  padding: 20px 16px 8px;
   scrollbar-width: thin;
   scrollbar-color: #ad97744d transparent;
   scroll-padding-inline: 5px;
@@ -914,37 +899,82 @@ body .card[data-ringing="true"] .art > img:first-child {
     rotate: 2deg;
   }
 }
-body .card-options {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  top: calc(100% + 8px);
-  bottom: auto;
-  display: flex;
-  justify-content: center;
-  gap: 6px;
+body .card-frame[hidden] {
+  display: none;
 }
-body .card-options button {
-  flex: 1 1 auto;
-  min-width: 0;
+.card-frame .card {
+  z-index: 1;
+}
+.held-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+  border: 1px solid #a48d6380;
+  border-radius: 13px;
+  background: #25252c;
+  transform: translate(7px, -4px) rotate(3deg);
+  pointer-events: none;
+}
+.held-preview:nth-child(2) {
+  transform: translate(12px, -6px) rotate(5deg);
+}
+.card-frame[data-expanded="true"] .held-preview {
+  display: none;
+}
+.card-frame[data-holder] .card {
+  border-color: #a48d6370;
+}
+.action-panel {
+  pointer-events: auto;
+  text-align: center;
+  min-height: 88px;
+}
+#selection-name,
+#action-hint {
+  margin: 3px 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+#selection-name {
+  color: #f2e3c4;
+}
+#action-hint {
+  color: #c4b99f;
+}
+#card-actions {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 3px 1px;
+  scrollbar-width: thin;
+}
+#card-actions:empty {
+  padding: 0;
+}
+#card-actions button {
+  flex: 0 0 auto;
+  max-width: min(260px, 85vw);
   min-height: 44px;
-  padding: 7px 10px;
+  padding: 8px 16px;
   background: #171920ee;
   border: 1px solid #baa37c;
   border-radius: 24px;
   color: #f2e3c4;
   font:
-    15px/1.2 Georgia,
+    15px/1.25 Georgia,
     serif;
   white-space: normal;
 }
-body .card-options .card-more {
-  flex: 0 0 44px;
-  font:
-    20px/1 Georgia,
-    serif;
+#card-actions button:first-child {
+  margin-left: auto;
 }
-body .card-options button:hover {
+#card-actions button:last-child {
+  margin-right: auto;
+}
+#card-actions button:hover {
   background: #3c3325;
 }
 body .card.drag-over {
@@ -985,12 +1015,6 @@ body .cast {
 body .cast[data-count] {
   bottom: var(--cast-bottom);
   height: auto;
-}
-body .card-choices {
-  width: min(460px, calc(100vw - 28px));
-}
-body .card-choice-list button {
-  min-height: 44px;
 }
 .controls-help {
   margin-bottom: 20px;

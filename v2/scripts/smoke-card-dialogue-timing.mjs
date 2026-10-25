@@ -1,3 +1,4 @@
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -86,11 +87,11 @@ try {
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
         const id = { ask: "cloth", talk: "keeper", light: "lamp" }[kind];
-        await card(id).click();
+        await selectCard(page, id);
         const requested =
           kind === "light" ? null : page.waitForRequest("**/card-game/text");
         const start = performance.now();
-        await card(id).locator("..").locator(".card-primary").click();
+        await page.locator("#card-actions .card-primary").click();
         if (kind === "light") {
           const world = await state();
           const here = world.actors.vale.place;

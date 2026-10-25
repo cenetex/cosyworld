@@ -9,6 +9,7 @@ The former Node service under `src/` has been removed. Gameplay truth lives here
 The primary play loop is the card table in `v2/card-game/`
 ([ADR 0015](../docs/decisions/0015-a-generated-world-seen-through-cards.md)). It
 runs in the browser with local saves; this runtime embeds and serves its files.
+The card selection and action map is in [card actions](card-game/ACTIONS.md).
 The rest of this guide describes the shared-world runtime.
 
 ADR 0006 accepts a wallet-optional core with an avatar-NFT-only bridge. The

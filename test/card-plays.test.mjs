@@ -33,8 +33,8 @@ describe("playing the world through cards", () => {
     expect(availableCards(s)).toEqual([
       "vale",
       "lamp",
-      "cloth",
       "moth",
+      "cloth",
       "station",
       "attic",
     ]);
