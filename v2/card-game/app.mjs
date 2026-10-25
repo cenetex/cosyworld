@@ -512,8 +512,7 @@ function commitAction(action, revision) {
 // so a change of place is always seen, whatever caused it. The new place is
 // drawn only once the veil is fully down, and the veil lifts only once the new
 // backdrop and portraits have loaded, so the swap is never seen.
-const TRAVEL_COVER = 400,
-  TRAVEL_HOLD = 700,
+const TRAVEL_HOLD = 700,
   TRAVEL_WAIT = 4000;
 let covering = false,
   trip = 0,
@@ -535,7 +534,7 @@ function cancelTravel() {
   entrances.clear();
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
-function travel(place, arrive, landed) {
+async function travel(place, arrive, landed) {
   const veil = $("travel");
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
@@ -549,26 +548,26 @@ function travel(place, arrive, landed) {
   });
   covering = true;
   veil.classList.add("travelling");
-  setTimeout(async () => {
-    if (mine !== trip) return;
-    covering = false;
-    arrive();
-    const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
-    await Promise.race([
-      Promise.all([
-        new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
-        ...images.map((img) => img.decode().catch(() => {})),
-      ]),
-      new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
-    ]);
-    if (mine !== trip) return;
-    veil.classList.remove("travelling");
-    setTimeout(() => {
-      if (mine !== trip) return;
-      revealTravel();
-      landed();
-    }, TRAVEL_COVER);
-  }, TRAVEL_COVER);
+  // The browser may start a CSS transition on a later frame. Wait for its
+  // completion so each scene change stays covered at every rendering speed.
+  await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  if (mine !== trip) return;
+  covering = false;
+  arrive();
+  const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
+  await Promise.race([
+    Promise.all([
+      new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
+      ...images.map((img) => img.decode().catch(() => {})),
+    ]),
+    new Promise((done) => setTimeout(done, TRAVEL_WAIT)),
+  ]);
+  if (mine !== trip) return;
+  veil.classList.remove("travelling");
+  await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  if (mine !== trip) return;
+  revealTravel();
+  landed();
 }
 
 const figures = new Map();

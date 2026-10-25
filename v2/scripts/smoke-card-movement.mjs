@@ -112,6 +112,13 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
+      // A longer CSS fade also checks that travel follows rendered completion.
+      if (kind === "follow" && width === 1440) {
+        report.fadeMs = 800;
+        await page.locator("#travel").evaluate((veil) => {
+          veil.style.transitionDuration = "800ms";
+        });
+      }
       const card = (id) => page.locator(`#hand [data-card="${id}"]`);
       await card("pond").waitFor();
       await page.waitForFunction(
