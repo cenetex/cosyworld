@@ -66,6 +66,8 @@ for (const pack of packs) {
     ...Object.keys(pack.fixtures || {}),
     ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
+    // One crossing per direction between two places, across every pack.
+    ...(pack.crossings || []).map((c) => `route:${c.from}->${c.to}`),
   ]) {
     if (seen.has(id))
       problems.push(`${pack.id}: ${id} is also defined by ${seen.get(id)}`);

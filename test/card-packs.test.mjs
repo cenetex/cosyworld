@@ -12,6 +12,7 @@ import {
   people,
   things,
   placeText,
+  plan,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
@@ -103,6 +104,10 @@ describe("world packs on the card table", () => {
         /backdrop must be assets\/badger-forest/,
       ],
       [(p) => (p.places.clearing.secret = true), /unknown field/],
+      [
+        (p) => (p.fixtures["steam-clock"].sound.text = "{actor rings it."),
+        /sound needs/,
+      ],
     ];
     for (const [mutate, reason] of broken) {
       const pack = forest();
@@ -199,6 +204,21 @@ describe("the forest crossing's signal", () => {
     expect(knownActors(s)).toContain("badger");
     expect(exits(s, "pond", "vale")).toContain("clearing");
     expect(exits(s, "pond", "keeper")).not.toContain("clearing");
+  });
+});
+
+describe("planning across crossings", () => {
+  it("routes the player, but not residents, through a player-only crossing", () => {
+    let s = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    s.actors.vale.place = "clearing";
+    s.crossings["pond-clearing"].discovered = true;
+    s.items.bell.holder = "vale";
+    s.items.bell.ringing = 2;
+    expect(plan(s, "vale").action.key).toBe("move:vale::pond");
+    expect(plan(s, "badger").action.kind).toBe("wait");
   });
 });
 

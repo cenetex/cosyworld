@@ -1493,7 +1493,8 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
-function routeBetween(s, from, target, actor = "vale") {
+// Routes use the exits available to the actor who is planning the trip.
+function routeBetween(s, from, target, actor = null) {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {

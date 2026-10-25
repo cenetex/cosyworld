@@ -44,9 +44,12 @@ const textOk = (v, max = 1200) =>
 const intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
+// Placeholders are {name} from a fixed list; any other brace is an error.
 const templateOk = (v, max, names) =>
   textOk(v, max) &&
-  [...v.matchAll(/\{([^}]*)\}/g)].every((m) => names.includes(m[1]));
+  !/[{}]/.test(
+    v.replace(/\{([a-z]+)\}/g, (m, name) => (names.includes(name) ? "" : m)),
+  );
 
 // Media lives in the pack's own folder under the card table's assets.
 export const mediaPathOk = (pack, path) =>
