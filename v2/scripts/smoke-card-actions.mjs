@@ -146,6 +146,13 @@ try {
     assert.equal(await card("cloth").isVisible(), true);
     assert.equal(await card("lamp").isVisible(), false);
     await load(meeting());
+    if (width === 1440) {
+      await card("vale").dragTo(card("moth"));
+      assert.equal(await card("lamp").isVisible(), true);
+      assert.equal(await card("cloth").isVisible(), true);
+      assert.equal((await state()).turn, 0);
+      await page.keyboard.press("Escape");
+    }
     await selectCard(page, "moth");
     await selectCard(page, "vale");
     assert.deepEqual(await labels(), ["Threaten Pip for Black cloth"]);

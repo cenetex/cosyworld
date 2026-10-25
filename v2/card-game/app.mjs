@@ -432,7 +432,6 @@ function choose(id) {
     : selected.length >= 2
       ? [id]
       : [...selected, id];
-  if (people[id]) expandedHolders.add(id);
   selectionRevision = world.revision;
   render();
   $("hand")
@@ -1117,6 +1116,9 @@ function render() {
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("place-title").textContent = nameOf(world.actors.vale.place);
+  for (const id of selected) {
+    if (people[id]) expandedHolders.add(id);
+  }
   const handKey = JSON.stringify([
     world.revision,
     selected,
