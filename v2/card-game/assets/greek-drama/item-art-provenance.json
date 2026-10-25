@@ -1,0 +1,89 @@
+{
+  "generated": "2026-10-25",
+  "tool": "built-in image_gen",
+  "style": "chthonic Greek",
+  "references": ["../cloth-card.png", "../lamp-card.png"],
+  "assets": [
+    {
+      "file": "water-jar.png",
+      "sourceName": "exec-13e2528f-6dea-46a8-8d0b-34303ef3587b.png",
+      "generationId": "exec-13e2528f-6dea-46a8-8d0b-34303ef3587b",
+      "size": [1254, 1254],
+      "sha256": "6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne ancient Greek red-brown clay water jar with a rounded belly, narrow mouth and a single visibly repaired handle secured with a small dark binding. Show subtle mineral marks, a dark mouth suggesting water inside, and simple faded painted bands. Three-quarter view."
+    },
+    {
+      "file": "bread.png",
+      "sourceName": "exec-d891041c-5992-4743-b3b4-e90059925c76.png",
+      "generationId": "exec-d891041c-5992-4743-b3b4-e90059925c76",
+      "size": [1254, 1254],
+      "sha256": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne rustic round loaf of courtyard bread. Golden brown crust with dark baked ridges, a shallow cross scoring, irregular handmade edges, and a soft dusting of flour. Slightly elevated three-quarter view showing the dome and side crust."
+    },
+    {
+      "file": "funeral-cloth.png",
+      "sourceName": "exec-06ca5ba1-3da0-4726-8dae-c631b69aefde.png",
+      "generationId": "exec-06ca5ba1-3da0-4726-8dae-c631b69aefde",
+      "size": [1254, 1254],
+      "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne folded length of clean ivory linen for an ancient Greek burial. Thick overlapping folds, soft frayed hems, handwoven texture and gentle cream-to-ochre shadows. A small draped corner shows that it is fabric. Peaceful, humble and tangible."
+    },
+    {
+      "file": "oil-flask.png",
+      "sourceName": "exec-8522945b-38cd-4a07-b3de-9dccb87fde96.png",
+      "generationId": "exec-8522945b-38cd-4a07-b3de-9dccb87fde96",
+      "size": [1254, 1254],
+      "sha256": "93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne small ancient Greek terracotta lekythos containing funeral oil: a slender body, narrow pouring neck, simple curved handle and a fitted stopper tied with linen cord. Dark ochre clay with a restrained worn black painted band. Three-quarter view."
+    },
+    {
+      "file": "shovel.png",
+      "sourceName": "exec-4c97b014-97ac-4bc6-8394-5652925aadf3.png",
+      "generationId": "exec-4c97b014-97ac-4bc6-8394-5652925aadf3",
+      "size": [1254, 1254],
+      "sha256": "090528f43290b6dd85cff02a538499aeb3d8af54f52bedb9bdb8c462addcfdc3",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne short ancient burial shovel, diagonally arranged from lower left to upper right. Dark weathered iron blade with damp earth along its lower edge, a stout worn wooden shaft, and a simple rounded wooden grip. Full tool visible, strong readable shape."
+    },
+    {
+      "file": "decree.png",
+      "sourceName": "exec-67ce262e-3dff-47b9-8b6e-40f4803135d9.png",
+      "generationId": "exec-67ce262e-3dff-47b9-8b6e-40f4803135d9",
+      "size": [1254, 1254],
+      "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne ancient Greek public decree on an aged pale parchment sheet, partly unrolled between two thin wooden rollers. It has several short rows of faint Greek-like engraved or inked marks and a small dark red wax seal. The marks are decorative texture, with no legible modern text. Three-quarter view, parchment edges curled and weathered."
+    },
+    {
+      "file": "household-token.png",
+      "sourceName": "exec-44803400-5e9f-4fb1-a8ba-1d3a4f1654ea.png",
+      "generationId": "exec-44803400-5e9f-4fb1-a8ba-1d3a4f1654ea",
+      "size": [1254, 1254],
+      "sha256": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne small ancient household seal made of aged bronze, a round thick token bearing a simple raised doorway and olive sprig emblem. A short dark cord loops through its top. Worn edges and green-brown patina, the emblem readable at card size. Three-quarter view."
+    },
+    {
+      "file": "provisions.png",
+      "sourceName": "exec-41cd7126-250c-43eb-875a-638969411e5c.png",
+      "generationId": "exec-41cd7126-250c-43eb-875a-638969411e5c",
+      "size": [1254, 1254],
+      "sha256": "318f5f4a2fe860efb4d5b8b747d334a79eecc321368cccd51113b579222149f4",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nA compact bundle of travel provisions for a short ancient Greek voyage: a rustic loaf, several dried figs and a small brown leather waterskin nestled together in an opened coarse tan linen wrapping tied loosely with cord. Treat the bundle as one inventory object with a clear outline. Every part belongs to the bundle."
+    },
+    {
+      "file": "testimony.png",
+      "sourceName": "exec-0826d3d1-1bde-4a81-8849-f17b20744eb6.png",
+      "generationId": "exec-0826d3d1-1bde-4a81-8849-f17b20744eb6",
+      "size": [1254, 1254],
+      "sha256": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "Use case: stylized-concept. Asset type: a single transparent object sprite for the Wine-Dark Sea card game. Style: chthonic Greek, fine painterly realism, aged natural materials, warm earth and bronze colors with soft amber highlights, subtle worn texture. This must fit beside the game's detailed painted character portraits and existing lamp and cloth art. Render the described object as the sole subject, completely visible and centered, filling most of a square 1024 by 1024 canvas, with clear readable silhouette and small transparent margins. Use a real transparent alpha background. Show the object's natural depth and texture, lit gently from upper left. Keep the background fully clear; all stands, display bases, floor planes, borders, captions and interface are excluded.\n\nThe two input images are style references for object rendering and transparency. The new subject is:\nOne ancient Greek witness tablet: a small open wooden diptych with dark brown wax inset into its two panels, light scratched rows of Greek-like marks, a slender bronze stylus resting diagonally across one panel and simple cord hinges. The marks are decorative historical texture. Weathered warm wood, clear rectangular shape in three-quarter view."
+    }
+  ]
+}

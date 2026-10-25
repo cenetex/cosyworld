@@ -1,7 +1,7 @@
 # The Wine-Dark Sea: card art
 
-This directory contains the world pack's original SVG illustrations and
-generated character portraits. The repository's existing
+This directory contains the world pack's original SVG illustrations,
+painted settings, item sprites and character portraits. The repository's existing
 [MIT license](../../../../LICENSE) applies. No image, illustration, character
 design, or page asset from the Greek Drama Reader is reproduced.
 
@@ -44,9 +44,8 @@ identity. The five connective residents each have a distinct portrait.
 ## Retained SVG illustrations
 
 The original twenty-one SVGs remain in the directory: five settings, seven
-legacy figures, and nine object illustrations. The PNG portraits replace
-the figure references in the authored character data. Scenery and object
-art uses the existing SVGs. Seven opening settings use painted WebP backdrops.
+legacy figures, and nine object illustrations. The authored character and
+item data use PNG artwork. Seven opening settings use painted WebP backdrops.
 
 The visual vocabulary uses terracotta, olive green, parchment, and dark blue,
 with simplified architecture and profile figures informed by ancient painted
@@ -62,6 +61,17 @@ scripts, network references, or raster dependencies.
 Setting illustrations are reused across related locations. Distinct IDs,
 names, profiles, custody, and choices remain separate in the authored pack
 data.
+
+## Greek item artwork — October 25, 2026
+
+Nine transparent PNGs serve all thirteen Greek items: water jar, bread,
+funeral cloth, oil flask, shovel, decree, household token, provisions and
+witness tablet. The five witness accounts share the tablet design.
+
+The built-in `image_gen` tool created each sprite using the shore's lamp
+and cloth as style references. Each original 1254 × 1254 PNG keeps its
+generated alpha channel. Prompts, source names, dimensions and SHA256
+checksums are in [item-art-provenance.json](item-art-provenance.json).
 
 ## Opening scenery — October 25, 2026
 

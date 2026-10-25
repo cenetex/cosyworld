@@ -908,14 +908,14 @@
       "text": "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
       "holder": "greek-well",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/water-jar.svg"
+      "art": "assets/greek-drama/water-jar.png"
     },
     "greek-bread": {
       "name": "Courtyard Bread",
       "text": "A round loaf set aside after the water jar was returned.",
       "holder": "greek-courtyard",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/bread.svg",
+      "art": "assets/greek-drama/bread.png",
       "requires": [
         {
           "kind": "flag",
@@ -929,49 +929,49 @@
       "text": "Clean linen folded for a burial.",
       "holder": "greek-sanctuary",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/funeral-cloth.svg"
+      "art": "assets/greek-drama/funeral-cloth.png"
     },
     "greek-oil-flask": {
       "name": "Funeral Oil",
       "text": "A stoppered flask of oil for the funeral rite.",
       "holder": "greek-courtyard",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/oil-flask.svg"
+      "art": "assets/greek-drama/oil-flask.png"
     },
     "greek-shovel": {
       "name": "Burial Shovel",
       "text": "A short iron shovel with soil caught beneath the blade.",
       "holder": "greek-gate",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/shovel.svg"
+      "art": "assets/greek-drama/shovel.png"
     },
     "greek-decree": {
       "name": "The Burial Decree",
       "text": "A public copy forbids burial of the brother left outside the city.",
       "holder": "greek-palace",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/decree.svg"
+      "art": "assets/greek-drama/decree.png"
     },
     "greek-household-token": {
       "name": "Household Token",
       "text": "A small marked seal identifies the bereaved household for a public petition.",
       "holder": "greek-sanctuary",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/household-token.svg"
+      "art": "assets/greek-drama/household-token.png"
     },
     "greek-provisions": {
       "name": "Travel Provisions",
       "text": "Bread, dried figs, and a small water skin are packed for a short voyage.",
       "holder": "greek-harbor",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/provisions.svg"
+      "art": "assets/greek-drama/provisions.png"
     },
     "greek-egypt-testimony": {
       "name": "The Egyptian Witness Tablet",
       "text": "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
       "holder": "greek-egypt-tomb",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.svg",
+      "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -985,7 +985,7 @@
       "text": "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
       "holder": "greek-troy-beach",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.svg",
+      "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -999,7 +999,7 @@
       "text": "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
       "holder": "greek-argos-tomb",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.svg",
+      "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1013,7 +1013,7 @@
       "text": "The testimony begins with Electra waiting outside the Mycenaean palace.",
       "holder": "greek-mycenae-palace",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.svg",
+      "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1027,7 +1027,7 @@
       "text": "The testimony begins in a poor household in the Argive countryside.",
       "holder": "greek-argive-farm",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.svg",
+      "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
           "kind": "choice",

@@ -292,6 +292,42 @@ fn serve(path: &str) -> Response {
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/water-jar.svg"),
         ),
+        "assets/greek-drama/water-jar.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/water-jar.png"),
+        ),
+        "assets/greek-drama/bread.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/bread.png"),
+        ),
+        "assets/greek-drama/funeral-cloth.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/funeral-cloth.png"),
+        ),
+        "assets/greek-drama/oil-flask.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/oil-flask.png"),
+        ),
+        "assets/greek-drama/shovel.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/shovel.png"),
+        ),
+        "assets/greek-drama/decree.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/decree.png"),
+        ),
+        "assets/greek-drama/household-token.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/household-token.png"),
+        ),
+        "assets/greek-drama/provisions.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/provisions.png"),
+        ),
+        "assets/greek-drama/testimony.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/greek-drama/testimony.png"),
+        ),
         "assets/greek-drama/harbor-day.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp"),
