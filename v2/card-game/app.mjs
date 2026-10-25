@@ -6,6 +6,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
+import { packDefinition, packEntity, packMedia } from "./pack-registry.mjs";
 import {
   lifeOf,
   questActive,
@@ -61,6 +62,7 @@ import {
   cardPlay,
   playLabel,
   avatarPlays,
+  cardChoices,
 } from "./cards.mjs";
 import { LESSONS, nextLesson } from "./lessons.mjs";
 import {
@@ -112,7 +114,10 @@ const paths = {
     '<circle cx="32" cy="21" r="14"/><path d="M32 10v12l8 4M22 35l-9 22h38l-9-22M27 40v14M37 40v14"/>',
 };
 function art(id) {
-  return `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id]}</svg>`;
+  const media = packMedia(id);
+  return media
+    ? `<img src="${media}" alt="">`
+    : `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id] || '<path d="M20 12h24v40H20zM25 22h14M25 30h14M25 38h10"/>'}</svg>`;
 }
 function node(tag, text, className) {
   const el = document.createElement(tag);
@@ -472,6 +477,7 @@ const narrator = createNarrator({
 });
 $("story-retry").onclick = () => narrator.retry();
 function status(id) {
+  if (packEntity(id)) return "Carry · give · trade";
   if (id === "lamp")
     return `${covered(world, id) ? "Covered · " : ""}${world.items.lamp.lit ? "Burning" : "Unlit"} · ${world.items.lamp.fuel}/12 fuel`;
   if (id === "oil")
@@ -542,7 +548,9 @@ function commitAction(action, revision) {
   const visible = [
     ...new Set([
       ...Object.keys(people).filter(
-        (id) => world.actors[id].place === world.actors.vale.place,
+        (id) =>
+          knownActors(world).includes(id) &&
+          world.actors[id].place === world.actors.vale.place,
       ),
       ...sceneChanges(world)
         .filter((change) => change.leaving)
@@ -750,6 +758,31 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
+function showCardChoices(id, choices, revision) {
+  const dialog = node("dialog", undefined, "card-choices");
+  const heading = node("h2", nameOf(id));
+  heading.id = "card-choice-heading";
+  dialog.setAttribute("aria-labelledby", heading.id);
+  const options = node("div", undefined, "card-choice-list");
+  for (const action of choices) {
+    const button = node("button", playLabel(action));
+    button.type = "button";
+    button.dataset.choice = action.choiceId;
+    button.dataset.pack = action.packId;
+    button.onclick = () => {
+      dialog.close();
+      commitAction(action, revision);
+    };
+    options.append(button);
+  }
+  const close = node("button", "Keep looking");
+  close.type = "button";
+  close.onclick = () => dialog.close();
+  dialog.append(heading, options, close);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  document.body.append(dialog);
+  dialog.showModal();
+}
 function card(id) {
   const type = cardType(id),
     def = places[id] || people[id] || things[id];
@@ -780,7 +813,10 @@ function card(id) {
   el.append(
     node(
       "span",
-      type === "avatar" && id !== "badger" && hasQuestPrograms(world)
+      type === "avatar" &&
+        id !== "badger" &&
+        !packEntity(id) &&
+        hasQuestPrograms(world)
         ? `${type} · Level ${levelOf(world, id)}`
         : type,
       "kind",
@@ -791,7 +827,7 @@ function card(id) {
     const img = node("img");
     img.src =
       type === "item"
-        ? `./assets/${id}-card.png`
+        ? packMedia(id, "art") || `./assets/${id}-card.png`
         : type === "avatar"
           ? portrait(id, null, world)
           : backdrop(id);
@@ -818,7 +854,9 @@ function card(id) {
       progress = world.actors[id].progress;
     caption = program
       ? `${program.name} · ${progress.step + 1}/${program.steps.length}`
-      : "Next journey";
+      : packEntity(id)
+        ? "Local resident"
+        : "Next journey";
     detail = handText(desireFor(world, id));
     if (!hasQuestPrograms(world) || id === "badger") {
       caption = interest(world, id).text;
@@ -1063,13 +1101,18 @@ function card(id) {
   frame.dataset.raised = String(raised);
   frame.append(el);
   const plays = type === "avatar" ? avatarPlays(world, id) : [];
-  if (plays.length && !(raised && selected.length === 2)) {
+  const choices = cardChoices(world, id);
+  if ((plays.length || choices.length) && !(raised && selected.length === 2)) {
     el.classList.add("has-options");
     const options = node("div", undefined, "card-options");
     const revision = world.revision;
     for (const action of plays) {
       const button = node("button", playLabel(action));
       button.type = "button";
+      if (action.choiceId) {
+        button.dataset.choice = action.choiceId;
+        button.dataset.pack = action.packId;
+      }
       button.disabled = saveBlocked || cardsCooling;
       button.setAttribute("aria-label", `${playLabel(action)} · ${def.name}`);
       button.title =
@@ -1083,16 +1126,26 @@ function card(id) {
       button.addEventListener("click", () => commitAction(action, revision));
       options.append(button);
     }
+    if (choices.length) {
+      const button = node("button", "Choices");
+      button.type = "button";
+      button.dataset.choicesFor = id;
+      button.setAttribute("aria-label", `Choices · ${def.name}`);
+      button.disabled = saveBlocked || cardsCooling;
+      button.onclick = () => showCardChoices(id, choices, revision);
+      options.append(button);
+    }
     frame.append(options);
   }
   return frame;
 }
 function renderClearing(locationId) {
   const forest = locationId === "clearing";
-  document.body.dataset.world = forest ? "forest" : "shore";
+  const pack = packDefinition(packEntity(locationId)?.packId);
+  document.body.dataset.world = pack?.id || (forest ? "forest" : "shore");
   document.querySelector(".brand span").textContent = forest
     ? "The Steam Clock"
-    : "The reflected shore";
+    : pack?.name || "The reflected shore";
   let picture = $("clearing-picture");
   if (forest && !picture) {
     picture = node("div", undefined, "clearing-picture");

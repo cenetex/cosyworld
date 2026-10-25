@@ -2,6 +2,12 @@ import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
 import {
+  entityActive,
+  packEntity,
+  packFacts,
+  packSceneFacts,
+} from "./pack-registry.mjs";
+import {
   addLog,
   carried,
   itemPlace,
@@ -47,6 +53,36 @@ export function turnOutcome(world) {
   const played = events.findLast(
     (entry) => entry.kind === "action" && entry.actorId === "vale",
   );
+  const here = world.actors.vale.place;
+  const known = knownActors(world);
+  // The original table has a small, fixed cast. Packs can contain a whole
+  // repertoire: send only local witnesses, the chosen partner and travellers.
+  const actorIds = [
+    ...new Set([
+      "vale",
+      played?.targetId,
+      ...known.filter((id) => world.actors[id].place === here),
+      ...sceneChanges(world).map((change) => change.actorId),
+      ...(!packEntity(here) ? known.filter((id) => !packEntity(id)) : []),
+    ]),
+  ]
+    .filter((id) => known.includes(id) && entityActive(world, id))
+    .slice(0, 8);
+  const relevantItems = [
+    ...new Set([
+      played?.itemId,
+      played?.receiveId,
+      ...Object.keys(world.items).filter((id) =>
+        actorIds.includes(rootHolder(world, id)),
+      ),
+      ...Object.keys(world.items).filter((id) => itemPlace(world, id) === here),
+      ...(!world.opening && !packEntity(here)
+        ? Object.keys(world.items).filter((id) => !packEntity(id))
+        : []),
+    ]),
+  ]
+    .filter((id) => world.items[id] && entityActive(world, id))
+    .slice(0, 24);
   return {
     card: {
       kind: played?.verb || (world.turn ? "wait" : "arrive"),
@@ -56,49 +92,41 @@ export function turnOutcome(world) {
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
     },
-    avatars: Object.entries(world.actors)
-      .filter(([id]) => knownActors(world).includes(id))
-      .map(([id, actor]) => {
-        const movement = events.findLast(
-          (entry) =>
-            entry.fromLocationId &&
-            entry.fromLocationId !== entry.locationId &&
-            entry.locationId === actor.place &&
-            (entry.actorId === id ||
-              (entry.verb === "accompany" &&
-                entry.accepted &&
-                entry.targetId === id)),
-        );
-        const shared = movement?.verb === "accompany" && movement.accepted;
-        return {
-          id,
-          location: actor.place,
-          holding: carried(world, id),
-          travel: movement
-            ? {
-                from: movement.fromLocationId,
-                to: movement.locationId,
-                companions: shared
-                  ? [movement.actorId, movement.targetId].filter(
-                      (other) => other !== id,
-                    )
-                  : [],
-              }
-            : null,
-        };
-      }),
-    items: Object.entries(world.items)
-      .filter(
-        ([id]) =>
-          !world.opening ||
-          knownActors(world).includes(rootHolder(world, id)) ||
-          itemPlace(world, id) === world.actors.vale.place,
-      )
-      .map(([id, item]) => ({
+    avatars: actorIds.map((id) => {
+      const actor = world.actors[id];
+      const movement = events.findLast(
+        (entry) =>
+          entry.fromLocationId &&
+          entry.fromLocationId !== entry.locationId &&
+          entry.locationId === actor.place &&
+          (entry.actorId === id ||
+            (entry.verb === "accompany" &&
+              entry.accepted &&
+              entry.targetId === id)),
+      );
+      const shared = movement?.verb === "accompany" && movement.accepted;
+      return {
         id,
-        holder: item.holder,
-        location: itemPlace(world, id),
-      })),
+        location: actor.place,
+        holding: carried(world, id),
+        travel: movement
+          ? {
+              from: movement.fromLocationId,
+              to: movement.locationId,
+              companions: shared
+                ? [movement.actorId, movement.targetId].filter(
+                    (other) => other !== id,
+                  )
+                : [],
+            }
+          : null,
+      };
+    }),
+    items: relevantItems.map((id) => ({
+      id,
+      holder: world.items[id].holder,
+      location: itemPlace(world, id),
+    })),
   };
 }
 
@@ -112,10 +140,12 @@ export function narrativeContext(world, action = null) {
   const known = knownActors(world);
   const present = Object.keys(world.actors).filter(
     (id) =>
-      knownActors(world).includes(id) && world.actors[id].place === location,
+      known.includes(id) &&
+      entityActive(world, id) &&
+      world.actors[id].place === location,
   );
   const localItems = Object.keys(world.items).filter(
-    (id) => itemPlace(world, id) === location,
+    (id) => entityActive(world, id) && itemPlace(world, id) === location,
   );
   const changes = sceneChanges(world);
   const departing = changes
@@ -126,7 +156,6 @@ export function narrativeContext(world, action = null) {
     (id) => id !== "vale" && awake(id) && world.opening?.met[id] === world.turn,
   );
   const audience = [...new Set([...present, ...departing])];
-  const ids = [location, ...localItems, ...audience];
   const focus = localItems.includes(action?.item) ? action.item : null;
   const played = world.log.findLast(
     (entry) =>
@@ -161,7 +190,25 @@ export function narrativeContext(world, action = null) {
   const speakers = [
     ...[...chosen].filter((id) => !movers.includes(id)),
     ...movers.filter((id) => chosen.has(id)),
-  ];
+  ].slice(0, 3);
+  // Model requests stay bounded as the pack catalog grows. The actual chosen
+  // card and every speaker take priority over incidental objects in a room.
+  const ids = [
+    ...new Set([
+      location,
+      ...speakers,
+      focus,
+      target,
+      ...audience,
+      ...localItems,
+    ]),
+  ]
+    .filter(
+      (id) =>
+        id &&
+        (id === location || audience.includes(id) || localItems.includes(id)),
+    )
+    .slice(0, 8);
   const events = world.log
     .filter(
       (entry) =>
@@ -217,7 +264,15 @@ export function narrativeContext(world, action = null) {
     conversation,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
-      const facts = [];
+      // The place and player retain the route's established history. Another
+      // resident knows only their own recorded interactions and memories.
+      const continuity =
+        kind === "location" || id === "vale"
+          ? packSceneFacts(world, location)
+          : [];
+      const facts = [...packFacts(world, id), ...continuity]
+        .filter((fact, index, all) => all.indexOf(fact) === index)
+        .slice(-4);
       let desire = null;
       if (kind === "avatar") {
         if (id === "badger")
@@ -252,6 +307,8 @@ export function narrativeContext(world, action = null) {
         const company = Object.keys(world.actors).filter(
           (other) =>
             other !== id &&
+            known.includes(other) &&
+            entityActive(world, other) &&
             world.actors[other].place === world.actors[id].place,
         );
         facts.push(

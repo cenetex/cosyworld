@@ -34,8 +34,8 @@ function completedSave() {
   s.schema = 2;
   s.turn = 8;
   s.revision = 8;
-  for (const [id, a] of Object.entries(s.actors).filter(
-    ([id]) => id !== "badger",
+  for (const [id, a] of Object.entries(s.actors).filter(([id]) =>
+    ["vale", "moth", "keeper"].includes(id),
   )) {
     a.progress = {
       program: 2,

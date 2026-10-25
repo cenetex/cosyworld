@@ -256,7 +256,8 @@ describe("the first light in the attic", () => {
 
   it("lets a defeated avatar retreat from the attic through the mirror", () => {
     let s = meetEveryone();
-    for (const a of Object.values(s.actors)) a.place = "attic";
+    for (const id of ["vale", "moth", "keeper", "badger"])
+      s.actors[id].place = "attic";
     s = act(s, "threaten", { target: "moth" });
     s.standoffs[0].resolve.moth = 1;
     s = act(s, "attack", { target: "moth" });

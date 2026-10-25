@@ -1,6 +1,7 @@
-import profiles from "./entity-profiles.json" with { type: "json" };
+import shoreProfiles from "./entity-profiles.json" with { type: "json" };
+import { packProfiles } from "./pack-registry.mjs";
 
-export { profiles };
+export const profiles = { ...shoreProfiles, ...packProfiles };
 export const MEMORY_LIMIT = 16;
 export const newMemories = () =>
   Object.fromEntries(
@@ -39,7 +40,7 @@ export function rememberEvent(world, entry) {
     if (
       entry.consequence ||
       (entry.kind === "action" &&
-        ["give", "trade", "threaten", "attack", "accompany"].includes(
+        ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
           entry.verb,
         ))
     ) {

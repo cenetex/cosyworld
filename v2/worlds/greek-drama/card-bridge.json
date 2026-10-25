@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-greek-drama",
+  "description": "The reflected shore joins the Greek harbor while retaining the same traveler and saved world.",
+  "routes": [
+    { "from": "pond", "to": "greek-harbor" },
+    { "from": "greek-harbor", "to": "pond" }
+  ]
+}

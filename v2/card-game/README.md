@@ -1,5 +1,48 @@
 # Card world text and memory
 
+## World packs and the Wine-Dark Sea
+
+Black Pond now offers a card for **The Wine-Dark Harbor**. Play it to cross
+with Vale's current belongings, then take the courtyard road to **Before the
+Burial**. The Black Pond card at the harbor returns to the same shore save.
+The lamp reflection and the bell's Steam Clock crossing keep their rules.
+
+Cards with authored decisions have a **Choices** button. It opens a readable
+list of currently legal actions. Choosing a history is a committed turn:
+Helen's Egyptian and Trojan accounts open different witnesses and evidence;
+the three Atreid accounts open different households. Later actions depend on
+that choice. Leaving, reloading, or switching tabs preserves the account.
+
+The [pack source and coverage guide](../content/greek-drama/README.md)
+documents all 44 works, the executable episodes, and the situated inquiry
+hooks. The ordinary card catalog, custody, memory, save, and action system
+carry the pack. `pack-registry.mjs` evaluates closed conditions and effects;
+story text cannot choose a branch or perform an action.
+
+Earlier schema 6 saves gain pack revision 1 through a validated migration
+that retains their original state. A save that claims a mounted pack must have its complete,
+valid state; it cannot silently recreate missing characters or erase choices.
+The existing save slot stays unchanged. Future revisions require migrations.
+
+Dialogue receives at most eight local entity cards and three speakers, with
+bounded outcome records and active history embodiments only. The server
+adds trusted profiles from the authored source. Existing character model
+pins remain required; new pack voices use the configured WorldContent model
+unless explicitly pinned in the deployment map. No new provider key or
+client-selected model is introduced.
+
+```sh
+npm run v2:card:pack:check
+npx vitest run test/card-greek-drama.test.mjs
+npm run v2:card:greek:smoke
+```
+
+The browser smoke exercises the real card interface at desktop and phone
+sizes, including choices, save reload, evidence custody, return travel, and
+cross-tab updates. Its deterministic speech fixture tests the UI; the
+narrative contract smoke separately sends real Greek request contexts
+through Rust validation without a paid model call.
+
 ## Personal quests and lasting hopes
 
 The browser enables `personalQuests` alongside motives. The first quest gives

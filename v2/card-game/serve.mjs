@@ -29,6 +29,53 @@ const assets = new Map([
       `/assets/music/${file}`,
       [`assets/music/${file}`, "audio/mpeg"],
     ]),
+  ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
+  ["/packs/greek-drama.mjs", ["packs/greek-drama.mjs", "text/javascript"]],
+  [
+    "/assets/greek/antigone.svg",
+    ["assets/greek/antigone.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/baker.svg", ["assets/greek/baker.svg", "image/svg+xml"]],
+  ["/assets/greek/bread.svg", ["assets/greek/bread.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/courtyard.svg",
+    ["assets/greek/courtyard.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/creon.svg", ["assets/greek/creon.svg", "image/svg+xml"]],
+  ["/assets/greek/decree.svg", ["assets/greek/decree.svg", "image/svg+xml"]],
+  ["/assets/greek/elder.svg", ["assets/greek/elder.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/funeral-cloth.svg",
+    ["assets/greek/funeral-cloth.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/grove.svg", ["assets/greek/grove.svg", "image/svg+xml"]],
+  ["/assets/greek/guard.svg", ["assets/greek/guard.svg", "image/svg+xml"]],
+  ["/assets/greek/guide.svg", ["assets/greek/guide.svg", "image/svg+xml"]],
+  ["/assets/greek/harbor.svg", ["assets/greek/harbor.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/household-token.svg",
+    ["assets/greek/household-token.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/ismene.svg", ["assets/greek/ismene.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/oil-flask.svg",
+    ["assets/greek/oil-flask.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/palace.svg", ["assets/greek/palace.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/provisions.svg",
+    ["assets/greek/provisions.svg", "image/svg+xml"],
+  ],
+  ["/assets/greek/sea.svg", ["assets/greek/sea.svg", "image/svg+xml"]],
+  ["/assets/greek/shovel.svg", ["assets/greek/shovel.svg", "image/svg+xml"]],
+  [
+    "/assets/greek/testimony.svg",
+    ["assets/greek/testimony.svg", "image/svg+xml"],
+  ],
+  [
+    "/assets/greek/water-jar.svg",
+    ["assets/greek/water-jar.svg", "image/svg+xml"],
+  ],
   ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
   ...["lamp", "oil", "bell", "cloth"].map((id) => [
     `/assets/${id}-card.png`,

@@ -1118,12 +1118,27 @@ dialog.unveil::backdrop {
   gap: 3px;
 }
 .card-options button {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  white-space: nowrap;
   background: #25232e;
 }
 .card-options button:hover {
   background: #463a3c;
+}
+.card-choices {
+  width: min(480px, calc(100vw - 32px));
+}
+.card-choice-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+}
+.card-choice-list button {
+  min-height: 48px;
+  padding: 12px 16px;
+  text-align: left;
+  line-height: 1.4;
 }
 
 /* Let the farewell finish before the cutout leaves its existing slot. */

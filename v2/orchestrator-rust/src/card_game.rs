@@ -148,6 +148,98 @@ fn serve(path: &str) -> Response {
             "image/png",
             include_bytes!("../../card-game/assets/badger-grumpy.png"),
         ),
+        "pack-registry.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-registry.mjs"),
+        ),
+        "packs/greek-drama.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/packs/greek-drama.mjs"),
+        ),
+        "assets/greek/antigone.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/antigone.svg"),
+        ),
+        "assets/greek/baker.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/baker.svg"),
+        ),
+        "assets/greek/bread.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/bread.svg"),
+        ),
+        "assets/greek/courtyard.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/courtyard.svg"),
+        ),
+        "assets/greek/creon.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/creon.svg"),
+        ),
+        "assets/greek/decree.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/decree.svg"),
+        ),
+        "assets/greek/elder.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/elder.svg"),
+        ),
+        "assets/greek/funeral-cloth.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/funeral-cloth.svg"),
+        ),
+        "assets/greek/grove.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/grove.svg"),
+        ),
+        "assets/greek/guard.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/guard.svg"),
+        ),
+        "assets/greek/guide.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/guide.svg"),
+        ),
+        "assets/greek/harbor.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/harbor.svg"),
+        ),
+        "assets/greek/household-token.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/household-token.svg"),
+        ),
+        "assets/greek/ismene.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/ismene.svg"),
+        ),
+        "assets/greek/oil-flask.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/oil-flask.svg"),
+        ),
+        "assets/greek/palace.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/palace.svg"),
+        ),
+        "assets/greek/provisions.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/provisions.svg"),
+        ),
+        "assets/greek/sea.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/sea.svg"),
+        ),
+        "assets/greek/shovel.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/shovel.svg"),
+        ),
+        "assets/greek/testimony.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/testimony.svg"),
+        ),
+        "assets/greek/water-jar.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek/water-jar.svg"),
+        ),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),
@@ -356,6 +448,29 @@ mod tests {
             "assets/steam-clock-background.png",
             "assets/badger-sleeping.png",
             "assets/badger-grumpy.png",
+            "pack-registry.mjs",
+            "packs/greek-drama.mjs",
+            "assets/greek/antigone.svg",
+            "assets/greek/baker.svg",
+            "assets/greek/bread.svg",
+            "assets/greek/courtyard.svg",
+            "assets/greek/creon.svg",
+            "assets/greek/decree.svg",
+            "assets/greek/elder.svg",
+            "assets/greek/funeral-cloth.svg",
+            "assets/greek/grove.svg",
+            "assets/greek/guard.svg",
+            "assets/greek/guide.svg",
+            "assets/greek/harbor.svg",
+            "assets/greek/household-token.svg",
+            "assets/greek/ismene.svg",
+            "assets/greek/oil-flask.svg",
+            "assets/greek/palace.svg",
+            "assets/greek/provisions.svg",
+            "assets/greek/sea.svg",
+            "assets/greek/shovel.svg",
+            "assets/greek/testimony.svg",
+            "assets/greek/water-jar.svg",
             "app.mjs",
             "world.mjs",
             "scene.mjs",
@@ -401,7 +516,10 @@ mod tests {
                 .to_owned();
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
             assert!(!body.is_empty());
-            if path.ends_with(".png") {
+            if path.ends_with(".svg") {
+                assert_eq!(content_type, "image/svg+xml");
+                assert!(std::str::from_utf8(&body).unwrap().starts_with("<svg"));
+            } else if path.ends_with(".png") {
                 assert_eq!(content_type, "image/png");
                 assert_eq!(&body[..8], b"\x89PNG\r\n\x1a\n");
             } else if path.ends_with(".jpg") {

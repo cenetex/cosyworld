@@ -6,9 +6,27 @@ import {
   stayingWith,
   lifeFacts,
 } from "./life.mjs";
+import {
+  packPeople,
+  packThings,
+  isPackActor,
+  entityActive,
+  conditionsMet,
+} from "./pack-registry.mjs";
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
 export const tastes = {
+  ...Object.fromEntries(
+    Object.entries(packPeople).map(([id, a]) => [
+      id,
+      {
+        likes: a.likes || a.text,
+        sore: a.sore || "Broken promises",
+        home: a.home || a.place,
+        values: a.values || {},
+      },
+    ]),
+  ),
   badger: {
     likes: "Warm moss and an uninterrupted nap",
     sore: "Being woken and unnecessary noise",
@@ -35,8 +53,14 @@ export const tastes = {
   },
 };
 const actors = Object.keys(tastes);
-const items = ["lamp", "oil", "bell", "cloth"];
+const items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
 export const names = {
+  ...Object.fromEntries(
+    Object.entries({ ...packPeople, ...packThings }).map(([id, e]) => [
+      id,
+      e.name,
+    ]),
+  ),
   badger: "Grumpy Badger",
   vale: "Vale",
   moth: "Pip",
@@ -76,7 +100,7 @@ export function resentment(s, actor, other) {
   );
 }
 export function valueOf(s, actor, item) {
-  let value = tastes[actor].values[item];
+  let value = tastes[actor]?.values[item] ?? 1;
   if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
   if (item === "oil") {
     if (!s.items.oil.doses) return 1;
@@ -125,6 +149,22 @@ export function giftDecision(s, giver, item, recipient) {
   };
 }
 export function interest(s, actor) {
+  if (isPackActor(actor)) {
+    const a = packPeople[actor],
+      d =
+        a.desire && conditionsMet(s, a.packId, a.desire.requires)
+          ? a.desire
+          : { items: [], location: a.home || a.place, avatars: [] };
+    return {
+      location: d.location,
+      items: d.items.filter(
+        (id) => entityActive(s, id) && owner(s, id) !== actor,
+      ),
+      avatars: d.avatars.filter((id) => entityActive(s, id)),
+      text: a.likes || a.text,
+      reason: a.likes || a.text,
+    };
+  }
   if (actor === "badger")
     return {
       items: [],
@@ -137,8 +177,9 @@ export function interest(s, actor) {
           : "The warm patch of moss",
       reason: "Badger considers this patch of moss his own.",
     };
-  const held = items.filter((id) => owner(s, id) === actor);
-  let item = items
+  const domainItems = items.filter((id) => !packThings[id]);
+  const held = domainItems.filter((id) => owner(s, id) === actor);
+  let item = domainItems
     .slice()
     .sort((a, b) => valueOf(s, actor, b) - valueOf(s, actor, a))
     .find((id) => !held.includes(id));
@@ -384,7 +425,7 @@ export function socialPlan(s, actor, actions, api) {
           : -5;
     if (a.kind === "move" && !a.item) {
       const target = want.location;
-      const path = api.routeBetween(s, here, target);
+      const path = api.routeBetween(s, here, target, actor);
       n = path?.[1] === a.target ? (want.items.length ? 18 : 35) : -15;
     }
     if (a.kind === "light" && actor === "moth") n = 45;

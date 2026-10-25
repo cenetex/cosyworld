@@ -1,5 +1,6 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
+import { entityActive, packThings } from "./pack-registry.mjs";
 import {
   places,
   people,
@@ -18,14 +19,17 @@ export function availableCards(world) {
   return [
     "vale",
     ...Object.keys(things)
-      .filter((id) => itemPlace(world, id) === here)
+      .filter((id) => entityActive(world, id) && itemPlace(world, id) === here)
       .sort(
         (a, b) =>
           Number(rootHolder(world, b) === "vale") -
           Number(rootHolder(world, a) === "vale"),
       ),
     ...Object.keys(people).filter(
-      (id) => id !== "vale" && world.actors[id].place === here,
+      (id) =>
+        id !== "vale" &&
+        entityActive(world, id) &&
+        world.actors[id].place === here,
     ),
     ...exits(world, here, "vale"),
     here,
@@ -49,6 +53,12 @@ export function avatarPlays(world, id) {
         ["talk", "wait", "threaten", "guard", "attack"].indexOf(a.kind) -
         ["talk", "wait", "threaten", "guard", "attack"].indexOf(b.kind),
     );
+}
+export function cardChoices(world, id) {
+  if (!availableCards(world).includes(id)) return [];
+  return legalActions(world).filter(
+    (a) => a.kind === "choose" && a.target === id,
+  );
 }
 
 // Each face names one play. Pairs express use, handover, travel, invitations, or placement.
@@ -109,9 +119,11 @@ export function cardPlay(world, selected) {
       );
     return result(
       null,
-      id === "oil"
-        ? "Pair with the Lamp to pour oil."
-        : "Pair with the Lamp or Bell to cover it.",
+      packThings[id]
+        ? "Pair with a person to give it, or this place to put it down."
+        : id === "oil"
+          ? "Pair with the Lamp to pour oil."
+          : "Pair with the Lamp or Bell to cover it.",
     );
   }
   const item = cards.find((id) => things[id]);
@@ -185,6 +197,7 @@ export function cardPlay(world, selected) {
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 export function playLabel(action) {
+  if (action?.kind === "choose") return action.label;
   if (
     action?.target === "badger" &&
     action?.kind === "talk" &&

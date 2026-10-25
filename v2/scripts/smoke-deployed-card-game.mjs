@@ -29,6 +29,29 @@ const files = [
   ...Object.values(roomTracks)
     .flat()
     .map(({ file }) => `assets/music/${file}`),
+  "pack-registry.mjs",
+  "packs/greek-drama.mjs",
+  "assets/greek/antigone.svg",
+  "assets/greek/baker.svg",
+  "assets/greek/bread.svg",
+  "assets/greek/courtyard.svg",
+  "assets/greek/creon.svg",
+  "assets/greek/decree.svg",
+  "assets/greek/elder.svg",
+  "assets/greek/funeral-cloth.svg",
+  "assets/greek/grove.svg",
+  "assets/greek/guard.svg",
+  "assets/greek/guide.svg",
+  "assets/greek/harbor.svg",
+  "assets/greek/household-token.svg",
+  "assets/greek/ismene.svg",
+  "assets/greek/oil-flask.svg",
+  "assets/greek/palace.svg",
+  "assets/greek/provisions.svg",
+  "assets/greek/sea.svg",
+  "assets/greek/shovel.svg",
+  "assets/greek/testimony.svg",
+  "assets/greek/water-jar.svg",
   "entity-profiles.json",
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
@@ -49,17 +72,19 @@ for (const target of targets) {
       version,
       `${url}: version`,
     );
-    const expectedType = file.endsWith(".mp3")
-      ? "audio/mpeg"
-      : file.endsWith(".png")
-        ? "image/png"
-        : file.endsWith(".json")
-          ? "application/json"
-          : file.endsWith(".mjs")
-            ? "text/javascript"
-            : file.endsWith(".css")
-              ? "text/css"
-              : "text/html";
+    const expectedType = file.endsWith(".svg")
+      ? "image/svg+xml"
+      : file.endsWith(".mp3")
+        ? "audio/mpeg"
+        : file.endsWith(".png")
+          ? "image/png"
+          : file.endsWith(".json")
+            ? "application/json"
+            : file.endsWith(".mjs")
+              ? "text/javascript"
+              : file.endsWith(".css")
+                ? "text/css"
+                : "text/html";
     assert(
       response.headers.get("content-type")?.startsWith(expectedType),
       `${url}: content type`,

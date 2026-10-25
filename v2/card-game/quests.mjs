@@ -1,6 +1,15 @@
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
 import {
+  packPeople,
+  packThings,
+  packPlaces,
+  isPackActor,
+  entityActive,
+  packExits,
+  actorCanVisit,
+} from "./pack-registry.mjs";
+import {
   condition,
   conditionMet,
   questItemAvailable,
@@ -150,12 +159,23 @@ export const openingPrograms = {
   ],
 };
 export const knownActors = (s) =>
-  Object.keys(s.opening?.met || s.actors).filter(
-    (id) => id !== "badger" || s.steamClock?.discovered,
+  Object.keys(s.actors).filter(
+    (id) =>
+      entityActive(s, id) &&
+      (isPackActor(id)
+        ? Object.hasOwn(s.packs?.[packPeople[id].packId]?.met || {}, id)
+        : !s.opening || Object.hasOwn(s.opening.met, id)) &&
+      (id !== "badger" || s.steamClock?.discovered),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
+  ...Object.fromEntries(
+    Object.entries(packPeople).map(([id, a]) => [
+      id,
+      { items: [], location: a.home || a.place, avatars: [] },
+    ]),
+  ),
   badger: { items: [], location: "clearing", avatars: [] },
   vale: { items: [], location: null, avatars: [] },
   moth: { items: [], location: "pond", avatars: [] },
@@ -169,7 +189,7 @@ export const savedProgramFor = (s, actor) =>
 export const programFor = (s, actor) =>
   questActive(s, actor) ? savedProgramFor(s, actor) : null;
 export const targetsFor = (s, actor) =>
-  hasQuestPrograms(s) && actor !== "badger"
+  hasQuestPrograms(s) && actor !== "badger" && !isPackActor(actor)
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
 const ownerOf = (s, item) => {
@@ -223,13 +243,26 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = knownActors(s).filter((id) => id !== "badger"),
-    ids = Object.keys(s.items);
+  const actors = knownActors(s).filter(
+      (id) => id !== "badger" && !isPackActor(id),
+    ),
+    ids = Object.keys(s.items).filter((id) => !packThings[id]);
   const here = s.actors[actor].place;
-  const reachable = [here];
-  for (let i = 0; i < reachable.length; i++)
-    for (const next of places[reachable[i]].exits)
-      if (!reachable.includes(next)) reachable.push(next);
+  const traversed = [here];
+  for (let i = 0; i < traversed.length; i++)
+    for (const next of [
+      ...places[traversed[i]].exits,
+      ...packExits(s, traversed[i], actor),
+    ])
+      if (
+        entityActive(s, next) &&
+        actorCanVisit(actor, next) &&
+        !traversed.includes(next)
+      )
+        traversed.push(next);
+  // Travel through added regions can lead home, but shore programs must not
+  // ask a resident to attend a meeting outside that resident's domain.
+  const reachable = traversed.filter((id) => !packPlaces[id]);
   const placeOf = (item) =>
     s.actors[ownerOf(s, item)]?.place || ownerOf(s, item);
   const bundle = (item) =>

@@ -49,8 +49,24 @@ import {
   validCondition,
   validConsequence,
 } from "./situations.mjs";
+import {
+  packDefinitions,
+  packPlaces,
+  packPeople,
+  packThings,
+  isPackActor,
+  entityActive,
+  actorCanVisit,
+  packExits,
+  packChoices,
+  applyPackChoice,
+  validatePackStates,
+  validatePackLinks,
+  packDefinition,
+} from "./pack-registry.mjs";
 // The playable slice uses one rule path for the guided avatar and the cast.
 export const places = {
+  ...packPlaces,
   clearing: {
     name: "Forest Clearing",
     text: "The old Steam Clock ticks among the trees. Badger sleeps on warm moss. A dark reflection between its roots leads back to Black pond.",
@@ -73,6 +89,7 @@ export const places = {
   },
 };
 export const people = {
+  ...packPeople,
   badger: {
     name: "Grumpy Badger",
     text: "Comically touchy. Very attached to his warm patch of moss.",
@@ -91,6 +108,7 @@ export const people = {
   },
 };
 export const things = {
+  ...packThings,
   lamp: {
     name: "Lamp",
     text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
@@ -109,7 +127,14 @@ export const things = {
   },
 };
 const ids = Object.keys(things);
-const actorIds = ["vale", "moth", "keeper", "badger"];
+const actorIds = [
+  "vale",
+  "moth",
+  "keeper",
+  "badger",
+  ...Object.keys(packPeople),
+];
+validatePackLinks(places, people, things);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false } = {}) {
@@ -182,8 +207,62 @@ export function createWorld({ opening = false } = {}) {
     };
   }
   addSteamClock(world);
+  addWorldPacks(world);
   rememberEvent(world, world.log[0]);
   return world;
+}
+// A missing pack marker identifies an old shore save. Once a marker exists,
+// incomplete pack state must fail validation rather than respawning lost items.
+function addWorldPacks(s) {
+  if (s.packs !== undefined) return;
+  s.packs = {};
+  for (const pack of packDefinitions) {
+    s.packs[pack.id] = {
+      revision: pack.revision,
+      choices: {},
+      flags: {},
+      receipts: {},
+      met: {},
+    };
+    for (const [id, a] of Object.entries(pack.avatars)) {
+      if (Object.hasOwn(s.actors, id))
+        throw new Error("Duplicate pack actor in an unversioned save.");
+      s.actors[id] = {
+        place: a.place,
+        progress: newProgress(),
+        crossed: 0,
+        lastTalk: -9,
+        trust: Object.fromEntries(
+          actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+        ),
+      };
+      s.peaceUntil[id] = 0;
+    }
+    for (const [id, item] of Object.entries(pack.items)) {
+      if (Object.hasOwn(s.items, id))
+        throw new Error("Duplicate pack item in an unversioned save.");
+      s.items[id] = { holder: item.holder, history: [] };
+    }
+  }
+  for (const [id, a] of Object.entries(s.actors)) {
+    if (
+      !isPackActor(id) &&
+      a.trust &&
+      typeof a.trust === "object" &&
+      !Array.isArray(a.trust)
+    )
+      for (const other of Object.keys(packPeople)) a.trust[other] ??= 0;
+  }
+  const memories = newMemories();
+  if (s.memories && typeof s.memories === "object")
+    for (const id of [
+      ...Object.keys(packPlaces),
+      ...Object.keys(packPeople),
+      ...Object.keys(packThings),
+    ])
+      s.memories[id] ??= memories[id];
+  if (s.motives?.grievances && typeof s.motives.grievances === "object")
+    for (const id of Object.keys(packPeople)) s.motives.grievances[id] ??= [];
 }
 // Add the clearing to earlier shore saves while retaining their state and history.
 function addSteamClock(s) {
@@ -199,12 +278,17 @@ function addSteamClock(s) {
     progress: newProgress(),
     crossed: 0,
     lastTalk: -9,
-    trust: { vale: 0, moth: 0, keeper: 0 },
+    trust: Object.fromEntries(
+      Object.keys(s.actors)
+        .filter((id) => id !== "badger")
+        .map((id) => [id, 0]),
+    ),
     awake: false,
     irritation: 0,
     wakeCause: null,
   };
-  for (const id of ["vale", "moth", "keeper"]) s.actors[id].trust.badger = 0;
+  for (const [id, actor] of Object.entries(s.actors))
+    if (id !== "badger") actor.trust.badger = 0;
   s.peaceUntil.badger = 0;
   const fresh = newMemories();
   for (const id of ["badger", "clearing"]) s.memories[id] = fresh[id];
@@ -254,18 +338,21 @@ export const placeText = (s, place) =>
       : places[place].text;
 export function exits(s, place, actor = null) {
   return [
-    ...baseExits(s, place),
-    ...(reflectionOpen(s, place) && place === "attic"
-      ? ["pond"]
-      : reflectionOpen(s, place) && place === "pond"
-        ? ["attic"]
+    ...new Set([
+      ...baseExits(s, place),
+      ...(reflectionOpen(s, place) && place === "attic"
+        ? ["pond"]
+        : reflectionOpen(s, place) && place === "pond"
+          ? ["attic"]
+          : []),
+      // Discovery lasts; entry needs the bell's current local ringing window.
+      // The clearing keeps Badger's company small: no one else follows.
+      ...(clearingOpen(s) && place === "pond" && actor === "vale"
+        ? ["clearing"]
         : []),
-    // Discovery lasts; entry needs the bell's current local ringing window.
-    // The clearing keeps Badger's company small: no one else follows.
-    ...(clearingOpen(s) && place === "pond" && actor === "vale"
-      ? ["clearing"]
-      : []),
-  ];
+      ...packExits(s, place, actor),
+    ]),
+  ].filter((to) => entityActive(s, to) && actorCanVisit(actor, to));
 }
 const programPlaces = (s) =>
   s.opening
@@ -277,10 +364,14 @@ const programPlaces = (s) =>
       )
     : places;
 function meetCast(s) {
+  for (const [id, a] of Object.entries(packPeople))
+    if (entityActive(s, id) && s.actors[id].place === s.actors.vale.place)
+      s.packs[a.packId].met[id] ??= s.turn;
   if (!s.opening) return;
   if (s.actors.vale.place === "pond") s.opening.crossed = true;
   for (const id of actorIds)
     if (
+      entityActive(s, id) &&
       s.actors[id].place === s.actors.vale.place &&
       s.opening.met[id] === undefined
     )
@@ -427,7 +518,9 @@ export function tradeOffers(s, actor) {
 // Program changes happen after the round, so every actor pursues one step per turn.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter((id) => id !== "badger")) {
+  for (const actor of knownActors(s).filter(
+    (id) => id !== "badger" && !isPackActor(id),
+  )) {
     const target = targetsFor(s, actor).find(
       (h) => handStatus(s, actor, h).met,
     );
@@ -452,7 +545,9 @@ function captureHands(s, met) {
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
 function ensurePrograms(s) {
-  for (const actor of actorIds.filter((id) => id !== "badger")) {
+  for (const actor of actorIds.filter(
+    (id) => id !== "badger" && !isPackActor(id),
+  )) {
     const p = s.actors[actor].progress;
     if (p.program >= programsFor(s, actor).length && !p.current) {
       p.completedHands ??= programsFor(s, actor).reduce(
@@ -475,7 +570,9 @@ function ensurePrograms(s) {
 // completed prefix; every remaining hand still needs a real world match.
 function refreshStalledPrograms(s) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter((id) => id !== "vale")) {
+  for (const actor of knownActors(s).filter(
+    (id) => id !== "vale" && !isPackActor(id),
+  )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
     if (
@@ -651,7 +748,7 @@ export function addLog(s, speaker, text, detail = {}) {
     locationId,
     cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
     items: ids
-      .filter((id) => itemPlace(s, id) === locationId)
+      .filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId)
       .map((id) => {
         const { history, ...item } = s.items[id];
         return { id, ...item };
@@ -764,6 +861,11 @@ function settleStandoffs(s) {
 // A joint trip follows the invited avatar's current target hands.
 export function accompanyDecision(s, actor, companion, destination) {
   const here = s.actors[companion].place;
+  if (!actorCanVisit(companion, destination))
+    return {
+      accepted: false,
+      reason: "Their commitments keep them in this part of the world.",
+    };
   if (standoffFor(s, actor) || standoffFor(s, companion))
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
@@ -836,6 +938,7 @@ export function accompanyDecision(s, actor, companion, destination) {
 }
 
 export function legalActions(s, actor = "vale") {
+  if (!s.actors[actor] || !entityActive(s, actor)) return [];
   const here = s.actors[actor].place;
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
@@ -847,6 +950,7 @@ export function legalActions(s, actor = "vale") {
         to !== "clearing" &&
         id !== actor &&
         id !== "badger" &&
+        actorCanVisit(id, to) &&
         s.actors[id].place === here,
     )) {
       const request = offer(
@@ -959,6 +1063,7 @@ export function legalActions(s, actor = "vale") {
   for (const id of ids) {
     const item = s.items[id];
     if (
+      !entityActive(s, id) ||
       itemPlace(s, id) !== here ||
       (actorIds.includes(rootHolder(s, id)) &&
         !knownActors(s).includes(rootHolder(s, id)))
@@ -1129,7 +1234,7 @@ export function legalActions(s, actor = "vale") {
       action.key += ":" + receive;
       out.push(action);
     }
-  return out;
+  return [...out, ...packChoices(s, actor)];
 }
 export function matchingActions(s, selected) {
   const set = [...new Set(selected)].filter((id) => id !== "vale");
@@ -1152,8 +1257,10 @@ function perform(s, a, capture = () => {}) {
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
   const witnesses = [
-    ...actorIds.filter((id) => s.actors[id].place === here),
-    ...ids.filter((id) => itemPlace(s, id) === here),
+    ...actorIds.filter(
+      (id) => entityActive(s, id) && s.actors[id].place === here,
+    ),
+    ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
   ];
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
@@ -1170,6 +1277,9 @@ function perform(s, a, capture = () => {}) {
     arrival = null,
     invitation = null;
   switch (a.kind) {
+    case "choose":
+      applyPackChoice(s, a);
+      break;
     case "accompany": {
       const respondentConflict = standoffFor(s, a.target);
       if (respondentConflict) {
@@ -1238,7 +1348,7 @@ function perform(s, a, capture = () => {}) {
           );
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
-        const retreat = exits(s, here)[0];
+        const retreat = exits(s, here, a.target)[0];
         s.actors[a.target].place = retreat;
         for (const id of carried(s, a.target))
           remember(
@@ -1375,6 +1485,7 @@ function perform(s, a, capture = () => {}) {
     kind: "action",
     actorId: a.actor,
     verb: a.kind,
+    ...(a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId } : {}),
     fromLocationId: here,
     witnesses,
     itemId: a.item,
@@ -1395,13 +1506,13 @@ function perform(s, a, capture = () => {}) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
-function routeBetween(s, from, target) {
+function routeBetween(s, from, target, actor = "vale") {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {
     const route = queue.shift();
     if (route.at(-1) === target) return route;
-    for (const next of exits(s, route.at(-1)))
+    for (const next of exits(s, route.at(-1), actor))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);
@@ -1409,12 +1520,26 @@ function routeBetween(s, from, target) {
   }
 }
 function toward(s, actor, target) {
-  const route = routeBetween(s, s.actors[actor].place, target);
+  const route = routeBetween(s, s.actors[actor].place, target, actor);
   return legalActions(s, actor).find(
     (a) => a.kind === "move" && a.target === route?.[1],
   );
 }
 export function plan(s, actor = "vale") {
+  if (isPackActor(actor)) {
+    const actions = legalActions(s, actor).filter(
+      (a) =>
+        !["move", "accompany", "threaten"].includes(a.kind) &&
+        (a.kind !== "take" || desireFor(s, actor).items.includes(a.item)),
+    );
+    return socialPlan(s, actor, actions, {
+      standoffFor,
+      opponentOf,
+      routeBetween,
+      carried,
+      willingToGive,
+    });
+  }
   if (actor === "badger")
     return {
       action: legalActions(s, actor)[0],
@@ -1516,7 +1641,9 @@ export function plan(s, actor = "vale") {
         there = s.actors[id].place;
       return (
         id !== actor &&
+        entityActive(s, id) &&
         there !== here &&
+        routeBetween(s, here, there, actor) &&
         theirs.avatars.includes(actor) &&
         (theirs.location || there) === there &&
         handStatus(s, id, theirs).items.every((e) => e.met) &&
@@ -1699,12 +1826,13 @@ export function plan(s, actor = "vale") {
     find("cover", "cloth", "bell")
   )
     return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
-  if (hand.location && here !== hand.location)
-    return choose(toward(s, actor, hand.location), reason);
   // When both avatars hold their hands and wait, the later one in cast order
-  // goes, so the cast always comes to Vale and two waits cannot face off.
+  // goes. Keep following that meeting across intermediate rooms instead of
+  // returning to this avatar's own meeting place after the first step.
   const waiting = waitingHere(actorIds.slice(0, actorIds.indexOf(actor)));
   if (waiting) return goMeet(waiting);
+  if (hand.location && here !== hand.location)
+    return choose(toward(s, actor, hand.location), reason);
   return idle(
     handStatus(s, actor).met
       ? "Hold the target hand."
@@ -1787,7 +1915,17 @@ export function play(s, action, expectedRevision = s.revision) {
   ) {
     next.locations.attic.anchored = true;
   }
-  for (const actor of ["moth", "keeper"]) {
+  const residents = [
+    "moth",
+    "keeper",
+    ...active.filter(
+      (id) =>
+        isPackActor(id) &&
+        entityActive(next, id) &&
+        next.actors[id].place === next.actors.vale.place,
+    ),
+  ];
+  for (const actor of residents) {
     if (actor === respondent || !active.includes(actor)) continue;
     perform(next, plan(next, actor).action, () => captureHands(next, met));
     captureHands(next, met);
@@ -1992,7 +2130,13 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
+  if (
+    !validatePackStates(s) ||
+    !validMemories(s) ||
+    !validMotives(s) ||
+    !validLife(s)
+  )
+    fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
@@ -2007,9 +2151,10 @@ export function validateWorld(s) {
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3,
     ) ||
     !Array.isArray(s.standoffs) ||
-    s.standoffs.length > 1
+    s.standoffs.length > Math.floor(actorIds.length / 2)
   )
     fail();
+  const fighting = new Set();
   for (const c of s.standoffs) {
     if (
       !c ||
@@ -2025,6 +2170,8 @@ export function validateWorld(s) {
     )
       fail();
     const pair = [c.challenger, c.defender];
+    if (pair.some((id) => fighting.has(id))) fail();
+    for (const id of pair) fighting.add(id);
     if (
       pair.some(
         (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn,
@@ -2063,6 +2210,8 @@ export function validateWorld(s) {
       fail();
     if (
       !Object.hasOwn(places, a.place) ||
+      !actorCanVisit(id, a.place) ||
+      (entityActive(s, id) && !entityActive(s, a.place)) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||
       !Number.isSafeInteger(a.lastTalk) ||
@@ -2080,6 +2229,10 @@ export function validateWorld(s) {
         JSON.stringify(a.progress) !== JSON.stringify(newProgress())
       )
         fail();
+      continue;
+    }
+    if (isPackActor(id)) {
+      if (JSON.stringify(a.progress) !== JSON.stringify(newProgress())) fail();
       continue;
     }
     const progress = a.progress,
@@ -2170,6 +2323,11 @@ export function validateWorld(s) {
     )
       fail();
     if (
+      entityActive(s, id) &&
+      (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id)))
+    )
+      fail();
+    if (
       !Array.isArray(item.history) ||
       item.history.length > 12 ||
       item.history.some((t) => typeof t !== "string" || t.length > 400)
@@ -2249,6 +2407,7 @@ export function validateWorld(s) {
     "talk",
     "wait",
     "trade",
+    "choose",
   ];
   for (const e of s.log) {
     if (e.seq !== undefined) {
@@ -2266,7 +2425,7 @@ export function validateWorld(s) {
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
-        e.witnesses.length > 8 ||
+        e.witnesses.length > actorIds.length + ids.length ||
         e.witnesses.some((id) => ![...actorIds, ...ids].includes(id)))
     )
       fail();
@@ -2292,6 +2451,18 @@ export function validateWorld(s) {
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (e.verb === "choose") {
+      const pack = packDefinition(e.packId),
+        choice = pack?.choices.find((c) => c.id === e.choiceId);
+      if (
+        !choice ||
+        e.actorId !== "vale" ||
+        e.targetId !== choice.subject ||
+        e.locationId !== choice.at ||
+        s.packs[e.packId].receipts[e.choiceId] !== e.turn
+      )
+        fail();
+    } else if (e.packId !== undefined || e.choiceId !== undefined) fail();
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
       fail();
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
@@ -2380,7 +2551,7 @@ export function validateWorld(s) {
     if (
       e.cast !== undefined &&
       (!Array.isArray(e.cast) ||
-        e.cast.length > 4 ||
+        e.cast.length > actorIds.length ||
         new Set(e.cast).size !== e.cast.length ||
         e.cast.some((id) => !actorIds.includes(id)))
     )
@@ -2388,7 +2559,7 @@ export function validateWorld(s) {
     if (
       e.items !== undefined &&
       (!Array.isArray(e.items) ||
-        e.items.length > 4 ||
+        e.items.length > ids.length ||
         e.items.some(
           (item) =>
             !item ||
@@ -2416,7 +2587,7 @@ export function decodeSave(text) {
   }
   if (s?.schema === 2) {
     for (const [id, actor] of Object.entries(s.actors || {})) {
-      if (id === "badger") continue;
+      if (id === "badger" || isPackActor(id)) continue;
       const p = actor?.progress,
         programs = questPrograms[id];
       if (
@@ -2463,6 +2634,9 @@ export function decodeSave(text) {
     for (const [id, memory] of Object.entries(s.memories || {}))
       memory.landmarks = remembered.memories[id]?.landmarks || [];
   }
-  if (s?.schema === 6) addSteamClock(s);
+  if (s?.schema === 6) {
+    addSteamClock(s);
+    addWorldPacks(s);
+  }
   return validateWorld(s);
 }

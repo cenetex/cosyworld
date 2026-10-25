@@ -156,8 +156,8 @@ describe("card standoffs", () => {
     const old = meeting();
     old.schema = 2;
     old.turn = old.revision = 8;
-    for (const [id, actor] of Object.entries(old.actors).filter(
-      ([id]) => id !== "badger",
+    for (const [id, actor] of Object.entries(old.actors).filter(([id]) =>
+      ["vale", "moth", "keeper"].includes(id),
     )) {
       actor.place = "station";
       actor.progress = {

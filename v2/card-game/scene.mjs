@@ -6,10 +6,13 @@ import {
   itemPlace,
   shining,
 } from "./world.mjs";
+import { entityActive, packMedia } from "./pack-registry.mjs";
 
 export const backdrop = (id) =>
+  packMedia(id, "backdrop") ||
   `./assets/${id === "clearing" ? "steam-clock-background" : id}.png`;
 export const portrait = (id, facing = null, world = null) =>
+  packMedia(id, "portrait") ||
   `./assets/${id === "badger" ? (world?.actors.badger.awake === false ? "badger-sleeping" : "badger-grumpy") : id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 const personIds = Object.keys(people);
@@ -33,6 +36,7 @@ export function sceneChanges(world) {
         !entry.generated &&
         entry.actorId &&
         entry.actorId !== "vale" &&
+        entityActive(world, entry.actorId) &&
         entry.fromLocationId &&
         entry.locationId !== entry.fromLocationId &&
         (entry.locationId === here || entry.fromLocationId === here) &&
@@ -59,7 +63,18 @@ export function sceneCast(
       (id) =>
         knownActors(world).includes(id) && world.actors[id].place === here,
     );
-  const slots = personIds.filter((id) => present.includes(id));
+  const target = world.log
+    .slice(0, through + 1)
+    .findLast(
+      (entry) =>
+        entry.turn === world.turn &&
+        entry.actorId === "vale" &&
+        entry.kind === "action",
+    )?.targetId;
+  const priority = [...new Set(["vale", target, ...present])]
+    .filter((id) => present.includes(id) && people[id])
+    .slice(0, 3);
+  const slots = personIds.filter((id) => priority.includes(id));
   while (slots.length < 2) slots.push(null);
   return slots;
 }
@@ -94,7 +109,12 @@ export function sceneStaging(
     review = false,
   } = {},
 ) {
-  const ids = cast.filter((id) => people[id]);
+  const selected = [...new Set(["vale", activeSpeaker, ...cast])]
+    .filter((id) => cast.includes(id) && people[id])
+    .slice(0, 3);
+  const ids = cast.filter(
+    (id, index) => selected.includes(id) && cast.indexOf(id) === index,
+  );
   const history = world.log.slice(0, through + 1);
   // The latest arrival is also kept on the world after its log entry is trimmed.
   const kept = world.arrival;

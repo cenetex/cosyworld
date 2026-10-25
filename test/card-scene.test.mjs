@@ -19,7 +19,8 @@ import {
 } from "../v2/card-game/scene.mjs";
 function gathered() {
   const s = createWorld();
-  for (const actor of Object.values(s.actors)) actor.place = "station";
+  for (const id of ["vale", "moth", "keeper", "badger"])
+    s.actors[id].place = "station";
   return s;
 }
 function dialogue(s, id, extra = {}) {
