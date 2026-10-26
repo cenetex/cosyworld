@@ -1,3 +1,4 @@
+import { generateProgram } from "../v2/card-game/quests.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -11,6 +12,8 @@ import {
   decodeSave,
   exits,
   plan,
+  places,
+  things,
 } from "../v2/card-game/world.mjs";
 import { addQuestRecord, joinQuest } from "../v2/card-game/shared-quests.mjs";
 import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
@@ -94,6 +97,9 @@ describe("ordinary bard travel", () => {
     s = act(s);
     expect(s.actors[singer].place).toBe("attic");
     expect(s.opening.met[singer]).toBe(3);
+    const nextPurpose = generateProgram(s, "vale", places, things);
+    expect(nextPurpose.generated.solo).toBe(true);
+    expect(nextPurpose.steps.every((h) => h.avatars.length === 0)).toBe(true);
     expect(s.packs["greek-drama"].met[singer]).toBe(3);
     expect(
       legalActions(s).some((a) => a.kind === "talk" && a.target === singer),

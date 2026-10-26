@@ -170,6 +170,70 @@ try {
       assert.deepEqual(errors, []);
       await page.close();
     }
+    // Rue invites Pip through the carriage door while carrying its route token.
+    {
+      const world = createWorld();
+      world.sharedVersion = 1;
+      world.controlledActors = ["rue"];
+      world.presentActors = ["rue"];
+      world.playerActorId = "rue";
+      world.actors.rue.place = world.actors.moth.place = "station";
+      world.items.routes.holder = "rue";
+      world.actors.moth.trust.rue = 1;
+      const table = `carriage-invitation-${width}`,
+        key = `cosyworld.reflected-shore.v1.${table}`;
+      const page = await browser.newPage({
+        viewport: { width, height },
+        reducedMotion: "reduce",
+      });
+      await page.addInitScript(
+        ({ key, save }) => {
+          if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+          localStorage.setItem("cosyworld.dialogue.sound", "off");
+          localStorage.setItem(
+            "cosyworld.room-music",
+            JSON.stringify({ enabled: false }),
+          );
+        },
+        { key, save: encodeSave(world) },
+      );
+      await page.route("**/card-game/text", (route) => {
+        const input = route.request().postDataJSON();
+        return route.fulfill({
+          json: {
+            revision: input.revision,
+            model: "invitation-smoke",
+            entries: input.entities.map((e) => ({
+              id: e.id,
+              text: "There is room for this visit.",
+            })),
+          },
+        });
+      });
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?table=${table}`,
+      );
+      await selectCard(page, "moth");
+      await selectCard(page, "train");
+      await page.locator('#card-actions [data-action="accompany"]').click();
+      await page.waitForFunction(
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).actors.rue.place === "train",
+        key,
+      );
+      const saved = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)),
+        key,
+      );
+      assert.equal(saved.actors.moth.place, "train");
+      assert.deepEqual(saved.invitedPlaces.moth, ["train"]);
+      await page.reload();
+      await page.waitForSelector('#hand [data-card="moth"]');
+      await page.screenshot({
+        path: new URL(`invitation-${width}.png`, output).pathname,
+      });
+      await page.close();
+    }
     const world = fixture();
     const helpKey = world.roamingQuests[singer].blocked.questKey;
     const helpCard = questCards(world, "theatre").find(

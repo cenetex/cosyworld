@@ -311,7 +311,7 @@ export function exits(s, place, actor = null, previous = null) {
   ].filter(
     (to) =>
       entityActive(s, to) &&
-      actorCanVisit(actor, to) &&
+      actorCanVisit(actor, to, s) &&
       humanRoomAvailable(s, actor, to),
   );
 }
@@ -1008,9 +1008,20 @@ function settleStandoffs(s) {
   }
 }
 // A joint trip follows the invited avatar's current target hands.
-export function accompanyDecision(s, actor, companion, destination) {
+export function accompanyDecision(
+  s,
+  actor,
+  companion,
+  destination,
+  routeApproved = false,
+) {
   const here = s.actors[companion].place;
-  if (!actorCanVisit(companion, destination))
+  const invited =
+    controlledByHuman(s, actor) &&
+    !controlledByHuman(s, companion) &&
+    s.actors[actor].place === here &&
+    (routeApproved || exits(s, here, actor).includes(destination));
+  if (!invited && !actorCanVisit(companion, destination, s))
     return {
       accepted: false,
       reason: "Their commitments keep them in this part of the world.",
@@ -1186,11 +1197,10 @@ export function legalActions(s, actor = currentActor(s)) {
     const way = through
       ? ` ${crossing?.travel || "through the reflection"}`
       : "";
-    // A crossing open only to the player keeps company out; so does a
-    // resident who never leaves home.
+    // A human can invite a willing resident along their open route.
     for (const other of knownActors(s).filter(
       (id) =>
-        crossing?.travelers !== "player" &&
+        (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
         !staysPut(id) &&
@@ -1507,17 +1517,22 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
       a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
   );
 }
-function travel(s, actor, destination) {
-  const from = s.actors[actor].place;
+function travelParty(s, actors, destination) {
+  const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
-  if (through) s.actors[actor].crossed += 1;
+  // The legal action approves the whole party before any carried key moves.
   markCrossed(s, from, destination);
-  s.actors[actor].place = destination;
+  for (const actor of actors) {
+    if (through) s.actors[actor].crossed += 1;
+    s.actors[actor].place = destination;
+    for (const id of carried(s, actor))
+      remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+  }
   moveTransport(s, from, destination);
-  for (const id of carried(s, actor))
-    remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
 }
+const travel = (s, actor, destination) => travelParty(s, [actor], destination);
+
 function perform(s, a, capture = () => {}, round = null) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
@@ -1575,12 +1590,15 @@ function perform(s, a, capture = () => {}, round = null) {
         if (respondentConflict.defender === a.target)
           respondentConflict.answered = true;
       }
-      invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+      invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
       if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
-        const through = travel(s, a.actor, a.destination);
-        travel(s, a.target, a.destination);
+        const visits = (s.invitedPlaces ??= {});
+        visits[a.target] = [
+          ...new Set([...(visits[a.target] || []), a.destination]),
+        ].sort();
+        const through = travelParty(s, [a.actor, a.target], a.destination);
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
@@ -2570,6 +2588,21 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
+  if (
+    s.invitedPlaces !== undefined &&
+    (!s.invitedPlaces ||
+      typeof s.invitedPlaces !== "object" ||
+      Array.isArray(s.invitedPlaces) ||
+      Object.entries(s.invitedPlaces).some(
+        ([actor, visits]) =>
+          !actorIds.includes(actor) ||
+          !Array.isArray(visits) ||
+          visits.length > Object.keys(places).length ||
+          new Set(visits).size !== visits.length ||
+          visits.some((place) => !Object.hasOwn(places, place)),
+      ))
+  )
+    fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (
     !validRoamingQuests(
@@ -2659,7 +2692,7 @@ export function validateWorld(s) {
       fail();
     if (
       !Object.hasOwn(places, a.place) ||
-      !actorCanVisit(id, a.place) ||
+      !actorCanVisit(id, a.place, s) ||
       (entityActive(s, id) && !entityActive(s, a.place)) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||

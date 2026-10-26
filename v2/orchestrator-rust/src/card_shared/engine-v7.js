@@ -6735,10 +6735,11 @@
       ).map((r) => r.to)
     );
     return routes.filter(
-      (to) => entityActive(world, to) && actorCanVisit(actor, to)
+      (to) => entityActive(world, to) && actorCanVisit(actor, to, world)
     );
   }
-  function actorCanVisit(actor, place) {
+  function actorCanVisit(actor, place, world = null) {
+    if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
     if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
       return true;
     const a = packPeople[actor], destination = packPlaces[place];
@@ -9016,7 +9017,7 @@
         ...places2[traversed[i]].exits,
         ...packExits(s, traversed[i], actor)
       ])
-        if (entityActive(s, next) && actorCanVisit(actor, next) && !traversed.includes(next))
+        if (entityActive(s, next) && actorCanVisit(actor, next, s) && !traversed.includes(next))
           traversed.push(next);
     const reachable = traversed.filter((id) => sharedEnabled(s) && humanAvatar(actor) || !packPlaces[id]).slice(0, 6);
     const placeOf2 = (item2) => s.actors[ownerOf(s, item2)]?.place || ownerOf(s, item2);
@@ -9032,7 +9033,7 @@
       const owner3 = ownerOf(s, item2);
       return (!s.actors[owner3] || actors2.includes(owner3)) && (!independent || !controlledByHuman(s, owner3)) && reachable.includes(placeOf2(item2)) && (!s.actors[owner3] || owner3 === actor || !needed2(owner3, item2));
     };
-    if (solo) {
+    if (solo || !actors2.some((id) => id !== actor)) {
       const away = reachable.filter((id) => id !== here);
       const destination2 = away[(progress.program + actors2.indexOf(actor)) % away.length] || here;
       return {
@@ -9630,7 +9631,7 @@
         ...packExits(s, place, actor)
       ])
     ].filter(
-      (to) => entityActive(s, to) && actorCanVisit(actor, to) && humanRoomAvailable(s, actor, to)
+      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to)
     );
   }
   var programPlaces = (s) => s.opening ? Object.fromEntries(
@@ -10164,9 +10165,10 @@
       }
     }
   }
-  function accompanyDecision(s, actor, companion, destination) {
+  function accompanyDecision(s, actor, companion, destination, routeApproved = false) {
     const here = s.actors[companion].place;
-    if (!actorCanVisit(companion, destination))
+    const invited = controlledByHuman(s, actor) && !controlledByHuman(s, companion) && s.actors[actor].place === here && (routeApproved || exits(s, here, actor).includes(destination));
+    if (!invited && !actorCanVisit(companion, destination, s))
       return {
         accepted: false,
         reason: "Their commitments keep them in this part of the world."
@@ -10298,7 +10300,7 @@
       const crossing = crossingBetween(here, to, s);
       const way = through ? ` ${crossing?.travel || "through the reflection"}` : "";
       for (const other of knownActors(s).filter(
-        (id) => crossing?.travelers !== "player" && id !== actor && !controlledByHuman(s, id) && !staysPut(id) && s.actors[id].place === here
+        (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && id !== actor && !controlledByHuman(s, id) && !staysPut(id) && s.actors[id].place === here
       )) {
         const request = offer(
           "accompany",
@@ -10560,17 +10562,20 @@
       (a) => a.cards.length === set.length && set.every((id) => a.cards.includes(id))
     );
   }
-  function travel(s, actor, destination) {
-    const from = s.actors[actor].place;
+  function travelParty(s, actors2, destination) {
+    const from = s.actors[actors2[0]].place;
     const through = !baseExits(s, from).includes(destination);
-    if (through) s.actors[actor].crossed += 1;
     markCrossed(s, from, destination);
-    s.actors[actor].place = destination;
+    for (const actor of actors2) {
+      if (through) s.actors[actor].crossed += 1;
+      s.actors[actor].place = destination;
+      for (const id of carried(s, actor))
+        remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+    }
     moveTransport(s, from, destination);
-    for (const id of carried(s, actor))
-      remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
     return through;
   }
+  var travel = (s, actor, destination) => travelParty(s, [actor], destination);
   function perform(s, a, capture = () => {
   }, round = null) {
     const who = nameOf(a.actor);
@@ -10625,12 +10630,15 @@
           if (respondentConflict.defender === a.target)
             respondentConflict.answered = true;
         }
-        invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+        invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
         if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
         s.actors[a.actor].lastTalk = s.turn;
         if (invitation.accepted) {
-          const through = travel(s, a.actor, a.destination);
-          travel(s, a.target, a.destination);
+          const visits = s.invitedPlaces ??= {};
+          visits[a.target] = [
+            .../* @__PURE__ */ new Set([...visits[a.target] || [], a.destination])
+          ].sort();
+          const through = travelParty(s, [a.actor, a.target], a.destination);
           text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
           if (through && firstCrossing)
             text += " Something on the far shore turns its head.";
@@ -11326,6 +11334,10 @@
     }
     if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
       fail();
+    if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
+      ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
+    )))
+      fail();
     if (!validPackState(s, sensesFor(s))) fail();
     if (!validRoamingQuests(
       s,
@@ -11364,7 +11376,7 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!a.trust || Object.keys(a.trust).sort().join() !== actorIds.filter((other) => other !== id).sort().join() || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
         fail();
       if (isPackActor(id)) {
         if (!sameValue(a.progress, newProgress())) fail();

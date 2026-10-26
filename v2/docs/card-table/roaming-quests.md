@@ -52,5 +52,17 @@ route knowledge while preserving items, claims, quest records and conversation.
 Checkpoints and seed-only journal replay follow the same path.
 
 The song continues to use earned authored verses. Known human and AI authors
-keep their names; unknown authors use “an earlier traveler.” The speech validator
-checks the latest earned couplet against the authored text.
+keep their names; unknown authors use “an earlier traveler.” The complete poem
+and its newest lines provide context for the bard’s own voice.
+
+## Invited company
+
+A human can invite an available resident through the human's current open route.
+The resident keeps their own agreement or refusal. An agreed trip moves the
+party together and applies the crossing and boat effects once. Carried keys
+therefore travel with the inviter after the whole party passes the route check.
+
+Each successful invitation records the destination in the companion's saved
+visited places. This allows their saved position in that region after reload.
+Later movement still uses the current doors, tokens, transport and room rules.
+Refused and stale invitations keep positions and visited-place memory intact.

@@ -1487,3 +1487,58 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "pond");
     }
 }
+
+#[test]
+fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
+    for agrees in [false, true] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["actors"]["rue"]["place"] = json!("station");
+        w.game["actors"]["moth"]["place"] = json!("station");
+        w.game["actors"]["moth"]["trust"]["rue"] = json!(if agrees { 1 } else { 0 });
+        w.game["items"]["routes"]["holder"] = json!("rue");
+        full_store::seed(&c, &id, &w, "invited-carriage", now()).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"rue"}), now()).unwrap();
+        }
+        let action = w.project(5).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| {
+                a["kind"] == "accompany" && a["target"] == "moth" && a["destination"] == "train"
+            })
+            .unwrap()
+            .clone();
+        let before = w.clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"rue","action":action}),
+            now(),
+        )
+        .unwrap();
+        let place = if agrees { "train" } else { "station" };
+        assert_eq!(w.game["actors"]["rue"]["place"], place);
+        assert_eq!(w.game["actors"]["moth"]["place"], place);
+        assert_eq!(w.game["items"]["routes"]["holder"], "rue");
+        if agrees {
+            assert_eq!(w.game["invitedPlaces"]["moth"], json!(["train"]));
+        } else {
+            assert!(w.game["invitedPlaces"].is_null());
+        }
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+        let mut closed = before;
+        closed.game["items"]["routes"]["holder"] = json!("train");
+        assert!(closed
+            .apply(&json!({"op":"play","actor":"rue","action":action}))
+            .is_err());
+        assert_eq!(closed.game["actors"]["moth"]["place"], "station");
+        assert!(closed.game["invitedPlaces"].is_null());
+    }
+}

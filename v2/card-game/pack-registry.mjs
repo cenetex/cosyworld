@@ -277,10 +277,11 @@ export function packExits(world, place, actor = null) {
       .map((r) => r.to),
   );
   return routes.filter(
-    (to) => entityActive(world, to) && actorCanVisit(actor, to),
+    (to) => entityActive(world, to) && actorCanVisit(actor, to, world),
   );
 }
-export function actorCanVisit(actor, place) {
+export function actorCanVisit(actor, place, world = null) {
+  if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
   if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
     return true;
   const a = packPeople[actor],
